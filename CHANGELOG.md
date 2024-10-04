@@ -1,5 +1,177 @@
 # Changelog
 
+## [0.24.1] - 2024-10-04
+
+### Bug Fixes
+
+- **generate**: Move generated header files into the generate crate
+
+### Other
+
+- 0.24.1
+
+## [0.24.0] - 2024-10-04
+
+### Breaking
+
+- Remove C++ support for external scanners (<https://github.com/tree-sitter/tree-sitter/pull/3602>)
+- Remove `filter` flag from commands in favor of `include` and `exclude` (<https://github.com/tree-sitter/tree-sitter/pull/3604>)
+- Remove the `build-wasm` subcommand (<https://github.com/tree-sitter/tree-sitter/pull/3605>)
+- Move generation of grammar files to an `init` command (<https://github.com/tree-sitter/tree-sitter/pull/3694>)
+- Implement `StreamingIterator` instead of `Iterator` for `QueryMatches` and `QueryCaptures` (<https://github.com/tree-sitter/tree-sitter/pull/3504>)
+- **generate**: Remove unused rules (<https://github.com/tree-sitter/tree-sitter/pull/3722>)
+- **lib**: Child_containing_descendant now returns direct children (<https://github.com/tree-sitter/tree-sitter/pull/3703>)
+- **lib**: Treat nodes' end ranges exclusively in `goto_first_child_for_{byte,point}` (<https://github.com/tree-sitter/tree-sitter/pull/3263>)
+
+### Features
+
+- Add an API to time out query executions (<https://github.com/tree-sitter/tree-sitter/pull/3559>)
+- Add `field_name_for_named_child` (<https://github.com/tree-sitter/tree-sitter/pull/3614>)
+- Add `root` field in node-types.json (<https://github.com/tree-sitter/tree-sitter/pull/3615>)
+- Add eslint configuration package (<https://github.com/tree-sitter/tree-sitter/pull/3666>)
+- Provide a `rebuild` flag to force rebuild parsers (<https://github.com/tree-sitter/tree-sitter/pull/3672>)
+- Add shell completions (<https://github.com/tree-sitter/tree-sitter/pull/3675>)
+- Move generate logic to its own crate (<https://github.com/tree-sitter/tree-sitter/pull/3689>)
+- Add `--overview-only` to `test` subcommand (<https://github.com/tree-sitter/tree-sitter/pull/3501>)
+- Move tree-sitter configuration to dedicated file (#3700) (<https://github.com/tree-sitter/tree-sitter/pull/3700>)
+- **api**: Expose function to check if symbol represents a supertype (<https://github.com/tree-sitter/tree-sitter/pull/3616>)
+- **bindings**: Bump `go-tree-sitter` version (<https://github.com/tree-sitter/tree-sitter/pull/3564>)
+- **cli**: Add a `no-ranges` flag to the parse command (<https://github.com/tree-sitter/tree-sitter/pull/3687>)
+- **generate**: Bump `tree-sitter` dev dependency to `0.23` (<https://github.com/tree-sitter/tree-sitter/pull/3563>)
+- **generate**: Add a no-op `--no-bindings` flag
+- **init**: Add an update flag (<https://github.com/tree-sitter/tree-sitter/pull/3698>)
+- **language**: Derive Clone and Copy on LanguageFn (<https://github.com/tree-sitter/tree-sitter/pull/3585>)
+- **schema**: Misc improvements (<https://github.com/tree-sitter/tree-sitter/pull/3681>)
+- **test**: Test all queries
+
+### Bug Fixes
+
+- Correct comment quote (<https://github.com/tree-sitter/tree-sitter/pull/3630>)
+- Properly handle utf8 code points for highlight and tag assertions (<https://github.com/tree-sitter/tree-sitter/pull/3610>)
+- Do not generate spurious files if the grammar path is not the default path (<https://github.com/tree-sitter/tree-sitter/pull/3677>)
+- Disallow empty string literals in rules (<https://github.com/tree-sitter/tree-sitter/pull/3679>)
+- Correct test name parsing when the prior test has equal signs (<https://github.com/tree-sitter/tree-sitter/pull/3704>)
+- Handle more cases of editing subtrees that depend on column values (<https://github.com/tree-sitter/tree-sitter/pull/3257>)
+- Exclude APIs that dup given file descriptors from WASI builds (<https://github.com/tree-sitter/tree-sitter/pull/3475>)
+- Deprecate `child_containing_descendant` and add `child_with_descendant` instead (<https://github.com/tree-sitter/tree-sitter/pull/3708>)
+- **binding_web**: Correct `edit` signature (<https://github.com/tree-sitter/tree-sitter/pull/3599>)
+- **binding_web**: Remove nonexistent function definition (<https://github.com/tree-sitter/tree-sitter/pull/3612>)
+- **bindings**: Use `RUST_BINDING_VERSION` in `Cargo.toml` template
+- **bindings**: Lower go version to `1.22` (<https://github.com/tree-sitter/tree-sitter/pull/3711>)
+- **build**: Correct wasm root path lookup (<https://github.com/tree-sitter/tree-sitter/pull/3723>)
+- **build**: Force rebuild parsers when build is invoked (<https://github.com/tree-sitter/tree-sitter/pull/3729>)
+- **cli**: Remove conflicting short flags in the `fuzz` subcommand (<https://github.com/tree-sitter/tree-sitter/pull/3562>)
+- **cli**: Keep skipped tests unchanged in the test/corpus (<https://github.com/tree-sitter/tree-sitter/pull/3590>)
+- **cli**: Remove duplicate short options from `fuzz` command (#3635) (<https://github.com/tree-sitter/tree-sitter/pull/3635>)
+- **cli**: Generate the parser version from the config as well
+- **docs**: Fix highlight readme example using compatible versions (<https://github.com/tree-sitter/tree-sitter/pull/3573>)
+- **fuzz**: Skip tests marked with `:skip` & don't report errors on tests marked with `:error` (<https://github.com/tree-sitter/tree-sitter/pull/3640>)
+- **generate**: Remove necessary files from gitignore template (<https://github.com/tree-sitter/tree-sitter/pull/3561>)
+- **generate**: Disallow inline variables referencing themselves (<https://github.com/tree-sitter/tree-sitter/pull/3569>)
+- **generate**: Add `tree-sitter` to the `dev-dependencies` of the Cargo.toml (<https://github.com/tree-sitter/tree-sitter/pull/3597>)
+- **generate**: Do not generate large character sets for unused variables (<https://github.com/tree-sitter/tree-sitter/pull/3606>)
+- **generate**: Remove excludes in `Package.swift` (<https://github.com/tree-sitter/tree-sitter/pull/3631>)
+- **generate**: Add `*.scm` section to `.editorconfig` template (<https://github.com/tree-sitter/tree-sitter/pull/3724>)
+- **generate**: Filter out unused rules in other spots (<https://github.com/tree-sitter/tree-sitter/pull/3726>)
+- **init**: Fix some schema issues
+- **init**: Don't prompt to reconfigure (<https://github.com/tree-sitter/tree-sitter/pull/3713>)
+- **init**: Do not migrate `package.json` on error (<https://github.com/tree-sitter/tree-sitter/pull/3718>)
+- **lib**: Correct extra node creation from non-zero root-alias cursors (<https://github.com/tree-sitter/tree-sitter/pull/3568>)
+- **lib**: Backtrack to the last relevant iterator if no child was found (<https://github.com/tree-sitter/tree-sitter/pull/3570>)
+- **lib**: Peek at the next sibling when iterating to find the child that contains a given descendant (<https://github.com/tree-sitter/tree-sitter/pull/3566>)
+- **lib**: Correct descendant-for-range behavior with zero-width tokens (<https://github.com/tree-sitter/tree-sitter/pull/3688>)
+- **lib**: Silence warnings with `-Wpedantic` (<https://github.com/tree-sitter/tree-sitter/pull/3691>)
+- **lib**: Ensure an unfinished state was found before removing it (<https://github.com/tree-sitter/tree-sitter/pull/3727>)
+- **rust**: Add missing TSNode functions (<https://github.com/tree-sitter/tree-sitter/pull/3571>)
+- **test**: Exit with an error if a test marked with `:error` has no error
+- **test**: Retain attributes when running `test -u` (<https://github.com/tree-sitter/tree-sitter/pull/3572>)
+- **test**: Correctly handle assertions on empty lines (<https://github.com/tree-sitter/tree-sitter/pull/3674>)
+- **wasm**: Use / paths for workdir (<https://github.com/tree-sitter/tree-sitter/pull/3658>)
+
+### Documentation
+
+- Add Kotlin to the playground (<https://github.com/tree-sitter/tree-sitter/pull/3560>)
+- **changelog**: Add 0.23.0 release notes (<https://github.com/tree-sitter/tree-sitter/pull/3565>)
+
+### Refactor
+
+- Improve the grammar schema
+- **cli**: Break out subcommand logic into separate functions (<https://github.com/tree-sitter/tree-sitter/pull/3676>)
+
+### Build System and CI
+
+- Add backport workflow (<https://github.com/tree-sitter/tree-sitter/pull/3575>)
+- Bump deps (<https://github.com/tree-sitter/tree-sitter/pull/3696>)
+- Bump language to `0.1.1` (<https://github.com/tree-sitter/tree-sitter/pull/3730>)
+- **bindings**: Add CMakeLists.txt file (<https://github.com/tree-sitter/tree-sitter/pull/3608>)
+- **cmake**: Link wasmtime dependencies (<https://github.com/tree-sitter/tree-sitter/pull/3717>)
+- **deps**: Bump the cargo group across 1 directory with 11 updates (<https://github.com/tree-sitter/tree-sitter/pull/3644>)
+- **deps**: Bump the cargo group with 3 updates (<https://github.com/tree-sitter/tree-sitter/pull/3671>)
+- **lib**: Build using cmake (<https://github.com/tree-sitter/tree-sitter/pull/3541>)
+- **make**: Support darwin cross-compile (<https://github.com/tree-sitter/tree-sitter/pull/3641>)
+- **xtask**: Bump cmake version in `bump-version`
+- **xtask**: Only consider major and minor versions when validating the current version
+- **xtask**: Ignore the language crate
+
+### Other
+
+- Remove `compile_flags.txt` (<https://github.com/tree-sitter/tree-sitter/pull/3667>)
+- Update generate crate paths (<https://github.com/tree-sitter/tree-sitter/pull/3697>)
+- **bindings**: Update rust lib docs (<https://github.com/tree-sitter/tree-sitter/pull/3621>)
+- **lib**: Add parameter names in declarations that are missing them (<https://github.com/tree-sitter/tree-sitter/pull/3692>)
+- **tests**: Do not use `.as_bytes().len()` on strings (<https://github.com/tree-sitter/tree-sitter/pull/3664>)
+
+## [0.23.2] - 2024-10-01
+
+This release only corrected the version in a crate so publishing wouldn't fail.
+
+## [0.23.1] - 2024-09-30
+
+### Features
+
+- **bindings**: Bump `go-tree-sitter` version
+- **generate**: Bump `tree-sitter` dev dependency to `0.23`
+- **language**: Derive Clone and Copy on LanguageFn
+
+### Bug Fixes
+
+- Correct comment quote
+- Properly handle utf8 code points for highlight and tag assertions
+- Do not generate spurious files if the grammar path is not the default path
+- Disallow empty string literals in rules
+- Correct test name parsing when the prior test has equal signs
+- Handle more cases of editing subtrees that depend on column values
+- Exclude APIs that dup given file descriptors from WASI builds
+- **binding_web**: Correct `edit` signature
+- **binding_web**: Remove nonexistent function definition
+- **cli**: Remove conflicting short flags in the `fuzz` subcommand
+- **cli**: Keep skipped tests unchanged in the test/corpus
+- **cli**: Remove duplicate short options from `fuzz` command (#3635)
+- **docs**: Fix highlight readme example using compatible versions
+- **fuzz**: Skip tests marked with `:skip` & don't report errors on tests marked with `:error`
+- **generate**: Remove necessary files from gitignore template
+- **generate**: Disallow inline variables referencing themselves
+- **generate**: Add `tree-sitter` to the `dev-dependencies` of the Cargo.toml
+- **generate**: Do not generate large character sets for unused variables
+- **generate**: Remove excludes in `Package.swift`
+- **lib**: Correct extra node creation from non-zero root-alias cursors
+- **lib**: Backtrack to the last relevant iterator if no child was found
+- **lib**: Peek at the next sibling when iterating to find the child that contains a given descendant
+- **lib**: Correct descendant-for-range behavior with zero-width tokens
+- **rust**: Add missing TSNode functions
+- **test**: Exit with an error if a test marked with `:error` has no error
+- **test**: Retain attributes when running `test -u`
+- **wasm**: Use / paths for workdir
+
+### Build System and CI
+
+- **deps**: Bump the cargo group across 1 directory with 11 updates
+- **make**: Support darwin cross-compile
+
+### Other
+
+- **bindings**: Update rust lib docs
+
 ## [0.23.0] - 2024-08-26
 
 ### Breaking
