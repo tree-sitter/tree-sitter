@@ -119,6 +119,7 @@ pub fn bump_versions() -> Result<(), Box<dyn std::error::Error>> {
     println!("Bumping from {current_version} to {version}");
     update_crates(&current_version, &version)?;
     update_makefile(&version)?;
+    update_cmake(&version)?;
     update_npm(&version)?;
     update_zig(&version)?;
     tag_next_version(&repo, &version)?;
@@ -146,6 +147,7 @@ fn tag_next_version(
         "cli/npm/package.json",
         "lib/binding_web/package.json",
         "Makefile",
+        "lib/CMakeLists.txt",
         "build.zig.zon",
     ] {
         index.add_path(Path::new(file))?;
@@ -196,6 +198,32 @@ fn update_makefile(next_version: &Version) -> Result<(), Box<dyn std::error::Err
         + "\n";
 
     std::fs::write("Makefile", makefile)?;
+
+    Ok(())
+}
+
+fn update_cmake(next_version: &Version) -> Result<(), Box<dyn std::error::Error>> {
+    let cmake = std::fs::read_to_string("lib/CMakeLists.txt")?;
+    let cmake = cmake
+        .lines()
+        .map(|line| {
+            if line.contains(" VERSION") {
+                let start_quote = line.find('"').unwrap();
+                let end_quote = line.rfind('"').unwrap();
+                format!(
+                    "{}{next_version}{}",
+                    &line[..start_quote + 1],
+                    &line[end_quote..]
+                )
+            } else {
+                line.to_string()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+        + "\n";
+
+    std::fs::write("lib/CMakeLists.txt", cmake)?;
 
     Ok(())
 }
