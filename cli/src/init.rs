@@ -7,11 +7,10 @@ use std::{
 
 use anyhow::{anyhow, Context, Result};
 use heck::{ToKebabCase, ToShoutySnakeCase, ToSnakeCase, ToUpperCamelCase};
-use indoc::indoc;
 use regex::Regex;
 use semver::Version;
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value};
 use tree_sitter_generate::write_file;
 use tree_sitter_loader::{
     Author, Bindings, Grammar, Links, Metadata, PackageJSON, PackageJSONAuthor,
@@ -110,22 +109,6 @@ pub fn path_in_ignore(repo_path: &Path) -> bool {
     ]
     .iter()
     .any(|dir| repo_path.ends_with(dir))
-}
-
-fn insert_after(
-    map: Map<String, Value>,
-    after: &str,
-    key: &str,
-    value: Value,
-) -> Map<String, Value> {
-    let mut entries = map.into_iter().collect::<Vec<_>>();
-    let after_index = entries
-        .iter()
-        .position(|(k, _)| k == after)
-        .unwrap_or(entries.len() - 1)
-        + 1;
-    entries.insert(after_index, (key.to_string(), value));
-    entries.into_iter().collect()
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -378,12 +361,10 @@ pub fn migrate_package_json(repo_path: &Path) -> Result<bool> {
 pub fn generate_grammar_files(
     repo_path: &Path,
     language_name: &str,
-    allow_update: bool,
+    _allow_update: bool,
     opts: Option<JsonConfigOpts>,
 ) -> Result<()> {
     let dashed_language_name = language_name.to_kebab_case();
-
-    // TODO: remove legacy code updates in v0.24.0
 
     let tree_sitter_config = missing_path_else(
         repo_path.join("tree-sitter.json"),
@@ -434,124 +415,15 @@ pub fn generate_grammar_files(
         version: &tree_sitter_config.metadata.version,
     };
 
-    // Create or update package.json
-    missing_path_else(
-        repo_path.join("package.json"),
-        allow_update,
-        |path| {
-            generate_file(
-                path,
-                PACKAGE_JSON_TEMPLATE,
-                dashed_language_name.as_str(),
-                &generate_opts,
-            )
-        },
-        |path| {
-            let package_json_str =
-                fs::read_to_string(path).with_context(|| "Failed to read package.json")?;
-            let mut package_json = serde_json::from_str::<Map<String, Value>>(&package_json_str)
-                .with_context(|| "Failed to parse package.json")?;
-            let mut updated = false;
-
-            let dependencies = package_json
-                .entry("dependencies".to_string())
-                .or_insert_with(|| Value::Object(Map::new()))
-                .as_object_mut()
-                .unwrap();
-            if dependencies.remove("nan").is_some() {
-                eprintln!("Replacing nan dependency with node-addon-api in package.json");
-                dependencies.insert("node-addon-api".to_string(), "^8.0.0".into());
-                updated = true;
-            }
-            if !dependencies.contains_key("node-gyp-build") {
-                eprintln!("Adding node-gyp-build dependency to package.json");
-                dependencies.insert("node-gyp-build".to_string(), "^4.8.1".into());
-                updated = true;
-            }
-
-            let dev_dependencies = package_json
-                .entry("devDependencies".to_string())
-                .or_insert_with(|| Value::Object(Map::new()))
-                .as_object_mut()
-                .unwrap();
-            if !dev_dependencies.contains_key("prebuildify") {
-                eprintln!("Adding prebuildify devDependency to package.json");
-                dev_dependencies.insert("prebuildify".to_string(), "^6.0.1".into());
-                updated = true;
-            }
-
-            let node_test = "node --test bindings/node/*_test.js";
-            let scripts = package_json
-                .entry("scripts".to_string())
-                .or_insert_with(|| Value::Object(Map::new()))
-                .as_object_mut()
-                .unwrap();
-            if !scripts.get("test").is_some_and(|v| v == node_test) {
-                eprintln!("Updating package.json scripts");
-                *scripts = Map::from_iter([
-                    ("install".to_string(), "node-gyp-build".into()),
-                    ("prestart".to_string(), "tree-sitter build --wasm".into()),
-                    ("start".to_string(), "tree-sitter playground".into()),
-                    ("test".to_string(), node_test.into()),
-                ]);
-                updated = true;
-            }
-
-            // insert `peerDependencies` after `dependencies`
-            if !package_json.contains_key("peerDependencies") {
-                eprintln!("Adding peerDependencies to package.json");
-                package_json = insert_after(
-                    package_json,
-                    "dependencies",
-                    "peerDependencies",
-                    json!({"tree-sitter": "^0.21.1"}),
-                );
-
-                package_json = insert_after(
-                    package_json,
-                    "peerDependencies",
-                    "peerDependenciesMeta",
-                    json!({"tree_sitter": {"optional": true}}),
-                );
-                updated = true;
-            }
-
-            // insert `types` right after `main`
-            if !package_json.contains_key("types") {
-                eprintln!("Adding types to package.json");
-                package_json = insert_after(package_json, "main", "types", "bindings/node".into());
-                updated = true;
-            }
-
-            // insert `files` right after `keywords`
-            if !package_json.contains_key("files") {
-                eprintln!("Adding files to package.json");
-                package_json = insert_after(
-                    package_json,
-                    "keywords",
-                    "files",
-                    json!([
-                        "grammar.js",
-                        "binding.gyp",
-                        "prebuilds/**",
-                        "bindings/node/*",
-                        "queries/*",
-                        "src/**",
-                        "*.wasm"
-                    ]),
-                );
-                updated = true;
-            }
-
-            if updated {
-                let mut package_json_str = serde_json::to_string_pretty(&package_json)?;
-                package_json_str.push('\n');
-                write_file(path, package_json_str)?;
-            }
-
-            Ok(())
-        },
-    )?;
+    // Create package.json
+    missing_path(repo_path.join("package.json"), |path| {
+        generate_file(
+            path,
+            PACKAGE_JSON_TEMPLATE,
+            dashed_language_name.as_str(),
+            &generate_opts,
+        )
+    })?;
 
     // Do not create a grammar.js file in a repo with multiple language configs
     if !tree_sitter_config.has_multiple_language_configs() {
@@ -580,83 +452,22 @@ pub fn generate_grammar_files(
     // Generate Rust bindings
     if tree_sitter_config.bindings.rust {
         missing_path(bindings_dir.join("rust"), create_dir)?.apply(|path| {
-            missing_path_else(
-                path.join("lib.rs"),
-                allow_update,
-                |path| generate_file(path, LIB_RS_TEMPLATE, language_name, &generate_opts),
-                |path| {
-                    let lib_rs =
-                        fs::read_to_string(path).with_context(|| "Failed to read lib.rs")?;
-                    if !lib_rs.contains("tree_sitter_language") {
-                        generate_file(path, LIB_RS_TEMPLATE, language_name, &generate_opts)?;
-                        eprintln!("Updated lib.rs with `tree_sitter_language` dependency");
-                    }
-                    Ok(())
-                },
-            )?;
+            missing_path(path.join("lib.rs"), |path| {
+                generate_file(path, LIB_RS_TEMPLATE, language_name, &generate_opts)
+            })?;
 
-            missing_path_else(
-                path.join("build.rs"),
-                allow_update,
-                |path| generate_file(path, BUILD_RS_TEMPLATE, language_name, &generate_opts),
-                |path| {
-                    let build_rs =
-                        fs::read_to_string(path).with_context(|| "Failed to read build.rs")?;
-                    if !build_rs.contains("-utf-8") {
-                        let index = build_rs
-                            .find("    let parser_path = src_dir.join(\"parser.c\")")
-                            .ok_or_else(|| anyhow!(indoc!{
-                                "Failed to auto-update build.rs with the `/utf-8` flag for windows.
-                                To fix this, remove `bindings/rust/build.rs` and re-run `tree-sitter generate`"}))?;
+            missing_path(path.join("build.rs"), |path| {
+                generate_file(path, BUILD_RS_TEMPLATE, language_name, &generate_opts)
+            })?;
 
-                        let build_rs = format!(
-                            "{}{}{}\n{}",
-                            &build_rs[..index],
-                            "    #[cfg(target_env = \"msvc\")]\n",
-                            "    c_config.flag(\"-utf-8\");\n",
-                            &build_rs[index..]
-                        );
-
-                        write_file(path, build_rs)?;
-                        eprintln!("Updated build.rs with the /utf-8 flag for Windows compilation");
-                    }
-                    Ok(())
-                },
-            )?;
-
-            missing_path_else(
-                repo_path.join("Cargo.toml"),
-                allow_update,
-                |path| generate_file(path, CARGO_TOML_TEMPLATE, dashed_language_name.as_str(), &generate_opts),
-                |path| {
-                    let cargo_toml =
-                        fs::read_to_string(path).with_context(|| "Failed to read Cargo.toml")?;
-                    if !cargo_toml.contains("tree-sitter-language") {
-                        let start_index = cargo_toml
-                            .find("tree-sitter = \"")
-                            .ok_or_else(|| anyhow!("Failed to find the `tree-sitter` dependency in Cargo.toml"))?;
-
-                        let version_start_index = start_index + "tree-sitter = \"".len();
-                        let version_end_index = cargo_toml[version_start_index..]
-                            .find('\"')
-                            .map(|i| i + version_start_index)
-                            .ok_or_else(|| anyhow!("Failed to find the end of the `tree-sitter` version in Cargo.toml"))?;
-
-                        let cargo_toml = format!(
-                            "{}{}{}\n{}\n{}",
-                            &cargo_toml[..start_index],
-                            "tree-sitter-language = \"0.1.0\"",
-                            &cargo_toml[version_end_index + 1..],
-                            "[dev-dependencies]",
-                            "tree-sitter = \"0.23\"",
-                        );
-
-                        write_file(path, cargo_toml)?;
-                        eprintln!("Updated Cargo.toml with the `tree-sitter-language` dependency");
-                    }
-                    Ok(())
-                },
-            )?;
+            missing_path(repo_path.join("Cargo.toml"), |path| {
+                generate_file(
+                    path,
+                    CARGO_TOML_TEMPLATE,
+                    dashed_language_name.as_str(),
+                    &generate_opts,
+                )
+            })?;
 
             Ok(())
         })?;
@@ -665,20 +476,9 @@ pub fn generate_grammar_files(
     // Generate Node bindings
     if tree_sitter_config.bindings.node {
         missing_path(bindings_dir.join("node"), create_dir)?.apply(|path| {
-            missing_path_else(
-                path.join("index.js"),
-                allow_update,
-                |path| generate_file(path, INDEX_JS_TEMPLATE, language_name, &generate_opts),
-                |path| {
-                    let index_js =
-                        fs::read_to_string(path).with_context(|| "Failed to read index.js")?;
-                    if index_js.contains("../../build/Release") {
-                        eprintln!("Replacing index.js with new binding API");
-                        generate_file(path, INDEX_JS_TEMPLATE, language_name, &generate_opts)?;
-                    }
-                    Ok(())
-                },
-            )?;
+            missing_path(path.join("index.js"), |path| {
+                generate_file(path, INDEX_JS_TEMPLATE, language_name, &generate_opts)
+            })?;
 
             missing_path(path.join("index.d.ts"), |path| {
                 generate_file(path, INDEX_D_TS_TEMPLATE, language_name, &generate_opts)
@@ -693,36 +493,13 @@ pub fn generate_grammar_files(
                 )
             })?;
 
-            missing_path_else(
-                path.join("binding.cc"),
-                allow_update,
-                |path| generate_file(path, JS_BINDING_CC_TEMPLATE, language_name, &generate_opts),
-                |path| {
-                    let binding_cc =
-                        fs::read_to_string(path).with_context(|| "Failed to read binding.cc")?;
-                    if binding_cc.contains("NAN_METHOD(New) {}") {
-                        eprintln!("Replacing binding.cc with new binding API");
-                        generate_file(path, JS_BINDING_CC_TEMPLATE, language_name, &generate_opts)?;
-                    }
-                    Ok(())
-                },
-            )?;
+            missing_path(path.join("binding.cc"), |path| {
+                generate_file(path, JS_BINDING_CC_TEMPLATE, language_name, &generate_opts)
+            })?;
 
-            // Create binding.gyp, or update it with new binding API.
-            missing_path_else(
-                repo_path.join("binding.gyp"),
-                allow_update,
-                |path| generate_file(path, BINDING_GYP_TEMPLATE, language_name, &generate_opts),
-                |path| {
-                    let binding_gyp =
-                        fs::read_to_string(path).with_context(|| "Failed to read binding.gyp")?;
-                    if binding_gyp.contains("require('nan')") {
-                        eprintln!("Replacing binding.gyp with new binding API");
-                        generate_file(path, BINDING_GYP_TEMPLATE, language_name, &generate_opts)?;
-                    }
-                    Ok(())
-                },
-            )?;
+            missing_path(repo_path.join("binding.gyp"), |path| {
+                generate_file(path, BINDING_GYP_TEMPLATE, language_name, &generate_opts)
+            })?;
 
             Ok(())
         })?;
@@ -767,39 +544,14 @@ pub fn generate_grammar_files(
                 generate_file(path, BINDING_GO_TEMPLATE, language_name, &generate_opts)
             })?;
 
-            missing_path_else(
-                path.join("binding_test.go"),
-                allow_update,
-                |path| {
-                    generate_file(
-                        path,
-                        BINDING_TEST_GO_TEMPLATE,
-                        language_name,
-                        &generate_opts,
-                    )
-                },
-                |path| {
-                    let binding_test_go = fs::read_to_string(path)
-                        .with_context(|| "Failed to read binding_test.go")?;
-                    if binding_test_go.contains("smacker") {
-                        eprintln!("Replacing binding_test.go with new binding API");
-                        generate_file(
-                            path,
-                            BINDING_TEST_GO_TEMPLATE,
-                            language_name,
-                            &generate_opts,
-                        )?;
-                    }
-                    Ok(())
-                },
-            )?;
-
-            // Delete the old go.mod file that lives inside bindings/go, it now lives in the root
-            // dir
-            let go_mod_path = path.join("go.mod");
-            if allow_update && go_mod_path.exists() {
-                fs::remove_file(go_mod_path).with_context(|| "Failed to remove old go.mod file")?;
-            }
+            missing_path(path.join("binding_test.go"), |path| {
+                generate_file(
+                    path,
+                    BINDING_TEST_GO_TEMPLATE,
+                    language_name,
+                    &generate_opts,
+                )
+            })?;
 
             missing_path(repo_path.join("go.mod"), |path| {
                 generate_file(path, GO_MOD_TEMPLATE, language_name, &generate_opts)
@@ -815,20 +567,9 @@ pub fn generate_grammar_files(
             let lang_path = path.join(format!("tree_sitter_{}", language_name.to_snake_case()));
             missing_path(&lang_path, create_dir)?;
 
-            missing_path_else(
-                lang_path.join("binding.c"),
-                allow_update,
-                |path| generate_file(path, PY_BINDING_C_TEMPLATE, language_name, &generate_opts),
-                |path| {
-                    let binding_c = fs::read_to_string(path)
-                        .with_context(|| "Failed to read bindings/python/binding.c")?;
-                    if !binding_c.contains("PyCapsule_New") {
-                        eprintln!("Replacing bindings/python/binding.c with new binding API");
-                        generate_file(path, PY_BINDING_C_TEMPLATE, language_name, &generate_opts)?;
-                    }
-                    Ok(())
-                },
-            )?;
+            missing_path(lang_path.join("binding.c"), |path| {
+                generate_file(path, PY_BINDING_C_TEMPLATE, language_name, &generate_opts)
+            })?;
 
             missing_path(lang_path.join("__init__.py"), |path| {
                 generate_file(path, INIT_PY_TEMPLATE, language_name, &generate_opts)
