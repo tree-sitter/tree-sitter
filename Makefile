@@ -112,6 +112,6 @@ format:
 	cargo +nightly fmt --all
 
 changelog:
-	@git-cliff --config script/cliff.toml --output CHANGELOG.md --latest --github-token $(shell gh auth token)
+	@git-cliff --config script/cliff.toml --prepend CHANGELOG.md --latest --github-token $(shell gh auth token)
 
 .PHONY: test test_wasm lint format changelog
