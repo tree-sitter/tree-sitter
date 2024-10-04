@@ -1637,7 +1637,7 @@ dependencies = [
 
 [[package]]
 name = "tree-sitter-language"
-version = "0.1.0"
+version = "0.1.1"
 
 [[package]]
 name = "tree-sitter-loader"
