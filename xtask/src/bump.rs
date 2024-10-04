@@ -29,11 +29,14 @@ pub fn get_latest_tag(repo: &Repository) -> Result<String, Box<dyn std::error::E
 pub fn bump_versions() -> Result<(), Box<dyn std::error::Error>> {
     let repo = Repository::open(".")?;
     let latest_tag = get_latest_tag(&repo)?;
+    let current_version = Version::parse(&latest_tag)?;
     let latest_tag_sha = repo.revparse_single(&format!("v{latest_tag}"))?.id();
 
-    let workspace_toml_version = fetch_workspace_version()?;
+    let workspace_toml_version = Version::parse(&fetch_workspace_version()?)?;
 
-    if latest_tag != workspace_toml_version {
+    if current_version.major != workspace_toml_version.major
+        && current_version.minor != workspace_toml_version.minor
+    {
         eprintln!(
             indoc! {"
             Seems like the workspace Cargo.toml ({}) version does not match up with the latest git tag ({}).
@@ -48,7 +51,6 @@ pub fn bump_versions() -> Result<(), Box<dyn std::error::Error>> {
     revwalk.push_range(format!("{latest_tag_sha}..HEAD").as_str())?;
     let mut diff_options = DiffOptions::new();
 
-    let current_version = Version::parse(&latest_tag)?;
     let mut should_increment_patch = false;
     let mut should_increment_minor = false;
 
