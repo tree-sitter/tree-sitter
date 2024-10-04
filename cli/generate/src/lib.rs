@@ -39,8 +39,8 @@ struct GeneratedParser {
     node_types_json: String,
 }
 
-pub const ALLOC_HEADER: &str = include_str!("../../src/templates/alloc.h");
-pub const ARRAY_HEADER: &str = include_str!("../../src/templates/array.h");
+pub const ALLOC_HEADER: &str = include_str!("templates/alloc.h");
+pub const ARRAY_HEADER: &str = include_str!("templates/array.h");
 
 pub fn generate_parser_in_directory(
     repo_path: &Path,
