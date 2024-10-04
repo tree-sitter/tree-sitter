@@ -246,7 +246,9 @@ fn update_crates(
     cmd.arg("--no-git-commit")
         .arg("--yes")
         .arg("--force")
-        .arg("*");
+        .arg("tree-sitter{,-cli,-config,-generate,-loader,-highlight,-tags}")
+        .arg("--ignore-changes")
+        .arg("lib/language/*");
 
     let status = cmd.status()?;
 
