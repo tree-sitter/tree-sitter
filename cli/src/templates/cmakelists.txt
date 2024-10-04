@@ -1,12 +1,13 @@
 cmake_minimum_required(VERSION 3.13)
 
 project(tree-sitter-PARSER_NAME
-        VERSION "0.0.1"
-        DESCRIPTION "CAMEL_PARSER_NAME grammar for tree-sitter"
-        HOMEPAGE_URL "https://github.com/tree-sitter/tree-sitter-PARSER_NAME"
+        VERSION "PARSER_VERSION"
+        DESCRIPTION "PARSER_DESCRIPTION"
+        HOMEPAGE_URL "PARSER_URL"
         LANGUAGES C)
 
 option(BUILD_SHARED_LIBS "Build using shared libraries" ON)
+option(TREE_SITTER_REUSE_ALLOCATOR "Reuse the library allocator" OFF)
 
 set(TREE_SITTER_ABI_VERSION ABI_VERSION_MAX CACHE STRING "Tree-sitter ABI version")
 if(NOT ${TREE_SITTER_ABI_VERSION} MATCHES "^[0-9]+$")
@@ -29,11 +30,16 @@ if(EXISTS src/scanner.c)
 endif()
 target_include_directories(tree-sitter-PARSER_NAME PRIVATE src)
 
+target_compile_definitions(tree-sitter-PARSER_NAME PRIVATE
+                           $<$<BOOL:${TREE_SITTER_REUSE_ALLOCATOR}>:TREE_SITTER_REUSE_ALLOCATOR>
+                           $<$<CONFIG:Debug>:TREE_SITTER_DEBUG>)
+
 set_target_properties(tree-sitter-PARSER_NAME
                       PROPERTIES
                       C_STANDARD 11
                       POSITION_INDEPENDENT_CODE ON
-                      SOVERSION "${TREE_SITTER_ABI_VERSION}.${PROJECT_VERSION_MAJOR}")
+                      SOVERSION "${TREE_SITTER_ABI_VERSION}.${PROJECT_VERSION_MAJOR}"
+                      DEFINE_SYMBOL "")
 
 configure_file(bindings/c/tree-sitter-PARSER_NAME.pc.in
                "${CMAKE_CURRENT_BINARY_DIR}/tree-sitter-PARSER_NAME.pc" @ONLY)
