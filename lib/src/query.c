@@ -4064,7 +4064,7 @@ bool ts_query_cursor_next_capture(
     uint32_t first_unfinished_pattern_index;
     uint32_t first_unfinished_state_index;
     bool first_unfinished_state_is_definite = false;
-    ts_query_cursor__first_in_progress_capture(
+    bool found_unfinished_state = ts_query_cursor__first_in_progress_capture(
       self,
       &first_unfinished_state_index,
       &first_unfinished_capture_byte,
@@ -4154,7 +4154,7 @@ bool ts_query_cursor_next_capture(
       return true;
     }
 
-    if (capture_list_pool_is_empty(&self->capture_list_pool)) {
+    if (capture_list_pool_is_empty(&self->capture_list_pool) && found_unfinished_state) {
       LOG(
         "  abandon state. index:%u, pattern:%u, offset:%u.\n",
         first_unfinished_state_index,
