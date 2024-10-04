@@ -291,8 +291,8 @@ fn update_zig(next_version: &Version) -> Result<()> {
     let zig = zig
         .lines()
         .map(|line| {
-            if line.starts_with("    .version") {
-                format!("    .version = \"{next_version}\",")
+            if line.starts_with("  .version") {
+                format!("  .version = \"{next_version}\",")
             } else {
                 line.to_string()
             }
