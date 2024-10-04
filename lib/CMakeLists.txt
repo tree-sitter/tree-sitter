@@ -8,9 +8,14 @@ project(tree-sitter
 
 option(BUILD_SHARED_LIBS "Build using shared libraries" ON)
 option(TREE_SITTER_FEATURE_WASM "Enable the Wasm feature" OFF)
+option(AMALGAMATED "Build using an amalgamated source" OFF)
 
-file(GLOB TS_SOURCE_FILES src/*.c)
-list(REMOVE_ITEM TS_SOURCE_FILES "${PROJECT_SOURCE_DIR}/src/lib.c")
+if(AMALGAMATED)
+  set(TS_SOURCE_FILES "${PROJECT_SOURCE_DIR}/src/lib.c")
+else()
+  file(GLOB TS_SOURCE_FILES src/*.c)
+  list(REMOVE_ITEM TS_SOURCE_FILES "${PROJECT_SOURCE_DIR}/src/lib.c")
+endif()
 
 add_library(tree-sitter ${TS_SOURCE_FILES})
 
