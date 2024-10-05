@@ -32,7 +32,7 @@ fn detect_language_by_first_line_regex() {
         .find_language_configurations_at_path(strace_dir.path(), false)
         .unwrap();
 
-    // this is just to validate that we can read the package.json correctly
+    // this is just to validate that we can read the tree-sitter.json correctly
     assert_eq!(config[0].scope.as_ref().unwrap(), "source.strace");
 
     let file_name = strace_dir.path().join("strace.log");
