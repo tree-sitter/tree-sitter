@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.18)
+cmake_minimum_required(VERSION 3.13)
 
 project(tree-sitter
         VERSION "0.24.1"
@@ -29,19 +29,26 @@ if(TREE_SITTER_FEATURE_WASM)
   if(NOT DEFINED CACHE{WASMTIME_INCLUDE_DIR})
     message(CHECK_START "Looking for wasmtime headers")
     find_path(WASMTIME_INCLUDE_DIR wasmtime.h
-              PATHS ENV DEP_WASMTIME_C_API_INCLUDE
-              REQUIRED)
+              PATHS ENV DEP_WASMTIME_C_API_INCLUDE)
+    if(NOT ${WASMTIME_INCLUDE_DIR})
+      unset(WASMTIME_INCLUDE_DIR CACHE)
+      message(FATAL_ERROR "Could not find wasmtime headers.\nDid you forget to set CMAKE_INCLUDE_PATH?")
+    endif()
     message(CHECK_PASS "found")
   endif()
 
   if(NOT DEFINED CACHE{WASMTIME_LIBRARY})
     message(CHECK_START "Looking for wasmtime library")
     if(BUILD_SHARED_LIBS)
-      find_library(WASMTIME_LIBRARY wasmtime REQUIRED)
+      find_library(WASMTIME_LIBRARY wasmtime)
     elseif(MSVC)
-      find_library(WASMTIME_LIBRARY wasmtime.lib REQUIRED)
+      find_library(WASMTIME_LIBRARY wasmtime.lib)
     else()
-      find_library(WASMTIME_LIBRARY libwasmtime.a REQUIRED)
+      find_library(WASMTIME_LIBRARY libwasmtime.a)
+    endif()
+    if(NOT ${WASMTIME_LIBRARY})
+      unset(WASMTIME_LIBRARY CACHE)
+      message(FATAL_ERROR "Could not find wasmtime library.\nDid you forget to set CMAKE_LIBRARY_PATH?")
     endif()
     message(CHECK_PASS "found")
   endif()
