@@ -1118,8 +1118,8 @@ impl Loader {
             let language_count = self.languages_by_id.len();
             for grammar in config.grammars {
                 // Determine the path to the parser directory. This can be specified in
-                // the package.json, but defaults to the directory containing the
-                // package.json.
+                // the tree-sitter.json, but defaults to the directory containing the
+                // tree-sitter.json.
                 let language_path = parser_path.join(grammar.path);
 
                 // Determine if a previous language configuration in this package.json file
