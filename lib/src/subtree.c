@@ -990,6 +990,7 @@ void ts_subtree__print_dot_graph(const Subtree *self, uint32_t start_offset,
 
   if (ts_subtree_child_count(*self) == 0) fprintf(f, ", shape=plaintext");
   if (ts_subtree_extra(*self)) fprintf(f, ", fontcolor=gray");
+  if (ts_subtree_has_changes(*self)) fprintf(f, ", color=green, penwidth=2");
 
   fprintf(f, ", tooltip=\""
     "range: %u - %u\n"
