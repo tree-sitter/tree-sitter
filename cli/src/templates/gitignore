@@ -5,11 +5,9 @@ target/
 build/
 prebuilds/
 node_modules/
-*.tgz
 
 # Swift artifacts
 .build/
-Package.resolved
 
 # Go artifacts
 _obj/
@@ -35,3 +33,8 @@ dist/
 *.wasm
 *.obj
 *.o
+
+# Archives
+*.tar.gz
+*.tgz
+*.zip
