@@ -66,7 +66,8 @@ tree-sitter.pc: lib/tree-sitter.pc.in
 		-e 's|@CMAKE_INSTALL_INCLUDEDIR@|$(INCLUDEDIR)|' \
 		-e 's|@PROJECT_DESCRIPTION@|$(DESCRIPTION)|' \
 		-e 's|@PROJECT_HOMEPAGE_URL@|$(HOMEPAGE_URL)|' \
-		-e 's|@CMAKE_INSTALL_PREFIX@|$(PREFIX)|' $< > $@
+		-e 's|@CMAKE_INSTALL_PREFIX@|$(PREFIX)|' \
+		-e 's|$${prefix}/||' $< > $@
 
 clean:
 	$(RM) $(OBJ) tree-sitter.pc libtree-sitter.a libtree-sitter.$(SOEXT)

@@ -63,7 +63,8 @@ $(LANGUAGE_NAME).pc: bindings/c/$(LANGUAGE_NAME).pc.in
 		-e 's|@CMAKE_INSTALL_INCLUDEDIR@|$(INCLUDEDIR)|' \
 		-e 's|@PROJECT_DESCRIPTION@|$(DESCRIPTION)|' \
 		-e 's|@PROJECT_HOMEPAGE_URL@|$(HOMEPAGE_URL)|' \
-		-e 's|@CMAKE_INSTALL_PREFIX@|$(PREFIX)|' $< > $@
+		-e 's|@CMAKE_INSTALL_PREFIX@|$(PREFIX)|' \
+		-e 's|$${prefix}/||' $< > $@
 
 $(PARSER): $(SRC_DIR)/grammar.json
 	$(TS) generate $^
