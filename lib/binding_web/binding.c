@@ -172,7 +172,7 @@ TSTree *ts_parser_parse_wasm(
   TSInput input = {
     input_buffer,
     call_parse_callback,
-    TSInputEncodingUTF16
+    TSInputEncodingUTF16LE
   };
   if (range_count) {
     for (unsigned i = 0; i < range_count; i++) {

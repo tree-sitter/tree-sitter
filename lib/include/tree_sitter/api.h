@@ -50,7 +50,8 @@ typedef struct TSLookaheadIterator TSLookaheadIterator;
 
 typedef enum TSInputEncoding {
   TSInputEncodingUTF8,
-  TSInputEncodingUTF16,
+  TSInputEncodingUTF16LE,
+  TSInputEncodingUTF16BE,
 } TSInputEncoding;
 
 typedef enum TSSymbolType {

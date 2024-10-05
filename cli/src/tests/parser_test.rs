@@ -155,17 +155,19 @@ fn test_parsing_with_custom_utf8_input() {
 }
 
 #[test]
-fn test_parsing_with_custom_utf16_input() {
+fn test_parsing_with_custom_utf16le_input() {
     let mut parser = Parser::new();
     parser.set_language(&get_language("rust")).unwrap();
 
     let lines = ["pub fn foo() {", "  1", "}"]
         .iter()
-        .map(|s| s.encode_utf16().collect::<Vec<_>>())
+        .map(|s| s.encode_utf16().map(|u| u.to_le()).collect::<Vec<_>>())
         .collect::<Vec<_>>();
 
+    let newline = [('\n' as u16).to_le()];
+
     let tree = parser
-        .parse_utf16_with(
+        .parse_utf16_le_with(
             &mut |_, position| {
                 let row = position.row;
                 let column = position.column;
@@ -173,7 +175,7 @@ fn test_parsing_with_custom_utf16_input() {
                     if column < lines[row].len() {
                         &lines[row][column..]
                     } else {
-                        &[10]
+                        &newline
                     }
                 } else {
                     &[]
@@ -183,6 +185,47 @@ fn test_parsing_with_custom_utf16_input() {
         )
         .unwrap();
 
+    let root = tree.root_node();
+    assert_eq!(
+        root.to_sexp(),
+        "(source_file (function_item (visibility_modifier) name: (identifier) parameters: (parameters) body: (block (integer_literal))))"
+    );
+    assert_eq!(root.kind(), "source_file");
+    assert!(!root.has_error());
+    assert_eq!(root.child(0).unwrap().kind(), "function_item");
+}
+
+#[test]
+fn test_parsing_with_custom_utf16_be_input() {
+    let mut parser = Parser::new();
+    parser.set_language(&get_language("rust")).unwrap();
+
+    let lines: Vec<Vec<u16>> = ["pub fn foo() {", "  1", "}"]
+        .iter()
+        .map(|s| s.encode_utf16().collect::<Vec<_>>())
+        .map(|v| v.iter().map(|u| u.to_be()).collect())
+        .collect();
+
+    let newline = [('\n' as u16).to_be()];
+
+    let tree = parser
+        .parse_utf16_be_with(
+            &mut |_, position| {
+                let row = position.row;
+                let column = position.column;
+                if row < lines.len() {
+                    if column < lines[row].len() {
+                        &lines[row][column..]
+                    } else {
+                        &newline
+                    }
+                } else {
+                    &[]
+                }
+            },
+            None,
+        )
+        .unwrap();
     let root = tree.root_node();
     assert_eq!(
         root.to_sexp(),
@@ -221,7 +264,13 @@ fn test_parsing_text_with_byte_order_mark() {
 
     // Parse UTF16 text with a BOM
     let tree = parser
-        .parse_utf16("\u{FEFF}fn a() {}".encode_utf16().collect::<Vec<_>>(), None)
+        .parse_utf16_le(
+            "\u{FEFF}fn a() {}"
+                .encode_utf16()
+                .map(|u| u.to_le())
+                .collect::<Vec<_>>(),
+            None,
+        )
         .unwrap();
     assert_eq!(
         tree.root_node().to_sexp(),
@@ -1084,9 +1133,8 @@ fn test_parsing_error_in_invalid_included_ranges() {
 fn test_parsing_utf16_code_with_errors_at_the_end_of_an_included_range() {
     let source_code = "<script>a.</script>";
     let utf16_source_code = source_code
-        .as_bytes()
-        .iter()
-        .map(|c| u16::from(*c))
+        .encode_utf16()
+        .map(|u| u.to_le())
         .collect::<Vec<_>>();
 
     let start_byte = 2 * source_code.find("a.").unwrap();
@@ -1102,7 +1150,7 @@ fn test_parsing_utf16_code_with_errors_at_the_end_of_an_included_range() {
             end_point: Point::new(0, end_byte),
         }])
         .unwrap();
-    let tree = parser.parse_utf16(&utf16_source_code, None).unwrap();
+    let tree = parser.parse_utf16_le(&utf16_source_code, None).unwrap();
     assert_eq!(tree.root_node().to_sexp(), "(program (ERROR (identifier)))");
 }
 

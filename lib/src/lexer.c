@@ -83,9 +83,9 @@ static void ts_lexer__get_lookahead(Lexer *self) {
   }
 
   const uint8_t *chunk = (const uint8_t *)self->chunk + position_in_chunk;
-  UnicodeDecodeFunction decode = self->input.encoding == TSInputEncodingUTF8
-    ? ts_decode_utf8
-    : ts_decode_utf16;
+  UnicodeDecodeFunction decode =
+    self->input.encoding == TSInputEncodingUTF8 ? ts_decode_utf8 :
+    self->input.encoding == TSInputEncodingUTF16LE ? ts_decode_utf16_le : ts_decode_utf16_be;
 
   self->lookahead_size = decode(chunk, size, &self->data.lookahead);
 
