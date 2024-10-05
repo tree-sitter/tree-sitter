@@ -122,8 +122,6 @@ pub fn parse_file_at_path(parser: &mut Parser, opts: &ParseFileOptions) -> Resul
         _ => parser.parse(&source_code, None),
     };
 
-    parser.stop_printing_dot_graphs();
-
     let stdout = io::stdout();
     let mut stdout = stdout.lock();
 
@@ -141,6 +139,8 @@ pub fn parse_file_at_path(parser: &mut Parser, opts: &ParseFileOptions) -> Resul
                 println!("AFTER {i}:\n{}", String::from_utf8_lossy(&source_code));
             }
         }
+
+        parser.stop_printing_dot_graphs();
 
         let duration = time.elapsed();
         let duration_ms = duration.as_micros() as f64 / 1e3;
@@ -354,6 +354,8 @@ pub fn parse_file_at_path(parser: &mut Parser, opts: &ParseFileOptions) -> Resul
             bytes: source_code.len(),
             duration: Some(duration),
         });
+    } else {
+        parser.stop_printing_dot_graphs();
     }
 
     if opts.print_time {
