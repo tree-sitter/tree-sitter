@@ -742,7 +742,12 @@ fn generate_file(
     }
 
     if let Some(email) = generate_opts.author_email {
-        replacement = replacement.replace(AUTHOR_EMAIL_PLACEHOLDER, email);
+        replacement = match filename {
+            "Cargo.toml" | "grammar.js" => {
+                replacement.replace(AUTHOR_EMAIL_PLACEHOLDER, &format!("<{email}>"))
+            }
+            _ => replacement.replace(AUTHOR_EMAIL_PLACEHOLDER, email),
+        }
     } else {
         match filename {
             "package.json" => {
