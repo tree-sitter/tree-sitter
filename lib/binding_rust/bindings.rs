@@ -36,7 +36,8 @@ pub struct TSLookaheadIterator {
     _unused: [u8; 0],
 }
 pub const TSInputEncodingUTF8: TSInputEncoding = 0;
-pub const TSInputEncodingUTF16: TSInputEncoding = 1;
+pub const TSInputEncodingUTF16LE: TSInputEncoding = 1;
+pub const TSInputEncodingUTF16BE: TSInputEncoding = 2;
 pub type TSInputEncoding = ::core::ffi::c_uint;
 pub const TSSymbolTypeRegular: TSSymbolType = 0;
 pub const TSSymbolTypeAnonymous: TSSymbolType = 1;

@@ -100,24 +100,42 @@ pub fn parse_file_at_path(parser: &mut Parser, opts: &ParseFileOptions) -> Resul
     let time = Instant::now();
 
     #[inline(always)]
-    fn is_utf16_bom(bom_bytes: &[u8]) -> bool {
-        bom_bytes == [0xFF, 0xFE] || bom_bytes == [0xFE, 0xFF]
+    fn is_utf16_le_bom(bom_bytes: &[u8]) -> bool {
+        bom_bytes == [0xFF, 0xFE]
     }
 
-    let tree = match opts.encoding {
-        Some(encoding) if encoding == ffi::TSInputEncodingUTF16 => {
-            let source_code_utf16 = source_code
-                .chunks_exact(2)
-                .map(|chunk| u16::from_le_bytes([chunk[0], chunk[1]]))
-                .collect::<Vec<_>>();
-            parser.parse_utf16(&source_code_utf16, None)
+    #[inline(always)]
+    fn is_utf16_be_bom(bom_bytes: &[u8]) -> bool {
+        bom_bytes == [0xFE, 0xFF]
+    }
+
+    let encoding = match opts.encoding {
+        None if source_code.len() >= 2 => {
+            if is_utf16_le_bom(&source_code[0..2]) {
+                Some(ffi::TSInputEncodingUTF16LE)
+            } else if is_utf16_be_bom(&source_code[0..2]) {
+                Some(ffi::TSInputEncodingUTF16BE)
+            } else {
+                None
+            }
         }
-        None if source_code.len() >= 2 && is_utf16_bom(&source_code[0..2]) => {
+        _ => opts.encoding,
+    };
+
+    let tree = match encoding {
+        Some(encoding) if encoding == ffi::TSInputEncodingUTF16LE => {
             let source_code_utf16 = source_code
                 .chunks_exact(2)
                 .map(|chunk| u16::from_le_bytes([chunk[0], chunk[1]]))
                 .collect::<Vec<_>>();
-            parser.parse_utf16(&source_code_utf16, None)
+            parser.parse_utf16_le(&source_code_utf16, None)
+        }
+        Some(encoding) if encoding == ffi::TSInputEncodingUTF16BE => {
+            let source_code_utf16 = source_code
+                .chunks_exact(2)
+                .map(|chunk| u16::from_be_bytes([chunk[0], chunk[1]]))
+                .collect::<Vec<_>>();
+            parser.parse_utf16_be(&source_code_utf16, None)
         }
         _ => parser.parse(&source_code, None),
     };

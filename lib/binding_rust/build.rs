@@ -41,6 +41,8 @@ fn main() {
         .include(&src_path)
         .include(&wasm_path)
         .include(&include_path)
+        .define("_POSIX_C_SOURCE", "200112L")
+        .define("_DEFAULT_SOURCE", None)
         .warnings(false)
         .file(src_path.join("lib.c"))
         .compile("tree-sitter");

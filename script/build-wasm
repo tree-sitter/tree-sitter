@@ -131,6 +131,8 @@ $emcc                                            \
   -std=c11                                       \
   -D 'fprintf(...)='                             \
   -D NDEBUG=                                     \
+  -D _POSIX_C_SOURCE=200112L                     \
+  -D _DEFAULT_SOURCE=                            \
   -I ${SRC_DIR}                                  \
   -I lib/include                                 \
   --js-library ${WEB_DIR}/imports.js             \

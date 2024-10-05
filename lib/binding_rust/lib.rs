@@ -610,6 +610,7 @@ impl Parser {
     /// * `old_tree` A previous syntax tree parsed from the same document. If the text of the
     ///   document has changed since `old_tree` was created, then you must edit `old_tree` to match
     ///   the new text using [`Tree::edit`].
+    #[deprecated(since = "0.25.0", note = "Prefer parse_utf16_le instead")]
     pub fn parse_utf16(
         &mut self,
         input: impl AsRef<[u16]>,
@@ -617,7 +618,7 @@ impl Parser {
     ) -> Option<Tree> {
         let code_points = input.as_ref();
         let len = code_points.len();
-        self.parse_utf16_with(
+        self.parse_utf16_le_with(
             &mut |i, _| (i < len).then(|| &code_points[i..]).unwrap_or_default(),
             old_tree,
         )
@@ -672,6 +673,45 @@ impl Parser {
         }
     }
 
+    pub fn parse_with_<T: AsRef<[u8]>, F: FnMut(usize, Point) -> T>(
+        &mut self,
+        callback: &mut F,
+        old_tree: Option<&Tree>,
+    ) -> Option<Tree> {
+        // A pointer to this payload is passed on every call to the `read` C function.
+        // The payload contains two things:
+        // 1. A reference to the rust `callback`.
+        // 2. The text that was returned from the previous call to `callback`. This allows the
+        //    callback to return owned values like vectors.
+        let mut payload: (&mut F, Option<T>) = (callback, None);
+
+        // This C function is passed to Tree-sitter as the input callback.
+        unsafe extern "C" fn read<T: AsRef<[u8]>, F: FnMut(usize, Point) -> T>(
+            payload: *mut c_void,
+            byte_offset: u32,
+            position: ffi::TSPoint,
+            bytes_read: *mut u32,
+        ) -> *const c_char {
+            let (callback, text) = (payload as *mut (&mut F, Option<T>)).as_mut().unwrap();
+            *text = Some(callback(byte_offset as usize, position.into()));
+            let slice = text.as_ref().unwrap().as_ref();
+            *bytes_read = slice.len() as u32;
+            slice.as_ptr().cast::<c_char>()
+        }
+
+        let c_input = ffi::TSInput {
+            payload: &mut payload as *mut (&mut F, Option<T>) as *mut c_void,
+            read: Some(read::<T, F>),
+            encoding: ffi::TSInputEncodingUTF8,
+        };
+
+        let c_old_tree = old_tree.map_or(ptr::null_mut(), |t| t.0.as_ptr());
+        unsafe {
+            let c_new_tree = ffi::ts_parser_parse(self.0.as_ptr(), c_old_tree, c_input);
+            NonNull::new(c_new_tree).map(Tree)
+        }
+    }
+
     /// Parse UTF16 text provided in chunks by a callback.
     ///
     /// # Arguments:
@@ -682,7 +722,46 @@ impl Parser {
     /// * `old_tree` A previous syntax tree parsed from the same document. If the text of the
     ///   document has changed since `old_tree` was created, then you must edit `old_tree` to match
     ///   the new text using [`Tree::edit`].
+    #[deprecated(since = "0.25.0", note = "Prefer parse_utf16_le_with instead")]
     pub fn parse_utf16_with<T: AsRef<[u16]>, F: FnMut(usize, Point) -> T>(
+        &mut self,
+        callback: &mut F,
+        old_tree: Option<&Tree>,
+    ) -> Option<Tree> {
+        self.parse_utf16_le_with(callback, old_tree)
+    }
+
+    /// Parse a slice of UTF16 little-endian text.
+    ///
+    /// # Arguments:
+    /// * `text` The UTF16-encoded text to parse.
+    /// * `old_tree` A previous syntax tree parsed from the same document. If the text of the
+    ///   document has changed since `old_tree` was created, then you must edit `old_tree` to match
+    ///   the new text using [Tree::edit].
+    pub fn parse_utf16_le(
+        &mut self,
+        input: impl AsRef<[u16]>,
+        old_tree: Option<&Tree>,
+    ) -> Option<Tree> {
+        let code_points = input.as_ref();
+        let len = code_points.len();
+        self.parse_utf16_le_with(
+            &mut |i, _| (i < len).then(|| &code_points[i..]).unwrap_or_default(),
+            old_tree,
+        )
+    }
+
+    /// Parse UTF16 little-endian text provided in chunks by a callback.
+    ///
+    /// # Arguments:
+    /// * `callback` A function that takes a code point offset and position and returns a slice of
+    ///   UTF16-encoded text starting at that byte offset and position. The slices can be of any
+    ///   length. If the given position is at the end of the text, the callback should return an
+    ///   empty slice.
+    /// * `old_tree` A previous syntax tree parsed from the same document. If the text of the
+    ///   document has changed since `old_tree` was created, then you must edit `old_tree` to match
+    ///   the new text using [Tree::edit].
+    pub fn parse_utf16_le_with<T: AsRef<[u16]>, F: FnMut(usize, Point) -> T>(
         &mut self,
         callback: &mut F,
         old_tree: Option<&Tree>,
@@ -701,7 +780,7 @@ impl Parser {
             position: ffi::TSPoint,
             bytes_read: *mut u32,
         ) -> *const c_char {
-            let (callback, text) = payload.cast::<(&mut F, Option<T>)>().as_mut().unwrap();
+            let (callback, text) = (payload as *mut (&mut F, Option<T>)).as_mut().unwrap();
             *text = Some(callback(
                 (byte_offset / 2) as usize,
                 Point {
@@ -715,9 +794,83 @@ impl Parser {
         }
 
         let c_input = ffi::TSInput {
-            payload: core::ptr::addr_of_mut!(payload).cast::<c_void>(),
+            payload: &mut payload as *mut (&mut F, Option<T>) as *mut c_void,
             read: Some(read::<T, F>),
-            encoding: ffi::TSInputEncodingUTF16,
+            encoding: ffi::TSInputEncodingUTF16LE,
+        };
+
+        let c_old_tree = old_tree.map_or(ptr::null_mut(), |t| t.0.as_ptr());
+        unsafe {
+            let c_new_tree = ffi::ts_parser_parse(self.0.as_ptr(), c_old_tree, c_input);
+            NonNull::new(c_new_tree).map(Tree)
+        }
+    }
+
+    /// Parse a slice of UTF16 big-endian text.
+    ///
+    /// # Arguments:
+    /// * `text` The UTF16-encoded text to parse.
+    /// * `old_tree` A previous syntax tree parsed from the same document. If the text of the
+    ///   document has changed since `old_tree` was created, then you must edit `old_tree` to match
+    ///   the new text using [Tree::edit].
+    pub fn parse_utf16_be(
+        &mut self,
+        input: impl AsRef<[u16]>,
+        old_tree: Option<&Tree>,
+    ) -> Option<Tree> {
+        let code_points = input.as_ref();
+        let len = code_points.len();
+        self.parse_utf16_be_with(
+            &mut |i, _| if i < len { &code_points[i..] } else { &[] },
+            old_tree,
+        )
+    }
+
+    /// Parse UTF16 big-endian text provided in chunks by a callback.
+    ///
+    /// # Arguments:
+    /// * `callback` A function that takes a code point offset and position and returns a slice of
+    ///   UTF16-encoded text starting at that byte offset and position. The slices can be of any
+    ///   length. If the given position is at the end of the text, the callback should return an
+    ///   empty slice.
+    /// * `old_tree` A previous syntax tree parsed from the same document. If the text of the
+    ///   document has changed since `old_tree` was created, then you must edit `old_tree` to match
+    ///   the new text using [Tree::edit].
+    pub fn parse_utf16_be_with<T: AsRef<[u16]>, F: FnMut(usize, Point) -> T>(
+        &mut self,
+        callback: &mut F,
+        old_tree: Option<&Tree>,
+    ) -> Option<Tree> {
+        // A pointer to this payload is passed on every call to the `read` C function.
+        // The payload contains two things:
+        // 1. A reference to the rust `callback`.
+        // 2. The text that was returned from the previous call to `callback`. This allows the
+        //    callback to return owned values like vectors.
+        let mut payload: (&mut F, Option<T>) = (callback, None);
+
+        // This C function is passed to Tree-sitter as the input callback.
+        unsafe extern "C" fn read<T: AsRef<[u16]>, F: FnMut(usize, Point) -> T>(
+            payload: *mut c_void,
+            byte_offset: u32,
+            position: ffi::TSPoint,
+            bytes_read: *mut u32,
+        ) -> *const c_char {
+            let (callback, text) = (payload as *mut (&mut F, Option<T>)).as_mut().unwrap();
+            *text = Some(callback(
+                (byte_offset / 2) as usize,
+                Point {
+                    row: position.row as usize,
+                    column: position.column as usize / 2,
+                },
+            ));
+            let slice = text.as_ref().unwrap().as_ref();
+            *bytes_read = slice.len() as u32 * 2;
+            slice.as_ptr() as *const c_char
+        }
+        let c_input = ffi::TSInput {
+            payload: &mut payload as *mut (&mut F, Option<T>) as *mut c_void,
+            read: Some(read::<T, F>),
+            encoding: ffi::TSInputEncodingUTF16BE,
         };
 
         let c_old_tree = old_tree.map_or(ptr::null_mut(), |t| t.0.as_ptr());

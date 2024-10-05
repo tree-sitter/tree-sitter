@@ -76,6 +76,8 @@ set_target_properties(tree-sitter
                       SOVERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}"
                       DEFINE_SYMBOL "")
 
+target_compile_definitions(tree-sitter PRIVATE _POSIX_C_SOURCE=200112L _DEFAULT_SOURCE)
+
 configure_file(tree-sitter.pc.in "${CMAKE_CURRENT_BINARY_DIR}/tree-sitter.pc" @ONLY)
 
 include(GNUInstallDirs)
