@@ -700,7 +700,7 @@ impl Parser {
         }
 
         let c_input = ffi::TSInput {
-            payload: std::ptr::addr_of_mut!(payload).cast::<c_void>(),
+            payload: core::ptr::addr_of_mut!(payload).cast::<c_void>(),
             read: Some(read::<T, F>),
             encoding: ffi::TSInputEncodingUTF8,
         };
@@ -794,7 +794,7 @@ impl Parser {
         }
 
         let c_input = ffi::TSInput {
-            payload: std::ptr::addr_of_mut!(payload).cast::<c_void>(),
+            payload: core::ptr::addr_of_mut!(payload).cast::<c_void>(),
             read: Some(read::<T, F>),
             encoding: ffi::TSInputEncodingUTF16LE,
         };
@@ -868,7 +868,7 @@ impl Parser {
             slice.as_ptr().cast::<c_char>()
         }
         let c_input = ffi::TSInput {
-            payload: std::ptr::addr_of_mut!(payload).cast::<c_void>(),
+            payload: core::ptr::addr_of_mut!(payload).cast::<c_void>(),
             read: Some(read::<T, F>),
             encoding: ffi::TSInputEncodingUTF16BE,
         };
