@@ -1,16 +1,17 @@
 use std::{
     fmt, fs,
-    io::{self, Write},
+    io::{self, StdoutLock, Write},
     path::Path,
     sync::atomic::AtomicUsize,
     time::{Duration, Instant},
 };
 
+use anstyle::AnsiColor;
 use anyhow::{anyhow, Context, Result};
-use tree_sitter::{ffi, InputEdit, Language, LogType, Parser, Point, Tree};
+use tree_sitter::{ffi, InputEdit, Language, LogType, Parser, Point, Range, Tree, TreeCursor};
 
 use super::util;
-use crate::fuzz::edits::Edit;
+use crate::{fuzz::edits::Edit, test::paint};
 
 #[derive(Debug, Default)]
 pub struct Stats {
@@ -44,6 +45,7 @@ pub enum ParseOutput {
     Normal,
     Quiet,
     Xml,
+    Cst,
     Dot,
 }
 
@@ -207,6 +209,42 @@ pub fn parse_file_at_path(parser: &mut Parser, opts: &ParseFileOptions) -> Resul
                         }
                         needs_newline = true;
                     }
+                    if cursor.goto_first_child() {
+                        did_visit_children = false;
+                        indent_level += 1;
+                    } else {
+                        did_visit_children = true;
+                    }
+                }
+            }
+            cursor.reset(tree.root_node());
+            println!();
+        }
+
+        if opts.output == ParseOutput::Cst {
+            let Range { end_point, .. } = tree.root_node().range();
+            let row_width = (usize::max(1, end_point.row) as f64).log10() as usize + 1;
+            let mut indent_level = 0;
+            let mut did_visit_children = false;
+            loop {
+                if did_visit_children {
+                    if cursor.goto_next_sibling() {
+                        did_visit_children = false;
+                    } else if cursor.goto_parent() {
+                        did_visit_children = true;
+                        indent_level -= 1;
+                    } else {
+                        break;
+                    }
+                } else {
+                    cst_render_node(
+                        opts,
+                        &mut cursor,
+                        &source_code,
+                        &mut stdout,
+                        row_width,
+                        indent_level,
+                    )?;
                     if cursor.goto_first_child() {
                         did_visit_children = false;
                         indent_level += 1;
@@ -391,6 +429,99 @@ pub fn parse_file_at_path(parser: &mut Parser, opts: &ParseFileOptions) -> Resul
         bytes: source_code.len(),
         duration: None,
     })
+}
+
+fn cst_render_node(
+    opts: &ParseFileOptions,
+    cursor: &mut TreeCursor,
+    source_code: &[u8],
+    stdout: &mut StdoutLock<'static>,
+    row_width: usize,
+    indent_level: usize,
+) -> Result<()> {
+    let node = cursor.node();
+    let is_named = node.is_named();
+    let start = node.start_position();
+    let end = node.end_position();
+    if !opts.no_ranges {
+        let range_color = if is_named && cursor.field_name().is_none() {
+            Some(AnsiColor::BrightYellow)
+        } else {
+            Some(AnsiColor::White)
+        };
+        write!(
+            stdout,
+            "{}",
+            paint(
+                range_color,
+                &format!(
+                    " {:row_width$}:{:<3} - {:row_width$}:{:<3}",
+                    start.row, start.column, end.row, end.column,
+                )
+            )
+        )?;
+    }
+    write!(stdout, "{}", "  ".repeat(indent_level))?;
+    if is_named {
+        if let Some(field_name) = cursor.field_name() {
+            write!(
+                stdout,
+                "{}",
+                paint(Some(AnsiColor::Blue), &format!("{field_name}: "))
+            )?;
+        }
+        let kind_color = if node.kind().eq("ERROR") {
+            Some(AnsiColor::Red)
+        } else {
+            Some(AnsiColor::BrightCyan)
+        };
+        write!(stdout, "{} ", paint(kind_color, node.kind()))?;
+        if node.child_count() == 0 {
+            if let Ok(text) = node.utf8_text(source_code) {
+                write!(stdout, "`{}`", paint(Some(AnsiColor::BrightGreen), text))?;
+            } else {
+                write!(
+                    stdout,
+                    "{}",
+                    paint(
+                        Some(AnsiColor::Red),
+                        &String::from_utf8_lossy(&source_code[node.start_byte()..node.end_byte()])
+                    )
+                )?;
+            }
+        }
+        writeln!(stdout)?;
+    } else if node.is_missing() {
+        writeln!(
+            stdout,
+            "{}",
+            &format!(
+                "{}: \"{}\"",
+                paint(Some(AnsiColor::Red), "MISSING"),
+                node.kind()
+            )
+        )?;
+    } else if let Ok(text) = node.utf8_text(source_code) {
+        writeln!(
+            stdout,
+            "\"{}\"",
+            paint(
+                Some(AnsiColor::Green),
+                &text.replace('\n', "\\n").to_string()
+            )
+        )?;
+    } else {
+        writeln!(
+            stdout,
+            "{}",
+            paint(
+                Some(AnsiColor::Red),
+                &String::from_utf8_lossy(&source_code[node.start_byte()..node.end_byte()])
+            )
+        )?;
+    }
+
+    Ok(())
 }
 
 pub fn perform_edit(tree: &mut Tree, input: &mut Vec<u8>, edit: &Edit) -> Result<InputEdit> {
