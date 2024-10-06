@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.24.2] - 2024-10-06
+
+### Features
+
+- Drop legacy binding updates
+
+### Bug Fixes
+
+- **templates**: Properly replace author email
+
+### Build System and CI
+
+- **bindings**: Improve cmake file
+- **cmake**: Support amalgamated build
+- **cmake**: Correct library scopes
+- **make**: Fix `tree-sitter.pc` generation (#3745)
+
+### Other
+
+- **templates**: Update npm packages
+
 ## [0.24.1] - 2024-10-04
 
 ### Bug Fixes
