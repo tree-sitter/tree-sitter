@@ -10,7 +10,12 @@ homepage.workspace = true
 repository.workspace = true
 license.workspace = true
 keywords.workspace = true
-categories = ["api-bindings", "parsing", "text-editors"]
+categories = [
+  "api-bindings",
+  "external-ffi-bindings",
+  "parsing",
+  "text-editors",
+]
 
 build = "binding_rust/build.rs"
 links = "tree-sitter"

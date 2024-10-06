@@ -5,10 +5,12 @@ version = "0.1.2"
 authors.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+readme = "README.md"
 homepage.workspace = true
 repository.workspace = true
 license.workspace = true
 keywords.workspace = true
+categories = ["api-bindings", "development-tools::ffi", "parsing"]
 
 [lib]
 path = "language.rs"
