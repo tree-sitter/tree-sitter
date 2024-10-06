@@ -674,7 +674,7 @@ impl Init {
             (json.grammars[0].name.clone(), None)
         };
 
-        generate_grammar_files(current_dir, &language_name, self.update, json_config_opts)?;
+        generate_grammar_files(current_dir, &language_name, self.update, &json_config_opts)?;
 
         Ok(())
     }
@@ -976,7 +976,7 @@ impl Test {
         // For the rest of the queries, find their tests and run them
         for entry in walkdir::WalkDir::new(current_dir.join("queries"))
             .into_iter()
-            .filter_map(|e| e.ok())
+            .filter_map(std::result::Result::ok)
             .filter(|e| e.file_type().is_file())
         {
             let stem = entry

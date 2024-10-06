@@ -338,7 +338,7 @@ fn run_tests(
     parser: &mut Parser,
     test_entry: TestEntry,
     opts: &mut TestOptions,
-    mut indent_level: i32,
+    mut indent_level: u32,
     failures: &mut Vec<(String, String, String)>,
     corrected_entries: &mut Vec<(String, String, String, String, usize, usize)>,
     has_parse_errors: &mut bool,

@@ -2842,9 +2842,9 @@ impl QueryProperty {
     }
 }
 
-/// Provide StreamingIterator instead of traditional one as the underlying object in the C library
-/// gets updated on each iteration. Created copies would have their internal state overwritten,
-/// leading to Undefined Behavior
+/// Provide a `StreamingIterator` instead of the traditional `Iterator`, as the
+/// underlying object in the C library gets updated on each iteration. Copies would
+/// have their internal state overwritten, leading to Undefined Behavior
 impl<'query, 'tree: 'query, T: TextProvider<I>, I: AsRef<[u8]>> StreamingIterator
     for QueryMatches<'query, 'tree, T, I>
 {

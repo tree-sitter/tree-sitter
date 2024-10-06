@@ -739,7 +739,7 @@ impl Generator {
                 && chars.ranges().all(|r| {
                     let start = *r.start() as u32;
                     let end = *r.end() as u32;
-                    end <= start + 1 && end <= u16::MAX as u32
+                    end <= start + 1 && u16::try_from(end).is_ok()
                 })
             {
                 leading_simple_transition_count += 1;

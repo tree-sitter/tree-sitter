@@ -141,6 +141,7 @@ pub struct TreeSitterJSON {
 }
 
 impl TreeSitterJSON {
+    #[must_use]
     pub fn from_file(path: &Path) -> Option<Self> {
         if let Ok(file) = fs::File::open(path.join("tree-sitter.json")) {
             Some(serde_json::from_reader(file).ok()?)
@@ -149,6 +150,7 @@ impl TreeSitterJSON {
         }
     }
 
+    #[must_use]
     pub fn has_multiple_language_configs(&self) -> bool {
         self.grammars.len() > 1
     }
@@ -1004,7 +1006,7 @@ impl Loader {
                 let mut command = match source {
                     EmccSource::Docker => Command::new("docker"),
                     EmccSource::Podman => Command::new("podman"),
-                    _ => unreachable!(),
+                    EmccSource::Native => unreachable!(),
                 };
                 command.args(["run", "--rm"]);
 
