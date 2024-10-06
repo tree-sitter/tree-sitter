@@ -11,10 +11,19 @@ keywords.workspace = true
 categories.workspace = true
 publish = false
 
+[lints]
+workspace = true
+
 [dependencies]
+anstyle.workspace = true
+anyhow.workspace = true
+bindgen = { version = "0.70.1" }
+cc.workspace = true
+clap.workspace = true
 git2.workspace = true
 indoc.workspace = true
 toml.workspace = true
+regex.workspace = true
 semver.workspace = true
 serde.workspace = true
 serde_json.workspace = true

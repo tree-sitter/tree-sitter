@@ -84,12 +84,12 @@ jobs:
 
       - name: Build wasm
         if: matrix.directory == 'lib/binding_web'
-        run: ./script/build-wasm
+        run: cargo xtask build-wasm
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
           registry-url: "https://registry.npmjs.org"
 
       - name: Publish lib to npmjs.com
