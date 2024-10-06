@@ -17,6 +17,7 @@ jobs:
     - run: rustup toolchain install stable --profile minimal
     - run: rustup toolchain install nightly --profile minimal
     - run: rustup component add --toolchain nightly rustfmt
+    - run: rustup component add --toolchain nightly clippy
     - uses: Swatinem/rust-cache@v2
     - run: make lint
 
