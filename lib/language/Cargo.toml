@@ -12,5 +12,8 @@ license.workspace = true
 keywords.workspace = true
 categories = ["api-bindings", "development-tools::ffi", "parsing"]
 
+[lints]
+workspace = true
+
 [lib]
 path = "language.rs"

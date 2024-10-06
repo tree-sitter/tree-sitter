@@ -31,6 +31,9 @@ include = [
   "/include/tree_sitter/api.h",
 ]
 
+[lints]
+workspace = true
+
 [features]
 default = ["std"]
 std = ["regex/std", "regex/perf", "regex-syntax/unicode"]

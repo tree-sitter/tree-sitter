@@ -23,6 +23,55 @@ license = "MIT"
 keywords = ["incremental", "parsing"]
 categories = ["command-line-utilities", "parsing"]
 
+[workspace.lints.clippy]
+dbg_macro = "deny"
+todo = "deny"
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+cargo = { level = "warn", priority = -1 }
+
+# The lints below are a specific subset of the pedantic+nursery lints
+# that we explicitly allow in the tree-sitter codebase because they either:
+#
+# 1. Contain false positives,
+# 2. Are unnecessary, or
+# 3. Worsen the code
+
+branches_sharing_code = "allow"
+cast_lossless = "allow"
+cast_possible_truncation = "allow"
+cast_possible_wrap = "allow"
+cast_precision_loss = "allow"
+cast_sign_loss = "allow"
+checked_conversions = "allow"
+cognitive_complexity = "allow"
+collection_is_never_read = "allow"
+fallible_impl_from = "allow"
+fn_params_excessive_bools = "allow"
+inline_always = "allow"
+if_not_else = "allow"
+items_after_statements = "allow"
+match_wildcard_for_single_variants = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+module_name_repetitions = "allow"
+multiple_crate_versions = "allow"
+option_if_let_else = "allow"
+or_fun_call = "allow"
+range_plus_one = "allow"
+redundant_clone = "allow"
+redundant_closure_for_method_calls = "allow"
+ref_option = "allow"
+similar_names = "allow"
+string_lit_as_bytes = "allow"
+struct_excessive_bools = "allow"
+struct_field_names = "allow"
+transmute_undefined_repr = "allow"
+too_many_lines = "allow"
+unnecessary_wraps = "allow"
+unused_self = "allow"
+used_underscore_items = "allow"
+
 [profile.optimize]
 inherits = "release"
 strip = true         # Automatically strip symbols from the binary.

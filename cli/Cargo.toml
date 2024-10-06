@@ -12,6 +12,9 @@ license.workspace = true
 keywords.workspace = true
 categories.workspace = true
 
+[lints]
+workspace = true
+
 [[bin]]
 name = "tree-sitter"
 path = "src/main.rs"
