@@ -12,6 +12,9 @@ license.workspace = true
 keywords.workspace = true
 categories.workspace = true
 
+[lints]
+workspace = true
+
 [features]
 wasm = ["tree-sitter/wasm"]
 # TODO: For backward compatibility these must be enabled by default,
