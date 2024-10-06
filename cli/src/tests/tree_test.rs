@@ -705,11 +705,11 @@ fn test_consistency_with_mid_codepoint_edit() {
 
 #[test]
 fn test_tree_cursor_on_aliased_root_with_extra_child() {
-    let source = r#"
+    let source = r"
 fn main() {
     C/* hi */::<D>::E;
 }
-"#;
+";
 
     let mut parser = Parser::new();
     parser.set_language(&get_language("rust")).unwrap();

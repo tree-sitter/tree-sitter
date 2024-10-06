@@ -107,7 +107,7 @@ lint:
 	cargo update --workspace --locked --quiet
 	cargo check --workspace --all-targets
 	cargo +nightly fmt --all --check
-	cargo clippy --workspace --all-targets -- -D warnings
+	cargo +nightly clippy --workspace --all-targets -- -D warnings
 
 format:
 	cargo +nightly fmt --all

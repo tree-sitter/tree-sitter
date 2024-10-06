@@ -94,6 +94,7 @@ const TEST_BINDING_PY_TEMPLATE: &str = include_str!("./templates/test_binding.py
 const PACKAGE_SWIFT_TEMPLATE: &str = include_str!("./templates/package.swift");
 const TESTS_SWIFT_TEMPLATE: &str = include_str!("./templates/tests.swift");
 
+#[must_use]
 pub fn path_in_ignore(repo_path: &Path) -> bool {
     [
         "bindings",
@@ -130,6 +131,7 @@ pub struct JsonConfigOpts {
 }
 
 impl JsonConfigOpts {
+    #[must_use]
     pub fn to_tree_sitter_json(self) -> TreeSitterJSON {
         TreeSitterJSON {
             grammars: vec![Grammar {
@@ -255,8 +257,7 @@ pub fn migrate_package_json(repo_path: &Path) -> Result<bool> {
             authors: {
                 let authors = old_config
                     .author
-                    .map(|a| vec![a].into_iter())
-                    .unwrap_or_else(|| vec![].into_iter())
+                    .map_or_else(|| vec![].into_iter(), |a| vec![a].into_iter())
                     .chain(old_config.maintainers.unwrap_or_default())
                     .filter_map(|a| match a {
                         PackageJSONAuthor::String(s) => {
@@ -362,7 +363,7 @@ pub fn generate_grammar_files(
     repo_path: &Path,
     language_name: &str,
     _allow_update: bool,
-    opts: Option<JsonConfigOpts>,
+    opts: Option<&JsonConfigOpts>,
 ) -> Result<()> {
     let dashed_language_name = language_name.to_kebab_case();
 
@@ -371,17 +372,15 @@ pub fn generate_grammar_files(
         true,
         |path| {
             // invariant: opts is always Some when `tree-sitter.json` doesn't exist
-            let Some(opts) = opts.clone() else {
-                unreachable!()
-            };
+            let Some(opts) = opts else { unreachable!() };
 
-            let tree_sitter_json = opts.to_tree_sitter_json();
+            let tree_sitter_json = opts.clone().to_tree_sitter_json();
             write_file(path, serde_json::to_string_pretty(&tree_sitter_json)?)
         },
         |path| {
             // updating the config, if needed
-            if let Some(opts) = opts.clone() {
-                let tree_sitter_json = opts.to_tree_sitter_json();
+            if let Some(opts) = opts {
+                let tree_sitter_json = opts.clone().to_tree_sitter_json();
                 write_file(path, serde_json::to_string_pretty(&tree_sitter_json)?)?;
             }
             Ok(())
@@ -674,7 +673,7 @@ pub fn get_root_path(path: &Path) -> Result<PathBuf> {
                 }
             })
             .transpose()?;
-        if let Some(true) = json {
+        if json == Some(true) {
             return Ok(pathbuf.parent().unwrap().to_path_buf());
         }
         pathbuf.pop(); // filename
@@ -838,7 +837,7 @@ fn generate_file(
 
     match generate_opts.description {
         Some(description) => {
-            replacement = replacement.replace(PARSER_DESCRIPTION_PLACEHOLDER, description)
+            replacement = replacement.replace(PARSER_DESCRIPTION_PLACEHOLDER, description);
         }
         _ => {
             replacement = replacement.replace(
@@ -847,7 +846,7 @@ fn generate_file(
                     "{} grammar for tree-sitter",
                     language_name.to_upper_camel_case()
                 ),
-            )
+            );
         }
     }
 
@@ -858,7 +857,7 @@ fn generate_file(
                     PARSER_URL_STRIPPED_PLACEHOLDER,
                     &repository.replace("https://", "").to_lowercase(),
                 )
-                .replace(PARSER_URL_PLACEHOLDER, &repository.to_lowercase())
+                .replace(PARSER_URL_PLACEHOLDER, &repository.to_lowercase());
         }
         _ => {
             replacement = replacement
@@ -875,7 +874,7 @@ fn generate_file(
                         "https://github.com/tree-sitter/tree-sitter-{}",
                         language_name.to_lowercase()
                     ),
-                )
+                );
         }
     }
 

@@ -66,16 +66,12 @@ pub fn generate_parser_in_directory(
         }
     }
 
-    let grammar_path = grammar_path
-        .map(PathBuf::from)
-        .unwrap_or_else(|| repo_path.join("grammar.js"));
+    let grammar_path = grammar_path.map_or_else(|| repo_path.join("grammar.js"), PathBuf::from);
 
     // Read the grammar file.
     let grammar_json = load_grammar_file(&grammar_path, js_runtime)?;
 
-    let src_path = out_path
-        .map(PathBuf::from)
-        .unwrap_or_else(|| repo_path.join("src"));
+    let src_path = out_path.map_or_else(|| repo_path.join("src"), PathBuf::from);
     let header_path = src_path.join("tree_sitter");
 
     // Ensure that the output directories exist.

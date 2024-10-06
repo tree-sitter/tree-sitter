@@ -44,7 +44,7 @@ struct Minimizer<'a> {
     simple_aliases: &'a AliasMap,
 }
 
-impl<'a> Minimizer<'a> {
+impl Minimizer<'_> {
     fn remove_unit_reductions(&mut self) {
         let mut aliased_symbols = HashSet::new();
         for variable in &self.syntax_grammar.variables {

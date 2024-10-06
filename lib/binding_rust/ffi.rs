@@ -85,7 +85,7 @@ impl Tree {
     }
 }
 
-impl<'tree> Node<'tree> {
+impl Node<'_> {
     /// Reconstructs a [`Node`] from a raw pointer.
     ///
     /// # Safety
@@ -103,7 +103,7 @@ impl<'tree> Node<'tree> {
     }
 }
 
-impl<'a> TreeCursor<'a> {
+impl TreeCursor<'_> {
     /// Reconstructs a [`TreeCursor`] from a raw pointer.
     ///
     /// # Safety

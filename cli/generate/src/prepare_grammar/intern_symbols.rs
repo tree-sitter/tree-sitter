@@ -94,7 +94,7 @@ struct Interner<'a> {
     grammar: &'a InputGrammar,
 }
 
-impl<'a> Interner<'a> {
+impl Interner<'_> {
     fn intern_rule(&self, rule: &Rule, name: Option<&str>) -> Result<Rule> {
         match rule {
             Rule::Choice(elements) => {

@@ -45,7 +45,7 @@ impl WasmStore {
         unsafe {
             let mut error = MaybeUninit::<ffi::TSWasmError>::uninit();
             let store = ffi::ts_wasm_store_new(
-                (engine as *const wasmtime::Engine as *mut wasmtime::Engine).cast(),
+                (engine as *const wasmtime::Engine).cast_mut().cast(),
                 error.as_mut_ptr(),
             );
             if store.is_null() {

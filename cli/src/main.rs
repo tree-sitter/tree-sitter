@@ -674,7 +674,12 @@ impl Init {
             (json.grammars[0].name.clone(), None)
         };
 
-        generate_grammar_files(current_dir, &language_name, self.update, json_config_opts)?;
+        generate_grammar_files(
+            current_dir,
+            &language_name,
+            self.update,
+            json_config_opts.as_ref(),
+        )?;
 
         Ok(())
     }

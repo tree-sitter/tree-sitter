@@ -273,13 +273,13 @@ impl std::fmt::Display for Pattern {
     }
 }
 
-impl<'a, 'tree> PartialOrd for Match<'a, 'tree> {
+impl PartialOrd for Match<'_, '_> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl<'a, 'tree> Ord for Match<'a, 'tree> {
+impl Ord for Match<'_, '_> {
     // Tree-sitter returns matches in the order that they terminate
     // during a depth-first walk of the tree. If multiple matches
     // terminate on the same node, those matches are produced in the

@@ -145,7 +145,7 @@ impl<'a> TokenConflictMap<'a> {
     }
 }
 
-impl<'a> fmt::Debug for TokenConflictMap<'a> {
+impl fmt::Debug for TokenConflictMap<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         writeln!(f, "TokenConflictMap {{")?;
 

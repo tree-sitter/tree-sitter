@@ -180,7 +180,7 @@ impl<'a> ParseItemSet<'a> {
     }
 }
 
-impl<'a> fmt::Display for ParseItemDisplay<'a> {
+impl fmt::Display for ParseItemDisplay<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         if self.0.is_augmented() {
             write!(f, "START →")?;
@@ -243,7 +243,7 @@ impl<'a> fmt::Display for ParseItemDisplay<'a> {
     }
 }
 
-impl<'a> fmt::Display for TokenSetDisplay<'a> {
+impl fmt::Display for TokenSetDisplay<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         write!(f, "[")?;
         for (i, symbol) in self.0.iter().enumerate() {
@@ -268,7 +268,7 @@ impl<'a> fmt::Display for TokenSetDisplay<'a> {
     }
 }
 
-impl<'a> fmt::Display for ParseItemSetDisplay<'a> {
+impl fmt::Display for ParseItemSetDisplay<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         for (item, lookaheads) in &self.0.entries {
             writeln!(
@@ -282,7 +282,7 @@ impl<'a> fmt::Display for ParseItemSetDisplay<'a> {
     }
 }
 
-impl<'a> Hash for ParseItem<'a> {
+impl Hash for ParseItem<'_> {
     fn hash<H: Hasher>(&self, hasher: &mut H) {
         hasher.write_u32(self.variable_index);
         hasher.write_u32(self.step_index);
@@ -311,7 +311,7 @@ impl<'a> Hash for ParseItem<'a> {
     }
 }
 
-impl<'a> PartialEq for ParseItem<'a> {
+impl PartialEq for ParseItem<'_> {
     fn eq(&self, other: &Self) -> bool {
         if self.variable_index != other.variable_index
             || self.step_index != other.step_index
@@ -348,7 +348,7 @@ impl<'a> PartialEq for ParseItem<'a> {
     }
 }
 
-impl<'a> Ord for ParseItem<'a> {
+impl Ord for ParseItem<'_> {
     fn cmp(&self, other: &Self) -> Ordering {
         self.step_index
             .cmp(&other.step_index)
@@ -388,15 +388,15 @@ impl<'a> Ord for ParseItem<'a> {
     }
 }
 
-impl<'a> PartialOrd for ParseItem<'a> {
+impl PartialOrd for ParseItem<'_> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl<'a> Eq for ParseItem<'a> {}
+impl Eq for ParseItem<'_> {}
 
-impl<'a> Hash for ParseItemSet<'a> {
+impl Hash for ParseItemSet<'_> {
     fn hash<H: Hasher>(&self, hasher: &mut H) {
         hasher.write_usize(self.entries.len());
         for (item, lookaheads) in &self.entries {
@@ -406,7 +406,7 @@ impl<'a> Hash for ParseItemSet<'a> {
     }
 }
 
-impl<'a> Hash for ParseItemSetCore<'a> {
+impl Hash for ParseItemSetCore<'_> {
     fn hash<H: Hasher>(&self, hasher: &mut H) {
         hasher.write_usize(self.entries.len());
         for item in &self.entries {
