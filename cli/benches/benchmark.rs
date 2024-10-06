@@ -1,4 +1,3 @@
-#![allow(clippy::ref_option)]
 use std::{
     collections::BTreeMap,
     env, fs,

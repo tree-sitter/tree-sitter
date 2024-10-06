@@ -735,7 +735,6 @@ impl Generator {
         let mut leading_simple_transition_count = 0;
         let mut leading_simple_transition_range_count = 0;
         for (chars, action) in &state.advance_actions {
-            #[allow(clippy::checked_conversions)]
             if action.in_main_token
                 && chars.ranges().all(|r| {
                     let start = *r.start() as u32;

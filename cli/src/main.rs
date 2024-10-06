@@ -979,7 +979,6 @@ impl Test {
         }
 
         // For the rest of the queries, find their tests and run them
-        #[allow(clippy::redundant_closure_for_method_calls)]
         for entry in walkdir::WalkDir::new(current_dir.join("queries"))
             .into_iter()
             .filter_map(|e| e.ok())

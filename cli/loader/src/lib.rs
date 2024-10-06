@@ -368,7 +368,6 @@ impl<'a> CompileConfig<'a> {
     }
 }
 
-#[allow(clippy::non_send_fields_in_send_ty)]
 unsafe impl Send for Loader {}
 unsafe impl Sync for Loader {}
 

@@ -234,7 +234,6 @@ impl<'query, 'tree: 'query, T: TextProvider<I>, I: AsRef<[u8]>> Iterator
                     m.as_mut_ptr(),
                     core::ptr::addr_of_mut!(capture_index),
                 ) {
-                    #[allow(clippy::transmute_undefined_repr)]
                     let result = std::mem::transmute::<_QueryMatch, QueryMatch>(_QueryMatch::new(
                         &m.assume_init(),
                         self.ptr,
@@ -577,7 +576,6 @@ impl<'a> HighlightIterLayer<'a> {
                     mem::transmute::<&mut QueryCursor, &'static mut QueryCursor>(&mut cursor)
                 };
                 let captures = unsafe {
-                    #[allow(clippy::transmute_undefined_repr)]
                     std::mem::transmute::<QueryCaptures<_, _>, _QueryCaptures<_, _>>(
                         cursor_ref.captures(&config.query, tree_ref.root_node(), source),
                     )
