@@ -24,13 +24,13 @@ jobs:
     - run: rustup toolchain install stable --profile minimal
     - uses: Swatinem/rust-cache@v2
     - run: cargo build --release
-    - run: script/fetch-fixtures
+    - run: cargo xtask fetch-fixtures
 
     - uses: ./.github/actions/cache
       id: cache
 
     - if: ${{ steps.cache.outputs.cache-hit != 'true' }}
-      run: script/generate-fixtures
+      run: cargo xtask generate-fixtures
 
     - name: Run main tests with undefined behaviour sanitizer (UBSAN)
       env:

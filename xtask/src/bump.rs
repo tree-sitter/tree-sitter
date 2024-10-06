@@ -1,11 +1,14 @@
 use std::{cmp::Ordering, path::Path};
 
+use anyhow::{anyhow, Result};
 use git2::{DiffOptions, Repository};
 use indoc::indoc;
 use semver::{BuildMetadata, Prerelease, Version};
 use toml::Value;
 
-pub fn get_latest_tag(repo: &Repository) -> Result<String, Box<dyn std::error::Error>> {
+use crate::BumpVersion;
+
+pub fn get_latest_tag(repo: &Repository) -> Result<String> {
     let mut tags = repo
         .tag_names(None)?
         .into_iter()
@@ -23,10 +26,10 @@ pub fn get_latest_tag(repo: &Repository) -> Result<String, Box<dyn std::error::E
 
     tags.last()
         .map(std::string::ToString::to_string)
-        .ok_or_else(|| "No tags found".into())
+        .ok_or_else(|| anyhow!("No tags found"))
 }
 
-pub fn bump_versions() -> Result<(), Box<dyn std::error::Error>> {
+pub fn run(args: BumpVersion) -> Result<()> {
     let repo = Repository::open(".")?;
     let latest_tag = get_latest_tag(&repo)?;
     let current_version = Version::parse(&latest_tag)?;
@@ -104,35 +107,39 @@ pub fn bump_versions() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    let mut version = current_version.clone();
-    if should_increment_minor {
-        version.minor += 1;
-        version.patch = 0;
-        version.pre = Prerelease::EMPTY;
-        version.build = BuildMetadata::EMPTY;
-    } else if should_increment_patch {
-        version.patch += 1;
-        version.pre = Prerelease::EMPTY;
-        version.build = BuildMetadata::EMPTY;
+    let next_version = if let Some(version) = args.version {
+        version
     } else {
-        return Err(format!("No source code changed since {current_version}").into());
-    }
+        let mut next_version = current_version.clone();
+        if should_increment_minor {
+            next_version.minor += 1;
+            next_version.patch = 0;
+            next_version.pre = Prerelease::EMPTY;
+            next_version.build = BuildMetadata::EMPTY;
+        } else if should_increment_patch {
+            next_version.patch += 1;
+            next_version.pre = Prerelease::EMPTY;
+            next_version.build = BuildMetadata::EMPTY;
+        } else {
+            return Err(anyhow!(format!(
+                "No source code changed since {current_version}"
+            )));
+        }
+        next_version
+    };
 
-    println!("Bumping from {current_version} to {version}");
-    update_crates(&current_version, &version)?;
-    update_makefile(&version)?;
-    update_cmake(&version)?;
-    update_npm(&version)?;
-    update_zig(&version)?;
-    tag_next_version(&repo, &version)?;
+    println!("Bumping from {current_version} to {next_version}");
+    update_crates(&current_version, &next_version)?;
+    update_makefile(&next_version)?;
+    update_cmake(&next_version)?;
+    update_npm(&next_version)?;
+    update_zig(&next_version)?;
+    tag_next_version(&repo, &next_version)?;
 
     Ok(())
 }
 
-fn tag_next_version(
-    repo: &Repository,
-    next_version: &Version,
-) -> Result<(), Box<dyn std::error::Error>> {
+fn tag_next_version(repo: &Repository, next_version: &Version) -> Result<()> {
     // first add the manifests
 
     let mut index = repo.index()?;
@@ -184,7 +191,7 @@ fn tag_next_version(
     Ok(())
 }
 
-fn update_makefile(next_version: &Version) -> Result<(), Box<dyn std::error::Error>> {
+fn update_makefile(next_version: &Version) -> Result<()> {
     let makefile = std::fs::read_to_string("Makefile")?;
     let makefile = makefile
         .lines()
@@ -204,7 +211,7 @@ fn update_makefile(next_version: &Version) -> Result<(), Box<dyn std::error::Err
     Ok(())
 }
 
-fn update_cmake(next_version: &Version) -> Result<(), Box<dyn std::error::Error>> {
+fn update_cmake(next_version: &Version) -> Result<()> {
     let cmake = std::fs::read_to_string("lib/CMakeLists.txt")?;
     let cmake = cmake
         .lines()
@@ -230,10 +237,7 @@ fn update_cmake(next_version: &Version) -> Result<(), Box<dyn std::error::Error>
     Ok(())
 }
 
-fn update_crates(
-    current_version: &Version,
-    next_version: &Version,
-) -> Result<(), Box<dyn std::error::Error>> {
+fn update_crates(current_version: &Version, next_version: &Version) -> Result<()> {
     let mut cmd = std::process::Command::new("cargo");
     cmd.arg("workspaces").arg("version");
 
@@ -253,20 +257,20 @@ fn update_crates(
     let status = cmd.status()?;
 
     if !status.success() {
-        return Err("Failed to update crates".into());
+        return Err(anyhow!("Failed to update crates"));
     }
 
     Ok(())
 }
 
-fn update_npm(next_version: &Version) -> Result<(), Box<dyn std::error::Error>> {
+fn update_npm(next_version: &Version) -> Result<()> {
     for path in ["lib/binding_web/package.json", "cli/npm/package.json"] {
         let package_json =
             serde_json::from_str::<serde_json::Value>(&std::fs::read_to_string(path)?)?;
 
         let mut package_json = package_json
             .as_object()
-            .ok_or("Invalid package.json")?
+            .ok_or_else(|| anyhow!("Invalid package.json"))?
             .clone();
         package_json.insert(
             "version".to_string(),
@@ -281,7 +285,7 @@ fn update_npm(next_version: &Version) -> Result<(), Box<dyn std::error::Error>> 
     Ok(())
 }
 
-fn update_zig(next_version: &Version) -> Result<(), Box<dyn std::error::Error>> {
+fn update_zig(next_version: &Version) -> Result<()> {
     let zig = std::fs::read_to_string("build.zig.zon")?;
 
     let zig = zig
@@ -303,7 +307,7 @@ fn update_zig(next_version: &Version) -> Result<(), Box<dyn std::error::Error>> 
 }
 
 /// read Cargo.toml and get the version
-fn fetch_workspace_version() -> Result<String, Box<dyn std::error::Error>> {
+fn fetch_workspace_version() -> Result<String> {
     let cargo_toml = toml::from_str::<Value>(&std::fs::read_to_string("Cargo.toml")?)?;
 
     Ok(cargo_toml["workspace"]["package"]["version"]
