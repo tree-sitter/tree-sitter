@@ -368,7 +368,6 @@ impl<'a> CompileConfig<'a> {
     }
 }
 
-unsafe impl Send for Loader {}
 unsafe impl Sync for Loader {}
 
 impl Loader {
