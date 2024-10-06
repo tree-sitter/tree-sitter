@@ -15,6 +15,9 @@ license.workspace = true
 keywords = ["incremental", "parsing", "syntax", "tagging"]
 categories = ["parsing", "text-editors"]
 
+[lints]
+workspace = true
+
 [lib]
 crate-type = ["lib", "staticlib"]
 

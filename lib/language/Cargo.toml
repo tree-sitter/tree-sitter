@@ -10,5 +10,8 @@ repository.workspace = true
 license.workspace = true
 keywords.workspace = true
 
+[lints]
+workspace = true
+
 [lib]
 path = "language.rs"
