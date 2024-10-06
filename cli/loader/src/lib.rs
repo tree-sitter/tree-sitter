@@ -68,7 +68,7 @@ impl PathsJSON {
         }
     }
 
-    fn is_empty(&self) -> bool {
+    const fn is_empty(&self) -> bool {
         matches!(self, Self::Empty)
     }
 }
@@ -368,6 +368,7 @@ impl<'a> CompileConfig<'a> {
     }
 }
 
+#[allow(clippy::non_send_fields_in_send_ty)]
 unsafe impl Send for Loader {}
 unsafe impl Sync for Loader {}
 
@@ -1346,7 +1347,7 @@ impl Loader {
     }
 }
 
-impl<'a> LanguageConfiguration<'a> {
+impl LanguageConfiguration<'_> {
     #[cfg(feature = "tree-sitter-highlight")]
     pub fn highlight_config(
         &self,

@@ -735,11 +735,12 @@ impl Generator {
         let mut leading_simple_transition_count = 0;
         let mut leading_simple_transition_range_count = 0;
         for (chars, action) in &state.advance_actions {
+            #[allow(clippy::checked_conversions)]
             if action.in_main_token
                 && chars.ranges().all(|r| {
                     let start = *r.start() as u32;
                     let end = *r.end() as u32;
-                    end <= start + 1 && u16::try_from(end).is_ok()
+                    end <= start + 1 && end <= u16::MAX as u32
                 })
             {
                 leading_simple_transition_count += 1;

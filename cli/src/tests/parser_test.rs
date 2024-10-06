@@ -161,7 +161,7 @@ fn test_parsing_with_custom_utf16le_input() {
 
     let lines = ["pub fn foo() {", "  1", "}"]
         .iter()
-        .map(|s| s.encode_utf16().map(|u| u.to_le()).collect::<Vec<_>>())
+        .map(|s| s.encode_utf16().map(u16::to_le).collect::<Vec<_>>())
         .collect::<Vec<_>>();
 
     let newline = [('\n' as u16).to_le()];
@@ -267,7 +267,7 @@ fn test_parsing_text_with_byte_order_mark() {
         .parse_utf16_le(
             "\u{FEFF}fn a() {}"
                 .encode_utf16()
-                .map(|u| u.to_le())
+                .map(u16::to_le)
                 .collect::<Vec<_>>(),
             None,
         )
@@ -1134,7 +1134,7 @@ fn test_parsing_utf16_code_with_errors_at_the_end_of_an_included_range() {
     let source_code = "<script>a.</script>";
     let utf16_source_code = source_code
         .encode_utf16()
-        .map(|u| u.to_le())
+        .map(u16::to_le)
         .collect::<Vec<_>>();
 
     let start_byte = 2 * source_code.find("a.").unwrap();

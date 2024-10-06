@@ -1,3 +1,4 @@
+#![allow(clippy::ref_option)]
 use std::{env, fmt::Write};
 
 use indoc::indoc;
@@ -3488,10 +3489,10 @@ fn test_query_captures_with_matches_removed() {
 
         let mut captures = cursor.captures(&query, tree.root_node(), source.as_bytes());
         while let Some((m, i)) = captures.next() {
-            println!("captured: {:?}, {}", m, i);
+            println!("captured: {m:?}, {i}");
             let capture = m.captures[*i];
             let text = capture.node.utf8_text(source.as_bytes()).unwrap();
-            println!("captured: {:?}", text);
+            println!("captured: {text:?}");
             if text == "a" {
                 m.remove();
                 continue;

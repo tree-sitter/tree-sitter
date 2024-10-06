@@ -1,3 +1,4 @@
+#![allow(clippy::ref_option)]
 use std::{collections::HashMap, env, fs, path::Path};
 
 use lazy_static::lazy_static;

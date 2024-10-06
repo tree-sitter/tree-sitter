@@ -21,14 +21,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         std::process::exit(0);
     };
 
-    match task.as_str() {
-        "bump-version" => {
-            bump_versions()?;
-        }
-        _ => {
-            println!("invalid task: {task}");
-            std::process::exit(1);
-        }
+    if task.as_str() == "bump-version" {
+        bump_versions()?;
+    } else {
+        println!("invalid task: {task}");
+        std::process::exit(1);
     }
 
     Ok(())

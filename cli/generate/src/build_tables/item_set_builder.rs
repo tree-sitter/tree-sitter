@@ -289,7 +289,7 @@ impl<'a> ParseItemSetBuilder<'a> {
     }
 }
 
-impl<'a> fmt::Debug for ParseItemSetBuilder<'a> {
+impl fmt::Debug for ParseItemSetBuilder<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         writeln!(f, "ParseItemSetBuilder {{")?;
 

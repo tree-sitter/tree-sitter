@@ -372,9 +372,8 @@ pub fn parse_file_at_path(parser: &mut Parser, opts: &ParseFileOptions) -> Resul
             bytes: source_code.len(),
             duration: Some(duration),
         });
-    } else {
-        parser.stop_printing_dot_graphs();
     }
+    parser.stop_printing_dot_graphs();
 
     if opts.print_time {
         let duration = time.elapsed();

@@ -363,7 +363,7 @@ pub fn generate_grammar_files(
     repo_path: &Path,
     language_name: &str,
     _allow_update: bool,
-    opts: &Option<JsonConfigOpts>,
+    opts: Option<&JsonConfigOpts>,
 ) -> Result<()> {
     let dashed_language_name = language_name.to_kebab_case();
 
@@ -372,17 +372,15 @@ pub fn generate_grammar_files(
         true,
         |path| {
             // invariant: opts is always Some when `tree-sitter.json` doesn't exist
-            let Some(opts) = opts.clone() else {
-                unreachable!()
-            };
+            let Some(opts) = opts else { unreachable!() };
 
-            let tree_sitter_json = opts.to_tree_sitter_json();
+            let tree_sitter_json = opts.clone().to_tree_sitter_json();
             write_file(path, serde_json::to_string_pretty(&tree_sitter_json)?)
         },
         |path| {
             // updating the config, if needed
-            if let Some(opts) = opts.clone() {
-                let tree_sitter_json = opts.to_tree_sitter_json();
+            if let Some(opts) = opts {
+                let tree_sitter_json = opts.clone().to_tree_sitter_json();
                 write_file(path, serde_json::to_string_pretty(&tree_sitter_json)?)?;
             }
             Ok(())
@@ -675,7 +673,7 @@ pub fn get_root_path(path: &Path) -> Result<PathBuf> {
                 }
             })
             .transpose()?;
-        if let Some(true) = json {
+        if json == Some(true) {
             return Ok(pathbuf.parent().unwrap().to_path_buf());
         }
         pathbuf.pop(); // filename

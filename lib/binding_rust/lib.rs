@@ -438,7 +438,7 @@ impl Drop for Language {
     }
 }
 
-impl<'a> Deref for LanguageRef<'a> {
+impl Deref for LanguageRef<'_> {
     type Target = Language;
 
     fn deref(&self) -> &Self::Target {
@@ -692,7 +692,7 @@ impl Parser {
             position: ffi::TSPoint,
             bytes_read: *mut u32,
         ) -> *const c_char {
-            let (callback, text) = (payload as *mut (&mut F, Option<T>)).as_mut().unwrap();
+            let (callback, text) = payload.cast::<(&mut F, Option<T>)>().as_mut().unwrap();
             *text = Some(callback(byte_offset as usize, position.into()));
             let slice = text.as_ref().unwrap().as_ref();
             *bytes_read = slice.len() as u32;
@@ -700,7 +700,7 @@ impl Parser {
         }
 
         let c_input = ffi::TSInput {
-            payload: &mut payload as *mut (&mut F, Option<T>) as *mut c_void,
+            payload: std::ptr::addr_of_mut!(payload).cast::<c_void>(),
             read: Some(read::<T, F>),
             encoding: ffi::TSInputEncodingUTF8,
         };
@@ -737,7 +737,7 @@ impl Parser {
     /// * `text` The UTF16-encoded text to parse.
     /// * `old_tree` A previous syntax tree parsed from the same document. If the text of the
     ///   document has changed since `old_tree` was created, then you must edit `old_tree` to match
-    ///   the new text using [Tree::edit].
+    ///   the new text using [`Tree::edit`].
     pub fn parse_utf16_le(
         &mut self,
         input: impl AsRef<[u16]>,
@@ -760,7 +760,7 @@ impl Parser {
     ///   empty slice.
     /// * `old_tree` A previous syntax tree parsed from the same document. If the text of the
     ///   document has changed since `old_tree` was created, then you must edit `old_tree` to match
-    ///   the new text using [Tree::edit].
+    ///   the new text using [`Tree::edit`].
     pub fn parse_utf16_le_with<T: AsRef<[u16]>, F: FnMut(usize, Point) -> T>(
         &mut self,
         callback: &mut F,
@@ -780,7 +780,7 @@ impl Parser {
             position: ffi::TSPoint,
             bytes_read: *mut u32,
         ) -> *const c_char {
-            let (callback, text) = (payload as *mut (&mut F, Option<T>)).as_mut().unwrap();
+            let (callback, text) = payload.cast::<(&mut F, Option<T>)>().as_mut().unwrap();
             *text = Some(callback(
                 (byte_offset / 2) as usize,
                 Point {
@@ -794,7 +794,7 @@ impl Parser {
         }
 
         let c_input = ffi::TSInput {
-            payload: &mut payload as *mut (&mut F, Option<T>) as *mut c_void,
+            payload: std::ptr::addr_of_mut!(payload).cast::<c_void>(),
             read: Some(read::<T, F>),
             encoding: ffi::TSInputEncodingUTF16LE,
         };
@@ -812,7 +812,7 @@ impl Parser {
     /// * `text` The UTF16-encoded text to parse.
     /// * `old_tree` A previous syntax tree parsed from the same document. If the text of the
     ///   document has changed since `old_tree` was created, then you must edit `old_tree` to match
-    ///   the new text using [Tree::edit].
+    ///   the new text using [`Tree::edit`].
     pub fn parse_utf16_be(
         &mut self,
         input: impl AsRef<[u16]>,
@@ -835,7 +835,7 @@ impl Parser {
     ///   empty slice.
     /// * `old_tree` A previous syntax tree parsed from the same document. If the text of the
     ///   document has changed since `old_tree` was created, then you must edit `old_tree` to match
-    ///   the new text using [Tree::edit].
+    ///   the new text using [`Tree::edit`].
     pub fn parse_utf16_be_with<T: AsRef<[u16]>, F: FnMut(usize, Point) -> T>(
         &mut self,
         callback: &mut F,
@@ -855,7 +855,7 @@ impl Parser {
             position: ffi::TSPoint,
             bytes_read: *mut u32,
         ) -> *const c_char {
-            let (callback, text) = (payload as *mut (&mut F, Option<T>)).as_mut().unwrap();
+            let (callback, text) = payload.cast::<(&mut F, Option<T>)>().as_mut().unwrap();
             *text = Some(callback(
                 (byte_offset / 2) as usize,
                 Point {
@@ -865,10 +865,10 @@ impl Parser {
             ));
             let slice = text.as_ref().unwrap().as_ref();
             *bytes_read = slice.len() as u32 * 2;
-            slice.as_ptr() as *const c_char
+            slice.as_ptr().cast::<c_char>()
         }
         let c_input = ffi::TSInput {
-            payload: &mut payload as *mut (&mut F, Option<T>) as *mut c_void,
+            payload: std::ptr::addr_of_mut!(payload).cast::<c_void>(),
             read: Some(read::<T, F>),
             encoding: ffi::TSInputEncodingUTF16BE,
         };
@@ -1394,6 +1394,7 @@ impl<'tree> Node<'tree> {
     }
 
     /// Get the field name of this node's named child at the given index.
+    #[must_use]
     pub fn field_name_for_named_child(&self, named_child_index: u32) -> Option<&'static str> {
         unsafe {
             let ptr = ffi::ts_node_field_name_for_named_child(self.0, named_child_index);
