@@ -2,4 +2,5 @@
 !README.md
 !tree-sitter.js
 !tree-sitter.wasm
+!tree-sitter.wasm.map
 !tree-sitter-web.d.ts
