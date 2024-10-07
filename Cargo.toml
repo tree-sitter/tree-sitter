@@ -47,7 +47,7 @@ codegen-units = 256
 anstyle = "1.0.8"
 anyhow = "1.0.89"
 bstr = "1.10.0"
-cc = "1.1.22"
+cc = "1.1.28"
 clap = { version = "4.5.18", features = [
   "cargo",
   "derive",
@@ -72,7 +72,7 @@ lazy_static = "1.5.0"
 libloading = "0.8.5"
 log = { version = "0.4.22", features = ["std"] }
 memchr = "2.7.4"
-once_cell = "1.19.0"
+once_cell = "1.20.2"
 path-slash = "0.2.1"
 pretty_assertions = "1.4.1"
 rand = "0.8.5"
