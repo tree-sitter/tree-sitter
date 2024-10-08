@@ -252,12 +252,12 @@ static uint32_t ts_lexer__get_column(TSLexer *_self) {
   uint32_t goal_byte = self->current_position.bytes;
 
   self->did_get_column = true;
-  self->current_position.bytes -= self->current_position.extent.column;
-  self->current_position.extent.column = 0;
-
-  if (self->current_position.bytes < self->chunk_start) {
-    ts_lexer__get_chunk(self);
-  }
+  Length start_of_col = {
+    self->current_position.bytes - self->current_position.extent.column,
+    {self->current_position.extent.row, 0},
+  };
+  ts_lexer_goto(self, start_of_col);
+  ts_lexer__get_chunk(self);
 
   uint32_t result = 0;
   if (!ts_lexer__eof(_self)) {

@@ -1555,6 +1555,20 @@ fn test_parsing_with_scanner_logging() {
     assert!(found);
 }
 
+#[test]
+fn test_parsing_get_column_at_eof() {
+    let dir = fixtures_dir().join("test_grammars").join("get_col_eof");
+    let grammar_json = load_grammar_file(&dir.join("grammar.js"), None).unwrap();
+    let (grammar_name, parser_code) = generate_parser_for_grammar(&grammar_json).unwrap();
+
+    let mut parser = Parser::new();
+    parser
+        .set_language(&get_test_language(&grammar_name, &parser_code, Some(&dir)))
+        .unwrap();
+
+    parser.parse("a", None).unwrap();
+}
+
 const fn simple_range(start: usize, end: usize) -> Range {
     Range {
         start_byte: start,
