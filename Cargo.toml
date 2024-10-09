@@ -97,14 +97,14 @@ anstyle = "1.0.8"
 anyhow = "1.0.89"
 bstr = "1.10.0"
 cc = "1.1.22"
-clap = { version = "4.5.18", features = [
+clap = { version = "4.5.20", features = [
   "cargo",
   "derive",
   "env",
   "help",
   "unstable-styles",
 ] }
-clap_complete = "4.5.29"
+clap_complete = "4.5.33"
 ctor = "0.2.8"
 ctrlc = { version = "3.4.5", features = ["termination"] }
 dialoguer = { version = "0.11.0", features = ["fuzzy-select"] }
