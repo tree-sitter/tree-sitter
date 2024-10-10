@@ -183,6 +183,12 @@ struct Parse {
         help = "Output the parse data in XML format"
     )]
     pub output_xml: bool,
+    #[arg(
+        long = "cst",
+        short = 'c',
+        help = "Output the parse data in a pretty-printed CST format"
+    )]
+    pub output_cst: bool,
     #[arg(long, short, help = "Show parsing statistic")]
     pub stat: bool,
     #[arg(long, help = "Interrupt the parsing process by timeout (µs)")]
@@ -787,6 +793,8 @@ impl Parse {
             ParseOutput::Dot
         } else if self.output_xml {
             ParseOutput::Xml
+        } else if self.output_cst {
+            ParseOutput::Cst
         } else if self.quiet {
             ParseOutput::Quiet
         } else {
