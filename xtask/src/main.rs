@@ -5,6 +5,7 @@ mod clippy;
 mod fetch;
 mod generate;
 mod test;
+mod upgrade_wasmtime;
 
 use anstyle::{AnsiColor, Color, Style};
 use anyhow::Result;
@@ -37,6 +38,8 @@ enum Commands {
     Test(Test),
     /// Run the WASM test suite
     TestWasm,
+    /// Upgrade the wasmtime dependency.
+    UpgradeWasmtime(UpgradeWasmtime),
 }
 
 #[derive(Args)]
@@ -127,6 +130,13 @@ struct Test {
     nocapture: bool,
 }
 
+#[derive(Args)]
+struct UpgradeWasmtime {
+    /// The version to upgrade to.
+    #[arg(long, short)]
+    version: Version,
+}
+
 const BUILD_VERSION: &str = env!("CARGO_PKG_VERSION");
 const BUILD_SHA: Option<&str> = option_env!("BUILD_SHA");
 const EMSCRIPTEN_VERSION: &str = include_str!("../../cli/loader/emscripten-version");
@@ -189,6 +199,9 @@ fn run() -> Result<()> {
         }
         Commands::Test(test_options) => test::run(&test_options)?,
         Commands::TestWasm => test::run_wasm()?,
+        Commands::UpgradeWasmtime(upgrade_wasmtime_options) => {
+            upgrade_wasmtime::run(&upgrade_wasmtime_options)?;
+        }
     }
 
     Ok(())
