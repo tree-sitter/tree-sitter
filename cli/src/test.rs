@@ -327,8 +327,8 @@ pub fn print_diff(actual: &str, expected: &str, use_color: bool) {
     println!();
 }
 
-pub fn paint(color: Option<AnsiColor>, text: &str) -> String {
-    let style = Style::new().fg_color(color.map(Color::Ansi));
+pub fn paint(color: Option<impl Into<Color>>, text: &str) -> String {
+    let style = Style::new().fg_color(color.map(Into::into));
     format!("{style}{text}{style:#}")
 }
 

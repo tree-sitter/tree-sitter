@@ -6,8 +6,9 @@ use std::{
     time::{Duration, Instant},
 };
 
-use anstyle::AnsiColor;
+use anstyle::{AnsiColor, Color, RgbColor};
 use anyhow::{anyhow, Context, Result};
+use bstr::ByteSlice;
 use tree_sitter::{ffi, InputEdit, Language, LogType, Parser, Point, Range, Tree, TreeCursor};
 
 use super::util;
@@ -431,6 +432,100 @@ pub fn parse_file_at_path(parser: &mut Parser, opts: &ParseFileOptions) -> Resul
     })
 }
 
+const fn escape_invisible(c: char) -> Option<&'static str> {
+    Some(match c {
+        '\n' => "\\n",
+        '\r' => "\\r",
+        '\t' => "\\t",
+        '\0' => "\\0",
+        '\\' => "\\\\",
+        '\x0b' => "\\v",
+        '\x0c' => "\\f",
+        _ => return None,
+    })
+}
+
+fn render_node_text(source: &str) -> String {
+    let mut escaped = String::new();
+    escaped.reserve(source.len());
+
+    for c in source.chars() {
+        if let Some(esc) = escape_invisible(c) {
+            escaped.push_str(esc);
+        } else {
+            escaped.push(c);
+        }
+    }
+
+    escaped
+}
+
+#[allow(clippy::too_many_arguments)]
+fn write_node_text(
+    opts: &ParseFileOptions,
+    stdout: &mut StdoutLock<'static>,
+    cursor: &TreeCursor,
+    source: &str,
+    color: Option<impl Into<Color> + Copy>,
+    quote: char,
+    row_width: usize,
+    indent_level: usize,
+) -> Result<()> {
+    if source.find('\n') == Some(source.len() - 1)
+        || source.find('\n').is_none()
+        || !cursor.node().is_named()
+    {
+        write!(
+            stdout,
+            "{quote}{}{quote}",
+            paint(color, &render_node_text(source))
+        )?;
+    } else {
+        for line in source.split_inclusive('\n') {
+            if line.is_empty() {
+                break;
+            }
+            if !opts.no_ranges {
+                write!(
+                    stdout,
+                    "\n{}{}{quote}{}{quote}",
+                    render_node_range(cursor, row_width),
+                    "  ".repeat(indent_level + 1),
+                    &paint(color, &render_node_text(line)),
+                )?;
+            } else {
+                write!(
+                    stdout,
+                    "\n{}{quote}{}{quote}",
+                    "  ".repeat(indent_level + 1),
+                    &paint(color, &render_node_text(line)),
+                )?;
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn render_node_range(cursor: &TreeCursor, row_width: usize) -> String {
+    let node = cursor.node();
+    let is_named = node.is_named();
+    let start = node.start_position();
+    let end = node.end_position();
+    let range_color = if is_named && cursor.field_name().is_none() {
+        Some(AnsiColor::BrightYellow)
+    } else {
+        Some(AnsiColor::White)
+    };
+    paint(
+        range_color,
+        &format!(
+            "{:row_width$}:{:<3} - {:row_width$}:{:<3}",
+            start.row, start.column, end.row, end.column,
+        ),
+    )
+}
+
 fn cst_render_node(
     opts: &ParseFileOptions,
     cursor: &mut TreeCursor,
@@ -439,27 +534,11 @@ fn cst_render_node(
     row_width: usize,
     indent_level: usize,
 ) -> Result<()> {
+    const GRAY: anstyle::Color = Color::Rgb(RgbColor(118, 118, 118));
     let node = cursor.node();
     let is_named = node.is_named();
-    let start = node.start_position();
-    let end = node.end_position();
     if !opts.no_ranges {
-        let range_color = if is_named && cursor.field_name().is_none() {
-            Some(AnsiColor::BrightYellow)
-        } else {
-            Some(AnsiColor::White)
-        };
-        write!(
-            stdout,
-            "{}",
-            paint(
-                range_color,
-                &format!(
-                    " {:row_width$}:{:<3} - {:row_width$}:{:<3}",
-                    start.row, start.column, end.row, end.column,
-                )
-            )
-        )?;
+        write!(stdout, "{}", render_node_range(cursor, row_width))?;
     }
     write!(stdout, "{}", "  ".repeat(indent_level))?;
     if is_named {
@@ -470,56 +549,57 @@ fn cst_render_node(
                 paint(Some(AnsiColor::Blue), &format!("{field_name}: "))
             )?;
         }
-        let kind_color = if node.kind().eq("ERROR") {
-            Some(AnsiColor::Red)
+        let kind_color = if node.is_error() {
+            AnsiColor::Red
+        } else if node.is_extra() || node.parent().is_some_and(|p| p.is_extra()) {
+            AnsiColor::BrightMagenta
         } else {
-            Some(AnsiColor::BrightCyan)
+            AnsiColor::BrightCyan
         };
-        write!(stdout, "{} ", paint(kind_color, node.kind()))?;
+        write!(stdout, "{} ", paint(Some(kind_color), node.kind()))?;
         if node.child_count() == 0 {
-            if let Ok(text) = node.utf8_text(source_code) {
-                write!(stdout, "`{}`", paint(Some(AnsiColor::BrightGreen), text))?;
+            let color = if source_code.is_utf8() {
+                GRAY
             } else {
-                write!(
-                    stdout,
-                    "{}",
-                    paint(
-                        Some(AnsiColor::Red),
-                        &String::from_utf8_lossy(&source_code[node.start_byte()..node.end_byte()])
-                    )
-                )?;
-            }
+                AnsiColor::Red.into()
+            };
+            write_node_text(
+                opts,
+                stdout,
+                cursor,
+                &String::from_utf8_lossy(&source_code[node.start_byte()..node.end_byte()]),
+                Some(color),
+                '`',
+                row_width,
+                indent_level,
+            )?;
         }
-        writeln!(stdout)?;
-    } else if node.is_missing() {
-        writeln!(
-            stdout,
-            "{}",
-            &format!(
-                "{}: \"{}\"",
-                paint(Some(AnsiColor::Red), "MISSING"),
-                node.kind()
-            )
-        )?;
-    } else if let Ok(text) = node.utf8_text(source_code) {
-        writeln!(
-            stdout,
-            "\"{}\"",
-            paint(
-                Some(AnsiColor::Green),
-                &text.replace('\n', "\\n").to_string()
-            )
-        )?;
     } else {
-        writeln!(
-            stdout,
-            "{}",
-            paint(
-                Some(AnsiColor::Red),
-                &String::from_utf8_lossy(&source_code[node.start_byte()..node.end_byte()])
-            )
-        )?;
+        let color = if node.is_missing() || !source_code.is_utf8() {
+            AnsiColor::Red.into()
+        } else {
+            GRAY
+        };
+        if node.is_missing() {
+            write!(
+                stdout,
+                "{}",
+                &format!("{}: \"{}\"", paint(Some(color), "MISSING"), node.kind())
+            )?;
+        } else {
+            write_node_text(
+                opts,
+                stdout,
+                cursor,
+                &String::from_utf8_lossy(&source_code[node.start_byte()..node.end_byte()]),
+                Some(color),
+                '\"',
+                row_width,
+                indent_level,
+            )?;
+        }
     }
+    writeln!(stdout)?;
 
     Ok(())
 }
