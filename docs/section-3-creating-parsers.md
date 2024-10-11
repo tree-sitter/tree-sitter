@@ -390,7 +390,7 @@ You can run your parser on an arbitrary file using `tree-sitter parse`. This wil
           (int_literal [1, 9] - [1, 10]))))))
 ```
 
-You can pass any number of file paths and glob patterns to `tree-sitter parse`, and it will parse all of the given files. The command will exit with a non-zero status code if any parse errors occurred. You can also prevent the syntax trees from being printed using the `--quiet` flag. Additionally, the `--stat` flag prints out aggregated parse success/failure information for all processed files. This makes `tree-sitter parse` usable as a secondary testing strategy: you can check that a large number of files parse without error:
+You can pass any number of file paths and glob patterns to `tree-sitter parse`, and it will parse all of the given files. The command will exit with a non-zero status code if any parse errors occurred. Passing the `--cst` flag will output a pretty-printed CST instead of the normal S-expression representation. You can also prevent the syntax trees from being printed using the `--quiet` flag. Additionally, the `--stat` flag prints out aggregated parse success/failure information for all processed files. This makes `tree-sitter parse` usable as a secondary testing strategy: you can check that a large number of files parse without error:
 
 ```sh
 tree-sitter parse 'examples/**/*.go' --quiet --stat
