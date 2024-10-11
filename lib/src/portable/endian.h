@@ -65,56 +65,92 @@
 
 #elif defined(__WINDOWS__)
 
-#    include <winsock2.h>
-#    ifdef __GNUC__
-#        include <sys/param.h>
+
+#    if defined(_MSC_VER) && !defined(__clang__)
+#        include <stdlib.h>
+#        define B_SWAP_16(x) _byteswap_ushort(x)
+#        define B_SWAP_32(x) _byteswap_ulong(x)
+#        define B_SWAP_64(x) _byteswap_uint64(x)
+#    else
+#        define B_SWAP_16(x) __builtin_bswap16(x)
+#        define B_SWAP_32(x) __builtin_bswap32(x)
+#        define B_SWAP_64(x) __builtin_bswap64(x)
+#    endif
+
+# if defined(__MINGW32__) || defined(HAVE_SYS_PARAM_H)
+#   include <sys/param.h>
+# endif
+
+#    ifndef BIG_ENDIAN
+#        ifdef __BIG_ENDIAN
+#            define BIG_ENDIAN __BIG_ENDIAN
+#        elif defined(__ORDER_BIG_ENDIAN__)
+#            define BIG_ENDIAN __ORDER_BIG_ENDIAN__
+#        else
+#            define BIG_ENDIAN 4321
+#        endif
+#    endif
+
+#    ifndef LITTLE_ENDIAN
+#        ifdef __LITTLE_ENDIAN
+#            define LITTLE_ENDIAN __LITTLE_ENDIAN
+#        elif defined(__ORDER_LITTLE_ENDIAN__)
+#            define LITTLE_ENDIAN __ORDER_LITTLE_ENDIAN__
+#        else
+#            define LITTLE_ENDIAN 1234
+#        endif
+#    endif
+
+#    ifndef BYTE_ORDER
+#        ifdef __BYTE_ORDER
+#            define BYTE_ORDER __BYTE_ORDER
+#        elif defined(__BYTE_ORDER__)
+#            define BYTE_ORDER __BYTE_ORDER__
+#        else
+             /* assume LE on Windows if nothing was defined */
+#            define BYTE_ORDER LITTLE_ENDIAN
+#        endif
 #    endif
 
 #    if BYTE_ORDER == LITTLE_ENDIAN
 
-#        define htobe16(x) htons(x)
+#        define htobe16(x) B_SWAP_16(x)
 #        define htole16(x) (x)
-#        define be16toh(x) ntohs(x)
+#        define be16toh(x) B_SWAP_16(x)
 #        define le16toh(x) (x)
- 
-#        define htobe32(x) htonl(x)
+
+#        define htobe32(x) B_SWAP_32(x)
 #        define htole32(x) (x)
-#        define be32toh(x) ntohl(x)
+#        define be32toh(x) B_SWAP_32(x)
 #        define le32toh(x) (x)
- 
-#        define htobe64(x) htonll(x)
+
+#        define htobe64(x) B_SWAP_64(x)
 #        define htole64(x) (x)
-#        define be64toh(x) ntohll(x)
+#        define be64toh(x) B_SWAP_64(x)
 #        define le64toh(x) (x)
 
 #    elif BYTE_ORDER == BIG_ENDIAN
 
-        /* that would be xbox 360 */
 #        define htobe16(x) (x)
-#        define htole16(x) __builtin_bswap16(x)
+#        define htole16(x) B_SWAP_16(x)
 #        define be16toh(x) (x)
-#        define le16toh(x) __builtin_bswap16(x)
- 
+#        define le16toh(x) B_SWAP_16(x)
+
 #        define htobe32(x) (x)
-#        define htole32(x) __builtin_bswap32(x)
+#        define htole32(x) B_SWAP_32(x)
 #        define be32toh(x) (x)
-#        define le32toh(x) __builtin_bswap32(x)
- 
+#        define le32toh(x) B_SWAP_32(x)
+
 #        define htobe64(x) (x)
-#        define htole64(x) __builtin_bswap64(x)
+#        define htole64(x) B_SWAP_64(x)
 #        define be64toh(x) (x)
-#        define le64toh(x) __builtin_bswap64(x)
+#        define le64toh(x) B_SWAP_64(x)
 
 #    else
 
 #        error byte order not supported
 
 #    endif
-
-#    define __BYTE_ORDER    BYTE_ORDER
-#    define __BIG_ENDIAN    BIG_ENDIAN
-#    define __LITTLE_ENDIAN LITTLE_ENDIAN
-#    define __PDP_ENDIAN    PDP_ENDIAN
 
 #elif defined(__QNXNTO__)
 
