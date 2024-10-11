@@ -1,19 +1,9 @@
-#!/bin/bash
+#!/bin/bash -eu
 
-# set -x
-set -e
+tree_sitter="$ROOT"/target/"$TARGET"/release/tree-sitter
 
-if [ "$BUILD_CMD" == "cross" ]; then
-    if [ -z "$CC" ]; then
-        echo "make.sh: CC is not set" >&2
-        exit 111
-    fi
-    if [ -z "$AR" ]; then
-        echo "make.sh: AR is not set" >&2
-        exit 111
-    fi
-
-    cross.sh make CC=$CC AR=$AR "$@"
+if [[ $BUILD_CMD == cross ]]; then
+  cross.sh make CC="$CC" AR="$AR" "$@"
 else
-    make "$@"
+  exec make "$@"
 fi

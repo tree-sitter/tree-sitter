@@ -1,24 +1,23 @@
-name: 'Cache'
-description: "This action caches fixtures"
+name: Cache
+
+description: This action caches fixtures
+
 outputs:
   cache-hit:
-    description: 'Cache hit'
-    value: ${{ steps.cache_output.outputs.cache-hit }}
+    description: Cache hit
+    value: ${{ steps.cache.outputs.cache-hit }}
+
 runs:
-  using: "composite"
+  using: composite
   steps:
     - uses: actions/cache@v4
-      id: cache_fixtures
+      id: cache
       with:
         path: |
           test/fixtures/grammars
           target/release/tree-sitter-*.wasm
         key: fixtures-${{ join(matrix.*, '_') }}-${{ hashFiles(
-          'cli/src/generate/**',
-          'script/generate-fixtures*',
+          'cli/generate/src/**',
+          'xtask/src/*',
           'test/fixtures/grammars/*/**/src/*.c',
           '.github/actions/cache/action.yml') }}
-
-    - run: echo "cache-hit=${{ steps.cache_fixtures.outputs.cache-hit }}" >> $GITHUB_OUTPUT
-      shell: bash
-      id: cache_output
