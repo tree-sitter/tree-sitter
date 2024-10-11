@@ -1,9 +1,9 @@
 name: CI
+
 on:
   pull_request:
   push:
-    branches:
-      - 'master'
+    branches: [master]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -13,13 +13,22 @@ jobs:
   checks:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - run: rustup toolchain install stable --profile minimal
-    - run: rustup toolchain install nightly --profile minimal
-    - run: rustup component add --toolchain nightly rustfmt
-    - run: rustup component add --toolchain nightly clippy
-    - uses: Swatinem/rust-cache@v2
-    - run: make lint
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up stable Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Set up nightly Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: nightly
+          components: clippy, rustfmt
+
+      - name: Lint files
+        run: make lint
 
   sanitize:
     uses: ./.github/workflows/sanitize.yml
