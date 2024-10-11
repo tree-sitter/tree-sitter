@@ -22,7 +22,7 @@ use tree_sitter_cli::{
     highlight,
     init::{generate_grammar_files, get_root_path, migrate_package_json, JsonConfigOpts},
     logger,
-    parse::{self, ParseFileOptions, ParseOutput},
+    parse::{self, ParseFileOptions, ParseOutput, ParseTheme},
     playground, query, tags,
     test::{self, TestOptions},
     test_highlight, test_tags, util, wasm,
@@ -801,6 +801,16 @@ impl Parse {
             ParseOutput::Normal
         };
 
+        let parse_theme = if color {
+            config
+                .get::<tree_sitter_cli::parse::Config>()
+                .with_context(|| "Failed to parse CST theme")?
+                .parse_theme
+                .into()
+        } else {
+            ParseTheme::blank()
+        };
+
         let encoding = self.encoding.map(|e| match e {
             Encoding::Utf8 => ffi::TSInputEncodingUTF8,
             Encoding::Utf16LE => ffi::TSInputEncodingUTF16LE,
@@ -876,6 +886,7 @@ impl Parse {
                 encoding,
                 open_log: self.open_log,
                 no_ranges: self.no_ranges,
+                parse_theme: &parse_theme,
             };
 
             let parse_result = parse::parse_file_at_path(&mut parser, &opts)?;

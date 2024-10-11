@@ -9,6 +9,7 @@ use std::{
 use anstyle::{AnsiColor, Color, RgbColor};
 use anyhow::{anyhow, Context, Result};
 use bstr::ByteSlice;
+use serde::{Deserialize, Serialize};
 use tree_sitter::{ffi, InputEdit, Language, LogType, Parser, Point, Range, Tree, TreeCursor};
 
 use super::util;
@@ -41,6 +42,98 @@ impl fmt::Display for Stats {
     }
 }
 
+#[derive(Debug, Copy, Clone)]
+pub struct ParseTheme {
+    pub node_kind: Option<Color>,
+    pub node_text: Option<Color>,
+    pub field: Option<Color>,
+    pub token: Option<Color>,
+    pub row_color: Option<Color>,
+    pub row_color_named: Option<Color>,
+    pub extra: Option<Color>,
+    pub error: Option<Color>,
+}
+
+impl ParseTheme {
+    #[must_use]
+    pub const fn blank() -> Self {
+        Self {
+            node_kind: None,
+            node_text: None,
+            field: None,
+            token: None,
+            row_color: None,
+            row_color_named: None,
+            extra: None,
+            error: None,
+        }
+    }
+}
+
+impl Default for ParseTheme {
+    fn default() -> Self {
+        const GRAY: Color = Color::Rgb(RgbColor(118, 118, 118));
+        Self {
+            node_kind: Some(AnsiColor::BrightCyan.into()),
+            node_text: Some(GRAY),
+            field: Some(AnsiColor::Blue.into()),
+            token: Some(GRAY),
+            row_color: Some(AnsiColor::White.into()),
+            row_color_named: Some(AnsiColor::BrightYellow.into()),
+            extra: Some(AnsiColor::BrightMagenta.into()),
+            error: Some(AnsiColor::Red.into()),
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone, Deserialize, Serialize)]
+pub struct Rgb(pub u8, pub u8, pub u8);
+
+impl From<Rgb> for RgbColor {
+    fn from(val: Rgb) -> Self {
+        Self(val.0, val.1, val.2)
+    }
+}
+
+#[derive(Debug, Copy, Clone, Default, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub struct Config {
+    pub parse_theme: ParseThemeRaw,
+}
+
+#[derive(Debug, Copy, Clone, Default, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub struct ParseThemeRaw {
+    pub node_kind: Option<Rgb>,
+    pub node_text: Option<Rgb>,
+    pub field: Option<Rgb>,
+    pub token: Option<Rgb>,
+    pub row_color: Option<Rgb>,
+    pub row_color_named: Option<Rgb>,
+    pub extra: Option<Rgb>,
+    pub error: Option<Rgb>,
+}
+
+impl From<ParseThemeRaw> for ParseTheme {
+    fn from(value: ParseThemeRaw) -> Self {
+        let resolve_val = |val: Option<Rgb>, default: Option<Color>| -> Option<Color> {
+            val.map_or_else(|| default, |v| Some(Into::<RgbColor>::into(v).into()))
+        };
+        let default = Self::default();
+
+        Self {
+            node_kind: resolve_val(value.node_kind, default.node_kind),
+            node_text: resolve_val(value.node_text, default.node_text),
+            field: resolve_val(value.field, default.field),
+            token: resolve_val(value.token, default.token),
+            row_color: resolve_val(value.row_color, default.row_color),
+            row_color_named: resolve_val(value.row_color_named, default.row_color_named),
+            extra: resolve_val(value.extra, default.extra),
+            error: resolve_val(value.error, default.error),
+        }
+    }
+}
+
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub enum ParseOutput {
     Normal,
@@ -64,6 +157,7 @@ pub struct ParseFileOptions<'a> {
     pub encoding: Option<u32>,
     pub open_log: bool,
     pub no_ranges: bool,
+    pub parse_theme: &'a ParseTheme,
 }
 
 #[derive(Copy, Clone)]
@@ -489,7 +583,7 @@ fn write_node_text(
                 write!(
                     stdout,
                     "\n{}{}{quote}{}{quote}",
-                    render_node_range(cursor, row_width),
+                    render_node_range(opts, cursor, row_width),
                     "  ".repeat(indent_level + 1),
                     &paint(color, &render_node_text(line)),
                 )?;
@@ -507,15 +601,15 @@ fn write_node_text(
     Ok(())
 }
 
-fn render_node_range(cursor: &TreeCursor, row_width: usize) -> String {
+fn render_node_range(opts: &ParseFileOptions, cursor: &TreeCursor, row_width: usize) -> String {
     let node = cursor.node();
     let is_named = node.is_named();
     let start = node.start_position();
     let end = node.end_position();
     let range_color = if is_named && cursor.field_name().is_none() {
-        Some(AnsiColor::BrightYellow)
+        opts.parse_theme.row_color_named
     } else {
-        Some(AnsiColor::White)
+        opts.parse_theme.row_color
     };
     paint(
         range_color,
@@ -534,11 +628,10 @@ fn cst_render_node(
     row_width: usize,
     indent_level: usize,
 ) -> Result<()> {
-    const GRAY: anstyle::Color = Color::Rgb(RgbColor(118, 118, 118));
     let node = cursor.node();
     let is_named = node.is_named();
     if !opts.no_ranges {
-        write!(stdout, "{}", render_node_range(cursor, row_width))?;
+        write!(stdout, "{}", render_node_range(opts, cursor, row_width))?;
     }
     write!(stdout, "{}", "  ".repeat(indent_level))?;
     if is_named {
@@ -546,29 +639,29 @@ fn cst_render_node(
             write!(
                 stdout,
                 "{}",
-                paint(Some(AnsiColor::Blue), &format!("{field_name}: "))
+                paint(opts.parse_theme.field, &format!("{field_name}: "))
             )?;
         }
         let kind_color = if node.is_error() {
-            AnsiColor::Red
+            opts.parse_theme.error
         } else if node.is_extra() || node.parent().is_some_and(|p| p.is_extra()) {
-            AnsiColor::BrightMagenta
+            opts.parse_theme.extra
         } else {
-            AnsiColor::BrightCyan
+            opts.parse_theme.node_kind
         };
-        write!(stdout, "{} ", paint(Some(kind_color), node.kind()))?;
+        write!(stdout, "{} ", paint(kind_color, node.kind()))?;
         if node.child_count() == 0 {
             let color = if source_code.is_utf8() {
-                GRAY
+                opts.parse_theme.node_text
             } else {
-                AnsiColor::Red.into()
+                opts.parse_theme.error
             };
             write_node_text(
                 opts,
                 stdout,
                 cursor,
                 &String::from_utf8_lossy(&source_code[node.start_byte()..node.end_byte()]),
-                Some(color),
+                color,
                 '`',
                 row_width,
                 indent_level,
@@ -576,15 +669,15 @@ fn cst_render_node(
         }
     } else {
         let color = if node.is_missing() || !source_code.is_utf8() {
-            AnsiColor::Red.into()
+            opts.parse_theme.error
         } else {
-            GRAY
+            opts.parse_theme.node_text
         };
         if node.is_missing() {
             write!(
                 stdout,
                 "{}",
-                &format!("{}: \"{}\"", paint(Some(color), "MISSING"), node.kind())
+                &format!("{}: \"{}\"", paint(color, "MISSING"), node.kind())
             )?;
         } else {
             write_node_text(
@@ -592,7 +685,7 @@ fn cst_render_node(
                 stdout,
                 cursor,
                 &String::from_utf8_lossy(&source_code[node.start_byte()..node.end_byte()]),
-                Some(color),
+                color,
                 '\"',
                 row_width,
                 indent_level,
