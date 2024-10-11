@@ -350,7 +350,7 @@ static bool ts_parser__call_main_lex_fn(TSParser *self, TSLexMode lex_mode) {
   }
 }
 
-static bool ts_parser__call_keyword_lex_fn(TSParser *self, TSLexMode lex_mode) {
+static bool ts_parser__call_keyword_lex_fn(TSParser *self) {
   if (ts_language_is_wasm(self->language)) {
     return ts_wasm_store_call_lex_keyword(self->wasm_store, 0);
   } else {
@@ -651,7 +651,7 @@ static Subtree ts_parser__lex(
       ts_lexer_reset(&self->lexer, self->lexer.token_start_position);
       ts_lexer_start(&self->lexer);
 
-      is_keyword = ts_parser__call_keyword_lex_fn(self, lex_mode);
+      is_keyword = ts_parser__call_keyword_lex_fn(self);
 
       if (
         is_keyword &&
