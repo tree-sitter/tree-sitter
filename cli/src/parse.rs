@@ -567,9 +567,7 @@ fn write_node_text(
     text_info: (char, usize, usize),
 ) -> Result<()> {
     let (quote, row_width, indent_level) = text_info;
-    if (!source.is_empty() && source.find('\n') == Some(source.len() - 1))
-        || source.find('\n').is_none()
-    {
+    if source.ends_with('\n') || source.find('\n').is_none() {
         write!(
             stdout,
             "{quote}{}{quote}",
