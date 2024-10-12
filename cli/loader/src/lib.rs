@@ -21,6 +21,7 @@ use anyhow::Error;
 use anyhow::{anyhow, Context, Result};
 use fs4::fs_std::FileExt;
 use indoc::indoc;
+use lazy_static::lazy_static;
 use libloading::{Library, Symbol};
 use once_cell::unsync::OnceCell;
 use path_slash::PathBufExt as _;
@@ -37,6 +38,10 @@ use tree_sitter_highlight::HighlightConfiguration;
 #[cfg(feature = "tree-sitter-tags")]
 use tree_sitter_tags::{Error as TagsError, TagsConfiguration};
 use url::Url;
+
+lazy_static! {
+    static ref GRAMMAR_NAME_REGEX: Regex = Regex::new(r#""name":\s*"(.*?)""#).unwrap();
+}
 
 pub const EMSCRIPTEN_TAG: &str = concat!("docker.io/emscripten/emsdk:", env!("EMSCRIPTEN_VERSION"));
 
@@ -143,11 +148,7 @@ pub struct TreeSitterJSON {
 impl TreeSitterJSON {
     #[must_use]
     pub fn from_file(path: &Path) -> Option<Self> {
-        if let Ok(file) = fs::File::open(path.join("tree-sitter.json")) {
-            Some(serde_json::from_reader(file).ok()?)
-        } else {
-            None
-        }
+        serde_json::from_str(&fs::read_to_string(path.join("tree-sitter.json")).ok()?).ok()
     }
 
     #[must_use]
@@ -194,7 +195,6 @@ pub struct Metadata {
     pub authors: Option<Vec<Author>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub links: Option<Links>,
-    // #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(skip)]
     pub namespace: Option<String>,
 }
@@ -629,27 +629,7 @@ impl Loader {
 
     pub fn load_language_at_path(&self, mut config: CompileConfig) -> Result<Language> {
         let grammar_path = config.src_path.join("grammar.json");
-
-        #[derive(Deserialize)]
-        struct GrammarJSON {
-            name: String,
-        }
-        let mut grammar_file = fs::File::open(&grammar_path).with_context(|| {
-            format!(
-                "Failed to read grammar.json file at the following path:\n{:?}",
-                &grammar_path
-            )
-        })?;
-        let grammar_json: GrammarJSON = serde_json::from_reader(BufReader::new(&mut grammar_file))
-            .with_context(|| {
-                format!(
-                    "Failed to parse grammar.json file at the following path:\n{:?}",
-                    &grammar_path
-                )
-            })?;
-
-        config.name = grammar_json.name;
-
+        config.name = Self::grammar_json_name(&grammar_path)?;
         self.load_language_at_path_with_name(config)
     }
 
@@ -1126,11 +1106,6 @@ impl Loader {
         parser_path: &Path,
         set_current_path_config: bool,
     ) -> Result<&[LanguageConfiguration]> {
-        #[derive(Deserialize)]
-        struct GrammarJSON {
-            name: String,
-        }
-
         let initial_language_configuration_count = self.language_configurations.len();
 
         if let Some(config) = TreeSitterJSON::from_file(parser_path) {
@@ -1140,13 +1115,6 @@ impl Loader {
                 // the tree-sitter.json, but defaults to the directory containing the
                 // tree-sitter.json.
                 let language_path = parser_path.join(grammar.path);
-
-                let grammar_path = language_path.join("src").join("grammar.json");
-                let mut grammar_file =
-                    fs::File::open(grammar_path).with_context(|| "Failed to read grammar.json")?;
-                let grammar_json: GrammarJSON =
-                    serde_json::from_reader(BufReader::new(&mut grammar_file))
-                        .with_context(|| "Failed to parse grammar.json")?;
 
                 // Determine if a previous language configuration in this package.json file
                 // already uses the same language.
@@ -1185,7 +1153,7 @@ impl Loader {
 
                 let configuration = LanguageConfiguration {
                     root_path: parser_path.to_path_buf(),
-                    language_name: grammar_json.name,
+                    language_name: grammar.name,
                     scope: Some(grammar.scope),
                     language_id,
                     file_types: grammar.file_types.unwrap_or_default(),
@@ -1233,18 +1201,17 @@ impl Loader {
             }
         }
 
+        // If we didn't find any language configurations in the tree-sitter.json file,
+        // but there is a grammar.json file, then use the grammar file to form a simple
+        // language configuration.
         if self.language_configurations.len() == initial_language_configuration_count
             && parser_path.join("src").join("grammar.json").exists()
         {
             let grammar_path = parser_path.join("src").join("grammar.json");
-            let mut grammar_file =
-                fs::File::open(grammar_path).with_context(|| "Failed to read grammar.json")?;
-            let grammar_json: GrammarJSON =
-                serde_json::from_reader(BufReader::new(&mut grammar_file))
-                    .with_context(|| "Failed to parse grammar.json")?;
+            let language_name = Self::grammar_json_name(&grammar_path)?;
             let configuration = LanguageConfiguration {
                 root_path: parser_path.to_owned(),
-                language_name: grammar_json.name,
+                language_name,
                 language_id: self.languages_by_id.len(),
                 file_types: Vec::new(),
                 scope: None,
@@ -1278,6 +1245,36 @@ impl Loader {
 
     fn regex(pattern: Option<&str>) -> Option<Regex> {
         pattern.and_then(|r| RegexBuilder::new(r).multi_line(true).build().ok())
+    }
+
+    fn grammar_json_name(grammar_path: &Path) -> Result<String> {
+        let file = fs::File::open(grammar_path).with_context(|| {
+            format!("Failed to open grammar.json at {}", grammar_path.display())
+        })?;
+
+        let first_three_lines = BufReader::new(file)
+            .lines()
+            .take(3)
+            .collect::<Result<Vec<_>, _>>()
+            .with_context(|| {
+                format!(
+                    "Failed to read the first three lines of grammar.json at {}",
+                    grammar_path.display()
+                )
+            })?
+            .join("\n");
+
+        let name = GRAMMAR_NAME_REGEX
+            .captures(&first_three_lines)
+            .and_then(|c| c.get(1))
+            .ok_or_else(|| {
+                anyhow!(
+                    "Failed to parse the language name from grammar.json at {}",
+                    grammar_path.display()
+                )
+            })?;
+
+        Ok(name.as_str().to_string())
     }
 
     pub fn select_language(

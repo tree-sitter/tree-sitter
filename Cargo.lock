@@ -1654,6 +1654,7 @@ dependencies = [
  "dirs",
  "fs4",
  "indoc",
+ "lazy_static",
  "libloading",
  "once_cell",
  "path-slash",
