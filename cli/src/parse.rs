@@ -654,7 +654,7 @@ fn cst_render_node(
                 paint(opts.parse_theme.field, &format!("{field_name}: "))
             )?;
         }
-        let kind_color = if node.is_error() {
+        let kind_color = if node.has_error() {
             write!(stdout, "{}", paint(opts.parse_theme.error, "•"))?;
             opts.parse_theme.error
         } else if node.is_extra() || node.parent().is_some_and(|p| p.is_extra()) {
