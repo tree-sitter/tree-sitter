@@ -85,6 +85,7 @@ The Tree-sitter `parse` command will output a pretty-printed CST when the `--cst
     "missing": [153, 75, 0]
     // The color of newline characters
     "line-feed": [150, 150, 150],
+    // The color of backtick characters
     "backtick": [0, 200, 0]
   }
 }
