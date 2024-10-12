@@ -41,16 +41,26 @@ impl fmt::Display for Stats {
     }
 }
 
+/// Sets the color used in the output of `tree-sitter parse --cst`
 #[derive(Debug, Copy, Clone)]
 pub struct ParseTheme {
+    /// The color of node kinds
     pub node_kind: Option<Color>,
+    /// The color of text associated with a node
     pub node_text: Option<Color>,
+    /// The color of node fields
     pub field: Option<Color>,
+    /// The color of token
     pub token: Option<Color>,
+    /// The color of the range information for unnamed nodes
     pub row_color: Option<Color>,
+    /// The color of the range information for named nodes
     pub row_color_named: Option<Color>,
+    /// The color of extra nodes
     pub extra: Option<Color>,
+    /// The color of ERROR nodes
     pub error: Option<Color>,
+    /// The color of MISSING nodes and their associated text
     pub warning: Option<Color>,
 }
 

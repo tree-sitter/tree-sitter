@@ -62,17 +62,26 @@ In your config file, the `"theme"` value is an object whose keys are dot-separat
 
 The Tree-sitter `parse` command will output a pretty-printed CST when the `--cst` option is used. You can control which colors are used for various parts of the tree in your configuration file. Note that omitting a field will cause the relevant text to be rendered with its default color.
 
-```json
+```json5
 {
   "parse-theme": {
+    // The color of node kinds
     "node_kind": [20, 20, 20],
+    // The color of text associated with a node
     "node_text": [255, 255, 255],
+    // The color of node fields
     "field": [42, 42, 42],
+    // The color of token
     "token": [200, 200, 0],
+    // The color of the range information for unnamed nodes
     "row_color": [255, 255, 255],
+    // The color of the range information for named nodes
     "row_color_named": [255, 130, 0],
+    // The color of extra nodes
     "extra": [0, 0, 0],
+    // The color of ERROR nodes
     "error": [255, 0, 0],
+    // The color of MISSING nodes and their associated text
     "warning": [153, 75, 0]
   }
 }
