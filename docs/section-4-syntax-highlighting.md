@@ -58,6 +58,39 @@ The Tree-sitter highlighting system works by annotating ranges of source code wi
 
 In your config file, the `"theme"` value is an object whose keys are dot-separated highlight names like `function.builtin` or `keyword`, and whose values are JSON expressions that represent text styling parameters.
 
+### Parse Theme
+
+The Tree-sitter `parse` command will output a pretty-printed CST when the `--cst` option is used. You can control which colors are used for various parts of the tree in your configuration file. Note that omitting a field will cause the relevant text to be rendered with its default color.
+
+```json5
+{
+  "parse-theme": {
+    // The color of node kinds
+    "node-kind": [20, 20, 20],
+    // The color of text associated with a node
+    "node-text": [255, 255, 255],
+    // The color of node fields
+    "field": [42, 42, 42],
+    // The color of the range information for unnamed nodes
+    "row-color": [255, 255, 255],
+    // The color of the range information for named nodes
+    "row-color-named": [255, 130, 0],
+    // The color of extra nodes
+    "extra": [255, 0, 255],
+    // The color of ERROR nodes
+    "error": [255, 0, 0],
+    // The color of MISSING nodes and their associated text
+    "missing": [153, 75, 0],
+    // The color of newline characters
+    "line-feed": [150, 150, 150],
+    // The color of backtick characters
+    "backtick": [0, 200, 0],
+    // The color of literals
+    "literal": [0, 0, 200],
+  }
+}
+```
+
 #### Highlight Names
 
 A theme can contain multiple keys that share a common subsequence. Examples:

@@ -1,16 +1,18 @@
 use std::{
     fmt, fs,
-    io::{self, Write},
+    io::{self, StdoutLock, Write},
     path::Path,
     sync::atomic::AtomicUsize,
     time::{Duration, Instant},
 };
 
+use anstyle::{AnsiColor, Color, RgbColor};
 use anyhow::{anyhow, Context, Result};
-use tree_sitter::{ffi, InputEdit, Language, LogType, Parser, Point, Tree};
+use serde::{Deserialize, Serialize};
+use tree_sitter::{ffi, InputEdit, Language, LogType, Parser, Point, Range, Tree, TreeCursor};
 
 use super::util;
-use crate::fuzz::edits::Edit;
+use crate::{fuzz::edits::Edit, test::paint};
 
 #[derive(Debug, Default)]
 pub struct Stats {
@@ -39,11 +41,136 @@ impl fmt::Display for Stats {
     }
 }
 
+/// Sets the color used in the output of `tree-sitter parse --cst`
+#[derive(Debug, Copy, Clone)]
+pub struct ParseTheme {
+    /// The color of node kinds
+    pub node_kind: Option<Color>,
+    /// The color of text associated with a node
+    pub node_text: Option<Color>,
+    /// The color of node fields
+    pub field: Option<Color>,
+    /// The color of the range information for unnamed nodes
+    pub row_color: Option<Color>,
+    /// The color of the range information for named nodes
+    pub row_color_named: Option<Color>,
+    /// The color of extra nodes
+    pub extra: Option<Color>,
+    /// The color of ERROR nodes
+    pub error: Option<Color>,
+    /// The color of MISSING nodes and their associated text
+    pub missing: Option<Color>,
+    /// The color of newline characters
+    pub line_feed: Option<Color>,
+    /// The color of backticks
+    pub backtick: Option<Color>,
+    /// The color of literals
+    pub literal: Option<Color>,
+}
+
+impl ParseTheme {
+    const GRAY: Color = Color::Rgb(RgbColor(118, 118, 118));
+    const LIGHT_GRAY: Color = Color::Rgb(RgbColor(166, 172, 181));
+    const ORANGE: Color = Color::Rgb(RgbColor(255, 153, 51));
+    const YELLOW: Color = Color::Rgb(RgbColor(219, 219, 173));
+    const GREEN: Color = Color::Rgb(RgbColor(101, 192, 67));
+
+    #[must_use]
+    pub const fn empty() -> Self {
+        Self {
+            node_kind: None,
+            node_text: None,
+            field: None,
+            row_color: None,
+            row_color_named: None,
+            extra: None,
+            error: None,
+            missing: None,
+            line_feed: None,
+            backtick: None,
+            literal: None,
+        }
+    }
+}
+
+impl Default for ParseTheme {
+    fn default() -> Self {
+        Self {
+            node_kind: Some(AnsiColor::BrightCyan.into()),
+            node_text: Some(Self::GRAY),
+            field: Some(AnsiColor::Blue.into()),
+            row_color: Some(AnsiColor::White.into()),
+            row_color_named: Some(AnsiColor::BrightCyan.into()),
+            extra: Some(AnsiColor::BrightMagenta.into()),
+            error: Some(AnsiColor::Red.into()),
+            missing: Some(Self::ORANGE),
+            line_feed: Some(Self::LIGHT_GRAY),
+            backtick: Some(Self::GREEN),
+            literal: Some(Self::YELLOW),
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone, Deserialize, Serialize)]
+pub struct Rgb(pub u8, pub u8, pub u8);
+
+impl From<Rgb> for RgbColor {
+    fn from(val: Rgb) -> Self {
+        Self(val.0, val.1, val.2)
+    }
+}
+
+#[derive(Debug, Copy, Clone, Default, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub struct Config {
+    pub parse_theme: Option<ParseThemeRaw>,
+}
+
+#[derive(Debug, Copy, Clone, Default, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub struct ParseThemeRaw {
+    pub node_kind: Option<Rgb>,
+    pub node_text: Option<Rgb>,
+    pub field: Option<Rgb>,
+    pub row_color: Option<Rgb>,
+    pub row_color_named: Option<Rgb>,
+    pub extra: Option<Rgb>,
+    pub error: Option<Rgb>,
+    pub missing: Option<Rgb>,
+    pub line_feed: Option<Rgb>,
+    pub backtick: Option<Rgb>,
+    pub literal: Option<Rgb>,
+}
+
+impl From<ParseThemeRaw> for ParseTheme {
+    fn from(value: ParseThemeRaw) -> Self {
+        let val_or_default = |val: Option<Rgb>, default: Option<Color>| -> Option<Color> {
+            val.map_or(default, |v| Some(Color::Rgb(v.into())))
+        };
+        let default = Self::default();
+
+        Self {
+            node_kind: val_or_default(value.node_kind, default.node_kind),
+            node_text: val_or_default(value.node_text, default.node_text),
+            field: val_or_default(value.field, default.field),
+            row_color: val_or_default(value.row_color, default.row_color),
+            row_color_named: val_or_default(value.row_color_named, default.row_color_named),
+            extra: val_or_default(value.extra, default.extra),
+            error: val_or_default(value.error, default.error),
+            missing: val_or_default(value.missing, default.missing),
+            line_feed: val_or_default(value.line_feed, default.line_feed),
+            backtick: val_or_default(value.backtick, default.backtick),
+            literal: val_or_default(value.literal, default.literal),
+        }
+    }
+}
+
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub enum ParseOutput {
     Normal,
     Quiet,
     Xml,
+    Cst,
     Dot,
 }
 
@@ -61,6 +188,7 @@ pub struct ParseFileOptions<'a> {
     pub encoding: Option<u32>,
     pub open_log: bool,
     pub no_ranges: bool,
+    pub parse_theme: &'a ParseTheme,
 }
 
 #[derive(Copy, Clone)]
@@ -219,6 +347,49 @@ pub fn parse_file_at_path(parser: &mut Parser, opts: &ParseFileOptions) -> Resul
             println!();
         }
 
+        if opts.output == ParseOutput::Cst {
+            let lossy_source_code = String::from_utf8_lossy(&source_code);
+            let total_width = lossy_source_code
+                .lines()
+                .enumerate()
+                .map(|(row, col)| {
+                    (row as f64).log10() as usize + (col.len() as f64).log10() as usize + 1
+                })
+                .max()
+                .unwrap_or(1);
+            let mut indent_level = 1;
+            let mut did_visit_children = false;
+            loop {
+                if did_visit_children {
+                    if cursor.goto_next_sibling() {
+                        did_visit_children = false;
+                    } else if cursor.goto_parent() {
+                        did_visit_children = true;
+                        indent_level -= 1;
+                    } else {
+                        break;
+                    }
+                } else {
+                    cst_render_node(
+                        opts,
+                        &mut cursor,
+                        &source_code,
+                        &mut stdout,
+                        total_width,
+                        indent_level,
+                    )?;
+                    if cursor.goto_first_child() {
+                        did_visit_children = false;
+                        indent_level += 1;
+                    } else {
+                        did_visit_children = true;
+                    }
+                }
+            }
+            cursor.reset(tree.root_node());
+            println!();
+        }
+
         if opts.output == ParseOutput::Xml {
             let mut needs_newline = false;
             let mut indent_level = 0;
@@ -294,11 +465,6 @@ pub fn parse_file_at_path(parser: &mut Parser, opts: &ParseFileOptions) -> Resul
                         let end = node.end_byte();
                         let value =
                             std::str::from_utf8(&source_code[start..end]).expect("has a string");
-                        // if !is_named {
-                        //     for _ in 0..indent_level {
-                        //         stdout.write_all(b"  ")?;
-                        //     }
-                        // }
                         if !is_named && needs_newline {
                             stdout.write_all(b"\n")?;
                             for _ in 0..indent_level {
@@ -391,6 +557,212 @@ pub fn parse_file_at_path(parser: &mut Parser, opts: &ParseFileOptions) -> Resul
         bytes: source_code.len(),
         duration: None,
     })
+}
+
+const fn escape_invisible(c: char) -> Option<&'static str> {
+    Some(match c {
+        '\n' => "\\n",
+        '\r' => "\\r",
+        '\t' => "\\t",
+        '\0' => "\\0",
+        '\\' => "\\\\",
+        '\x0b' => "\\v",
+        '\x0c' => "\\f",
+        _ => return None,
+    })
+}
+
+fn render_node_text(source: &str) -> String {
+    source
+        .chars()
+        .fold(String::with_capacity(source.len()), |mut acc, c| {
+            if let Some(esc) = escape_invisible(c) {
+                acc.push_str(esc);
+            } else {
+                acc.push(c);
+            }
+            acc
+        })
+}
+
+fn write_node_text(
+    opts: &ParseFileOptions,
+    stdout: &mut StdoutLock<'static>,
+    cursor: &TreeCursor,
+    is_named: bool,
+    source: &str,
+    color: Option<impl Into<Color> + Copy>,
+    text_info: (usize, usize),
+) -> Result<()> {
+    let (total_width, indent_level) = text_info;
+    let (quote, quote_color) = if is_named {
+        ('`', opts.parse_theme.backtick)
+    } else {
+        ('\"', color.map(|c| c.into()))
+    };
+
+    if !is_named {
+        write!(
+            stdout,
+            "{}{}{}",
+            paint(quote_color, &String::from(quote)),
+            paint(color, &render_node_text(source)),
+            paint(quote_color, &String::from(quote)),
+        )?;
+    } else {
+        for (i, line) in source.split_inclusive('\n').enumerate() {
+            if line.is_empty() {
+                break;
+            }
+            let mut node_range = cursor.node().range();
+            // For each line of text, adjust the row by shifting it down `i` rows,
+            // and adjust the column by setting it to the length of *this* line.
+            node_range.start_point.row += i;
+            node_range.end_point.row = node_range.start_point.row;
+            node_range.end_point.column = line.len();
+            let formatted_line = render_line_feed(line, opts);
+            if !opts.no_ranges {
+                write!(
+                    stdout,
+                    "\n{}{}{}{}{}",
+                    render_node_range(opts, cursor, is_named, true, total_width, node_range),
+                    "  ".repeat(indent_level + 1),
+                    paint(quote_color, &String::from(quote)),
+                    &paint(color, &render_node_text(&formatted_line)),
+                    paint(quote_color, &String::from(quote)),
+                )?;
+            } else {
+                write!(
+                    stdout,
+                    "\n{}{}{}{}",
+                    "  ".repeat(indent_level + 1),
+                    paint(quote_color, &String::from(quote)),
+                    &paint(color, &render_node_text(&formatted_line)),
+                    paint(quote_color, &String::from(quote)),
+                )?;
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn render_line_feed(source: &str, opts: &ParseFileOptions) -> String {
+    if cfg!(windows) {
+        source.replace("\r\n", &paint(opts.parse_theme.line_feed, "\r\n"))
+    } else {
+        source.replace('\n', &paint(opts.parse_theme.line_feed, "\n"))
+    }
+}
+
+fn render_node_range(
+    opts: &ParseFileOptions,
+    cursor: &TreeCursor,
+    is_named: bool,
+    is_multiline: bool,
+    total_width: usize,
+    range: Range,
+) -> String {
+    let has_field_name = cursor.field_name().is_some();
+    let range_color = if is_named && !is_multiline && !has_field_name {
+        opts.parse_theme.row_color_named
+    } else {
+        opts.parse_theme.row_color
+    };
+
+    let remaining_width_start = (total_width
+        - (range.start_point.row as f64).log10() as usize
+        - (range.start_point.column as f64).log10() as usize)
+        .max(1);
+    let remaining_width_end = (total_width
+        - (range.end_point.row as f64).log10() as usize
+        - (range.end_point.column as f64).log10() as usize)
+        .max(1);
+    paint(
+        range_color,
+        &format!(
+            "{}:{}{:remaining_width_start$}- {}:{}{:remaining_width_end$}",
+            range.start_point.row,
+            range.start_point.column,
+            ' ',
+            range.end_point.row,
+            range.end_point.column,
+            ' ',
+        ),
+    )
+}
+
+fn cst_render_node(
+    opts: &ParseFileOptions,
+    cursor: &mut TreeCursor,
+    source_code: &[u8],
+    stdout: &mut StdoutLock<'static>,
+    total_width: usize,
+    indent_level: usize,
+) -> Result<()> {
+    let node = cursor.node();
+    let is_named = node.is_named();
+    if !opts.no_ranges {
+        write!(
+            stdout,
+            "{}",
+            render_node_range(opts, cursor, is_named, false, total_width, node.range())
+        )?;
+    }
+    write!(stdout, "{}", "  ".repeat(indent_level))?;
+    if is_named {
+        if let Some(field_name) = cursor.field_name() {
+            write!(
+                stdout,
+                "{}",
+                paint(opts.parse_theme.field, &format!("{field_name}: "))
+            )?;
+        }
+
+        let kind_color = if node.has_error() {
+            write!(stdout, "{}", paint(opts.parse_theme.error, "•"))?;
+            opts.parse_theme.error
+        } else if node.is_extra() || node.parent().is_some_and(|p| p.is_extra()) {
+            opts.parse_theme.extra
+        } else {
+            opts.parse_theme.node_kind
+        };
+        write!(stdout, "{} ", paint(kind_color, node.kind()))?;
+
+        if node.child_count() == 0 {
+            // Node text from a pattern or external scanner
+            write_node_text(
+                opts,
+                stdout,
+                cursor,
+                is_named,
+                &String::from_utf8_lossy(&source_code[node.start_byte()..node.end_byte()]),
+                opts.parse_theme.node_text,
+                (total_width, indent_level),
+            )?;
+        }
+    } else if node.is_missing() {
+        write!(stdout, "{}: ", paint(opts.parse_theme.missing, "MISSING"))?;
+        write!(
+            stdout,
+            "\"{}\"",
+            paint(opts.parse_theme.missing, node.kind())
+        )?;
+    } else {
+        // Terminal literals, like "fn"
+        write_node_text(
+            opts,
+            stdout,
+            cursor,
+            is_named,
+            node.kind(),
+            opts.parse_theme.literal,
+            (total_width, indent_level),
+        )?;
+    }
+    writeln!(stdout)?;
+
+    Ok(())
 }
 
 pub fn perform_edit(tree: &mut Tree, input: &mut Vec<u8>, edit: &Edit) -> Result<InputEdit> {

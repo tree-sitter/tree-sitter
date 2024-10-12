@@ -22,7 +22,7 @@ use tree_sitter_cli::{
     highlight,
     init::{generate_grammar_files, get_root_path, migrate_package_json, JsonConfigOpts},
     logger,
-    parse::{self, ParseFileOptions, ParseOutput},
+    parse::{self, ParseFileOptions, ParseOutput, ParseTheme},
     playground, query, tags,
     test::{self, TestOptions},
     test_highlight, test_tags, util, wasm,
@@ -183,6 +183,12 @@ struct Parse {
         help = "Output the parse data in XML format"
     )]
     pub output_xml: bool,
+    #[arg(
+        long = "cst",
+        short = 'c',
+        help = "Output the parse data in a pretty-printed CST format"
+    )]
+    pub output_cst: bool,
     #[arg(long, short, help = "Show parsing statistic")]
     pub stat: bool,
     #[arg(long, help = "Interrupt the parsing process by timeout (µs)")]
@@ -787,10 +793,23 @@ impl Parse {
             ParseOutput::Dot
         } else if self.output_xml {
             ParseOutput::Xml
+        } else if self.output_cst {
+            ParseOutput::Cst
         } else if self.quiet {
             ParseOutput::Quiet
         } else {
             ParseOutput::Normal
+        };
+
+        let parse_theme = if color {
+            config
+                .get::<parse::Config>()
+                .with_context(|| "Failed to parse CST theme")?
+                .parse_theme
+                .unwrap_or_default()
+                .into()
+        } else {
+            ParseTheme::empty()
         };
 
         let encoding = self.encoding.map(|e| match e {
@@ -868,6 +887,7 @@ impl Parse {
                 encoding,
                 open_log: self.open_log,
                 no_ranges: self.no_ranges,
+                parse_theme: &parse_theme,
             };
 
             let parse_result = parse::parse_file_at_path(&mut parser, &opts)?;
