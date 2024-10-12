@@ -50,8 +50,6 @@ pub struct ParseTheme {
     pub node_text: Option<Color>,
     /// The color of node fields
     pub field: Option<Color>,
-    /// The color of token
-    pub token: Option<Color>,
     /// The color of the range information for unnamed nodes
     pub row_color: Option<Color>,
     /// The color of the range information for named nodes
@@ -61,7 +59,11 @@ pub struct ParseTheme {
     /// The color of ERROR nodes
     pub error: Option<Color>,
     /// The color of MISSING nodes and their associated text
-    pub warning: Option<Color>,
+    pub missing: Option<Color>,
+    /// The color of newline characters
+    pub line_feed: Option<Color>,
+    /// The color of backticks
+    pub backtick: Option<Color>,
 }
 
 impl ParseTheme {
@@ -71,12 +73,13 @@ impl ParseTheme {
             node_kind: None,
             node_text: None,
             field: None,
-            token: None,
             row_color: None,
             row_color_named: None,
             extra: None,
             error: None,
-            warning: None,
+            missing: None,
+            line_feed: None,
+            backtick: None,
         }
     }
 }
@@ -84,17 +87,19 @@ impl ParseTheme {
 impl Default for ParseTheme {
     fn default() -> Self {
         const GRAY: Color = Color::Rgb(RgbColor(118, 118, 118));
+        const LIGHT_GRAY: Color = Color::Rgb(RgbColor(166, 172, 181));
         const ORANGE: Color = Color::Rgb(RgbColor(255, 153, 51));
         Self {
             node_kind: Some(AnsiColor::BrightCyan.into()),
             node_text: Some(GRAY),
             field: Some(AnsiColor::Blue.into()),
-            token: Some(GRAY),
             row_color: Some(AnsiColor::White.into()),
             row_color_named: Some(AnsiColor::BrightYellow.into()),
             extra: Some(AnsiColor::BrightMagenta.into()),
             error: Some(AnsiColor::Red.into()),
-            warning: Some(ORANGE),
+            missing: Some(ORANGE),
+            line_feed: Some(LIGHT_GRAY),
+            backtick: Some(AnsiColor::BrightGreen.into()),
         }
     }
 }
@@ -120,12 +125,13 @@ pub struct ParseThemeRaw {
     pub node_kind: Option<Rgb>,
     pub node_text: Option<Rgb>,
     pub field: Option<Rgb>,
-    pub token: Option<Rgb>,
     pub row_color: Option<Rgb>,
     pub row_color_named: Option<Rgb>,
     pub extra: Option<Rgb>,
     pub error: Option<Rgb>,
-    pub warning: Option<Rgb>,
+    pub missing: Option<Rgb>,
+    pub line_feed: Option<Rgb>,
+    pub backtick: Option<Rgb>,
 }
 
 impl From<ParseThemeRaw> for ParseTheme {
@@ -139,12 +145,13 @@ impl From<ParseThemeRaw> for ParseTheme {
             node_kind: val_or_default(value.node_kind, default.node_kind),
             node_text: val_or_default(value.node_text, default.node_text),
             field: val_or_default(value.field, default.field),
-            token: val_or_default(value.token, default.token),
             row_color: val_or_default(value.row_color, default.row_color),
             row_color_named: val_or_default(value.row_color_named, default.row_color_named),
             extra: val_or_default(value.extra, default.extra),
             error: val_or_default(value.error, default.error),
-            warning: val_or_default(value.warning, default.warning),
+            missing: val_or_default(value.missing, default.missing),
+            line_feed: val_or_default(value.line_feed, default.line_feed),
+            backtick: val_or_default(value.backtick, default.backtick),
         }
     }
 }
@@ -334,7 +341,7 @@ pub fn parse_file_at_path(parser: &mut Parser, opts: &ParseFileOptions) -> Resul
         if opts.output == ParseOutput::Cst {
             let Range { end_point, .. } = tree.root_node().range();
             let row_width = (usize::max(1, end_point.row) as f64).log10() as usize + 1;
-            let mut indent_level = 0;
+            let mut indent_level = 2;
             let mut did_visit_children = false;
             loop {
                 if did_visit_children {
@@ -574,14 +581,21 @@ fn write_node_text(
     is_named: bool,
     source: &str,
     color: Option<impl Into<Color> + Copy>,
-    text_info: (char, usize, usize),
+    text_info: (usize, usize),
 ) -> Result<()> {
-    let (quote, row_width, indent_level) = text_info;
-    if source.ends_with('\n') || source.find('\n').is_none() {
+    let (row_width, indent_level) = text_info;
+    let (quote, quote_color) = if cursor.node().is_named() {
+        ('\"', None::<Color>)
+    } else {
+        ('`', opts.parse_theme.backtick)
+    };
+    if source.ends_with('\n') || source.find('\n').is_none() || !cursor.node().is_named() {
         write!(
             stdout,
-            "{quote}{}{quote}",
-            paint(color, &render_node_text(source))
+            "{}{}{}",
+            paint(quote_color, &String::from(quote)),
+            paint(color, &render_node_text(source)),
+            paint(quote_color, &String::from(quote)),
         )?;
     } else {
         for line in source.split_inclusive('\n') {
@@ -591,17 +605,21 @@ fn write_node_text(
             if !opts.no_ranges {
                 write!(
                     stdout,
-                    "\n{}{}{quote}{}{quote}",
-                    render_node_range(opts, cursor, is_named, row_width),
+                    "\n{}{}{}{}{}",
+                    render_node_range(opts, cursor, is_named, true, row_width),
                     "  ".repeat(indent_level + 1),
+                    paint(quote_color, &String::from(quote)),
                     &paint(color, &render_node_text(line)),
+                    paint(quote_color, &String::from(quote)),
                 )?;
             } else {
                 write!(
                     stdout,
-                    "\n{}{quote}{}{quote}",
+                    "\n{}{}{}{}",
                     "  ".repeat(indent_level + 1),
+                    paint(quote_color, &String::from(quote)),
                     &paint(color, &render_node_text(line)),
+                    paint(quote_color, &String::from(quote)),
                 )?;
             }
         }
@@ -610,16 +628,25 @@ fn write_node_text(
     Ok(())
 }
 
+fn render_line_feed(source: &str, opts: &ParseFileOptions) -> String {
+    if cfg!(windows) {
+        source.replace("\r\n", &paint(opts.parse_theme.line_feed, "\r\n"))
+    } else {
+        source.replace('\n', &paint(opts.parse_theme.line_feed, "\n"))
+    }
+}
+
 fn render_node_range(
     opts: &ParseFileOptions,
     cursor: &TreeCursor,
     is_named: bool,
+    is_multiline: bool,
     row_width: usize,
 ) -> String {
     let node = cursor.node();
     let start = node.start_position();
     let end = node.end_position();
-    let range_color = if is_named && cursor.field_name().is_none() {
+    let range_color = if !is_multiline && is_named && cursor.field_name().is_none() {
         opts.parse_theme.row_color_named
     } else {
         opts.parse_theme.row_color
@@ -627,7 +654,7 @@ fn render_node_range(
     paint(
         range_color,
         &format!(
-            "{:row_width$}:{:<3} - {:row_width$}:{:<3}",
+            "{:row_width$}:{:<3} - {}:{:<3}",
             start.row, start.column, end.row, end.column,
         ),
     )
@@ -647,7 +674,7 @@ fn cst_render_node(
         write!(
             stdout,
             "{}",
-            render_node_range(opts, cursor, is_named, row_width)
+            render_node_range(opts, cursor, is_named, false, row_width)
         )?;
     }
     write!(stdout, "{}", "  ".repeat(indent_level))?;
@@ -669,32 +696,37 @@ fn cst_render_node(
         };
         write!(stdout, "{} ", paint(kind_color, node.kind()))?;
         if node.child_count() == 0 {
+            let source = render_line_feed(
+                &String::from_utf8_lossy(&source_code[node.start_byte()..node.end_byte()]),
+                opts,
+            );
             write_node_text(
                 opts,
                 stdout,
                 cursor,
                 is_named,
-                &String::from_utf8_lossy(&source_code[node.start_byte()..node.end_byte()]),
-                opts.parse_theme.node_text,
-                ('`', row_width, indent_level),
+                &source,
+                None::<Color>,
+                (row_width, indent_level),
             )?;
         }
     } else if node.is_missing() {
-        write!(stdout, "{}: ", paint(opts.parse_theme.warning, "MISSING"))?;
+        write!(stdout, "{}: ", paint(opts.parse_theme.missing, "MISSING"))?;
         write!(
             stdout,
             "\"{}\"",
-            paint(opts.parse_theme.warning, node.kind())
+            paint(opts.parse_theme.missing, node.kind())
         )?;
     } else {
+        let source = render_line_feed(node.kind(), opts);
         write_node_text(
             opts,
             stdout,
             cursor,
             is_named,
-            node.kind(),
+            &source,
             opts.parse_theme.node_text,
-            ('\"', row_width, indent_level),
+            (row_width, indent_level),
         )?;
     }
     writeln!(stdout)?;
