@@ -2356,6 +2356,7 @@ dependencies = [
  "clap",
  "git2",
  "indoc",
+ "lazy_static",
  "regex",
  "semver",
  "serde",

@@ -22,7 +22,7 @@ add_library(tree-sitter ${TS_SOURCE_FILES})
 target_include_directories(tree-sitter PRIVATE src src/wasm include)
 
 if(MSVC)
-  target_compile_options(tree-sitter PRIVATE /W4 /wd4018 /wd4701 /wd4702 /wd4100 /wd4232 /wd4244)
+  target_compile_options(tree-sitter PRIVATE /W4 /wd4018 /wd4701 /wd4702 /wd4232 /wd4244)
 else()
   target_compile_options(tree-sitter PRIVATE -Wall -Wextra -Wshadow -pedantic)
 endif()

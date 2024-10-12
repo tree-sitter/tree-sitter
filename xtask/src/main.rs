@@ -4,6 +4,7 @@ mod bump;
 mod clippy;
 mod fetch;
 mod generate;
+mod generate_unicode_json;
 mod test;
 mod upgrade_wasmtime;
 
@@ -34,6 +35,8 @@ enum Commands {
     GenerateBindings,
     /// Generates the fixtures for testing tree-sitter.
     GenerateFixtures(GenerateFixtures),
+    /// Generates the JSON files for handling unicode property escapes.
+    GenerateUnicodeJson,
     /// Run the test suite
     Test(Test),
     /// Run the WASM test suite
@@ -197,6 +200,7 @@ fn run() -> Result<()> {
         Commands::GenerateFixtures(generate_fixtures_options) => {
             generate::run_fixtures(&generate_fixtures_options)?;
         }
+        Commands::GenerateUnicodeJson => generate_unicode_json::run()?,
         Commands::Test(test_options) => test::run(&test_options)?,
         Commands::TestWasm => test::run_wasm()?,
         Commands::UpgradeWasmtime(upgrade_wasmtime_options) => {
