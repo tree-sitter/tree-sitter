@@ -653,11 +653,11 @@ impl Init {
 
             (opts.name.clone(), Some(opts))
         } else {
-            let json = serde_json::from_reader::<_, TreeSitterJSON>(
-                fs::File::open(current_dir.join("tree-sitter.json"))
-                    .with_context(|| "Failed to open tree-sitter.json")?,
+            let mut json = serde_json::from_str::<TreeSitterJSON>(
+                &fs::read_to_string(current_dir.join("tree-sitter.json"))
+                    .with_context(|| "Failed to read tree-sitter.json")?,
             )?;
-            (json.grammars[0].name.clone(), None)
+            (json.grammars.swap_remove(0).name, None)
         };
 
         generate_grammar_files(current_dir, &language_name, self.update, json_config_opts)?;

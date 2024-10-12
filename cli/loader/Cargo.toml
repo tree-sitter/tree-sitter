@@ -24,6 +24,7 @@ cc.workspace = true
 dirs.workspace = true
 fs4.workspace = true
 indoc.workspace = true
+lazy_static.workspace = true
 libloading.workspace = true
 once_cell.workspace = true
 path-slash.workspace = true
