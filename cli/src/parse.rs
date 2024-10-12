@@ -564,18 +564,16 @@ fn write_node_text(
     is_named: bool,
     source: &str,
     color: Option<impl Into<Color> + Copy>,
-    // quote, row_width, indent_level
     text_info: (char, usize, usize),
 ) -> Result<()> {
+    let (quote, row_width, indent_level) = text_info;
     if (!source.is_empty() && source.find('\n') == Some(source.len() - 1))
         || source.find('\n').is_none()
     {
         write!(
             stdout,
-            "{}{}{}",
-            text_info.0,
-            paint(color, &render_node_text(source)),
-            text_info.0
+            "{quote}{}{quote}",
+            paint(color, &render_node_text(source))
         )?;
     } else {
         for line in source.split_inclusive('\n') {
@@ -585,21 +583,17 @@ fn write_node_text(
             if !opts.no_ranges {
                 write!(
                     stdout,
-                    "\n{}{}{}{}{}",
-                    render_node_range(opts, cursor, is_named, text_info.1),
-                    "  ".repeat(text_info.2 + 1),
-                    text_info.0,
+                    "\n{}{}{quote}{}{quote}",
+                    render_node_range(opts, cursor, is_named, row_width),
+                    "  ".repeat(indent_level + 1),
                     &paint(color, &render_node_text(line)),
-                    text_info.0
                 )?;
             } else {
                 write!(
                     stdout,
-                    "\n{}{}{}{}",
-                    "  ".repeat(text_info.2 + 1),
-                    text_info.0,
+                    "\n{}{quote}{}{quote}",
+                    "  ".repeat(indent_level + 1),
                     &paint(color, &render_node_text(line)),
-                    text_info.0
                 )?;
             }
         }
