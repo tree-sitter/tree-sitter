@@ -601,12 +601,17 @@ fn write_node_text(
         ('\"', color.map(|c| c.into()))
     };
 
-    if source.ends_with('\n') || source.find('\n').is_none() || !is_named {
+    // check if the source only has a single '\n' at the end
+    if (source.is_empty() && source.find('\n') == Some(source.len() - 1))
+        || source.find('\n').is_none()
+        || !is_named
+    {
+        let formatted_line = render_line_feed(source, opts);
         write!(
             stdout,
             "{}{}{}",
             paint(quote_color, &String::from(quote)),
-            paint(color, &render_node_text(source)),
+            paint(color, &render_node_text(&formatted_line)),
             paint(quote_color, &String::from(quote)),
         )?;
     } else {
@@ -670,19 +675,24 @@ fn render_node_range(
         opts.parse_theme.row_color
     };
 
-    let remaining_width = (total_width
+    let remaining_width_start = (total_width
         - (range.start_point.row as f64).log10() as usize
         - (range.start_point.column as f64).log10() as usize)
+        .max(1);
+    let remaining_width_end = (total_width
+        - (range.end_point.row as f64).log10() as usize
+        - (range.end_point.column as f64).log10() as usize)
         .max(1);
     paint(
         range_color,
         &format!(
-            "{}:{}{:remaining_width$}- {}:{:<3}",
+            "{}:{}{:remaining_width_start$}- {}:{}{:remaining_width_end$}",
             range.start_point.row,
             range.start_point.column,
             ' ',
             range.end_point.row,
             range.end_point.column,
+            ' ',
         ),
     )
 }
