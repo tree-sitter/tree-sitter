@@ -557,7 +557,6 @@ fn render_node_text(source: &str) -> String {
         })
 }
 
-#[allow(clippy::too_many_arguments)]
 fn write_node_text(
     opts: &ParseFileOptions,
     stdout: &mut StdoutLock<'static>,
@@ -565,18 +564,18 @@ fn write_node_text(
     is_named: bool,
     source: &str,
     color: Option<impl Into<Color> + Copy>,
-    quote: char,
-    row_width: usize,
-    indent_level: usize,
+    // quote, row_width, indent_level
+    text_info: (char, usize, usize),
 ) -> Result<()> {
     if (!source.is_empty() && source.find('\n') == Some(source.len() - 1))
         || source.find('\n').is_none()
-        || !cursor.node().is_named()
     {
         write!(
             stdout,
-            "{quote}{}{quote}",
-            paint(color, &render_node_text(source))
+            "{}{}{}",
+            text_info.0,
+            paint(color, &render_node_text(source)),
+            text_info.0
         )?;
     } else {
         for line in source.split_inclusive('\n') {
@@ -586,17 +585,21 @@ fn write_node_text(
             if !opts.no_ranges {
                 write!(
                     stdout,
-                    "\n{}{}{quote}{}{quote}",
-                    render_node_range(opts, cursor, is_named, row_width),
-                    "  ".repeat(indent_level + 1),
+                    "\n{}{}{}{}{}",
+                    render_node_range(opts, cursor, is_named, text_info.1),
+                    "  ".repeat(text_info.2 + 1),
+                    text_info.0,
                     &paint(color, &render_node_text(line)),
+                    text_info.0
                 )?;
             } else {
                 write!(
                     stdout,
-                    "\n{}{quote}{}{quote}",
-                    "  ".repeat(indent_level + 1),
+                    "\n{}{}{}{}",
+                    "  ".repeat(text_info.2 + 1),
+                    text_info.0,
                     &paint(color, &render_node_text(line)),
+                    text_info.0
                 )?;
             }
         }
@@ -671,9 +674,7 @@ fn cst_render_node(
                 is_named,
                 &String::from_utf8_lossy(&source_code[node.start_byte()..node.end_byte()]),
                 opts.parse_theme.node_text,
-                '`',
-                row_width,
-                indent_level,
+                ('`', row_width, indent_level),
             )?;
         }
     } else if node.is_missing() {
@@ -689,11 +690,9 @@ fn cst_render_node(
             stdout,
             cursor,
             is_named,
-            &String::from_utf8_lossy(&source_code[node.start_byte()..node.end_byte()]),
+            node.kind(),
             opts.parse_theme.node_text,
-            '\"',
-            row_width,
-            indent_level,
+            ('\"', row_width, indent_level),
         )?;
     }
     writeln!(stdout)?;
