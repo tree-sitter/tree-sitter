@@ -803,12 +803,13 @@ impl Parse {
 
         let parse_theme = if color {
             config
-                .get::<tree_sitter_cli::parse::Config>()
+                .get::<parse::Config>()
                 .with_context(|| "Failed to parse CST theme")?
                 .parse_theme
+                .unwrap_or_default()
                 .into()
         } else {
-            ParseTheme::blank()
+            ParseTheme::empty()
         };
 
         let encoding = self.encoding.map(|e| match e {

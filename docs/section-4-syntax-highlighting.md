@@ -60,7 +60,7 @@ In your config file, the `"theme"` value is an object whose keys are dot-separat
 
 ### Parse Theme
 
-The Tree-sitter `parse` command will output a pretty-printed CST when the `--cst` option is used. You can control which colors are used for various parts of the tree in your configuration file:
+The Tree-sitter `parse` command will output a pretty-printed CST when the `--cst` option is used. You can control which colors are used for various parts of the tree in your configuration file. Note that omitting a field will cause the relevant text to be rendered with its default color.
 
 ```json
 {
@@ -72,7 +72,8 @@ The Tree-sitter `parse` command will output a pretty-printed CST when the `--cst
     "row_color": [255, 255, 255],
     "row_color_named": [255, 130, 0],
     "extra": [0, 0, 0],
-    "error": [255, 0, 0]
+    "error": [255, 0, 0],
+    "warning": [153, 75, 0]
   }
 }
 ```

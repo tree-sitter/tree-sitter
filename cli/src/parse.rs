@@ -8,7 +8,6 @@ use std::{
 
 use anstyle::{AnsiColor, Color, RgbColor};
 use anyhow::{anyhow, Context, Result};
-use bstr::ByteSlice;
 use serde::{Deserialize, Serialize};
 use tree_sitter::{ffi, InputEdit, Language, LogType, Parser, Point, Range, Tree, TreeCursor};
 
@@ -52,11 +51,12 @@ pub struct ParseTheme {
     pub row_color_named: Option<Color>,
     pub extra: Option<Color>,
     pub error: Option<Color>,
+    pub warning: Option<Color>,
 }
 
 impl ParseTheme {
     #[must_use]
-    pub const fn blank() -> Self {
+    pub const fn empty() -> Self {
         Self {
             node_kind: None,
             node_text: None,
@@ -66,6 +66,7 @@ impl ParseTheme {
             row_color_named: None,
             extra: None,
             error: None,
+            warning: None,
         }
     }
 }
@@ -73,6 +74,7 @@ impl ParseTheme {
 impl Default for ParseTheme {
     fn default() -> Self {
         const GRAY: Color = Color::Rgb(RgbColor(118, 118, 118));
+        const ORANGE: Color = Color::Rgb(RgbColor(255, 153, 51));
         Self {
             node_kind: Some(AnsiColor::BrightCyan.into()),
             node_text: Some(GRAY),
@@ -82,6 +84,7 @@ impl Default for ParseTheme {
             row_color_named: Some(AnsiColor::BrightYellow.into()),
             extra: Some(AnsiColor::BrightMagenta.into()),
             error: Some(AnsiColor::Red.into()),
+            warning: Some(ORANGE),
         }
     }
 }
@@ -98,7 +101,7 @@ impl From<Rgb> for RgbColor {
 #[derive(Debug, Copy, Clone, Default, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct Config {
-    pub parse_theme: ParseThemeRaw,
+    pub parse_theme: Option<ParseThemeRaw>,
 }
 
 #[derive(Debug, Copy, Clone, Default, Deserialize, Serialize)]
@@ -112,24 +115,26 @@ pub struct ParseThemeRaw {
     pub row_color_named: Option<Rgb>,
     pub extra: Option<Rgb>,
     pub error: Option<Rgb>,
+    pub warning: Option<Rgb>,
 }
 
 impl From<ParseThemeRaw> for ParseTheme {
     fn from(value: ParseThemeRaw) -> Self {
-        let resolve_val = |val: Option<Rgb>, default: Option<Color>| -> Option<Color> {
-            val.map_or_else(|| default, |v| Some(Into::<RgbColor>::into(v).into()))
+        let val_or_default = |val: Option<Rgb>, default: Option<Color>| -> Option<Color> {
+            val.map_or(default, |v| Some(Color::Rgb(v.into())))
         };
         let default = Self::default();
 
         Self {
-            node_kind: resolve_val(value.node_kind, default.node_kind),
-            node_text: resolve_val(value.node_text, default.node_text),
-            field: resolve_val(value.field, default.field),
-            token: resolve_val(value.token, default.token),
-            row_color: resolve_val(value.row_color, default.row_color),
-            row_color_named: resolve_val(value.row_color_named, default.row_color_named),
-            extra: resolve_val(value.extra, default.extra),
-            error: resolve_val(value.error, default.error),
+            node_kind: val_or_default(value.node_kind, default.node_kind),
+            node_text: val_or_default(value.node_text, default.node_text),
+            field: val_or_default(value.field, default.field),
+            token: val_or_default(value.token, default.token),
+            row_color: val_or_default(value.row_color, default.row_color),
+            row_color_named: val_or_default(value.row_color_named, default.row_color_named),
+            extra: val_or_default(value.extra, default.extra),
+            error: val_or_default(value.error, default.error),
+            warning: val_or_default(value.warning, default.warning),
         }
     }
 }
@@ -540,18 +545,16 @@ const fn escape_invisible(c: char) -> Option<&'static str> {
 }
 
 fn render_node_text(source: &str) -> String {
-    let mut escaped = String::new();
-    escaped.reserve(source.len());
-
-    for c in source.chars() {
-        if let Some(esc) = escape_invisible(c) {
-            escaped.push_str(esc);
-        } else {
-            escaped.push(c);
-        }
-    }
-
-    escaped
+    source
+        .chars()
+        .fold(String::with_capacity(source.len()), |mut acc, c| {
+            if let Some(esc) = escape_invisible(c) {
+                acc.push_str(esc);
+            } else {
+                acc.push(c);
+            }
+            acc
+        })
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -559,13 +562,14 @@ fn write_node_text(
     opts: &ParseFileOptions,
     stdout: &mut StdoutLock<'static>,
     cursor: &TreeCursor,
+    is_named: bool,
     source: &str,
     color: Option<impl Into<Color> + Copy>,
     quote: char,
     row_width: usize,
     indent_level: usize,
 ) -> Result<()> {
-    if source.find('\n') == Some(source.len() - 1)
+    if (!source.is_empty() && source.find('\n') == Some(source.len() - 1))
         || source.find('\n').is_none()
         || !cursor.node().is_named()
     {
@@ -583,7 +587,7 @@ fn write_node_text(
                 write!(
                     stdout,
                     "\n{}{}{quote}{}{quote}",
-                    render_node_range(opts, cursor, row_width),
+                    render_node_range(opts, cursor, is_named, row_width),
                     "  ".repeat(indent_level + 1),
                     &paint(color, &render_node_text(line)),
                 )?;
@@ -601,9 +605,13 @@ fn write_node_text(
     Ok(())
 }
 
-fn render_node_range(opts: &ParseFileOptions, cursor: &TreeCursor, row_width: usize) -> String {
+fn render_node_range(
+    opts: &ParseFileOptions,
+    cursor: &TreeCursor,
+    is_named: bool,
+    row_width: usize,
+) -> String {
     let node = cursor.node();
-    let is_named = node.is_named();
     let start = node.start_position();
     let end = node.end_position();
     let range_color = if is_named && cursor.field_name().is_none() {
@@ -631,7 +639,11 @@ fn cst_render_node(
     let node = cursor.node();
     let is_named = node.is_named();
     if !opts.no_ranges {
-        write!(stdout, "{}", render_node_range(opts, cursor, row_width))?;
+        write!(
+            stdout,
+            "{}",
+            render_node_range(opts, cursor, is_named, row_width)
+        )?;
     }
     write!(stdout, "{}", "  ".repeat(indent_level))?;
     if is_named {
@@ -651,46 +663,37 @@ fn cst_render_node(
         };
         write!(stdout, "{} ", paint(kind_color, node.kind()))?;
         if node.child_count() == 0 {
-            let color = if source_code.is_utf8() {
-                opts.parse_theme.node_text
-            } else {
-                opts.parse_theme.error
-            };
             write_node_text(
                 opts,
                 stdout,
                 cursor,
+                is_named,
                 &String::from_utf8_lossy(&source_code[node.start_byte()..node.end_byte()]),
-                color,
+                opts.parse_theme.node_text,
                 '`',
                 row_width,
                 indent_level,
             )?;
         }
+    } else if node.is_missing() {
+        write!(stdout, "{}: ", paint(opts.parse_theme.warning, "MISSING"))?;
+        write!(
+            stdout,
+            "\"{}\"",
+            paint(opts.parse_theme.warning, node.kind())
+        )?;
     } else {
-        let color = if node.is_missing() || !source_code.is_utf8() {
-            opts.parse_theme.error
-        } else {
-            opts.parse_theme.node_text
-        };
-        if node.is_missing() {
-            write!(
-                stdout,
-                "{}",
-                &format!("{}: \"{}\"", paint(color, "MISSING"), node.kind())
-            )?;
-        } else {
-            write_node_text(
-                opts,
-                stdout,
-                cursor,
-                &String::from_utf8_lossy(&source_code[node.start_byte()..node.end_byte()]),
-                color,
-                '\"',
-                row_width,
-                indent_level,
-            )?;
-        }
+        write_node_text(
+            opts,
+            stdout,
+            cursor,
+            is_named,
+            &String::from_utf8_lossy(&source_code[node.start_byte()..node.end_byte()]),
+            opts.parse_theme.node_text,
+            '\"',
+            row_width,
+            indent_level,
+        )?;
     }
     writeln!(stdout)?;
 
