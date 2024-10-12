@@ -71,22 +71,22 @@ The Tree-sitter `parse` command will output a pretty-printed CST when the `--cst
     "node-text": [255, 255, 255],
     // The color of node fields
     "field": [42, 42, 42],
-    // The color of token
-    "token": [200, 200, 0],
     // The color of the range information for unnamed nodes
     "row-color": [255, 255, 255],
     // The color of the range information for named nodes
-    "row-color_named": [255, 130, 0],
+    "row-color-named": [255, 130, 0],
     // The color of extra nodes
     "extra": [255, 0, 255],
     // The color of ERROR nodes
     "error": [255, 0, 0],
     // The color of MISSING nodes and their associated text
-    "missing": [153, 75, 0]
+    "missing": [153, 75, 0],
     // The color of newline characters
     "line-feed": [150, 150, 150],
     // The color of backtick characters
-    "backtick": [0, 200, 0]
+    "backtick": [0, 200, 0],
+    // The color of literals
+    "literal": [0, 0, 200],
   }
 }
 ```
