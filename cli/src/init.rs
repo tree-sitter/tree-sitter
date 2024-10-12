@@ -1,6 +1,5 @@
 use std::{
-    fs::{self, File},
-    io::BufReader,
+    fs,
     path::{Path, PathBuf},
     str::{self, FromStr},
 };
@@ -211,9 +210,9 @@ pub fn migrate_package_json(repo_path: &Path) -> Result<bool> {
         root_path.join("tree-sitter.json"),
     );
 
-    let old_config = serde_json::from_reader::<_, PackageJSON>(
-        File::open(&package_json_path)
-            .with_context(|| format!("Failed to open package.json in {}", root_path.display()))?,
+    let old_config = serde_json::from_str::<PackageJSON>(
+        &fs::read_to_string(&package_json_path)
+            .with_context(|| format!("Failed to read package.json in {}", root_path.display()))?,
     )?;
 
     if old_config.tree_sitter.is_none() {
@@ -339,9 +338,9 @@ pub fn migrate_package_json(repo_path: &Path) -> Result<bool> {
     )?;
 
     // Remove the `tree-sitter` field in-place
-    let mut package_json = serde_json::from_reader::<_, Map<String, Value>>(
-        File::open(&package_json_path)
-            .with_context(|| format!("Failed to open package.json in {}", root_path.display()))?,
+    let mut package_json = serde_json::from_str::<Map<String, Value>>(
+        &fs::read_to_string(&package_json_path)
+            .with_context(|| format!("Failed to read package.json in {}", root_path.display()))?,
     )
     .unwrap();
     package_json.remove("tree-sitter");
@@ -388,9 +387,9 @@ pub fn generate_grammar_files(
         },
     )?;
 
-    let tree_sitter_config = serde_json::from_reader::<_, TreeSitterJSON>(
-        File::open(tree_sitter_config.as_path())
-            .with_context(|| "Failed to open tree-sitter.json")?,
+    let tree_sitter_config = serde_json::from_str::<TreeSitterJSON>(
+        &fs::read_to_string(tree_sitter_config.as_path())
+            .with_context(|| "Failed to read tree-sitter.json")?,
     )?;
 
     let authors = tree_sitter_config.metadata.authors.as_ref();
@@ -671,15 +670,14 @@ pub fn get_root_path(path: &Path) -> Result<PathBuf> {
         let json = pathbuf
             .exists()
             .then(|| {
-                let file = File::open(pathbuf.as_path())
-                    .with_context(|| format!("Failed to open {filename}"))?;
-                let reader = BufReader::new(file);
+                let contents = fs::read_to_string(pathbuf.as_path())
+                    .with_context(|| format!("Failed to read {filename}"))?;
                 if is_package_json {
-                    serde_json::from_reader::<_, Map<String, Value>>(reader)
+                    serde_json::from_str::<Map<String, Value>>(&contents)
                         .context(format!("Failed to parse {filename}"))
                         .map(|v| v.contains_key("tree-sitter"))
                 } else {
-                    serde_json::from_reader::<_, TreeSitterJSON>(reader)
+                    serde_json::from_str::<TreeSitterJSON>(&contents)
                         .context(format!("Failed to parse {filename}"))
                         .map(|_| true)
                 }
