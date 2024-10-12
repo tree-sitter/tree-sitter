@@ -602,16 +602,12 @@ fn write_node_text(
     };
 
     // check if the source only has a single '\n' at the end
-    if (source.is_empty() && source.find('\n') == Some(source.len() - 1))
-        || source.find('\n').is_none()
-        || !is_named
-    {
-        let formatted_line = render_line_feed(source, opts);
+    if !is_named {
         write!(
             stdout,
             "{}{}{}",
             paint(quote_color, &String::from(quote)),
-            paint(color, &render_node_text(&formatted_line)),
+            paint(color, &render_node_text(source)),
             paint(quote_color, &String::from(quote)),
         )?;
     } else {
