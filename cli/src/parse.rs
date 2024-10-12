@@ -601,7 +601,6 @@ fn write_node_text(
         ('\"', color.map(|c| c.into()))
     };
 
-    // check if the source only has a single '\n' at the end
     if !is_named {
         write!(
             stdout,
