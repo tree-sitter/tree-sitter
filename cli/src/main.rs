@@ -12,7 +12,7 @@ use dialoguer::{theme::ColorfulTheme, Confirm, FuzzySelect, Input};
 use glob::glob;
 use heck::ToUpperCamelCase;
 use regex::Regex;
-use semver::Version;
+use semver::Version as SemverVersion;
 use tree_sitter::{ffi, Parser, Point};
 use tree_sitter_cli::{
     fuzz::{
@@ -25,7 +25,7 @@ use tree_sitter_cli::{
     parse::{self, ParseFileOptions, ParseOutput, ParseTheme},
     playground, query, tags,
     test::{self, TestOptions},
-    test_highlight, test_tags, util, wasm,
+    test_highlight, test_tags, util, version, wasm,
 };
 use tree_sitter_config::Config;
 use tree_sitter_highlight::Highlighter;
@@ -46,6 +46,7 @@ enum Commands {
     Build(Build),
     Parse(Parse),
     Test(Test),
+    Version(Version),
     Fuzz(Fuzz),
     Query(Query),
     Highlight(Highlight),
@@ -277,6 +278,15 @@ struct Test {
     pub rebuild: bool,
     #[arg(long, help = "Show only the pass-fail overview tree")]
     pub overview_only: bool,
+}
+
+#[derive(Args)]
+#[command(alias = "publish")]
+/// Increment the version of a grammar
+struct Version {
+    #[arg(num_args = 1)]
+    /// The version to bump to
+    pub version: SemverVersion,
 }
 
 #[derive(Args)]
@@ -555,9 +565,9 @@ impl Init {
             };
 
             let initial_version = || {
-                Input::<Version>::with_theme(&ColorfulTheme::default())
+                Input::<SemverVersion>::with_theme(&ColorfulTheme::default())
                     .with_prompt("Version")
-                    .default(Version::new(0, 1, 0))
+                    .default(SemverVersion::new(0, 1, 0))
                     .interact_text()
             };
 
@@ -1041,6 +1051,12 @@ impl Test {
     }
 }
 
+impl Version {
+    fn run(self, current_dir: PathBuf) -> Result<()> {
+        version::Version::new(self.version.to_string(), current_dir).run()
+    }
+}
+
 impl Fuzz {
     fn run(self, mut loader: loader::Loader, current_dir: &Path) -> Result<()> {
         loader.sanitize_build(true);
@@ -1346,6 +1362,7 @@ fn run() -> Result<()> {
         Commands::Build(build_options) => build_options.run(loader, &current_dir)?,
         Commands::Parse(parse_options) => parse_options.run(loader, &current_dir)?,
         Commands::Test(test_options) => test_options.run(loader, &current_dir)?,
+        Commands::Version(version_options) => version_options.run(current_dir)?,
         Commands::Fuzz(fuzz_options) => fuzz_options.run(loader, &current_dir)?,
         Commands::Query(query_options) => query_options.run(loader, &current_dir)?,
         Commands::Highlight(highlight_options) => highlight_options.run(loader)?,
