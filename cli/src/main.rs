@@ -114,13 +114,25 @@ struct Generate {
     )]
     pub report_states_for_rule: Option<String>,
 
+    #[cfg(not(feature = "qjs-rt"))]
     #[arg(
         long,
         value_name = "EXECUTABLE",
         env = "TREE_SITTER_JS_RUNTIME",
-        default_value = "node",
-        help = "The name or path of the JavaScript runtime to use for generating parsers"
+        default_value = "node"
     )]
+    /// The name or path of the JavaScript runtime to use for generating parsers
+    pub js_runtime: Option<String>,
+
+    #[cfg(feature = "qjs-rt")]
+    #[arg(
+        long,
+        value_name = "EXECUTABLE",
+        env = "TREE_SITTER_JS_RUNTIME",
+        default_value = "node"
+    )]
+    /// The name or path of the JavaScript runtime to use for generating parsers, specify `native`
+    /// to use the native `QuickJS` runtime
     pub js_runtime: Option<String>,
 }
 
@@ -703,6 +715,14 @@ impl Generate {
                         version.parse().expect("invalid abi version flag")
                     }
                 });
+
+        #[cfg(feature = "qjs-rt")]
+        let parser_directories = {
+            let config = Config::load(None)?;
+            let loader_config: loader::Config = config.get()?;
+            loader_config.parser_directories
+        };
+
         tree_sitter_generate::generate_parser_in_directory(
             current_dir,
             self.output.as_deref(),
@@ -710,6 +730,8 @@ impl Generate {
             abi_version,
             self.report_states_for_rule.as_deref(),
             self.js_runtime.as_deref(),
+            #[cfg(feature = "qjs-rt")]
+            &parser_directories,
         )?;
         if self.build {
             if let Some(path) = self.libdir {

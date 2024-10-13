@@ -49,6 +49,7 @@ pub fn generate_parser_in_directory(
     abi_version: usize,
     report_symbol_name: Option<&str>,
     js_runtime: Option<&str>,
+    #[cfg(feature = "qjs-rt")] parser_directories: &[PathBuf],
 ) -> Result<()> {
     let mut repo_path = repo_path.to_owned();
     let mut grammar_path = grammar_path;
@@ -69,7 +70,12 @@ pub fn generate_parser_in_directory(
     let grammar_path = grammar_path.map_or_else(|| repo_path.join("grammar.js"), PathBuf::from);
 
     // Read the grammar file.
-    let grammar_json = load_grammar_file(&grammar_path, js_runtime)?;
+    let grammar_json = load_grammar_file(
+        &grammar_path,
+        js_runtime,
+        #[cfg(feature = "qjs-rt")]
+        parser_directories,
+    )?;
 
     let src_path = out_path.map_or_else(|| repo_path.join("src"), PathBuf::from);
     let header_path = src_path.join("tree_sitter");
@@ -146,15 +152,24 @@ fn generate_parser_for_grammar_with_opts(
     })
 }
 
-pub fn load_grammar_file(grammar_path: &Path, js_runtime: Option<&str>) -> Result<String> {
+pub fn load_grammar_file(
+    grammar_path: &Path,
+    js_runtime: Option<&str>,
+    #[cfg(feature = "qjs-rt")] parser_directories: &[PathBuf],
+) -> Result<String> {
     if grammar_path.is_dir() {
         return Err(anyhow!(
             "Path to a grammar file with `.js` or `.json` extension is required"
         ));
     }
     match grammar_path.extension().and_then(|e| e.to_str()) {
-        Some("js") => Ok(load_js_grammar_file(grammar_path, js_runtime)
-            .with_context(|| "Failed to load grammar.js")?),
+        Some("js") => Ok(load_js_grammar_file(
+            grammar_path,
+            js_runtime,
+            #[cfg(feature = "qjs-rt")]
+            parser_directories,
+        )
+        .with_context(|| "Failed to load grammar.js")?),
         Some("json") => {
             Ok(fs::read_to_string(grammar_path).with_context(|| "Failed to load grammar.json")?)
         }
@@ -162,7 +177,13 @@ pub fn load_grammar_file(grammar_path: &Path, js_runtime: Option<&str>) -> Resul
     }
 }
 
-fn load_js_grammar_file(grammar_path: &Path, js_runtime: Option<&str>) -> Result<String> {
+const DSL: &[u8] = include_bytes!("dsl.js");
+
+fn load_js_grammar_file(
+    grammar_path: &Path,
+    js_runtime: Option<&str>,
+    #[cfg(feature = "qjs-rt")] parser_directories: &[PathBuf],
+) -> Result<String> {
     let grammar_path = fs::canonicalize(grammar_path)?;
 
     #[cfg(windows)]
@@ -170,12 +191,17 @@ fn load_js_grammar_file(grammar_path: &Path, js_runtime: Option<&str>) -> Result
         .expect("Failed to convert path to URL")
         .to_string();
 
+    #[cfg(feature = "qjs-rt")]
+    if js_runtime == Some("native") {
+        return qjs::execute_native_runtime(&grammar_path, parser_directories);
+    }
+
     let js_runtime = js_runtime.unwrap_or("node");
 
     let mut js_command = Command::new(js_runtime);
     match js_runtime {
         "node" => {
-            js_command.args(["--input-type=module", "-"]);
+            js_command.args(["--experimental-fetch", "--input-type=module", "-"]);
         }
         "bun" => {
             js_command.arg("-");
@@ -208,7 +234,7 @@ fn load_js_grammar_file(grammar_path: &Path, js_runtime: Option<&str>) -> Result
     )
     .with_context(|| format!("Failed to write tree-sitter version to {js_runtime}'s stdin"))?;
     js_stdin
-        .write(include_bytes!("./dsl.js"))
+        .write(DSL)
         .with_context(|| format!("Failed to write grammar dsl to {js_runtime}'s stdin"))?;
     drop(js_stdin);
 
@@ -242,6 +268,253 @@ fn load_js_grammar_file(grammar_path: &Path, js_runtime: Option<&str>) -> Result
                 + "\n")
         }
         Some(code) => Err(anyhow!("{js_runtime} process exited with status {code}")),
+    }
+}
+
+#[cfg(feature = "qjs-rt")]
+mod qjs {
+    use std::{
+        env,
+        path::{Path, PathBuf},
+    };
+
+    use anyhow::{Context, Result as AnyResult};
+    use rquickjs::{
+        loader::{FileResolver, ScriptLoader},
+        Array, Context as QJSContext, Ctx, Error, Function, Module, Object, Result as QJSResult,
+        Runtime, String as QJSString, Value,
+    };
+
+    const STDLIB: &[u8] = include_bytes!("stdlib.js");
+
+    fn pretty_print_js_error(v: Value) -> anyhow::Error {
+        let Some(exception) = v.into_exception() else {
+            return anyhow::anyhow!("Expected a JS exception");
+        };
+
+        anyhow::anyhow!(exception.to_string())
+    }
+
+    #[allow(clippy::needless_pass_by_value)]
+    fn print(s: String) {
+        println!("{s}");
+    }
+
+    #[allow(clippy::needless_pass_by_value)]
+    fn warn(s: String) {
+        eprintln!("Warning: {s}");
+    }
+
+    #[allow(clippy::needless_pass_by_value)]
+    fn error(s: String) {
+        eprintln!("Error: {s}");
+    }
+
+    #[allow(clippy::needless_pass_by_value)]
+    fn stat_path(ctx: Ctx, path: String) -> QJSResult<Object> {
+        let path = Path::new(&path);
+        let globals = ctx.globals();
+        let searchable_dirs = globals.get::<_, Array>("_searchableDirs")?;
+        let mut last_error = None;
+
+        for d in searchable_dirs.iter::<QJSString>() {
+            let d = d?.to_string()?;
+            let dir = Path::new(&d);
+            let mut target_path = dir.join(path);
+            let mut metadata = std::fs::metadata(&target_path);
+            if metadata.is_err() && target_path.extension().is_none() {
+                target_path = dir.join(path.with_extension("js"));
+                if target_path.exists() {
+                    metadata = std::fs::metadata(&target_path);
+                }
+            }
+            match metadata {
+                Ok(metadata) => {
+                    let obj = Object::new(ctx.clone())?;
+                    obj.set("resolved", target_path.to_string_lossy().to_string())?;
+                    obj.set("errno", 0)?;
+                    obj.set("isFile", metadata.is_file())?;
+                    obj.set("isDir", metadata.is_dir())?;
+
+                    // This module should be able to resolve imports from the same directory.
+                    // We sort the array to ensure that the empty string is last, otherwise
+                    // imports that import a file of the same name as the folder will resolve to
+                    // the folder itself - e.g. importing `./common` from a folder called `common`
+                    // should give us `./common/common.js`, not `./common` again.
+                    let dir = target_path.parent().unwrap().to_string_lossy().to_string();
+                    if !searchable_dirs
+                        .iter::<QJSString>()
+                        .any(|d| d.map_or(false, |d| d.to_string().map_or(false, |d| d == dir)))
+                    {
+                        let mut rust_array = searchable_dirs
+                            .iter::<QJSString>()
+                            .map(|d| d.unwrap().to_string().unwrap())
+                            .collect::<Vec<_>>();
+                        rust_array
+                            .push(target_path.parent().unwrap().to_string_lossy().to_string());
+                        rust_array.sort_by(|a, b| {
+                            if a.is_empty() {
+                                std::cmp::Ordering::Greater
+                            } else if b.is_empty() {
+                                std::cmp::Ordering::Less
+                            } else {
+                                std::cmp::Ordering::Equal
+                            }
+                        });
+                        let searchable_dirs = Array::new(ctx.clone())?;
+                        for (i, dir) in rust_array.iter().enumerate() {
+                            searchable_dirs.set(i, dir)?;
+                        }
+                        globals.set("_searchableDirs", searchable_dirs)?;
+                    }
+
+                    return Ok(obj);
+                }
+                Err(e) => {
+                    last_error = Some(e);
+                }
+            }
+        }
+        let obj = Object::new(ctx)?;
+        let errno = last_error.map_or(-1, |e| e.raw_os_error().unwrap_or(-1));
+        obj.set("errno", errno)?;
+        Ok(obj)
+    }
+
+    #[allow(clippy::needless_pass_by_value)]
+    fn realpath(ctx: Ctx, path: String) -> QJSResult<QJSString> {
+        let str = QJSString::from_str(ctx, &std::fs::canonicalize(&path)?.to_string_lossy())?;
+        Ok(str)
+    }
+
+    pub fn execute_native_runtime(
+        grammar_path: &Path,
+        parser_directories: &[PathBuf],
+    ) -> AnyResult<String> {
+        let runtime = Runtime::new()?;
+        let context = QJSContext::full(&runtime)?;
+
+        let cwd = std::env::current_dir()?;
+
+        let parser_directory_paths = parser_directories
+            .iter()
+            .filter_map(|p| pathdiff::diff_paths(p, &cwd).map(|p| p.to_string_lossy().to_string()))
+            .chain(std::iter::once(String::new()))
+            .collect::<Vec<_>>();
+
+        let resolver = FileResolver::default()
+            .with_path("./")
+            .with_paths(&parser_directory_paths);
+        let loader = ScriptLoader::default();
+
+        runtime.set_loader(resolver, loader);
+
+        let relative_path_to_cwd = pathdiff::diff_paths(grammar_path, &cwd)
+            .map(|p| p.to_string_lossy().to_string())
+            .with_context(|| {
+                format!(
+                    "Failed to get relative path of {} to cwd",
+                    grammar_path.display()
+                )
+            })?;
+
+        env::set_var("TREE_SITTER_GRAMMAR_PATH", &relative_path_to_cwd);
+
+        context.with(|ctx| -> Result<String, anyhow::Error> {
+            let wrap_err = |e| {
+                if matches!(e, Error::Exception) {
+                    pretty_print_js_error(ctx.catch())
+                } else {
+                    e.into()
+                }
+            };
+
+            let globals = ctx.globals();
+            globals.set("native", true).map_err(wrap_err)?;
+            globals
+                .set("__ts_grammar_path", relative_path_to_cwd)
+                .map_err(wrap_err)?;
+            globals
+                .set(
+                    "__print",
+                    Function::new(ctx.clone(), print)?.with_name("__print")?,
+                )
+                .map_err(wrap_err)?;
+            globals
+                .set(
+                    "__warn",
+                    Function::new(ctx.clone(), warn)?.with_name("__warn")?,
+                )
+                .map_err(wrap_err)?;
+            globals
+                .set(
+                    "__error",
+                    Function::new(ctx.clone(), error)?.with_name("__error")?,
+                )
+                .map_err(wrap_err)?;
+
+            let std = Object::new(ctx.clone()).map_err(wrap_err)?;
+            std.set(
+                "loadFile",
+                Function::new(ctx.clone(), |path: String| {
+                    let path = Path::new(&path);
+                    std::fs::read_to_string(path)
+                })?,
+            )
+            .map_err(wrap_err)?;
+            globals.set("std", std).map_err(wrap_err)?;
+
+            let process = Object::new(ctx.clone()).map_err(wrap_err)?;
+            let env = Object::new(ctx.clone()).map_err(wrap_err)?;
+            for (k, v) in std::env::vars() {
+                env.set(k, v).map_err(wrap_err)?;
+            }
+            process.set("env", env).map_err(wrap_err)?;
+            globals.set("process", process).map_err(wrap_err)?;
+
+            let searchable_dirs = Array::new(ctx.clone()).map_err(wrap_err)?;
+            for (i, dir) in parser_directory_paths.iter().enumerate() {
+                searchable_dirs.set(i, dir).map_err(wrap_err)?;
+            }
+            globals
+                .set("_searchableDirs", searchable_dirs)
+                .map_err(wrap_err)?;
+
+            globals
+                .set("_statPath", Function::new(ctx.clone(), stat_path)?)
+                .map_err(wrap_err)?;
+            globals
+                .set("_realpath", Function::new(ctx.clone(), realpath)?)
+                .map_err(wrap_err)?;
+
+            let module = Object::new(ctx.clone()).map_err(wrap_err)?;
+            module
+                .set("exports", Object::new(ctx.clone()).map_err(wrap_err)?)
+                .map_err(wrap_err)?;
+            globals.set("module", module).map_err(wrap_err)?;
+
+            Module::evaluate(ctx.clone(), "stdlib", STDLIB)
+                .map_err(wrap_err)
+                .with_context(|| "Failed to load stdlib.js")?;
+
+            let promise = Module::evaluate(ctx.clone(), "dsl", super::DSL)
+                .map_err(wrap_err)
+                .with_context(|| "Failed to evaluate DSL")?;
+            promise.finish::<()>().map_err(wrap_err)?;
+
+            let grammar_json = ctx
+                .eval::<QJSString, _>("globalThis.output")
+                .map(|x| x.to_string())
+                .map_err(wrap_err)?
+                .map_err(wrap_err)?;
+
+            Ok(serde_json::to_string_pretty(
+                &serde_json::from_str::<serde_json::Value>(&grammar_json)
+                    .with_context(|| "Failed to parse grammar JSON")?,
+            )
+            .with_context(|| "Failed to serialize grammar JSON")?
+                + "\n")
+        })
     }
 }
 
