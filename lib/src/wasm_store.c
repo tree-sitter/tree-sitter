@@ -16,6 +16,14 @@
 #include <wasm.h>
 #include <wasmtime.h>
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 4100)
+#elif defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+#endif
+
 #define array_len(a) (sizeof(a) / sizeof(a[0]))
 
 // The following symbols from the C and C++ standard libraries are available
@@ -159,8 +167,6 @@ typedef struct {
   int32_t eof;
 } LexerInWasmMemory;
 
-static volatile uint32_t NEXT_LANGUAGE_ID;
-
 // Linear memory layout:
 // [ <-- stack | stdlib statics | lexer | language statics --> | serialization_buffer | heap --> ]
 #define MAX_MEMORY_SIZE (128 * 1024 * 1024 / MEMORY_PAGE_SIZE)
@@ -169,7 +175,7 @@ static volatile uint32_t NEXT_LANGUAGE_ID;
  * WasmDylinkMemoryInfo
  ***********************/
 
-static uint8_t read_u8(const uint8_t **p, const uint8_t *end) {
+static uint8_t read_u8(const uint8_t **p) {
   return *(*p)++;
 }
 
@@ -204,7 +210,7 @@ static bool wasm_dylink_info__parse(
   p += 4;
 
   while (p < end) {
-    uint8_t section_id = read_u8(&p, end);
+    uint8_t section_id = read_u8(&p);
     uint32_t section_length = read_uleb128(&p, end);
     const uint8_t *section_end = p + section_length;
     if (section_end > end) return false;
@@ -217,7 +223,7 @@ static bool wasm_dylink_info__parse(
       if (name_length == 8 && memcmp(p, "dylink.0", 8) == 0) {
         p = name_end;
         while (p < section_end) {
-          uint8_t subsection_type = read_u8(&p, section_end);
+          uint8_t subsection_type = read_u8(&p);
           uint32_t subsection_size = read_uleb128(&p, section_end);
           const uint8_t *subsection_end = p + subsection_size;
           if (subsection_end > section_end) return false;
@@ -545,6 +551,7 @@ TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine, TSWasmError *wasm_error) {
   wasm_trap_t *trap = NULL;
   wasm_message_t message = WASM_EMPTY_VEC;
   wasm_exporttype_vec_t export_types = WASM_EMPTY_VEC;
+  wasm_importtype_vec_t import_types = WASM_EMPTY_VEC;
   wasmtime_extern_t *imports = NULL;
   wasmtime_module_t *stdlib_module = NULL;
   wasm_memorytype_t *memory_type = NULL;
@@ -660,11 +667,10 @@ TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine, TSWasmError *wasm_error) {
   }
 
   // Retrieve the stdlib module's imports.
-  wasm_importtype_vec_t import_types = WASM_EMPTY_VEC;
   wasmtime_module_imports(stdlib_module, &import_types);
 
   // Find the initial number of memory pages needed by the stdlib.
-  const wasm_memorytype_t *stdlib_memory_type;
+  const wasm_memorytype_t *stdlib_memory_type = NULL;
   for (unsigned i = 0; i < import_types.size; i++) {
     wasm_importtype_t *import_type = import_types.data[i];
     const wasm_name_t *import_name = wasm_importtype_name(import_type);
@@ -1742,6 +1748,12 @@ void ts_wasm_language_release(const TSLanguage *self) {
     ts_free((void *)self);
   }
 }
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#elif defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 
 #else
 
