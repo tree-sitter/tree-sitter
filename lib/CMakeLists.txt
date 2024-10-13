@@ -22,9 +22,18 @@ add_library(tree-sitter ${TS_SOURCE_FILES})
 target_include_directories(tree-sitter PRIVATE src src/wasm include)
 
 if(MSVC)
-  target_compile_options(tree-sitter PRIVATE /W4 /wd4018 /wd4701 /wd4702 /wd4100 /wd4232 /wd4244)
+  target_compile_options(tree-sitter PRIVATE
+                         /wd4018 # disable 'signed/unsigned mismatch'
+                         /wd4232 # disable 'nonstandard extension used'
+                         /wd4244 # disable 'possible loss of data'
+                         /wd4267 # disable 'possible loss of data (size_t)'
+                         /wd4701 # disable 'potentially uninitialized local variable'
+                         /we4022 # treat 'incompatible types' as an error
+                         /W4)
 else()
-  target_compile_options(tree-sitter PRIVATE -Wall -Wextra -Wshadow -pedantic)
+  target_compile_options(tree-sitter PRIVATE
+                         -Wall -Wextra -Wshadow -Wpedantic
+                         -Werror=incompatible-pointer-types)
 endif()
 
 if(TREE_SITTER_FEATURE_WASM)
@@ -41,13 +50,7 @@ if(TREE_SITTER_FEATURE_WASM)
 
   if(NOT DEFINED CACHE{WASMTIME_LIBRARY})
     message(CHECK_START "Looking for wasmtime library")
-    if(BUILD_SHARED_LIBS)
-      find_library(WASMTIME_LIBRARY wasmtime)
-    elseif(MSVC)
-      find_library(WASMTIME_LIBRARY wasmtime.lib)
-    else()
-      find_library(WASMTIME_LIBRARY libwasmtime.a)
-    endif()
+    find_library(WASMTIME_LIBRARY wasmtime)
     if(NOT WASMTIME_LIBRARY)
       unset(WASMTIME_LIBRARY CACHE)
       message(FATAL_ERROR "Could not find wasmtime library.\nDid you forget to set CMAKE_LIBRARY_PATH?")
