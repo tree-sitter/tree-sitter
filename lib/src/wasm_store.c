@@ -864,7 +864,7 @@ TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine, TSWasmError *wasm_error) {
 
   // Add all of the lexer callback functions to the function table. Store their function table
   // indices on the in-memory lexer.
-  uint32_t table_index;
+  uint64_t table_index;
   error = wasmtime_table_grow(context, &function_table, lexer_definitions_len, &initializer, &table_index);
   if (error) {
     wasmtime_error_message(error, &message);
@@ -965,7 +965,7 @@ static bool ts_wasm_store__instantiate(
 
   // Grow the function table to make room for the new functions.
   wasmtime_val_t initializer = {.kind = WASMTIME_FUNCREF};
-  uint32_t prev_table_size;
+  uint64_t prev_table_size;
   error = wasmtime_table_grow(context, &self->function_table, dylink_info->table_size, &initializer, &prev_table_size);
   if (error) {
     format(error_message, "invalid function table size %u", dylink_info->table_size);
