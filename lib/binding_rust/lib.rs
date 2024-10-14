@@ -349,10 +349,17 @@ impl Language {
         unsafe { ffi::ts_language_symbol_type(self.0, id) == ffi::TSSymbolTypeRegular }
     }
 
-    #[doc(alias = "ts_language_symbol_type")]
+    /// Check if the node type for the given numerical id is visible (as opposed
+    /// to a hidden node type).
     #[must_use]
     pub fn node_kind_is_visible(&self, id: u16) -> bool {
         unsafe { ffi::ts_language_symbol_type(self.0, id) <= ffi::TSSymbolTypeAnonymous }
+    }
+
+    /// Check if the node type for the given numerical id is a supertype.
+    #[must_use]
+    pub fn node_kind_is_supertype(&self, id: u16) -> bool {
+        unsafe { ffi::ts_language_symbol_type(self.0, id) == ffi::TSSymbolTypeSupertype }
     }
 
     /// Get the number of distinct field names in this language.
