@@ -200,6 +200,7 @@ struct GenerateOpts<'a> {
     description: Option<&'a str>,
     repository: Option<&'a str>,
     version: &'a Version,
+    camel_parser_name: &'a str,
 }
 
 // TODO: remove in 0.25
@@ -335,7 +336,7 @@ pub fn migrate_package_json(repo_path: &Path) -> Result<bool> {
 
     write_file(
         &tree_sitter_json_path,
-        serde_json::to_string_pretty(&new_config)?,
+        serde_json::to_string_pretty(&new_config)? + "\n",
     )?;
 
     // Remove the `tree-sitter` field in-place
@@ -347,7 +348,7 @@ pub fn migrate_package_json(repo_path: &Path) -> Result<bool> {
     package_json.remove("tree-sitter");
     write_file(
         &root_path.join("package.json"),
-        serde_json::to_string_pretty(&package_json)?,
+        serde_json::to_string_pretty(&package_json)? + "\n",
     )?;
 
     println!("Warning: your package.json's `tree-sitter` field has been automatically migrated to the new `tree-sitter.json` config file");
@@ -392,6 +393,10 @@ pub fn generate_grammar_files(
     )?;
 
     let authors = tree_sitter_config.metadata.authors.as_ref();
+    let camel_name = tree_sitter_config.grammars[0]
+        .camelcase
+        .clone()
+        .unwrap_or_else(|| language_name.to_upper_camel_case());
 
     let generate_opts = GenerateOpts {
         author_name: authors
@@ -411,6 +416,7 @@ pub fn generate_grammar_files(
             .as_ref()
             .map(|l| l.repository.as_str()),
         version: &tree_sitter_config.metadata.version,
+        camel_parser_name: &camel_name,
     };
 
     // Create package.json
@@ -613,7 +619,7 @@ pub fn generate_grammar_files(
     // Generate Swift bindings
     if tree_sitter_config.bindings.swift {
         missing_path(bindings_dir.join("swift"), create_dir)?.apply(|path| {
-            let lang_path = path.join(format!("TreeSitter{}", language_name.to_upper_camel_case()));
+            let lang_path = path.join(format!("TreeSitter{camel_name}",));
             missing_path(&lang_path, create_dir)?;
 
             missing_path(lang_path.join(format!("{language_name}.h")), |path| {
@@ -621,18 +627,12 @@ pub fn generate_grammar_files(
             })?;
 
             missing_path(
-                path.join(format!(
-                    "TreeSitter{}Tests",
-                    language_name.to_upper_camel_case()
-                )),
+                path.join(format!("TreeSitter{camel_name}Tests",)),
                 create_dir,
             )?
             .apply(|path| {
                 missing_path(
-                    path.join(format!(
-                        "TreeSitter{}Tests.swift",
-                        language_name.to_upper_camel_case()
-                    )),
+                    path.join(format!("TreeSitter{camel_name}Tests.swift")),
                     |path| generate_file(path, TESTS_SWIFT_TEMPLATE, language_name, &generate_opts),
                 )?;
 
@@ -699,7 +699,7 @@ fn generate_file(
     let mut replacement = template
         .replace(
             CAMEL_PARSER_NAME_PLACEHOLDER,
-            &language_name.to_upper_camel_case(),
+            generate_opts.camel_parser_name,
         )
         .replace(
             UPPER_PARSER_NAME_PLACEHOLDER,
@@ -842,7 +842,7 @@ fn generate_file(
                 PARSER_DESCRIPTION_PLACEHOLDER,
                 &format!(
                     "{} grammar for tree-sitter",
-                    language_name.to_upper_camel_case()
+                    generate_opts.camel_parser_name,
                 ),
             );
         }
