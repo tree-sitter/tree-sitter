@@ -120,7 +120,8 @@ impl Version {
 
         if self.current_dir.join("Cargo.lock").exists() {
             let Ok(cmd) = Command::new("cargo")
-                .arg("update")
+                .arg("generate-lockfile")
+                .arg("--offline")
                 .current_dir(&self.current_dir)
                 .output()
             else {
@@ -129,7 +130,9 @@ impl Version {
 
             if !cmd.status.success() {
                 let stderr = String::from_utf8_lossy(&cmd.stderr);
-                return Err(anyhow!("Failed to run `cargo update`:\n{stderr}"));
+                return Err(anyhow!(
+                    "Failed to run `cargo generate-lockfile`:\n{stderr}"
+                ));
             }
         }
 
@@ -170,6 +173,7 @@ impl Version {
         if self.current_dir.join("package-lock.json").exists() {
             let Ok(cmd) = Command::new("npm")
                 .arg("install")
+                .arg("--package-lock-only")
                 .current_dir(&self.current_dir)
                 .output()
             else {
@@ -225,7 +229,7 @@ impl Version {
 
         let cmake = fs::read_to_string(self.current_dir.join("CMakeLists.txt"))?;
 
-        let re = Regex::new(r#"(project\([^\n]*\n\s*VERSION\s+)"[0-9]+\.[0-9]+\.[0-9]+""#)?;
+        let re = Regex::new(r#"(\s*VERSION\s+)"[0-9]+\.[0-9]+\.[0-9]+""#)?;
         let cmake = re.replace(&cmake, format!(r#"$1"{}""#, self.version));
 
         fs::write(self.current_dir.join("CMakeLists.txt"), cmake.as_bytes())?;
