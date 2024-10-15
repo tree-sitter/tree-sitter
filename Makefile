@@ -99,8 +99,8 @@ test:
 	cargo xtask generate-fixtures
 	cargo xtask test
 
-test_wasm:
-	cargo xtask generate-fixtures-wasm
+test-wasm:
+	cargo xtask generate-fixtures --wasm
 	cargo xtask test-wasm
 
 lint:
@@ -113,6 +113,13 @@ format:
 	cargo +nightly fmt --all
 
 changelog:
-	@git-cliff --config script/cliff.toml --prepend CHANGELOG.md --latest --github-token $(shell gh auth token)
+	@git cliff -c .github/cliff.toml -p CHANGELOG.md -l --github-token $(shell gh auth token)
 
-.PHONY: test test_wasm lint format changelog
+wasm-exports-list:
+	@while read -r wasm_file; do \
+		wasm-objdump --details "$$wasm_file" --section Import | \
+			sed -n 's/.*<env\.\([A-Za-z0-9_]*\)>.*/\1/p'; \
+	done < <(find target -maxdepth 2 -name 'tree-sitter-*.wasm') | sort -u
+
+
+.PHONY: test test-wasm lint format changelog wasm-exports-list

@@ -1,8 +1,0 @@
-#!/usr/bin/env bash
-
-set -e
-
-while read -r wasm_file; do
-  wasm-objdump --details "$wasm_file" --section Import | \
-    sed -n 's/.*<env\.\([A-Za-z0-9_]*\)>.*/\1/p'
-done < <(find target -maxdepth 2 -name 'tree-sitter-*.wasm') | sort -u
