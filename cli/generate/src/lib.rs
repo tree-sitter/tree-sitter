@@ -66,7 +66,18 @@ pub fn generate_parser_in_directory(
         }
     }
 
-    let grammar_path = grammar_path.map_or_else(|| repo_path.join("grammar.js"), PathBuf::from);
+    let grammar_path = grammar_path.map_or_else(
+        || {
+            // TODO: make .mjs the default in 0.26 (?)
+            let js = repo_path.join("grammar.js");
+            if js.exists() {
+                js
+            } else {
+                repo_path.join("grammar.mjs")
+            }
+        },
+        PathBuf::from,
+    );
 
     // Read the grammar file.
     let grammar_json = load_grammar_file(&grammar_path, js_runtime)?;
@@ -149,12 +160,12 @@ fn generate_parser_for_grammar_with_opts(
 pub fn load_grammar_file(grammar_path: &Path, js_runtime: Option<&str>) -> Result<String> {
     if grammar_path.is_dir() {
         return Err(anyhow!(
-            "Path to a grammar file with `.js` or `.json` extension is required"
+            "Path to a grammar file with `.js`, `.mjs`, or `.json` extension is required"
         ));
     }
     match grammar_path.extension().and_then(|e| e.to_str()) {
-        Some("js") => Ok(load_js_grammar_file(grammar_path, js_runtime)
-            .with_context(|| "Failed to load grammar.js")?),
+        Some("js" | "mjs") => Ok(load_js_grammar_file(grammar_path, js_runtime)
+            .with_context(|| "Failed to load grammar.(m)js")?),
         Some("json") => {
             Ok(fs::read_to_string(grammar_path).with_context(|| "Failed to load grammar.json")?)
         }

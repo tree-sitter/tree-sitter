@@ -24,7 +24,7 @@ lazy_static! {
     static ref TEST_LOADER: Loader = Loader::with_parser_lib_path(SCRATCH_DIR.clone());
     static ref EXAMPLE_AND_QUERY_PATHS_BY_LANGUAGE_DIR: BTreeMap<PathBuf, (Vec<PathBuf>, Vec<PathBuf>)> = {
         fn process_dir(result: &mut BTreeMap<PathBuf, (Vec<PathBuf>, Vec<PathBuf>)>, dir: &Path) {
-            if dir.join("grammar.js").exists() {
+            if dir.join("grammar.js").exists() || dir.join("grammar.mjs").exists() {
                 let relative_path = dir.strip_prefix(GRAMMARS_DIR.as_path()).unwrap();
                 let (example_paths, query_paths) =
                     result.entry(relative_path.to_owned()).or_default();

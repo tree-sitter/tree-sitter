@@ -56,6 +56,10 @@ module.exports = grammar({
 });
 ```
 
+If you prefer ESM, you can rename the file to `grammar.mjs` and change `module.exports =` to `export default`.
+Make sure you also check the files for any references to `grammar.js` and change them to `grammar.mjs`.
+_Note that this is not supported by the CLI prior to v25.0.0._
+
 Now, run the following command:
 
 ```sh
@@ -67,14 +71,14 @@ This will generate the C code required to parse this trivial language, as well a
 You can test this parser by creating a source file with the contents "hello" and parsing it:
 
 ```sh
-echo 'hello' > example-file
+printf 'hello\n' > example-file
 tree-sitter parse example-file
 ```
 
 Alternatively, in Windows PowerShell:
 
 ```pwsh
-"hello" | Out-File example-file -Encoding utf8
+Out-File -i 'hello' example-file
 tree-sitter parse example-file
 ```
 
