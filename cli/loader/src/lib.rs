@@ -1252,9 +1252,10 @@ impl Loader {
             format!("Failed to open grammar.json at {}", grammar_path.display())
         })?;
 
-        let first_three_lines = BufReader::new(file)
+        let first_lines = BufReader::new(file)
             .lines()
-            .take(3)
+            // todo(clason): reduce to 3 after all parsers are fixed
+            .take(20)
             .collect::<Result<Vec<_>, _>>()
             .with_context(|| {
                 format!(
@@ -1265,7 +1266,7 @@ impl Loader {
             .join("\n");
 
         let name = GRAMMAR_NAME_REGEX
-            .captures(&first_three_lines)
+            .captures(&first_lines)
             .and_then(|c| c.get(1))
             .ok_or_else(|| {
                 anyhow!(
