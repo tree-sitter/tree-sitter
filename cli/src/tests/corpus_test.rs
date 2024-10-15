@@ -347,7 +347,7 @@ fn test_feature_corpus_files() {
         }
 
         let test_path = entry.path();
-        let mut grammar_path = test_path.join("grammar.js");
+        let mut grammar_path = test_path.join("grammar.mjs");
         if !grammar_path.exists() {
             grammar_path = test_path.join("grammar.json");
         }

@@ -943,7 +943,7 @@ fn test_node_is_named_but_aliased_as_anonymous() {
         &fixtures_dir()
             .join("test_grammars")
             .join("named_rule_aliased_as_anonymous")
-            .join("grammar.js"),
+            .join("grammar.mjs"),
         None,
     )
     .unwrap();

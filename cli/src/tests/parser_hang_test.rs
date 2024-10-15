@@ -89,7 +89,7 @@ fn hang_test() {
         .join("test_grammars")
         .join("get_col_should_hang_not_crash");
 
-    let grammar_json = load_grammar_file(&test_grammar_dir.join("grammar.js"), None).unwrap();
+    let grammar_json = load_grammar_file(&test_grammar_dir.join("grammar.mjs"), None).unwrap();
     let (parser_name, parser_code) = generate_parser_for_grammar(grammar_json.as_str()).unwrap();
 
     let language = get_test_language(&parser_name, &parser_code, Some(test_grammar_dir.as_path()));

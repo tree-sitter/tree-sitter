@@ -5034,7 +5034,7 @@ fn test_query_max_start_depth_more() {
 
 #[test]
 fn test_grammar_with_aliased_literal_query() {
-    // module.exports = grammar({
+    // export default grammar({
     //   name: 'test',
     //
     //   rules: {

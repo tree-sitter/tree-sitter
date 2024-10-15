@@ -478,7 +478,7 @@ fn test_parsing_after_editing_tree_that_depends_on_column_values() {
     let dir = fixtures_dir()
         .join("test_grammars")
         .join("uses_current_column");
-    let grammar_json = load_grammar_file(&dir.join("grammar.js"), None).unwrap();
+    let grammar_json = load_grammar_file(&dir.join("grammar.mjs"), None).unwrap();
     let (grammar_name, parser_code) = generate_parser_for_grammar(&grammar_json).unwrap();
 
     let mut parser = Parser::new();
@@ -556,7 +556,7 @@ fn test_parsing_after_editing_tree_that_depends_on_column_position() {
         .join("test_grammars")
         .join("depends_on_column");
 
-    let grammar_json = load_grammar_file(&dir.join("grammar.js"), None).unwrap();
+    let grammar_json = load_grammar_file(&dir.join("grammar.mjs"), None).unwrap();
     let (grammar_name, parser_code) = generate_parser_for_grammar(grammar_json.as_str()).unwrap();
 
     let mut parser = Parser::new();
@@ -1534,7 +1534,7 @@ if foo && bar || baz {}
 #[test]
 fn test_parsing_with_scanner_logging() {
     let dir = fixtures_dir().join("test_grammars").join("external_tokens");
-    let grammar_json = load_grammar_file(&dir.join("grammar.js"), None).unwrap();
+    let grammar_json = load_grammar_file(&dir.join("grammar.mjs"), None).unwrap();
     let (grammar_name, parser_code) = generate_parser_for_grammar(&grammar_json).unwrap();
 
     let mut parser = Parser::new();
@@ -1558,7 +1558,7 @@ fn test_parsing_with_scanner_logging() {
 #[test]
 fn test_parsing_get_column_at_eof() {
     let dir = fixtures_dir().join("test_grammars").join("get_col_eof");
-    let grammar_json = load_grammar_file(&dir.join("grammar.js"), None).unwrap();
+    let grammar_json = load_grammar_file(&dir.join("grammar.mjs"), None).unwrap();
     let (grammar_name, parser_code) = generate_parser_for_grammar(&grammar_json).unwrap();
 
     let mut parser = Parser::new();
