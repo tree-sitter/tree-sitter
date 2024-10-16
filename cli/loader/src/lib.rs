@@ -162,7 +162,8 @@ pub struct Grammar {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub camelcase: Option<String>,
     pub scope: String,
-    pub path: PathBuf,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub path: Option<PathBuf>,
     #[serde(default, skip_serializing_if = "PathsJSON::is_empty")]
     pub external_files: PathsJSON,
     pub file_types: Option<Vec<String>>,
@@ -1120,7 +1121,7 @@ impl Loader {
                 // Determine the path to the parser directory. This can be specified in
                 // the tree-sitter.json, but defaults to the directory containing the
                 // tree-sitter.json.
-                let language_path = parser_path.join(grammar.path);
+                let language_path = parser_path.join(grammar.path.unwrap_or(PathBuf::from(".")));
 
                 // Determine if a previous language configuration in this package.json file
                 // already uses the same language.
