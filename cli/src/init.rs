@@ -445,9 +445,44 @@ pub fn generate_grammar_files(
             let lang_path = path.join(format!("tree_sitter_{}", language_name.to_snake_case()));
             missing_path(&lang_path, create_dir)?;
 
-            missing_path(lang_path.join("binding.c"), |path| {
-                generate_file(path, PY_BINDING_C_TEMPLATE, language_name, &generate_opts)
-            })?;
+            missing_path_else(
+                lang_path.join("binding.c"),
+                allow_update,
+                |path| generate_file(path, PY_BINDING_C_TEMPLATE, language_name, &generate_opts),
+                |path| {
+                    let mut contents = fs::read_to_string(path)?;
+                    if !contents.contains("PyModuleDef_Init") {
+                        contents = contents
+                            .replace("PyModule_Create", "PyModuleDef_Init")
+                            .replace(
+                                "static PyMethodDef methods[] = {\n",
+                                indoc! {"
+                                static struct PyModuleDef_Slot slots[] = {
+                                #ifdef Py_GIL_DISABLED
+                                    {Py_mod_gil, Py_MOD_GIL_NOT_USED},
+                                #endif
+                                    {0, NULL}
+                                };
+
+                                static PyMethodDef methods[] = {
+                                "},
+                            )
+                            .replace(
+                                indoc! {"
+                                .m_size = -1,
+                                    .m_methods = methods
+                                "},
+                                indoc! {"
+                                .m_size = 0,
+                                    .m_methods = methods,
+                                    .m_slots = slots,
+                                "},
+                            );
+                        write_file(path, contents)?;
+                    }
+                    Ok(())
+                },
+            )?;
 
             missing_path(lang_path.join("__init__.py"), |path| {
                 generate_file(path, INIT_PY_TEMPLATE, language_name, &generate_opts)
@@ -478,51 +513,27 @@ pub fn generate_grammar_files(
                 allow_update,
                 |path| generate_file(path, SETUP_PY_TEMPLATE, language_name, &generate_opts),
                 |path| {
-                    let mut contents = fs::read_to_string(path)?;
-                    if contents.contains("sources.extend") || !contents.contains("egg_info") {
-                        contents = contents
-                            .replace("sources.extend", "sources.append")
-                            .replace(
-                                "from setuptools.command.build import build\n",
-                                indoc! {"
-                                from setuptools.command.build import build
-                                from setuptools.command.egg_info import egg_info
-                                "},
-                            )
-                            .replace(
-                                "setup(\n",
-                                indoc! {r#"
-                                class EggInfo(egg_info):
-                                    def find_sources(self):
-                                        super().find_sources()
-                                        self.filelist.recursive_include("queries", "*.scm")
-                                        self.filelist.include("src/tree_sitter/*.h")
-
-
-                                setup(
-                                "#},
-                            )
-                            .replace(
-                                "\"bdist_wheel\": BdistWheel\n",
-                                indoc! {r#"
-                                "bdist_wheel": BdistWheel,
-                                        "egg_info": EggInfo,
-                                "#},
-                            );
-                        write_file(path, contents)?;
+                    let contents = fs::read_to_string(path)?;
+                    if !contents.contains("egg_info") || !contents.contains("Py_GIL_DISABLED") {
+                        eprintln!("Replacing setup.py");
+                        generate_file(path, SETUP_PY_TEMPLATE, language_name, &generate_opts)?;
                     }
                     Ok(())
                 },
             )?;
 
-            missing_path_else(repo_path.join("pyproject.toml"), allow_update, |path| {
-                generate_file(
-                    path,
-                    PYPROJECT_TOML_TEMPLATE,
-                    dashed_language_name.as_str(),
-                    &generate_opts,
-                )
-            }, |path| {
+            missing_path_else(
+                repo_path.join("pyproject.toml"),
+                allow_update,
+                |path| {
+                    generate_file(
+                        path,
+                        PYPROJECT_TOML_TEMPLATE,
+                        dashed_language_name.as_str(),
+                        &generate_opts,
+                    )
+                },
+                |path| {
                     let mut contents = fs::read_to_string(path)?;
                     if !contents.contains("cp310-*") {
                         contents = contents
@@ -532,7 +543,8 @@ pub fn generate_grammar_files(
                         write_file(path, contents)?;
                     }
                     Ok(())
-                })?;
+                },
+            )?;
 
             Ok(())
         })?;

@@ -1,5 +1,6 @@
 from os import path
 from platform import system
+from sysconfig import get_config_var
 
 from setuptools import Extension, find_packages, setup
 from setuptools.command.build import build
@@ -12,6 +13,13 @@ sources = [
 ]
 if path.exists("src/scanner.c"):
     sources.append("src/scanner.c")
+
+macros: list[tuple[str, str | None]] = [
+    ("PY_SSIZE_T_CLEAN", None),
+    ("TREE_SITTER_HIDE_SYMBOLS", None),
+]
+if limited_api := not get_config_var("Py_GIL_DISABLED"):
+    macros.append(("Py_LIMITED_API", "0x030A0000"))
 
 if system() != "Windows":
     cflags = ["-std=c11", "-fvisibility=hidden"]
@@ -55,13 +63,9 @@ setup(
             name="_binding",
             sources=sources,
             extra_compile_args=cflags,
-            define_macros=[
-                ("Py_LIMITED_API", "0x03090000"),
-                ("PY_SSIZE_T_CLEAN", None),
-                ("TREE_SITTER_HIDE_SYMBOLS", None),
-            ],
+            define_macros=macros,
             include_dirs=["src"],
-            py_limited_api=True,
+            py_limited_api=limited_api,
         )
     ],
     cmdclass={
