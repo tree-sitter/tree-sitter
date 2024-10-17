@@ -82,7 +82,7 @@ impl<'a> ParseTableBuilder<'a> {
             &Vec::new(),
             ParseItemSet::with(std::iter::once((
                 ParseItem::start(),
-                std::iter::once(&Symbol::end()).copied().collect(),
+                std::iter::once(Symbol::end()).collect(),
             ))),
         );
 
@@ -106,9 +106,7 @@ impl<'a> ParseTableBuilder<'a> {
                             step_index: 1,
                             has_preceding_inherited_fields: false,
                         },
-                        &std::iter::once(&Symbol::end_of_nonterminal_extra())
-                            .copied()
-                            .collect(),
+                        &std::iter::once(Symbol::end_of_nonterminal_extra()).collect(),
                     );
             }
         }
