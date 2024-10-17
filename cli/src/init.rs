@@ -515,14 +515,24 @@ pub fn generate_grammar_files(
                 },
             )?;
 
-            missing_path(repo_path.join("pyproject.toml"), |path| {
+            missing_path_else(repo_path.join("pyproject.toml"), allow_update, |path| {
                 generate_file(
                     path,
                     PYPROJECT_TOML_TEMPLATE,
                     dashed_language_name.as_str(),
                     &generate_opts,
                 )
-            })?;
+            }, |path| {
+                    let mut contents = fs::read_to_string(path)?;
+                    if !contents.contains("cp310-*") {
+                        contents = contents
+                            .replace(r#"build = "cp39-*""#, r#"build = "cp310-*""#)
+                            .replace(r#"python = ">=3.9""#, r#"python = ">=3.10""#)
+                            .replace("tree-sitter~=0.22", "tree-sitter~=0.24");
+                        write_file(path, contents)?;
+                    }
+                    Ok(())
+                })?;
 
             Ok(())
         })?;
@@ -705,11 +715,7 @@ fn generate_file(
                         .map(|i| i + start_idx + 2)
                     {
                         replacement.replace_range(start_idx..end_idx, "");
-                    } else {
-                        println!("none 2");
                     }
-                } else {
-                    println!("none 1");
                 }
             }
             "grammar.js" => {
@@ -719,11 +725,7 @@ fn generate_file(
                         .map(|i| i + start_idx + 1)
                     {
                         replacement.replace_range(start_idx..end_idx, "");
-                    } else {
-                        println!("none 2");
                     }
-                } else {
-                    println!("none 1");
                 }
             }
             "Cargo.toml" => {
