@@ -14,7 +14,7 @@ classifiers = [
   "Typing :: Typed",
 ]
 authors = [{ name = "PARSER_AUTHOR_NAME", email = "PARSER_AUTHOR_EMAIL" }]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license.text = "PARSER_LICENSE"
 readme = "README.md"
 
@@ -22,8 +22,8 @@ readme = "README.md"
 Homepage = "PARSER_URL"
 
 [project.optional-dependencies]
-core = ["tree-sitter~=0.22"]
+core = ["tree-sitter~=0.24"]
 
 [tool.cibuildwheel]
-build = "cp39-*"
+build = "cp310-*"
 build-frontend = "build"
