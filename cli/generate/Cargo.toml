@@ -15,6 +15,9 @@ categories.workspace = true
 [lints]
 workspace = true
 
+[features]
+qjs-rt = ["rquickjs", "pathdiff"]
+
 [dependencies]
 anyhow.workspace = true
 heck.workspace = true
@@ -32,3 +35,12 @@ smallbitvec.workspace = true
 url.workspace = true
 
 tree-sitter.workspace = true
+
+[dependencies.rquickjs]
+version = "0.6.2"
+optional = true
+features = ["full-async"]
+
+[dependencies.pathdiff]
+version = "0.2.2"
+optional = true

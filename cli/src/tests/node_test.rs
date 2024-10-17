@@ -945,6 +945,8 @@ fn test_node_is_named_but_aliased_as_anonymous() {
             .join("named_rule_aliased_as_anonymous")
             .join("grammar.js"),
         None,
+        #[cfg(feature = "qjs-rt")]
+        &[],
     )
     .unwrap();
 
