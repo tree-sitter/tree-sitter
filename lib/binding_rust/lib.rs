@@ -488,9 +488,9 @@ impl Parser {
     /// Get the parser's current language.
     #[doc(alias = "ts_parser_language")]
     #[must_use]
-    pub fn language(&self) -> Option<Language> {
+    pub fn language(&self) -> Option<LanguageRef<'_>> {
         let ptr = unsafe { ffi::ts_parser_language(self.0.as_ptr()) };
-        (!ptr.is_null()).then(|| Language(ptr))
+        (!ptr.is_null()).then_some(LanguageRef(ptr, PhantomData))
     }
 
     /// Get the parser's current logger.
