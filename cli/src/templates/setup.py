@@ -1,9 +1,17 @@
 from os.path import isdir, join
 from platform import system
+from sysconfig import get_config_var
 
 from setuptools import Extension, find_packages, setup
 from setuptools.command.build import build
 from wheel.bdist_wheel import bdist_wheel
+
+macros: list[tuple[str, str | None]] = [
+    ("PY_SSIZE_T_CLEAN", None),
+    ("TREE_SITTER_HIDE_SYMBOLS", None),
+]
+if limited_api := not get_config_var("Py_GIL_DISABLED"):
+    macros.append(("Py_LIMITED_API", "0x030A0000"))
 
 
 class Build(build):
@@ -45,13 +53,9 @@ setup(
                 "/std:c11",
                 "/utf-8",
             ],
-            define_macros=[
-                ("Py_LIMITED_API", "0x03090000"),
-                ("PY_SSIZE_T_CLEAN", None),
-                ("TREE_SITTER_HIDE_SYMBOLS", None),
-            ],
             include_dirs=["src"],
-            py_limited_api=True,
+            define_macros=macros,
+            py_limited_api=limited_api,
         )
     ],
     cmdclass={
