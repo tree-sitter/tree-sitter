@@ -1,5 +1,4 @@
 #include "tree_sitter/api.h"
-#include "./alloc.h"
 #include "./tree_cursor.h"
 #include "./language.h"
 #include "./tree.h"
@@ -212,7 +211,6 @@ bool ts_tree_cursor_goto_first_child(TSTreeCursor *self) {
         return false;
     }
   }
-  return false;
 }
 
 TreeCursorStep ts_tree_cursor_goto_last_child_internal(TSTreeCursor *_self) {
@@ -253,7 +251,6 @@ bool ts_tree_cursor_goto_last_child(TSTreeCursor *self) {
         return false;
     }
   }
-  return false;
 }
 
 static inline int64_t ts_tree_cursor_goto_first_child_for_byte_and_point(
