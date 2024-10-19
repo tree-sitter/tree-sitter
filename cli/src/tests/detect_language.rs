@@ -101,7 +101,7 @@ fn tree_sitter_dir(tree_sitter_json: &str, name: &str) -> tempfile::TempDir {
     fs::write(
         temp_dir.path().join("src/parser.c"),
         format!(
-            r##"
+            r#"
                 #include "tree_sitter/parser.h"
                 #ifdef _WIN32
                 #define TS_PUBLIC __declspec(dllexport)
@@ -109,7 +109,7 @@ fn tree_sitter_dir(tree_sitter_json: &str, name: &str) -> tempfile::TempDir {
                 #define TS_PUBLIC __attribute__((visibility("default")))
                 #endif
                 TS_PUBLIC const TSLanguage *tree_sitter_{name}() {{}}
-            "##
+            "#
         ),
     )
     .unwrap();
