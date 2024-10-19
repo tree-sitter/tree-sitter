@@ -2,7 +2,7 @@
   "name": "tree-sitter-PARSER_NAME",
   "version": "PARSER_VERSION",
   "description": "PARSER_DESCRIPTION",
-  "repository": "github:tree-sitter/tree-sitter-PARSER_NAME",
+  "repository": "PARSER_URL",
   "license": "PARSER_LICENSE",
   "author": {
     "name": "PARSER_AUTHOR_NAME",
