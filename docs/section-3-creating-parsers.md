@@ -164,6 +164,28 @@ This field controls what bindings are generated when the `init` command is run. 
 * `rust` (default: `true`)
 * `swift` (default: `false`)
 
+### Command: `version`
+
+The `version` command prints the version of the `tree-sitter` CLI tool that you have installed.
+
+```sh
+tree-sitter version 1.0.0
+```
+
+The only argument is the version itself, which is the first positional argument.
+This will update the version in several files, if they exist:
+
+* tree-sitter.json
+* Cargo.toml
+* package.json
+* Makefile
+* CMakeLists.txt
+* pyproject.toml
+
+As a grammar author, you should keep the version of your grammar in sync across
+different bindings. However, doing so manually is error-prone and tedious, so
+this command takes care of the burden.
+
 ### Command: `generate`
 
 The most important command you'll use is `tree-sitter generate`. This command reads the `grammar.js` file in your current working directory and creates a file called `src/parser.c`, which implements the parser. After making changes to your grammar, just run `tree-sitter generate` again.
