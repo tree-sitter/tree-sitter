@@ -1142,6 +1142,11 @@ uint32_t ts_language_version(const TSLanguage *self);
 */
 TSStateId ts_language_next_state(const TSLanguage *self, TSStateId state, TSSymbol symbol);
 
+/**
+ * Get the name of this language. This returns `NULL` in older parsers.
+ */
+const char *ts_language_name(const TSLanguage *self);
+
 /********************************/
 /* Section - Lookahead Iterator */
 /********************************/
