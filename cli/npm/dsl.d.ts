@@ -42,7 +42,7 @@ type GrammarSymbols<RuleName extends string> = {
 
 type RuleBuilder<RuleName extends string> = (
   $: GrammarSymbols<RuleName>,
-  previous: Rule,
+  previous?: Rule,
 ) => RuleOrLiteral;
 
 type RuleBuilders<
