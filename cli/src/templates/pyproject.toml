@@ -9,7 +9,6 @@ version = "PARSER_VERSION"
 keywords = ["incremental", "parsing", "tree-sitter", "PARSER_NAME"]
 classifiers = [
   "Intended Audience :: Developers",
-  "License :: OSI Approved :: MIT License",
   "Topic :: Software Development :: Compilers",
   "Topic :: Text Processing :: Linguistic",
   "Typing :: Typed",
