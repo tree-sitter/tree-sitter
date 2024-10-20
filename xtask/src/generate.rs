@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 
 use crate::{bail_on_err, GenerateFixtures};
 
-const HEADER_PATH: &str = "include/tree_sitter/api.h";
+const HEADER_PATH: &str = "lib/include/tree_sitter/api.h";
 
 pub fn run_fixtures(args: &GenerateFixtures) -> Result<()> {
     let output = std::process::Command::new("cargo")

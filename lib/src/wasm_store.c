@@ -1201,12 +1201,6 @@ const TSLanguage *ts_wasm_store_load_language(
   const uint8_t *memory = wasmtime_memory_data(context, &self->memory);
   memcpy(&wasm_language, &memory[language_address], sizeof(LanguageInWasmMemory));
 
-  if (wasm_language.version < LANGUAGE_VERSION_USABLE_VIA_WASM) {
-      wasm_error->kind = TSWasmErrorKindInstantiate;
-      format(&wasm_error->message, "language version %u is too old for wasm", wasm_language.version);
-      goto error;
-  }
-
   int32_t addresses[] = {
     wasm_language.alias_map,
     wasm_language.alias_sequences,
@@ -1349,12 +1343,10 @@ const TSLanguage *ts_wasm_store_load_language(
     );
   }
 
-  if (language->version >= LANGUAGE_VERSION_WITH_PRIMARY_STATES) {
-    language->primary_state_ids = copy(
-      &memory[wasm_language.primary_state_ids],
-      wasm_language.state_count * sizeof(TSStateId)
-    );
-  }
+  language->primary_state_ids = copy(
+    &memory[wasm_language.primary_state_ids],
+    wasm_language.state_count * sizeof(TSStateId)
+  );
 
   if (language->external_token_count > 0) {
     language->external_scanner.symbol_map = copy(
