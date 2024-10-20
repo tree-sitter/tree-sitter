@@ -75,7 +75,7 @@ const BINDING_GYP_TEMPLATE: &str = include_str!("./templates/binding.gyp");
 const BINDING_TEST_JS_TEMPLATE: &str = include_str!("./templates/binding_test.js");
 
 const MAKEFILE_TEMPLATE: &str = include_str!("./templates/makefile");
-const CMAKELISTS_TXT_TEMPLATE: &str = include_str!("./templates/cmakelists.txt");
+const CMAKELISTS_TXT_TEMPLATE: &str = include_str!("./templates/cmakelists.cmake");
 const PARSER_NAME_H_TEMPLATE: &str = include_str!("./templates/PARSER_NAME.h");
 const PARSER_NAME_PC_IN_TEMPLATE: &str = include_str!("./templates/PARSER_NAME.pc.in");
 
