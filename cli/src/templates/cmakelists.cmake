@@ -56,5 +56,3 @@ install(TARGETS tree-sitter-PARSER_NAME
 add_custom_target(test "${TREE_SITTER_CLI}" test
                   WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
                   COMMENT "tree-sitter test")
-
-# vim:ft=cmake:
