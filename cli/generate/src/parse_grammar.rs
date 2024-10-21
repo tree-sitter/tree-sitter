@@ -68,6 +68,10 @@ enum RuleJSON {
     IMMEDIATE_TOKEN {
         content: Box<RuleJSON>,
     },
+    RESERVED {
+        content: Box<RuleJSON>,
+        words: Vec<RuleJSON>,
+    },
 }
 
 #[derive(Deserialize)]
@@ -93,7 +97,10 @@ pub struct GrammarJSON {
     inline: Vec<String>,
     #[serde(default)]
     supertypes: Vec<String>,
+    #[serde(default)]
     word: Option<String>,
+    #[serde(default)]
+    reserved: Vec<RuleJSON>,
 }
 
 fn rule_is_referenced(rule: &Rule, target: &str) -> bool {
@@ -104,6 +111,13 @@ fn rule_is_referenced(rule: &Rule, target: &str) -> bool {
         }
         Rule::Metadata { rule, .. } => rule_is_referenced(rule, target),
         Rule::Repeat(inner) => rule_is_referenced(inner, target),
+        Rule::Reserved {
+            rule,
+            reserved_words,
+        } => {
+            rule_is_referenced(rule, target)
+                || reserved_words.iter().any(|r| rule_is_referenced(r, target))
+        }
         Rule::Blank | Rule::String(_) | Rule::Pattern(_, _) | Rule::Symbol(_) => false,
     }
 }
@@ -226,6 +240,8 @@ pub(crate) fn parse_grammar(input: &str) -> Result<InputGrammar> {
         });
     }
 
+    let reserved_words = grammar_json.reserved.into_iter().map(parse_rule).collect();
+
     Ok(InputGrammar {
         name: grammar_json.name,
         word_token: grammar_json.word,
@@ -236,6 +252,7 @@ pub(crate) fn parse_grammar(input: &str) -> Result<InputGrammar> {
         variables,
         extra_symbols,
         external_tokens,
+        reserved_words,
     })
 }
 
@@ -283,6 +300,13 @@ fn parse_rule(json: RuleJSON) -> Rule {
         RuleJSON::PREC_DYNAMIC { value, content } => {
             Rule::prec_dynamic(value, parse_rule(*content))
         }
+        RuleJSON::RESERVED {
+            content,
+            words: reserved,
+        } => Rule::Reserved {
+            rule: Box::new(parse_rule(*content)),
+            reserved_words: reserved.into_iter().map(parse_rule).collect(),
+        },
         RuleJSON::TOKEN { content } => Rule::token(parse_rule(*content)),
         RuleJSON::IMMEDIATE_TOKEN { content } => Rule::immediate_token(parse_rule(*content)),
     }

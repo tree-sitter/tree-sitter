@@ -2,7 +2,7 @@ use std::{collections::HashMap, fmt};
 
 use super::{
     nfa::Nfa,
-    rules::{Alias, Associativity, Precedence, Rule, Symbol},
+    rules::{Alias, Associativity, Precedence, Rule, Symbol, TokenSet},
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -39,6 +39,7 @@ pub struct InputGrammar {
     pub variables_to_inline: Vec<String>,
     pub supertype_symbols: Vec<String>,
     pub word_token: Option<String>,
+    pub reserved_words: Vec<Rule>,
 }
 
 // Extracted lexical grammar
@@ -66,6 +67,7 @@ pub struct ProductionStep {
     pub associativity: Option<Associativity>,
     pub alias: Option<Alias>,
     pub field_name: Option<String>,
+    pub reserved_words: Option<Box<TokenSet>>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -104,6 +106,8 @@ pub struct SyntaxGrammar {
     pub variables_to_inline: Vec<Symbol>,
     pub word_token: Option<Symbol>,
     pub precedence_orderings: Vec<Vec<PrecedenceEntry>>,
+    #[allow(unused)]
+    pub reserved_words: TokenSet,
 }
 
 #[cfg(test)]
@@ -116,39 +120,31 @@ impl ProductionStep {
             associativity: None,
             alias: None,
             field_name: None,
+            reserved_words: None,
         }
     }
 
-    pub fn with_prec(self, precedence: Precedence, associativity: Option<Associativity>) -> Self {
-        Self {
-            symbol: self.symbol,
-            precedence,
-            associativity,
-            alias: self.alias,
-            field_name: self.field_name,
-        }
+    pub fn with_prec(
+        mut self,
+        precedence: Precedence,
+        associativity: Option<Associativity>,
+    ) -> Self {
+        self.precedence = precedence;
+        self.associativity = associativity;
+        self
     }
 
-    pub fn with_alias(self, value: &str, is_named: bool) -> Self {
-        Self {
-            symbol: self.symbol,
-            precedence: self.precedence,
-            associativity: self.associativity,
-            alias: Some(Alias {
-                value: value.to_string(),
-                is_named,
-            }),
-            field_name: self.field_name,
-        }
+    pub fn with_alias(mut self, value: &str, is_named: bool) -> Self {
+        self.alias = Some(Alias {
+            value: value.to_string(),
+            is_named,
+        });
+        self
     }
-    pub fn with_field_name(self, name: &str) -> Self {
-        Self {
-            symbol: self.symbol,
-            precedence: self.precedence,
-            associativity: self.associativity,
-            alias: self.alias,
-            field_name: Some(name.to_string()),
-        }
+
+    pub fn with_field_name(mut self, name: &str) -> Self {
+        self.field_name = Some(name.to_string());
+        self
     }
 }
 

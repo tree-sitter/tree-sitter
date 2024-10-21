@@ -56,6 +56,39 @@ void ts_language_table_entry(
   }
 }
 
+TSLexerMode ts_language_lex_mode_for_state(
+   const TSLanguage *self,
+   TSStateId state
+) {
+  if (self->version < 15) {
+    TSLexMode mode = ((const TSLexMode *)self->lex_modes)[state];
+    return (TSLexerMode) {
+      .lex_state = mode.lex_state,
+      .external_lex_state = mode.external_lex_state,
+      .reserved_word_set_id = 0,
+    };
+  } else {
+    return self->lex_modes[state];
+  }
+}
+
+bool ts_language_is_reserved_word(
+  const TSLanguage *self,
+  TSStateId state,
+  TSSymbol symbol
+) {
+  TSLexerMode lex_mode = ts_language_lex_mode_for_state(self, state);
+  if (lex_mode.reserved_word_set_id > 0) {
+    unsigned start = lex_mode.reserved_word_set_id * self->max_reserved_word_set_size;
+    unsigned end = start + self->max_reserved_word_set_size;
+    for (unsigned i = start; i < end; i++) {
+      if (self->reserved_words[i] == symbol) return true;
+      if (self->reserved_words[i] == 0) break;
+    }
+  }
+  return false;
+}
+
 TSSymbolMetadata ts_language_symbol_metadata(
   const TSLanguage *self,
   TSSymbol symbol

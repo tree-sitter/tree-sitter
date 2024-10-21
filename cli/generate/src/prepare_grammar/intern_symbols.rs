@@ -45,6 +45,11 @@ pub(super) fn intern_symbols(grammar: &InputGrammar) -> Result<InternedGrammar> 
         })?);
     }
 
+    let mut reserved_words = Vec::with_capacity(grammar.reserved_words.len());
+    for reserved_word in &grammar.reserved_words {
+        reserved_words.push(interner.intern_rule(reserved_word, None)?);
+    }
+
     let mut expected_conflicts = Vec::new();
     for conflict in &grammar.expected_conflicts {
         let mut interned_conflict = Vec::with_capacity(conflict.len());
@@ -87,6 +92,7 @@ pub(super) fn intern_symbols(grammar: &InputGrammar) -> Result<InternedGrammar> 
         supertype_symbols,
         word_token,
         precedence_orderings: grammar.precedence_orderings.clone(),
+        reserved_words,
     })
 }
 
@@ -117,6 +123,16 @@ impl Interner<'_> {
             Rule::Metadata { rule, params } => Ok(Rule::Metadata {
                 rule: Box::new(self.intern_rule(rule, name)?),
                 params: params.clone(),
+            }),
+            Rule::Reserved {
+                rule,
+                reserved_words,
+            } => Ok(Rule::Reserved {
+                rule: Box::new(self.intern_rule(rule, name)?),
+                reserved_words: reserved_words
+                    .iter()
+                    .map(|r| self.intern_rule(r, name))
+                    .collect::<Result<Vec<_>>>()?,
             }),
             Rule::NamedSymbol(name) => self.intern_name(name).map_or_else(
                 || Err(anyhow!("Undefined symbol `{name}`")),

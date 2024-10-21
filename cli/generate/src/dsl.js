@@ -16,6 +16,7 @@ function alias(rule, value) {
       result.value = value.symbol.name;
       return result;
     case Object:
+    case GrammarSymbol:
       if (typeof value.type === 'string' && value.type === 'SYMBOL') {
         result.named = true;
         result.value = value.name;
@@ -69,7 +70,7 @@ function prec(number, rule) {
   };
 }
 
-prec.left = function(number, rule) {
+prec.left = function (number, rule) {
   if (rule == null) {
     rule = number;
     number = 0;
@@ -91,7 +92,7 @@ prec.left = function(number, rule) {
   };
 }
 
-prec.right = function(number, rule) {
+prec.right = function (number, rule) {
   if (rule == null) {
     rule = number;
     number = 0;
@@ -113,7 +114,7 @@ prec.right = function(number, rule) {
   };
 }
 
-prec.dynamic = function(number, rule) {
+prec.dynamic = function (number, rule) {
   checkPrecedence(number);
   checkArguments(
     arguments,
@@ -153,11 +154,23 @@ function seq(...elements) {
   };
 }
 
-function sym(name) {
+class GrammarSymbol {
+  constructor(name) {
+    this.type = "SYMBOL";
+    this.name = name;
+  }
+}
+
+function reserved(reservedWords, rule) {
   return {
-    type: "SYMBOL",
-    name
-  };
+    type: "RESERVED",
+    content: rule,
+    words: reservedWords.map(normalize),
+  }
+}
+
+function sym(name) {
+  return new GrammarSymbol(name);
 }
 
 function token(value) {
@@ -168,7 +181,7 @@ function token(value) {
   };
 }
 
-token.immediate = function(value) {
+token.immediate = function (value) {
   checkArguments(arguments, arguments.length, token.immediate, 'token.immediate', '', 'literal');
   return {
     type: "IMMEDIATE_TOKEN",
@@ -236,6 +249,7 @@ function grammar(baseGrammar, options) {
       inline: [],
       supertypes: [],
       precedences: [],
+      reserved: [],
     };
   } else {
     baseGrammar = baseGrammar.grammar;
@@ -307,6 +321,21 @@ function grammar(baseGrammar, options) {
       }
       rules[ruleName] = normalize(rule);
     }
+  }
+
+  let reserved = baseGrammar.reserved;
+  if (options.reserved) {
+    if (typeof options.reserved !== "function") {
+      throw new Error("Grammar's 'reserved' property must be a function.");
+    }
+
+    const reservedTokens = options.reserved.call(ruleBuilder, ruleBuilder, baseGrammar.reserved);
+
+    if (!Array.isArray(reservedTokens)) {
+      throw new Error("Grammar's `reserved` function must return an array of rules.");
+    }
+
+    reserved = reservedTokens.map(normalize);
   }
 
   let extras = baseGrammar.extras.slice();
@@ -439,6 +468,7 @@ function grammar(baseGrammar, options) {
       externals,
       inline,
       supertypes,
+      reserved,
     },
   };
 }
@@ -478,6 +508,7 @@ globalThis.optional = optional;
 globalThis.prec = prec;
 globalThis.repeat = repeat;
 globalThis.repeat1 = repeat1;
+global.reserved = reserved;
 globalThis.seq = seq;
 globalThis.sym = sym;
 globalThis.token = token;
