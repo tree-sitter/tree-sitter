@@ -1,5 +1,6 @@
 from os import path
 from platform import system
+from sysconfig import get_config_var
 
 from setuptools import Extension, find_packages, setup
 from setuptools.command.build import build
@@ -12,11 +13,17 @@ sources = [
 if path.exists("src/scanner.c"):
     sources.extend("src/scanner.c")
 
+macros: list[tuple[str, str | None]] = [
+    ("PY_SSIZE_T_CLEAN", None),
+    ("TREE_SITTER_HIDE_SYMBOLS", None),
+]
+if limited_api := not get_config_var("Py_GIL_DISABLED"):
+    macros.append(("Py_LIMITED_API", "0x030A0000"))
+
 if system() != "Windows":
     cflags = ["-std=c11", "-fvisibility=hidden"]
 else:
     cflags = ["/std:c11", "/utf-8"]
-
 
 class Build(build):
     def run(self):
@@ -30,7 +37,7 @@ class BdistWheel(bdist_wheel):
     def get_tag(self):
         python, abi, platform = super().get_tag()
         if python.startswith("cp"):
-            python, abi = "cp39", "abi3"
+            python, abi = "cp310", "abi3"
         return python, abi, platform
 
 
@@ -47,13 +54,9 @@ setup(
             name="_binding",
             sources=sources,
             extra_compile_args=cflags,
-            define_macros=[
-                ("Py_LIMITED_API", "0x03090000"),
-                ("PY_SSIZE_T_CLEAN", None),
-                ("TREE_SITTER_HIDE_SYMBOLS", None),
-            ],
             include_dirs=["src"],
-            py_limited_api=True,
+            define_macros=macros,
+            py_limited_api=limited_api,
         )
     ],
     cmdclass={
