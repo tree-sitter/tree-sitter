@@ -94,9 +94,9 @@ codegen-units = 256
 
 [workspace.dependencies]
 anstyle = "1.0.8"
-anyhow = "1.0.89"
+anyhow = "1.0.90"
 bstr = "1.10.0"
-cc = "1.1.30"
+cc = "1.1.31"
 clap = { version = "4.5.20", features = [
   "cargo",
   "derive",
@@ -131,7 +131,7 @@ rustc-hash = "2.0.0"
 semver = { version = "1.0.23", features = ["serde"] }
 serde = { version = "1.0.210", features = ["derive"] }
 serde_derive = "1.0.210"
-serde_json = { version = "1.0.128", features = ["preserve_order"] }
+serde_json = { version = "1.0.132", features = ["preserve_order"] }
 similar = "2.6.0"
 smallbitvec = "2.5.3"
 streaming-iterator = "0.1.9"
