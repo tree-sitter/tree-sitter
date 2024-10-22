@@ -99,8 +99,8 @@ test:
 	cargo xtask generate-fixtures
 	cargo xtask test
 
-test_wasm:
-	cargo xtask generate-fixtures-wasm
+test-wasm:
+	cargo xtask generate-fixtures --wasm
 	cargo xtask test-wasm
 
 lint:

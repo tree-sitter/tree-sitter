@@ -73,8 +73,7 @@ if(TREE_SITTER_FEATURE_WASM)
   endif()
 endif()
 
-set_target_properties(tree-sitter
-                      PROPERTIES
+set_target_properties(tree-sitter PROPERTIES
                       C_STANDARD 11
                       C_VISIBILITY_PRESET hidden
                       POSITION_INDEPENDENT_CODE ON
@@ -86,10 +85,49 @@ target_compile_definitions(tree-sitter PRIVATE _POSIX_C_SOURCE=200112L _DEFAULT_
 configure_file(tree-sitter.pc.in "${CMAKE_CURRENT_BINARY_DIR}/tree-sitter.pc" @ONLY)
 
 include(GNUInstallDirs)
-
 install(FILES include/tree_sitter/api.h
         DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/tree_sitter")
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/tree-sitter.pc"
         DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/pkgconfig")
 install(TARGETS tree-sitter
         LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}")
+
+include(CTest)
+if(BUILD_TESTING)
+  find_program(CARGO cargo DOC "cargo executable")
+  get_filename_component(PROJECT_BASE_DIR "${PROJECT_SOURCE_DIR}" DIRECTORY CACHE)
+
+  add_test(NAME fetch-fixtures
+           COMMAND "${CARGO}" xtask fetch-fixtures
+           WORKING_DIRECTORY "${PROJECT_BASE_DIR}")
+  set_tests_properties(fetch-fixtures PROPERTIES
+                       FIXTURES_SETUP "fixtures;fixtures-wasm")
+
+  add_test(NAME generate-fixtures
+           COMMAND "${CARGO}" xtask generate-fixtures
+           WORKING_DIRECTORY "${PROJECT_BASE_DIR}")
+  set_tests_properties(generate-fixtures PROPERTIES
+                       DEPENDS fetch-fixtures
+                       FIXTURES_SETUP fixtures)
+
+  add_test(NAME test
+           COMMAND "${CARGO}" xtask test
+           WORKING_DIRECTORY "${PROJECT_BASE_DIR}")
+  set_tests_properties(test PROPERTIES
+                       FIXTURES_REQUIRED fixtures)
+
+  if(TREE_SITTER_FEATURE_WASM)
+    add_test(NAME generate-fixtures-wasm
+             COMMAND cargo xtask generate-fixtures --wasm
+             WORKING_DIRECTORY "${PROJECT_BASE_DIR}")
+    set_tests_properties(generate-fixtures-wasm PROPERTIES
+                         DEPENDS fetch-fixtures
+                         FIXTURES_SETUP fixtures-wasm)
+
+    add_test(NAME test-wasm
+             COMMAND "${CARGO}" xtask test-wasm
+             WORKING_DIRECTORY "${PROJECT_BASE_DIR}")
+    set_tests_properties(test-wasm PROPERTIES
+                         FIXTURES_REQUIRED fixtures-wasm)
+  endif()
+endif()
