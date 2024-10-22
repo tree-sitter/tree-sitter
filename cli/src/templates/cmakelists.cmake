@@ -45,7 +45,6 @@ configure_file(bindings/c/tree-sitter-PARSER_NAME.pc.in
                "${CMAKE_CURRENT_BINARY_DIR}/tree-sitter-PARSER_NAME.pc" @ONLY)
 
 include(GNUInstallDirs)
-
 install(FILES bindings/c/tree-sitter-PARSER_NAME.h
         DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/tree_sitter")
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/tree-sitter-PARSER_NAME.pc"
@@ -53,6 +52,7 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/tree-sitter-PARSER_NAME.pc"
 install(TARGETS tree-sitter-PARSER_NAME
         LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}")
 
-add_custom_target(test "${TREE_SITTER_CLI}" test
-                  WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-                  COMMENT "tree-sitter test")
+include(CTest)
+add_test(NAME parser
+         COMMAND "${TREE_SITTER_CLI}" test
+         WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
