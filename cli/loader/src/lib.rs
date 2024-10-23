@@ -1,4 +1,5 @@
 #![doc = include_str!("../README.md")]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 #[cfg(any(feature = "tree-sitter-highlight", feature = "tree-sitter-tags"))]
 use std::ops::Range;
@@ -406,6 +407,7 @@ impl Loader {
     }
 
     #[cfg(feature = "tree-sitter-highlight")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "tree-sitter-highlight")))]
     pub fn configure_highlights(&mut self, names: &[String]) {
         self.use_all_highlight_names = false;
         let mut highlights = self.highlight_names.lock().unwrap();
@@ -415,6 +417,7 @@ impl Loader {
 
     #[must_use]
     #[cfg(feature = "tree-sitter-highlight")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "tree-sitter-highlight")))]
     pub fn highlight_names(&self) -> Vec<String> {
         self.highlight_names.lock().unwrap().clone()
     }
@@ -1332,6 +1335,7 @@ impl Loader {
     }
 
     #[cfg(feature = "wasm")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "wasm")))]
     pub fn use_wasm(&mut self, engine: &tree_sitter::wasmtime::Engine) {
         *self.wasm_store.lock().unwrap() = Some(tree_sitter::WasmStore::new(engine).unwrap());
     }

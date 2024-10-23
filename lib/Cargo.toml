@@ -31,13 +31,18 @@ include = [
   "/include/tree_sitter/api.h",
 ]
 
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+targets = ["x86_64-unknown-linux-gnu", "x86_64-pc-windows-gnu"]
+
 [lints]
 workspace = true
 
 [features]
 default = ["std"]
 std = ["regex/std", "regex/perf", "regex-syntax/unicode"]
-wasm = ["wasmtime-c-api"]
+wasm = ["std", "wasmtime-c-api"]
 
 [dependencies]
 regex = { version = "1.10.6", default-features = false, features = ["unicode"] }

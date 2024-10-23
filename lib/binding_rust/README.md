@@ -113,4 +113,4 @@ assert_eq!(
   - Error types implement the `std::error:Error` trait.
   - `regex` performance optimizations are enabled.
   - The DOT graph methods are enabled.
-- **wasm** - This feature is enabled for Wasm targets. `tree-sitter` to be built for Wasm targets using the `wasmtime-c-api` crate.
+- **wasm** - This feature allows `tree-sitter` to be built for Wasm targets using the `wasmtime-c-api` crate.
