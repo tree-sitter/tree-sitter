@@ -1,5 +1,7 @@
 #![doc = include_str!("./README.md")]
 #![cfg_attr(not(feature = "std"), no_std)]
+#![cfg_attr(docsrs, feature(doc_cfg))]
+
 pub mod ffi;
 mod util;
 
@@ -22,7 +24,7 @@ use core::{
 };
 #[cfg(feature = "std")]
 use std::error;
-#[cfg(all(feature = "std", any(unix, target_os = "wasi")))]
+#[cfg(all(unix, feature = "std"))]
 use std::os::fd::AsRawFd;
 #[cfg(all(windows, feature = "std"))]
 use std::os::windows::io::AsRawHandle;
@@ -33,6 +35,7 @@ use tree_sitter_language::LanguageFn;
 #[cfg(feature = "wasm")]
 mod wasm_language;
 #[cfg(feature = "wasm")]
+#[cfg_attr(docsrs, doc(cfg(feature = "wasm")))]
 pub use wasm_language::*;
 
 /// The latest ABI version that is supported by the current version of the
@@ -477,9 +480,7 @@ impl Parser {
     /// version mismatch: the language was generated with an incompatible
     /// version of the Tree-sitter CLI. Check the language's version using
     /// [`Language::version`] and compare it to this library's
-    /// [`LANGUAGE_VERSION`](LANGUAGE_VERSION) and
-    /// [`MIN_COMPATIBLE_LANGUAGE_VERSION`](MIN_COMPATIBLE_LANGUAGE_VERSION)
-    /// constants.
+    /// [`LANGUAGE_VERSION`] and [`MIN_COMPATIBLE_LANGUAGE_VERSION`] constants.
     #[doc(alias = "ts_parser_set_language")]
     pub fn set_language(&mut self, language: &Language) -> Result<(), LanguageError> {
         let version = language.version();
@@ -560,6 +561,7 @@ impl Parser {
     #[doc(alias = "ts_parser_print_dot_graphs")]
     #[cfg(not(target_os = "wasi"))]
     #[cfg(feature = "std")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
     pub fn print_dot_graphs(
         &mut self,
         #[cfg(unix)] file: &impl AsRawFd,
@@ -584,6 +586,9 @@ impl Parser {
 
     /// Stop the parser from printing debugging graphs while parsing.
     #[doc(alias = "ts_parser_print_dot_graphs")]
+    #[cfg(not(target_os = "wasi"))]
+    #[cfg(feature = "std")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
     pub fn stop_printing_dot_graphs(&mut self) {
         unsafe { ffi::ts_parser_print_dot_graphs(self.0.as_ptr(), -1) }
     }
@@ -1112,6 +1117,7 @@ impl Tree {
     #[doc(alias = "ts_tree_print_dot_graph")]
     #[cfg(not(target_os = "wasi"))]
     #[cfg(feature = "std")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
     pub fn print_dot_graph(
         &self,
         #[cfg(unix)] file: &impl AsRawFd,
@@ -1522,7 +1528,7 @@ impl<'tree> Node<'tree> {
 
     /// Get this node's child containing `descendant`. This will not return
     /// the descendant if it is a direct child of `self`, for that use
-    /// [`Node::child_contains_descendant`].
+    /// [`Node::child_with_descendant`].
     #[doc(alias = "ts_node_child_containing_descendant")]
     #[must_use]
     #[deprecated(since = "0.24.0", note = "Prefer child_with_descendant instead")]
@@ -3307,20 +3313,23 @@ static mut FREE_FN: unsafe extern "C" fn(ptr: *mut c_void) = free;
 /// This function uses FFI and mutates a static global.
 #[doc(alias = "ts_set_allocator")]
 pub unsafe fn set_allocator(
-    new_malloc: Option<unsafe extern "C" fn(usize) -> *mut c_void>,
-    new_calloc: Option<unsafe extern "C" fn(usize, usize) -> *mut c_void>,
-    new_realloc: Option<unsafe extern "C" fn(*mut c_void, usize) -> *mut c_void>,
-    new_free: Option<unsafe extern "C" fn(*mut c_void)>,
+    new_malloc: Option<unsafe extern "C" fn(size: usize) -> *mut c_void>,
+    new_calloc: Option<unsafe extern "C" fn(nmemb: usize, size: usize) -> *mut c_void>,
+    new_realloc: Option<unsafe extern "C" fn(ptr: *mut c_void, size: usize) -> *mut c_void>,
+    new_free: Option<unsafe extern "C" fn(ptr: *mut c_void)>,
 ) {
     FREE_FN = new_free.unwrap_or(free);
     ffi::ts_set_allocator(new_malloc, new_calloc, new_realloc, new_free);
 }
 
 #[cfg(feature = "std")]
+#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 impl error::Error for IncludedRangesError {}
 #[cfg(feature = "std")]
+#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 impl error::Error for LanguageError {}
 #[cfg(feature = "std")]
+#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 impl error::Error for QueryError {}
 
 unsafe impl Send for Language {}
