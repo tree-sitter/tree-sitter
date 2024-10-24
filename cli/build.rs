@@ -6,6 +6,7 @@ use std::{
     time::SystemTime,
 };
 
+#[allow(dead_code)]
 fn main() {
     if let Some(git_sha) = read_git_sha() {
         println!("cargo:rustc-env=BUILD_SHA={git_sha}");
@@ -61,7 +62,8 @@ fn web_playground_files_present() -> bool {
     paths.iter().all(|p| Path::new(p).exists())
 }
 
-fn read_git_sha() -> Option<String> {
+#[must_use]
+pub fn read_git_sha() -> Option<String> {
     let mut repo_path = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
 
     let mut git_path;
