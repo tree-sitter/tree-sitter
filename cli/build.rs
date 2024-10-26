@@ -67,7 +67,7 @@ fn read_git_sha() -> Option<String> {
 
     if !crate_path
         .parent()
-        .map_or(false, |p| p.join(".git").is_dir())
+        .map_or(false, |p| p.join(".git").exists())
     {
         return None;
     }
