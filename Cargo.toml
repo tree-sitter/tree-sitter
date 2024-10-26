@@ -142,7 +142,7 @@ toml = "0.8.19"
 unindent = "0.2.3"
 url = { version = "2.5.2", features = ["serde"] }
 walkdir = "2.5.0"
-wasmparser = "0.217.0"
+wasmparser = "0.218.0"
 webbrowser = "1.0.2"
 
 tree-sitter = { version = "0.25.0", path = "./lib" }
