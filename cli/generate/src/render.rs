@@ -17,9 +17,8 @@ use super::{
 };
 
 const SMALL_STATE_THRESHOLD: usize = 64;
-const ABI_VERSION_MIN: usize = 13;
+const ABI_VERSION_MIN: usize = 14;
 const ABI_VERSION_MAX: usize = tree_sitter::LANGUAGE_VERSION;
-const ABI_VERSION_WITH_PRIMARY_STATES: usize = 14;
 const BUILD_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 macro_rules! add {
@@ -110,10 +109,7 @@ impl Generator {
         }
 
         self.add_non_terminal_alias_map();
-
-        if self.abi_version >= ABI_VERSION_WITH_PRIMARY_STATES {
-            self.add_primary_state_id_list();
-        }
+        self.add_primary_state_id_list();
 
         let buffer_offset_before_lex_functions = self.buffer.len();
 
@@ -1439,10 +1435,7 @@ impl Generator {
             add_line!(self, "}},");
         }
 
-        if self.abi_version >= ABI_VERSION_WITH_PRIMARY_STATES {
-            add_line!(self, ".primary_state_ids = ts_primary_state_ids,");
-        }
-
+        add_line!(self, ".primary_state_ids = ts_primary_state_ids,");
         dedent!(self);
         add_line!(self, "}};");
         add_line!(self, "return &language;");
