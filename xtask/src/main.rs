@@ -34,6 +34,8 @@ enum Commands {
     GenerateBindings,
     /// Generates the fixtures for testing tree-sitter.
     GenerateFixtures(GenerateFixtures),
+    /// Generate the list of exports from Tree-sitter WASM files.
+    GenerateWasmExports,
     /// Run the test suite
     Test(Test),
     /// Run the WASM test suite
@@ -197,6 +199,7 @@ fn run() -> Result<()> {
         Commands::GenerateFixtures(generate_fixtures_options) => {
             generate::run_fixtures(&generate_fixtures_options)?;
         }
+        Commands::GenerateWasmExports => generate::run_wasm_exports()?,
         Commands::Test(test_options) => test::run(&test_options)?,
         Commands::TestWasm => test::run_wasm()?,
         Commands::UpgradeWasmtime(upgrade_wasmtime_options) => {
