@@ -833,6 +833,8 @@ Many languages have some tokens whose structure is impossible or inconvenient to
 
 Tree-sitter allows you to handle these kinds of tokens using *external scanners*. An external scanner is a set of C functions that you, the grammar author, can write by hand in order to add custom logic for recognizing certain tokens.
 
+#### `src/scanner.c` API
+
 To use an external scanner, there are a few steps. First, add an `externals` section to your grammar. This section should list the names of all of your external tokens. These names can then be used elsewhere in your grammar.
 
 ```js
@@ -866,8 +868,9 @@ enum TokenType {
 ```
 
 Finally, you must define five functions with specific names, based on your language's name and five actions: *create*, *destroy*, *serialize*, *deserialize*, and *scan*.
+The first four concern how tree-sitter operates the scanner, the last how the scanner tokenizes the input stream.
 
-#### Create
+##### Create
 
 ```c
 void *tree_sitter_my_language_external_scanner_create(void) {
@@ -877,7 +880,7 @@ void *tree_sitter_my_language_external_scanner_create(void) {
 
 This function should create your scanner object. It will only be called once anytime your language is set on a parser. Often, you will want to allocate memory on the heap and return a pointer to it. If your external scanner doesn't need to maintain any state, it's ok to return `NULL`.
 
-#### Destroy
+##### Destroy
 
 ```c
 void tree_sitter_my_language_external_scanner_destroy(void *payload) {
@@ -887,7 +890,7 @@ void tree_sitter_my_language_external_scanner_destroy(void *payload) {
 
 This function should free any memory used by your scanner. It is called once when a parser is deleted or assigned a different language. It receives as an argument the same pointer that was returned from the *create* function. If your *create* function didn't allocate any memory, this function can be a noop.
 
-#### Serialize
+##### Serialize
 
 ```c
 unsigned tree_sitter_my_language_external_scanner_serialize(
@@ -902,7 +905,7 @@ This function should copy the complete state of your scanner into a given byte b
 
 The data that this function writes will ultimately be stored in the syntax tree so that the scanner can be restored to the right state when handling edits or ambiguities. For your parser to work correctly, the `serialize` function must store its entire state, and `deserialize` must restore the entire state. For good performance, you should design your scanner so that its state can be serialized as quickly and compactly as possible.
 
-#### Deserialize
+##### Deserialize
 
 ```c
 void tree_sitter_my_language_external_scanner_deserialize(
@@ -919,6 +922,23 @@ It is good practice to explicitly erase your scanner state variables at the star
 
 #### Scan
 
+This function is responsible for recognizing external tokens. It should return `true` if a token was recognized, and `false` otherwise. It is called with a "lexer" struct.
+
+Typically, one will
+
+-   `lexer->advance` several times,
+-   `lexer->mark_end`, having consumed sufficient input,
+-   set a node type to `lexer->result_symbol`
+-   return `true` from the scanning function.
+
+Tree-sitter will add the resulting node to the tree and the input position will remain where it reached at the point `lexer->mark_end` was called.
+
+On the other hand, if the function returns `false`, there will be no change in the input position for the start of the next token lex attempt.
+
+Sometimes one may want to look ahead at some characters without necessarily consuming characters.
+To do this, call `lexer->mark_end` at the desired end point, then call `lexer->advance` as needed.
+One may call `lexer->mark_end` multiple times as needed, setting the end point to the currently advanced position each time.
+
 ```c
 bool tree_sitter_my_language_external_scanner_scan(
   void *payload,
@@ -929,7 +949,7 @@ bool tree_sitter_my_language_external_scanner_scan(
 }
 ```
 
-This function is responsible for recognizing external tokens. It should return `true` if a token was recognized, and `false` otherwise. It is called with a "lexer" struct with the following fields:
+The `lexer` struct has the following fields:
 
 * **`int32_t lookahead`** - The current next character in the input stream, represented as a 32-bit unicode code point.
 * **`TSSymbol result_symbol`** - The symbol that was recognized. Your scan function should *assign* to this field one of the values from the `TokenType` enum, described above.
