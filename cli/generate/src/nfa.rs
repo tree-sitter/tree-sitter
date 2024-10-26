@@ -58,7 +58,8 @@ impl CharacterSet {
 
     /// Create a character set with a given *inclusive* range of characters.
     #[allow(clippy::single_range_in_vec_init)]
-    pub fn from_range(mut first: char, mut last: char) -> Self {
+    #[cfg(test)]
+    fn from_range(mut first: char, mut last: char) -> Self {
         if first > last {
             swap(&mut first, &mut last);
         }
@@ -286,7 +287,8 @@ impl CharacterSet {
 
     /// Produces a `CharacterSet` containing every character that is in _exactly one_ of `self` or
     /// `other`, but is not present in both sets.
-    pub fn symmetric_difference(mut self, mut other: Self) -> Self {
+    #[cfg(test)]
+    fn symmetric_difference(mut self, mut other: Self) -> Self {
         self.remove_intersection(&mut other);
         self.add(&other)
     }
