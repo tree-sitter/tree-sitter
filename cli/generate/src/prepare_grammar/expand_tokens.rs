@@ -1,7 +1,4 @@
-use std::collections::HashMap;
-
 use anyhow::{anyhow, Context, Result};
-use lazy_static::lazy_static;
 use regex_syntax::{
     hir::{Class, Hir, HirKind},
     ParserBuilder,
@@ -13,22 +10,6 @@ use crate::{
     nfa::{CharacterSet, Nfa, NfaState},
     rules::{Precedence, Rule},
 };
-
-lazy_static! {
-    static ref UNICODE_CATEGORIES: HashMap<&'static str, Vec<u32>> =
-        serde_json::from_str(UNICODE_CATEGORIES_JSON).unwrap();
-    static ref UNICODE_PROPERTIES: HashMap<&'static str, Vec<u32>> =
-        serde_json::from_str(UNICODE_PROPERTIES_JSON).unwrap();
-    static ref UNICODE_CATEGORY_ALIASES: HashMap<&'static str, String> =
-        serde_json::from_str(UNICODE_CATEGORY_ALIASES_JSON).unwrap();
-    static ref UNICODE_PROPERTY_ALIASES: HashMap<&'static str, String> =
-        serde_json::from_str(UNICODE_PROPERTY_ALIASES_JSON).unwrap();
-}
-
-const UNICODE_CATEGORIES_JSON: &str = include_str!("./unicode-categories.json");
-const UNICODE_PROPERTIES_JSON: &str = include_str!("./unicode-properties.json");
-const UNICODE_CATEGORY_ALIASES_JSON: &str = include_str!("./unicode-category-aliases.json");
-const UNICODE_PROPERTY_ALIASES_JSON: &str = include_str!("./unicode-property-aliases.json");
 
 struct NfaBuilder {
     nfa: Nfa,
