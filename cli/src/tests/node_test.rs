@@ -1026,6 +1026,31 @@ fn test_node_numeric_symbols_respect_simple_aliases() {
     assert_eq!(unary_minus_node.kind_id(), binary_minus_node.kind_id());
 }
 
+#[test]
+fn test_hidden_zero_width_node_with_visible_child() {
+    let code = r"
+class Foo {
+  std::
+private:
+  std::string s;
+};
+";
+
+    let mut parser = Parser::new();
+    parser.set_language(&get_language("cpp")).unwrap();
+    let tree = parser.parse(code, None).unwrap();
+    let root = tree.root_node();
+
+    let class_specifier = root.child(0).unwrap();
+    let field_decl_list = class_specifier.child_by_field_name("body").unwrap();
+    let field_decl = field_decl_list.named_child(0).unwrap();
+    let field_ident = field_decl.child_by_field_name("declarator").unwrap();
+    assert_eq!(
+        field_decl.child_with_descendant(field_ident).unwrap(),
+        field_ident
+    );
+}
+
 fn get_all_nodes(tree: &Tree) -> Vec<Node> {
     let mut result = Vec::new();
     let mut visited_children = false;
