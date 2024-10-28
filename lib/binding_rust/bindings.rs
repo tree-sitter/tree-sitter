@@ -72,6 +72,19 @@ pub struct TSInput {
     >,
     pub encoding: TSInputEncoding,
 }
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct TSParseState {
+    pub payload: *mut ::core::ffi::c_void,
+    pub current_byte_offset: u32,
+}
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct TSParseOptions {
+    pub payload: *mut ::core::ffi::c_void,
+    pub progress_callback:
+        ::core::option::Option<unsafe extern "C" fn(state: *mut TSParseState) -> bool>,
+}
 pub const TSLogTypeParse: TSLogType = 0;
 pub const TSLogTypeLex: TSLogType = 1;
 pub type TSLogType = ::core::ffi::c_uint;
@@ -178,11 +191,20 @@ extern "C" {
     pub fn ts_parser_included_ranges(self_: *const TSParser, count: *mut u32) -> *const TSRange;
 }
 extern "C" {
-    #[doc = " Use the parser to parse some source code and create a syntax tree.\n\n If you are parsing this document for the first time, pass `NULL` for the\n `old_tree` parameter. Otherwise, if you have already parsed an earlier\n version of this document and the document has since been edited, pass the\n previous syntax tree so that the unchanged parts of it can be reused.\n This will save time and memory. For this to work correctly, you must have\n already edited the old syntax tree using the [`ts_tree_edit`] function in a\n way that exactly matches the source code changes.\n\n The [`TSInput`] parameter lets you specify how to read the text. It has the\n following three fields:\n 1. [`read`]: A function to retrieve a chunk of text at a given byte offset\n    and (row, column) position. The function should return a pointer to the\n    text and write its length to the [`bytes_read`] pointer. The parser does\n    not take ownership of this buffer; it just borrows it until it has\n    finished reading it. The function should write a zero value to the\n    [`bytes_read`] pointer to indicate the end of the document.\n 2. [`payload`]: An arbitrary pointer that will be passed to each invocation\n    of the [`read`] function.\n 3. [`encoding`]: An indication of how the text is encoded. Either\n    `TSInputEncodingUTF8` or `TSInputEncodingUTF16`.\n\n This function returns a syntax tree on success, and `NULL` on failure. There\n are three possible reasons for failure:\n 1. The parser does not have a language assigned. Check for this using the\n[`ts_parser_language`] function.\n 2. Parsing was cancelled due to a timeout that was set by an earlier call to\n    the [`ts_parser_set_timeout_micros`] function. You can resume parsing from\n    where the parser left out by calling [`ts_parser_parse`] again with the\n    same arguments. Or you can start parsing from scratch by first calling\n    [`ts_parser_reset`].\n 3. Parsing was cancelled using a cancellation flag that was set by an\n    earlier call to [`ts_parser_set_cancellation_flag`]. You can resume parsing\n    from where the parser left out by calling [`ts_parser_parse`] again with\n    the same arguments.\n\n [`read`]: TSInput::read\n [`payload`]: TSInput::payload\n [`encoding`]: TSInput::encoding\n [`bytes_read`]: TSInput::read"]
+    #[doc = " Use the parser to parse some source code and create a syntax tree.\n\n If you are parsing this document for the first time, pass `NULL` for the\n `old_tree` parameter. Otherwise, if you have already parsed an earlier\n version of this document and the document has since been edited, pass the\n previous syntax tree so that the unchanged parts of it can be reused.\n This will save time and memory. For this to work correctly, you must have\n already edited the old syntax tree using the [`ts_tree_edit`] function in a\n way that exactly matches the source code changes.\n\n The [`TSInput`] parameter lets you specify how to read the text. It has the\n following three fields:\n 1. [`read`]: A function to retrieve a chunk of text at a given byte offset\n    and (row, column) position. The function should return a pointer to the\n    text and write its length to the [`bytes_read`] pointer. The parser does\n    not take ownership of this buffer; it just borrows it until it has\n    finished reading it. The function should write a zero value to the\n    [`bytes_read`] pointer to indicate the end of the document.\n 2. [`payload`]: An arbitrary pointer that will be passed to each invocation\n    of the [`read`] function.\n 3. [`encoding`]: An indication of how the text is encoded. Either\n    `TSInputEncodingUTF8` or `TSInputEncodingUTF16`.\n\n This function returns a syntax tree on success, and `NULL` on failure. There\n are four possible reasons for failure:\n 1. The parser does not have a language assigned. Check for this using the\n[`ts_parser_language`] function.\n 2. Parsing was cancelled due to a timeout that was set by an earlier call to\n    the [`ts_parser_set_timeout_micros`] function. You can resume parsing from\n    where the parser left out by calling [`ts_parser_parse`] again with the\n    same arguments. Or you can start parsing from scratch by first calling\n    [`ts_parser_reset`].\n 3. Parsing was cancelled using a cancellation flag that was set by an\n    earlier call to [`ts_parser_set_cancellation_flag`]. You can resume parsing\n    from where the parser left out by calling [`ts_parser_parse`] again with\n    the same arguments.\n 4. Parsing was cancelled due to the progress callback returning true. This callback\n    is passed in [`ts_parser_parse_with_options`] inside the [`TSParseOptions`] struct.\n\n [`read`]: TSInput::read\n [`payload`]: TSInput::payload\n [`encoding`]: TSInput::encoding\n [`bytes_read`]: TSInput::read"]
     pub fn ts_parser_parse(
         self_: *mut TSParser,
         old_tree: *const TSTree,
         input: TSInput,
+    ) -> *mut TSTree;
+}
+extern "C" {
+    #[doc = " Use the parser to parse some source code and create a syntax tree, with some options.\n\n See [`ts_parser_parse`] for more details."]
+    pub fn ts_parser_parse_with_options(
+        self_: *mut TSParser,
+        old_tree: *const TSTree,
+        input: TSInput,
+        parse_options: *const TSParseOptions,
     ) -> *mut TSTree;
 }
 extern "C" {

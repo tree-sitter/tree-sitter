@@ -111,6 +111,8 @@ struct TSParser {
   const volatile size_t *cancellation_flag;
   Subtree old_tree;
   TSRangeArray included_range_differences;
+  TSParseOptions parse_options;
+  TSParseState parse_state;
   unsigned included_range_difference_index;
   bool has_scanner_error;
 };
@@ -1562,20 +1564,26 @@ static bool ts_parser__advance(
       }
     }
 
-    // If a cancellation flag or a timeout was provided, then check every
+    // If a cancellation flag, timeout, or progress callback was provided, then check every
     // time a fixed number of parse actions has been processed.
     if (++self->operation_count == OP_COUNT_PER_PARSER_TIMEOUT_CHECK) {
       self->operation_count = 0;
     }
+    if (self->parse_options.progress_callback) {
+      self->parse_state.current_byte_offset = position;
+    }
     if (
       self->operation_count == 0 &&
-      ((self->cancellation_flag && atomic_load(self->cancellation_flag)) ||
-       (!clock_is_null(self->end_clock) && clock_is_gt(clock_now(), self->end_clock)))
+      (
+        (self->cancellation_flag && atomic_load(self->cancellation_flag)) ||
+        (!clock_is_null(self->end_clock) && clock_is_gt(clock_now(), self->end_clock)) ||
+        (self->parse_options.progress_callback && self->parse_options.progress_callback(&self->parse_state))
+      )
     ) {
-      if (lookahead.ptr) {
-        ts_subtree_release(&self->tree_pool, lookahead);
-      }
-      return false;
+        if (lookahead.ptr) {
+          ts_subtree_release(&self->tree_pool, lookahead);
+        }
+        return false;
     }
 
     // Process each parse action for the current lookahead token in
@@ -2115,6 +2123,22 @@ TSTree *ts_parser_parse(
 
 exit:
   ts_parser_reset(self);
+  return result;
+}
+
+TSTree *ts_parser_parse_with_options(
+  TSParser *self,
+  const TSTree *old_tree,
+  TSInput input,
+  TSParseOptions parse_options
+) {
+  self->parse_options = parse_options;
+  self->parse_state = (TSParseState) {
+    .payload = parse_options.payload,
+  };
+  TSTree *result = ts_parser_parse(self, old_tree, input);
+  self->parse_options = (TSParseOptions) {0};
+  self->parse_state = (TSParseState) {0};
   return result;
 }
 
