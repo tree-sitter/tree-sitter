@@ -5,8 +5,8 @@ use lazy_static::lazy_static;
 use rand::{prelude::StdRng, SeedableRng};
 use streaming_iterator::StreamingIterator;
 use tree_sitter::{
-    CaptureQuantifier, Language, Node, Parser, Point, Query, QueryCursor, QueryError,
-    QueryErrorKind, QueryPredicate, QueryPredicateArg, QueryProperty,
+    CaptureQuantifier, Language, Node, Parser, Point, Query, QueryCursor, QueryCursorOptions,
+    QueryError, QueryErrorKind, QueryPredicate, QueryPredicateArg, QueryProperty,
 };
 use tree_sitter_generate::generate_parser_for_grammar;
 use unindent::Unindent;
@@ -3488,10 +3488,8 @@ fn test_query_captures_with_matches_removed() {
 
         let mut captures = cursor.captures(&query, tree.root_node(), source.as_bytes());
         while let Some((m, i)) = captures.next() {
-            println!("captured: {m:?}, {i}");
             let capture = m.captures[*i];
             let text = capture.node.utf8_text(source.as_bytes()).unwrap();
-            println!("captured: {text:?}");
             if text == "a" {
                 m.remove();
                 continue;
@@ -5190,13 +5188,18 @@ fn test_query_execution_with_timeout() {
     let query = Query::new(&language, "(function_declaration) @function").unwrap();
     let mut cursor = QueryCursor::new();
 
-    cursor.set_timeout_micros(1000);
+    let start_time = std::time::Instant::now();
     let matches = cursor
-        .matches(&query, tree.root_node(), source_code.as_bytes())
+        .matches_with_options(
+            &query,
+            tree.root_node(),
+            source_code.as_bytes(),
+            QueryCursorOptions::new()
+                .progress_callback(&mut |_| start_time.elapsed().as_micros() > 1000),
+        )
         .count();
     assert!(matches < 1000);
 
-    cursor.set_timeout_micros(0);
     let matches = cursor
         .matches(&query, tree.root_node(), source_code.as_bytes())
         .count();

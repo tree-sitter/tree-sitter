@@ -16,8 +16,8 @@ use lazy_static::lazy_static;
 use streaming_iterator::StreamingIterator;
 use thiserror::Error;
 use tree_sitter::{
-    ffi, Language, LossyUtf8, Node, Parser, Point, Query, QueryCapture, QueryCaptures, QueryCursor,
-    QueryError, QueryMatch, Range, TextProvider, Tree,
+    ffi, Language, LossyUtf8, Node, ParseOptions, Parser, Point, Query, QueryCapture,
+    QueryCaptures, QueryCursor, QueryError, QueryMatch, Range, TextProvider, Tree,
 };
 
 const CANCELLATION_CHECK_INTERVAL: usize = 100;
@@ -191,6 +191,7 @@ pub struct _QueryCaptures<'query, 'tree: 'query, T: TextProvider<I>, I: AsRef<[u
     buffer1: Vec<u8>,
     buffer2: Vec<u8>,
     _current_match: Option<(QueryMatch<'query, 'tree>, usize)>,
+    _options: Option<*mut ffi::TSQueryCursorOptions>,
     _phantom: PhantomData<(&'tree (), I)>,
 }
 
@@ -520,12 +521,26 @@ impl<'a> HighlightIterLayer<'a> {
                     .set_language(&config.language)
                     .map_err(|_| Error::InvalidLanguage)?;
 
-                unsafe { highlighter.parser.set_cancellation_flag(cancellation_flag) };
                 let tree = highlighter
                     .parser
-                    .parse(source, None)
+                    .parse_with_options(
+                        &mut |i, _| {
+                            if i < source.len() {
+                                &source[i..]
+                            } else {
+                                &[]
+                            }
+                        },
+                        None,
+                        Some(ParseOptions::new().progress_callback(&mut |_| {
+                            if let Some(cancellation_flag) = cancellation_flag {
+                                cancellation_flag.load(Ordering::SeqCst) != 0
+                            } else {
+                                false
+                            }
+                        })),
+                    )
                     .ok_or(Error::Cancelled)?;
-                unsafe { highlighter.parser.set_cancellation_flag(None) };
                 let mut cursor = highlighter.cursors.pop().unwrap_or_default();
 
                 // Process combined injections.

@@ -18,7 +18,8 @@ use regex::Regex;
 use streaming_iterator::StreamingIterator;
 use thiserror::Error;
 use tree_sitter::{
-    Language, LossyUtf8, Parser, Point, Query, QueryCursor, QueryError, QueryPredicateArg, Tree,
+    Language, LossyUtf8, ParseOptions, Parser, Point, Query, QueryCursor, QueryError,
+    QueryPredicateArg, Tree,
 };
 
 const MAX_LINE_LEN: usize = 180;
@@ -284,8 +285,26 @@ impl TagsContext {
             .set_language(&config.language)
             .map_err(|_| Error::InvalidLanguage)?;
         self.parser.reset();
-        unsafe { self.parser.set_cancellation_flag(cancellation_flag) };
-        let tree = self.parser.parse(source, None).ok_or(Error::Cancelled)?;
+        let tree = self
+            .parser
+            .parse_with_options(
+                &mut |i, _| {
+                    if i < source.len() {
+                        &source[i..]
+                    } else {
+                        &[]
+                    }
+                },
+                None,
+                Some(ParseOptions::new().progress_callback(&mut |_| {
+                    if let Some(cancellation_flag) = cancellation_flag {
+                        cancellation_flag.load(Ordering::SeqCst) != 0
+                    } else {
+                        false
+                    }
+                })),
+            )
+            .ok_or(Error::Cancelled)?;
 
         // The `matches` iterator borrows the `Tree`, which prevents it from being
         // moved. But the tree is really just a pointer, so it's actually ok to
