@@ -217,7 +217,7 @@ extern "C" {
         self_: *mut TSParser,
         old_tree: *const TSTree,
         input: TSInput,
-        parse_options: *const TSParseOptions,
+        parse_options: TSParseOptions,
     ) -> *mut TSTree;
 }
 extern "C" {
@@ -244,19 +244,19 @@ extern "C" {
     pub fn ts_parser_reset(self_: *mut TSParser);
 }
 extern "C" {
-    #[doc = " Set the maximum duration in microseconds that parsing should be allowed to\n take before halting.\n\n If parsing takes longer than this, it will halt early, returning NULL.\n See [`ts_parser_parse`] for more information."]
+    #[doc = " @deprecated use [`ts_parser_parse_with_options`] and pass in a callback instead, this will be removed in 0.26.\n\n Set the maximum duration in microseconds that parsing should be allowed to\n take before halting.\n\n If parsing takes longer than this, it will halt early, returning NULL.\n See [`ts_parser_parse`] for more information."]
     pub fn ts_parser_set_timeout_micros(self_: *mut TSParser, timeout_micros: u64);
 }
 extern "C" {
-    #[doc = " Get the duration in microseconds that parsing is allowed to take."]
+    #[doc = " @deprecated use [`ts_parser_parse_with_options`] and pass in a callback instead, this will be removed in 0.26.\n\n Get the duration in microseconds that parsing is allowed to take."]
     pub fn ts_parser_timeout_micros(self_: *const TSParser) -> u64;
 }
 extern "C" {
-    #[doc = " Set the parser's current cancellation flag pointer.\n\n If a non-null pointer is assigned, then the parser will periodically read\n from this pointer during parsing. If it reads a non-zero value, it will\n halt early, returning NULL. See [`ts_parser_parse`] for more information."]
+    #[doc = " @deprecated use [`ts_parser_parse_with_options`] and pass in a callback instead, this will be removed in 0.26.\n\n Set the parser's current cancellation flag pointer.\n\n If a non-null pointer is assigned, then the parser will periodically read\n from this pointer during parsing. If it reads a non-zero value, it will\n halt early, returning NULL. See [`ts_parser_parse`] for more information."]
     pub fn ts_parser_set_cancellation_flag(self_: *mut TSParser, flag: *const usize);
 }
 extern "C" {
-    #[doc = " Get the parser's current cancellation flag pointer."]
+    #[doc = " @deprecated use [`ts_parser_parse_with_options`] and pass in a callback instead, this will be removed in 0.26.\n\n Get the parser's current cancellation flag pointer."]
     pub fn ts_parser_cancellation_flag(self_: *const TSParser) -> *const usize;
 }
 extern "C" {
@@ -681,7 +681,7 @@ extern "C" {
         self_: *mut TSQueryCursor,
         query: *const TSQuery,
         node: TSNode,
-        options: *const TSQueryCursorOptions,
+        query_options: *const TSQueryCursorOptions,
     );
 }
 extern "C" {
@@ -695,11 +695,11 @@ extern "C" {
     pub fn ts_query_cursor_set_match_limit(self_: *mut TSQueryCursor, limit: u32);
 }
 extern "C" {
-    #[doc = " Set the maximum duration in microseconds that query execution should be allowed to\n take before halting.\n\n If query execution takes longer than this, it will halt early, returning NULL.\n See [`ts_query_cursor_next_match`] or [`ts_query_cursor_next_capture`] for more information."]
+    #[doc = " @deprecated use [`ts_query_cursor_exec_with_options`] and pass in a callback instead, this will be removed in 0.26.\n\n Set the maximum duration in microseconds that query execution should be allowed to\n take before halting.\n\n If query execution takes longer than this, it will halt early, returning NULL.\n See [`ts_query_cursor_next_match`] or [`ts_query_cursor_next_capture`] for more information."]
     pub fn ts_query_cursor_set_timeout_micros(self_: *mut TSQueryCursor, timeout_micros: u64);
 }
 extern "C" {
-    #[doc = " Get the duration in microseconds that query execution is allowed to take.\n\n This is set via [`ts_query_cursor_set_timeout_micros`]."]
+    #[doc = " @deprecated use [`ts_query_cursor_exec_with_options`] and pass in a callback instead, this will be removed in 0.26.\n\n Get the duration in microseconds that query execution is allowed to take.\n\n This is set via [`ts_query_cursor_set_timeout_micros`]."]
     pub fn ts_query_cursor_timeout_micros(self_: *const TSQueryCursor) -> u64;
 }
 extern "C" {
