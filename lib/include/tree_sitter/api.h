@@ -161,6 +161,16 @@ typedef enum TSQueryError {
   TSQueryErrorLanguage,
 } TSQueryError;
 
+typedef struct TSQueryCursorState {
+  void *payload;
+  uint32_t current_byte_offset;
+} TSQueryCursorState;
+
+typedef struct TSQueryCursorOptions {
+  void *payload;
+  bool (*progress_callback)(TSQueryCursorState *state);
+} TSQueryCursorOptions;
+
 /********************/
 /* Section - Parser */
 /********************/
@@ -1021,6 +1031,16 @@ void ts_query_cursor_delete(TSQueryCursor *self);
 void ts_query_cursor_exec(TSQueryCursor *self, const TSQuery *query, TSNode node);
 
 /**
+ * Start running a gievn query on a given node, with some options.
+ */
+void ts_query_cursor_exec_with_options(
+  TSQueryCursor *self,
+  const TSQuery *query,
+  TSNode node,
+  const TSQueryCursorOptions *query_options
+);
+
+/**
  * Manage the maximum number of in-progress matches allowed by this query
  * cursor.
  *
@@ -1036,6 +1056,8 @@ uint32_t ts_query_cursor_match_limit(const TSQueryCursor *self);
 void ts_query_cursor_set_match_limit(TSQueryCursor *self, uint32_t limit);
 
 /**
+ * @deprecated use [`ts_query_cursor_exec_with_options`] and pass in a callback instead, this will be removed in 0.26.
+ *
  * Set the maximum duration in microseconds that query execution should be allowed to
  * take before halting.
  *
@@ -1045,6 +1067,8 @@ void ts_query_cursor_set_match_limit(TSQueryCursor *self, uint32_t limit);
 void ts_query_cursor_set_timeout_micros(TSQueryCursor *self, uint64_t timeout_micros);
 
 /**
+ * @deprecated use [`ts_query_cursor_exec_with_options`] and pass in a callback instead, this will be removed in 0.26.
+ *
  * Get the duration in microseconds that query execution is allowed to take.
  *
  * This is set via [`ts_query_cursor_set_timeout_micros`].
