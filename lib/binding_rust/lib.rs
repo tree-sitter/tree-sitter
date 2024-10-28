@@ -116,6 +116,82 @@ pub struct Parser(NonNull<ffi::TSParser>);
 pub struct LookaheadIterator(NonNull<ffi::TSLookaheadIterator>);
 struct LookaheadNamesIterator<'a>(&'a mut LookaheadIterator);
 
+/// A stateful object that is passed into a [`ParseProgressCallback`]
+/// to pass in the current state of the parser.
+pub struct ParseState(NonNull<ffi::TSParseState>);
+
+impl ParseState {
+    #[must_use]
+    pub fn current_byte_offset(&self) -> usize {
+        unsafe { self.0.as_ref() }.current_byte_offset as usize
+    }
+}
+
+/// A stateful object that is passed into a [`QueryProgressCallback`]
+/// to pass in the current state of the query execution.
+pub struct QueryCursorState(NonNull<ffi::TSQueryCursorState>);
+
+impl QueryCursorState {
+    #[must_use]
+    pub fn current_byte_offset(&self) -> usize {
+        unsafe { self.0.as_ref() }.current_byte_offset as usize
+    }
+}
+
+#[derive(Default)]
+pub struct ParseOptions<'a> {
+    pub progress_callback: Option<ParseProgressCallback<'a>>,
+}
+
+impl<'a> ParseOptions<'a> {
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    #[must_use]
+    pub fn progress_callback<F: FnMut(&ParseState) -> bool>(mut self, callback: &'a mut F) -> Self {
+        self.progress_callback = Some(callback);
+        self
+    }
+}
+
+#[derive(Default)]
+pub struct QueryCursorOptions<'a> {
+    pub progress_callback: Option<QueryProgressCallback<'a>>,
+}
+
+impl<'a> QueryCursorOptions<'a> {
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    #[must_use]
+    pub fn progress_callback<F: FnMut(&QueryCursorState) -> bool>(
+        mut self,
+        callback: &'a mut F,
+    ) -> Self {
+        self.progress_callback = Some(callback);
+        self
+    }
+}
+
+struct QueryCursorOptionsDrop(*mut ffi::TSQueryCursorOptions);
+
+impl Drop for QueryCursorOptionsDrop {
+    fn drop(&mut self) {
+        unsafe {
+            if !(*self.0).payload.is_null() {
+                drop(Box::from_raw(
+                    (*self.0).payload.cast::<QueryProgressCallback>(),
+                ));
+            }
+            drop(Box::from_raw(self.0));
+        }
+    }
+}
+
 /// A type of log message.
 #[derive(Debug, PartialEq, Eq)]
 pub enum LogType {
@@ -125,8 +201,14 @@ pub enum LogType {
 
 type FieldId = NonZeroU16;
 
-/// A callback that receives log messages during parser.
+/// A callback that receives log messages during parsing.
 type Logger<'a> = Box<dyn FnMut(LogType, &str) + 'a>;
+
+/// A callback that receives the parse state during parsing.
+type ParseProgressCallback<'a> = &'a mut dyn FnMut(&ParseState) -> bool;
+
+/// A callback that receives the query state during query execution.
+type QueryProgressCallback<'a> = &'a mut dyn FnMut(&QueryCursorState) -> bool;
 
 /// A stateful object for walking a syntax [`Tree`] efficiently.
 #[doc(alias = "TSTreeCursor")]
@@ -212,6 +294,7 @@ pub struct QueryMatches<'query, 'tree: 'query, T: TextProvider<I>, I: AsRef<[u8]
     buffer1: Vec<u8>,
     buffer2: Vec<u8>,
     current_match: Option<QueryMatch<'query, 'tree>>,
+    _options: Option<QueryCursorOptionsDrop>,
     _phantom: PhantomData<(&'tree (), I)>,
 }
 
@@ -223,6 +306,7 @@ pub struct QueryCaptures<'query, 'tree: 'query, T: TextProvider<I>, I: AsRef<[u8
     buffer1: Vec<u8>,
     buffer2: Vec<u8>,
     current_match: Option<(QueryMatch<'query, 'tree>, usize)>,
+    _options: Option<QueryCursorOptionsDrop>,
     _phantom: PhantomData<(&'tree (), I)>,
 }
 
@@ -611,15 +695,16 @@ impl Parser {
     ///
     /// Returns a [`Tree`] if parsing succeeded, or `None` if:
     ///  * The parser has not yet had a language assigned with [`Parser::set_language`]
-    ///  * The timeout set with [`Parser::set_timeout_micros`] expired
-    ///  * The cancellation flag set with [`Parser::set_cancellation_flag`] was flipped
+    ///  * The timeout set with [`Parser::set_timeout_micros`] expired (deprecated)
+    ///  * The cancellation flag set with [`Parser::set_cancellation_flag`] was flipped (deprecated)
     #[doc(alias = "ts_parser_parse")]
     pub fn parse(&mut self, text: impl AsRef<[u8]>, old_tree: Option<&Tree>) -> Option<Tree> {
         let bytes = text.as_ref();
         let len = bytes.len();
-        self.parse_with(
+        self.parse_with_options(
             &mut |i, _| (i < len).then(|| &bytes[i..]).unwrap_or_default(),
             old_tree,
+            None,
         )
     }
 
@@ -638,9 +723,10 @@ impl Parser {
     ) -> Option<Tree> {
         let code_points = input.as_ref();
         let len = code_points.len();
-        self.parse_utf16_le_with(
+        self.parse_utf16_le_with_options(
             &mut |i, _| (i < len).then(|| &code_points[i..]).unwrap_or_default(),
             old_tree,
+            None,
         )
     }
 
@@ -654,56 +740,43 @@ impl Parser {
     /// * `old_tree` A previous syntax tree parsed from the same document. If the text of the
     ///   document has changed since `old_tree` was created, then you must edit `old_tree` to match
     ///   the new text using [`Tree::edit`].
+    #[deprecated(since = "0.25.0", note = "Prefer `parse_with_options` instead")]
     pub fn parse_with<T: AsRef<[u8]>, F: FnMut(usize, Point) -> T>(
         &mut self,
         callback: &mut F,
         old_tree: Option<&Tree>,
     ) -> Option<Tree> {
-        // A pointer to this payload is passed on every call to the `read` C function.
-        // The payload contains two things:
-        // 1. A reference to the rust `callback`.
-        // 2. The text that was returned from the previous call to `callback`. This allows the
-        //    callback to return owned values like vectors.
-        let mut payload: (&mut F, Option<T>) = (callback, None);
-
-        // This C function is passed to Tree-sitter as the input callback.
-        unsafe extern "C" fn read<T: AsRef<[u8]>, F: FnMut(usize, Point) -> T>(
-            payload: *mut c_void,
-            byte_offset: u32,
-            position: ffi::TSPoint,
-            bytes_read: *mut u32,
-        ) -> *const c_char {
-            let (callback, text) = payload.cast::<(&mut F, Option<T>)>().as_mut().unwrap();
-            *text = Some(callback(byte_offset as usize, position.into()));
-            let slice = text.as_ref().unwrap().as_ref();
-            *bytes_read = slice.len() as u32;
-            slice.as_ptr().cast::<c_char>()
-        }
-
-        let c_input = ffi::TSInput {
-            payload: core::ptr::addr_of_mut!(payload).cast::<c_void>(),
-            read: Some(read::<T, F>),
-            encoding: ffi::TSInputEncodingUTF8,
-        };
-
-        let c_old_tree = old_tree.map_or(ptr::null_mut(), |t| t.0.as_ptr());
-        unsafe {
-            let c_new_tree = ffi::ts_parser_parse(self.0.as_ptr(), c_old_tree, c_input);
-            NonNull::new(c_new_tree).map(Tree)
-        }
+        self.parse_with_options(callback, old_tree, None)
     }
 
-    pub fn parse_with_<T: AsRef<[u8]>, F: FnMut(usize, Point) -> T>(
+    /// Parse text provided in chunks by a callback.
+    ///
+    /// # Arguments:
+    /// * `callback` A function that takes a byte offset and position and returns a slice of
+    ///   UTF8-encoded text starting at that byte offset and position. The slices can be of any
+    ///   length. If the given position is at the end of the text, the callback should return an
+    ///   empty slice.
+    /// * `old_tree` A previous syntax tree parsed from the same document. If the text of the
+    ///   document has changed since `old_tree` was created, then you must edit `old_tree` to match
+    ///   the new text using [`Tree::edit`].
+    /// * `options` Options for parsing the text. This can be used to set a progress callback.
+    pub fn parse_with_options<T: AsRef<[u8]>, F: FnMut(usize, Point) -> T>(
         &mut self,
         callback: &mut F,
         old_tree: Option<&Tree>,
+        options: Option<ParseOptions>,
     ) -> Option<Tree> {
-        // A pointer to this payload is passed on every call to the `read` C function.
-        // The payload contains two things:
-        // 1. A reference to the rust `callback`.
-        // 2. The text that was returned from the previous call to `callback`. This allows the
-        //    callback to return owned values like vectors.
-        let mut payload: (&mut F, Option<T>) = (callback, None);
+        type Payload<'a, F, T> = (&'a mut F, Option<T>);
+
+        // This C function is passed to Tree-sitter as the progress callback.
+        unsafe extern "C" fn progress(state: *mut ffi::TSParseState) -> bool {
+            let callback = (*state)
+                .payload
+                .cast::<ParseProgressCallback>()
+                .as_mut()
+                .unwrap();
+            callback(&ParseState::from_raw(state))
+        }
 
         // This C function is passed to Tree-sitter as the input callback.
         unsafe extern "C" fn read<T: AsRef<[u8]>, F: FnMut(usize, Point) -> T>(
@@ -712,22 +785,53 @@ impl Parser {
             position: ffi::TSPoint,
             bytes_read: *mut u32,
         ) -> *const c_char {
-            let (callback, text) = payload.cast::<(&mut F, Option<T>)>().as_mut().unwrap();
+            let (callback, text) = payload.cast::<Payload<F, T>>().as_mut().unwrap();
             *text = Some(callback(byte_offset as usize, position.into()));
             let slice = text.as_ref().unwrap().as_ref();
             *bytes_read = slice.len() as u32;
             slice.as_ptr().cast::<c_char>()
         }
 
+        let empty_options = ffi::TSParseOptions {
+            payload: ptr::null_mut(),
+            progress_callback: None,
+        };
+
+        let parse_options = if let Some(options) = options {
+            if let Some(mut cb) = options.progress_callback {
+                ffi::TSParseOptions {
+                    payload: core::ptr::addr_of_mut!(cb).cast::<c_void>(),
+                    progress_callback: Some(progress),
+                }
+            } else {
+                empty_options
+            }
+        } else {
+            empty_options
+        };
+
+        // A pointer to this payload is passed on every call to the `read` C function.
+        // The payload contains two things:
+        // 1. A reference to the rust `callback`.
+        // 2. The text that was returned from the previous call to `callback`. This allows the
+        //    callback to return owned values like vectors.
+        let mut payload: Payload<F, T> = (callback, None);
+
         let c_input = ffi::TSInput {
-            payload: core::ptr::addr_of_mut!(payload).cast::<c_void>(),
+            payload: ptr::addr_of_mut!(payload).cast::<c_void>(),
             read: Some(read::<T, F>),
             encoding: ffi::TSInputEncodingUTF8,
         };
 
         let c_old_tree = old_tree.map_or(ptr::null_mut(), |t| t.0.as_ptr());
         unsafe {
-            let c_new_tree = ffi::ts_parser_parse(self.0.as_ptr(), c_old_tree, c_input);
+            let c_new_tree = ffi::ts_parser_parse_with_options(
+                self.0.as_ptr(),
+                c_old_tree,
+                c_input,
+                parse_options,
+            );
+
             NonNull::new(c_new_tree).map(Tree)
         }
     }
@@ -742,13 +846,16 @@ impl Parser {
     /// * `old_tree` A previous syntax tree parsed from the same document. If the text of the
     ///   document has changed since `old_tree` was created, then you must edit `old_tree` to match
     ///   the new text using [`Tree::edit`].
-    #[deprecated(since = "0.25.0", note = "Prefer parse_utf16_le_with instead")]
+    #[deprecated(
+        since = "0.25.0",
+        note = "Prefer `parse_utf16_le_with_options` instead"
+    )]
     pub fn parse_utf16_with<T: AsRef<[u16]>, F: FnMut(usize, Point) -> T>(
         &mut self,
         callback: &mut F,
         old_tree: Option<&Tree>,
     ) -> Option<Tree> {
-        self.parse_utf16_le_with(callback, old_tree)
+        self.parse_utf16_le_with_options(callback, old_tree, None)
     }
 
     /// Parse a slice of UTF16 little-endian text.
@@ -765,9 +872,10 @@ impl Parser {
     ) -> Option<Tree> {
         let code_points = input.as_ref();
         let len = code_points.len();
-        self.parse_utf16_le_with(
+        self.parse_utf16_le_with_options(
             &mut |i, _| (i < len).then(|| &code_points[i..]).unwrap_or_default(),
             old_tree,
+            None,
         )
     }
 
@@ -781,17 +889,23 @@ impl Parser {
     /// * `old_tree` A previous syntax tree parsed from the same document. If the text of the
     ///   document has changed since `old_tree` was created, then you must edit `old_tree` to match
     ///   the new text using [`Tree::edit`].
-    pub fn parse_utf16_le_with<T: AsRef<[u16]>, F: FnMut(usize, Point) -> T>(
+    /// * `options` Options for parsing the text. This can be used to set a progress callback.
+    pub fn parse_utf16_le_with_options<T: AsRef<[u16]>, F: FnMut(usize, Point) -> T>(
         &mut self,
         callback: &mut F,
         old_tree: Option<&Tree>,
+        options: Option<ParseOptions>,
     ) -> Option<Tree> {
-        // A pointer to this payload is passed on every call to the `read` C function.
-        // The payload contains two things:
-        // 1. A reference to the rust `callback`.
-        // 2. The text that was returned from the previous call to `callback`. This allows the
-        //    callback to return owned values like vectors.
-        let mut payload: (&mut F, Option<T>) = (callback, None);
+        type Payload<'a, F, T> = (&'a mut F, Option<T>);
+
+        unsafe extern "C" fn progress(state: *mut ffi::TSParseState) -> bool {
+            let callback = (*state)
+                .payload
+                .cast::<ParseProgressCallback>()
+                .as_mut()
+                .unwrap();
+            callback(&ParseState::from_raw(state))
+        }
 
         // This C function is passed to Tree-sitter as the input callback.
         unsafe extern "C" fn read<T: AsRef<[u16]>, F: FnMut(usize, Point) -> T>(
@@ -800,7 +914,7 @@ impl Parser {
             position: ffi::TSPoint,
             bytes_read: *mut u32,
         ) -> *const c_char {
-            let (callback, text) = payload.cast::<(&mut F, Option<T>)>().as_mut().unwrap();
+            let (callback, text) = payload.cast::<Payload<F, T>>().as_mut().unwrap();
             *text = Some(callback(
                 (byte_offset / 2) as usize,
                 Point {
@@ -813,6 +927,31 @@ impl Parser {
             slice.as_ptr().cast::<c_char>()
         }
 
+        let empty_options = ffi::TSParseOptions {
+            payload: ptr::null_mut(),
+            progress_callback: None,
+        };
+
+        let parse_options = if let Some(options) = options {
+            if let Some(mut cb) = options.progress_callback {
+                ffi::TSParseOptions {
+                    payload: core::ptr::addr_of_mut!(cb).cast::<c_void>(),
+                    progress_callback: Some(progress),
+                }
+            } else {
+                empty_options
+            }
+        } else {
+            empty_options
+        };
+
+        // A pointer to this payload is passed on every call to the `read` C function.
+        // The payload contains two things:
+        // 1. A reference to the rust `callback`.
+        // 2. The text that was returned from the previous call to `callback`. This allows the
+        //    callback to return owned values like vectors.
+        let mut payload: Payload<F, T> = (callback, None);
+
         let c_input = ffi::TSInput {
             payload: core::ptr::addr_of_mut!(payload).cast::<c_void>(),
             read: Some(read::<T, F>),
@@ -821,7 +960,13 @@ impl Parser {
 
         let c_old_tree = old_tree.map_or(ptr::null_mut(), |t| t.0.as_ptr());
         unsafe {
-            let c_new_tree = ffi::ts_parser_parse(self.0.as_ptr(), c_old_tree, c_input);
+            let c_new_tree = ffi::ts_parser_parse_with_options(
+                self.0.as_ptr(),
+                c_old_tree,
+                c_input,
+                parse_options,
+            );
+
             NonNull::new(c_new_tree).map(Tree)
         }
     }
@@ -840,9 +985,10 @@ impl Parser {
     ) -> Option<Tree> {
         let code_points = input.as_ref();
         let len = code_points.len();
-        self.parse_utf16_be_with(
+        self.parse_utf16_be_with_options(
             &mut |i, _| if i < len { &code_points[i..] } else { &[] },
             old_tree,
+            None,
         )
     }
 
@@ -856,17 +1002,24 @@ impl Parser {
     /// * `old_tree` A previous syntax tree parsed from the same document. If the text of the
     ///   document has changed since `old_tree` was created, then you must edit `old_tree` to match
     ///   the new text using [`Tree::edit`].
-    pub fn parse_utf16_be_with<T: AsRef<[u16]>, F: FnMut(usize, Point) -> T>(
+    /// * `options` Options for parsing the text. This can be used to set a progress callback.
+    pub fn parse_utf16_be_with_options<T: AsRef<[u16]>, F: FnMut(usize, Point) -> T>(
         &mut self,
         callback: &mut F,
         old_tree: Option<&Tree>,
+        options: Option<ParseOptions>,
     ) -> Option<Tree> {
-        // A pointer to this payload is passed on every call to the `read` C function.
-        // The payload contains two things:
-        // 1. A reference to the rust `callback`.
-        // 2. The text that was returned from the previous call to `callback`. This allows the
-        //    callback to return owned values like vectors.
-        let mut payload: (&mut F, Option<T>) = (callback, None);
+        type Payload<'a, F, T> = (&'a mut F, Option<T>);
+
+        // This C function is passed to Tree-sitter as the progress callback.
+        unsafe extern "C" fn progress(state: *mut ffi::TSParseState) -> bool {
+            let callback = (*state)
+                .payload
+                .cast::<ParseProgressCallback>()
+                .as_mut()
+                .unwrap();
+            callback(&ParseState::from_raw(state))
+        }
 
         // This C function is passed to Tree-sitter as the input callback.
         unsafe extern "C" fn read<T: AsRef<[u16]>, F: FnMut(usize, Point) -> T>(
@@ -875,7 +1028,7 @@ impl Parser {
             position: ffi::TSPoint,
             bytes_read: *mut u32,
         ) -> *const c_char {
-            let (callback, text) = payload.cast::<(&mut F, Option<T>)>().as_mut().unwrap();
+            let (callback, text) = payload.cast::<Payload<F, T>>().as_mut().unwrap();
             *text = Some(callback(
                 (byte_offset / 2) as usize,
                 Point {
@@ -887,6 +1040,32 @@ impl Parser {
             *bytes_read = slice.len() as u32 * 2;
             slice.as_ptr().cast::<c_char>()
         }
+
+        let empty_options = ffi::TSParseOptions {
+            payload: ptr::null_mut(),
+            progress_callback: None,
+        };
+
+        let parse_options = if let Some(options) = options {
+            if let Some(mut cb) = options.progress_callback {
+                ffi::TSParseOptions {
+                    payload: core::ptr::addr_of_mut!(cb).cast::<c_void>(),
+                    progress_callback: Some(progress),
+                }
+            } else {
+                empty_options
+            }
+        } else {
+            empty_options
+        };
+
+        // A pointer to this payload is passed on every call to the `read` C function.
+        // The payload contains two things:
+        // 1. A reference to the rust `callback`.
+        // 2. The text that was returned from the previous call to `callback`. This allows the
+        //    callback to return owned values like vectors.
+        let mut payload: Payload<F, T> = (callback, None);
+
         let c_input = ffi::TSInput {
             payload: core::ptr::addr_of_mut!(payload).cast::<c_void>(),
             read: Some(read::<T, F>),
@@ -895,18 +1074,24 @@ impl Parser {
 
         let c_old_tree = old_tree.map_or(ptr::null_mut(), |t| t.0.as_ptr());
         unsafe {
-            let c_new_tree = ffi::ts_parser_parse(self.0.as_ptr(), c_old_tree, c_input);
+            let c_new_tree = ffi::ts_parser_parse_with_options(
+                self.0.as_ptr(),
+                c_old_tree,
+                c_input,
+                parse_options,
+            );
+
             NonNull::new(c_new_tree).map(Tree)
         }
     }
 
     /// Instruct the parser to start the next parse from the beginning.
     ///
-    /// If the parser previously failed because of a timeout or a cancellation,
-    /// then by default, it will resume where it left off on the next call
-    /// to [`parse`](Parser::parse) or other parsing functions. If you don't
-    /// want to resume, and instead intend to use this parser to parse some
-    /// other document, you must call `reset` first.
+    /// If the parser previously failed because of a timeout, cancellation,
+    /// or callback, then by default, it will resume where it left off on the
+    /// next call to [`parse`](Parser::parse) or other parsing functions.
+    /// If you don't want to resume, and instead intend to use this parser to
+    /// parse some other document, you must call `reset` first.
     #[doc(alias = "ts_parser_reset")]
     pub fn reset(&mut self) {
         unsafe { ffi::ts_parser_reset(self.0.as_ptr()) }
@@ -916,6 +1101,10 @@ impl Parser {
     ///
     /// This is set via [`set_timeout_micros`](Parser::set_timeout_micros).
     #[doc(alias = "ts_parser_timeout_micros")]
+    #[deprecated(
+        since = "0.25.0",
+        note = "Prefer using `parse_with_options` and using a callback"
+    )]
     #[must_use]
     pub fn timeout_micros(&self) -> u64 {
         unsafe { ffi::ts_parser_timeout_micros(self.0.as_ptr()) }
@@ -927,6 +1116,10 @@ impl Parser {
     /// If parsing takes longer than this, it will halt early, returning `None`.
     /// See [`parse`](Parser::parse) for more information.
     #[doc(alias = "ts_parser_set_timeout_micros")]
+    #[deprecated(
+        since = "0.25.0",
+        note = "Prefer using `parse_with_options` and using a callback"
+    )]
     pub fn set_timeout_micros(&mut self, timeout_micros: u64) {
         unsafe { ffi::ts_parser_set_timeout_micros(self.0.as_ptr(), timeout_micros) }
     }
@@ -993,6 +1186,10 @@ impl Parser {
     ///
     /// It uses FFI
     #[doc(alias = "ts_parser_cancellation_flag")]
+    #[deprecated(
+        since = "0.25.0",
+        note = "Prefer using `parse_with_options` and using a callback"
+    )]
     #[must_use]
     pub unsafe fn cancellation_flag(&self) -> Option<&AtomicUsize> {
         ffi::ts_parser_cancellation_flag(self.0.as_ptr())
@@ -1011,6 +1208,10 @@ impl Parser {
     ///
     /// It uses FFI
     #[doc(alias = "ts_parser_set_cancellation_flag")]
+    #[deprecated(
+        since = "0.25.0",
+        note = "Prefer using `parse_with_options` and using a callback"
+    )]
     pub unsafe fn set_cancellation_flag(&mut self, flag: Option<&AtomicUsize>) {
         if let Some(flag) = flag {
             ffi::ts_parser_set_cancellation_flag(
@@ -2582,6 +2783,10 @@ impl QueryCursor {
     ///
     /// If query execution takes longer than this, it will halt early, returning None.
     #[doc(alias = "ts_query_cursor_set_timeout_micros")]
+    #[deprecated(
+        since = "0.25.0",
+        note = "Prefer using `matches_with_options` or `captures_with_options` and using a callback"
+    )]
     pub fn set_timeout_micros(&mut self, timeout: u64) {
         unsafe {
             ffi::ts_query_cursor_set_timeout_micros(self.ptr.as_ptr(), timeout);
@@ -2592,6 +2797,10 @@ impl QueryCursor {
     ///
     /// This is set via [`set_timeout_micros`](QueryCursor::set_timeout_micros).
     #[doc(alias = "ts_query_cursor_timeout_micros")]
+    #[deprecated(
+        since = "0.25.0",
+        note = "Prefer using `matches_with_options` or `captures_with_options` and using a callback"
+    )]
     #[must_use]
     pub fn timeout_micros(&self) -> u64 {
         unsafe { ffi::ts_query_cursor_timeout_micros(self.ptr.as_ptr()) }
@@ -2627,6 +2836,64 @@ impl QueryCursor {
             buffer1: Vec::default(),
             buffer2: Vec::default(),
             current_match: None,
+            _options: None,
+            _phantom: PhantomData,
+        }
+    }
+
+    /// Iterate over all of the matches in the order that they were found, with options.
+    ///
+    /// Each match contains the index of the pattern that matched, and a list of
+    /// captures. Because multiple patterns can match the same set of nodes,
+    /// one match may contain captures that appear *before* some of the
+    /// captures from a previous match.
+    #[doc(alias = "ts_query_cursor_exec_with_options")]
+    pub fn matches_with_options<
+        'query,
+        'cursor: 'query,
+        'tree,
+        T: TextProvider<I>,
+        I: AsRef<[u8]>,
+    >(
+        &'cursor mut self,
+        query: &'query Query,
+        node: Node<'tree>,
+        text_provider: T,
+        options: QueryCursorOptions,
+    ) -> QueryMatches<'query, 'tree, T, I> {
+        unsafe extern "C" fn progress(state: *mut ffi::TSQueryCursorState) -> bool {
+            let callback = (*state)
+                .payload
+                .cast::<QueryProgressCallback>()
+                .as_mut()
+                .unwrap();
+            (callback)(&QueryCursorState::from_raw(state))
+        }
+
+        let query_options = options.progress_callback.map(|cb| {
+            QueryCursorOptionsDrop(Box::into_raw(Box::new(ffi::TSQueryCursorOptions {
+                payload: Box::into_raw(Box::new(cb)).cast::<c_void>(),
+                progress_callback: Some(progress),
+            })))
+        });
+
+        let ptr = self.ptr.as_ptr();
+        unsafe {
+            ffi::ts_query_cursor_exec_with_options(
+                ptr,
+                query.ptr.as_ptr(),
+                node.0,
+                query_options.as_ref().map_or(ptr::null_mut(), |q| q.0),
+            );
+        }
+        QueryMatches {
+            ptr,
+            query,
+            text_provider,
+            buffer1: Vec::default(),
+            buffer2: Vec::default(),
+            current_match: None,
+            _options: query_options,
             _phantom: PhantomData,
         }
     }
@@ -2652,6 +2919,63 @@ impl QueryCursor {
             buffer1: Vec::default(),
             buffer2: Vec::default(),
             current_match: None,
+            _options: None,
+            _phantom: PhantomData,
+        }
+    }
+
+    /// Iterate over all of the individual captures in the order that they
+    /// appear, with options.
+    ///
+    /// This is useful if you don't care about which pattern matched, and just
+    /// want a single, ordered sequence of captures.
+    #[doc(alias = "ts_query_cursor_exec")]
+    pub fn captures_with_options<
+        'query,
+        'cursor: 'query,
+        'tree,
+        T: TextProvider<I>,
+        I: AsRef<[u8]>,
+    >(
+        &'cursor mut self,
+        query: &'query Query,
+        node: Node<'tree>,
+        text_provider: T,
+        options: QueryCursorOptions,
+    ) -> QueryCaptures<'query, 'tree, T, I> {
+        unsafe extern "C" fn progress(state: *mut ffi::TSQueryCursorState) -> bool {
+            let callback = (*state)
+                .payload
+                .cast::<QueryProgressCallback>()
+                .as_mut()
+                .unwrap();
+            (callback)(&QueryCursorState::from_raw(state))
+        }
+
+        let query_options = options.progress_callback.map(|cb| {
+            QueryCursorOptionsDrop(Box::into_raw(Box::new(ffi::TSQueryCursorOptions {
+                payload: Box::into_raw(Box::new(cb)).cast::<c_void>(),
+                progress_callback: Some(progress),
+            })))
+        });
+
+        let ptr = self.ptr.as_ptr();
+        unsafe {
+            ffi::ts_query_cursor_exec_with_options(
+                ptr,
+                query.ptr.as_ptr(),
+                node.0,
+                query_options.as_ref().map_or(ptr::null_mut(), |q| q.0),
+            );
+        }
+        QueryCaptures {
+            ptr,
+            query,
+            text_provider,
+            buffer1: Vec::default(),
+            buffer2: Vec::default(),
+            current_match: None,
+            _options: query_options,
             _phantom: PhantomData,
         }
     }
