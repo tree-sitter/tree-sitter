@@ -162,6 +162,19 @@ pub const TSQueryErrorCapture: TSQueryError = 4;
 pub const TSQueryErrorStructure: TSQueryError = 5;
 pub const TSQueryErrorLanguage: TSQueryError = 6;
 pub type TSQueryError = ::core::ffi::c_uint;
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct TSQueryCursorState {
+    pub payload: *mut ::core::ffi::c_void,
+    pub current_byte_offset: u32,
+}
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct TSQueryCursorOptions {
+    pub payload: *mut ::core::ffi::c_void,
+    pub progress_callback:
+        ::core::option::Option<unsafe extern "C" fn(state: *mut TSQueryCursorState) -> bool>,
+}
 extern "C" {
     #[doc = " Create a new parser."]
     pub fn ts_parser_new() -> *mut TSParser;
@@ -661,6 +674,15 @@ extern "C" {
 extern "C" {
     #[doc = " Start running a given query on a given node."]
     pub fn ts_query_cursor_exec(self_: *mut TSQueryCursor, query: *const TSQuery, node: TSNode);
+}
+extern "C" {
+    #[doc = " Start running a gievn query on a given node, with some options."]
+    pub fn ts_query_cursor_exec_with_options(
+        self_: *mut TSQueryCursor,
+        query: *const TSQuery,
+        node: TSNode,
+        options: *const TSQueryCursorOptions,
+    );
 }
 extern "C" {
     #[doc = " Manage the maximum number of in-progress matches allowed by this query\n cursor.\n\n Query cursors have an optional maximum capacity for storing lists of\n in-progress captures. If this capacity is exceeded, then the\n earliest-starting match will silently be dropped to make room for further\n matches. This maximum capacity is optional — by default, query cursors allow\n any number of pending matches, dynamically allocating new space for them as\n needed as the query is executed."]

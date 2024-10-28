@@ -315,6 +315,8 @@ struct TSQueryCursor {
   uint32_t next_state_id;
   TSClock end_clock;
   TSDuration timeout_duration;
+  const TSQueryCursorOptions *query_options;
+  TSQueryCursorState query_state;
   unsigned operation_count;
   bool on_visible_node;
   bool ascending;
@@ -3082,6 +3084,23 @@ void ts_query_cursor_exec(
   } else {
     self->end_clock = clock_null();
   }
+  self->query_options = NULL;
+  self->query_state = (TSQueryCursorState) {0};
+}
+
+void ts_query_cursor_exec_with_options(
+  TSQueryCursor *self,
+  const TSQuery *query,
+  TSNode node,
+  const TSQueryCursorOptions *query_options
+) {
+  ts_query_cursor_exec(self, query, node);
+  if (query_options) {
+    self->query_options = query_options;
+    self->query_state = (TSQueryCursorState) {
+      .payload = query_options->payload
+    };
+  }
 }
 
 void ts_query_cursor_set_byte_range(
@@ -3481,12 +3500,19 @@ static inline bool ts_query_cursor__advance(
     if (++self->operation_count == OP_COUNT_PER_QUERY_TIMEOUT_CHECK) {
       self->operation_count = 0;
     }
+
+    if (self->query_options && self->query_options->progress_callback) {
+      self->query_state.current_byte_offset = ts_node_start_byte(ts_tree_cursor_current_node(&self->cursor));
+    }
     if (
       did_match ||
       self->halted ||
       (
         self->operation_count == 0 &&
-        !clock_is_null(self->end_clock) && clock_is_gt(clock_now(), self->end_clock)
+        (
+          (!clock_is_null(self->end_clock) && clock_is_gt(clock_now(), self->end_clock)) ||
+          (self->query_options && self->query_options->progress_callback && self->query_options->progress_callback(&self->query_state))
+        )
       )
     ) {
       return did_match;
