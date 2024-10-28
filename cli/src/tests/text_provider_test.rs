@@ -20,7 +20,7 @@ where
     let language = get_language("c");
     let mut parser = Parser::new();
     parser.set_language(&language).unwrap();
-    let tree = parser.parse_with(callback, None).unwrap();
+    let tree = parser.parse_with_options(callback, None, None).unwrap();
     // eprintln!("{}", tree.clone().root_node().to_sexp());
     assert_eq!("comment", tree.root_node().child(0).unwrap().kind());
     (tree, language)

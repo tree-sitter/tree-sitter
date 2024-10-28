@@ -3,7 +3,9 @@ use std::{
     thread, time,
 };
 
-use tree_sitter::{IncludedRangesError, InputEdit, LogType, Parser, Point, Range};
+use tree_sitter::{
+    IncludedRangesError, InputEdit, LogType, ParseOptions, ParseState, Parser, Point, Range,
+};
 use tree_sitter_generate::{generate_parser_for_grammar, load_grammar_file};
 use tree_sitter_proc_macro::retry;
 
@@ -119,7 +121,7 @@ fn test_parsing_with_custom_utf8_input() {
     let lines = &["pub fn foo() {", "  1", "}"];
 
     let tree = parser
-        .parse_with(
+        .parse_with_options(
             &mut |_, position| {
                 let row = position.row;
                 let column = position.column;
@@ -133,6 +135,7 @@ fn test_parsing_with_custom_utf8_input() {
                     &[]
                 }
             },
+            None,
             None,
         )
         .unwrap();
@@ -167,7 +170,7 @@ fn test_parsing_with_custom_utf16le_input() {
     let newline = [('\n' as u16).to_le()];
 
     let tree = parser
-        .parse_utf16_le_with(
+        .parse_utf16_le_with_options(
             &mut |_, position| {
                 let row = position.row;
                 let column = position.column;
@@ -181,6 +184,7 @@ fn test_parsing_with_custom_utf16le_input() {
                     &[]
                 }
             },
+            None,
             None,
         )
         .unwrap();
@@ -209,7 +213,7 @@ fn test_parsing_with_custom_utf16_be_input() {
     let newline = [('\n' as u16).to_be()];
 
     let tree = parser
-        .parse_utf16_be_with(
+        .parse_utf16_be_with_options(
             &mut |_, position| {
                 let row = position.row;
                 let column = position.column;
@@ -223,6 +227,7 @@ fn test_parsing_with_custom_utf16_be_input() {
                     &[]
                 }
             },
+            None,
             None,
         )
         .unwrap();
@@ -244,8 +249,9 @@ fn test_parsing_with_callback_returning_owned_strings() {
     let text = b"pub fn foo() { 1 }";
 
     let tree = parser
-        .parse_with(
+        .parse_with_options(
             &mut |i, _| String::from_utf8(text[i..].to_vec()).unwrap(),
+            None,
             None,
         )
         .unwrap();
@@ -348,7 +354,7 @@ fn test_parsing_ends_when_input_callback_returns_empty() {
     let mut i = 0;
     let source = b"abcdefghijklmnoqrs";
     let tree = parser
-        .parse_with(
+        .parse_with_options(
             &mut |offset, _| {
                 i += 1;
                 if offset >= 6 {
@@ -357,6 +363,7 @@ fn test_parsing_ends_when_input_callback_returns_empty() {
                     &source[offset..usize::min(source.len(), offset + 3)]
                 }
             },
+            None,
             None,
         )
         .unwrap();
@@ -395,7 +402,7 @@ fn test_parsing_after_editing_beginning_of_code() {
 
     let mut recorder = ReadRecorder::new(&code);
     let tree = parser
-        .parse_with(&mut |i, _| recorder.read(i), Some(&tree))
+        .parse_with_options(&mut |i, _| recorder.read(i), Some(&tree), None)
         .unwrap();
     assert_eq!(
         tree.root_node().to_sexp(),
@@ -443,7 +450,7 @@ fn test_parsing_after_editing_end_of_code() {
 
     let mut recorder = ReadRecorder::new(&code);
     let tree = parser
-        .parse_with(&mut |i, _| recorder.read(i), Some(&tree))
+        .parse_with_options(&mut |i, _| recorder.read(i), Some(&tree), None)
         .unwrap();
     assert_eq!(
         tree.root_node().to_sexp(),
@@ -529,7 +536,7 @@ h + i
 
     let mut recorder = ReadRecorder::new(&code);
     let tree = parser
-        .parse_with(&mut |i, _| recorder.read(i), Some(&tree))
+        .parse_with_options(&mut |i, _| recorder.read(i), Some(&tree), None)
         .unwrap();
 
     assert_eq!(
@@ -583,7 +590,7 @@ fn test_parsing_after_editing_tree_that_depends_on_column_position() {
 
     let mut recorder = ReadRecorder::new(&code);
     let mut tree = parser
-        .parse_with(&mut |i, _| recorder.read(i), Some(&tree))
+        .parse_with_options(&mut |i, _| recorder.read(i), Some(&tree), None)
         .unwrap();
 
     assert_eq!(tree.root_node().to_sexp(), "(x_is_at (even_column))",);
@@ -604,7 +611,7 @@ fn test_parsing_after_editing_tree_that_depends_on_column_position() {
 
     let mut recorder = ReadRecorder::new(&code);
     let tree = parser
-        .parse_with(&mut |i, _| recorder.read(i), Some(&tree))
+        .parse_with_options(&mut |i, _| recorder.read(i), Some(&tree), None)
         .unwrap();
 
     assert_eq!(tree.root_node().to_sexp(), "(x_is_at (even_column))",);
@@ -705,13 +712,14 @@ fn test_parsing_on_multiple_threads() {
 #[test]
 fn test_parsing_cancelled_by_another_thread() {
     let cancellation_flag = std::sync::Arc::new(AtomicUsize::new(0));
+    let flag = cancellation_flag.clone();
+    let callback = &mut |_: &ParseState| cancellation_flag.load(Ordering::SeqCst) != 0;
 
     let mut parser = Parser::new();
     parser.set_language(&get_language("javascript")).unwrap();
-    unsafe { parser.set_cancellation_flag(Some(&cancellation_flag)) };
 
     // Long input - parsing succeeds
-    let tree = parser.parse_with(
+    let tree = parser.parse_with_options(
         &mut |offset, _| {
             if offset == 0 {
                 " [".as_bytes()
@@ -722,17 +730,17 @@ fn test_parsing_cancelled_by_another_thread() {
             }
         },
         None,
+        Some(ParseOptions::new().progress_callback(callback)),
     );
     assert!(tree.is_some());
 
-    let flag = cancellation_flag.clone();
     let cancel_thread = thread::spawn(move || {
         thread::sleep(time::Duration::from_millis(100));
         flag.store(1, Ordering::SeqCst);
     });
 
     // Infinite input
-    let tree = parser.parse_with(
+    let tree = parser.parse_with_options(
         &mut |offset, _| {
             thread::yield_now();
             thread::sleep(time::Duration::from_millis(10));
@@ -743,6 +751,7 @@ fn test_parsing_cancelled_by_another_thread() {
             }
         },
         None,
+        Some(ParseOptions::new().progress_callback(callback)),
     );
 
     // Parsing returns None because it was cancelled.
@@ -759,9 +768,8 @@ fn test_parsing_with_a_timeout() {
     parser.set_language(&get_language("json")).unwrap();
 
     // Parse an infinitely-long array, but pause after 1ms of processing.
-    parser.set_timeout_micros(1000);
     let start_time = time::Instant::now();
-    let tree = parser.parse_with(
+    let tree = parser.parse_with_options(
         &mut |offset, _| {
             if offset == 0 {
                 b" ["
@@ -770,14 +778,16 @@ fn test_parsing_with_a_timeout() {
             }
         },
         None,
+        Some(
+            ParseOptions::new().progress_callback(&mut |_| start_time.elapsed().as_micros() > 1000),
+        ),
     );
     assert!(tree.is_none());
     assert!(start_time.elapsed().as_micros() < 2000);
 
     // Continue parsing, but pause after 1 ms of processing.
-    parser.set_timeout_micros(5000);
     let start_time = time::Instant::now();
-    let tree = parser.parse_with(
+    let tree = parser.parse_with_options(
         &mut |offset, _| {
             if offset == 0 {
                 b" ["
@@ -786,20 +796,23 @@ fn test_parsing_with_a_timeout() {
             }
         },
         None,
+        Some(
+            ParseOptions::new().progress_callback(&mut |_| start_time.elapsed().as_micros() > 5000),
+        ),
     );
     assert!(tree.is_none());
     assert!(start_time.elapsed().as_micros() > 100);
     assert!(start_time.elapsed().as_micros() < 10000);
 
     // Finish parsing
-    parser.set_timeout_micros(0);
     let tree = parser
-        .parse_with(
+        .parse_with_options(
             &mut |offset, _| match offset {
                 5001.. => "".as_bytes(),
                 5000 => "]".as_bytes(),
                 _ => ",0".as_bytes(),
             },
+            None,
             None,
         )
         .unwrap();
@@ -812,16 +825,23 @@ fn test_parsing_with_a_timeout_and_a_reset() {
     let mut parser = Parser::new();
     parser.set_language(&get_language("json")).unwrap();
 
-    parser.set_timeout_micros(5);
-    let tree = parser.parse(
-        "[\"ok\", 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32]",
+    let start_time = time::Instant::now();
+    let code = "[\"ok\", 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32]";
+    let tree = parser.parse_with_options(
+        &mut |offset, _| {
+            if offset >= code.len() {
+                &[]
+            } else {
+                &code.as_bytes()[offset..]
+            }
+        },
         None,
+        Some(ParseOptions::new().progress_callback(&mut |_| start_time.elapsed().as_micros() > 5)),
     );
     assert!(tree.is_none());
 
     // Without calling reset, the parser continues from where it left off, so
     // it does not see the changes to the beginning of the source code.
-    parser.set_timeout_micros(0);
     let tree = parser.parse(
         "[null, 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32]",
         None,
@@ -836,16 +856,23 @@ fn test_parsing_with_a_timeout_and_a_reset() {
         "string"
     );
 
-    parser.set_timeout_micros(5);
-    let tree = parser.parse(
-        "[\"ok\", 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32]",
+    let start_time = time::Instant::now();
+    let code = "[\"ok\", 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32]";
+    let tree = parser.parse_with_options(
+        &mut |offset, _| {
+            if offset >= code.len() {
+                &[]
+            } else {
+                &code.as_bytes()[offset..]
+            }
+        },
         None,
+        Some(ParseOptions::new().progress_callback(&mut |_| start_time.elapsed().as_micros() > 5)),
     );
     assert!(tree.is_none());
 
     // By calling reset, we force the parser to start over from scratch so
     // that it sees the changes to the beginning of the source code.
-    parser.set_timeout_micros(0);
     parser.reset();
     let tree = parser.parse(
         "[null, 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32]",
@@ -869,17 +896,27 @@ fn test_parsing_with_a_timeout_and_implicit_reset() {
         let mut parser = Parser::new();
         parser.set_language(&get_language("javascript")).unwrap();
 
-        parser.set_timeout_micros(5);
-        let tree = parser.parse(
-            "[\"ok\", 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32]",
+        let code = "[\"ok\", 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32]";
+        let start_time = time::Instant::now();
+        let tree = parser.parse_with_options(
+            &mut |offset, _| {
+                if offset >= code.len() {
+                    &[]
+                } else {
+                    &code.as_bytes()[offset..]
+                }
+            },
             None,
+            Some(
+                ParseOptions::new()
+                    .progress_callback(&mut |_| start_time.elapsed().as_micros() > 5),
+            ),
         );
         assert!(tree.is_none());
 
         // Changing the parser's language implicitly resets, discarding
         // the previous partial parse.
         parser.set_language(&get_language("json")).unwrap();
-        parser.set_timeout_micros(0);
         let tree = parser.parse(
             "[null, 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32]",
             None,
@@ -903,10 +940,21 @@ fn test_parsing_with_timeout_and_no_completion() {
         let mut parser = Parser::new();
         parser.set_language(&get_language("javascript")).unwrap();
 
-        parser.set_timeout_micros(5);
-        let tree = parser.parse(
-            "[\"ok\", 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32]",
+        let code = "[\"ok\", 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32]";
+        let start_time = time::Instant::now();
+        let tree = parser.parse_with_options(
+            &mut |offset, _| {
+                if offset >= code.len() {
+                    &[]
+                } else {
+                    &code.as_bytes()[offset..]
+                }
+            },
             None,
+            Some(
+                ParseOptions::new()
+                    .progress_callback(&mut |_| start_time.elapsed().as_micros() > 5),
+            ),
         );
         assert!(tree.is_none());
 
@@ -1077,7 +1125,7 @@ fn test_parsing_with_included_range_containing_mismatched_positions() {
     parser.set_included_ranges(&[range_to_parse]).unwrap();
 
     let html_tree = parser
-        .parse_with(&mut chunked_input(source_code, 3), None)
+        .parse_with_options(&mut chunked_input(source_code, 3), None, None)
         .unwrap();
 
     assert_eq!(html_tree.root_node().range(), range_to_parse);
@@ -1209,7 +1257,7 @@ fn test_parsing_with_a_newly_excluded_range() {
     let mut parser = Parser::new();
     parser.set_language(&get_language("html")).unwrap();
     let mut first_tree = parser
-        .parse_with(&mut chunked_input(&source_code, 3), None)
+        .parse_with_options(&mut chunked_input(&source_code, 3), None, None)
         .unwrap();
 
     // Insert code at the beginning of the document.
@@ -1246,7 +1294,7 @@ fn test_parsing_with_a_newly_excluded_range() {
         ])
         .unwrap();
     let tree = parser
-        .parse_with(&mut chunked_input(&source_code, 3), Some(&first_tree))
+        .parse_with_options(&mut chunked_input(&source_code, 3), Some(&first_tree), None)
         .unwrap();
 
     assert_eq!(
@@ -1299,7 +1347,7 @@ fn test_parsing_with_a_newly_included_range() {
         .set_included_ranges(&[simple_range(range1_start, range1_end)])
         .unwrap();
     let tree = parser
-        .parse_with(&mut chunked_input(source_code, 3), None)
+        .parse_with_options(&mut chunked_input(source_code, 3), None, None)
         .unwrap();
     assert_eq!(
         tree.root_node().to_sexp(),
@@ -1318,7 +1366,7 @@ fn test_parsing_with_a_newly_included_range() {
         ])
         .unwrap();
     let tree2 = parser
-        .parse_with(&mut chunked_input(source_code, 3), Some(&tree))
+        .parse_with_options(&mut chunked_input(source_code, 3), Some(&tree), None)
         .unwrap();
     assert_eq!(
         tree2.root_node().to_sexp(),
@@ -1567,6 +1615,35 @@ fn test_parsing_get_column_at_eof() {
         .unwrap();
 
     parser.parse("a", None).unwrap();
+}
+
+#[test]
+fn test_parsing_by_halting_at_offset() {
+    let mut parser = Parser::new();
+    parser.set_language(&get_language("javascript")).unwrap();
+
+    let source_code = "function foo() { return 1; }".repeat(1000);
+
+    let mut seen_byte_offsets = vec![];
+
+    parser
+        .parse_with_options(
+            &mut |offset, _| {
+                if offset < source_code.len() {
+                    &source_code.as_bytes()[offset..]
+                } else {
+                    &[]
+                }
+            },
+            None,
+            Some(ParseOptions::new().progress_callback(&mut |p| {
+                seen_byte_offsets.push(p.current_byte_offset());
+                false
+            })),
+        )
+        .unwrap();
+
+    assert!(seen_byte_offsets.len() > 100);
 }
 
 const fn simple_range(start: usize, end: usize) -> Range {

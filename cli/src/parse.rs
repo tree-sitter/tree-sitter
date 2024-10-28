@@ -2,14 +2,17 @@ use std::{
     fmt, fs,
     io::{self, StdoutLock, Write},
     path::Path,
-    sync::atomic::AtomicUsize,
+    sync::atomic::{AtomicUsize, Ordering},
     time::{Duration, Instant},
 };
 
 use anstyle::{AnsiColor, Color, RgbColor};
 use anyhow::{anyhow, Context, Result};
 use serde::{Deserialize, Serialize};
-use tree_sitter::{ffi, InputEdit, Language, LogType, Parser, Point, Range, Tree, TreeCursor};
+use tree_sitter::{
+    ffi, InputEdit, Language, LogType, ParseOptions, ParseState, Parser, Point, Range, Tree,
+    TreeCursor,
+};
 
 use super::util;
 use crate::{fuzz::edits::Edit, test::paint};
@@ -204,13 +207,6 @@ pub fn parse_file_at_path(parser: &mut Parser, opts: &ParseFileOptions) -> Resul
     let mut source_code = fs::read(opts.path)
         .with_context(|| format!("Error reading source file {:?}", opts.path))?;
 
-    // If the `--cancel` flag was passed, then cancel the parse
-    // when the user types a newline.
-    unsafe { parser.set_cancellation_flag(opts.cancellation_flag) };
-
-    // Set a timeout based on the `--time` flag.
-    parser.set_timeout_micros(opts.timeout);
-
     // Render an HTML graph if `--debug-graph` was passed
     if opts.debug_graph {
         _log_session = Some(util::log_graphs(parser, "log.html", opts.open_log)?);
@@ -250,22 +246,74 @@ pub fn parse_file_at_path(parser: &mut Parser, opts: &ParseFileOptions) -> Resul
         _ => opts.encoding,
     };
 
+    // If the `--cancel` flag was passed, then cancel the parse
+    // when the user types a newline.
+    //
+    // Additionally, if the `--time` flag was passed, end the parse
+    // after the specified number of microseconds.
+    let start_time = Instant::now();
+    let progress_callback = &mut |_: &ParseState| {
+        if let Some(cancellation_flag) = opts.cancellation_flag {
+            if cancellation_flag.load(Ordering::SeqCst) != 0 {
+                return true;
+            }
+        }
+
+        if opts.timeout > 0 && start_time.elapsed().as_micros() > opts.timeout as u128 {
+            return true;
+        }
+
+        false
+    };
+
+    let parse_opts = ParseOptions::new().progress_callback(progress_callback);
+
     let tree = match encoding {
         Some(encoding) if encoding == ffi::TSInputEncodingUTF16LE => {
             let source_code_utf16 = source_code
                 .chunks_exact(2)
                 .map(|chunk| u16::from_le_bytes([chunk[0], chunk[1]]))
                 .collect::<Vec<_>>();
-            parser.parse_utf16_le(&source_code_utf16, None)
+            parser.parse_utf16_le_with_options(
+                &mut |i, _| {
+                    if i < source_code_utf16.len() {
+                        &source_code_utf16[i..]
+                    } else {
+                        &[]
+                    }
+                },
+                None,
+                Some(parse_opts),
+            )
         }
         Some(encoding) if encoding == ffi::TSInputEncodingUTF16BE => {
             let source_code_utf16 = source_code
                 .chunks_exact(2)
                 .map(|chunk| u16::from_be_bytes([chunk[0], chunk[1]]))
                 .collect::<Vec<_>>();
-            parser.parse_utf16_be(&source_code_utf16, None)
+            parser.parse_utf16_be_with_options(
+                &mut |i, _| {
+                    if i < source_code_utf16.len() {
+                        &source_code_utf16[i..]
+                    } else {
+                        &[]
+                    }
+                },
+                None,
+                Some(parse_opts),
+            )
         }
-        _ => parser.parse(&source_code, None),
+        _ => parser.parse_with_options(
+            &mut |i, _| {
+                if i < source_code.len() {
+                    &source_code[i..]
+                } else {
+                    &[]
+                }
+            },
+            None,
+            Some(parse_opts),
+        ),
     };
 
     let stdout = io::stdout();
