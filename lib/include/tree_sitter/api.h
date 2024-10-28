@@ -79,6 +79,16 @@ typedef struct TSInput {
   TSInputEncoding encoding;
 } TSInput;
 
+typedef struct TSParseState {
+  void *payload;
+  uint32_t current_byte_offset;
+} TSParseState;
+
+typedef struct TSParseOptions {
+  void *payload;
+  bool (*progress_callback)(TSParseState *state);
+} TSParseOptions;
+
 typedef enum TSLogType {
   TSLogTypeParse,
   TSLogTypeLex,
@@ -247,7 +257,7 @@ const TSRange *ts_parser_included_ranges(
  *    `TSInputEncodingUTF8` or `TSInputEncodingUTF16`.
  *
  * This function returns a syntax tree on success, and `NULL` on failure. There
- * are three possible reasons for failure:
+ * are four possible reasons for failure:
  * 1. The parser does not have a language assigned. Check for this using the
       [`ts_parser_language`] function.
  * 2. Parsing was cancelled due to a timeout that was set by an earlier call to
@@ -259,6 +269,8 @@ const TSRange *ts_parser_included_ranges(
  *    earlier call to [`ts_parser_set_cancellation_flag`]. You can resume parsing
  *    from where the parser left out by calling [`ts_parser_parse`] again with
  *    the same arguments.
+ * 4. Parsing was cancelled due to the progress callback returning true. This callback
+ *    is passed in [`ts_parser_parse_with_options`] inside the [`TSParseOptions`] struct.
  *
  * [`read`]: TSInput::read
  * [`payload`]: TSInput::payload
@@ -269,6 +281,18 @@ TSTree *ts_parser_parse(
   TSParser *self,
   const TSTree *old_tree,
   TSInput input
+);
+
+/**
+ * Use the parser to parse some source code and create a syntax tree, with some options.
+ *
+ * See [`ts_parser_parse`] for more details.
+ */
+TSTree* ts_parser_parse_with_options(
+  TSParser *self,
+  const TSTree *old_tree,
+  TSInput input,
+  TSParseOptions parse_options
 );
 
 /**
@@ -310,6 +334,8 @@ TSTree *ts_parser_parse_string_encoding(
 void ts_parser_reset(TSParser *self);
 
 /**
+ * @deprecated use [`ts_parser_parse_with_options`] and pass in a callback instead, this will be removed in 0.26.
+ *
  * Set the maximum duration in microseconds that parsing should be allowed to
  * take before halting.
  *
@@ -319,11 +345,15 @@ void ts_parser_reset(TSParser *self);
 void ts_parser_set_timeout_micros(TSParser *self, uint64_t timeout_micros);
 
 /**
+ * @deprecated use [`ts_parser_parse_with_options`] and pass in a callback instead, this will be removed in 0.26.
+ *
  * Get the duration in microseconds that parsing is allowed to take.
  */
 uint64_t ts_parser_timeout_micros(const TSParser *self);
 
 /**
+ * @deprecated use [`ts_parser_parse_with_options`] and pass in a callback instead, this will be removed in 0.26.
+ *
  * Set the parser's current cancellation flag pointer.
  *
  * If a non-null pointer is assigned, then the parser will periodically read
@@ -333,6 +363,8 @@ uint64_t ts_parser_timeout_micros(const TSParser *self);
 void ts_parser_set_cancellation_flag(TSParser *self, const size_t *flag);
 
 /**
+ * @deprecated use [`ts_parser_parse_with_options`] and pass in a callback instead, this will be removed in 0.26.
+ *
  * Get the parser's current cancellation flag pointer.
  */
 const size_t *ts_parser_cancellation_flag(const TSParser *self);
