@@ -761,6 +761,10 @@ extern "C" {
     ) -> TSStateId;
 }
 extern "C" {
+    #[doc = " Get the name of this language. This returns `NULL` in older parsers."]
+    pub fn ts_language_name(self_: *const TSLanguage) -> *const ::core::ffi::c_char;
+}
+extern "C" {
     #[doc = " Create a new lookahead iterator for the given language and parse state.\n\n This returns `NULL` if state is invalid for the language.\n\n Repeatedly using [`ts_lookahead_iterator_next`] and\n [`ts_lookahead_iterator_current_symbol`] will generate valid symbols in the\n given parse state. Newly created lookahead iterators will contain the `ERROR`\n symbol.\n\n Lookahead iterators can be useful to generate suggestions and improve syntax\n error diagnostics. To get symbols valid in an ERROR node, use the lookahead\n iterator on its first leaf node state. For `MISSING` nodes, a lookahead\n iterator created on the previous non-extra leaf node may be appropriate."]
     pub fn ts_lookahead_iterator_new(
         self_: *const TSLanguage,

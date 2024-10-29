@@ -301,6 +301,14 @@ impl Language {
         Self(unsafe { builder.into_raw()().cast() })
     }
 
+    /// Get the name of this language. This returns `None` in older parsers.
+    #[doc(alias = "ts_language_version")]
+    #[must_use]
+    pub fn name(&self) -> Option<&'static str> {
+        let ptr = unsafe { ffi::ts_language_name(self.0) };
+        (!ptr.is_null()).then(|| unsafe { CStr::from_ptr(ptr) }.to_str().unwrap())
+    }
+
     /// Get the ABI version number that indicates which version of the
     /// Tree-sitter CLI that was used to generate this [`Language`].
     #[doc(alias = "ts_language_version")]
