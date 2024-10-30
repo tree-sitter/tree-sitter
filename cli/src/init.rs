@@ -139,7 +139,7 @@ impl JsonConfigOpts {
                 scope: self.scope,
                 path: None,
                 external_files: PathsJSON::Empty,
-                file_types: None,
+                file_types: Some(self.file_types),
                 highlights: PathsJSON::Empty,
                 injections: PathsJSON::Empty,
                 locals: PathsJSON::Empty,
@@ -155,7 +155,7 @@ impl JsonConfigOpts {
                 authors: Some(vec![Author {
                     name: self.author,
                     email: self.email,
-                    url: None,
+                    url: self.url.map(|url| url.to_string()),
                 }]),
                 links: Some(Links {
                     repository: self.repository.unwrap_or_else(|| {
