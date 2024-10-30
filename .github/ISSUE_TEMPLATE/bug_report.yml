@@ -13,9 +13,11 @@ body:
     attributes:
       label: "Steps to reproduce"
       placeholder: |
+        ```sh
         git clone --depth=1 https://github.com/tree-sitter/tree-sitter-ruby
         cd tree-sitter-ruby
         tree-sitter generate
+        ```
     validations:
       required: true
 
