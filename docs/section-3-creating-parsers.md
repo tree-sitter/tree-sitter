@@ -1115,5 +1115,7 @@ Be very careful when emitting zero-width tokens from your external scanner, and 
 [syntax-highlighting-tests]: ./syntax-highlighting#unit-testing
 [tree-sitter-cli]: https://github.com/tree-sitter/tree-sitter/tree/master/cli
 [tree-sitter-javascript]: https://github.com/tree-sitter/tree-sitter-javascript
+[triple-slash]: https://www.typescriptlang.org/docs/handbook/triple-slash-directives.html
+[ts-check]: https://www.typescriptlang.org/docs/handbook/intro-to-js-ts.html
 [yacc-prec]: https://docs.oracle.com/cd/E19504-01/802-5880/6i9k05dh3/index.html
 [yacc]: https://en.wikipedia.org/wiki/Yacc
