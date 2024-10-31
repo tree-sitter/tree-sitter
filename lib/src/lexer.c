@@ -1,9 +1,11 @@
-#include <stdio.h>
-#include "./lexer.h"
-#include "./subtree.h"
 #include "./length.h"
+#include "./lexer.h"
 #include "./unicode.h"
+
+#include "tree_sitter/api.h"
+
 #include <stdarg.h>
+#include <stdio.h>
 
 #define LOG(message, character)              \
   if (self->logger.log) {                    \
@@ -112,9 +114,10 @@ static void ts_lexer__get_lookahead(Lexer *self) {
   }
 
   const uint8_t *chunk = (const uint8_t *)self->chunk + position_in_chunk;
-  UnicodeDecodeFunction decode =
-    self->input.encoding == TSInputEncodingUTF8 ? ts_decode_utf8 :
-    self->input.encoding == TSInputEncodingUTF16LE ? ts_decode_utf16_le : ts_decode_utf16_be;
+  DecodeFunction decode =
+    self->input.encoding == TSInputEncodingUTF8    ? ts_decode_utf8     :
+    self->input.encoding == TSInputEncodingUTF16LE ? ts_decode_utf16_le :
+    self->input.encoding == TSInputEncodingUTF16BE ? ts_decode_utf16_be : self->input.decode;
 
   self->lookahead_size = decode(chunk, size, &self->data.lookahead);
 

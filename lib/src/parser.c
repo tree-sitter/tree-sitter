@@ -2163,6 +2163,7 @@ TSTree *ts_parser_parse_string_encoding(
     &input,
     ts_string_input_read,
     encoding,
+    NULL,
   });
 }
 
