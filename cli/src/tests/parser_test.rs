@@ -4,7 +4,7 @@ use std::{
 };
 
 use tree_sitter::{
-    IncludedRangesError, InputEdit, LogType, ParseOptions, ParseState, Parser, Point, Range,
+    Decode, IncludedRangesError, InputEdit, LogType, ParseOptions, ParseState, Parser, Point, Range,
 };
 use tree_sitter_generate::{generate_parser_for_grammar, load_grammar_file};
 use tree_sitter_proc_macro::retry;
@@ -1644,6 +1644,176 @@ fn test_parsing_by_halting_at_offset() {
         .unwrap();
 
     assert!(seen_byte_offsets.len() > 100);
+}
+
+#[test]
+fn test_decode_utf32() {
+    use widestring::u32cstr;
+
+    let mut parser = Parser::new();
+    parser.set_language(&get_language("rust")).unwrap();
+
+    let utf32_text = u32cstr!("pub fn foo() { println!(\"€50\"); }");
+    let utf32_text = unsafe {
+        std::slice::from_raw_parts(utf32_text.as_ptr().cast::<u8>(), utf32_text.len() * 4)
+    };
+
+    struct U32Decoder;
+
+    impl Decode for U32Decoder {
+        fn decode(bytes: &[u8]) -> (i32, u32) {
+            if bytes.len() >= 4 {
+                #[cfg(target_endian = "big")]
+                {
+                    (
+                        i32::from_be_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]),
+                        4,
+                    )
+                }
+
+                #[cfg(target_endian = "little")]
+                {
+                    (
+                        i32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]),
+                        4,
+                    )
+                }
+            } else {
+                println!("bad decode: {bytes:?}");
+                (0, 0)
+            }
+        }
+    }
+
+    let tree = parser
+        .parse_custom_encoding::<U32Decoder, _, _>(
+            &mut |offset, _| {
+                if offset < utf32_text.len() {
+                    &utf32_text[offset..]
+                } else {
+                    &[]
+                }
+            },
+            None,
+            None,
+        )
+        .unwrap();
+
+    assert_eq!(
+        tree.root_node().to_sexp(),
+        "(source_file (function_item (visibility_modifier) name: (identifier) parameters: (parameters) body: (block (expression_statement (macro_invocation macro: (identifier) (token_tree (string_literal (string_content))))))))"
+    );
+}
+
+#[test]
+fn test_decode_cp1252() {
+    use encoding_rs::WINDOWS_1252;
+
+    let mut parser = Parser::new();
+    parser.set_language(&get_language("rust")).unwrap();
+
+    let windows_1252_text = WINDOWS_1252.encode("pub fn foo() { println!(\"€50\"); }").0;
+
+    struct Cp1252Decoder;
+
+    impl Decode for Cp1252Decoder {
+        fn decode(bytes: &[u8]) -> (i32, u32) {
+            if !bytes.is_empty() {
+                let byte = bytes[0];
+                (byte as i32, 1)
+            } else {
+                (0, 0)
+            }
+        }
+    }
+
+    let tree = parser
+        .parse_custom_encoding::<Cp1252Decoder, _, _>(
+            &mut |offset, _| &windows_1252_text[offset..],
+            None,
+            None,
+        )
+        .unwrap();
+
+    assert_eq!(
+        tree.root_node().to_sexp(),
+        "(source_file (function_item (visibility_modifier) name: (identifier) parameters: (parameters) body: (block (expression_statement (macro_invocation macro: (identifier) (token_tree (string_literal (string_content))))))))"
+    );
+}
+
+#[test]
+fn test_decode_macintosh() {
+    use encoding_rs::MACINTOSH;
+
+    let mut parser = Parser::new();
+    parser.set_language(&get_language("rust")).unwrap();
+
+    let macintosh_text = MACINTOSH.encode("pub fn foo() { println!(\"€50\"); }").0;
+
+    struct MacintoshDecoder;
+
+    impl Decode for MacintoshDecoder {
+        fn decode(bytes: &[u8]) -> (i32, u32) {
+            if !bytes.is_empty() {
+                let byte = bytes[0];
+                (byte as i32, 1)
+            } else {
+                (0, 0)
+            }
+        }
+    }
+
+    let tree = parser
+        .parse_custom_encoding::<MacintoshDecoder, _, _>(
+            &mut |offset, _| &macintosh_text[offset..],
+            None,
+            None,
+        )
+        .unwrap();
+
+    assert_eq!(
+        tree.root_node().to_sexp(),
+        "(source_file (function_item (visibility_modifier) name: (identifier) parameters: (parameters) body: (block (expression_statement (macro_invocation macro: (identifier) (token_tree (string_literal (string_content))))))))"
+    );
+}
+
+#[test]
+fn test_decode_utf24le() {
+    let mut parser = Parser::new();
+    parser.set_language(&get_language("rust")).unwrap();
+
+    let mut utf24le_text = Vec::new();
+    for c in "pub fn foo() { println!(\"€50\"); }".chars() {
+        let code_point = c as u32;
+        utf24le_text.push((code_point & 0xFF) as u8);
+        utf24le_text.push(((code_point >> 8) & 0xFF) as u8);
+        utf24le_text.push(((code_point >> 16) & 0xFF) as u8);
+    }
+
+    struct Utf24LeDecoder;
+
+    impl Decode for Utf24LeDecoder {
+        fn decode(bytes: &[u8]) -> (i32, u32) {
+            if bytes.len() >= 3 {
+                (i32::from_le_bytes([bytes[0], bytes[1], bytes[2], 0]), 3)
+            } else {
+                (0, 0)
+            }
+        }
+    }
+
+    let tree = parser
+        .parse_custom_encoding::<Utf24LeDecoder, _, _>(
+            &mut |offset, _| &utf24le_text[offset..],
+            None,
+            None,
+        )
+        .unwrap();
+
+    assert_eq!(
+        tree.root_node().to_sexp(),
+        "(source_file (function_item (visibility_modifier) name: (identifier) parameters: (parameters) body: (block (expression_statement (macro_invocation macro: (identifier) (token_tree (string_literal (string_content))))))))"
+    );
 }
 
 const fn simple_range(start: usize, end: usize) -> Range {

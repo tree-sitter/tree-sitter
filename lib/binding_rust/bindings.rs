@@ -35,9 +35,13 @@ pub struct TSQueryCursor {
 pub struct TSLookaheadIterator {
     _unused: [u8; 0],
 }
+pub type DecodeFunction = ::core::option::Option<
+    unsafe extern "C" fn(string: *const u8, length: u32, code_point: *mut i32) -> u32,
+>;
 pub const TSInputEncodingUTF8: TSInputEncoding = 0;
 pub const TSInputEncodingUTF16LE: TSInputEncoding = 1;
 pub const TSInputEncodingUTF16BE: TSInputEncoding = 2;
+pub const TSInputEncodingCustom: TSInputEncoding = 3;
 pub type TSInputEncoding = ::core::ffi::c_uint;
 pub const TSSymbolTypeRegular: TSSymbolType = 0;
 pub const TSSymbolTypeAnonymous: TSSymbolType = 1;
@@ -71,6 +75,7 @@ pub struct TSInput {
         ) -> *const ::core::ffi::c_char,
     >,
     pub encoding: TSInputEncoding,
+    pub decode: DecodeFunction,
 }
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -212,7 +217,7 @@ extern "C" {
     ) -> *mut TSTree;
 }
 extern "C" {
-    #[doc = " Use the parser to parse some source code and create a syntax tree, with some options.\n\n See [`ts_parser_parse`] for more details."]
+    #[doc = " Use the parser to parse some source code and create a syntax tree, with some options.\n\n See [`ts_parser_parse`] for more details.\n\n See [`TSParseOptions`] for more details on the options."]
     pub fn ts_parser_parse_with_options(
         self_: *mut TSParser,
         old_tree: *const TSTree,

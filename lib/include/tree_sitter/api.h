@@ -48,10 +48,20 @@ typedef struct TSQuery TSQuery;
 typedef struct TSQueryCursor TSQueryCursor;
 typedef struct TSLookaheadIterator TSLookaheadIterator;
 
+// This function signature reads one code point from the given string,
+// returning the number of bytes consumed. It should write the code point
+// to the `code_point` pointer, or write -1 if the input is invalid.
+typedef uint32_t (*DecodeFunction)(
+  const uint8_t *string,
+  uint32_t length,
+  int32_t *code_point
+);
+
 typedef enum TSInputEncoding {
   TSInputEncodingUTF8,
   TSInputEncodingUTF16LE,
   TSInputEncodingUTF16BE,
+  TSInputEncodingCustom
 } TSInputEncoding;
 
 typedef enum TSSymbolType {
@@ -77,6 +87,7 @@ typedef struct TSInput {
   void *payload;
   const char *(*read)(void *payload, uint32_t byte_index, TSPoint position, uint32_t *bytes_read);
   TSInputEncoding encoding;
+  DecodeFunction decode;
 } TSInput;
 
 typedef struct TSParseState {
@@ -297,6 +308,8 @@ TSTree *ts_parser_parse(
  * Use the parser to parse some source code and create a syntax tree, with some options.
  *
  * See [`ts_parser_parse`] for more details.
+ *
+ * See [`TSParseOptions`] for more details on the options.
  */
 TSTree* ts_parser_parse_with_options(
   TSParser *self,

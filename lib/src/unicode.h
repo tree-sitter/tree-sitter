@@ -38,14 +38,6 @@ extern "C" {
 
 static const int32_t TS_DECODE_ERROR = U_SENTINEL;
 
-// These functions read one unicode code point from the given string,
-// returning the number of bytes consumed.
-typedef uint32_t (*UnicodeDecodeFunction)(
-  const uint8_t *string,
-  uint32_t length,
-  int32_t *code_point
-);
-
 static inline uint32_t ts_decode_utf8(
   const uint8_t *string,
   uint32_t length,

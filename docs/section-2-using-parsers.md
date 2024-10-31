@@ -149,8 +149,21 @@ typedef struct {
     uint32_t *bytes_read
   );
   TSInputEncoding encoding;
+  DecodeFunction decode;
 } TSInput;
 ```
+
+In the event that you want to decode text that is not encoded in UTF-8 or UTF16, then you can set the `decode` field of the input to your function that will decode text. The signature of the `DecodeFunction` is as follows:
+
+```c
+typedef uint32_t (*DecodeFunction)(
+  const uint8_t *string,
+  uint32_t length,
+  int32_t *code_point
+);
+```
+
+The `string` argument is a pointer to the text to decode, which comes from the `read` function, and the `length` argument is the length of the `string`. The `code_point` argument is a pointer to an integer that represents the decoded code point, and should be written to in your `decode` callback. The function should return the number of bytes decoded.
 
 ### Syntax Nodes
 

@@ -210,6 +210,12 @@ type ParseProgressCallback<'a> = &'a mut dyn FnMut(&ParseState) -> bool;
 /// A callback that receives the query state during query execution.
 type QueryProgressCallback<'a> = &'a mut dyn FnMut(&QueryCursorState) -> bool;
 
+pub trait Decode {
+    /// A callback that decodes the next code point from the input slice. It should return the code
+    /// point, and how many bytes were decoded.
+    fn decode(bytes: &[u8]) -> (i32, u32);
+}
+
 /// A stateful object for walking a syntax [`Tree`] efficiently.
 #[doc(alias = "TSTreeCursor")]
 pub struct TreeCursor<'cursor>(ffi::TSTreeCursor, PhantomData<&'cursor ()>);
@@ -821,6 +827,7 @@ impl Parser {
             payload: ptr::addr_of_mut!(payload).cast::<c_void>(),
             read: Some(read::<T, F>),
             encoding: ffi::TSInputEncodingUTF8,
+            decode: None,
         };
 
         let c_old_tree = old_tree.map_or(ptr::null_mut(), |t| t.0.as_ptr());
@@ -956,6 +963,7 @@ impl Parser {
             payload: core::ptr::addr_of_mut!(payload).cast::<c_void>(),
             read: Some(read::<T, F>),
             encoding: ffi::TSInputEncodingUTF16LE,
+            decode: None,
         };
 
         let c_old_tree = old_tree.map_or(ptr::null_mut(), |t| t.0.as_ptr());
@@ -1070,6 +1078,113 @@ impl Parser {
             payload: core::ptr::addr_of_mut!(payload).cast::<c_void>(),
             read: Some(read::<T, F>),
             encoding: ffi::TSInputEncodingUTF16BE,
+            decode: None,
+        };
+
+        let c_old_tree = old_tree.map_or(ptr::null_mut(), |t| t.0.as_ptr());
+        unsafe {
+            let c_new_tree = ffi::ts_parser_parse_with_options(
+                self.0.as_ptr(),
+                c_old_tree,
+                c_input,
+                parse_options,
+            );
+
+            NonNull::new(c_new_tree).map(Tree)
+        }
+    }
+
+    /// Parse text provided in chunks by a callback using a custom encoding.
+    /// This is useful for parsing text in encodings that are not UTF-8 or UTF-16.
+    ///
+    /// # Arguments:
+    /// * `callback` A function that takes a byte offset and position and returns a slice of text
+    ///   starting at that byte offset and position. The slices can be of any length. If the given
+    ///   position is at the end of the text, the callback should return an empty slice.
+    /// * `old_tree` A previous syntax tree parsed from the same document. If the text of the
+    ///   document has changed since `old_tree` was created, then you must edit `old_tree` to match
+    ///   the new text using [`Tree::edit`].
+    /// * `options` Options for parsing the text. This can be used to set a progress callback.
+    ///
+    /// Additionally, you must set the generic parameter [`D`] to a type that implements the
+    /// [`Decode`] trait. This trait has a single method, [`decode`](Decode::decode), which takes a
+    /// slice of bytes and returns a tuple of the code point and the number of bytes consumed.
+    /// The `decode` method should return `-1` for the code point if decoding fails.
+    pub fn parse_custom_encoding<D: Decode, T: AsRef<[u8]>, F: FnMut(usize, Point) -> T>(
+        &mut self,
+        callback: &mut F,
+        old_tree: Option<&Tree>,
+        options: Option<ParseOptions>,
+    ) -> Option<Tree> {
+        type Payload<'a, F, T> = (&'a mut F, Option<T>);
+
+        unsafe extern "C" fn progress(state: *mut ffi::TSParseState) -> bool {
+            let callback = (*state)
+                .payload
+                .cast::<ParseProgressCallback>()
+                .as_mut()
+                .unwrap();
+            callback(&ParseState::from_raw(state))
+        }
+
+        // At compile time, create a C-compatible callback that calls the custom `decode` method.
+        unsafe extern "C" fn decode_fn<D: Decode>(
+            data: *const u8,
+            len: u32,
+            code_point: *mut i32,
+        ) -> u32 {
+            let (c, len) = D::decode(std::slice::from_raw_parts(data, len as usize));
+            if let Some(code_point) = code_point.as_mut() {
+                *code_point = c;
+            }
+            len
+        }
+
+        // This C function is passed to Tree-sitter as the input callback.
+        unsafe extern "C" fn read<T: AsRef<[u8]>, F: FnMut(usize, Point) -> T>(
+            payload: *mut c_void,
+            byte_offset: u32,
+            position: ffi::TSPoint,
+            bytes_read: *mut u32,
+        ) -> *const c_char {
+            let (callback, text) = payload.cast::<Payload<F, T>>().as_mut().unwrap();
+            *text = Some(callback(byte_offset as usize, position.into()));
+            let slice = text.as_ref().unwrap().as_ref();
+            *bytes_read = slice.len() as u32;
+            slice.as_ptr().cast::<c_char>()
+        }
+
+        let empty_options = ffi::TSParseOptions {
+            payload: ptr::null_mut(),
+            progress_callback: None,
+        };
+
+        let parse_options = if let Some(options) = options {
+            if let Some(mut cb) = options.progress_callback {
+                ffi::TSParseOptions {
+                    payload: core::ptr::addr_of_mut!(cb).cast::<c_void>(),
+                    progress_callback: Some(progress),
+                }
+            } else {
+                empty_options
+            }
+        } else {
+            empty_options
+        };
+
+        // A pointer to this payload is passed on every call to the `read` C function.
+        // The payload contains two things:
+        // 1. A reference to the rust `callback`.
+        // 2. The text that was returned from the previous call to `callback`. This allows the
+        //    callback to return owned values like vectors.
+        let mut payload: Payload<F, T> = (callback, None);
+
+        let c_input = ffi::TSInput {
+            payload: core::ptr::addr_of_mut!(payload).cast::<c_void>(),
+            read: Some(read::<T, F>),
+            encoding: ffi::TSInputEncodingCustom,
+            // Use this custom decode callback
+            decode: Some(decode_fn::<D>),
         };
 
         let c_old_tree = old_tree.map_or(ptr::null_mut(), |t| t.0.as_ptr());
