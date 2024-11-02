@@ -1679,7 +1679,6 @@ fn test_decode_utf32() {
                     )
                 }
             } else {
-                println!("bad decode: {bytes:?}");
                 (0, 0)
             }
         }
@@ -1814,6 +1813,118 @@ fn test_decode_utf24le() {
         tree.root_node().to_sexp(),
         "(source_file (function_item (visibility_modifier) name: (identifier) parameters: (parameters) body: (block (expression_statement (macro_invocation macro: (identifier) (token_tree (string_literal (string_content))))))))"
     );
+}
+
+#[test]
+fn test_grammars_that_should_not_compile() {
+    assert!(generate_parser_for_grammar(
+        r#"
+        {
+            "name": "issue_1111",
+            "rules": {
+                "source_file": { "type": "STRING", "value": "" }
+            },
+        }
+        "#
+    )
+    .is_err());
+
+    assert!(generate_parser_for_grammar(
+        r#"
+        {
+            "name": "issue_1271",
+            "rules": {
+                "source_file": { "type": "SYMBOL", "name": "identifier" },
+                "identifier": {
+                    "type": "TOKEN",
+                    "content": {
+                        "type": "REPEAT",
+                        "content": { "type": "PATTERN", "value": "a" }
+                    }
+                }
+            },
+        }
+        "#,
+    )
+    .is_err());
+
+    assert!(generate_parser_for_grammar(
+        r#"
+        {
+            "name": "issue_1156_expl_1",
+            "rules": {
+                "source_file": {
+                    "type": "TOKEN",
+                    "content": {
+                        "type": "REPEAT",
+                        "content": { "type": "STRING", "value": "c" }
+                    }
+                }
+            },
+        }
+    "#
+    )
+    .is_err());
+
+    assert!(generate_parser_for_grammar(
+        r#"
+        {
+            "name": "issue_1156_expl_2",
+            "rules": {
+                "source_file": {
+                    "type": "TOKEN",
+                    "content": {
+                        "type": "CHOICE",
+                        "members": [
+                            { "type": "STRING", "value": "e" },
+                            { "type": "BLANK" }
+                        ]
+                    }
+                }
+            },
+        }
+    "#
+    )
+    .is_err());
+
+    assert!(generate_parser_for_grammar(
+        r#"
+        {
+            "name": "issue_1156_expl_3",
+            "rules": {
+                "source_file": {
+                    "type": "IMMEDIATE_TOKEN",
+                    "content": {
+                        "type": "REPEAT",
+                        "content": { "type": "STRING", "value": "p" }
+                    }
+                }
+            },
+        }
+    "#
+    )
+    .is_err());
+
+    assert!(generate_parser_for_grammar(
+        r#"
+        {
+            "name": "issue_1156_expl_4",
+            "rules": {
+                "source_file": {
+                    "type": "IMMEDIATE_TOKEN",
+                    "content": {
+                        "type": "CHOICE",
+                        "members": [
+                            { "type": "STRING", "value": "r" },
+                            { "type": "BLANK" }
+                        ]
+                    }
+                }
+            },
+        }
+    "#
+    )
+    .is_err());
 }
 
 const fn simple_range(start: usize, end: usize) -> Range {

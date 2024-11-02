@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Context, Result};
+use indoc::indoc;
 use regex_syntax::{
     hir::{Class, Hir, HirKind},
     ParserBuilder,
@@ -56,6 +57,17 @@ pub fn expand_tokens(mut grammar: ExtractedLexicalGrammar) -> Result<LexicalGram
 
     let mut variables = Vec::new();
     for (i, variable) in grammar.variables.into_iter().enumerate() {
+        if variable.rule.is_empty() {
+            return Err(anyhow!(
+                indoc! {"
+                The rule `{}` matches the empty string.
+                Tree-sitter does not support syntactic rules that match the empty string
+                unless they are used only as the grammar's start rule.
+            "},
+                variable.name
+            ));
+        }
+
         let is_immediate_token = match &variable.rule {
             Rule::Metadata { params, .. } => params.is_main_token,
             _ => false,
