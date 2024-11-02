@@ -149,7 +149,7 @@ impl<'a> Interner<'a> {
     fn check_single(&self, elements: &[Rule], name: Option<&str>) {
         if elements.len() == 1 && matches!(elements[0], Rule::String(_) | Rule::Pattern(_, _)) {
             eprintln!(
-                "Warning: rule {} is just a `seq` or `choice` rule with a single element. This is unnecessary.",
+                "Warning: rule {} contains a `seq` or `choice` rule with a single element. This is unnecessary.",
                 name.unwrap_or_default()
             );
         }
