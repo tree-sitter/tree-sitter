@@ -1996,6 +1996,7 @@ fn test_query_matches_within_byte_range() {
             ]
         );
 
+        // An end byte of zero indicates there is no end
         let matches =
             cursor
                 .set_byte_range(12..0)

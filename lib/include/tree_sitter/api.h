@@ -1089,11 +1089,20 @@ void ts_query_cursor_set_timeout_micros(TSQueryCursor *self, uint64_t timeout_mi
 uint64_t ts_query_cursor_timeout_micros(const TSQueryCursor *self);
 
 /**
- * Set the range of bytes or (row, column) positions in which the query
- * will be executed.
+ * Set the range of bytes in which the query will be executed.
+ *
+ * This will return `false` if the start byte is greater than the end byte, otherwise
+ * it will return `true`.
  */
-void ts_query_cursor_set_byte_range(TSQueryCursor *self, uint32_t start_byte, uint32_t end_byte);
-void ts_query_cursor_set_point_range(TSQueryCursor *self, TSPoint start_point, TSPoint end_point);
+bool ts_query_cursor_set_byte_range(TSQueryCursor *self, uint32_t start_byte, uint32_t end_byte);
+
+/**
+ * Set the range of (row, column) positions in which the query will be executed.
+ *
+ * This will return `false` if the start point is greater than the end point, otherwise
+ * it will return `true`.
+ */
+bool ts_query_cursor_set_point_range(TSQueryCursor *self, TSPoint start_point, TSPoint end_point);
 
 /**
  * Advance to the next match of the currently running query.
@@ -1108,7 +1117,7 @@ void ts_query_cursor_remove_match(TSQueryCursor *self, uint32_t match_id);
  * Advance to the next capture of the currently running query.
  *
  * If there is a capture, write its match to `*match` and its index within
- * the matche's capture list to `*capture_index`. Otherwise, return `false`.
+ * the match's capture list to `*capture_index`. Otherwise, return `false`.
  */
 bool ts_query_cursor_next_capture(
   TSQueryCursor *self,

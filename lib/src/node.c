@@ -1,4 +1,5 @@
 #include <stdbool.h>
+#include "./point.h"
 #include "./subtree.h"
 #include "./tree.h"
 #include "./language.h"
