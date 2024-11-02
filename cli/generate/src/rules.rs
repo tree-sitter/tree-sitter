@@ -149,6 +149,16 @@ impl Rule {
     pub const fn seq(rules: Vec<Self>) -> Self {
         Self::Seq(rules)
     }
+
+    pub fn is_empty(&self) -> bool {
+        match self {
+            Self::Blank | Self::Pattern(..) | Self::NamedSymbol(_) | Self::Symbol(_) => false,
+            Self::String(string) => string.is_empty(),
+            Self::Metadata { rule, .. } | Self::Repeat(rule) => rule.is_empty(),
+            Self::Choice(rules) => rules.iter().any(Self::is_empty),
+            Self::Seq(rules) => rules.iter().all(Self::is_empty),
+        }
+    }
 }
 
 impl Alias {

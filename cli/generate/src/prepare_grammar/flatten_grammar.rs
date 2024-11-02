@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Result};
+use indoc::indoc;
 
 use super::ExtractedSyntaxGrammar;
 use crate::{
@@ -197,11 +198,12 @@ pub(super) fn flatten_grammar(grammar: ExtractedSyntaxGrammar) -> Result<SyntaxG
         for production in &variable.productions {
             if production.steps.is_empty() && symbol_is_used(&variables, symbol) {
                 return Err(anyhow!(
-                    "The rule `{}` matches the empty string.
+                    indoc! {"
+                The rule `{}` matches the empty string.
 
-Tree-sitter does not support syntactic rules that match the empty string
-unless they are used only as the grammar's start rule.
-",
+                Tree-sitter does not support syntactic rules that match the empty string
+                unless they are used only as the grammar's start rule.
+                "},
                     variable.name
                 ));
             }
