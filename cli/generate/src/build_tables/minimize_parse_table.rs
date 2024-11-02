@@ -70,18 +70,17 @@ impl<'a> Minimizer<'a> {
                             production_id: 0,
                             symbol,
                             ..
-                        } => {
-                            if !self.simple_aliases.contains_key(symbol)
-                                && !self.syntax_grammar.supertype_symbols.contains(symbol)
-                                && !aliased_symbols.contains(symbol)
-                                && self.syntax_grammar.variables[symbol.index].kind
-                                    != VariableType::Named
-                                && (unit_reduction_symbol.is_none()
-                                    || unit_reduction_symbol == Some(symbol))
-                            {
-                                unit_reduction_symbol = Some(symbol);
-                                continue;
-                            }
+                        } if !self.simple_aliases.contains_key(symbol)
+                            && !self.syntax_grammar.supertype_symbols.contains(symbol)
+                            && !self.syntax_grammar.extra_symbols.contains(symbol)
+                            && !aliased_symbols.contains(symbol)
+                            && self.syntax_grammar.variables[symbol.index].kind
+                                != VariableType::Named
+                            && (unit_reduction_symbol.is_none()
+                                || unit_reduction_symbol == Some(symbol)) =>
+                        {
+                            unit_reduction_symbol = Some(symbol);
+                            continue;
                         }
                         _ => {}
                     }
