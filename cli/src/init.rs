@@ -362,7 +362,7 @@ pub fn migrate_package_json(repo_path: &Path) -> Result<bool> {
 pub fn generate_grammar_files(
     repo_path: &Path,
     language_name: &str,
-    _allow_update: bool,
+    allow_update: bool,
     opts: Option<&JsonConfigOpts>,
 ) -> Result<()> {
     let dashed_language_name = language_name.to_kebab_case();
@@ -533,9 +533,20 @@ pub fn generate_grammar_files(
                 generate_file(path, MAKEFILE_TEMPLATE, language_name, &generate_opts)
             })?;
 
-            missing_path(repo_path.join("CMakeLists.txt"), |path| {
-                generate_file(path, CMAKELISTS_TXT_TEMPLATE, language_name, &generate_opts)
-            })?;
+            missing_path_else(
+                repo_path.join("CMakeLists.txt"),
+                allow_update,
+                |path| generate_file(path, CMAKELISTS_TXT_TEMPLATE, language_name, &generate_opts),
+                |path| {
+                    let contents = fs::read_to_string(path)?;
+                    let old = "add_custom_target(test";
+                    if contents.contains(old) {
+                        write_file(path, contents.replace(old, "add_custom_target(ts-test"))
+                    } else {
+                        Ok(())
+                    }
+                },
+            )?;
 
             Ok(())
         })?;
