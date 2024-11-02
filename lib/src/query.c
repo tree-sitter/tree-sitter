@@ -3103,7 +3103,7 @@ void ts_query_cursor_exec_with_options(
   }
 }
 
-void ts_query_cursor_set_byte_range(
+bool ts_query_cursor_set_byte_range(
   TSQueryCursor *self,
   uint32_t start_byte,
   uint32_t end_byte
@@ -3111,11 +3111,15 @@ void ts_query_cursor_set_byte_range(
   if (end_byte == 0) {
     end_byte = UINT32_MAX;
   }
+  if (start_byte > end_byte) {
+    return false;
+  }
   self->start_byte = start_byte;
   self->end_byte = end_byte;
+  return true;
 }
 
-void ts_query_cursor_set_point_range(
+bool ts_query_cursor_set_point_range(
   TSQueryCursor *self,
   TSPoint start_point,
   TSPoint end_point
@@ -3123,8 +3127,12 @@ void ts_query_cursor_set_point_range(
   if (end_point.row == 0 && end_point.column == 0) {
     end_point = POINT_MAX;
   }
+  if (point_gt(start_point, end_point)) {
+    return false;
+  }
   self->start_point = start_point;
   self->end_point = end_point;
+  return true;
 }
 
 // Search through all of the in-progress states, and find the captured

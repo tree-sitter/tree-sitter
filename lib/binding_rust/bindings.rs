@@ -708,19 +708,20 @@ extern "C" {
     pub fn ts_query_cursor_timeout_micros(self_: *const TSQueryCursor) -> u64;
 }
 extern "C" {
-    #[doc = " Set the range of bytes or (row, column) positions in which the query\n will be executed."]
+    #[doc = " Set the range of bytes in which the query will be executed.\n\n This will return `false` if the start byte is greater than the end byte, otherwise\n it will return `true`."]
     pub fn ts_query_cursor_set_byte_range(
         self_: *mut TSQueryCursor,
         start_byte: u32,
         end_byte: u32,
-    );
+    ) -> bool;
 }
 extern "C" {
+    #[doc = " Set the range of (row, column) positions in which the query will be executed.\n\n This will return `false` if the start point is greater than the end point, otherwise\n it will return `true`."]
     pub fn ts_query_cursor_set_point_range(
         self_: *mut TSQueryCursor,
         start_point: TSPoint,
         end_point: TSPoint,
-    );
+    ) -> bool;
 }
 extern "C" {
     #[doc = " Advance to the next match of the currently running query.\n\n If there is a match, write it to `*match` and return `true`.\n Otherwise, return `false`."]
@@ -731,7 +732,7 @@ extern "C" {
     pub fn ts_query_cursor_remove_match(self_: *mut TSQueryCursor, match_id: u32);
 }
 extern "C" {
-    #[doc = " Advance to the next capture of the currently running query.\n\n If there is a capture, write its match to `*match` and its index within\n the matche's capture list to `*capture_index`. Otherwise, return `false`."]
+    #[doc = " Advance to the next capture of the currently running query.\n\n If there is a capture, write its match to `*match` and its index within\n the match's capture list to `*capture_index`. Otherwise, return `false`."]
     pub fn ts_query_cursor_next_capture(
         self_: *mut TSQueryCursor,
         match_: *mut TSQueryMatch,
