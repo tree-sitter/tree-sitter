@@ -803,10 +803,12 @@ impl Parser {
             progress_callback: None,
         };
 
+        let mut callback_ptr;
         let parse_options = if let Some(options) = options {
-            if let Some(mut cb) = options.progress_callback {
+            if let Some(cb) = options.progress_callback {
+                callback_ptr = cb;
                 ffi::TSParseOptions {
-                    payload: core::ptr::addr_of_mut!(cb).cast::<c_void>(),
+                    payload: core::ptr::addr_of_mut!(callback_ptr).cast::<c_void>(),
                     progress_callback: Some(progress),
                 }
             } else {
@@ -939,10 +941,12 @@ impl Parser {
             progress_callback: None,
         };
 
+        let mut callback_ptr;
         let parse_options = if let Some(options) = options {
-            if let Some(mut cb) = options.progress_callback {
+            if let Some(cb) = options.progress_callback {
+                callback_ptr = cb;
                 ffi::TSParseOptions {
-                    payload: core::ptr::addr_of_mut!(cb).cast::<c_void>(),
+                    payload: core::ptr::addr_of_mut!(callback_ptr).cast::<c_void>(),
                     progress_callback: Some(progress),
                 }
             } else {
@@ -1054,10 +1058,12 @@ impl Parser {
             progress_callback: None,
         };
 
+        let mut callback_ptr;
         let parse_options = if let Some(options) = options {
-            if let Some(mut cb) = options.progress_callback {
+            if let Some(cb) = options.progress_callback {
+                callback_ptr = cb;
                 ffi::TSParseOptions {
-                    payload: core::ptr::addr_of_mut!(cb).cast::<c_void>(),
+                    payload: core::ptr::addr_of_mut!(callback_ptr).cast::<c_void>(),
                     progress_callback: Some(progress),
                 }
             } else {
@@ -1159,10 +1165,12 @@ impl Parser {
             progress_callback: None,
         };
 
+        let mut callback_ptr;
         let parse_options = if let Some(options) = options {
-            if let Some(mut cb) = options.progress_callback {
+            if let Some(cb) = options.progress_callback {
+                callback_ptr = cb;
                 ffi::TSParseOptions {
-                    payload: core::ptr::addr_of_mut!(cb).cast::<c_void>(),
+                    payload: core::ptr::addr_of_mut!(callback_ptr).cast::<c_void>(),
                     progress_callback: Some(progress),
                 }
             } else {
