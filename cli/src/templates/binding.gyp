@@ -13,7 +13,7 @@
         "src/parser.c",
       ],
       "variables": {
-        "has_scanner": "<!(node -p \"fs.exists('src/scanner.c')\")"
+        "has_scanner": "<!(node -p \"fs.existsSync('src/scanner.c')\")"
       },
       "conditions": [
         ["has_scanner=='true'", {
