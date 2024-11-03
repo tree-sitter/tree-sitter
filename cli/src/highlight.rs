@@ -383,6 +383,7 @@ pub fn html(
     source: &[u8],
     config: &HighlightConfiguration,
     quiet: bool,
+    inline_styles: bool,
     print_time: bool,
     cancellation_flag: Option<&AtomicUsize>,
 ) -> Result<()> {
@@ -398,11 +399,20 @@ pub fn html(
     })?;
 
     let mut renderer = HtmlRenderer::new();
-    renderer.render(events, source, &move |highlight| {
-        theme.styles[highlight.0]
-            .css
-            .as_ref()
-            .map_or_else(|| "".as_bytes(), |css_style| css_style.as_bytes())
+    renderer.render(events, source, &move |highlight, output| {
+        if inline_styles {
+            output.extend(
+                theme.styles[highlight.0]
+                    .css
+                    .as_ref()
+                    .map_or_else(|| "".as_bytes(), |css_style| css_style.as_bytes())
+            );
+        }
+        else {
+            output.extend(b"data-tree-sitter-highlight=\"");
+            output.extend(theme.highlight_names[highlight.0].as_bytes());
+            output.extend(b"\"");
+        }
     })?;
 
     if !quiet {
