@@ -306,7 +306,7 @@ impl TSHighlighter {
                 .set_carriage_return_highlight(self.carriage_return_index.map(Highlight));
             let result = output
                 .renderer
-                .render(highlights, source_code, &|s| self.attribute_strings[s.0]);
+                .render(highlights, source_code, &|s, out| { out.extend(self.attribute_strings[s.0]); });
             match result {
                 Err(Error::Cancelled | Error::Unknown) => ErrorCode::Timeout,
                 Err(Error::InvalidLanguage) => ErrorCode::InvalidLanguage,
