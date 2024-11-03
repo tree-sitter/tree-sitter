@@ -31,6 +31,7 @@ There are currently bindings that allow Tree-sitter to be used from the followin
 
 * [Delphi](https://github.com/modersohn/delphi-tree-sitter)
 * [ELisp](https://github.com/emacs-tree-sitter/elisp-tree-sitter)
+* [Elixir](https://github.com/seancribbs/ex-tree-sitter)
 * [Go](https://github.com/smacker/go-tree-sitter)
 * [Guile](https://github.com/Z572/guile-ts)
 * [Java (Android)](https://github.com/AndroidIDEOfficial/android-tree-sitter)
