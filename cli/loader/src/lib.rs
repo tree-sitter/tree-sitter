@@ -522,11 +522,15 @@ impl Loader {
             .and_then(|n| n.to_str())
             .and_then(|file_name| self.language_configuration_ids_by_file_type.get(file_name))
             .or_else(|| {
-                path.extension()
-                    .and_then(|extension| extension.to_str())
-                    .and_then(|extension| {
-                        self.language_configuration_ids_by_file_type.get(extension)
-                    })
+                let mut path = path.to_owned();
+                let mut extensions = Vec::with_capacity(2);
+                while let Some(extension) = path.extension() {
+                    extensions.push(extension.to_str()?.to_string());
+                    path = PathBuf::from(path.file_stem()?.to_os_string());
+                }
+                extensions.reverse();
+                self.language_configuration_ids_by_file_type
+                    .get(&extensions.join("."))
             });
 
         if let Some(configuration_ids) = configuration_ids {
