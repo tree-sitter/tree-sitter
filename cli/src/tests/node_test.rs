@@ -307,6 +307,31 @@ fn test_parent_of_zero_width_node() {
 }
 
 #[test]
+fn test_next_sibling_of_zero_width_node() {
+    let grammar_json = load_grammar_file(
+        &fixtures_dir()
+            .join("test_grammars")
+            .join("next_sibling_from_zwt")
+            .join("grammar.js"),
+        None,
+    )
+    .unwrap();
+
+    let (parser_name, parser_code) = generate_parser_for_grammar(&grammar_json).unwrap();
+
+    let mut parser = Parser::new();
+    let language = get_test_language(&parser_name, &parser_code, None);
+    parser.set_language(&language).unwrap();
+
+    let tree = parser.parse("abdef", None).unwrap();
+
+    let root_node = tree.root_node();
+    let missing_c = root_node.child(2).unwrap();
+    let node_d = root_node.child(3).unwrap();
+    assert_eq!(missing_c.next_sibling().unwrap(), node_d);
+}
+
+#[test]
 fn test_node_field_name_for_child() {
     let mut parser = Parser::new();
     parser.set_language(&get_language("c")).unwrap();
