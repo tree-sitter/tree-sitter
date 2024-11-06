@@ -32,7 +32,7 @@ cd tree-sitter
 Optionally, build the WASM library. If you skip this step, then the `tree-sitter playground` command will require an internet connection. If you have emscripten installed, this will use your `emcc` compiler. Otherwise, it will use Docker or Podman:
 
 ```sh
-./script/build-wasm
+cargo xtask build-wasm
 ```
 
 Build the Rust libraries and the CLI:
@@ -48,48 +48,42 @@ This will create the `tree-sitter` CLI executable in the `target/release` folder
 Before you can run the tests, you need to clone some grammars that are used for testing:
 
 ```sh
-script/fetch-fixtures
+cargo xtask fetch-fixtures
 ```
 
 To test any changes you've made to the CLI, you can regenerate these parsers using your current CLI code:
 
 ```sh
-script/generate-fixtures
+cargo xtask generate-fixtures
 ```
 
 Then you can run the tests:
 
 ```sh
-script/test
+cargo xtask test
 ```
 
 Similarly, to test the WASM binding, you need to compile these parsers to WASM:
 
 ```sh
-script/generate-fixtures-wasm
-script/test-wasm
+cargo xtask generate-fixtures --wasm
+cargo xtask test-wasm
 ```
 
 ### Debugging
 
-The test script has a number of useful flags. You can list them all by running `script/test -h`. Here are some of the main flags:
+The test script has a number of useful flags. You can list them all by running `cargo xtask test -h`. Here are some of the main flags:
 
 If you want to run a specific unit test, pass its name (or part of its name) as an argument:
 
 ```sh
-script/test test_does_something
+cargo xtask test test_does_something
 ```
 
 You can run the tests under the debugger (either `lldb` or `gdb`) using the `-g` flag:
 
 ```sh
-script/test test_does_something -g
-```
-
-Part of the Tree-sitter test suite involves parsing the _corpus_ tests for several different languages and performing randomized edits to each example in the corpus. If you just want to run the tests for a particular _language_, you can pass the `-l` flag. And if you want to run a particular _example_ from the corpus, you can pass the `-e` flag:
-
-```sh
-script/test -l javascript -e Arrays
+cargo xtask test -g test_does_something
 ```
 
 ## Published Packages
