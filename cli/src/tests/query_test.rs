@@ -768,6 +768,55 @@ fn test_query_matches_capturing_error_nodes() {
 }
 
 #[test]
+fn test_query_matches_capturing_missing_nodes() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+        let query = Query::new(&language, "(MISSING) @missing-node").unwrap();
+
+        // Missing anonymous nodes
+        assert_query_matches(
+            &language,
+            &query,
+            "
+            x = function(a) { b; } function(c) { d; }
+            //                    ^ MISSING semicolon here
+            ",
+            &[(0, vec![("missing-node", "")])],
+        );
+
+        let language = get_language("c");
+        let query = Query::new(
+            &language,
+            "(field_expression (identifier) (MISSING) @field-ident)
+            (MISSING) @broad-missing",
+        )
+        .unwrap();
+
+        // Missing named nodes
+        assert_query_matches(
+            &language,
+            &query,
+            "
+            int main() {
+              if (a.) {
+              //    ^ MISSING field_identifier here
+                b();
+                c();
+
+                if (*) d();
+              }
+            }
+            ",
+            &[
+                (0, vec![("field-ident", "")]),
+                (1, vec![("broad-missing", "")]),
+                (1, vec![("broad-missing", "")]),
+            ],
+        );
+    });
+}
+
+#[test]
 fn test_query_matches_with_extra_children() {
     allocations::record(|| {
         let language = get_language("ruby");

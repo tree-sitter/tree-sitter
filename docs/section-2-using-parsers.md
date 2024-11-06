@@ -617,6 +617,24 @@ For example, this pattern would match any node inside a call:
 (call (_) @call.inner)
 ```
 
+#### Special Nodes
+
+When the parser encounters text it does not recognize, it represents this node
+as `(ERROR)` in the syntax tree. These error nodes can be queried just like
+normal nodes:
+
+```scheme
+(ERROR) @error-node
+```
+
+Similarly, if a parser is able to recover from erroneous text by inserting a missing token and then reducing, it will insert that missing node in the final tree so long as that tree has the lowest error cost. These missing nodes appear as seemingly normal nodes in the tree, but they are zero tokens wide, and are a property of the actual terminal node that was inserted, instead of being its own kind of node. These special missing nodes can be queried using `(MISSING)`:
+
+```scheme
+(MISSING) @missing-node
+```
+
+This is useful when attempting to detect all syntax errors in a given parse tree, since these missing node are not captured by `(ERROR)` queries.
+
 #### Anchors
 
 The anchor operator, `.`, is used to constrain the ways in which child patterns are matched. It has different behaviors depending on where it's placed inside a query.

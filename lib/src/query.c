@@ -100,6 +100,7 @@ typedef struct {
   bool contains_captures: 1;
   bool root_pattern_guaranteed: 1;
   bool parent_pattern_guaranteed: 1;
+  bool is_missing: 1;
 } QueryStep;
 
 /*
@@ -2313,6 +2314,7 @@ static TSQueryError ts_query__parse_pattern(
     // Otherwise, this parenthesis is the start of a named node.
     else {
       TSSymbol symbol;
+      bool is_missing = false;
 
       // Parse a normal node name
       if (stream_is_ident_start(stream)) {
@@ -2323,6 +2325,8 @@ static TSQueryError ts_query__parse_pattern(
         // Parse the wildcard symbol
         if (length == 1 && node_name[0] == '_') {
           symbol = WILDCARD_SYMBOL;
+        } else if (!strncmp(node_name, "MISSING", length)) {
+          is_missing = true;
         }
 
         else {
@@ -2347,6 +2351,10 @@ static TSQueryError ts_query__parse_pattern(
       if (ts_language_symbol_metadata(self->language, symbol).supertype) {
         step->supertype_symbol = step->symbol;
         step->symbol = WILDCARD_SYMBOL;
+      }
+      if (is_missing) {
+        step->symbol = WILDCARD_SYMBOL;
+        step->is_missing = true;
       }
       if (symbol == WILDCARD_SYMBOL) {
         step->is_named = true;
@@ -3641,6 +3649,7 @@ static inline bool ts_query_cursor__advance(
       if (self->on_visible_node) {
         TSSymbol symbol = ts_node_symbol(node);
         bool is_named = ts_node_is_named(node);
+        bool is_missing = ts_node_is_missing(node);
         bool has_later_siblings;
         bool has_later_named_siblings;
         bool can_have_later_siblings_with_this_field;
@@ -3737,7 +3746,11 @@ static inline bool ts_query_cursor__advance(
           // pattern.
           bool node_does_match = false;
           if (step->symbol == WILDCARD_SYMBOL) {
-            node_does_match = !node_is_error && (is_named || !step->is_named);
+            if (step->is_missing) {
+              node_does_match = is_missing;
+            } else {
+              node_does_match = !node_is_error && (is_named || !step->is_named);
+            }
           } else {
             node_does_match = symbol == step->symbol;
           }
