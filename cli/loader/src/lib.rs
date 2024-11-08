@@ -147,9 +147,10 @@ pub struct TreeSitterJSON {
 }
 
 impl TreeSitterJSON {
-    #[must_use]
-    pub fn from_file(path: &Path) -> Option<Self> {
-        serde_json::from_str(&fs::read_to_string(path.join("tree-sitter.json")).ok()?).ok()
+    pub fn from_file(path: &Path) -> Result<Self> {
+        Ok(serde_json::from_str(&fs::read_to_string(
+            path.join("tree-sitter.json"),
+        )?)?)
     }
 
     #[must_use]
@@ -1112,30 +1113,32 @@ impl Loader {
     ) -> Result<&[LanguageConfiguration]> {
         let initial_language_configuration_count = self.language_configurations.len();
 
-        if let Some(config) = TreeSitterJSON::from_file(parser_path) {
-            let language_count = self.languages_by_id.len();
-            for grammar in config.grammars {
-                // Determine the path to the parser directory. This can be specified in
-                // the tree-sitter.json, but defaults to the directory containing the
-                // tree-sitter.json.
-                let language_path = parser_path.join(grammar.path.unwrap_or(PathBuf::from(".")));
+        match TreeSitterJSON::from_file(parser_path) {
+            Ok(config) => {
+                let language_count = self.languages_by_id.len();
+                for grammar in config.grammars {
+                    // Determine the path to the parser directory. This can be specified in
+                    // the tree-sitter.json, but defaults to the directory containing the
+                    // tree-sitter.json.
+                    let language_path =
+                        parser_path.join(grammar.path.unwrap_or(PathBuf::from(".")));
 
-                // Determine if a previous language configuration in this package.json file
-                // already uses the same language.
-                let mut language_id = None;
-                for (id, (path, _, _)) in
-                    self.languages_by_id.iter().enumerate().skip(language_count)
-                {
-                    if language_path == *path {
-                        language_id = Some(id);
+                    // Determine if a previous language configuration in this package.json file
+                    // already uses the same language.
+                    let mut language_id = None;
+                    for (id, (path, _, _)) in
+                        self.languages_by_id.iter().enumerate().skip(language_count)
+                    {
+                        if language_path == *path {
+                            language_id = Some(id);
+                        }
                     }
-                }
 
-                // If not, add a new language path to the list.
-                let language_id = if let Some(language_id) = language_id {
-                    language_id
-                } else {
-                    self.languages_by_id.push((
+                    // If not, add a new language path to the list.
+                    let language_id = if let Some(language_id) = language_id {
+                        language_id
+                    } else {
+                        self.languages_by_id.push((
                             language_path,
                             OnceCell::new(),
                             grammar.external_files.clone().into_vec().map(|files| {
@@ -1152,56 +1155,64 @@ impl Loader {
                                     .collect::<Result<Vec<_>>>()
                             }).transpose()?,
                         ));
-                    self.languages_by_id.len() - 1
-                };
+                        self.languages_by_id.len() - 1
+                    };
 
-                let configuration = LanguageConfiguration {
-                    root_path: parser_path.to_path_buf(),
-                    language_name: grammar.name,
-                    scope: Some(grammar.scope),
-                    language_id,
-                    file_types: grammar.file_types.unwrap_or_default(),
-                    content_regex: Self::regex(grammar.content_regex.as_deref()),
-                    first_line_regex: Self::regex(grammar.first_line_regex.as_deref()),
-                    injection_regex: Self::regex(grammar.injection_regex.as_deref()),
-                    injections_filenames: grammar.injections.into_vec(),
-                    locals_filenames: grammar.locals.into_vec(),
-                    tags_filenames: grammar.tags.into_vec(),
-                    highlights_filenames: grammar.highlights.into_vec(),
-                    #[cfg(feature = "tree-sitter-highlight")]
-                    highlight_config: OnceCell::new(),
-                    #[cfg(feature = "tree-sitter-tags")]
-                    tags_config: OnceCell::new(),
-                    #[cfg(feature = "tree-sitter-highlight")]
-                    highlight_names: &self.highlight_names,
-                    #[cfg(feature = "tree-sitter-highlight")]
-                    use_all_highlight_names: self.use_all_highlight_names,
-                };
+                    let configuration = LanguageConfiguration {
+                        root_path: parser_path.to_path_buf(),
+                        language_name: grammar.name,
+                        scope: Some(grammar.scope),
+                        language_id,
+                        file_types: grammar.file_types.unwrap_or_default(),
+                        content_regex: Self::regex(grammar.content_regex.as_deref()),
+                        first_line_regex: Self::regex(grammar.first_line_regex.as_deref()),
+                        injection_regex: Self::regex(grammar.injection_regex.as_deref()),
+                        injections_filenames: grammar.injections.into_vec(),
+                        locals_filenames: grammar.locals.into_vec(),
+                        tags_filenames: grammar.tags.into_vec(),
+                        highlights_filenames: grammar.highlights.into_vec(),
+                        #[cfg(feature = "tree-sitter-highlight")]
+                        highlight_config: OnceCell::new(),
+                        #[cfg(feature = "tree-sitter-tags")]
+                        tags_config: OnceCell::new(),
+                        #[cfg(feature = "tree-sitter-highlight")]
+                        highlight_names: &self.highlight_names,
+                        #[cfg(feature = "tree-sitter-highlight")]
+                        use_all_highlight_names: self.use_all_highlight_names,
+                    };
 
-                for file_type in &configuration.file_types {
-                    self.language_configuration_ids_by_file_type
-                        .entry(file_type.to_string())
-                        .or_default()
-                        .push(self.language_configurations.len());
+                    for file_type in &configuration.file_types {
+                        self.language_configuration_ids_by_file_type
+                            .entry(file_type.to_string())
+                            .or_default()
+                            .push(self.language_configurations.len());
+                    }
+                    if let Some(first_line_regex) = &configuration.first_line_regex {
+                        self.language_configuration_ids_by_first_line_regex
+                            .entry(first_line_regex.to_string())
+                            .or_default()
+                            .push(self.language_configurations.len());
+                    }
+
+                    self.language_configurations.push(unsafe {
+                        mem::transmute::<LanguageConfiguration<'_>, LanguageConfiguration<'static>>(
+                            configuration,
+                        )
+                    });
+
+                    if set_current_path_config
+                        && self.language_configuration_in_current_path.is_none()
+                    {
+                        self.language_configuration_in_current_path =
+                            Some(self.language_configurations.len() - 1);
+                    }
                 }
-                if let Some(first_line_regex) = &configuration.first_line_regex {
-                    self.language_configuration_ids_by_first_line_regex
-                        .entry(first_line_regex.to_string())
-                        .or_default()
-                        .push(self.language_configurations.len());
-                }
-
-                self.language_configurations.push(unsafe {
-                    mem::transmute::<LanguageConfiguration<'_>, LanguageConfiguration<'static>>(
-                        configuration,
-                    )
-                });
-
-                if set_current_path_config && self.language_configuration_in_current_path.is_none()
-                {
-                    self.language_configuration_in_current_path =
-                        Some(self.language_configurations.len() - 1);
-                }
+            }
+            Err(e) => {
+                eprintln!(
+                    "Warning: Failed to read {} -- {e}",
+                    parser_path.join("tree-sitter.json").display()
+                );
             }
         }
 
