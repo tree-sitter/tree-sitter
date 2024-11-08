@@ -409,9 +409,15 @@ pub fn html(
             );
         }
         else {
-            output.extend(b"data-tree-sitter-highlight=\"");
-            output.extend(theme.highlight_names[highlight.0].as_bytes());
-            output.extend(b"\"");
+            output.extend(b"class='");
+            let mut parts = theme.highlight_names[highlight.0].split('.').peekable();
+            while let Some(part) = parts.next() {
+                output.extend(part.as_bytes());
+                if parts.peek().is_some() {
+                    output.extend(b" ");
+                }
+            }
+            output.extend(b"'");
         }
     })?;
 
