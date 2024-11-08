@@ -361,8 +361,11 @@ struct Query {
 struct Highlight {
     #[arg(long, short = 'H', help = "Generate highlighting as an HTML document")]
     pub html: bool,
-    #[arg(long, help = "When generating HTML, use data-tree-sitter-highlight attributes, rather than inline styles")]
-    pub data_highlight: bool,
+    #[arg(
+        long,
+        help = "When generating HTML, use css classes, rather than inline styles"
+    )]
+    pub css_classes: bool,
     #[arg(
         long,
         help = "Check that highlighting captures conform strictly to standards"
@@ -1138,7 +1141,7 @@ impl Highlight {
 
         let quiet = self.quiet;
         let html_mode = quiet || self.html;
-        let inline_styles = !self.data_highlight;
+        let inline_styles = !self.css_classes;
         let paths = collect_paths(self.paths_file.as_deref(), self.paths)?;
 
         if html_mode && !quiet {
