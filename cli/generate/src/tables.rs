@@ -1,5 +1,7 @@
 use std::collections::BTreeMap;
 
+use crate::grammars::ReservedWordSetId;
+
 use super::{
     nfa::CharacterSet,
     rules::{Alias, Symbol, TokenSet},
@@ -47,7 +49,7 @@ pub struct ParseState {
     pub id: ParseStateId,
     pub terminal_entries: IndexMap<Symbol, ParseTableEntry, BuildHasherDefault<FxHasher>>,
     pub nonterminal_entries: IndexMap<Symbol, GotoAction, BuildHasherDefault<FxHasher>>,
-    pub reserved_words: TokenSet,
+    pub reserved_words: ReservedWordSetId,
     pub lex_state_id: usize,
     pub external_lex_state_id: usize,
     pub core_id: usize,

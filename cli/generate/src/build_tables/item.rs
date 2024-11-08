@@ -7,7 +7,7 @@ use std::{
 use lazy_static::lazy_static;
 
 use crate::{
-    grammars::{LexicalGrammar, Production, ProductionStep, SyntaxGrammar},
+    grammars::{LexicalGrammar, Production, ProductionStep, ReservedWordSetId, SyntaxGrammar},
     rules::{Associativity, Precedence, Symbol, SymbolType, TokenSet},
 };
 
@@ -23,7 +23,7 @@ lazy_static! {
             associativity: None,
             alias: None,
             field_name: None,
-            reserved_words: None,
+            reserved_word_set_id: None,
         }],
     };
 }
@@ -66,7 +66,7 @@ pub struct ParseItemSet<'a> {
 pub struct ParseItemSetEntry<'a> {
     pub item: ParseItem<'a>,
     pub lookaheads: TokenSet,
-    pub reserved_lookaheads: TokenSet,
+    pub reserved_lookaheads: Option<ReservedWordSetId>,
 }
 
 /// A [`ParseItemSetCore`] is like a [`ParseItemSet`], but without the lookahead
@@ -168,7 +168,7 @@ impl<'a> ParseItemSet<'a> {
                     ParseItemSetEntry {
                         item,
                         lookaheads: TokenSet::new(),
-                        reserved_lookaheads: TokenSet::new(),
+                        reserved_lookaheads: None,
                     },
                 );
                 &mut self.entries[i]
@@ -201,7 +201,7 @@ impl fmt::Display for ParseItemDisplay<'_> {
                 write!(f, " •")?;
                 if !step.precedence.is_none()
                     || step.associativity.is_some()
-                    || step.reserved_words.is_some()
+                    || step.reserved_word_set_id.is_some()
                 {
                     write!(f, " (")?;
                     if step.precedence.is_none() {
@@ -210,7 +210,7 @@ impl fmt::Display for ParseItemDisplay<'_> {
                     if let Some(associativity) = step.associativity {
                         write!(f, " {associativity:?}")?;
                     }
-                    if let Some(reserved_words) = &step.reserved_words {
+                    if let Some(reserved_words) = &step.reserved_word_set_id {
                         write!(f, "reserved: [")?;
                         for word in reserved_words.iter() {
                             write!(f, " {}", self.2.variables[word.index].name)?;

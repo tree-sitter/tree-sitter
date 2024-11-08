@@ -146,7 +146,7 @@ impl RuleFlattener {
                         .cloned()
                         .unwrap_or(Precedence::None),
                     associativity: self.associativity_stack.last().copied(),
-                    reserved_words: self.reserved_word_stack.last().cloned().map(Box::new),
+                    reserved_word_set_id: self.reserved_word_stack.last().cloned().map(Box::new),
                     alias: self.alias_stack.last().cloned(),
                     field_name: self.field_name_stack.last().cloned(),
                 });

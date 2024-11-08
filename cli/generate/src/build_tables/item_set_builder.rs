@@ -102,7 +102,7 @@ impl<'a> ParseItemSetBuilder<'a> {
                         } else if processed_non_terminals.insert(step.symbol) {
                             symbols_to_process.push(step.symbol);
                         }
-                        if let Some(reserved_words) = &step.reserved_words {
+                        if let Some(reserved_words) = &step.reserved_word_set_id {
                             reserved_first_set.insert_all(reserved_words);
                         } else {
                             reserved_first_set.insert_all(&syntax_grammar.reserved_words);

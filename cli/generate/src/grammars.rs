@@ -39,6 +39,12 @@ pub struct InputGrammar {
     pub variables_to_inline: Vec<String>,
     pub supertype_symbols: Vec<String>,
     pub word_token: Option<String>,
+    pub reserved_words: Vec<ReservedWordContext>,
+}
+
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct ReservedWordContext {
+    pub name: String,
     pub reserved_words: Vec<Rule>,
 }
 
@@ -67,8 +73,11 @@ pub struct ProductionStep {
     pub associativity: Option<Associativity>,
     pub alias: Option<Alias>,
     pub field_name: Option<String>,
-    pub reserved_words: Option<Box<TokenSet>>,
+    pub reserved_word_set_id: Option<ReservedWordSetId>,
 }
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct ReservedWordSetId(usize);
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Production {
@@ -106,8 +115,7 @@ pub struct SyntaxGrammar {
     pub variables_to_inline: Vec<Symbol>,
     pub word_token: Option<Symbol>,
     pub precedence_orderings: Vec<Vec<PrecedenceEntry>>,
-    #[allow(unused)]
-    pub reserved_words: TokenSet,
+    pub reserved_words: Vec<TokenSet>,
 }
 
 #[cfg(test)]
@@ -120,7 +128,7 @@ impl ProductionStep {
             associativity: None,
             alias: None,
             field_name: None,
-            reserved_words: None,
+            reserved_word_set_id: None,
         }
     }
 
@@ -217,6 +225,12 @@ impl LexicalGrammar {
             .iter()
             .position(|v| v.start_state >= state_id)
             .unwrap()
+    }
+}
+
+impl SyntaxGrammar {
+    pub fn reserved_words(&self, id: ReservedWordSetId) -> &TokenSet {
+        &self.reserved_words[id.0]
     }
 }
 

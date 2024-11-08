@@ -70,7 +70,7 @@ pub enum Rule {
     Seq(Vec<Rule>),
     Reserved {
         rule: Box<Rule>,
-        reserved_words: Vec<Rule>,
+        context_name: String,
     },
 }
 

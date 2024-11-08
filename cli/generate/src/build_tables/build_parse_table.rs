@@ -14,7 +14,7 @@ use super::{
     item_set_builder::ParseItemSetBuilder,
 };
 use crate::{
-    grammars::{LexicalGrammar, PrecedenceEntry, SyntaxGrammar, VariableType},
+    grammars::{LexicalGrammar, PrecedenceEntry, ReservedWordSetId, SyntaxGrammar, VariableType},
     node_types::VariableInfo,
     rules::{Associativity, Precedence, Symbol, SymbolType, TokenSet},
     tables::{
@@ -203,7 +203,7 @@ impl<'a> ParseTableBuilder<'a> {
                     external_lex_state_id: 0,
                     terminal_entries: IndexMap::default(),
                     nonterminal_entries: IndexMap::default(),
-                    reserved_words: TokenSet::new(),
+                    reserved_words: ReservedWordSetId::default(),
                     core_id,
                 });
                 self.parse_state_queue.push_back(ParseStateQueueEntry {
@@ -469,23 +469,25 @@ impl<'a> ParseTableBuilder<'a> {
             }
         }
 
+        // item set:
+        // parenthesized_expression => '(' expression ')' •  | EOF, 'if', 'for' ';'
+        // arrow_function => parameters • '=>' expression    | EOF, 'if', 'for' ';'
+        // arrow_function => parameters • '=>' block         | EOF, 'if', 'for' ';'
+
         if let Some(keyword_capture_token) = self.syntax_grammar.word_token {
             for entry in &item_set.entries {
+                let mut reserved_word_set_for_item = ReservedWordSetId::default();
                 if let Some(next_step) = entry.item.step() {
                     if next_step.symbol == keyword_capture_token {
-                        let reserved_tokens = next_step
-                            .reserved_words
-                            .as_deref()
-                            .unwrap_or(&self.syntax_grammar.reserved_words);
-                        for reserved_token in reserved_tokens.iter() {
-                            state.reserved_words.insert(reserved_token);
-                        }
+                        reserved_word_set_for_item = next_step.reserved_word_set_id;
                     }
                 } else if entry.lookaheads.contains(&keyword_capture_token) {
-                    for reserved_token in entry.reserved_lookaheads.iter() {
-                        state.reserved_words.insert(reserved_token);
+                    if let Some(set_id) = entry.reserved_lookaheads {
+                        reserved_word_set_for_item = set_id;
                     }
                 }
+
+                state.reserved_words = state.reserved_words.max(reserved_word_set_for_item);
             }
         }
 
