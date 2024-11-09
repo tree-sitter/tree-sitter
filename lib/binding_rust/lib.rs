@@ -8,7 +8,6 @@ extern crate alloc;
 #[cfg(not(feature = "std"))]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec::Vec};
 use core::{
-    char,
     ffi::{c_char, c_void, CStr},
     fmt::{self, Write},
     hash, iter,
@@ -1854,9 +1853,28 @@ impl Query {
                 // Error types that report names
                 ffi::TSQueryErrorNodeType | ffi::TSQueryErrorField | ffi::TSQueryErrorCapture => {
                     let suffix = source.split_at(offset).1;
-                    let end_offset = suffix
-                        .find(|c| !char::is_alphanumeric(c) && c != '_' && c != '-')
-                        .unwrap_or(suffix.len());
+                    let in_quotes = source.as_bytes()[offset - 1] == b'"';
+                    let mut end_offset = suffix.len();
+                    if let Some(pos) = suffix
+                        .char_indices()
+                        .take_while(|(_, c)| *c != '\n')
+                        .find_map(|(i, c)| match c {
+                            '"' if in_quotes
+                                && i > 0
+                                && suffix.chars().nth(i - 1) != Some('\\') =>
+                            {
+                                Some(i)
+                            }
+                            c if !in_quotes
+                                && (c.is_whitespace() || c == '(' || c == ')' || c == ':') =>
+                            {
+                                Some(i)
+                            }
+                            _ => None,
+                        })
+                    {
+                        end_offset = pos;
+                    }
                     message = suffix.split_at(end_offset).0.to_string();
                     kind = match error_type {
                         ffi::TSQueryErrorNodeType => QueryErrorKind::NodeType,
