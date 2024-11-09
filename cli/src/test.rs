@@ -15,6 +15,7 @@ use regex::{
     bytes::{Regex as ByteRegex, RegexBuilder as ByteRegexBuilder},
     Regex,
 };
+use serde::Serialize;
 use similar::{ChangeTag, TextDiff};
 use tree_sitter::{format_sexp, Language, LogType, Parser, Query};
 use walkdir::WalkDir;
@@ -64,6 +65,39 @@ pub enum TestEntry {
     },
 }
 
+#[derive(Serialize)]
+enum TestResult {
+    Skipped {
+        name: String,
+    },
+    NoPlatform {
+        name: String,
+    },
+    Group {
+        name: String,
+        children: Vec<TestResult>,
+        file_path: Option<PathBuf>,
+    },
+    Pass {
+        // name: String,
+        // input: String,
+        // output: String,
+    },
+    Fail {
+        // name: String,
+        // input: String,
+        // expected_output: String,
+        actual_output: String,
+        diff: String,
+    },
+    Example {
+        name: String,
+        input: String,
+        expected_output: String,
+        actual_output: Vec<TestResult>,
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TestAttributes {
     pub skip: bool,
@@ -108,6 +142,7 @@ pub struct TestOptions<'a> {
     pub test_num: usize,
     pub show_fields: bool,
     pub overview_only: bool,
+    pub generate_report: bool,
 }
 
 pub fn run_tests_at_path(parser: &mut Parser, opts: &mut TestOptions) -> Result<()> {
@@ -128,15 +163,30 @@ pub fn run_tests_at_path(parser: &mut Parser, opts: &mut TestOptions) -> Result<
     let mut failures = Vec::new();
     let mut corrected_entries = Vec::new();
     let mut has_parse_errors = false;
-    run_tests(
-        parser,
-        test_entry,
-        opts,
-        0,
-        &mut failures,
-        &mut corrected_entries,
-        &mut has_parse_errors,
-    )?;
+    if opts.generate_report {
+        let result = tests_to_json(
+            parser,
+            test_entry, 
+            opts, 
+            0, 
+            &mut failures, 
+            &mut corrected_entries, 
+            &mut has_parse_errors,
+        );
+        let json = serde_json::to_string(&result)?;
+        println!("{}", json);
+        return Ok(());
+    } else {
+        run_tests(
+            parser,
+            test_entry,
+            opts,
+            0,
+            &mut failures,
+            &mut corrected_entries,
+            &mut has_parse_errors,
+        )?;
+    }
 
     parser.stop_printing_dot_graphs();
 
@@ -332,6 +382,191 @@ pub fn paint(color: Option<impl Into<Color>>, text: &str) -> String {
     format!("{style}{text}{style:#}")
 }
 
+/// Similar to `run_tests` except outputs as JSON report instead of original format
+#[allow(clippy::too_many_arguments)]
+fn tests_to_json(
+    parser: &mut Parser,
+    test_entry: TestEntry,
+    opts: &mut TestOptions,
+    mut indent_level: u32, // probably won't be used and can remove
+    failures: &mut Vec<(String, String, String)>, // probably won't be used and can remove
+    corrected_entries: &mut Vec<(String, String, String, String, usize, usize)>, // probably won't be used and can remove
+    has_parse_errors: &mut bool,
+) -> TestResult { 
+    match test_entry {
+        TestEntry::Example {
+            name,
+            input,
+            output,
+            header_delim_len: _,
+            divider_delim_len: _,
+            has_fields,
+            attributes_str: _,
+            attributes,
+        } => {
+            if attributes.skip {
+                let result = TestResult::Skipped { name: name };
+                return result;
+            } else if !attributes.platform {
+                let result = TestResult::NoPlatform { name: name };
+                return result;
+            } else {
+                let language_results = attributes.languages.into_iter().map(|language_name| {
+                    let tree = parser.parse(&input, None).unwrap();
+                    if attributes.error {
+                        let actual = tree.root_node().to_sexp();
+                        let diff = TextDiff::from_lines(&actual, &output);
+                        let diff_str = diff.iter_all_changes().map(|d| {
+                            match d.tag() {
+                                ChangeTag::Equal => {
+                                    d.as_str().unwrap().to_string()
+                                }
+                                ChangeTag::Insert => {
+                                    format!("+{d}")
+                                }
+                                ChangeTag::Delete => {
+                                    format!("-{d}")
+                                }
+                            }
+                        }).collect();
+                        let r = TestResult::Fail {
+                            actual_output: tree.root_node().to_sexp(),
+                            diff: diff_str,
+                        };
+                        return r;
+                    } else {
+                        let mut actual = tree.root_node().to_sexp();
+                        if !(opts.show_fields || has_fields) {
+                            actual = strip_sexp_fields(&actual);
+                        }
+                        if actual == output {
+                            return TestResult::Pass {};
+                        } else {
+                            let actual = tree.root_node().to_sexp();
+                            let diff = TextDiff::from_lines(&actual, &output);
+                            let diff_str = diff.iter_all_changes().map(|d| {
+                                match d.tag() {
+                                    ChangeTag::Equal => {
+                                        d.as_str().unwrap().to_string()
+                                    }
+                                    ChangeTag::Insert => {
+                                        format!("+{d}")
+                                    }
+                                    ChangeTag::Delete => {
+                                        format!("-{d}")
+                                    }
+                                }
+                            }).collect();
+                            let r = TestResult::Fail {
+                                actual_output: actual,
+                                diff: diff_str,
+                            };
+                            return r;
+                        }
+                    }
+                });
+                return TestResult::Example {
+                    name: name.clone(),
+                    input: match str::from_utf8(&input) {
+                        Ok(s) => s.to_string(),
+                        Err(e) => format!("Bug parsing input shouldn't happen.")
+                    },
+                    expected_output: output.clone(),
+                    actual_output: language_results.collect(),
+                };
+            }
+        }
+        TestEntry::Group {
+            name,
+            children,
+            file_path,
+        } => {
+            if children.is_empty() {
+                let result = TestResult::Group {
+                    name: name.clone(),
+                    children: vec![],
+                    file_path: file_path.clone()
+                };
+                return result;
+            }
+
+            indent_level += 1;
+            let mut advance_counter = opts.test_num;
+
+            let matches_filter = |name: &str, opts: &TestOptions| {
+                if let Some(include) = &opts.include {
+                    include.is_match(name)
+                } else if let Some(exclude) = &opts.exclude {
+                    !exclude.is_match(name)
+                } else {
+                    true
+                }
+            };
+
+            let mut should_skip = |entry: &TestEntry, opts: &TestOptions| match entry {
+                TestEntry::Example { name, .. } => {
+                    advance_counter += 1;
+                    !matches_filter(name, opts)
+                }
+                TestEntry::Group { .. } => {
+                    advance_counter += count_subtests(entry);
+                    false
+                }
+            };
+            let result: Vec<TestResult> = children.into_iter().map(|child| {
+                if should_skip(&child, opts) {
+                    return TestResult::Skipped { name: name.clone() };
+                } else {
+                    return tests_to_json(
+                        parser,
+                        child,
+                        opts,
+                        indent_level,
+                        failures,
+                        corrected_entries,
+                        has_parse_errors,
+                    );
+                }
+            }).collect();
+                // if let TestEntry::Example {
+                //     ref name,
+                //     ..
+                // } = child
+                // {  
+                //     println!("testing example: {}", name);
+                //     if should_skip(&child, opts) {
+                //         return TestResult::Skipped { name: name.clone() };
+                //     } else {
+                //         return tests_to_json(
+                //             parser,
+                //             child,
+                //             opts,
+                //             indent_level,
+                //             failures,
+                //             corrected_entries,
+                //             has_parse_errors,
+                //         );
+                //     }
+                // } else {
+                //     if should_skip(&child, opts) {
+
+                //     }
+                //     return TestResult::Group {
+                //         name: name.clone(),
+                //         children: vec![],
+                //         file_path: file_path.clone()
+                //     };
+                // }
+            // }).collect();
+            return TestResult::Group {
+                name: name.clone(),
+                children: result,
+                file_path: file_path.clone()
+            };
+        }
+    }
+}
+
 /// This will return false if we want to "fail fast". It will bail and not parse any more tests.
 #[allow(clippy::too_many_arguments)]
 fn run_tests(
@@ -354,7 +589,7 @@ fn run_tests(
             attributes_str,
             attributes,
         } => {
-            print!("{}", "  ".repeat(indent_level as usize));
+            // print!("{}", "  ".repeat(indent_level as usize));
 
             if attributes.skip {
                 println!(
@@ -365,14 +600,14 @@ fn run_tests(
                 return Ok(true);
             }
 
-            if !attributes.platform {
-                println!(
-                    "{:>3}.  {}",
-                    opts.test_num,
-                    paint(opts.color.then_some(AnsiColor::Magenta), &name),
-                );
-                return Ok(true);
-            }
+            // if !attributes.platform {
+            //     println!(
+            //         "{:>3}.  {}",
+            //         opts.test_num,
+            //         paint(opts.color.then_some(AnsiColor::Magenta), &name),
+            //     );
+            //     return Ok(true);
+            // }
 
             for (i, language_name) in attributes.languages.iter().enumerate() {
                 if !language_name.is_empty() {

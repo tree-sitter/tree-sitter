@@ -278,6 +278,8 @@ struct Test {
     pub rebuild: bool,
     #[arg(long, help = "Show only the pass-fail overview tree")]
     pub overview_only: bool,
+    #[arg(long, help = "Generate a JSON report of the test results")]
+    pub report: bool,
 }
 
 #[derive(Args)]
@@ -972,6 +974,7 @@ impl Test {
                 test_num: 1,
                 show_fields: self.show_fields,
                 overview_only: self.overview_only,
+                generate_report: self.report,
             };
 
             test::run_tests_at_path(&mut parser, &mut opts)?;
@@ -981,18 +984,20 @@ impl Test {
         test::check_queries_at_path(language, &current_dir.join("queries"))?;
 
         // Run the syntax highlighting tests.
-        let test_highlight_dir = test_dir.join("highlight");
-        if test_highlight_dir.is_dir() {
-            let mut highlighter = Highlighter::new();
-            highlighter.parser = parser;
-            test_highlight::test_highlights(
-                &loader,
-                &config.get()?,
-                &mut highlighter,
-                &test_highlight_dir,
-                color,
-            )?;
-            parser = highlighter.parser;
+        if !self.report {
+            let test_highlight_dir = test_dir.join("highlight");
+            if test_highlight_dir.is_dir() {
+                let mut highlighter = Highlighter::new();
+                highlighter.parser = parser;
+                test_highlight::test_highlights(
+                    &loader,
+                    &config.get()?,
+                    &mut highlighter,
+                    &test_highlight_dir,
+                    color,
+                )?;
+                parser = highlighter.parser;
+            }
         }
 
         let test_tag_dir = test_dir.join("tags");
