@@ -605,6 +605,13 @@ impl Loader {
         }
     }
 
+    pub fn language_for_configuration(
+        &self,
+        configuration: &LanguageConfiguration,
+    ) -> Result<Language> {
+        self.language_for_id(configuration.language_id)
+    }
+
     fn language_for_id(&self, id: usize) -> Result<Language> {
         let (path, language, externals) = &self.languages_by_id[id];
         language
