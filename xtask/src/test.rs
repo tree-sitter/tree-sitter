@@ -86,7 +86,11 @@ pub fn run(args: &Test) -> Result<()> {
         )?;
     } else {
         let mut cargo_cmd = Command::new("cargo");
-        cargo_cmd.arg("test").arg(test_flags).args(&args.args);
+        cargo_cmd.arg("test");
+        if !test_flags.is_empty() {
+            cargo_cmd.arg(test_flags);
+        }
+        cargo_cmd.args(&args.args);
         if args.nocapture {
             cargo_cmd.arg("--").arg("--nocapture");
         }
