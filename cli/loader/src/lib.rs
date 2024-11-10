@@ -146,8 +146,10 @@ pub struct TreeSitterJSON {
 }
 
 impl TreeSitterJSON {
-    pub fn from_file(path: &Path) -> Option<Self> {
-        serde_json::from_str(&fs::read_to_string(path.join("tree-sitter.json")).ok()?).ok()
+    pub fn from_file(path: &Path) -> Result<Self> {
+        Ok(serde_json::from_str(&fs::read_to_string(
+            path.join("tree-sitter.json"),
+        )?)?)
     }
 
     pub fn has_multiple_language_configs(&self) -> bool {
@@ -1115,7 +1117,8 @@ impl Loader {
     ) -> Result<&[LanguageConfiguration]> {
         let initial_language_configuration_count = self.language_configurations.len();
 
-        if let Some(config) = TreeSitterJSON::from_file(parser_path) {
+        let ts_json = TreeSitterJSON::from_file(parser_path);
+        if let Ok(config) = ts_json {
             let language_count = self.languages_by_id.len();
             for grammar in config.grammars {
                 // Determine the path to the parser directory. This can be specified in
@@ -1206,6 +1209,11 @@ impl Loader {
                         Some(self.language_configurations.len() - 1);
                 }
             }
+        } else if let Err(e) = ts_json {
+            eprintln!(
+                "Warning: Failed to read {} -- {e}",
+                parser_path.join("tree-sitter.json").display()
+            );
         }
 
         // If we didn't find any language configurations in the tree-sitter.json file,
