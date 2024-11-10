@@ -481,9 +481,18 @@ pub fn generate_grammar_files(
     // Generate Node bindings
     if tree_sitter_config.bindings.node {
         missing_path(bindings_dir.join("node"), create_dir)?.apply(|path| {
-            missing_path(path.join("index.js"), |path| {
-                generate_file(path, INDEX_JS_TEMPLATE, language_name, &generate_opts)
-            })?;
+            missing_path_else(
+                path.join("index.js"),
+                allow_update,
+                |path| generate_file(path, INDEX_JS_TEMPLATE, language_name, &generate_opts),
+                |path| {
+                    let contents = fs::read_to_string(path)?;
+                    if !contents.contains("bun") {
+                        generate_file(path, INDEX_JS_TEMPLATE, language_name, &generate_opts)?;
+                    }
+                    Ok(())
+                },
+            )?;
 
             missing_path(path.join("index.d.ts"), |path| {
                 generate_file(path, INDEX_D_TS_TEMPLATE, language_name, &generate_opts)
