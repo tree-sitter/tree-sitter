@@ -1210,10 +1210,16 @@ impl Loader {
                 }
             }
         } else if let Err(e) = ts_json {
-            eprintln!(
-                "Warning: Failed to read {} -- {e}",
-                parser_path.join("tree-sitter.json").display()
-            );
+            match e.downcast_ref::<std::io::Error>() {
+                // This is noisy, and not really an issue.
+                Some(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+                _ => {
+                    eprintln!(
+                        "Warning: Failed to parse {} -- {e}",
+                        parser_path.join("tree-sitter.json").display()
+                    );
+                }
+            }
         }
 
         // If we didn't find any language configurations in the tree-sitter.json file,
