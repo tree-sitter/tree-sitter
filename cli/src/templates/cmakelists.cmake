@@ -25,7 +25,7 @@ add_custom_command(OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/src/parser.c"
                    COMMENT "Generating parser.c")
 
 add_library(tree-sitter-PARSER_NAME src/parser.c)
-if(EXISTS src/scanner.c)
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/scanner.c)
   target_sources(tree-sitter-PARSER_NAME PRIVATE src/scanner.c)
 endif()
 target_include_directories(tree-sitter-PARSER_NAME PRIVATE src)
