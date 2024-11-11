@@ -3,6 +3,7 @@
 #include "./subtree.h"
 #include "./tree.h"
 #include "./language.h"
+#include "tree_sitter/api.h"
 
 typedef struct {
   Subtree parent;
@@ -541,7 +542,7 @@ TSNode ts_node_parent(TSNode self) {
   if (node.id == self.id) return ts_node__null();
 
   while (true) {
-    TSNode next_node = ts_node_child_containing_descendant(node, self);
+    TSNode next_node = ts_node_child_with_descendant(node, self);
     if (next_node.id == self.id
         || ts_node_is_null(next_node)) break;
     node = next_node;
