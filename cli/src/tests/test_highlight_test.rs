@@ -23,7 +23,7 @@ fn test_highlight_test_with_basic_test() {
         "// hi",
         "var abc = function(d) {",
         "  // ^ function",
-        "  //       ^ keyword",
+        "  //       ^^^ keyword",
         "  return d + e;",
         "  //     ^ variable",
         "  //       ^ !variable",
@@ -41,6 +41,8 @@ fn test_highlight_test_with_basic_test() {
         &[
             Assertion::new(1, 5, false, String::from("function")),
             Assertion::new(1, 11, false, String::from("keyword")),
+            Assertion::new(1, 12, false, String::from("keyword")),
+            Assertion::new(1, 13, false, String::from("keyword")),
             Assertion::new(4, 9, false, String::from("variable")),
             Assertion::new(4, 11, true, String::from("variable")),
             Assertion::new(8, 5, false, String::from("function")),

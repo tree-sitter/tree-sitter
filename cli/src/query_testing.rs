@@ -117,15 +117,26 @@ pub fn parse_position_comments(
                         let mut has_arrow = false;
                         let mut negative = false;
                         let mut arrow_end = 0;
+                        let mut arrow_count = 0;
                         for (i, c) in text.char_indices() {
                             arrow_end = i + 1;
                             if c == '-' && has_left_caret {
                                 has_arrow = true;
+                                arrow_count = 1;
                                 break;
                             }
                             if c == '^' {
                                 has_arrow = true;
+                                arrow_count = 1;
                                 position.column += i;
+                                // Continue counting remaining arrows and update their end column
+                                for (_, c) in text[arrow_end..].char_indices() {
+                                    if c != '^' {
+                                        arrow_end += arrow_count - 1;
+                                        break;
+                                    }
+                                    arrow_count += 1;
+                                }
                                 break;
                             }
                             has_left_caret = c == '<';
@@ -149,12 +160,16 @@ pub fn parse_position_comments(
                         if let (true, Some(mat)) =
                             (has_arrow, CAPTURE_NAME_REGEX.find(&text[arrow_end..]))
                         {
-                            assertion_ranges.push((node.start_position(), node.end_position()));
-                            result.push(Assertion {
-                                position: to_utf8_point(position, source),
-                                negative,
-                                expected_capture_name: mat.as_str().to_string(),
-                            });
+                            // Add an assertion check for each arrow
+                            for _ in 0..arrow_count {
+                                assertion_ranges.push((node.start_position(), node.end_position()));
+                                result.push(Assertion {
+                                    position: to_utf8_point(position, source),
+                                    negative,
+                                    expected_capture_name: mat.as_str().to_string(),
+                                });
+                                position.column += 1;
+                            }
                         }
                     }
                 }
