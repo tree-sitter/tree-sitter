@@ -124,6 +124,8 @@ fn generate_parser_for_grammar_with_opts(
         &simple_aliases,
         &variable_info,
     );
+    let subtype_map =
+        node_types::get_supertype_symbol_map(&syntax_grammar, &simple_aliases, &variable_info);
     let tables = build_tables(
         &syntax_grammar,
         &lexical_grammar,
@@ -131,6 +133,7 @@ fn generate_parser_for_grammar_with_opts(
         &variable_info,
         &inlines,
         report_symbol_name,
+        &subtype_map,
     )?;
     let c_code = render_c_code(
         &input_grammar.name,

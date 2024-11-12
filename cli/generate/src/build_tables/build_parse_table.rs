@@ -15,7 +15,7 @@ use super::{
 };
 use crate::{
     grammars::{LexicalGrammar, PrecedenceEntry, ReservedWordSetId, SyntaxGrammar, VariableType},
-    node_types::VariableInfo,
+    node_types::{ChildType, VariableInfo},
     rules::{Associativity, Precedence, Symbol, SymbolType, TokenSet},
     tables::{
         FieldLocation, GotoAction, ParseAction, ParseState, ParseStateId, ParseTable,
@@ -55,6 +55,7 @@ struct ParseTableBuilder<'a> {
     syntax_grammar: &'a SyntaxGrammar,
     lexical_grammar: &'a LexicalGrammar,
     variable_info: &'a [VariableInfo],
+    subtype_map: &'a Vec<(Symbol, Vec<ChildType>)>,
     core_ids_by_core: HashMap<ParseItemSetCore<'a>, usize>,
     state_ids_by_item_set: IndexMap<ParseItemSet<'a>, ParseStateId, BuildHasherDefault<FxHasher>>,
     parse_state_info_by_id: Vec<ParseStateInfo<'a>>,
@@ -70,12 +71,14 @@ impl<'a> ParseTableBuilder<'a> {
         lexical_grammar: &'a LexicalGrammar,
         item_set_builder: ParseItemSetBuilder<'a>,
         variable_info: &'a [VariableInfo],
+        subtype_map: &'a Vec<(Symbol, Vec<ChildType>)>,
     ) -> Self {
         Self {
             syntax_grammar,
             lexical_grammar,
             item_set_builder,
             variable_info,
+            subtype_map,
             non_terminal_extra_states: Vec::new(),
             state_ids_by_item_set: IndexMap::default(),
             core_ids_by_core: HashMap::new(),
@@ -920,7 +923,14 @@ impl<'a> ParseTableBuilder<'a> {
         let mut production_info = ProductionInfo {
             alias_sequence: Vec::new(),
             field_map: BTreeMap::new(),
+            supertype_map: BTreeMap::new(),
         };
+
+        for (supertype, subtypes) in self.subtype_map {
+            production_info
+                .supertype_map
+                .insert(*supertype, subtypes.clone());
+        }
 
         for (i, step) in item.production.steps.iter().enumerate() {
             production_info.alias_sequence.push(step.alias.clone());
@@ -962,12 +972,13 @@ impl<'a> ParseTableBuilder<'a> {
             self.parse_table.max_aliased_production_length = item.production.steps.len();
         }
 
-        if let Some(index) = self
-            .parse_table
-            .production_infos
-            .iter()
-            .position(|seq| *seq == production_info)
-        {
+        if let Some(index) = self.parse_table.production_infos.iter().position(|seq| {
+            // Only check for alias sequence and field map equality. Otherwise the presence of the
+            // supertype map may increment the ProductionInfoId by one, which throws off the
+            // indices of the field map slices.
+            seq.alias_sequence == production_info.alias_sequence
+                && seq.field_map == production_info.field_map
+        }) {
             index
         } else {
             self.parse_table.production_infos.push(production_info);
@@ -999,12 +1010,14 @@ pub fn build_parse_table<'a>(
     lexical_grammar: &'a LexicalGrammar,
     item_set_builder: ParseItemSetBuilder<'a>,
     variable_info: &'a [VariableInfo],
+    subtype_map: &'a Vec<(Symbol, Vec<ChildType>)>,
 ) -> Result<(ParseTable, Vec<ParseStateInfo<'a>>)> {
     ParseTableBuilder::new(
         syntax_grammar,
         lexical_grammar,
         item_set_builder,
         variable_info,
+        subtype_map,
     )
     .build()
 }

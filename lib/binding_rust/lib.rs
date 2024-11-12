@@ -420,6 +420,37 @@ impl Language {
         unsafe { ffi::ts_language_state_count(self.0) as usize }
     }
 
+    /// Get a list of all supertype symbols for the language.
+    #[doc(alias = "ts_language_supertypes")]
+    #[must_use]
+    pub fn supertypes(&self) -> &[u16] {
+        let mut count = 0u32;
+        unsafe {
+            let ptr = ffi::ts_language_supertypes(self.0, core::ptr::addr_of_mut!(count));
+            if ptr.is_null() {
+                &[]
+            } else {
+                slice::from_raw_parts(ptr.cast_mut(), count as usize)
+            }
+        }
+    }
+
+    /// Get a list of all subtype symbol names for a given supertype symbol.
+    #[doc(alias = "ts_language_supertype_map")]
+    #[must_use]
+    pub fn subtypes_for_supertype(&self, supertype: u16) -> &[u16] {
+        unsafe {
+            let mut start = ptr::null();
+            let len =
+                ffi::ts_language_supertype_map(self.0, supertype, std::ptr::addr_of_mut!(start));
+            if len == 0 {
+                &[]
+            } else {
+                slice::from_raw_parts(start, len.into())
+            }
+        }
+    }
+
     /// Get the name of the node kind for the given numerical id.
     #[doc(alias = "ts_language_symbol_name")]
     #[must_use]
