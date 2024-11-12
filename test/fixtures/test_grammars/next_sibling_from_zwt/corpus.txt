@@ -1,2 +1,10 @@
-(source_file 
+===========================
+missing c node
+===========================
+
+abdef
+
+---
+
+(source
     (MISSING "c"))

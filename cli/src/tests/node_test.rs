@@ -327,6 +327,8 @@ fn test_next_sibling_of_zero_width_node() {
 
     let root_node = tree.root_node();
     let missing_c = root_node.child(2).unwrap();
+    assert!(missing_c.is_missing());
+    assert_eq!(missing_c.kind(), "c");
     let node_d = root_node.child(3).unwrap();
     assert_eq!(missing_c.next_sibling().unwrap(), node_d);
 }
