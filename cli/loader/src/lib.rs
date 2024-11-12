@@ -853,7 +853,7 @@ impl Loader {
             format!("Failed to execute the C compiler with the following command:\n{command:?}")
         })?;
 
-        lock_file.unlock()?;
+        FileExt::unlock(lock_file)?;
         fs::remove_file(lock_path)?;
 
         if output.status.success() {
