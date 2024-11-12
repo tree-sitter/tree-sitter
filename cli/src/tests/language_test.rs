@@ -95,3 +95,100 @@ fn test_symbol_metadata_checks() {
         }
     }
 }
+
+#[test]
+fn test_supertypes() {
+    let language = get_language("rust");
+    let supertypes = language.supertypes();
+
+    assert_eq!(supertypes.len(), 5);
+    assert_eq!(
+        supertypes
+            .iter()
+            .filter_map(|&s| language.node_kind_for_id(s))
+            .map(|s| s.to_string())
+            .collect::<Vec<String>>(),
+        vec![
+            "_expression",
+            "_literal",
+            "_literal_pattern",
+            "_pattern",
+            "_type"
+        ]
+    );
+
+    for &supertype in supertypes {
+        let mut subtypes = language
+            .subtypes_for_supertype(supertype)
+            .iter()
+            .filter_map(|symbol| language.node_kind_for_id(*symbol))
+            .collect::<Vec<&str>>();
+        subtypes.sort_unstable();
+        subtypes.dedup();
+
+        match language.node_kind_for_id(supertype) {
+            Some("_literal") => {
+                assert_eq!(
+                    subtypes,
+                    &[
+                        "boolean_literal",
+                        "char_literal",
+                        "float_literal",
+                        "integer_literal",
+                        "raw_string_literal",
+                        "string_literal"
+                    ]
+                );
+            }
+            Some("_pattern") => {
+                assert_eq!(
+                    subtypes,
+                    &[
+                        "_",
+                        "_literal_pattern",
+                        "captured_pattern",
+                        "const_block",
+                        "identifier",
+                        "macro_invocation",
+                        "mut_pattern",
+                        "or_pattern",
+                        "range_pattern",
+                        "ref_pattern",
+                        "reference_pattern",
+                        "remaining_field_pattern",
+                        "scoped_identifier",
+                        "slice_pattern",
+                        "struct_pattern",
+                        "tuple_pattern",
+                        "tuple_struct_pattern",
+                    ]
+                );
+            }
+            Some("_type") => {
+                assert_eq!(
+                    subtypes,
+                    &[
+                        "abstract_type",
+                        "array_type",
+                        "bounded_type",
+                        "dynamic_type",
+                        "function_type",
+                        "generic_type",
+                        "macro_invocation",
+                        "metavariable",
+                        "never_type",
+                        "pointer_type",
+                        "primitive_type",
+                        "reference_type",
+                        "removed_trait_bound",
+                        "scoped_type_identifier",
+                        "tuple_type",
+                        "type_identifier",
+                        "unit_type"
+                    ]
+                );
+            }
+            _ => {}
+        }
+    }
+}

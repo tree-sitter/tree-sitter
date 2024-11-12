@@ -1167,11 +1167,6 @@ uint32_t ts_language_symbol_count(const TSLanguage *self);
 uint32_t ts_language_state_count(const TSLanguage *self);
 
 /**
- * Get a node type string for the given numerical id.
- */
-const char *ts_language_symbol_name(const TSLanguage *self, TSSymbol symbol);
-
-/**
  * Get the numerical id for the given node type string.
  */
 TSSymbol ts_language_symbol_for_name(
@@ -1195,6 +1190,27 @@ const char *ts_language_field_name_for_id(const TSLanguage *self, TSFieldId id);
  * Get the numerical id for the given field name string.
  */
 TSFieldId ts_language_field_id_for_name(const TSLanguage *self, const char *name, uint32_t name_length);
+
+/**
+ * Get a list of all supertype symbols for the language.
+*/
+const TSSymbol *ts_language_supertypes(const TSLanguage *self, uint32_t *length);
+
+/**
+ * Get a list of all subtype symbol ids for a given supertype symbol.
+ *
+ * See [`ts_language_supertypes`] for fetching all supertype symbols.
+ */
+const TSSymbol *ts_language_subtypes(
+  const TSLanguage *self,
+  TSSymbol supertype,
+  uint32_t *length
+);
+
+/**
+ * Get a node type string for the given numerical id.
+ */
+const char *ts_language_symbol_name(const TSLanguage *self, TSSymbol symbol);
 
 /**
  * Check whether the given node type id belongs to named nodes, anonymous nodes,

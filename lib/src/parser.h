@@ -26,10 +26,11 @@ typedef struct {
   bool inherited;
 } TSFieldMapEntry;
 
+// Used to index the field and supertype maps.
 typedef struct {
   uint16_t index;
   uint16_t length;
-} TSFieldMapSlice;
+} TSMapSlice;
 
 typedef struct {
   bool visible;
@@ -115,7 +116,7 @@ struct TSLanguage {
   const TSParseActionEntry *parse_actions;
   const char * const *symbol_names;
   const char * const *field_names;
-  const TSFieldMapSlice *field_map_slices;
+  const TSMapSlice *field_map_slices;
   const TSFieldMapEntry *field_map_entries;
   const TSSymbolMetadata *symbol_metadata;
   const TSSymbol *public_symbol_map;
@@ -138,6 +139,10 @@ struct TSLanguage {
   const char *name;
   const TSSymbol *reserved_words;
   uint16_t max_reserved_word_set_size;
+  uint32_t supertype_count;
+  const TSSymbol *supertype_symbols;
+  const TSMapSlice *supertype_map_slices;
+  const TSSymbol *supertype_map_entries;
 };
 
 static inline bool set_contains(const TSCharacterRange *ranges, uint32_t len, int32_t lookahead) {

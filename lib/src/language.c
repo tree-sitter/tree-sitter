@@ -24,6 +24,31 @@ uint32_t ts_language_state_count(const TSLanguage *self) {
   return self->state_count;
 }
 
+const TSSymbol *ts_language_supertypes(const TSLanguage *self, uint32_t *length) {
+  if (self->version >= LANGUAGE_VERSION_WITH_RESERVED_WORDS) {
+    *length = self->supertype_count;
+    return self->supertype_symbols;
+  } else {
+    *length = 0;
+    return NULL;
+  }
+}
+
+const TSSymbol *ts_language_subtypes(
+  const TSLanguage *self,
+  TSSymbol supertype,
+  uint32_t *length
+) {
+  if (self->version < LANGUAGE_VERSION_WITH_RESERVED_WORDS || !ts_language_symbol_metadata(self, supertype).supertype) {
+    *length = 0;
+    return NULL;
+  }
+
+  TSMapSlice slice = self->supertype_map_slices[supertype];
+  *length = slice.length;
+  return &self->supertype_map_entries[slice.index];
+}
+
 uint32_t ts_language_version(const TSLanguage *self) {
   return self->version;
 }
