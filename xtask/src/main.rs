@@ -107,6 +107,9 @@ struct Test {
     /// Compile C code with the Clang address sanitizer.
     #[arg(long, short)]
     address_sanitizer: bool,
+    /// Run only the corpus tests for the given language.
+    #[arg(long, short)]
+    language: Option<String>,
     /// Run only the corpus tests whose name contain the given string.
     #[arg(long, short)]
     example: Option<String>,

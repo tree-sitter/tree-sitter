@@ -45,8 +45,11 @@ pub fn run(args: &Test) -> Result<()> {
     } else {
         String::new()
     };
+    if let Some(language) = &args.language {
+        env::set_var("TREE_SITTER_LANGUAGE", language);
+    }
     if let Some(example) = &args.example {
-        env::set_var("TREE_SITTER_EXAMPLE", example);
+        env::set_var("TREE_SITTER_EXAMPLE_INCLUDE", example);
     }
     if let Some(seed) = args.seed {
         env::set_var("TREE_SITTER_SEED", seed.to_string());
