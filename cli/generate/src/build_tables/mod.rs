@@ -22,7 +22,7 @@ use self::{
 use crate::{
     grammars::{InlinedProductionMap, LexicalGrammar, SyntaxGrammar},
     nfa::{CharacterSet, NfaCursor},
-    node_types::VariableInfo,
+    node_types::{ChildType, VariableInfo},
     rules::{AliasMap, Symbol, SymbolType, TokenSet},
     tables::{LexTable, ParseAction, ParseTable, ParseTableEntry},
 };
@@ -42,9 +42,15 @@ pub fn build_tables(
     variable_info: &[VariableInfo],
     inlines: &InlinedProductionMap,
     report_symbol_name: Option<&str>,
+    subtype_map: &Vec<(Symbol, Vec<ChildType>)>,
 ) -> Result<Tables> {
-    let (mut parse_table, following_tokens, parse_state_info) =
-        build_parse_table(syntax_grammar, lexical_grammar, inlines, variable_info)?;
+    let (mut parse_table, following_tokens, parse_state_info) = build_parse_table(
+        syntax_grammar,
+        lexical_grammar,
+        inlines,
+        variable_info,
+        subtype_map,
+    )?;
     let token_conflict_map = TokenConflictMap::new(lexical_grammar, following_tokens);
     let coincident_token_index = CoincidentTokenIndex::new(&parse_table, lexical_grammar);
     let keywords = identify_keywords(
