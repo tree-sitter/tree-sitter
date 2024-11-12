@@ -14,7 +14,10 @@ use super::{
     item_set_builder::ParseItemSetBuilder,
 };
 use crate::{
-    grammars::{LexicalGrammar, PrecedenceEntry, ReservedWordSetId, SyntaxGrammar, VariableType},
+    grammars::{
+        LexicalGrammar, PrecedenceEntry, ReservedWordSetId, SyntaxGrammar, VariableType,
+        NO_RESERVED_WORDS,
+    },
     node_types::VariableInfo,
     rules::{Associativity, Precedence, Symbol, SymbolType, TokenSet},
     tables::{
@@ -109,7 +112,7 @@ impl<'a> ParseTableBuilder<'a> {
                 entries: vec![ParseItemSetEntry {
                     item: ParseItem::start(),
                     lookaheads: std::iter::once(Symbol::end()).collect(),
-                    reserved_lookaheads: TokenSet::new(),
+                    reserved_lookaheads: None,
                 }],
             },
         );

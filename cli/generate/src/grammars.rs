@@ -73,11 +73,19 @@ pub struct ProductionStep {
     pub associativity: Option<Associativity>,
     pub alias: Option<Alias>,
     pub field_name: Option<String>,
-    pub reserved_word_set_id: Option<ReservedWordSetId>,
+    pub reserved_word_set_id: ReservedWordSetId,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct ReservedWordSetId(usize);
+
+impl fmt::Display for ReservedWordSetId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+pub const NO_RESERVED_WORDS: ReservedWordSetId = ReservedWordSetId(usize::MAX);
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Production {
@@ -121,14 +129,14 @@ pub struct SyntaxGrammar {
 #[cfg(test)]
 impl ProductionStep {
     #[must_use]
-    pub const fn new(symbol: Symbol) -> Self {
+    pub fn new(symbol: Symbol) -> Self {
         Self {
             symbol,
             precedence: Precedence::None,
             associativity: None,
             alias: None,
             field_name: None,
-            reserved_word_set_id: None,
+            reserved_word_set_id: ReservedWordSetId::default(),
         }
     }
 
@@ -230,7 +238,15 @@ impl LexicalGrammar {
 
 impl SyntaxGrammar {
     pub fn reserved_words(&self, id: ReservedWordSetId) -> &TokenSet {
-        &self.reserved_words[id.0]
+        lazy_static::lazy_static! {
+            static ref NO_TOKENS: TokenSet = TokenSet::new();
+        };
+
+        if id == NO_RESERVED_WORDS {
+            &*NO_TOKENS
+        } else {
+            &self.reserved_words[id.0]
+        }
     }
 }
 

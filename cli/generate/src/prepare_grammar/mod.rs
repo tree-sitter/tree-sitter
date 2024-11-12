@@ -37,7 +37,7 @@ pub struct IntermediateGrammar<T, U> {
     variables_to_inline: Vec<Symbol>,
     supertype_symbols: Vec<Symbol>,
     word_token: Option<Symbol>,
-    reserved_words: Vec<T>,
+    reserved_words: Vec<(String, Vec<T>)>,
 }
 
 pub type InternedGrammar = IntermediateGrammar<Rule, Variable>;

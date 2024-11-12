@@ -247,15 +247,9 @@ impl TokenExtractor {
                     .map(|e| self.extract_tokens_in_rule(e))
                     .collect::<Result<Vec<_>>>()?,
             )),
-            Rule::Reserved {
-                rule,
-                reserved_words,
-            } => Ok(Rule::Reserved {
+            Rule::Reserved { rule, context_name } => Ok(Rule::Reserved {
                 rule: Box::new(self.extract_tokens_in_rule(rule)?),
-                reserved_words: reserved_words
-                    .iter()
-                    .map(|token| self.extract_tokens_in_rule(token))
-                    .collect::<Result<Vec<_>>>()?,
+                context_name: context_name.clone(),
             }),
             _ => Ok(input.clone()),
         }
@@ -325,15 +319,9 @@ impl SymbolReplacer {
                 params: params.clone(),
                 rule: Box::new(self.replace_symbols_in_rule(rule)),
             },
-            Rule::Reserved {
-                rule,
-                reserved_words,
-            } => Rule::Reserved {
+            Rule::Reserved { rule, context_name } => Rule::Reserved {
                 rule: Box::new(self.replace_symbols_in_rule(rule)),
-                reserved_words: reserved_words
-                    .iter()
-                    .map(|token| self.replace_symbols_in_rule(token))
-                    .collect(),
+                context_name: context_name.clone(),
             },
             _ => rule.clone(),
         }

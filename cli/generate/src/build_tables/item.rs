@@ -7,7 +7,10 @@ use std::{
 use lazy_static::lazy_static;
 
 use crate::{
-    grammars::{LexicalGrammar, Production, ProductionStep, ReservedWordSetId, SyntaxGrammar},
+    grammars::{
+        LexicalGrammar, Production, ProductionStep, ReservedWordSetId, SyntaxGrammar,
+        NO_RESERVED_WORDS,
+    },
     rules::{Associativity, Precedence, Symbol, SymbolType, TokenSet},
 };
 
@@ -23,7 +26,7 @@ lazy_static! {
             associativity: None,
             alias: None,
             field_name: None,
-            reserved_word_set_id: None,
+            reserved_word_set_id: NO_RESERVED_WORDS,
         }],
     };
 }
@@ -201,7 +204,7 @@ impl fmt::Display for ParseItemDisplay<'_> {
                 write!(f, " •")?;
                 if !step.precedence.is_none()
                     || step.associativity.is_some()
-                    || step.reserved_word_set_id.is_some()
+                    || step.reserved_word_set_id != ReservedWordSetId::default()
                 {
                     write!(f, " (")?;
                     if step.precedence.is_none() {
@@ -210,12 +213,8 @@ impl fmt::Display for ParseItemDisplay<'_> {
                     if let Some(associativity) = step.associativity {
                         write!(f, " {associativity:?}")?;
                     }
-                    if let Some(reserved_words) = &step.reserved_word_set_id {
-                        write!(f, "reserved: [")?;
-                        for word in reserved_words.iter() {
-                            write!(f, " {}", self.2.variables[word.index].name)?;
-                        }
-                        write!(f, " ]")?;
+                    if step.reserved_word_set_id != ReservedWordSetId::default() {
+                        write!(f, "reserved: {}", step.reserved_word_set_id)?;
                     }
                     write!(f, " )")?;
                 }
@@ -286,13 +285,16 @@ impl fmt::Display for TokenSetDisplay<'_> {
 impl fmt::Display for ParseItemSetDisplay<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         for entry in &self.0.entries {
-            writeln!(
+            write!(
                 f,
-                "{}\t{}\t{}",
+                "{}\t{}",
                 ParseItemDisplay(&entry.item, self.1, self.2),
                 TokenSetDisplay(&entry.lookaheads, self.1, self.2),
-                TokenSetDisplay(&entry.reserved_lookaheads, self.1, self.2),
             )?;
+            if let Some(reserved_word_set_id) = entry.reserved_lookaheads {
+                write!(f, "\t{}", reserved_word_set_id);
+            }
+            writeln!(f, "");
         }
         Ok(())
     }

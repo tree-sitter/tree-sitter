@@ -5,7 +5,7 @@ use std::{
 
 use super::item::{ParseItem, ParseItemDisplay, ParseItemSet, ParseItemSetEntry, TokenSetDisplay};
 use crate::{
-    grammars::{InlinedProductionMap, LexicalGrammar, SyntaxGrammar},
+    grammars::{InlinedProductionMap, LexicalGrammar, ReservedWordSetId, SyntaxGrammar},
     rules::{Symbol, SymbolType, TokenSet},
 };
 
@@ -18,7 +18,7 @@ struct TransitiveClosureAddition<'a> {
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 struct FollowSetInfo {
     lookaheads: TokenSet,
-    reserved_lookaheads: TokenSet,
+    reserved_lookaheads: Option<ReservedWordSetId>,
     propagates_lookaheads: bool,
 }
 
@@ -26,7 +26,7 @@ pub struct ParseItemSetBuilder<'a> {
     syntax_grammar: &'a SyntaxGrammar,
     lexical_grammar: &'a LexicalGrammar,
     first_sets: HashMap<Symbol, TokenSet>,
-    reserved_first_sets: HashMap<Symbol, TokenSet>,
+    reserved_first_sets: HashMap<Symbol, ReservedWordSetId>,
     last_sets: HashMap<Symbol, TokenSet>,
     inlines: &'a InlinedProductionMap,
     transitive_closure_additions: Vec<Vec<TransitiveClosureAddition<'a>>>,
@@ -65,7 +65,9 @@ impl<'a> ParseItemSetBuilder<'a> {
             set.insert(symbol);
             result.first_sets.insert(symbol, set.clone());
             result.last_sets.insert(symbol, set);
-            result.reserved_first_sets.insert(symbol, TokenSet::new());
+            result
+                .reserved_first_sets
+                .insert(symbol, ReservedWordSetId::default());
         }
 
         for i in 0..syntax_grammar.external_tokens.len() {
@@ -74,7 +76,9 @@ impl<'a> ParseItemSetBuilder<'a> {
             set.insert(symbol);
             result.first_sets.insert(symbol, set.clone());
             result.last_sets.insert(symbol, set);
-            result.reserved_first_sets.insert(symbol, TokenSet::new());
+            result
+                .reserved_first_sets
+                .insert(symbol, ReservedWordSetId::default());
         }
 
         // The FIRST set of a non-terminal `i` is the union of the the FIRST sets
@@ -102,11 +106,7 @@ impl<'a> ParseItemSetBuilder<'a> {
                         } else if processed_non_terminals.insert(step.symbol) {
                             symbols_to_process.push(step.symbol);
                         }
-                        if let Some(reserved_words) = &step.reserved_word_set_id {
-                            reserved_first_set.insert_all(reserved_words);
-                        } else {
-                            reserved_first_set.insert_all(&syntax_grammar.reserved_words);
-                        }
+                        *reserved_first_set = (*reserved_first_set).max(step.reserved_word_set_id);
                     }
                 }
             }
@@ -153,7 +153,8 @@ impl<'a> ParseItemSetBuilder<'a> {
         //     always come after `item` in the expansion of symbol `i`.
         //
         //   * `propagates_lookaheads` - a boolean indicating whether or not `item` can occur at the
-        //     *end* of the expansion of symbol `i`, so that i's own current after `item`.
+        //     *end* of the expansion of symbol `i`, so that i's own current lookahead tokens can
+        //     occur after `item`.
         //
         // Rather than computing these additions recursively, we use an explicit stack.
         let empty_lookaheads = TokenSet::new();
@@ -164,7 +165,7 @@ impl<'a> ParseItemSetBuilder<'a> {
             // appear at the beginning of non-terminal `i`, and whose values store
             // information about the tokens that can follow those non-terminals.
             stack.clear();
-            stack.push((i, &empty_lookaheads, &empty_lookaheads, true));
+            stack.push((i, &empty_lookaheads, ReservedWordSetId::default(), true));
             follow_set_info_by_non_terminal.clear();
             while let Some((sym_ix, lookaheads, reserved_lookaheads, propagates_lookaheads)) =
                 stack.pop()
@@ -172,7 +173,10 @@ impl<'a> ParseItemSetBuilder<'a> {
                 let mut did_add = false;
                 let info = follow_set_info_by_non_terminal.entry(sym_ix).or_default();
                 did_add |= info.lookaheads.insert_all(lookaheads);
-                did_add |= info.reserved_lookaheads.insert_all(reserved_lookaheads);
+                if reserved_lookaheads > info.reserved_lookaheads {
+                    info.reserved_lookaheads = reserved_lookaheads;
+                    did_add = true;
+                }
                 did_add |= propagates_lookaheads && !info.propagates_lookaheads;
                 info.propagates_lookaheads |= propagates_lookaheads;
                 if !did_add {
@@ -186,7 +190,7 @@ impl<'a> ParseItemSetBuilder<'a> {
                                 stack.push((
                                     symbol.index,
                                     &result.first_sets[&next_step.symbol],
-                                    &result.reserved_first_sets[&next_step.symbol],
+                                    result.reserved_first_sets[&next_step.symbol],
                                     false,
                                 ));
                             } else {
@@ -277,7 +281,10 @@ impl<'a> ParseItemSetBuilder<'a> {
     }
 
     pub fn reserved_first_set(&self, symbol: &Symbol) -> Option<&TokenSet> {
-        self.reserved_first_sets.get(symbol)
+        Some(
+            self.syntax_grammar
+                .reserved_words(*self.reserved_first_sets.get(symbol)?),
+        )
     }
 
     pub fn last_set(&self, symbol: &Symbol) -> &TokenSet {
@@ -297,22 +304,30 @@ impl<'a> ParseItemSetBuilder<'a> {
                             self.reserved_first_sets.get(&next_step.symbol),
                         )
                     } else {
-                        (&entry.lookaheads, Some(&entry.reserved_lookaheads))
+                        (&entry.lookaheads, entry.reserved_lookaheads.as_ref())
                     };
 
                 // Use the pre-computed *additions* to expand the non-terminal.
                 for addition in &self.transitive_closure_additions[step.symbol.index] {
                     let entry = set.insert(addition.item);
                     entry.lookaheads.insert_all(&addition.info.lookaheads);
-                    entry
-                        .reserved_lookaheads
-                        .insert_all(&addition.info.reserved_lookaheads);
+
+                    if let Some(reserved_word_set_id) = addition.info.reserved_lookaheads {
+                        let entry_reserved_word_set_id = entry
+                            .reserved_lookaheads
+                            .get_or_insert(ReservedWordSetId::default());
+                        *entry_reserved_word_set_id =
+                            (*entry_reserved_word_set_id).max(reserved_word_set_id);
+                    }
+
                     if addition.info.propagates_lookaheads {
                         entry.lookaheads.insert_all(following_tokens);
                         if let Some(following_reserved_tokens) = following_reserved_tokens {
-                            entry
+                            let entry_reserved_word_set_id = entry
                                 .reserved_lookaheads
-                                .insert_all(following_reserved_tokens);
+                                .get_or_insert(ReservedWordSetId::default());
+                            *entry_reserved_word_set_id =
+                                (*entry_reserved_word_set_id).max(*following_reserved_tokens);
                         }
                     }
                 }
