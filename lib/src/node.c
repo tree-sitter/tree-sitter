@@ -262,8 +262,8 @@ static inline TSNode ts_node__next_sibling(TSNode self, bool include_anonymous) 
     TSNode child;
     NodeChildIterator iterator = ts_node_iterate_children(&node);
     while (ts_node_child_iterator_next(&iterator, &child)) {
-      if (iterator.position.bytes < target_end_byte) continue;
-      if (ts_node_start_byte(child) <= ts_node_start_byte(self)) {
+      if (iterator.position.bytes <= target_end_byte) continue;
+      if (ts_node_start_byte(child) < ts_node_start_byte(self)) {
         if (ts_node__subtree(child).ptr != ts_node__subtree(self).ptr) {
           child_containing_target = child;
         }
@@ -534,8 +534,8 @@ TSNode ts_node_parent(TSNode self) {
   if (node.id == self.id) return ts_node__null();
 
   while (true) {
-    TSNode next_node = ts_node_child_containing_descendant(node, self);
-    if (ts_node_is_null(next_node)) break;
+    TSNode next_node = ts_node_child_with_descendant(node, self);
+    if (next_node.id == self.id || ts_node_is_null(next_node)) break;
     node = next_node;
   }
 
