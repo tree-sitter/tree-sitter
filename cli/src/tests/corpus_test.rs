@@ -115,6 +115,12 @@ pub fn test_language_corpus(
     skipped: Option<&[&str]>,
     language_dir: Option<&str>,
 ) {
+    if let Some(filter) = LANGUAGE_FILTER.as_ref() {
+        if language_name != filter {
+            return;
+        }
+    }
+
     let language_dir = language_dir.unwrap_or_default();
 
     let grammars_dir = fixtures_dir().join("grammars");
@@ -341,7 +347,7 @@ fn test_feature_corpus_files() {
         let language_name = language_name.to_str().unwrap();
 
         if let Some(filter) = LANGUAGE_FILTER.as_ref() {
-            if language_name != filter.as_str() {
+            if language_name != filter {
                 continue;
             }
         }

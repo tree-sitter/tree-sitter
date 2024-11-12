@@ -86,6 +86,12 @@ You can run the tests under the debugger (either `lldb` or `gdb`) using the `-g`
 cargo xtask test -g test_does_something
 ```
 
+Part of the Tree-sitter test suite involves parsing the _corpus_ tests for several different languages and performing randomized edits to each example in the corpus. If you just want to run the tests for a particular _language_, you can pass the `-l` flag. And if you want to run a particular _example_ from the corpus, you can pass the `-e` flag:
+
+```sh
+cargo xtask test -l javascript -e Arrays
+```
+
 ## Published Packages
 
 The main [`tree-sitter/tree-sitter`](https://github.com/tree-sitter/tree-sitter) repository contains the source code for several packages that are published to package registries for different languages:
