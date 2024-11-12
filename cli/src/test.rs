@@ -20,6 +20,7 @@ use tree_sitter::{format_sexp, Language, LogType, Parser, Query};
 use walkdir::WalkDir;
 
 use super::util;
+use crate::parse::Stats;
 
 lazy_static! {
     static ref HEADER_REGEX: ByteRegex = ByteRegexBuilder::new(
@@ -106,7 +107,9 @@ pub struct TestOptions<'a> {
     pub languages: BTreeMap<&'a str, &'a Language>,
     pub color: bool,
     pub test_num: usize,
+    pub stats: &'a mut Stats,
     pub show_fields: bool,
+    pub show_times: bool,
     pub overview_only: bool,
 }
 
@@ -384,15 +387,29 @@ fn run_tests(
                         .ok_or_else(|| anyhow!("Language not found: {language_name}"))?;
                     parser.set_language(language)?;
                 }
+                let start = std::time::Instant::now();
                 let tree = parser.parse(&input, None).unwrap();
+                let parse_time = start.elapsed();
+                let parse_time_str = if opts.show_times {
+                    format!(" ({}μs)", parse_time.as_micros())
+                } else {
+                    String::new()
+                };
+                {
+                    opts.stats.total_parses += 1;
+                    opts.stats.total_duration += parse_time;
+                    opts.stats.total_bytes += tree.root_node().byte_range().len();
+                }
 
                 if attributes.error {
                     if tree.root_node().has_error() {
                         println!(
-                            "{:>3}. ✓ {}",
+                            "{:>3}. ✓ {}{}",
                             opts.test_num,
-                            paint(opts.color.then_some(AnsiColor::Green), &name)
+                            paint(opts.color.then_some(AnsiColor::Green), &name),
+                            parse_time_str,
                         );
+                        opts.stats.successful_parses += 1;
                         if opts.update {
                             let input = String::from_utf8(input.clone()).unwrap();
                             let output = format_sexp(&output, 0);
@@ -420,9 +437,10 @@ fn run_tests(
                             ));
                         }
                         println!(
-                            "{:>3}. ✗ {}",
+                            "{:>3}. ✗ {}{}",
                             opts.test_num,
-                            paint(opts.color.then_some(AnsiColor::Red), &name)
+                            paint(opts.color.then_some(AnsiColor::Red), &name),
+                            parse_time_str,
                         );
                         failures.push((
                             name.clone(),
@@ -442,10 +460,12 @@ fn run_tests(
 
                     if actual == output {
                         println!(
-                            "{:>3}. ✓ {}",
+                            "{:>3}. ✓ {}{}",
                             opts.test_num,
-                            paint(opts.color.then_some(AnsiColor::Green), &name)
+                            paint(opts.color.then_some(AnsiColor::Green), &name),
+                            parse_time_str,
                         );
+                        opts.stats.successful_parses += 1;
                         if opts.update {
                             let input = String::from_utf8(input.clone()).unwrap();
                             let output = format_sexp(&output, 0);
@@ -491,16 +511,18 @@ fn run_tests(
                                     divider_delim_len,
                                 ));
                                 println!(
-                                    "{:>3}. ✓ {}",
+                                    "{:>3}. ✓ {}{}",
                                     opts.test_num,
                                     paint(opts.color.then_some(AnsiColor::Blue), &name),
+                                    parse_time_str
                                 );
                             }
                         } else {
                             println!(
-                                "{:>3}. ✗ {}",
+                                "{:>3}. ✗ {}{}",
                                 opts.test_num,
                                 paint(opts.color.then_some(AnsiColor::Red), &name),
+                                parse_time_str
                             );
                         }
                         failures.push((name.clone(), actual, output.clone()));

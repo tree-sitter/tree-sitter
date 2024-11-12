@@ -274,6 +274,8 @@ struct Test {
     pub config_path: Option<PathBuf>,
     #[arg(long, help = "Force showing fields in test diffs")]
     pub show_fields: bool,
+    #[arg(long, help = "Show the time each test case took to parse")]
+    pub show_times: bool,
     #[arg(short, long, help = "Force rebuild the parser")]
     pub rebuild: bool,
     #[arg(long, help = "Show only the pass-fail overview tree")]
@@ -959,6 +961,7 @@ impl Test {
         parser.set_language(language)?;
 
         let test_dir = current_dir.join("test");
+        let mut stats = parse::Stats::default();
 
         // Run the corpus tests. Look for them in `test/corpus`.
         let test_corpus_dir = test_dir.join("corpus");
@@ -974,11 +977,14 @@ impl Test {
                 languages: languages.iter().map(|(l, n)| (n.as_str(), l)).collect(),
                 color,
                 test_num: 1,
+                stats: &mut stats,
                 show_fields: self.show_fields,
+                show_times: self.show_times,
                 overview_only: self.overview_only,
             };
 
             test::run_tests_at_path(&mut parser, &mut opts)?;
+            println!("\n{stats}");
         }
 
         // Check that all of the queries are valid.
