@@ -542,8 +542,7 @@ TSNode ts_node_parent(TSNode self) {
 
   while (true) {
     TSNode next_node = ts_node_child_with_descendant(node, self);
-    if (next_node.id == self.id
-        || ts_node_is_null(next_node)) break;
+    if (next_node.id == self.id || ts_node_is_null(next_node)) break;
     node = next_node;
   }
 
