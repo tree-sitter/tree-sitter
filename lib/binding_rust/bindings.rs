@@ -760,13 +760,6 @@ extern "C" {
     pub fn ts_language_state_count(self_: *const TSLanguage) -> u32;
 }
 extern "C" {
-    #[doc = " Get a node type string for the given numerical id."]
-    pub fn ts_language_symbol_name(
-        self_: *const TSLanguage,
-        symbol: TSSymbol,
-    ) -> *const ::core::ffi::c_char;
-}
-extern "C" {
     #[doc = " Get the numerical id for the given node type string."]
     pub fn ts_language_symbol_for_name(
         self_: *const TSLanguage,
@@ -793,6 +786,25 @@ extern "C" {
         name: *const ::core::ffi::c_char,
         name_length: u32,
     ) -> TSFieldId;
+}
+extern "C" {
+    #[doc = " Get a list of all supertype symbols for the language."]
+    pub fn ts_language_supertypes(self_: *const TSLanguage, length: *mut u32) -> *const TSSymbol;
+}
+extern "C" {
+    #[doc = " Get a list of all subtype symbol ids for a given supertype symbol.\n\n See [`ts_language_supertypes`] for fetching all supertype symbols."]
+    pub fn ts_language_subtypes(
+        self_: *const TSLanguage,
+        supertype: TSSymbol,
+        length: *mut u32,
+    ) -> *const TSSymbol;
+}
+extern "C" {
+    #[doc = " Get a node type string for the given numerical id."]
+    pub fn ts_language_symbol_name(
+        self_: *const TSLanguage,
+        symbol: TSSymbol,
+    ) -> *const ::core::ffi::c_char;
 }
 extern "C" {
     #[doc = " Check whether the given node type id belongs to named nodes, anonymous nodes,\n or a hidden nodes.\n\n See also [`ts_node_is_named`]. Hidden nodes are never returned from the API."]
