@@ -533,7 +533,7 @@ fn run_tests(
             attributes_str,
             attributes,
         } => {
-            // print!("{}", "  ".repeat(indent_level as usize));
+            print!("{}", "  ".repeat(indent_level as usize));
 
             if attributes.skip {
                 println!(
@@ -544,14 +544,14 @@ fn run_tests(
                 return Ok(true);
             }
 
-            // if !attributes.platform {
-            //     println!(
-            //         "{:>3}.  {}",
-            //         opts.test_num,
-            //         paint(opts.color.then_some(AnsiColor::Magenta), &name),
-            //     );
-            //     return Ok(true);
-            // }
+            if !attributes.platform {
+                println!(
+                    "{:>3}.  {}",
+                    opts.test_num,
+                    paint(opts.color.then_some(AnsiColor::Magenta), &name),
+                );
+                return Ok(true);
+            }
 
             for (i, language_name) in attributes.languages.iter().enumerate() {
                 if !language_name.is_empty() {
