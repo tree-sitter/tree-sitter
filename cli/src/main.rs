@@ -1215,7 +1215,7 @@ impl Highlight {
                     let styles = theme_config.theme.styles.iter();
                     for (name, style) in names.zip(styles) {
                         if let Some(css) = &style.css {
-                            println!("    .{} {{ {} }}", name, css);
+                            println!("    .{} {{ {}; }}", name, css);
                         }
                     }
                     println!("  </style>");
