@@ -16,7 +16,7 @@ use serde_json::{json, Value};
 use tree_sitter_highlight::{HighlightConfiguration, HighlightEvent, Highlighter, HtmlRenderer};
 use tree_sitter_loader::Loader;
 
-pub const HTML_HEADER: &str = "
+pub const HTML_HEAD_HEADER: &str = "
 <!doctype HTML>
 <head>
   <title>Tree-sitter Highlighting</title>
@@ -33,7 +33,9 @@ pub const HTML_HEADER: &str = "
     .line {
       white-space: pre;
     }
-  </style>
+  </style>";
+
+pub const HTML_BODY_HEADER: &str = "
 </head>
 <body>
 ";
@@ -268,7 +270,7 @@ fn hex_string_to_rgb(s: &str) -> Option<(u8, u8, u8)> {
 }
 
 fn style_to_css(style: anstyle::Style) -> String {
-    let mut result = "style='".to_string();
+    let mut result = "".to_string();
     let effects = style.get_effects();
     if effects.contains(Effects::UNDERLINE) {
         write!(&mut result, "text-decoration: underline;").unwrap();
@@ -282,7 +284,6 @@ fn style_to_css(style: anstyle::Style) -> String {
     if let Some(color) = style.get_fg_color() {
         write_color(&mut result, color);
     }
-    result.push('\'');
     result
 }
 
@@ -401,12 +402,14 @@ pub fn html(
     let mut renderer = HtmlRenderer::new();
     renderer.render(events, source, &move |highlight, output| {
         if inline_styles {
+            output.extend("style='".as_bytes());
             output.extend(
                 theme.styles[highlight.0]
                     .css
                     .as_ref()
                     .map_or_else(|| "".as_bytes(), |css_style| css_style.as_bytes())
             );
+            output.extend("'".as_bytes())
         }
         else {
             output.extend(b"class='");
@@ -465,7 +468,7 @@ mod tests {
             style.ansi.get_fg_color(),
             Some(Color::Ansi256(Ansi256Color(36)))
         );
-        assert_eq!(style.css, Some("style=\'color: #00af87\'".to_string()));
+        assert_eq!(style.css, Some("color: #00af87".to_string()));
 
         // junglegreen is not an ANSI color and is preserved when the terminal supports it
         env::set_var("COLORTERM", "truecolor");
@@ -474,7 +477,7 @@ mod tests {
             style.ansi.get_fg_color(),
             Some(Color::Rgb(RgbColor(38, 166, 154)))
         );
-        assert_eq!(style.css, Some("style=\'color: #26a69a\'".to_string()));
+        assert_eq!(style.css, Some("color: #26a69a".to_string()));
 
         // junglegreen gets approximated as darkcyan when the terminal does not support it
         env::set_var("COLORTERM", "");
@@ -483,7 +486,7 @@ mod tests {
             style.ansi.get_fg_color(),
             Some(Color::Ansi256(Ansi256Color(36)))
         );
-        assert_eq!(style.css, Some("style=\'color: #26a69a\'".to_string()));
+        assert_eq!(style.css, Some("color: #26a69a".to_string()));
 
         if let Ok(environment_variable) = original_environment_variable {
             env::set_var("COLORTERM", environment_variable);

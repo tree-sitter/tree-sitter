@@ -1145,7 +1145,7 @@ impl Highlight {
         let paths = collect_paths(self.paths_file.as_deref(), self.paths)?;
 
         if html_mode && !quiet {
-            println!("{}", highlight::HTML_HEADER);
+            println!("{}", highlight::HTML_HEAD_HEADER);
         }
 
         let cancellation_flag = util::cancel_on_signal();
@@ -1207,6 +1207,19 @@ impl Highlight {
                             eprintln!("* {name}");
                         }
                     }
+                }
+
+                if html_mode && !quiet {
+                    println!("  <style>");
+                    let names  = theme_config.theme.highlight_names.iter();
+                    let styles = theme_config.theme.styles.iter();
+                    for (name, style) in names.zip(styles) {
+                        if let Some(css) = &style.css {
+                            println!("    .{} {{ {} }}", name, css);
+                        }
+                    }
+                    println!("  </style>");
+                    println!("{}", highlight::HTML_BODY_HEADER);
                 }
 
                 let source = fs::read(path)?;
