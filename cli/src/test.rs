@@ -15,7 +15,7 @@ use regex::{
     bytes::{Regex as ByteRegex, RegexBuilder as ByteRegexBuilder},
     Regex,
 };
-use serde::Serialize;
+use serde_json::{json, Value};
 use similar::{ChangeTag, TextDiff};
 use tree_sitter::{format_sexp, Language, LogType, Parser, Query};
 use walkdir::WalkDir;
@@ -65,38 +65,6 @@ pub enum TestEntry {
     },
 }
 
-#[derive(Serialize)]
-enum TestResult {
-    Skipped {
-        name: String,
-    },
-    NoPlatform {
-        name: String,
-    },
-    Group {
-        name: String,
-        children: Vec<TestResult>,
-        file_path: Option<PathBuf>,
-    },
-    Pass {
-        // name: String,
-        // input: String,
-        // output: String,
-    },
-    Fail {
-        // name: String,
-        // input: String,
-        // expected_output: String,
-        actual_output: String,
-        diff: String,
-    },
-    Example {
-        name: String,
-        input: String,
-        expected_output: String,
-        actual_output: Vec<TestResult>,
-    }
-}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TestAttributes {
@@ -164,17 +132,15 @@ pub fn run_tests_at_path(parser: &mut Parser, opts: &mut TestOptions) -> Result<
     let mut corrected_entries = Vec::new();
     let mut has_parse_errors = false;
     if opts.generate_report {
-        let result = tests_to_json(
+        let tests_as_json = tests_to_json(
             parser,
             test_entry, 
             opts, 
-            0, 
-            &mut failures, 
-            &mut corrected_entries, 
             &mut has_parse_errors,
-        );
-        let json = serde_json::to_string(&result)?;
-        println!("{}", json);
+        )?;
+        println!("{}", tests_as_json);
+        // let json = serde_json::to_string(&result)?;
+        // println!("{}", json);
         return Ok(());
     } else {
         run_tests(
@@ -388,11 +354,27 @@ fn tests_to_json(
     parser: &mut Parser,
     test_entry: TestEntry,
     opts: &mut TestOptions,
-    mut indent_level: u32, // probably won't be used and can remove
-    failures: &mut Vec<(String, String, String)>, // probably won't be used and can remove
-    corrected_entries: &mut Vec<(String, String, String, String, usize, usize)>, // probably won't be used and can remove
     has_parse_errors: &mut bool,
-) -> TestResult { 
+) -> Result<Value, anyhow::Error> { 
+    fn new_json_diff(actual: String, output: String) -> Value {
+        let mut diff_vec = vec![];
+        let diff = TextDiff::from_lines(&actual, &output);
+        for d in diff.iter_all_changes() {
+            let line = match d.tag() {
+                ChangeTag::Equal => {
+                    json!({"tag": "equal", "value": d.as_str().unwrap().to_string()})
+                }
+                ChangeTag::Insert => {
+                    json!({"tag": "insert", "value": format!("{d}")})
+                }
+                ChangeTag::Delete => {
+                    json!({"tag": "delete", "value": format!("{d}")})
+                }
+            };
+            diff_vec.push(line);
+        }
+        json!(diff_vec)
+    }
     match test_entry {
         TestEntry::Example {
             name,
@@ -405,75 +387,72 @@ fn tests_to_json(
             attributes,
         } => {
             if attributes.skip {
-                let result = TestResult::Skipped { name: name };
-                return result;
+                Ok(json!({
+                    "name": name,
+                    "status": "skipped",
+                }))
             } else if !attributes.platform {
-                let result = TestResult::NoPlatform { name: name };
-                return result;
+                Ok(json!({
+                    "name": name,
+                    "status": "no_platform",
+                }))
             } else {
-                let language_results = attributes.languages.into_iter().map(|language_name| {
+                let mut results = vec![];
+                for language_name in attributes.languages.iter() {
+                    if !language_name.is_empty() {
+                        let language = opts
+                            .languages
+                            .get(language_name.as_ref())
+                            .ok_or_else(|| anyhow!("Language not found: {language_name}"))?;
+                        parser.set_language(language)?;
+                    }
                     let tree = parser.parse(&input, None).unwrap();
-                    if attributes.error {
-                        let actual = tree.root_node().to_sexp();
-                        let diff = TextDiff::from_lines(&actual, &output);
-                        let diff_str = diff.iter_all_changes().map(|d| {
-                            match d.tag() {
-                                ChangeTag::Equal => {
-                                    d.as_str().unwrap().to_string()
-                                }
-                                ChangeTag::Insert => {
-                                    format!("+{d}")
-                                }
-                                ChangeTag::Delete => {
-                                    format!("-{d}")
-                                }
-                            }
-                        }).collect();
-                        let r = TestResult::Fail {
-                            actual_output: tree.root_node().to_sexp(),
-                            diff: diff_str,
-                        };
-                        return r;
+                    let el = if attributes.error {
+                        if tree.root_node().has_error() {
+                            let actual = tree.root_node().to_sexp();
+                            let diff = new_json_diff(actual, output.clone());
+                            json!({
+                                "name": name,
+                                "status": "fail",
+                                "actual_output": tree.root_node().to_sexp(),
+                                "diff": diff,
+                                "language": language_name,
+                            })
+                        } else {
+                            // TODO what's the really should be, see corrected_entries stuff for clues
+                            json!({
+                                "name": name,
+                                "status": "fail",
+                                "actual_output": tree.root_node().to_sexp(),
+                                "diff": "NO ERROR",
+                                "language": language_name,
+                            })
+                        }
                     } else {
                         let mut actual = tree.root_node().to_sexp();
                         if !(opts.show_fields || has_fields) {
                             actual = strip_sexp_fields(&actual);
                         }
                         if actual == output {
-                            return TestResult::Pass {};
+                            json!({
+                                "name": name,
+                                "status": "pass",
+                                "actual": actual,
+                            })
                         } else {
                             let actual = tree.root_node().to_sexp();
-                            let diff = TextDiff::from_lines(&actual, &output);
-                            let diff_str = diff.iter_all_changes().map(|d| {
-                                match d.tag() {
-                                    ChangeTag::Equal => {
-                                        d.as_str().unwrap().to_string()
-                                    }
-                                    ChangeTag::Insert => {
-                                        format!("+{d}")
-                                    }
-                                    ChangeTag::Delete => {
-                                        format!("-{d}")
-                                    }
-                                }
-                            }).collect();
-                            let r = TestResult::Fail {
-                                actual_output: actual,
-                                diff: diff_str,
-                            };
-                            return r;
+                            let diff = new_json_diff(actual.clone(), output.clone());
+                            json!({
+                                "name": name,
+                                "status": "fail",
+                                "actual_output": actual,
+                                "diff": diff,
+                            })
                         }
-                    }
-                });
-                return TestResult::Example {
-                    name: name.clone(),
-                    input: match str::from_utf8(&input) {
-                        Ok(s) => s.to_string(),
-                        Err(e) => format!("Bug parsing input shouldn't happen.")
-                    },
-                    expected_output: output.clone(),
-                    actual_output: language_results.collect(),
-                };
+                    };
+                    results.push(el);
+                }
+                Ok(json!({ "name": name, "results": results }))
             }
         }
         TestEntry::Group {
@@ -482,16 +461,12 @@ fn tests_to_json(
             file_path,
         } => {
             if children.is_empty() {
-                let result = TestResult::Group {
-                    name: name.clone(),
-                    children: vec![],
-                    file_path: file_path.clone()
-                };
-                return result;
+                return Ok(json!({
+                    "name": name,
+                    "children": [],
+                    "file_path": file_path.clone(),
+                }));
             }
-
-            indent_level += 1;
-            let mut advance_counter = opts.test_num;
 
             let matches_filter = |name: &str, opts: &TestOptions| {
                 if let Some(include) = &opts.include {
@@ -503,66 +478,35 @@ fn tests_to_json(
                 }
             };
 
-            let mut should_skip = |entry: &TestEntry, opts: &TestOptions| match entry {
+            let should_skip = |entry: &TestEntry, opts: &TestOptions| match entry {
                 TestEntry::Example { name, .. } => {
-                    advance_counter += 1;
                     !matches_filter(name, opts)
                 }
                 TestEntry::Group { .. } => {
-                    advance_counter += count_subtests(entry);
                     false
                 }
             };
-            let result: Vec<TestResult> = children.into_iter().map(|child| {
-                if should_skip(&child, opts) {
-                    return TestResult::Skipped { name: name.clone() };
+            let mut cs = vec![];
+            for el in children.into_iter() {
+                let c  = if should_skip(&el, opts) {
+                    Ok(match el {
+                        TestEntry::Example { name, .. } => {
+                            json!({"name": name, "status": "skipped"})
+                        }
+                        TestEntry::Group { name, .. } => {
+                            json!({"name": name, "status": "skipped"})
+                        }
+                    })
                 } else {
-                    return tests_to_json(
-                        parser,
-                        child,
-                        opts,
-                        indent_level,
-                        failures,
-                        corrected_entries,
-                        has_parse_errors,
-                    );
-                }
-            }).collect();
-                // if let TestEntry::Example {
-                //     ref name,
-                //     ..
-                // } = child
-                // {  
-                //     println!("testing example: {}", name);
-                //     if should_skip(&child, opts) {
-                //         return TestResult::Skipped { name: name.clone() };
-                //     } else {
-                //         return tests_to_json(
-                //             parser,
-                //             child,
-                //             opts,
-                //             indent_level,
-                //             failures,
-                //             corrected_entries,
-                //             has_parse_errors,
-                //         );
-                //     }
-                // } else {
-                //     if should_skip(&child, opts) {
-
-                //     }
-                //     return TestResult::Group {
-                //         name: name.clone(),
-                //         children: vec![],
-                //         file_path: file_path.clone()
-                //     };
-                // }
-            // }).collect();
-            return TestResult::Group {
-                name: name.clone(),
-                children: result,
-                file_path: file_path.clone()
-            };
+                    tests_to_json(parser, el, opts, has_parse_errors)
+                }?;
+                cs.push(c);
+            }
+            Ok(json!({
+                "name": name,
+                "file_path": file_path,
+                "children": cs,
+            }))
         }
     }
 }
