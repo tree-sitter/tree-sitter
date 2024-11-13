@@ -804,6 +804,7 @@ fn test_query_matches_capturing_missing_nodes() {
                 c();
 
                 if (*) d();
+                //   ^ MISSING identifier here
               }
             }
             ",

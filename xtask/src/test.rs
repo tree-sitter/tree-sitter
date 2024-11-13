@@ -122,8 +122,17 @@ pub fn run_wasm() -> Result<()> {
         bail_on_err(&output, "Failed to install test dependencies")?;
     }
 
-    let output = Command::new(npm).arg("test").output()?;
-    bail_on_err(&output, &format!("Failed to run {npm} test"))?;
+    println!("Running {npm} test...");
+    let child = Command::new(npm).arg("test").spawn()?;
+
+    let output = child.wait_with_output()?;
+    bail_on_err(&output, &format!("{npm} test failed"))?;
+
+    // Display test results
+    let output = String::from_utf8_lossy(&output.stdout);
+    for line in output.lines() {
+        println!("{line}");
+    }
 
     Ok(())
 }

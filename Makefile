@@ -99,8 +99,8 @@ test:
 	cargo xtask generate-fixtures
 	cargo xtask test
 
-test_wasm:
-	cargo xtask generate-fixtures-wasm
+test-wasm:
+	cargo xtask generate-fixtures --wasm
 	cargo xtask test-wasm
 
 lint:
@@ -115,4 +115,4 @@ format:
 changelog:
 	@git-cliff --config .github/cliff.toml --prepend CHANGELOG.md --latest --github-token $(shell gh auth token)
 
-.PHONY: test test_wasm lint format changelog
+.PHONY: test test-wasm lint format changelog
