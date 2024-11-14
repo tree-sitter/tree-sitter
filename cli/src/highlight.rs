@@ -270,7 +270,7 @@ fn hex_string_to_rgb(s: &str) -> Option<(u8, u8, u8)> {
 }
 
 fn style_to_css(style: anstyle::Style) -> String {
-    let mut result = "".to_string();
+    let mut result = String::new();
     let effects = style.get_effects();
     if effects.contains(Effects::UNDERLINE) {
         write!(&mut result, "text-decoration: underline;").unwrap();
@@ -402,14 +402,14 @@ pub fn html(
     let mut renderer = HtmlRenderer::new();
     renderer.render(events, source, &move |highlight, output| {
         if inline_styles {
-            output.extend("style='".as_bytes());
+            output.extend(b"style='");
             output.extend(
                 theme.styles[highlight.0]
                     .css
                     .as_ref()
-                    .map_or_else(|| "".as_bytes(), |css_style| css_style.as_bytes()),
+                    .map_or_else(|| "".as_bytes(), |css_style| css_style.as_bytes())
             );
-            output.extend("'".as_bytes())
+            output.extend(b"'")
         } else {
             output.extend(b"class='");
             let mut parts = theme.highlight_names[highlight.0].split('.').peekable();

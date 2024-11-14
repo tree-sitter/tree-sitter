@@ -363,7 +363,7 @@ struct Highlight {
     pub html: bool,
     #[arg(
         long,
-        help = "When generating HTML, use css classes, rather than inline styles"
+        help = "When generating HTML, use css classes rather than inline styles"
     )]
     pub css_classes: bool,
     #[arg(
