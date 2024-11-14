@@ -11,11 +11,12 @@ use regex::{
     Regex,
 };
 use serde_json::json;
-use serde::{ser::SerializeStruct, Serialize, Serializer};
+// use serde::{ser::SerializeStruct, Serialize, Serializer};
 // use serde::ser::{Serializer, Serialize};
 use similar::{ChangeTag, TextDiff};
 use tree_sitter::{format_sexp, Language, LogType, Parser, Query};
 use walkdir::WalkDir;
+use super::test_result::{TestResult, LanguageResult};
 // use serde::Serialize;
 
 use super::util;
@@ -126,40 +127,30 @@ pub fn run_tests_at_path(parser: &mut Parser, opts: &mut TestOptions) -> Result<
         })));
     }
 
-    let mut failures = Vec::new();
-    let mut corrected_entries = Vec::new();
-    let mut has_parse_errors = false;
+    // let mut failures = Vec::new();
+    if opts.generate_report && opts.update {
+        anyhow!("Cannot generate a report and update tests at the same time");
+    }
+    let results = tests_to_json(parser, test_entry, opts)?;
     if opts.generate_report {
-        let tests_as_json = tests_to_json(
-            parser,
-            test_entry, 
-            opts, 
-            &mut has_parse_errors,
-        )?;
-        println!("{}", json!(tests_as_json));
-        // let json = serde_json::to_string(&result)?;
-        // println!("{}", json);
+        println!("{}", json!(results));
         return Ok(());
     } else {
-        run_tests(
-            parser,
-            test_entry,
-            opts,
-            0,
-            &mut failures,
-            &mut corrected_entries,
-            &mut has_parse_errors,
-        )?;
+        let output = get_results_overview(&results, 1, 0, opts.color, false);
+        println!("{}", output.join("\n"));
     }
 
+    // let mut corrected_entries: Vec<(String, String, String, String, usize, usize)> = Vec::new();
+    let mut has_parse_errors = false; // TODO why do we need this?
     parser.stop_printing_dot_graphs();
-
-    if failures.is_empty() {
+    let failures = results.get_failures();
+    
+    if !failures.is_empty() {
         Ok(())
     } else {
         println!();
 
-        if opts.update && !has_parse_errors {
+        if opts.update && has_parse_errors {
             if failures.len() == 1 {
                 println!("1 update:\n");
             } else {
@@ -352,25 +343,36 @@ fn tests_to_json(
     parser: &mut Parser,
     test_entry: TestEntry,
     opts: &mut TestOptions,
-    has_parse_errors: &mut bool,
+    // has_parse_errors: &mut bool,
 ) -> Result<TestResult, anyhow::Error> { 
     match test_entry {
         TestEntry::Example {
             name,
             input,
             output,
-            header_delim_len: _,
-            divider_delim_len: _,
+            header_delim_len,
+            divider_delim_len,
             has_fields,
-            attributes_str: _,
+            attributes_str,
             attributes,
         } => {
             if attributes.skip {
-                Ok(TestResult::Skipped { name: name })
+                let update = opts.update.then_some((
+                    String::from_utf8(input.clone()).unwrap(),
+                    output,
+                    attributes_str.clone(),
+                    header_delim_len,
+                    divider_delim_len));
+                Ok(TestResult::Skipped { name: name, update })
             } else if !attributes.platform {
                 Ok(TestResult::NoPlatform { name: name })
             } else {
                 let mut results = vec![];
+                let update = opts.update.then_some((
+                    attributes_str,
+                    header_delim_len,
+                    divider_delim_len,
+                ));
                 for language_name in attributes.languages.iter() {
                     if !language_name.is_empty() {
                         let language = opts
@@ -380,45 +382,38 @@ fn tests_to_json(
                         parser.set_language(language)?;
                     }
                     let tree = parser.parse(&input, None).unwrap();
+                    // If the test is meant to fail
                     let el = if attributes.error {
+                        // And if it fails
                         if tree.root_node().has_error() {
-                            let actual = tree.root_node().to_sexp();
-                            // let diff = TextDiff::from_lines(&actual, &output);
-                            LanguageResult::fail(name.clone(), output.clone(), actual)
-                        } else {
-                            // TODO what's the really should be, see corrected_entries stuff for clues
-                            let f = LanguageResult::fail(name.clone(), output.clone(), tree.root_node().to_sexp());
-                            // f.diff = "NO ERROR";
+                            LanguageResult::expected_fail(
+                                name.clone(), 
+                                output.clone(),
+                                update.clone(),
+                            )
+                        } else { // unwanted success
+                            let f = LanguageResult::unexpected_pass(
+                                name.clone(), 
+                                format_sexp(&output, 0), 
+                                update.clone(),
+                            );
                             f
                         }
-                    } else {
+                    } else { // Expect PASS
                         let mut actual = tree.root_node().to_sexp();
                         if !(opts.show_fields || has_fields) {
                             actual = strip_sexp_fields(&actual);
                         }
                         if actual == output.clone() {
-                            LanguageResult::pass(name.clone(), actual)
-                            // json!({
-                            //     "name": name,
-                            //     "status": "pass",
-                            //     "actual": actual,
-                            // })
+                            LanguageResult::pass(name.clone(), actual, update.clone())
                         } else {
                             let actual = tree.root_node().to_sexp();
-                            LanguageResult::fail(name.clone(), actual, output.clone())
-                            // let diff = new_json_diff(actual.clone(), output.clone());
-                            // json!({
-                            //     "name": name,
-                            //     "status": "fail",
-                            //     "actual_output": actual,
-                            //     "diff": diff,
-                            // })
+                            LanguageResult::fail(name.clone(), actual, output.clone(), update.clone())
                         }
                     };
                     results.push((language_name.as_ref().to_string(), el));
                 }
                 Ok(TestResult::Executed { name: name.clone(), results })
-                // Ok(json!({ "name": name, "results": results }))
             }
         }
         TestEntry::Group {
@@ -428,11 +423,6 @@ fn tests_to_json(
         } => {
             if children.is_empty() {
                 return Ok(TestResult::Group { name, file_path: file_path, children: vec![] })
-                // return Ok(json!({
-                //     "name": name,
-                //     "children": [],
-                //     "file_path": file_path.clone(),
-                // }));
             }
 
             let matches_filter = |name: &str, opts: &TestOptions| {
@@ -457,8 +447,18 @@ fn tests_to_json(
             for el in children.into_iter() {
                 let c  = if should_skip(&el, opts) {
                     Ok(match el {
-                        TestEntry::Example { name, .. } => {
-                            TestResult::Skipped { name }
+                        TestEntry::Example { name, input, output, attributes_str, header_delim_len, divider_delim_len, .. } => {
+                            let update = opts.update.then_some((
+                                String::from_utf8(input.clone()).unwrap(), 
+                                format_sexp(&output, 0),
+                                attributes_str,
+                                header_delim_len,
+                                divider_delim_len,
+                            ));
+                            TestResult::Skipped {
+                                name,
+                                update,
+                            }
                             // json!({"name": name, "status": "skipped"})
                         }
                         TestEntry::Group { name, .. } => {
@@ -466,16 +466,86 @@ fn tests_to_json(
                         }
                     })
                 } else {
-                    tests_to_json(parser, el, opts, has_parse_errors)
+                    tests_to_json(parser, el, opts)
                 }?;
                 cs.push(c);
             }
             Ok(TestResult::Group { name, file_path, children: cs })
-            // Ok(json!({
-            //     "name": name,
-            //     "file_path": file_path,
-            //     "children": cs,
-            // }))
+        }
+    }
+}
+
+fn get_results_overview(results: &TestResult, idx: usize, indent_level: usize, use_color: bool, fail_fast: bool) -> Vec<String> {
+    let indent = format!("{}", "  ".repeat(indent_level as usize));
+    match results {
+        TestResult::Skipped { name, .. } => {
+            vec![format!(
+                "{}{:>3}.  {}",
+                indent,
+                idx,
+                paint(use_color.then_some(AnsiColor::Yellow), &name),
+            )]
+        }
+        TestResult::NoPlatform { name } => {
+            vec![format!(
+                "{}{:>3}.  {}",
+                indent,
+                idx,
+                paint(use_color.then_some(AnsiColor::Magenta), &name),
+            )]
+        }
+        TestResult::Executed { name, results } => {
+            let mut acc = vec![];
+            for (offset, (_lang, result)) in results.into_iter().enumerate() {
+                let line = match result {
+                    LanguageResult::Pass { name, intended, .. } => {
+                        if *intended {
+                            format!(
+                                "{}{:>3}. ✓ {}",
+                                indent,
+                                idx + offset,
+                                paint(use_color.then_some(AnsiColor::Green), &name)
+                            )
+                        } else {
+                            format!(
+                                "{}{:>3}.  {}",
+                                indent,
+                                idx + offset,
+                                paint(use_color.then_some(AnsiColor::Red), &name)
+                            )
+                        }
+                    }
+                    LanguageResult::Fail { .. } => {
+                        format!(
+                            "{}{:>3}. ✗ {}",
+                            indent,
+                            idx + offset,
+                            paint(use_color.then_some(AnsiColor::Red), &name),
+                        )
+                    }
+                    LanguageResult::ExpectedFailure { name, .. } => {
+                        format!(
+                            "{}{:>3}.  {}",
+                            indent,
+                            idx + offset,
+                            paint(use_color.then_some(AnsiColor::Green), &name)
+                        )
+                    }
+                };
+                acc.push(line);
+            }
+            acc
+            // format!("{}", acc.join("\n"))
+        }
+        TestResult::Group { name, children, .. } => {
+            let mut results = vec![format!("{}{}:", indent, name)];
+            let mut i = 0;
+            for (offset, child) in children.into_iter().enumerate() {
+                let mut result = get_results_overview(child, idx + offset + i, indent_level + 1, use_color, fail_fast);
+                results.append(&mut result);
+                i = i + result.len() - 1;
+            }
+            results
         }
     }
 }
@@ -1659,113 +1729,113 @@ a
     }
 }
 
-#[derive(Serialize)]
-#[serde(untagged)]
-enum TestResult {
-    Executed {
-        name: String,
-        results: Vec<(String, LanguageResult)>,
-    },
-    NoPlatform {
-        name: String,
-        // status: String,
-    },
-    Skipped {
-        name: String,
-        // status: String,
-    },
-    Group {
-        name: String,
-        file_path: Option<PathBuf>,
-        children: Vec<TestResult>,
-    }
-}
-enum LanguageResult {
-    Pass {
-        name: String,
-        expected: String,
-    },
-    Fail {
-        name: String,
-        expected: String,
-        result: String,
-        diff: Vec<DiffResult>,
-    },
-}
-impl Serialize for LanguageResult {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where S: Serializer, 
-    {
-        // let mut state = serializer.serialize_struct("LanguageResult")
-        match self {
-            LanguageResult::Pass { name, expected } => {
-                let mut state = serializer.serialize_struct("Pass", 3)?;
-                state.serialize_field("status", "passed")?;
-                state.serialize_field("name", &name)?;
-                state.serialize_field("expected", &expected)?;
-                state.end()
-            }
-            LanguageResult::Fail { name, expected, result, diff } => {
-                let mut state = serializer.serialize_struct("Fail", 5)?;
-                state.serialize_field("status", "failed")?;
-                state.serialize_field("name", &name)?;
-                state.serialize_field("expected", &expected)?;
-                state.serialize_field("result", &result)?;
-                state.serialize_field("diff", diff)?;
-                state.end()
-            }
-        }
-    }
-}
-impl LanguageResult {
-    fn pass(name: String, expected: String) -> Self {
-        LanguageResult::Pass {
-            name: name,
-            expected,
-        }
-    }
-    fn fail(name: String, expected: String, result: String) -> Self {
-        let diff = TextDiff::from_lines(&expected, &result);
-        let mut diff_vec = vec![];
-        for d in diff.iter_all_changes() {
-            let line = match d.tag() {
-                ChangeTag::Equal => DiffResult::Equal { value: d.as_str().unwrap().to_string()},
-                ChangeTag::Delete => DiffResult::Delete { value: d.as_str().unwrap().to_string()},
-                ChangeTag::Insert => DiffResult::Insert { value: d.as_str().unwrap().to_string()}
-            };
-            diff_vec.push(line);
-        }
-        LanguageResult::Fail {
-            name,
-            expected,
-            result,
-            diff: diff_vec,
-        }
-    }
-}
+// #[derive(Serialize)]
+// #[serde(untagged)]
+// enum TestResult {
+//     Executed {
+//         name: String,
+//         results: Vec<(String, LanguageResult)>,
+//     },
+//     NoPlatform {
+//         name: String,
+//         // status: String,
+//     },
+//     Skipped {
+//         name: String,
+//         // status: String,
+//     },
+//     Group {
+//         name: String,
+//         file_path: Option<PathBuf>,
+//         children: Vec<TestResult>,
+//     }
+// }
+// enum LanguageResult {
+//     Pass {
+//         name: String,
+//         expected: String,
+//     },
+//     Fail {
+//         name: String,
+//         expected: String,
+//         result: String,
+//         diff: Vec<DiffResult>,
+//     },
+// }
+// impl Serialize for LanguageResult {
+//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+//     where S: Serializer, 
+//     {
+//         // let mut state = serializer.serialize_struct("LanguageResult")
+//         match self {
+//             LanguageResult::Pass { name, expected } => {
+//                 let mut state = serializer.serialize_struct("Pass", 3)?;
+//                 state.serialize_field("status", "passed")?;
+//                 state.serialize_field("name", &name)?;
+//                 state.serialize_field("expected", &expected)?;
+//                 state.end()
+//             }
+//             LanguageResult::Fail { name, expected, result, diff } => {
+//                 let mut state = serializer.serialize_struct("Fail", 5)?;
+//                 state.serialize_field("status", "failed")?;
+//                 state.serialize_field("name", &name)?;
+//                 state.serialize_field("expected", &expected)?;
+//                 state.serialize_field("result", &result)?;
+//                 state.serialize_field("diff", diff)?;
+//                 state.end()
+//             }
+//         }
+//     }
+// }
+// impl LanguageResult {
+//     fn pass(name: String, expected: String) -> Self {
+//         LanguageResult::Pass {
+//             name: name,
+//             expected,
+//         }
+//     }
+//     fn fail(name: String, expected: String, result: String) -> Self {
+//         let diff = TextDiff::from_lines(&expected, &result);
+//         let mut diff_vec = vec![];
+//         for d in diff.iter_all_changes() {
+//             let line = match d.tag() {
+//                 ChangeTag::Equal => DiffResult::Equal { value: d.as_str().unwrap().to_string()},
+//                 ChangeTag::Delete => DiffResult::Delete { value: d.as_str().unwrap().to_string()},
+//                 ChangeTag::Insert => DiffResult::Insert { value: d.as_str().unwrap().to_string()}
+//             };
+//             diff_vec.push(line);
+//         }
+//         LanguageResult::Fail {
+//             name,
+//             expected,
+//             result,
+//             diff: diff_vec,
+//         }
+//     }
+// }
 
-enum DiffResult {
-    Equal { value: String },
-    Insert { value: String },
-    Delete { value: String },
-}
-impl Serialize for DiffResult {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
-        let mut state = serializer.serialize_struct("DiffResult", 2)?;
-        match self {
-            DiffResult::Equal { value } => {
-                state.serialize_field("value", &value)?;
-                state.serialize_field("tag", "equal")?
-            }
-            DiffResult::Delete { value } => {
-                state.serialize_field("value", &value)?;
-                state.serialize_field("tag", "delete")?
-            }
-            DiffResult::Insert { value } => {
-                state.serialize_field("value", &value)?;
-                state.serialize_field("tag", "insert")?
-            }
-        }
-        state.end()
-    }
-}
+// enum DiffResult {
+//     Equal { value: String },
+//     Insert { value: String },
+//     Delete { value: String },
+// }
+// impl Serialize for DiffResult {
+//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+//         let mut state = serializer.serialize_struct("DiffResult", 2)?;
+//         match self {
+//             DiffResult::Equal { value } => {
+//                 state.serialize_field("value", &value)?;
+//                 state.serialize_field("tag", "equal")?
+//             }
+//             DiffResult::Delete { value } => {
+//                 state.serialize_field("value", &value)?;
+//                 state.serialize_field("tag", "delete")?
+//             }
+//             DiffResult::Insert { value } => {
+//                 state.serialize_field("value", &value)?;
+//                 state.serialize_field("tag", "insert")?
+//             }
+//         }
+//         state.end()
+//     }
+// }

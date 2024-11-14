@@ -11,6 +11,7 @@ pub mod query_testing;
 pub mod tags;
 pub mod test;
 pub mod test_highlight;
+pub mod test_result;
 pub mod test_tags;
 pub mod util;
 pub mod version;
