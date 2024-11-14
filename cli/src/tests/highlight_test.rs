@@ -718,7 +718,9 @@ fn to_html<'a>(
             .map(Highlight),
     );
     renderer
-        .render(events, src, &|highlight, output| { output.extend(HTML_ATTRS[highlight.0].as_bytes()); })
+        .render(events, src, &|highlight, output| {
+            output.extend(HTML_ATTRS[highlight.0].as_bytes());
+        })
         .unwrap();
     Ok(renderer
         .lines()
