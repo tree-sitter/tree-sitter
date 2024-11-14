@@ -1211,7 +1211,7 @@ impl Highlight {
 
                 if html_mode && !quiet {
                     println!("  <style>");
-                    let names  = theme_config.theme.highlight_names.iter();
+                    let names = theme_config.theme.highlight_names.iter();
                     let styles = theme_config.theme.styles.iter();
                     for (name, style) in names.zip(styles) {
                         if let Some(css) = &style.css {

@@ -407,11 +407,10 @@ pub fn html(
                 theme.styles[highlight.0]
                     .css
                     .as_ref()
-                    .map_or_else(|| "".as_bytes(), |css_style| css_style.as_bytes())
+                    .map_or_else(|| "".as_bytes(), |css_style| css_style.as_bytes()),
             );
             output.extend("'".as_bytes())
-        }
-        else {
+        } else {
             output.extend(b"class='");
             let mut parts = theme.highlight_names[highlight.0].split('.').peekable();
             while let Some(part) = parts.next() {
