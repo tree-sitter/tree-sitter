@@ -499,10 +499,7 @@ pub fn generate_node_types_json(
         } else if !syntax_grammar.variables_to_inline.contains(&symbol) {
             // If a rule is aliased under multiple names, then its information
             // contributes to multiple entries in the final JSON.
-            for alias in aliases_by_symbol
-                .get(&Symbol::non_terminal(i))
-                .unwrap_or(&HashSet::new())
-            {
+            for alias in aliases_by_symbol.get(&symbol).unwrap_or(&HashSet::new()) {
                 let kind;
                 let is_named;
                 if let Some(alias) = alias {
