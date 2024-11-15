@@ -1,28 +1,34 @@
+use std::collections::HashMap;
+
 use anyhow::{anyhow, Result};
 use indoc::indoc;
 
 use super::ExtractedSyntaxGrammar;
 use crate::{
-    grammars::{Production, ProductionStep, SyntaxGrammar, SyntaxVariable, Variable},
-    rules::{Alias, Associativity, Precedence, Rule, Symbol, TokenSet},
+    grammars::{
+        Production, ProductionStep, ReservedWordSetId, SyntaxGrammar, SyntaxVariable, Variable,
+    },
+    rules::{Alias, Associativity, Precedence, Rule, Symbol},
 };
 
 struct RuleFlattener {
     production: Production,
+    reserved_word_set_ids: HashMap<String, ReservedWordSetId>,
     precedence_stack: Vec<Precedence>,
     associativity_stack: Vec<Associativity>,
-    reserved_word_stack: Vec<TokenSet>,
+    reserved_word_stack: Vec<ReservedWordSetId>,
     alias_stack: Vec<Alias>,
     field_name_stack: Vec<String>,
 }
 
 impl RuleFlattener {
-    const fn new() -> Self {
+    const fn new(reserved_word_set_ids: HashMap<String, ReservedWordSetId>) -> Self {
         Self {
             production: Production {
                 steps: Vec::new(),
                 dynamic_precedence: 0,
             },
+            reserved_word_set_ids,
             precedence_stack: Vec::new(),
             associativity_stack: Vec::new(),
             reserved_word_stack: Vec::new(),
@@ -34,7 +40,7 @@ impl RuleFlattener {
     fn flatten_variable(&mut self, variable: Variable) -> Result<SyntaxVariable> {
         let mut productions = Vec::new();
         for rule in extract_choices(variable.rule) {
-            let production = self.flatten_rule(rule);
+            let production = self.flatten_rule(rule)?;
             if !productions.contains(&production) {
                 productions.push(production);
             }
@@ -46,26 +52,26 @@ impl RuleFlattener {
         })
     }
 
-    fn flatten_rule(&mut self, rule: Rule) -> Production {
+    fn flatten_rule(&mut self, rule: Rule) -> Result<Production> {
         self.production = Production::default();
         self.alias_stack.clear();
         self.reserved_word_stack.clear();
         self.precedence_stack.clear();
         self.associativity_stack.clear();
         self.field_name_stack.clear();
-        self.apply(rule, true);
-        self.production.clone()
+        self.apply(rule, true)?;
+        Ok(self.production.clone())
     }
 
-    fn apply(&mut self, rule: Rule, at_end: bool) -> bool {
+    fn apply(&mut self, rule: Rule, at_end: bool) -> Result<bool> {
         match rule {
             Rule::Seq(members) => {
                 let mut result = false;
                 let last_index = members.len() - 1;
                 for (i, member) in members.into_iter().enumerate() {
-                    result |= self.apply(member, i == last_index && at_end);
+                    result |= self.apply(member, i == last_index && at_end)?;
                 }
-                result
+                Ok(result)
             }
             Rule::Metadata { rule, params } => {
                 let mut has_precedence = false;
@@ -96,7 +102,7 @@ impl RuleFlattener {
                     self.production.dynamic_precedence = params.dynamic_precedence;
                 }
 
-                let did_push = self.apply(*rule, at_end);
+                let did_push = self.apply(*rule, at_end)?;
 
                 if has_precedence {
                     self.precedence_stack.pop();
@@ -125,17 +131,18 @@ impl RuleFlattener {
                     self.field_name_stack.pop();
                 }
 
-                did_push
+                Ok(did_push)
             }
-            Rule::Reserved {
-                rule,
-                reserved_words,
-            } => {
-                self.reserved_word_stack
-                    .push(rules_to_token_set(reserved_words));
-                let did_push = self.apply(*rule, at_end);
+            Rule::Reserved { rule, context_name } => {
+                self.reserved_word_stack.push(
+                    self.reserved_word_set_ids
+                        .get(&context_name)
+                        .copied()
+                        .ok_or_else(|| anyhow!("no such reserved word set: {context_name}"))?,
+                );
+                let did_push = self.apply(*rule, at_end)?;
                 self.reserved_word_stack.pop();
-                did_push
+                Ok(did_push)
             }
             Rule::Symbol(symbol) => {
                 self.production.steps.push(ProductionStep {
@@ -146,28 +153,19 @@ impl RuleFlattener {
                         .cloned()
                         .unwrap_or(Precedence::None),
                     associativity: self.associativity_stack.last().copied(),
-                    reserved_word_set_id: self.reserved_word_stack.last().cloned().map(Box::new),
+                    reserved_word_set_id: self
+                        .reserved_word_stack
+                        .last()
+                        .copied()
+                        .unwrap_or(ReservedWordSetId::default()),
                     alias: self.alias_stack.last().cloned(),
                     field_name: self.field_name_stack.last().cloned(),
                 });
-                true
+                Ok(true)
             }
-            _ => false,
+            _ => Ok(false),
         }
     }
-}
-
-fn rules_to_token_set(rules: Vec<Rule>) -> TokenSet {
-    rules
-        .into_iter()
-        .filter_map(|rule| {
-            if let Rule::Symbol(s) = rule {
-                Some(s)
-            } else {
-                None
-            }
-        })
-        .collect()
 }
 
 fn extract_choices(rule: Rule) -> Vec<Rule> {
@@ -202,14 +200,11 @@ fn extract_choices(rule: Rule) -> Vec<Rule> {
                 params: params.clone(),
             })
             .collect(),
-        Rule::Reserved {
-            rule,
-            reserved_words,
-        } => extract_choices(*rule)
+        Rule::Reserved { rule, context_name } => extract_choices(*rule)
             .into_iter()
             .map(|rule| Rule::Reserved {
                 rule: Box::new(rule),
-                reserved_words: reserved_words.clone(),
+                context_name: context_name.clone(),
             })
             .collect(),
         _ => vec![rule],
@@ -230,7 +225,12 @@ fn symbol_is_used(variables: &[SyntaxVariable], symbol: Symbol) -> bool {
 }
 
 pub(super) fn flatten_grammar(grammar: ExtractedSyntaxGrammar) -> Result<SyntaxGrammar> {
-    let mut flattener = RuleFlattener::new();
+    let mut reserved_word_set_ids_by_name = HashMap::new();
+    for (ix, set) in grammar.reserved_word_sets.iter().enumerate() {
+        reserved_word_set_ids_by_name.insert(set.name.clone(), ReservedWordSetId(ix));
+    }
+
+    let mut flattener = RuleFlattener::new(reserved_word_set_ids_by_name);
     let variables = grammar
         .variables
         .into_iter()
@@ -271,7 +271,11 @@ pub(super) fn flatten_grammar(grammar: ExtractedSyntaxGrammar) -> Result<SyntaxG
         external_tokens: grammar.external_tokens,
         supertype_symbols: grammar.supertype_symbols,
         word_token: grammar.word_token,
-        reserved_words: grammar.reserved_words.into_iter().collect(),
+        reserved_word_sets: grammar
+            .reserved_word_sets
+            .into_iter()
+            .map(|set| set.reserved_words.into_iter().collect())
+            .collect(),
         variables,
     })
 }
@@ -283,7 +287,7 @@ mod tests {
 
     #[test]
     fn test_flatten_grammar() {
-        let mut flattener = RuleFlattener::new();
+        let mut flattener = RuleFlattener::new(Default::default());
         let result = flattener
             .flatten_variable(Variable {
                 name: "test".to_string(),
@@ -344,7 +348,7 @@ mod tests {
 
     #[test]
     fn test_flatten_grammar_with_maximum_dynamic_precedence() {
-        let mut flattener = RuleFlattener::new();
+        let mut flattener = RuleFlattener::new(Default::default());
         let result = flattener
             .flatten_variable(Variable {
                 name: "test".to_string(),
@@ -400,7 +404,7 @@ mod tests {
 
     #[test]
     fn test_flatten_grammar_with_final_precedence() {
-        let mut flattener = RuleFlattener::new();
+        let mut flattener = RuleFlattener::new(Default::default());
         let result = flattener
             .flatten_variable(Variable {
                 name: "test".to_string(),
@@ -448,7 +452,7 @@ mod tests {
 
     #[test]
     fn test_flatten_grammar_with_field_names() {
-        let mut flattener = RuleFlattener::new();
+        let mut flattener = RuleFlattener::new(Default::default());
         let result = flattener
             .flatten_variable(Variable {
                 name: "test".to_string(),
@@ -496,7 +500,7 @@ mod tests {
             external_tokens: Vec::new(),
             supertype_symbols: Vec::new(),
             word_token: None,
-            reserved_words: Vec::new(),
+            reserved_word_sets: Vec::new(),
             variables: vec![Variable {
                 name: "test".to_string(),
                 kind: VariableType::Named,

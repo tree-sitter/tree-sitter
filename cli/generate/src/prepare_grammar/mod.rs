@@ -14,6 +14,8 @@ use std::{
 
 use anyhow::{anyhow, Result};
 
+use crate::grammars::ReservedWordContext;
+
 pub use self::expand_tokens::expand_tokens;
 use self::{
     expand_repeats::expand_repeats, extract_default_aliases::extract_default_aliases,
@@ -37,7 +39,7 @@ pub struct IntermediateGrammar<T, U> {
     variables_to_inline: Vec<Symbol>,
     supertype_symbols: Vec<Symbol>,
     word_token: Option<Symbol>,
-    reserved_words: Vec<(String, Vec<T>)>,
+    reserved_word_sets: Vec<ReservedWordContext<T>>,
 }
 
 pub type InternedGrammar = IntermediateGrammar<Rule, Variable>;
@@ -61,7 +63,7 @@ impl<T, U> Default for IntermediateGrammar<T, U> {
             variables_to_inline: Vec::default(),
             supertype_symbols: Vec::default(),
             word_token: Option::default(),
-            reserved_words: Vec::default(),
+            reserved_word_sets: Vec::default(),
         }
     }
 }

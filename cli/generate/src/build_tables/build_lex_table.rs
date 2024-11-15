@@ -44,7 +44,7 @@ pub fn build_lex_table(
             .terminal_entries
             .keys()
             .copied()
-            .chain(syntax_grammar.reserved_words(state.reserved_words).iter())
+            .chain(state.reserved_words.iter())
             .filter_map(|token| {
                 if token.is_terminal() {
                     if keywords.contains(&token) {

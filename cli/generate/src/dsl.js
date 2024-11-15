@@ -161,11 +161,14 @@ class GrammarSymbol {
   }
 }
 
-function reserved(reservedWords, rule) {
+function reserved(name, rule) {
+  if (typeof name !== 'string') {
+    throw new Error('Invalid reserved word set name: ' + name)
+  }
   return {
     type: "RESERVED",
-    content: rule,
-    words: reservedWords.map(normalize),
+    content: normalize(rule),
+    context_name: name,
   }
 }
 
@@ -249,7 +252,7 @@ function grammar(baseGrammar, options) {
       inline: [],
       supertypes: [],
       precedences: [],
-      reserved: [],
+      reserved: {},
     };
   } else {
     baseGrammar = baseGrammar.grammar;
@@ -325,17 +328,24 @@ function grammar(baseGrammar, options) {
 
   let reserved = baseGrammar.reserved;
   if (options.reserved) {
-    if (typeof options.reserved !== "function") {
-      throw new Error("Grammar's 'reserved' property must be a function.");
+    if (typeof options.reserved !== "object") {
+      throw new Error("Grammar's 'reserved' property must be an object.");
     }
 
-    const reservedTokens = options.reserved.call(ruleBuilder, ruleBuilder, baseGrammar.reserved);
+    for (const reservedWordSetName of Object.keys(options.reserved)) {
+      const reservedWordSetFn = options.reserved[reservedWordSetName]
+      if (typeof reservedWordSetFn !== "function") {
+        throw new Error(`Grammar reserved word sets must all be functions. '${reservedWordSetName}' is not.`);
+      }
 
-    if (!Array.isArray(reservedTokens)) {
-      throw new Error("Grammar's `reserved` function must return an array of rules.");
+      const reservedTokens = reservedWordSetFn.call(ruleBuilder, ruleBuilder, baseGrammar.reserved[reservedWordSetName]);
+
+      if (!Array.isArray(reservedTokens)) {
+        throw new Error(`Grammar's reserved word set functions must all return arrays of rules. '${reservedWordSetName}' does not.`);
+      }
+
+      reserved[reservedWordSetName] = reservedTokens.map(normalize);
     }
-
-    reserved = reservedTokens.map(normalize);
   }
 
   let extras = baseGrammar.extras.slice();

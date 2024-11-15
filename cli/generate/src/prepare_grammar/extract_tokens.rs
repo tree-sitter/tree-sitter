@@ -4,7 +4,7 @@ use anyhow::{anyhow, Result};
 
 use super::{ExtractedLexicalGrammar, ExtractedSyntaxGrammar, InternedGrammar};
 use crate::{
-    grammars::{ExternalToken, Variable, VariableType},
+    grammars::{ExternalToken, ReservedWordContext, Variable, VariableType},
     rules::{MetadataParams, Rule, Symbol, SymbolType},
 };
 
@@ -148,15 +148,25 @@ pub(super) fn extract_tokens(
         word_token = Some(token);
     }
 
-    let mut reserved_words = Vec::new();
-    for rule in grammar.reserved_words {
-        if let Rule::Symbol(symbol) = rule {
-            reserved_words.push(symbol_replacer.replace_symbol(symbol));
-        } else if let Some(index) = lexical_variables.iter().position(|v| v.rule == rule) {
-            reserved_words.push(Symbol::terminal(index));
-        } else {
-            return Err(anyhow!("Reserved words must be tokens"));
+    let mut reserved_word_contexts = Vec::new();
+    for reserved_word_context in grammar.reserved_word_sets {
+        let mut reserved_words = Vec::new();
+        for reserved_rule in reserved_word_context.reserved_words {
+            if let Rule::Symbol(symbol) = reserved_rule {
+                reserved_words.push(symbol_replacer.replace_symbol(symbol));
+            } else if let Some(index) = lexical_variables
+                .iter()
+                .position(|v| v.rule == reserved_rule)
+            {
+                reserved_words.push(Symbol::terminal(index));
+            } else {
+                return Err(anyhow!("Reserved words must be tokens"));
+            }
         }
+        reserved_word_contexts.push(ReservedWordContext {
+            name: reserved_word_context.name,
+            reserved_words,
+        });
     }
 
     Ok((
@@ -169,7 +179,7 @@ pub(super) fn extract_tokens(
             external_tokens,
             word_token,
             precedence_orderings: grammar.precedence_orderings,
-            reserved_words,
+            reserved_word_sets: reserved_word_contexts,
         },
         ExtractedLexicalGrammar {
             variables: lexical_variables,

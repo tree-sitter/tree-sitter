@@ -69,7 +69,7 @@ pub struct ParseItemSet<'a> {
 pub struct ParseItemSetEntry<'a> {
     pub item: ParseItem<'a>,
     pub lookaheads: TokenSet,
-    pub reserved_lookaheads: Option<ReservedWordSetId>,
+    pub reserved_lookaheads: ReservedWordSetId,
 }
 
 /// A [`ParseItemSetCore`] is like a [`ParseItemSet`], but without the lookahead
@@ -171,7 +171,7 @@ impl<'a> ParseItemSet<'a> {
                     ParseItemSetEntry {
                         item,
                         lookaheads: TokenSet::new(),
-                        reserved_lookaheads: None,
+                        reserved_lookaheads: ReservedWordSetId::default(),
                     },
                 );
                 &mut self.entries[i]
@@ -291,10 +291,10 @@ impl fmt::Display for ParseItemSetDisplay<'_> {
                 ParseItemDisplay(&entry.item, self.1, self.2),
                 TokenSetDisplay(&entry.lookaheads, self.1, self.2),
             )?;
-            if let Some(reserved_word_set_id) = entry.reserved_lookaheads {
-                write!(f, "\t{}", reserved_word_set_id);
+            if entry.reserved_lookaheads != ReservedWordSetId::default() {
+                write!(f, "\t{}", entry.reserved_lookaheads)?;
             }
-            writeln!(f, "");
+            writeln!(f, "")?;
         }
         Ok(())
     }
