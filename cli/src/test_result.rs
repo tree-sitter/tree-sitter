@@ -55,9 +55,9 @@ impl TestResult {
         match self {
             TestResult::Executed { name, results, .. } => {
                 results.iter().filter_map(|(_, result)| {
-                    dbg!("[get_failures] result: {:?}", result);
                     match result {
                         LanguageResult::Fail { expected, result, .. } => Some((name.clone(), result.clone(), expected.clone())),
+                        LanguageResult::Pass { intended: false, .. } => Some((name.clone(), "".to_string(), "NO ERROR".to_string())),
                         _ => None,
                     }
                 }).collect()

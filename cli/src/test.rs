@@ -140,14 +140,12 @@ pub fn run_tests_at_path(parser: &mut Parser, opts: &mut TestOptions) -> Result<
     parser.stop_printing_dot_graphs();
     let failures = results.get_failures();
     let mut has_parse_errors = results.has_parse_errors();
-    println!("Has parse errors: {}", has_parse_errors);
-    
-    if !failures.is_empty() {
+    if failures.is_empty() {
         Ok(())
     } else {
         println!();
 
-        if opts.update && has_parse_errors {
+        if opts.update && !has_parse_errors {
             if failures.len() == 1 {
                 println!("1 update:\n");
             } else {
@@ -354,11 +352,11 @@ fn tests_to_json(
             attributes_str,
             attributes,
         } => {
-            let pretty_output = format_sexp(&output, 0);
+            // let pretty_output = format_sexp(&output, 0);
             if attributes.skip {
                 let update = opts.update.then_some((
                     String::from_utf8(input.clone()).unwrap(),
-                    pretty_output,
+                    output,
                     attributes_str.clone(),
                     header_delim_len,
                     divider_delim_len));
@@ -390,14 +388,14 @@ fn tests_to_json(
                             LanguageResult::expected_fail(
                                 opts.test_num,
                                 name.clone(), 
-                                pretty_output.clone(),
+                                output.clone(),
                                 update.clone(),
                             )
                         } else { // unwanted success
                             let f = LanguageResult::unexpected_pass(
                                 opts.test_num,
                                 name.clone(), 
-                                pretty_output.clone(), 
+                                output.clone(), 
                                 update.clone(),
                             );
                             f
@@ -408,10 +406,10 @@ fn tests_to_json(
                             actual = strip_sexp_fields(&actual);
                         }
                         if actual == output.clone() {
-                            LanguageResult::pass(opts.test_num, name.clone(), pretty_output.clone(), update.clone())
+                            LanguageResult::pass(opts.test_num, name.clone(), output.clone(), update.clone())
                         } else {
                             let actual = tree.root_node().to_sexp();
-                            LanguageResult::fail(opts.test_num, name.clone(), pretty_output.clone(), actual, update.clone())
+                            LanguageResult::fail(opts.test_num, name.clone(), output.clone(), actual, update.clone())
                         }
                     };
                     opts.test_num += 1;
@@ -465,6 +463,7 @@ fn tests_to_json(
                             opts.test_num += 1;
                             Ok(TestResult::Skipped { idx: opts.test_num, name: name.clone(), update })
                         } else {
+                            opts.test_num += count_subtests(&el);
                             tests_to_json(parser, el, opts)
                         }
                     }

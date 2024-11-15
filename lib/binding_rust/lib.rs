@@ -3665,6 +3665,7 @@ impl fmt::Display for QueryError {
 
 #[doc(hidden)]
 #[must_use]
+/// sexp must be a single line
 pub fn format_sexp(sexp: &str, initial_indent_level: usize) -> String {
     let mut indent_level = initial_indent_level;
     let mut formatted = String::new();
