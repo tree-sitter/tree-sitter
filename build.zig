@@ -99,7 +99,7 @@ fn wasmtimeDep(target: std.Target) []const u8 {
 fn findSourceFiles(b: *std.Build) ![]const []const u8 {
   var sources = std.ArrayList([]const u8).init(b.allocator);
 
-  var dir = try std.fs.cwd().openDir("lib/src", .{ .iterate = true });
+  var dir = try b.build_root.handle.openDir("lib/src", .{ .iterate = true });
   var iter = dir.iterate();
   defer dir.close();
 
