@@ -2,8 +2,8 @@ use serde::{ser::SerializeStruct, Serialize, Serializer};
 use std::path::PathBuf;
 use similar::{TextDiff, ChangeTag};
 
-#[derive(Clone, Serialize)]
-#[serde(untagged)]
+#[derive(Clone)]
+// #[serde(untagged)]
 pub enum TestResult {
     Executed {
         name: String,
@@ -24,17 +24,6 @@ pub enum TestResult {
         children: Vec<TestResult>,
     }
 }
-
-// pub impl Iter for TestResult {
-//     type Item = TestResult;
-
-//     fn next(&mut self) -> Option(Self::Item) {
-//         let current = self.curr;
-
-//         self.curr = self.next;
-//         self.next = 
-//     }
-// }
 
 impl TestResult {
     pub fn get_all_tests(self) -> Vec<TestResult> {
@@ -66,6 +55,7 @@ impl TestResult {
         match self {
             TestResult::Executed { name, results, .. } => {
                 results.iter().filter_map(|(_, result)| {
+                    dbg!("[get_failures] result: {:?}", result);
                     match result {
                         LanguageResult::Fail { expected, result, .. } => Some((name.clone(), result.clone(), expected.clone())),
                         _ => None,
@@ -78,8 +68,14 @@ impl TestResult {
             _ => vec![],
         }
     }
+    pub fn has_parse_errors(&self) -> bool {
+        self.get_failures().iter().any(|(_, result, _)| {
+            result.contains("ERROR") || result.contains("MISSING")
+        })
+    }
 }
-#[derive(Clone)]
+
+#[derive(Clone, Debug)]
 pub enum LanguageResult {
     Pass {
         idx: usize,
@@ -103,6 +99,44 @@ pub enum LanguageResult {
         update: Option<(String, usize, usize)>,
     },
 }
+
+impl Serialize for TestResult {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where S: Serializer,
+    {
+        match self {
+            TestResult::NoPlatform { name, .. } => {
+                let mut state = serializer.serialize_struct("NoPlatform", 2)?;
+                state.serialize_field("status", "no platform")?;
+                state.serialize_field("name", &name)?;
+                state.end()
+            }
+            TestResult::Skipped { name, .. } => {
+                let mut state = serializer.serialize_struct("Skipped", 2)?;
+                state.serialize_field("status", "skipped")?;
+                state.serialize_field("name", &name)?;
+                state.end()
+            }
+            TestResult::Executed { name, results } => {
+                let mut state = serializer.serialize_struct("Executed", 3)?;
+                state.serialize_field("status", "executed")?;
+                state.serialize_field("name", &name)?;
+                state.serialize_field("results", &results)?;
+                state.end()
+            }
+            TestResult::Group { name, file_path, children } => {
+                let mut state = serializer.serialize_struct("Group", 3)?;
+                state.serialize_field("name", &name)?;
+                state.serialize_field("file_path", file_path)?;
+                state.serialize_field("children", children)?;
+                state.end()
+            }
+        }
+    }
+}
+
+
+
 impl Serialize for LanguageResult {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where S: Serializer, 
@@ -185,8 +219,8 @@ impl LanguageResult {
     }
 }
 
-#[derive(Clone)]
-enum DiffResult {
+#[derive(Clone, Debug)]
+pub enum DiffResult {
     Equal { value: String },
     Insert { value: String },
     Delete { value: String },
