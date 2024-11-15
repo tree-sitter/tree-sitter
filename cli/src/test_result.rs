@@ -38,18 +38,7 @@ impl TestResult {
         }
     }
     pub fn has_failures(&self) -> bool {
-        match self {
-            TestResult::Executed { results, .. } => {
-                results.iter().any(|(_, result)| match result {
-                    LanguageResult::Fail { .. } => true,
-                    _ => false,
-                })
-            }
-            TestResult::Group { children, .. } => {
-                children.iter().any(|child| child.has_failures())
-            }
-            _ => false,
-        }
+        self.get_failures().len() > 0
     }
     pub fn get_failures(&self) -> Vec<(String, String, String)> {
         match self {
@@ -134,8 +123,6 @@ impl Serialize for TestResult {
         }
     }
 }
-
-
 
 impl Serialize for LanguageResult {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -243,5 +230,165 @@ impl Serialize for DiffResult {
             }
         }
         state.end()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn serialize_diff() {
+        let eq_input = DiffResult::Equal { value: "hello".to_string() };
+        let eq_expected = r#"{"value":"hello","tag":"equal"}"#;
+        let eq_result = serde_json::to_string(&eq_input).unwrap();
+        assert_eq!(eq_expected, eq_result);
+
+        let ins_input = DiffResult::Insert { value: "hello".to_string() };
+        let ins_expected = r#"{"value":"hello","tag":"insert"}"#;
+        let ins_result = serde_json::to_string(&ins_input).unwrap();
+        assert_eq!(ins_expected, ins_result);
+
+        let del_input = DiffResult::Delete { value: "hello".to_string() };
+        let del_expected = r#"{"value":"hello","tag":"delete"}"#;
+        let del_result = serde_json::to_string(&del_input).unwrap();
+        assert_eq!(del_expected, del_result);
+    }
+
+    #[test]
+    fn pass_result_is_intended() {
+        let p = LanguageResult::pass(0, "name".to_string(), "expected".to_string(), None);
+        match p {
+            LanguageResult::Pass { intended, .. } => {
+                assert!(intended);
+            }
+            _ => {
+                panic!("Expected pass result");
+            }
+        }
+    }
+
+    #[test]
+    fn unexpected_pass_result_is_not_intended() {
+        let p = LanguageResult::unexpected_pass(0, "name".to_string(), "expected".to_string(), None);
+        match p {
+            LanguageResult::Pass { intended, .. } => {
+                assert!(!intended);
+            }
+            _ => {
+                panic!("Expected pass result");
+            }
+        }
+    }
+
+    #[test]
+    fn get_failures_includes_unexpected_pass() {
+        let p = LanguageResult::unexpected_pass(0, "name".to_string(), "expected".to_string(), None);
+        let e = TestResult::Executed { name: "".to_string(), results: vec![("".to_string(), p)] };
+        let group = TestResult::Group {
+            name: "".to_string(),
+            file_path: None,
+            children: vec![e],
+        };
+        let result = group.get_failures();
+        assert_eq!(result.len(), 1);
+    }
+
+    #[test]
+    fn get_failures_includes_failure() {
+        let f = LanguageResult::fail(0, "name".to_string(), "expected".to_string(), "result".to_string(), None);
+        let e = TestResult::Executed { name: "".to_string(), results: vec![("".to_string(), f)] };
+        let group = TestResult::Group {
+            name: "".to_string(),
+            file_path: None,
+            children: vec![e],
+        };
+        let result = group.get_failures();
+        assert_eq!(result.len(), 1);
+    }
+
+    #[test]
+    fn get_failures_excludes_pass() {
+        let p = LanguageResult::pass(0, "name".to_string(), "expected".to_string(), None);
+        let e = TestResult::Executed { name: "".to_string(), results: vec![("".to_string(), p)] };
+        let group = TestResult::Group {
+            name: "".to_string(),
+            file_path: None,
+            children: vec![e],
+        };
+        let result = group.get_failures();
+        assert_eq!(result.len(), 0);
+    }
+
+    #[test]
+    fn get_failures_excludes_expected_fail() {
+        let p = LanguageResult::expected_fail(0, "name".to_string(), "expected".to_string(), None);
+        let e = TestResult::Executed { name: "".to_string(), results: vec![("".to_string(), p)] };
+        let group = TestResult::Group {
+            name: "".to_string(),
+            file_path: None,
+            children: vec![e],
+        };
+        let result = group.get_failures();
+        assert_eq!(result.len(), 0);
+    }
+
+    #[test]
+    fn get_failures_excludes_skipped() {
+        let s = TestResult::Skipped { idx: 0, name: "".to_string(), update: None };
+        let group = TestResult::Group {
+            name: "".to_string(),
+            file_path: None,
+            children: vec![s],
+        };
+        let result = group.get_failures();
+        assert_eq!(result.len(), 0);
+    }
+
+    #[test]
+    fn get_failures_excludes_no_platform() {
+        let s = TestResult::NoPlatform { idx: 0, name: "".to_string() };
+        let group = TestResult::Group {
+            name: "".to_string(),
+            file_path: None,
+            children: vec![s],
+        };
+        let result = group.get_failures();
+        assert_eq!(result.len(), 0);
+    }
+
+    #[test]
+    fn test_results_include_tag() {
+        let p = LanguageResult::pass(0, "name".to_string(), "expected".to_string(), None);
+        let f = LanguageResult::fail(0, "name".to_string(), "expected".to_string(), "result".to_string(), None);
+        let skipped = TestResult::Skipped { idx: 0, name: "".to_string(), update: None };
+        let no_platform = TestResult::NoPlatform { idx: 0, name: "".to_string() };
+        let unexpected = LanguageResult::unexpected_pass(0, "name".to_string(), "expected".to_string(), None);
+        let expected_fail = LanguageResult::expected_fail(0, "name".to_string(), "expected".to_string(), None);
+        // let e = TestResult::Executed { name: "".to_string(), results: vec![("".to_string(), p)] };
+        let mut result = serde_json::to_string(&p).unwrap();
+        assert!(result.contains(r#""status":"passed""#));
+        result = serde_json::to_string(&f).unwrap();
+        assert!(result.contains(r#""status":"failed""#));
+        result = serde_json::to_string(&skipped).unwrap();
+        assert!(result.contains(r#""status":"skipped""#));
+        result = serde_json::to_string(&no_platform).unwrap();
+        assert!(result.contains(r#""status":"no platform""#));
+        result = serde_json::to_string(&unexpected).unwrap();
+        assert!(result.contains(r#""status":"passed""#));
+        result = serde_json::to_string(&expected_fail).unwrap();
+        assert!(result.contains(r#""status":"expected failure""#));
+    }
+
+    #[test]
+    fn has_failures() {
+        let f = LanguageResult::fail(0, "name".to_string(), "expected".to_string(), "result".to_string(), None);
+        let e = TestResult::Executed { name: "".to_string(), results: vec![("".to_string(), f)] };
+        let group = TestResult::Group {
+            name: "".to_string(),
+            file_path: None,
+            children: vec![e],
+        };
+        assert!(group.has_failures());
     }
 }
