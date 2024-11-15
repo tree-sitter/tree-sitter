@@ -24,7 +24,7 @@ use tree_sitter_cli::{
     logger,
     parse::{self, ParseFileOptions, ParseOutput, ParseTheme},
     playground, query, tags,
-    test::{self, TestOptions},
+    test::{self, parse_tests, TestOptions},
     test_highlight, test_tags, util, version, wasm,
 };
 use tree_sitter_config::Config;
@@ -274,8 +274,8 @@ struct Test {
     pub config_path: Option<PathBuf>,
     #[arg(long, help = "Force showing fields in test diffs")]
     pub show_fields: bool,
-    #[arg(long, help = "Show the time each test case took to parse")]
-    pub show_times: bool,
+    #[arg(long, help = "Check tests for slow parse rates")]
+    pub check_rates: bool,
     #[arg(short, long, help = "Force rebuild the parser")]
     pub rebuild: bool,
     #[arg(long, help = "Show only the pass-fail overview tree")]
@@ -966,6 +966,31 @@ impl Test {
         // Run the corpus tests. Look for them in `test/corpus`.
         let test_corpus_dir = test_dir.join("corpus");
         if test_corpus_dir.is_dir() {
+            let languages = languages.iter().map(|(l, n)| (n.as_str(), l)).collect();
+            let outlier_stats = if self.check_rates {
+                let mut rates = Vec::new();
+                test::get_test_parsing_rate(
+                    &mut parser,
+                    parse_tests(&test_corpus_dir)?,
+                    &mut rates,
+                    &languages,
+                )?;
+                if rates.is_empty() {
+                    None
+                } else {
+                    let avg: f64 = rates.iter().sum::<f64>() / rates.len() as f64;
+                    let std_dev = {
+                        let variance: f64 = rates.iter().map(|t| (t - avg).powi(2)).sum::<f64>()
+                            / rates.len() as f64;
+                        variance.sqrt()
+                    };
+
+                    Some((avg, std_dev))
+                }
+            } else {
+                None
+            };
+
             let mut opts = TestOptions {
                 path: test_corpus_dir,
                 debug: self.debug,
@@ -974,12 +999,12 @@ impl Test {
                 exclude: self.exclude,
                 update: self.update,
                 open_log: self.open_log,
-                languages: languages.iter().map(|(l, n)| (n.as_str(), l)).collect(),
+                languages,
                 color,
                 test_num: 1,
                 stats: &mut stats,
+                outlier_stats,
                 show_fields: self.show_fields,
-                show_times: self.show_times,
                 overview_only: self.overview_only,
             };
 
