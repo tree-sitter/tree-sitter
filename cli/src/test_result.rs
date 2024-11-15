@@ -2,11 +2,12 @@ use serde::{ser::SerializeStruct, Serialize, Serializer};
 use std::path::PathBuf;
 use similar::{TextDiff, ChangeTag};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 // #[serde(untagged)]
 pub enum TestResult {
     Executed {
         name: String,
+        input: String,
         results: Vec<(String, LanguageResult)>,
     },
     NoPlatform {
@@ -57,10 +58,70 @@ impl TestResult {
             _ => vec![],
         }
     }
+    pub fn get_corrections(&self) -> Vec<CorrectedEntry> {
+        match &self {
+            TestResult::Group { children, .. } => {
+                children.iter().flat_map(|child| child.get_corrections()).collect()
+            }
+            TestResult::Executed { input, results, .. } => {
+                results.iter().filter_map(|(name, result)| {
+                    match result {
+                        LanguageResult::ExpectedFailure { name, expected, update: Some((attr_str, header_delim_len, divider_delim_len)), .. } => {
+                            Some(CorrectedEntry {
+                                name: name.clone(),
+                                input: input.clone(),
+                                output: expected.clone(),
+                                attr_str: attr_str.clone(),
+                                header_delim_len: *header_delim_len,
+                                divider_delim_len: *divider_delim_len,
+                            })
+                        }
+                        LanguageResult::Fail { result, expected, update: Some((attr_str, header_delim_len, divider_delim_len)), .. } => {
+                            Some(CorrectedEntry {
+                                name: name.clone(),
+                                input: input.clone(),
+                                output: if result.contains("ERROR") || result.contains("MISSING") { expected.clone() } else { result.clone() },
+                                attr_str: attr_str.clone(),
+                                header_delim_len: *header_delim_len,
+                                divider_delim_len: *divider_delim_len,
+                            })
+                        }
+                        LanguageResult::Pass { expected, name, update: Some((attr_str, a, b)), .. } => {
+                            Some(CorrectedEntry {
+                                name: name.clone(),
+                                input: input.clone(),
+                                output: expected.clone(),
+                                attr_str: attr_str.clone(),
+                                header_delim_len: *a,
+                                divider_delim_len: *b,
+                            })
+                        }
+                        _ => None,
+                    }
+                }).collect()
+            }
+            _ => vec![],
+        }
+    }
     pub fn has_parse_errors(&self) -> bool {
         self.get_failures().iter().any(|(_, result, _)| {
             result.contains("ERROR") || result.contains("MISSING")
         })
+    }
+}
+
+pub struct CorrectedEntry {
+    name: String,
+    input: String,
+    output: String,
+    attr_str: String,
+    header_delim_len: usize,
+    divider_delim_len: usize,
+}
+
+impl CorrectedEntry {
+    pub fn to_tuple(&self) -> (String, String, String, String, usize, usize) {
+        (self.name.clone(), self.input.clone(), self.output.clone(), self.attr_str.clone(), self.header_delim_len, self.divider_delim_len)
     }
 }
 
@@ -106,10 +167,11 @@ impl Serialize for TestResult {
                 state.serialize_field("name", &name)?;
                 state.end()
             }
-            TestResult::Executed { name, results } => {
-                let mut state = serializer.serialize_struct("Executed", 3)?;
+            TestResult::Executed { name, input, results } => {
+                let mut state = serializer.serialize_struct("Executed", 4)?;
                 state.serialize_field("status", "executed")?;
                 state.serialize_field("name", &name)?;
+                state.serialize_field("input", &input)?;
                 state.serialize_field("results", &results)?;
                 state.end()
             }
@@ -284,7 +346,7 @@ mod tests {
     #[test]
     fn get_failures_includes_unexpected_pass() {
         let p = LanguageResult::unexpected_pass(0, "name".to_string(), "expected".to_string(), None);
-        let e = TestResult::Executed { name: "".to_string(), results: vec![("".to_string(), p)] };
+        let e = TestResult::Executed { name: "".to_string(), input: String::new(), results: vec![("".to_string(), p)] };
         let group = TestResult::Group {
             name: "".to_string(),
             file_path: None,
@@ -297,7 +359,7 @@ mod tests {
     #[test]
     fn get_failures_includes_failure() {
         let f = LanguageResult::fail(0, "name".to_string(), "expected".to_string(), "result".to_string(), None);
-        let e = TestResult::Executed { name: "".to_string(), results: vec![("".to_string(), f)] };
+        let e = TestResult::Executed { name: "".to_string(), input: String::new(), results: vec![("".to_string(), f)] };
         let group = TestResult::Group {
             name: "".to_string(),
             file_path: None,
@@ -310,7 +372,7 @@ mod tests {
     #[test]
     fn get_failures_excludes_pass() {
         let p = LanguageResult::pass(0, "name".to_string(), "expected".to_string(), None);
-        let e = TestResult::Executed { name: "".to_string(), results: vec![("".to_string(), p)] };
+        let e = TestResult::Executed { name: "".to_string(), input: String::new(), results: vec![("".to_string(), p)] };
         let group = TestResult::Group {
             name: "".to_string(),
             file_path: None,
@@ -323,7 +385,7 @@ mod tests {
     #[test]
     fn get_failures_excludes_expected_fail() {
         let p = LanguageResult::expected_fail(0, "name".to_string(), "expected".to_string(), None);
-        let e = TestResult::Executed { name: "".to_string(), results: vec![("".to_string(), p)] };
+        let e = TestResult::Executed { name: "".to_string(), input: String::new(), results: vec![("".to_string(), p)] };
         let group = TestResult::Group {
             name: "".to_string(),
             file_path: None,
@@ -383,7 +445,7 @@ mod tests {
     #[test]
     fn has_failures() {
         let f = LanguageResult::fail(0, "name".to_string(), "expected".to_string(), "result".to_string(), None);
-        let e = TestResult::Executed { name: "".to_string(), results: vec![("".to_string(), f)] };
+        let e = TestResult::Executed { name: "".to_string(), input: String::new(), results: vec![("".to_string(), f)] };
         let group = TestResult::Group {
             name: "".to_string(),
             file_path: None,
@@ -391,4 +453,50 @@ mod tests {
         };
         assert!(group.has_failures());
     }
+
+    #[test]
+    fn if_expected_error_add_to_corrections_with_expected() {
+        let r = LanguageResult::expected_fail(0, String::new(), "foo".to_string(), Some((String::new(), 1, 2)));
+        let t = TestResult::Executed { name: String::new(), input: String::new(), results: vec![(String::new(), r)] };
+        let c = t.get_corrections();
+        assert_eq!(c.len(), 1);
+        assert_eq!(c[0].output, "foo");
+    }
+
+    #[test]
+    fn if_unexpected_success_add_to_corrections_with_expected() {
+        let r = LanguageResult::unexpected_pass(0, String::new(), "foo".to_string(), Some((String::new(), 1, 2)));
+        let t = TestResult::Executed { name: String::new(), input: String::new(), results: vec![(String::new(), r)] };
+        let c = t.get_corrections();
+        assert_eq!(c.len(), 1);
+        assert_eq!(c[0].output, "foo");
+    }
+
+    #[test]
+    fn if_expected_success_add_to_corrections_with_expected() {
+        let r = LanguageResult::pass(0, String::new(), "foo".to_string(), Some((String::new(), 1, 2)));
+        let t = TestResult::Executed { name: String::new(), input: String::new(), results: vec![(String::new(), r)] };
+        let c = t.get_corrections();
+        assert_eq!(c.len(), 1);
+        assert_eq!(c[0].output, "foo");
+    }
+
+    #[test]
+    fn if_unexpected_error_with_error_or_missing_add_to_corrections_with_expected() {
+        let r = LanguageResult::fail(1, String::new(), "foo".to_string(), "this is ERROR".to_string(), Some((String::new(), 1, 2)));
+        let t = TestResult::Executed { name: String::new(), input: String::new(), results: vec![(String::new(), r)] };
+        let c = t.get_corrections();
+        assert_eq!(c.len(), 1);
+        assert_eq!(c[0].output, "foo");
+    }
+
+    #[test]
+    fn if_unexpected_error_with_no_parsing_issues_add_actual_to_corrections() {
+        let r = LanguageResult::fail(1, String::new(), "foo".to_string(), "bar".to_string(), Some((String::new(), 1, 2)));
+        let t = TestResult::Executed { name: String::new(), input: String::new(), results: vec![(String::new(), r)] };
+        let c = t.get_corrections();
+        assert_eq!(c.len(), 1);
+        assert_eq!(c[0].output, "bar");
+    }
+    
 }

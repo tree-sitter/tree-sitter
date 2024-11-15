@@ -1,5 +1,5 @@
 use std::{
-    collections::BTreeMap, ffi::OsStr, fs, io::{self, Write}, path::{Path, PathBuf}, str
+    collections::BTreeMap, ffi::OsStr, fs, io::{self, Write}, path::{Path, PathBuf}, str,
 };
 
 use anstyle::{AnsiColor, Color, Style};
@@ -11,13 +11,10 @@ use regex::{
     Regex,
 };
 use serde_json::{json, to_string_pretty};
-// use serde::{ser::SerializeStruct, Serialize, Serializer};
-// use serde::ser::{Serializer, Serialize};
 use similar::{ChangeTag, TextDiff};
 use tree_sitter::{format_sexp, Language, LogType, Parser, Query};
 use walkdir::WalkDir;
 use super::test_result::{TestResult, LanguageResult};
-// use serde::Serialize;
 
 use super::util;
 
@@ -127,8 +124,10 @@ pub fn run_tests_at_path(parser: &mut Parser, opts: &mut TestOptions) -> Result<
         })));
     }
 
-    // let mut failures = Vec::new();
-    let results = tests_to_json(parser, test_entry, opts)?;
+    let results = perform_tests(parser, test_entry, opts)?;
+    if opts.update {
+        do_updates(&results)?;
+    }
     if opts.generate_report {
         println!("{}", to_string_pretty(&json!(results)).unwrap());
         return Ok(());
@@ -158,38 +157,11 @@ pub fn run_tests_at_path(parser: &mut Parser, opts: &mut TestOptions) -> Result<
 
             Ok(())
         } else {
-            println!("In the thick of it");
             has_parse_errors = opts.update && has_parse_errors;
 
             if !opts.overview_only {
-                if !has_parse_errors {
-                    if failures.len() == 1 {
-                        println!("1 failure:");
-                    } else {
-                        println!("{} failures:", failures.len());
-                    }
-                }
-
-                if opts.color {
-                    print_diff_key();
-                }
-                for (i, (name, actual, expected)) in failures.iter().enumerate() {
-                    if expected == "NO ERROR" {
-                        println!("\n  {}. {name}:\n", i + 1);
-                        println!("  Expected an ERROR node, but got:");
-                        println!(
-                            "  {}",
-                            paint(
-                                opts.color.then_some(AnsiColor::Red),
-                                &format_sexp(actual, 2)
-                            )
-                        );
-                    } else {
-                        println!("\n  {}. {name}:", i + 1);
-                        let actual = format_sexp(actual, 2);
-                        let expected = format_sexp(expected, 2);
-                        print_diff(&actual, &expected, opts.color);
-                    }
+                for line in get_failure_details(&failures, has_parse_errors, opts) {
+                    println!("{}", line);
                 }
             }
 
@@ -202,6 +174,49 @@ pub fn run_tests_at_path(parser: &mut Parser, opts: &mut TestOptions) -> Result<
             }
         }
     }
+}
+
+fn get_failure_details(failures: &Vec<(String, String, String)>, has_parse_errors: bool, opts: &TestOptions) -> Vec<String> {
+    let mut output = vec![];
+    if !has_parse_errors {
+        output.push(String::new());
+        if failures.len() == 1 {
+            output.push("1 failure:".to_string());
+        } else {
+            output.push(format!("{} failures:", failures.len()));
+        }
+    }
+    if opts.color {
+        output.push(String::new());
+        let diff_key = format!(
+            "correct / {} / {}",
+            paint(Some(AnsiColor::Green), "expected"),
+            paint(Some(AnsiColor::Red), "unexpected")
+        );
+        output.push(diff_key);
+    }
+    for (i, (name, actual, expected)) in failures.iter().enumerate() {
+        output.push(String::new());
+        if expected == "NO ERROR" {
+            output.push(format!("  {}. {name}:", i + 1));
+            output.push(format!("  Expected an ERROR node, but got:"));
+            output.push(format!(
+                "  {}",
+                paint(
+                    opts.color.then_some(AnsiColor::Red),
+                    &format_sexp(actual, 2)
+                )
+            ));
+        } else {
+            output.push(format!("  {}. {name}:", i + 1));
+            let actual = format_sexp(actual, 2);
+            let expected = format_sexp(expected, 2);
+            let diff = get_diff(&actual, &expected, opts.color);
+            output.push(diff);
+        }
+    }
+
+    output
 }
 
 #[allow(clippy::type_complexity)]
@@ -291,40 +306,46 @@ pub fn print_diff_key() {
     );
 }
 
-pub fn print_diff(actual: &str, expected: &str, use_color: bool) {
+pub fn get_diff(actual: &str, expected: &str, use_color: bool) -> String {
     let diff = TextDiff::from_lines(actual, expected);
+    let mut acc = vec![];
     for diff in diff.iter_all_changes() {
         match diff.tag() {
             ChangeTag::Equal => {
                 if use_color {
-                    print!("{diff}");
+                    acc.push(format!("{diff}"));
                 } else {
-                    print!(" {diff}");
+                    acc.push(format!(" {diff}"));
                 }
             }
             ChangeTag::Insert => {
                 if use_color {
-                    print!("{}", paint(Some(AnsiColor::Green), diff.as_str().unwrap()));
+                    acc.push(format!("{}", paint(Some(AnsiColor::Green), diff.as_str().unwrap())));
                 } else {
-                    print!("+{diff}");
+                    acc.push(format!("+{diff}"));
                 }
                 if diff.missing_newline() {
-                    println!();
+                    acc.push("".to_string());
                 }
             }
             ChangeTag::Delete => {
                 if use_color {
-                    print!("{}", paint(Some(AnsiColor::Red), diff.as_str().unwrap()));
+                    acc.push(format!("{}", paint(Some(AnsiColor::Red), diff.as_str().unwrap())));
                 } else {
-                    print!("-{diff}");
+                    acc.push(format!("-{diff}"));
                 }
                 if diff.missing_newline() {
-                    println!();
+                    acc.push("".to_string());
                 }
             }
         }
     }
+    acc.join("")
+}
 
+pub fn print_diff(actual: &str, expected: &str, use_color: bool) {
+    let diff = get_diff(actual, expected, use_color);
+    println!("{}", diff);
     println!();
 }
 
@@ -333,9 +354,8 @@ pub fn paint(color: Option<impl Into<Color>>, text: &str) -> String {
     format!("{style}{text}{style:#}")
 }
 
-/// Similar to `run_tests` except outputs as JSON report instead of original format
 #[allow(clippy::too_many_arguments)]
-fn tests_to_json(
+fn perform_tests(
     parser: &mut Parser,
     test_entry: TestEntry,
     opts: &mut TestOptions,
@@ -354,14 +374,14 @@ fn tests_to_json(
         } => {
             // let pretty_output = format_sexp(&output, 0);
             if attributes.skip {
-                let update = opts.update.then_some((
-                    String::from_utf8(input.clone()).unwrap(),
-                    output,
-                    attributes_str.clone(),
-                    header_delim_len,
-                    divider_delim_len));
+                // let update = opts.update.then_some((
+                //     String::from_utf8(input.clone()).unwrap(),
+                //     format_sexp(&output, 0),
+                //     attributes_str.clone(),
+                //     header_delim_len,
+                //     divider_delim_len));
                 opts.test_num += 1;
-                Ok(TestResult::Skipped { idx: opts.test_num, name: name, update })
+                Ok(TestResult::Skipped { idx: opts.test_num, name: name, update: None })
             } else if !attributes.platform {
                 opts.test_num += 1;
                 Ok(TestResult::NoPlatform { idx: opts.test_num, name: name })
@@ -408,17 +428,17 @@ fn tests_to_json(
                         if actual == output.clone() {
                             LanguageResult::pass(opts.test_num, name.clone(), output.clone(), update.clone())
                         } else {
-                            let actual = tree.root_node().to_sexp();
+                            // let actual = tree.root_node().to_sexp();
                             LanguageResult::fail(opts.test_num, name.clone(), output.clone(), actual, update.clone())
                         }
                     };
                     opts.test_num += 1;
                     results.push((language_name.as_ref().to_string(), el));
                     if attributes.fail_fast {
-                        return Ok(TestResult::Executed { name: name.clone(), results });
+                        return Ok(TestResult::Executed { name: name.clone(), input: String::from_utf8(input.clone()).unwrap(), results });
                     }
                 }
-                Ok(TestResult::Executed { name: name.clone(), results })
+                Ok(TestResult::Executed { name: name.clone(), input: String::from_utf8(input.clone()).unwrap(), results })
             }
         }
         TestEntry::Group {
@@ -463,11 +483,10 @@ fn tests_to_json(
                             opts.test_num += 1;
                             Ok(TestResult::Skipped { idx: opts.test_num, name: name.clone(), update })
                         } else {
-                            opts.test_num += count_subtests(&el);
-                            tests_to_json(parser, el, opts)
+                            perform_tests(parser, el, opts)
                         }
                     }
-                    a => tests_to_json(parser, a.clone(), opts)
+                    a => perform_tests(parser, a.clone(), opts)
                 }?;
                 cs.push(child_result);
             }
@@ -538,304 +557,32 @@ fn get_results_overview(results: &TestResult, indent_level: usize, use_color: bo
             })
         }
         TestResult::Group { name, children, .. } => {
-            let results = if name == "corpus" {vec![]} else {vec![format!("{}{}:", indent, name)]};
-            children.into_iter().fold(results, | mut acc, el | {
-                let mut result = get_results_overview(el, indent_level + 1, use_color, fail_fast);
-                acc.append(&mut result);
-                acc
-            })
-        }
-    }
-}
-
-/// This will return false if we want to "fail fast". It will bail and not parse any more tests.
-#[allow(clippy::too_many_arguments)]
-fn run_tests(
-    parser: &mut Parser,
-    test_entry: TestEntry,
-    opts: &mut TestOptions,
-    mut indent_level: u32,
-    failures: &mut Vec<(String, String, String)>,
-    corrected_entries: &mut Vec<(String, String, String, String, usize, usize)>,
-    has_parse_errors: &mut bool,
-) -> Result<bool> {
-    match test_entry {
-        TestEntry::Example {
-            name,
-            input,
-            output,
-            header_delim_len,
-            divider_delim_len,
-            has_fields,
-            attributes_str,
-            attributes,
-        } => {
-            print!("{}", "  ".repeat(indent_level as usize));
-
-            if attributes.skip {
-                println!(
-                    "{:>3}.  {}",
-                    opts.test_num,
-                    paint(opts.color.then_some(AnsiColor::Yellow), &name),
-                );
-                return Ok(true);
-            }
-
-            if !attributes.platform {
-                println!(
-                    "{:>3}.  {}",
-                    opts.test_num,
-                    paint(opts.color.then_some(AnsiColor::Magenta), &name),
-                );
-                return Ok(true);
-            }
-
-            for (i, language_name) in attributes.languages.iter().enumerate() {
-                if !language_name.is_empty() {
-                    let language = opts
-                        .languages
-                        .get(language_name.as_ref())
-                        .ok_or_else(|| anyhow!("Language not found: {language_name}"))?;
-                    parser.set_language(language)?;
-                }
-                let tree = parser.parse(&input, None).unwrap();
-
-                if attributes.error {
-                    if tree.root_node().has_error() {
-                        println!(
-                            "{:>3}.  {}",
-                            opts.test_num,
-                            paint(opts.color.then_some(AnsiColor::Green), &name)
-                        );
-                        if opts.update {
-                            let input = String::from_utf8(input.clone()).unwrap();
-                            let output = format_sexp(&output, 0);
-                            corrected_entries.push((
-                                name.clone(),
-                                input,
-                                output,
-                                attributes_str.clone(),
-                                header_delim_len,
-                                divider_delim_len,
-                            ));
-                        }
-                    } else {
-                        if opts.update {
-                            let input = String::from_utf8(input.clone()).unwrap();
-                            // Keep the original `expected` output if the actual output has no error
-                            let output = format_sexp(&output, 0);
-                            corrected_entries.push((
-                                name.clone(),
-                                input,
-                                output,
-                                attributes_str.clone(),
-                                header_delim_len,
-                                divider_delim_len,
-                            ));
-                        }
-                        println!(
-                            "{:>3}.  {}",
-                            opts.test_num,
-                            paint(opts.color.then_some(AnsiColor::Red), &name)
-                        );
-                        failures.push((
-                            name.clone(),
-                            tree.root_node().to_sexp(),
-                            "NO ERROR".to_string(),
-                        ));
-                    }
-
-                    if attributes.fail_fast {
-                        return Ok(false);
-                    }
-                } else {
-                    let mut actual = tree.root_node().to_sexp();
-                    if !(opts.show_fields || has_fields) {
-                        actual = strip_sexp_fields(&actual);
-                    }
-
-                    if actual == output {
-                        println!(
-                            "{:>3}. ✓ {}",
-                            opts.test_num,
-                            paint(opts.color.then_some(AnsiColor::Green), &name)
-                        );
-                        if opts.update {
-                            let input = String::from_utf8(input.clone()).unwrap();
-                            let output = format_sexp(&output, 0);
-                            corrected_entries.push((
-                                name.clone(),
-                                input,
-                                output,
-                                attributes_str.clone(),
-                                header_delim_len,
-                                divider_delim_len,
-                            ));
-                        }
-                    } else {
-                        if opts.update {
-                            let input = String::from_utf8(input.clone()).unwrap();
-                            let expected_output = format_sexp(&output, 0);
-                            let actual_output = format_sexp(&actual, 0);
-
-                            // Only bail early before updating if the actual is not the output,
-                            // sometimes users want to test cases that
-                            // are intended to have errors, hence why this
-                            // check isn't shown above
-                            if actual.contains("ERROR") || actual.contains("MISSING") {
-                                *has_parse_errors = true;
-
-                                // keep the original `expected` output if the actual output has an
-                                // error
-                                corrected_entries.push((
-                                    name.clone(),
-                                    input,
-                                    expected_output,
-                                    attributes_str.clone(),
-                                    header_delim_len,
-                                    divider_delim_len,
-                                ));
-                            } else {
-                                corrected_entries.push((
-                                    name.clone(),
-                                    input,
-                                    actual_output,
-                                    attributes_str.clone(),
-                                    header_delim_len,
-                                    divider_delim_len,
-                                ));
-                                println!(
-                                    "{:>3}. ✓ {}",
-                                    opts.test_num,
-                                    paint(opts.color.then_some(AnsiColor::Blue), &name),
-                                );
-                            }
-                        } else {
-                            println!(
-                                "{:>3}. ✗ {}",
-                                opts.test_num,
-                                paint(opts.color.then_some(AnsiColor::Red), &name),
-                            );
-                        }
-                        failures.push((name.clone(), actual, output.clone()));
-
-                        if attributes.fail_fast {
-                            return Ok(false);
-                        }
-                    }
-                }
-
-                if i == attributes.languages.len() - 1 {
-                    // reset to the first language
-                    parser.set_language(opts.languages.values().next().unwrap())?;
-                }
-            }
-            opts.test_num += 1;
-        }
-        TestEntry::Group {
-            name,
-            children,
-            file_path,
-        } => {
             if children.is_empty() {
-                return Ok(true);
-            }
-
-            indent_level += 1;
-            let mut advance_counter = opts.test_num;
-            let failure_count = failures.len();
-            let mut has_printed = false;
-            let mut skipped_tests = 0;
-
-            let matches_filter = |name: &str, opts: &TestOptions| {
-                if let Some(include) = &opts.include {
-                    include.is_match(name)
-                } else if let Some(exclude) = &opts.exclude {
-                    !exclude.is_match(name)
-                } else {
-                    true
-                }
-            };
-
-            let mut should_skip = |entry: &TestEntry, opts: &TestOptions| match entry {
-                TestEntry::Example { name, .. } => {
-                    advance_counter += 1;
-                    !matches_filter(name, opts)
-                }
-                TestEntry::Group { .. } => {
-                    advance_counter += count_subtests(entry);
-                    false
-                }
-            };
-
-            for child in children {
-                if let TestEntry::Example {
-                    ref name,
-                    ref input,
-                    ref output,
-                    ref attributes_str,
-                    header_delim_len,
-                    divider_delim_len,
-                    ..
-                } = child
-                {
-                    if should_skip(&child, opts) {
-                        let input = String::from_utf8(input.clone()).unwrap();
-                        let output = format_sexp(output, 0);
-                        corrected_entries.push((
-                            name.clone(),
-                            input,
-                            output,
-                            attributes_str.clone(),
-                            header_delim_len,
-                            divider_delim_len,
-                        ));
-
-                        opts.test_num += 1;
-                        skipped_tests += 1;
-
-                        continue;
-                    }
-                }
-                if !has_printed && indent_level > 1 {
-                    has_printed = true;
-                    print!("{}", "  ".repeat((indent_level - 1) as usize));
-                    println!("{name}:");
-                }
-                if !run_tests(
-                    parser,
-                    child,
-                    opts,
-                    indent_level,
-                    failures,
-                    corrected_entries,
-                    has_parse_errors,
-                )? {
-                    // fail fast
-                    return Ok(false);
-                }
-            }
-
-            opts.test_num += skipped_tests;
-
-            if let Some(file_path) = file_path {
-                if opts.update && failures.len() - failure_count > 0 {
-                    write_tests(&file_path, corrected_entries)?;
-                }
-                corrected_entries.clear();
+               vec![] 
+            } else {
+                let results = if name == "corpus" {vec![]} else {vec![format!("{}{}:", indent, name)]};
+                children.into_iter().fold(results, | mut acc, el | {
+                    let mut result = get_results_overview(el, indent_level + 1, use_color, fail_fast);
+                    acc.append(&mut result);
+                    acc
+                })
             }
         }
     }
-    Ok(true)
 }
 
-fn count_subtests(test_entry: &TestEntry) -> usize {
-    match test_entry {
-        TestEntry::Example { .. } => 1,
-        TestEntry::Group { children, .. } => children
-            .iter()
-            .fold(0, |count, child| count + count_subtests(child)),
+fn do_updates(test_results: &TestResult) -> Result<()> {
+    if let TestResult::Group { file_path, .. } = test_results {
+        if let Some(file_path) = file_path {
+            if test_results.has_failures() {
+                write_tests(
+                    &file_path, 
+                    &test_results.get_corrections().iter().map(|a| a.to_tuple()).collect::<Vec<_>>(),
+                )?;
+            }
+        }
     }
+    Ok(())
 }
 
 fn write_tests(
@@ -1120,6 +867,9 @@ fn parse_test_content(name: String, content: &str, file_path: Option<PathBuf>) -
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::BTreeMap;
+    use std::path::PathBuf;
+    use std::vec;
 
     #[test]
     fn test_parse_test_content_simple() {
@@ -1725,115 +1475,239 @@ a
             }
         );
     }
+
+    fn default_opts() -> TestOptions<'static> {
+        TestOptions {
+            path: PathBuf::new(),
+            debug: false,
+            debug_graph: false,
+            include: None,
+            exclude: None,
+            update: false,
+            open_log: false,
+            languages: BTreeMap::new(),
+            color: false,
+            test_num: 0,
+            show_fields: false,
+            overview_only: false,
+            generate_report: false,
+        }
+    }
+
+    #[test]
+    fn failure_details_shows_failure_summary_if_no_parse_errors() {
+        let failures = vec![("foo".to_string(), "bar".to_string(), "baz".to_string())];
+        let result = get_failure_details(&failures, false, &default_opts());
+        assert!(result.contains(&"1 failure:".to_string()));
+    }
+
+    #[test]
+    fn failure_details_one_failure() {
+        let failures = vec![("name".to_string(), "actual".to_string(), "foo".to_string())];
+        let result = get_failure_details(&failures, false, &default_opts());
+        assert_eq!(result[0], "1 failure:");
+    }
+
+    #[test]
+    fn failure_details_multiple_failures() {
+        let failures = vec![
+            ("name".to_string(), "actual".to_string(), "foo".to_string()),
+            ("name".to_string(), "actual".to_string(), "foo".to_string()),
+        ];
+        let result = get_failure_details(&failures, false, &default_opts());
+        assert_eq!(result[0], "2 failures:");
+    }
+
+    #[test]
+    fn show_diff_key_only_if_colorized_diffs() {
+        let opts = default_opts();
+        let failures = vec![];
+        let result = get_failure_details(&failures, false, &opts);
+        let diff_key = format!(
+            "\ncorrect / {} / {}",
+            paint(Some(AnsiColor::Green), "expected"),
+            paint(Some(AnsiColor::Red), "unexpected")
+        );
+        assert!(!result.contains(&diff_key));
+
+        let show_color_opts = TestOptions {
+            color: true,
+            ..opts
+        };
+        let result = get_failure_details(&failures, false, &show_color_opts);
+        assert!(result.contains(&diff_key));
+    }
+
+    #[test]
+    fn failure_details_explains_no_error_explanation() {
+        let failures = vec![("name".to_string(), "(code)".to_string(), "NO ERROR".to_string())];
+        let opts = default_opts();
+        let result = get_failure_details(&failures, false, &opts);
+        assert!(result.contains(&"  Expected an ERROR node, but got:".to_string()));
+    }
+
+    #[test]
+    fn failure_details_includes_error_result_with_diff() {
+        let failures = vec![("name".to_string(), "(code (foo (bar)))".to_string(), "(code (bar))".to_string())];
+        let opts = default_opts();
+        let result = get_failure_details(&failures, true, &opts);
+        assert!(result.contains(&"\n  1. name:".to_string()));
+        assert!(result.iter().any(|s| s.contains("+")));
+    }
+
+    #[test]
+    fn group_to_group_test_idx_increases_by_one() {
+        let tests = TestEntry::Group {
+            name: String::new(),
+            file_path: None,
+            children: vec![
+                TestEntry::Group {
+                    name: String::new(),
+                    file_path: None,
+                    children: vec![TestEntry::Example {
+                        name: String::new(),
+                        input: vec![],
+                        output: String::new(),
+                        header_delim_len: 0,
+                        divider_delim_len: 0,
+                        has_fields: false,
+                        attributes_str: String::new(),
+                        attributes: TestAttributes { skip: true, ..TestAttributes::default() },
+                    },
+                    TestEntry::Example {
+                        name: String::new(),
+                        input: vec![],
+                        output: String::new(),
+                        header_delim_len: 0,
+                        divider_delim_len: 0,
+                        has_fields: false,
+                        attributes_str: String::new(),
+                        attributes: TestAttributes { skip: true, ..TestAttributes::default() },
+                    }],
+                },
+                TestEntry::Group {
+                    name: String::new(),
+                    file_path: None,
+                    children: vec![TestEntry::Example {
+                        name: String::new(),
+                        input: vec![],
+                        output: String::new(),
+                        header_delim_len: 0,
+                        divider_delim_len: 0,
+                        has_fields: false,
+                        attributes_str: String::new(),
+                        attributes: TestAttributes { skip: true, ..TestAttributes::default() },
+                    },
+                    TestEntry::Example {
+                        name: String::new(),
+                        input: vec![],
+                        output: String::new(),
+                        header_delim_len: 0,
+                        divider_delim_len: 0,
+                        has_fields: false,
+                        attributes_str: String::new(),
+                        attributes: TestAttributes { skip: true, ..TestAttributes::default() },
+                    }],
+                },
+            ],
+        };
+        let res = perform_tests(&mut Parser::new(), tests, &mut default_opts());
+        match res {
+            Ok(TestResult::Group { children, .. }) => {
+                match &children[0] {
+                    TestResult::Group { children: children_a, .. } => {
+                        match children_a[0] {
+                            TestResult::Skipped { idx, .. } => assert_eq!(idx, 1),
+                            _ => panic!("Expected TestResult::Skipped"),
+                        }
+                        match children_a[1] {
+                            TestResult::Skipped { idx, .. } => assert_eq!(idx, 2),
+                            _ => panic!("Expected TestResult::Skipped"),
+                        }
+                    }
+                    _ => panic!("Expected TestResult::Group"),
+                }
+                match &children[1] {
+                    TestResult::Group { children: children_b, .. } => {
+                        match children_b[0] {
+                            TestResult::Skipped { idx, .. } => assert_eq!(idx, 3),
+                            _ => panic!("Expected TestResult::Skipped"),
+                        }
+                        match children_b[1] {
+                            TestResult::Skipped { idx, .. } => assert_eq!(idx, 4),
+                            _ => panic!("Expected TestResult::Skipped"),
+                        }
+                    }
+                    _ => panic!("Expected TestResult::Group"),
+                }
+            }
+            _ => panic!("Expected TestResult::Group"),
+        }
+    }
+
+    #[test]
+    fn test_idx_counts_by_one() {
+        let tests = TestEntry::Group {
+            name: String::new(),
+            file_path: None,
+            children: vec![
+                TestEntry::Example {
+                    name: String::new(),
+                    input: vec![],
+                    output: String::new(),
+                    header_delim_len: 0,
+                    divider_delim_len: 0,
+                    has_fields: false,
+                    attributes_str: String::new(),
+                    attributes: TestAttributes { skip: true, ..TestAttributes::default() },
+                },
+                TestEntry::Example {
+                    name: String::new(),
+                    input: vec![],
+                    output: String::new(),
+                    header_delim_len: 0,
+                    divider_delim_len: 0,
+                    has_fields: false,
+                    attributes_str: String::new(),
+                    attributes: TestAttributes { skip: true, ..TestAttributes::default() },
+                },
+            ]
+        };
+        let res = perform_tests(&mut Parser::new(), tests, &mut default_opts());
+        match res {
+            Ok(TestResult::Group { children, .. }) => {
+                assert_eq!(children.len(), 2);
+                match children[0] {
+                    TestResult::Skipped { idx, .. } => assert_eq!(idx, 1),
+                    _ => panic!("Expected TestResult::Skipped"),
+                }
+                match children[1] {
+                    TestResult::Skipped { idx, .. } => assert_eq!(idx, 2),
+                    _ => panic!("Expected TestResult::Skipped"),
+                }
+            },
+            _ => panic!("Expected TestResult::Group"),
+        }
+    }
+
+    #[test]
+    fn failure_details_displays_expected_unexpected() {
+        todo!();
+    }
+
+    #[test]
+    fn correction_outputs_are_pretty_printed() {
+        todo!();
+    }
+
+    #[test]
+    fn do_not_display_empty_test_groups_in_overview() {
+        let results = TestResult::Group {
+            name: "group".to_string(),
+            file_path: None,
+            children: vec![]
+        };
+        let overview = get_results_overview(&results, 0, false, false);
+        assert!(!overview.into_iter().any(|line| { line.contains("group") }));
+    }
 }
-
-// #[derive(Serialize)]
-// #[serde(untagged)]
-// enum TestResult {
-//     Executed {
-//         name: String,
-//         results: Vec<(String, LanguageResult)>,
-//     },
-//     NoPlatform {
-//         name: String,
-//         // status: String,
-//     },
-//     Skipped {
-//         name: String,
-//         // status: String,
-//     },
-//     Group {
-//         name: String,
-//         file_path: Option<PathBuf>,
-//         children: Vec<TestResult>,
-//     }
-// }
-// enum LanguageResult {
-//     Pass {
-//         name: String,
-//         expected: String,
-//     },
-//     Fail {
-//         name: String,
-//         expected: String,
-//         result: String,
-//         diff: Vec<DiffResult>,
-//     },
-// }
-// impl Serialize for LanguageResult {
-//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-//     where S: Serializer, 
-//     {
-//         // let mut state = serializer.serialize_struct("LanguageResult")
-//         match self {
-//             LanguageResult::Pass { name, expected } => {
-//                 let mut state = serializer.serialize_struct("Pass", 3)?;
-//                 state.serialize_field("status", "passed")?;
-//                 state.serialize_field("name", &name)?;
-//                 state.serialize_field("expected", &expected)?;
-//                 state.end()
-//             }
-//             LanguageResult::Fail { name, expected, result, diff } => {
-//                 let mut state = serializer.serialize_struct("Fail", 5)?;
-//                 state.serialize_field("status", "failed")?;
-//                 state.serialize_field("name", &name)?;
-//                 state.serialize_field("expected", &expected)?;
-//                 state.serialize_field("result", &result)?;
-//                 state.serialize_field("diff", diff)?;
-//                 state.end()
-//             }
-//         }
-//     }
-// }
-// impl LanguageResult {
-//     fn pass(name: String, expected: String) -> Self {
-//         LanguageResult::Pass {
-//             name: name,
-//             expected,
-//         }
-//     }
-//     fn fail(name: String, expected: String, result: String) -> Self {
-//         let diff = TextDiff::from_lines(&expected, &result);
-//         let mut diff_vec = vec![];
-//         for d in diff.iter_all_changes() {
-//             let line = match d.tag() {
-//                 ChangeTag::Equal => DiffResult::Equal { value: d.as_str().unwrap().to_string()},
-//                 ChangeTag::Delete => DiffResult::Delete { value: d.as_str().unwrap().to_string()},
-//                 ChangeTag::Insert => DiffResult::Insert { value: d.as_str().unwrap().to_string()}
-//             };
-//             diff_vec.push(line);
-//         }
-//         LanguageResult::Fail {
-//             name,
-//             expected,
-//             result,
-//             diff: diff_vec,
-//         }
-//     }
-// }
-
-// enum DiffResult {
-//     Equal { value: String },
-//     Insert { value: String },
-//     Delete { value: String },
-// }
-// impl Serialize for DiffResult {
-//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
-//         let mut state = serializer.serialize_struct("DiffResult", 2)?;
-//         match self {
-//             DiffResult::Equal { value } => {
-//                 state.serialize_field("value", &value)?;
-//                 state.serialize_field("tag", "equal")?
-//             }
-//             DiffResult::Delete { value } => {
-//                 state.serialize_field("value", &value)?;
-//                 state.serialize_field("tag", "delete")?
-//             }
-//             DiffResult::Insert { value } => {
-//                 state.serialize_field("value", &value)?;
-//                 state.serialize_field("tag", "insert")?
-//             }
-//         }
-//         state.end()
-//     }
-// }
