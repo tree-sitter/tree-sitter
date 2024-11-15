@@ -10,9 +10,11 @@ pub enum TestResult {
         results: Vec<(String, LanguageResult)>,
     },
     NoPlatform {
+        idx: usize,
         name: String,
     },
     Skipped {
+        idx: usize,
         name: String,
         update: Option<(String, String, String, usize, usize)>,
     },
@@ -80,12 +82,14 @@ impl TestResult {
 #[derive(Clone)]
 pub enum LanguageResult {
     Pass {
+        idx: usize,
         name: String,
         expected: String,
         intended: bool,
         update: Option<(String, usize, usize)>
     },
     Fail {
+        idx: usize,
         name: String,
         expected: String,
         result: String,
@@ -93,6 +97,7 @@ pub enum LanguageResult {
         update: Option<(String, usize, usize)>,
     },
     ExpectedFailure {
+        idx: usize,
         name: String,
         expected: String,
         update: Option<(String, usize, usize)>,
@@ -132,30 +137,33 @@ impl Serialize for LanguageResult {
     }
 }
 impl LanguageResult {
-    pub fn pass(name: String, expected: String, update: Option<(String, usize, usize)>) -> Self {
+    pub fn pass(idx: usize, name: String, expected: String, update: Option<(String, usize, usize)>) -> Self {
         LanguageResult::Pass {
-            name: name,
+            idx,
+            name,
             expected,
             update,
             intended: true,
         }
     }
-    pub fn unexpected_pass(name: String, expected: String, update: Option<(String, usize, usize)>) -> Self {
+    pub fn unexpected_pass(idx: usize, name: String, expected: String, update: Option<(String, usize, usize)>) -> Self {
         LanguageResult::Pass {
-            name: name,
+            idx,
+            name,
             expected,
             update,
             intended: false,
         }
     }
-    pub fn expected_fail(name: String, expected: String, update: Option<(String, usize, usize)>) -> Self {
+    pub fn expected_fail(idx: usize, name: String, expected: String, update: Option<(String, usize, usize)>) -> Self {
         LanguageResult::ExpectedFailure {
+            idx,
             name,
             expected,
             update,
         }
     }
-    pub fn fail(name: String, expected: String, result: String, update: Option<(String, usize, usize)>) -> Self {
+    pub fn fail(idx: usize, name: String, expected: String, result: String, update: Option<(String, usize, usize)>) -> Self {
         let diff = TextDiff::from_lines(&expected, &result);
         let mut diff_vec = vec![];
         for d in diff.iter_all_changes() {
@@ -167,6 +175,7 @@ impl LanguageResult {
             diff_vec.push(line);
         }
         LanguageResult::Fail {
+            idx,
             name,
             expected,
             result,

@@ -136,7 +136,8 @@ pub fn run_tests_at_path(parser: &mut Parser, opts: &mut TestOptions) -> Result<
         println!("{}", json!(results));
         return Ok(());
     } else {
-        let output = get_results_overview(&results, 1, 0, opts.color, false);
+        let output = get_results_overview(&results, 0, opts.color, false);
+
         println!("{}", output.join("\n"));
     }
 
@@ -363,9 +364,11 @@ fn tests_to_json(
                     attributes_str.clone(),
                     header_delim_len,
                     divider_delim_len));
-                Ok(TestResult::Skipped { name: name, update })
+                opts.test_num += 1;
+                Ok(TestResult::Skipped { idx: opts.test_num, name: name, update })
             } else if !attributes.platform {
-                Ok(TestResult::NoPlatform { name: name })
+                opts.test_num += 1;
+                Ok(TestResult::NoPlatform { idx: opts.test_num, name: name })
             } else {
                 let mut results = vec![];
                 let update = opts.update.then_some((
@@ -387,12 +390,14 @@ fn tests_to_json(
                         // And if it fails
                         if tree.root_node().has_error() {
                             LanguageResult::expected_fail(
+                                opts.test_num,
                                 name.clone(), 
                                 output.clone(),
                                 update.clone(),
                             )
                         } else { // unwanted success
                             let f = LanguageResult::unexpected_pass(
+                                opts.test_num,
                                 name.clone(), 
                                 format_sexp(&output, 0), 
                                 update.clone(),
@@ -405,12 +410,13 @@ fn tests_to_json(
                             actual = strip_sexp_fields(&actual);
                         }
                         if actual == output.clone() {
-                            LanguageResult::pass(name.clone(), actual, update.clone())
+                            LanguageResult::pass(opts.test_num, name.clone(), actual, update.clone())
                         } else {
                             let actual = tree.root_node().to_sexp();
-                            LanguageResult::fail(name.clone(), actual, output.clone(), update.clone())
+                            LanguageResult::fail(opts.test_num, name.clone(), actual, output.clone(), update.clone())
                         }
                     };
+                    opts.test_num += 1;
                     results.push((language_name.as_ref().to_string(), el));
                 }
                 Ok(TestResult::Executed { name: name.clone(), results })
@@ -455,11 +461,12 @@ fn tests_to_json(
                                 header_delim_len,
                                 divider_delim_len,
                             ));
+                            opts.test_num += 1;
                             TestResult::Skipped {
+                                idx: opts.test_num,
                                 name,
                                 update,
                             }
-                            // json!({"name": name, "status": "skipped"})
                         }
                         TestEntry::Group { name, .. } => {
                             todo!("what to do about test entry group return val")//json!({"name": name, "status": "skipped"})
@@ -475,10 +482,10 @@ fn tests_to_json(
     }
 }
 
-fn get_results_overview(results: &TestResult, idx: usize, indent_level: usize, use_color: bool, fail_fast: bool) -> Vec<String> {
+fn get_results_overview(results: &TestResult, indent_level: usize, use_color: bool, fail_fast: bool) -> Vec<String> {
     let indent = format!("{}", "  ".repeat(indent_level as usize));
     match results {
-        TestResult::Skipped { name, .. } => {
+        TestResult::Skipped { idx, name, .. } => {
             vec![format!(
                 "{}{:>3}.  {}",
                 indent,
@@ -486,7 +493,7 @@ fn get_results_overview(results: &TestResult, idx: usize, indent_level: usize, u
                 paint(use_color.then_some(AnsiColor::Yellow), &name),
             )]
         }
-        TestResult::NoPlatform { name } => {
+        TestResult::NoPlatform { idx, name } => {
             vec![format!(
                 "{}{:>3}.  {}",
                 indent,
@@ -496,38 +503,38 @@ fn get_results_overview(results: &TestResult, idx: usize, indent_level: usize, u
         }
         TestResult::Executed { name, results } => {
             let mut acc = vec![];
-            for (offset, (_lang, result)) in results.into_iter().enumerate() {
+            for (_lang, result) in results {
                 let line = match result {
-                    LanguageResult::Pass { name, intended, .. } => {
+                    LanguageResult::Pass { idx, name, intended, .. } => {
                         if *intended {
                             format!(
                                 "{}{:>3}. ✓ {}",
                                 indent,
-                                idx + offset,
+                                idx,
                                 paint(use_color.then_some(AnsiColor::Green), &name)
                             )
                         } else {
                             format!(
                                 "{}{:>3}.  {}",
                                 indent,
-                                idx + offset,
+                                idx,
                                 paint(use_color.then_some(AnsiColor::Red), &name)
                             )
                         }
                     }
-                    LanguageResult::Fail { .. } => {
+                    LanguageResult::Fail { idx, name, .. } => {
                         format!(
                             "{}{:>3}. ✗ {}",
                             indent,
-                            idx + offset,
+                            idx,
                             paint(use_color.then_some(AnsiColor::Red), &name),
                         )
                     }
-                    LanguageResult::ExpectedFailure { name, .. } => {
+                    LanguageResult::ExpectedFailure { idx, name, .. } => {
                         format!(
                             "{}{:>3}.  {}",
                             indent,
-                            idx + offset,
+                            idx,
                             paint(use_color.then_some(AnsiColor::Green), &name)
                         )
                     }
@@ -538,12 +545,12 @@ fn get_results_overview(results: &TestResult, idx: usize, indent_level: usize, u
             // format!("{}", acc.join("\n"))
         }
         TestResult::Group { name, children, .. } => {
-            let mut results = vec![format!("{}{}:", indent, name)];
-            let mut i = 0;
-            for (offset, child) in children.into_iter().enumerate() {
-                let mut result = get_results_overview(child, idx + offset + i, indent_level + 1, use_color, fail_fast);
+            let mut results = if name == "corpus" {vec![]} else {vec![format!("{}{}:", indent, name)]};
+            // let mut i = 0;
+            for child in children {
+                let mut result = get_results_overview(child, indent_level + 1, use_color, fail_fast);
                 results.append(&mut result);
-                i = i + result.len() - 1;
+                // i = i + result.len() - 1;
             }
             results
         }
