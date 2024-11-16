@@ -180,8 +180,8 @@ uint32_t ts_node_start_byte(TSNode);
 uint32_t ts_node_end_byte(TSNode);
 
 typedef struct {
-  uint32_t row;
-  uint32_t column;
+  uint32_t row;    // zero-based
+  uint32_t column; // zero-based, measured in bytes
 } TSPoint;
 
 TSPoint ts_node_start_point(TSNode);
