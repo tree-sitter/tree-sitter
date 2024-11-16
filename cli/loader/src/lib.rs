@@ -481,7 +481,7 @@ impl Loader {
         scope: &str,
     ) -> Result<Option<(Language, &LanguageConfiguration)>> {
         for configuration in &self.language_configurations {
-            if configuration.scope.as_ref().map_or(false, |s| s == scope) {
+            if configuration.scope.as_ref().is_some_and(|s| s == scope) {
                 let language = self.language_for_id(configuration.language_id)?;
                 return Ok(Some((language, configuration)));
             }
@@ -977,13 +977,13 @@ impl Loader {
         } else if Command::new("docker")
             .arg("info")
             .output()
-            .map_or(false, |out| out.status.success())
+            .is_ok_and(|out| out.status.success())
         {
             EmccSource::Docker
         } else if Command::new("podman")
             .arg("--version")
             .output()
-            .map_or(false, |out| out.status.success())
+            .is_ok_and(|out| out.status.success())
         {
             EmccSource::Podman
         } else {

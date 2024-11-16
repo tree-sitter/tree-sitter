@@ -202,7 +202,7 @@ pub(crate) fn parse_grammar(input: &str) -> Result<InputGrammar> {
             (&extra_symbols, &external_tokens),
             name,
             &mut in_progress,
-        ) && grammar_json.word.as_ref().map_or(true, |w| w != name)
+        ) && grammar_json.word.as_ref().is_some_and(|w| w != name)
         {
             grammar_json.conflicts.retain(|r| !r.contains(name));
             grammar_json.supertypes.retain(|r| r != name);

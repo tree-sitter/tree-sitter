@@ -574,7 +574,7 @@ pub fn generate_node_types_json(
         if node_type_json
             .children
             .as_ref()
-            .map_or(false, |c| c.types.is_empty())
+            .is_some_and(|c| c.types.is_empty())
         {
             node_type_json.children = None;
         }
