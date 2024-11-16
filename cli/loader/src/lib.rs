@@ -140,6 +140,8 @@ pub struct LanguageConfigurationJSON {
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct TreeSitterJSON {
+    #[serde(rename = "$schema")]
+    pub schema: Option<String>,
     pub grammars: Vec<Grammar>,
     pub metadata: Metadata,
     #[serde(default)]
