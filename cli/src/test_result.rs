@@ -1,6 +1,9 @@
+use anstyle::AnsiColor;
 use serde::{ser::SerializeStruct, Serialize, Serializer};
 use std::path::PathBuf;
+use std::fmt::{Display, Formatter};
 use similar::{TextDiff, ChangeTag};
+use super::test::paint;
 
 #[derive(Clone, Debug)]
 // #[serde(untagged)]
@@ -292,6 +295,73 @@ impl Serialize for DiffResult {
             }
         }
         state.end()
+    }
+}
+
+pub enum HighlightTestResult {
+    Suite {
+        name: String,
+        children: Vec<HighlightTestResult>,
+    },
+    Pass {
+        name: String,
+        assertion_count: usize,
+    },
+    Fail {
+        name: String,
+        error: anyhow::Error,
+    }
+}
+
+impl HighlightTestResult {
+    pub fn to_string(&self, use_color: bool, depth: usize) -> String {
+        match self {
+            HighlightTestResult::Suite { name, children } => {
+                let mut acc = String::new();
+                if depth > 0 {
+                    acc.push_str(&format!("{indent:indent_level$}{name}\n", indent = "", indent_level = 2 * (depth + 1)));
+                }
+                for child in children {
+                    let a = child.to_string(use_color, depth + 1);
+                    // let indented = a.lines().map(|line| format!("{indent:indent_level$}{line}", indent = "", indent_level = 2, line = line)).collect::<Vec<String>>().join("\n");
+                    acc.push_str(&a);
+                }
+                acc
+            },
+            HighlightTestResult::Pass { name, assertion_count } => {
+                let nname = paint(use_color.then_some(AnsiColor::Green), name);
+                format!("{indent:indent_level$}✓ {nname} ({assertion_count} assertions)\n", indent = "", indent_level = (depth + 1) * 2)
+            },
+            HighlightTestResult::Fail { name, error } => {
+                let nname = paint(use_color.then_some(AnsiColor::Red), name);
+                format!("{indent:indent_level$}✗ {nname}\n  {error}\n", indent = "", indent_level = (depth + 1) * 2)
+            },
+        }
+
+    }
+}
+
+impl Display for HighlightTestResult {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        match self {
+            HighlightTestResult::Suite { name, children } => {
+                let mut acc = format!("{}", name);
+                // write!(f, "{}", name)?;
+                for child in children {
+                    let a = format!("{}", child);
+                    acc.push_str(&a);
+                }
+                write!(f, "{}", acc)
+                // Ok(())
+            },
+            HighlightTestResult::Pass { name, assertion_count } => {
+                writeln!(f, "✓ {} ({} assertions)", name, assertion_count)
+            },
+            HighlightTestResult::Fail { name, error } => {
+                writeln!(f, "✗ {}\n  {error}", name)
+                // writeln!(f, "  {error}")
+            },
+        }
     }
 }
 
