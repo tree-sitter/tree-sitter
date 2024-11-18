@@ -13,19 +13,13 @@ use glob::glob;
 use heck::ToUpperCamelCase;
 use regex::Regex;
 use semver::Version as SemverVersion;
+use serde_json::json;
 use tree_sitter::{ffi, Parser, Point};
 use tree_sitter_cli::{
     fuzz::{
         fuzz_language_corpus, FuzzOptions, EDIT_COUNT, ITERATION_COUNT, LOG_ENABLED,
         LOG_GRAPH_ENABLED, START_SEED,
-    },
-    highlight,
-    init::{generate_grammar_files, get_root_path, migrate_package_json, JsonConfigOpts},
-    logger,
-    parse::{self, ParseFileOptions, ParseOutput, ParseTheme},
-    playground, query, tags,
-    test::{self, TestOptions},
-    test_highlight, test_tags, util, version, wasm,
+    }, highlight, init::{generate_grammar_files, get_root_path, migrate_package_json, JsonConfigOpts}, logger, parse::{self, ParseFileOptions, ParseOutput, ParseTheme}, playground, query, tags, test::{self, TestOptions}, test_highlight, test_tags, util, version, wasm
 };
 use tree_sitter_config::Config;
 use tree_sitter_highlight::Highlighter;
@@ -960,7 +954,7 @@ impl Test {
 
         // Run the corpus tests. Look for them in `test/corpus`.
         let test_corpus_dir = test_dir.join("corpus");
-        if test_corpus_dir.is_dir() {
+        let corpus_results = if test_corpus_dir.is_dir() {
             let mut opts = TestOptions {
                 path: test_corpus_dir,
                 debug: self.debug,
@@ -977,40 +971,63 @@ impl Test {
                 generate_report: self.report,
             };
 
-            test::run_tests_at_path(&mut parser, &mut opts)?;
-        }
+            test::run_tests_at_path(&mut parser, &mut opts).map(Some)?
+        } else {
+            None
+        };
 
         // Check that all of the queries are valid.
         test::check_queries_at_path(language, &current_dir.join("queries"))?;
 
         // Run the syntax highlighting tests.
-        if !self.report {
-            let test_highlight_dir = test_dir.join("highlight");
-            if test_highlight_dir.is_dir() {
-                let mut highlighter = Highlighter::new();
-                highlighter.parser = parser;
-                test_highlight::test_highlights(
-                    &loader,
-                    &config.get()?,
-                    &mut highlighter,
-                    &test_highlight_dir,
-                    color,
-                )?;
-                parser = highlighter.parser;
+        let test_highlight_dir = test_dir.join("highlight");
+        let highlight_results = if test_highlight_dir.is_dir() {
+            let mut highlighter = Highlighter::new();
+            highlighter.parser = parser;
+            let highlight_results = test_highlight::test_highlights(
+                &loader,
+                &config.get()?,
+                &mut highlighter,
+                &test_highlight_dir,
+            )?;
+            parser = highlighter.parser;
+            if !self.report {
+                println!("syntax highlighting:");
+                print!("{}", highlight_results.to_string(color, 0));
             }
-        }
+            Some(highlight_results)
+        } else {
+            None
+        };
 
         let test_tag_dir = test_dir.join("tags");
-        if test_tag_dir.is_dir() {
+        let tag_results = if test_tag_dir.is_dir() {
             let mut tags_context = TagsContext::new();
             tags_context.parser = parser;
-            test_tags::test_tags(
+            let tag_results = test_tags::test_tags(
                 &loader,
                 &config.get()?,
                 &mut tags_context,
                 &test_tag_dir,
-                color,
             )?;
+            if !self.report {
+                println!("tags:");
+                for child in &tag_results {
+                    println!("{}", child.to_string(color));
+                }
+            }
+            tag_results
+        } else {
+            vec![]
+        };
+
+        if self.report {
+            print!("{}", json!({
+                "corpus": corpus_results.unwrap_or_default(),
+                "highlight": highlight_results.unwrap_or_default(),
+                "tags": tag_results,
+            }));
+            return Ok(());
         }
 
         // For the rest of the queries, find their tests and run them

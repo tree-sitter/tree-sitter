@@ -1,17 +1,17 @@
 use std::{fs, path::Path};
 
-use anstyle::AnsiColor;
 use anyhow::{anyhow, Result};
+use serde::Serialize;
 use tree_sitter_loader::{Config, Loader};
 use tree_sitter_tags::{TagsConfiguration, TagsContext};
 
 use super::{
     query_testing::{parse_position_comments, to_utf8_point, Assertion, Utf8Point},
-    test::paint,
     util,
+    test_result::TagTestResult,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct Failure {
     row: usize,
     column: usize,
@@ -47,10 +47,9 @@ pub fn test_tags(
     loader_config: &Config,
     tags_context: &mut TagsContext,
     directory: &Path,
-    use_color: bool,
-) -> Result<()> {
-    let mut failed = false;
-    println!("tags:");
+) -> Result<Vec<TagTestResult>> {
+    // let mut failed = false;
+    let mut results = vec![];
     for tag_test_file in fs::read_dir(directory)? {
         let tag_test_file = tag_test_file?;
         let test_file_path = tag_test_file.path();
@@ -72,33 +71,14 @@ pub fn test_tags(
             fs::read(&test_file_path)?.as_slice(),
         ) {
             Ok(assertion_count) => {
-                println!(
-                    "  ✓ {} ({assertion_count} assertions)",
-                    paint(
-                        use_color.then_some(AnsiColor::Green),
-                        test_file_name.to_string_lossy().as_ref()
-                    ),
-                );
+                results.push(TagTestResult::Success { name: test_file_name.to_string_lossy().to_string(), assertion_count });
             }
             Err(e) => {
-                println!(
-                    "  ✗ {}",
-                    paint(
-                        use_color.then_some(AnsiColor::Red),
-                        test_file_name.to_string_lossy().as_ref()
-                    )
-                );
-                println!("    {e}");
-                failed = true;
+                results.push(TagTestResult::Failure { name: test_file_name.to_string_lossy().to_string(), error: format!("{e}") });
             }
         }
     }
-
-    if failed {
-        Err(anyhow!(""))
-    } else {
-        Ok(())
-    }
+    Ok(results)
 }
 
 pub fn test_tag(

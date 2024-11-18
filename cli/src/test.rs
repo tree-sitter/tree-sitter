@@ -10,7 +10,7 @@ use regex::{
     bytes::{Regex as ByteRegex, RegexBuilder as ByteRegexBuilder},
     Regex,
 };
-use serde_json::{json, to_string_pretty};
+// use serde_json::{json, to_string_pretty};
 use similar::{ChangeTag, TextDiff};
 use tree_sitter::{format_sexp, Language, LogType, Parser, Query};
 use walkdir::WalkDir;
@@ -109,7 +109,7 @@ pub struct TestOptions<'a> {
     pub generate_report: bool,
 }
 
-pub fn run_tests_at_path(parser: &mut Parser, opts: &mut TestOptions) -> Result<()> {
+pub fn run_tests_at_path(parser: &mut Parser, opts: &mut TestOptions) -> Result<TestResult> {
     let test_entry = parse_tests(&opts.path)?;
     let mut _log_session = None;
 
@@ -128,19 +128,18 @@ pub fn run_tests_at_path(parser: &mut Parser, opts: &mut TestOptions) -> Result<
     if opts.update {
         do_updates(&results)?;
     }
+
     if opts.generate_report {
-        println!("{}", to_string_pretty(&json!(results)).unwrap());
-        return Ok(());
-    } else {
-        let output = get_results_overview(&results, 0, opts.color, false);
-        println!("{}", output.join("\n"));
+        return Ok(results);
     }
+
+    println!("{}", get_results_overview(&results, 0, opts.color, false).join("\n"));
 
     parser.stop_printing_dot_graphs();
     let failures = results.get_failures();
     let mut has_parse_errors = results.has_parse_errors();
     if failures.is_empty() {
-        Ok(())
+        Ok(results)
     } else {
         println!();
 
@@ -155,7 +154,7 @@ pub fn run_tests_at_path(parser: &mut Parser, opts: &mut TestOptions) -> Result<
                 println!("  {}. {name}", i + 1);
             }
 
-            Ok(())
+            Ok(results)
         } else {
             has_parse_errors = opts.update && has_parse_errors;
 
@@ -372,14 +371,7 @@ fn perform_tests(
             attributes_str,
             attributes,
         } => {
-            // let pretty_output = format_sexp(&output, 0);
             if attributes.skip {
-                // let update = opts.update.then_some((
-                //     String::from_utf8(input.clone()).unwrap(),
-                //     format_sexp(&output, 0),
-                //     attributes_str.clone(),
-                //     header_delim_len,
-                //     divider_delim_len));
                 opts.test_num += 1;
                 Ok(TestResult::Skipped { idx: opts.test_num, name: name, update: None })
             } else if !attributes.platform {
@@ -468,29 +460,22 @@ fn perform_tests(
                     false
                 }
             };
-            let mut cs = vec![];
-            for el in children.into_iter() {
-                let child_result = match &el {
-                    TestEntry::Example { input, output, attributes_str, header_delim_len, divider_delim_len, .. } => {
+            // let mut cs = vec![];
+            let children: Result<Vec<TestResult>> = children.into_iter().filter_map(|el| {
+                match el {
+                    TestEntry::Example { .. } => {
                         if should_skip(&el, opts) {
-                            let update = opts.update.then_some((
-                                String::from_utf8(input.clone()).unwrap(), 
-                                format_sexp(&output, 0),
-                                attributes_str.clone(),
-                                *header_delim_len,
-                                *divider_delim_len,
-                            ));
                             opts.test_num += 1;
-                            Ok(TestResult::Skipped { idx: opts.test_num, name: name.clone(), update })
+                            None
                         } else {
-                            perform_tests(parser, el, opts)
+                            Some(perform_tests(parser, el, opts))
                         }
                     }
-                    a => perform_tests(parser, a.clone(), opts)
-                }?;
-                cs.push(child_result);
-            }
-            Ok(TestResult::Group { name, file_path, children: cs })
+                    a => Some(perform_tests(parser, a.clone(), opts))
+                }
+            }).collect();
+
+            Ok(TestResult::Group { name, file_path, children: children? })
         }
     }
 }
@@ -1709,5 +1694,24 @@ a
         };
         let overview = get_results_overview(&results, 0, false, false);
         assert!(!overview.into_iter().any(|line| { line.contains("group") }));
+    } 
+
+    #[test]
+    fn when_include_exclude_do_not_show_skipped_results_but_keep_correct_index() {
+        let mut parser = Parser::new();
+        let suite = TestEntry::Group {
+            name: String::new(),
+            file_path: None,
+            children: vec![
+                TestEntry::Example { name: "should skip".to_string(), input: Vec::new(), output: String::new(), header_delim_len: 0, divider_delim_len: 0, has_fields: false, attributes_str: String::new(), attributes: TestAttributes::default() },
+                TestEntry::Example { name: "do not skip".to_string(), input: Vec::new(), output: String::new(), header_delim_len: 0, divider_delim_len: 0, has_fields: false, attributes_str: String::new(), attributes: TestAttributes::default() },
+            ]
+        };
+        let results = perform_tests(
+            &mut parser,
+            suite,
+            &mut default_opts(),
+        );
+        dbg!("results", results);
     }
 }

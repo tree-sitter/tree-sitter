@@ -29,6 +29,16 @@ pub enum TestResult {
     }
 }
 
+impl Default for TestResult {
+    fn default() -> Self {
+        TestResult::Group {
+            name: "corpus".to_string(),
+            file_path: None,
+            children: vec![],
+        }
+    }
+}
+
 impl TestResult {
     pub fn get_all_tests(self) -> Vec<TestResult> {
         match self {
@@ -313,6 +323,15 @@ pub enum HighlightTestResult {
     }
 }
 
+impl Default for HighlightTestResult {
+    fn default() -> Self {
+        HighlightTestResult::Suite {
+            name: "highlights".to_string(),
+            children: vec![],
+        }
+    }
+}
+
 impl HighlightTestResult {
     pub fn to_string(&self, use_color: bool, depth: usize) -> String {
         match self {
@@ -364,6 +383,71 @@ impl Display for HighlightTestResult {
         }
     }
 }
+
+impl Serialize for HighlightTestResult {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+        match self {
+            HighlightTestResult::Suite { name, children } => {
+                let mut state = serializer.serialize_struct("Suite", 2)?;
+                state.serialize_field("name", name)?;
+                state.serialize_field("children", children)?;
+                state.end()
+            },
+            HighlightTestResult::Pass { name, assertion_count } => {
+                let mut state = serializer.serialize_struct("Pass", 2)?;
+                state.serialize_field("name", name)?;
+                state.serialize_field("assertion_count", assertion_count)?;
+                state.end()
+            },
+            HighlightTestResult::Fail { name, error } => {
+                let mut state = serializer.serialize_struct("Fail", 2)?;
+                state.serialize_field("name", name)?;
+                state.serialize_field("error", &error.to_string())?;
+                state.end()
+            },
+        }
+    }
+}
+
+#[derive(Serialize)]
+pub enum TagTestResult {
+    Success { name: String, assertion_count: usize },
+    Failure { name: String, error: String },
+}
+
+impl TagTestResult {
+    pub fn to_string(&self, use_color: bool) -> String {
+        match &self {
+            TagTestResult::Success { name, assertion_count } => {
+                let nname = paint(use_color.then_some(AnsiColor::Green), name);
+                format!("  ✓ {} ({assertion_count} assertions)", nname)
+            },
+            TagTestResult::Failure { name, error } => {
+                let nname = paint(use_color.then_some(AnsiColor::Red), name);
+                format!("  ✗ {nname}\n    {error}")
+            },
+        }
+    }
+}
+
+// impl Serialize for TagTestResult {
+//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+//         match self {
+//             TagTestResult::Success { name, assertion_count } => {
+//                 let mut state = serializer.serialize_struct("Success", 2)?;
+//                 state.serialize_field("name", name)?;
+//                 state.serialize_field("assertion_count", assertion_count)?;
+//                 state.end()
+//             },
+//             TagTestResult::Failure { name, error } => {
+//                 let mut state = serializer.serialize_struct("Failure", 2)?;
+//                 state.serialize_field("name", name)?;
+//                 state.serialize_field("error", &error.to_string())?;
+//                 state.end()
+//             },
+//         }
+//     }
+// }
 
 #[cfg(test)]
 mod tests {
