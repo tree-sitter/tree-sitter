@@ -106,7 +106,7 @@ pub struct TestOptions<'a> {
     pub test_num: usize,
     pub show_fields: bool,
     pub overview_only: bool,
-    pub generate_report: bool,
+    pub generate_report: Option<String>,
 }
 
 pub fn run_tests_at_path(parser: &mut Parser, opts: &mut TestOptions) -> Result<TestResult> {
@@ -129,7 +129,7 @@ pub fn run_tests_at_path(parser: &mut Parser, opts: &mut TestOptions) -> Result<
         do_updates(&results)?;
     }
 
-    if opts.generate_report {
+    if opts.generate_report.is_some() {
         return Ok(results);
     }
 
@@ -1475,7 +1475,7 @@ a
             test_num: 0,
             show_fields: false,
             overview_only: false,
-            generate_report: false,
+            generate_report: None,
         }
     }
 

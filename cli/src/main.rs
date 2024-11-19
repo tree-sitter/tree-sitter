@@ -272,8 +272,12 @@ struct Test {
     pub rebuild: bool,
     #[arg(long, help = "Show only the pass-fail overview tree")]
     pub overview_only: bool,
-    #[arg(long, help = "Generate a JSON report of the test results")]
-    pub report: bool,
+    #[arg(
+        long,
+        help = "Generate a JSON report of the test results. Use `:stdout:` as the filename to print to screen.")]
+    pub report: Option<String>,
+    #[arg(long, help = "Open the JSON report in the default browser. Only works if JSON reporting is enabled and an actual filename is provided.")]
+    pub open_report: bool,
 }
 
 #[derive(Args)]
@@ -968,7 +972,7 @@ impl Test {
                 test_num: 1,
                 show_fields: self.show_fields,
                 overview_only: self.overview_only,
-                generate_report: self.report,
+                generate_report: self.report.clone(),
             };
 
             let results = test::run_tests_at_path(&mut parser, &mut opts)?;
@@ -1000,7 +1004,7 @@ impl Test {
                 &test_highlight_dir,
             )?;
             parser = highlighter.parser;
-            if !self.report {
+            if self.report.is_none() {
                 println!("syntax highlighting:");
                 print!("{}", highlight_results.to_string(color, 0));
             }
@@ -1028,7 +1032,7 @@ impl Test {
                 &mut tags_context,
                 &test_tag_dir,
             )?;
-            if !self.report {
+            if self.report.is_none() {
                 println!("tags:");
                 for child in &tag_results {
                     println!("{}", child.to_string(color));
@@ -1039,14 +1043,36 @@ impl Test {
             vec![]
         };
 
-        if self.report {
-            print!("{}", json!({
+        if self.report.is_some() {
+            let output = format!("{}", json!({
                 "corpus": corpus_results.unwrap_or_default(),
                 "highlight": highlight_results.unwrap_or_default(),
                 "tags": tag_results,
             }));
+            let target = self.report.unwrap();
+            if target == ":stdout:" {
+                print!("{output}");
+            } else {
+                // let output_dir = current_dir;
+                let ofilename = current_dir.join("report.json");
+                std::fs::write(&ofilename, output)?;
+                if self.open_report {
+                    let fname = ofilename.to_string_lossy();
+                    webbrowser::open(&fname)?;
+                }
+            }
             return Ok(());
         }
+
+        
+        // if self.report.is_some() {
+        //     print!("{}", json!({
+        //         "corpus": corpus_results.unwrap_or_default(),
+        //         "highlight": highlight_results.unwrap_or_default(),
+        //         "tags": tag_results,
+        //     }));
+        //     return Ok(());
+        // }
 
         // For the rest of the queries, find their tests and run them
         for entry in walkdir::WalkDir::new(current_dir.join("queries"))
