@@ -307,9 +307,8 @@ fn write_color(buffer: &mut String, color: Color) {
 }
 
 fn terminal_supports_truecolor() -> bool {
-    std::env::var("COLORTERM").map_or(false, |truecolor| {
-        truecolor == "truecolor" || truecolor == "24bit"
-    })
+    std::env::var("COLORTERM")
+        .is_ok_and(|truecolor| truecolor == "truecolor" || truecolor == "24bit")
 }
 
 fn closest_xterm_color(red: u8, green: u8, blue: u8) -> Color {

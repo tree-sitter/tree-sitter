@@ -35,13 +35,13 @@ pub fn run_wasm(args: &BuildWasm) -> Result<()> {
     } else if Command::new("docker")
         .arg("info")
         .output()
-        .map_or(false, |out| out.status.success())
+        .is_ok_and(|out| out.status.success())
     {
         EmccSource::Docker
     } else if Command::new("podman")
         .arg("--version")
         .output()
-        .map_or(false, |out| out.status.success())
+        .is_ok_and(|out| out.status.success())
     {
         EmccSource::Podman
     } else {

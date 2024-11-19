@@ -93,6 +93,9 @@ const TEST_BINDING_PY_TEMPLATE: &str = include_str!("./templates/test_binding.py
 const PACKAGE_SWIFT_TEMPLATE: &str = include_str!("./templates/package.swift");
 const TESTS_SWIFT_TEMPLATE: &str = include_str!("./templates/tests.swift");
 
+const TREE_SITTER_JSON_SCHEMA: &str =
+    "https://tree-sitter.github.io/tree-sitter/assets/schemas/config.schema.json";
+
 #[must_use]
 pub fn path_in_ignore(repo_path: &Path) -> bool {
     [
@@ -133,6 +136,7 @@ impl JsonConfigOpts {
     #[must_use]
     pub fn to_tree_sitter_json(self) -> TreeSitterJSON {
         TreeSitterJSON {
+            schema: Some(TREE_SITTER_JSON_SCHEMA.to_string()),
             grammars: vec![Grammar {
                 name: self.name.clone(),
                 camelcase: Some(self.camelcase),
@@ -226,6 +230,7 @@ pub fn migrate_package_json(repo_path: &Path) -> Result<bool> {
     let name = old_config.name.replace("tree-sitter-", "");
 
     let new_config = TreeSitterJSON {
+        schema: Some(TREE_SITTER_JSON_SCHEMA.to_string()),
         grammars: old_config
             .tree_sitter
             .unwrap()

@@ -2353,27 +2353,24 @@ impl Query {
                 ffi::TSQueryErrorNodeType | ffi::TSQueryErrorField | ffi::TSQueryErrorCapture => {
                     let suffix = source.split_at(offset).1;
                     let in_quotes = source.as_bytes()[offset - 1] == b'"';
-                    let mut end_offset = suffix.len();
-                    if let Some(pos) = suffix
-                        .char_indices()
-                        .take_while(|(_, c)| *c != '\n')
-                        .find_map(|(i, c)| match c {
-                            '"' if in_quotes
-                                && i > 0
-                                && suffix.chars().nth(i - 1) != Some('\\') =>
-                            {
-                                Some(i)
+                    let mut backslashes = 0;
+                    let end_offset = suffix
+                        .find(|c| {
+                            if in_quotes {
+                                if c == '"' && backslashes % 2 == 0 {
+                                    true
+                                } else if c == '\\' {
+                                    backslashes += 1;
+                                    false
+                                } else {
+                                    backslashes = 0;
+                                    false
+                                }
+                            } else {
+                                !char::is_alphanumeric(c) && c != '_' && c != '-'
                             }
-                            c if !in_quotes
-                                && (c.is_whitespace() || c == '(' || c == ')' || c == ':') =>
-                            {
-                                Some(i)
-                            }
-                            _ => None,
                         })
-                    {
-                        end_offset = pos;
-                    }
+                        .unwrap_or(suffix.len());
                     message = suffix.split_at(end_offset).0.to_string();
                     kind = match error_type {
                         ffi::TSQueryErrorNodeType => QueryErrorKind::NodeType,

@@ -208,7 +208,7 @@ fn populate_used_symbols(
             // ensure that a subtree's symbol can be successfully reassigned to the word token
             // without having to move the subtree to the heap.
             // See https://github.com/tree-sitter/tree-sitter/issues/258
-            if syntax_grammar.word_token.map_or(false, |t| t.index == i) {
+            if syntax_grammar.word_token.is_some_and(|t| t.index == i) {
                 parse_table.symbols.insert(1, Symbol::terminal(i));
             } else {
                 parse_table.symbols.push(Symbol::terminal(i));
