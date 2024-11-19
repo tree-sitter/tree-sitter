@@ -19,7 +19,7 @@ use tree_sitter_cli::{
     fuzz::{
         fuzz_language_corpus, FuzzOptions, EDIT_COUNT, ITERATION_COUNT, LOG_ENABLED,
         LOG_GRAPH_ENABLED, START_SEED,
-    }, highlight, init::{generate_grammar_files, get_root_path, migrate_package_json, JsonConfigOpts}, logger, parse::{self, ParseFileOptions, ParseOutput, ParseTheme}, playground, query, tags, test::{self, TestOptions}, test_highlight, test_tags, util, version, wasm
+    }, highlight, init::{generate_grammar_files, get_root_path, migrate_package_json, JsonConfigOpts}, logger, parse::{self, ParseFileOptions, ParseOutput, ParseTheme}, playground, query, tags, test::{self, TestOptions}, test_result::{TestResult, HighlightTestResult}, test_highlight, test_tags, util, version, wasm
 };
 use tree_sitter_config::Config;
 use tree_sitter_highlight::Highlighter;
@@ -971,7 +971,16 @@ impl Test {
                 generate_report: self.report,
             };
 
-            test::run_tests_at_path(&mut parser, &mut opts).map(Some)?
+            let results = test::run_tests_at_path(&mut parser, &mut opts)?;
+            if let TestResult::Group { name, children, .. } = results {
+                if name == String::from("corpus") {
+                    Some(children)
+                } else {
+                    panic!("This should not happen. Top level should be entire corpus test group.")
+                }
+            } else {
+                panic!("This should not happen. Top level should be a group.")
+            }
         } else {
             None
         };
@@ -995,7 +1004,16 @@ impl Test {
                 println!("syntax highlighting:");
                 print!("{}", highlight_results.to_string(color, 0));
             }
-            Some(highlight_results)
+            if let HighlightTestResult::Suite { children, name, .. } = highlight_results {
+                if name == String::from("highlight") {
+                    Some(children)
+                } else {
+                    panic!("This should not happen. Top level should be entire highlight test group.")
+                }
+            } else {
+                panic!("This should not happen. Top level should be a group.")
+            }
+            // Some(highlight_results)
         } else {
             None
         };

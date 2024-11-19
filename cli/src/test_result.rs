@@ -430,25 +430,6 @@ impl TagTestResult {
     }
 }
 
-// impl Serialize for TagTestResult {
-//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
-//         match self {
-//             TagTestResult::Success { name, assertion_count } => {
-//                 let mut state = serializer.serialize_struct("Success", 2)?;
-//                 state.serialize_field("name", name)?;
-//                 state.serialize_field("assertion_count", assertion_count)?;
-//                 state.end()
-//             },
-//             TagTestResult::Failure { name, error } => {
-//                 let mut state = serializer.serialize_struct("Failure", 2)?;
-//                 state.serialize_field("name", name)?;
-//                 state.serialize_field("error", &error.to_string())?;
-//                 state.end()
-//             },
-//         }
-//     }
-// }
-
 #[cfg(test)]
 mod tests {
     use super::*;

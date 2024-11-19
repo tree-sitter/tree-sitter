@@ -1714,4 +1714,9 @@ a
         );
         dbg!("results", results);
     }
+
+    #[test]
+    fn create_parser_test() {
+        let p = Parser::new();
+    }
 }
