@@ -173,7 +173,9 @@ Tree-sitter provides a [DOM](https://en.wikipedia.org/wiki/Document_Object_Model
 const char *ts_node_type(TSNode);
 ```
 
-Syntax nodes store their position in the source code both in terms of raw bytes and row/column coordinates:
+Syntax nodes store their position in the source code both in terms of raw bytes and row/column coordinates.
+In a point, rows and columns are zero-based. The `row` field represents the number of newlines before a given 
+position, while `column` represents the number of bytes between the position and beginning of the line.
 
 ```c
 uint32_t ts_node_start_byte(TSNode);
