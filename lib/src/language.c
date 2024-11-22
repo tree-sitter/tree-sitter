@@ -29,7 +29,7 @@ uint32_t ts_language_version(const TSLanguage *self) {
 }
 
 const char *ts_language_name(const TSLanguage *self) {
-  return self->version >= LANGUAGE_VERSION_WITH_METADATA ? self->name : NULL;
+  return self->version >= LANGUAGE_VERSION_WITH_RESERVED_WORDS ? self->name : NULL;
 }
 
 uint32_t ts_language_field_count(const TSLanguage *self) {

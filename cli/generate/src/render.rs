@@ -1518,11 +1518,9 @@ impl Generator {
 
         add_line!(self, ".primary_state_ids = ts_primary_state_ids,");
 
-        if self.abi_version >= ABI_VERSION_WITH_METADATA {
-            add_line!(self, ".name = \"{}\",", self.language_name);
-        }
-
         if self.abi_version >= ABI_VERSION_WITH_RESERVED_WORDS {
+            add_line!(self, ".name = \"{}\",", self.language_name);
+
             if self.reserved_word_sets.len() > 1 {
                 add_line!(self, ".reserved_words = &ts_reserved_words[0][0],");
             }

@@ -483,12 +483,10 @@ impl<'a> ParseTableBuilder<'a> {
                         } else {
                             None
                         }
+                    } else if entry.lookaheads.contains(&keyword_capture_token) {
+                        Some(entry.following_reserved_word_set)
                     } else {
-                        if entry.lookaheads.contains(&keyword_capture_token) {
-                            Some(entry.following_reserved_word_set)
-                        } else {
-                            None
-                        }
+                        None
                     }
                 })
                 .max();

@@ -4,12 +4,11 @@ use anyhow::{anyhow, bail, Result};
 use serde::Deserialize;
 use serde_json::{Map, Value};
 
-use crate::grammars::ReservedWordContext;
-
 use super::{
     grammars::{InputGrammar, PrecedenceEntry, Variable, VariableType},
     rules::{Precedence, Rule},
 };
+use crate::grammars::ReservedWordContext;
 
 #[derive(Deserialize)]
 #[serde(tag = "type")]
@@ -111,9 +110,10 @@ fn rule_is_referenced(rule: &Rule, target: &str) -> bool {
         Rule::Choice(rules) | Rule::Seq(rules) => {
             rules.iter().any(|r| rule_is_referenced(r, target))
         }
-        Rule::Metadata { rule, .. } => rule_is_referenced(rule, target),
+        Rule::Metadata { rule, .. } | Rule::Reserved { rule, .. } => {
+            rule_is_referenced(rule, target)
+        }
         Rule::Repeat(inner) => rule_is_referenced(inner, target),
-        Rule::Reserved { rule, .. } => rule_is_referenced(rule, target),
         Rule::Blank | Rule::String(_) | Rule::Pattern(_, _) | Rule::Symbol(_) => false,
     }
 }

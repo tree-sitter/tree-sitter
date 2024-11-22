@@ -14,8 +14,6 @@ use std::{
 
 use anyhow::{anyhow, Result};
 
-use crate::grammars::ReservedWordContext;
-
 pub use self::expand_tokens::expand_tokens;
 use self::{
     expand_repeats::expand_repeats, extract_default_aliases::extract_default_aliases,
@@ -29,6 +27,7 @@ use super::{
     },
     rules::{AliasMap, Precedence, Rule, Symbol},
 };
+use crate::grammars::ReservedWordContext;
 
 pub struct IntermediateGrammar<T, U> {
     variables: Vec<Variable>,
