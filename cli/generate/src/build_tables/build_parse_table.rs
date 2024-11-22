@@ -109,7 +109,7 @@ impl<'a> ParseTableBuilder<'a> {
                 entries: vec![ParseItemSetEntry {
                     item: ParseItem::start(),
                     lookaheads: std::iter::once(Symbol::end()).collect(),
-                    reserved_lookaheads: ReservedWordSetId::default(),
+                    following_reserved_word_set: ReservedWordSetId::default(),
                 }],
             },
         );
@@ -231,7 +231,9 @@ impl<'a> ParseTableBuilder<'a> {
         // Each item in the item set contributes to either or a Shift action or a Reduce
         // action in this state.
         for ParseItemSetEntry {
-            item, lookaheads, ..
+            item,
+            lookaheads,
+            following_reserved_word_set: reserved_lookaheads,
         } in &item_set.entries
         {
             // If the item is unfinished, then this state has a transition for the item's
@@ -273,10 +275,11 @@ impl<'a> ParseTableBuilder<'a> {
                         .entry(next_symbol)
                         .or_insert_with(ParseItemSet::default)
                 };
-                successor_set
-                    .insert(successor)
-                    .lookaheads
-                    .insert_all(lookaheads);
+                let successor_entry = successor_set.insert(successor);
+                successor_entry.lookaheads.insert_all(lookaheads);
+                successor_entry.following_reserved_word_set = successor_entry
+                    .following_reserved_word_set
+                    .max(*reserved_lookaheads);
             }
             // If the item is finished, then add a Reduce action to this state based
             // on this item.
@@ -482,7 +485,7 @@ impl<'a> ParseTableBuilder<'a> {
                         }
                     } else {
                         if entry.lookaheads.contains(&keyword_capture_token) {
-                            Some(entry.reserved_lookaheads)
+                            Some(entry.following_reserved_word_set)
                         } else {
                             None
                         }

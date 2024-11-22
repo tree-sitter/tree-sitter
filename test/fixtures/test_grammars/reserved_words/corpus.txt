@@ -87,7 +87,7 @@ var y = z;
 Other tokens that overlap with keyword tokens
 =============================================
 
-var a = /reserved-words-should-no-affect-this/;
+var a = /reserved-words-should-not-affect-this/;
 var d = /if/;
 
 ---

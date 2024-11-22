@@ -167,14 +167,14 @@ impl<'a> ParseItemSetBuilder<'a> {
             stack.clear();
             stack.push((i, &empty_lookaheads, ReservedWordSetId::default(), true));
             follow_set_info_by_non_terminal.clear();
-            while let Some((sym_ix, lookaheads, reserved_lookaheads, propagates_lookaheads)) =
+            while let Some((sym_ix, lookaheads, reserved_word_set_id, propagates_lookaheads)) =
                 stack.pop()
             {
                 let mut did_add = false;
                 let info = follow_set_info_by_non_terminal.entry(sym_ix).or_default();
                 did_add |= info.lookaheads.insert_all(lookaheads);
-                if reserved_lookaheads > info.reserved_lookaheads {
-                    info.reserved_lookaheads = reserved_lookaheads;
+                if reserved_word_set_id > info.reserved_lookaheads {
+                    info.reserved_lookaheads = reserved_word_set_id;
                     did_add = true;
                 }
                 did_add |= propagates_lookaheads && !info.propagates_lookaheads;
@@ -197,7 +197,7 @@ impl<'a> ParseItemSetBuilder<'a> {
                                 stack.push((
                                     symbol.index,
                                     lookaheads,
-                                    reserved_lookaheads,
+                                    reserved_word_set_id,
                                     propagates_lookaheads,
                                 ));
                             }
@@ -265,7 +265,7 @@ impl<'a> ParseItemSetBuilder<'a> {
                         &ParseItemSetEntry {
                             item: entry.item.substitute_production(production),
                             lookaheads: entry.lookaheads.clone(),
-                            reserved_lookaheads: entry.reserved_lookaheads.clone(),
+                            following_reserved_word_set: entry.following_reserved_word_set.clone(),
                         },
                     );
                 }
@@ -302,7 +302,7 @@ impl<'a> ParseItemSetBuilder<'a> {
                             *self.reserved_first_sets.get(&next_step.symbol).unwrap(),
                         )
                     } else {
-                        (&entry.lookaheads, entry.reserved_lookaheads)
+                        (&entry.lookaheads, entry.following_reserved_word_set)
                     };
 
                 // Use the pre-computed *additions* to expand the non-terminal.
@@ -312,8 +312,8 @@ impl<'a> ParseItemSetBuilder<'a> {
 
                     if let Some(word_token) = self.syntax_grammar.word_token {
                         if addition.info.lookaheads.contains(&word_token) {
-                            entry.reserved_lookaheads = entry
-                                .reserved_lookaheads
+                            entry.following_reserved_word_set = entry
+                                .following_reserved_word_set
                                 .max(addition.info.reserved_lookaheads);
                         }
                     }
@@ -323,8 +323,9 @@ impl<'a> ParseItemSetBuilder<'a> {
 
                         if let Some(word_token) = self.syntax_grammar.word_token {
                             if following_tokens.contains(&word_token) {
-                                entry.reserved_lookaheads =
-                                    entry.reserved_lookaheads.max(following_reserved_tokens);
+                                entry.following_reserved_word_set = entry
+                                    .following_reserved_word_set
+                                    .max(following_reserved_tokens);
                             }
                         }
                     }
@@ -334,7 +335,9 @@ impl<'a> ParseItemSetBuilder<'a> {
 
         let e = set.insert(entry.item);
         e.lookaheads.insert_all(&entry.lookaheads);
-        e.reserved_lookaheads = e.reserved_lookaheads.max(entry.reserved_lookaheads);
+        e.following_reserved_word_set = e
+            .following_reserved_word_set
+            .max(entry.following_reserved_word_set);
     }
 }
 

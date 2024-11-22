@@ -8,7 +8,7 @@ use crate::{
     grammars::{
         Production, ProductionStep, ReservedWordSetId, SyntaxGrammar, SyntaxVariable, Variable,
     },
-    rules::{Alias, Associativity, Precedence, Rule, Symbol},
+    rules::{Alias, Associativity, Precedence, Rule, Symbol, TokenSet},
 };
 
 struct RuleFlattener {
@@ -263,6 +263,17 @@ pub(super) fn flatten_grammar(grammar: ExtractedSyntaxGrammar) -> Result<SyntaxG
             }
         }
     }
+    let mut reserved_word_sets = grammar
+        .reserved_word_sets
+        .into_iter()
+        .map(|set| set.reserved_words.into_iter().collect())
+        .collect::<Vec<_>>();
+
+    // If no default reserved word set is specified, there are no reserved words.
+    if reserved_word_sets.is_empty() {
+        reserved_word_sets.push(TokenSet::default());
+    }
+
     Ok(SyntaxGrammar {
         extra_symbols: grammar.extra_symbols,
         expected_conflicts: grammar.expected_conflicts,
@@ -271,11 +282,7 @@ pub(super) fn flatten_grammar(grammar: ExtractedSyntaxGrammar) -> Result<SyntaxG
         external_tokens: grammar.external_tokens,
         supertype_symbols: grammar.supertype_symbols,
         word_token: grammar.word_token,
-        reserved_word_sets: grammar
-            .reserved_word_sets
-            .into_iter()
-            .map(|set| set.reserved_words.into_iter().collect())
-            .collect(),
+        reserved_word_sets,
         variables,
     })
 }

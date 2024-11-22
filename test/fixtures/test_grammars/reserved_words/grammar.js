@@ -4,7 +4,10 @@ const RESERVED_PROPERTY_NAMES = ["var"];
 module.exports = grammar({
   name: "reserved_words",
   word: $ => $.identifier,
-  reserved: $ => RESERVED_NAMES,
+  reserved: {
+    global: $ => RESERVED_NAMES,
+    property: $ => RESERVED_PROPERTY_NAMES,
+  },
 
   rules: {
     program: $ => repeat($._statement),
@@ -41,11 +44,11 @@ module.exports = grammar({
 
     regex_pattern: $ => token(prec(-1, /[^/\n]+/)),
     pair: $ =>
-      seq(reserved(RESERVED_PROPERTY_NAMES, $.identifier), ":", $._expression),
+      seq(reserved('property', $.identifier), ":", $._expression),
     getter: $ =>
       seq(
         "get",
-        reserved(RESERVED_PROPERTY_NAMES, $.identifier),
+        reserved('property', $.identifier),
         "(",
         ")",
         $.block,

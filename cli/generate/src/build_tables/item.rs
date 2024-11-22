@@ -69,7 +69,7 @@ pub struct ParseItemSet<'a> {
 pub struct ParseItemSetEntry<'a> {
     pub item: ParseItem<'a>,
     pub lookaheads: TokenSet,
-    pub reserved_lookaheads: ReservedWordSetId,
+    pub following_reserved_word_set: ReservedWordSetId,
 }
 
 /// A [`ParseItemSetCore`] is like a [`ParseItemSet`], but without the lookahead
@@ -171,7 +171,7 @@ impl<'a> ParseItemSet<'a> {
                     ParseItemSetEntry {
                         item,
                         lookaheads: TokenSet::new(),
-                        reserved_lookaheads: ReservedWordSetId::default(),
+                        following_reserved_word_set: ReservedWordSetId::default(),
                     },
                 );
                 &mut self.entries[i]
@@ -291,8 +291,12 @@ impl fmt::Display for ParseItemSetDisplay<'_> {
                 ParseItemDisplay(&entry.item, self.1, self.2),
                 TokenSetDisplay(&entry.lookaheads, self.1, self.2),
             )?;
-            if entry.reserved_lookaheads != ReservedWordSetId::default() {
-                write!(f, "\t{}", entry.reserved_lookaheads)?;
+            if entry.following_reserved_word_set != ReservedWordSetId::default() {
+                write!(
+                    f,
+                    "\treserved word set: {}",
+                    entry.following_reserved_word_set
+                )?;
             }
             writeln!(f, "")?;
         }
@@ -420,7 +424,7 @@ impl Hash for ParseItemSet<'_> {
         for entry in &self.entries {
             entry.item.hash(hasher);
             entry.lookaheads.hash(hasher);
-            entry.reserved_lookaheads.hash(hasher);
+            entry.following_reserved_word_set.hash(hasher);
         }
     }
 }
