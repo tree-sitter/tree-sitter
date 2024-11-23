@@ -298,7 +298,7 @@ impl fmt::Display for ParseItemSetDisplay<'_> {
                     entry.following_reserved_word_set
                 )?;
             }
-            writeln!(f, "")?;
+            writeln!(f)?;
         }
         Ok(())
     }

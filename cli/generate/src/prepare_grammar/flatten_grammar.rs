@@ -294,7 +294,7 @@ mod tests {
 
     #[test]
     fn test_flatten_grammar() {
-        let mut flattener = RuleFlattener::new(Default::default());
+        let mut flattener = RuleFlattener::new(HashMap::default());
         let result = flattener
             .flatten_variable(Variable {
                 name: "test".to_string(),
@@ -355,7 +355,7 @@ mod tests {
 
     #[test]
     fn test_flatten_grammar_with_maximum_dynamic_precedence() {
-        let mut flattener = RuleFlattener::new(Default::default());
+        let mut flattener = RuleFlattener::new(HashMap::default());
         let result = flattener
             .flatten_variable(Variable {
                 name: "test".to_string(),
@@ -411,7 +411,7 @@ mod tests {
 
     #[test]
     fn test_flatten_grammar_with_final_precedence() {
-        let mut flattener = RuleFlattener::new(Default::default());
+        let mut flattener = RuleFlattener::new(HashMap::default());
         let result = flattener
             .flatten_variable(Variable {
                 name: "test".to_string(),
@@ -459,7 +459,7 @@ mod tests {
 
     #[test]
     fn test_flatten_grammar_with_field_names() {
-        let mut flattener = RuleFlattener::new(Default::default());
+        let mut flattener = RuleFlattener::new(HashMap::default());
         let result = flattener
             .flatten_variable(Variable {
                 name: "test".to_string(),

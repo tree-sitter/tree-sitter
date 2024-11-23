@@ -265,7 +265,7 @@ impl<'a> ParseItemSetBuilder<'a> {
                         &ParseItemSetEntry {
                             item: entry.item.substitute_production(production),
                             lookaheads: entry.lookaheads.clone(),
-                            following_reserved_word_set: entry.following_reserved_word_set.clone(),
+                            following_reserved_word_set: entry.following_reserved_word_set,
                         },
                     );
                 }
