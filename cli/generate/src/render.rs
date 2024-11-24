@@ -60,6 +60,7 @@ macro_rules! dedent {
 
 struct Generator {
     buffer: String,
+    header_buffer: String,
     indent_level: usize,
     language_name: String,
     parse_table: ParseTable,
@@ -89,7 +90,7 @@ struct LargeCharacterSetInfo {
 }
 
 impl Generator {
-    fn generate(mut self) -> String {
+    fn generate(mut self) -> (String, String) {
         self.init();
         self.add_header();
         self.add_includes();
@@ -146,7 +147,7 @@ impl Generator {
 
         self.add_parser_export();
 
-        self.buffer
+        (self.buffer, self.header_buffer)
     }
 
     fn init(&mut self) {
@@ -985,8 +986,21 @@ impl Generator {
 
         add_line!(
             self,
-            "static TSCharacterRange {}[] = {{",
-            info.constant_name
+            "const TSCharacterRange {}[{}] = {{",
+            info.constant_name,
+            characters.range_count()
+        );
+
+        self.header_buffer += &format!(
+            "extern const TSCharacterRange {}[{}];\n",
+            info.constant_name,
+            characters.range_count()
+        );
+
+        self.header_buffer += &format!(
+            "static const uint32_t {}_length = {};\n\n",
+            info.constant_name,
+            characters.range_count()
         );
 
         indent!(self);
@@ -1713,7 +1727,7 @@ pub fn render_c_code(
     lexical_grammar: LexicalGrammar,
     default_aliases: AliasMap,
     abi_version: usize,
-) -> String {
+) -> (String, String) {
     assert!(
         (ABI_VERSION_MIN..=ABI_VERSION_MAX).contains(&abi_version),
         "This version of Tree-sitter can only generate parsers with ABI version {ABI_VERSION_MIN} - {ABI_VERSION_MAX}, not {abi_version}",
@@ -1721,6 +1735,7 @@ pub fn render_c_code(
 
     Generator {
         buffer: String::new(),
+        header_buffer: String::new(),
         indent_level: 0,
         language_name: name.to_string(),
         large_state_count: 0,

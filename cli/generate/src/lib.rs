@@ -37,6 +37,7 @@ lazy_static! {
 struct GeneratedParser {
     c_code: String,
     node_types_json: String,
+    header_tail: String,
 }
 
 pub const ALLOC_HEADER: &str = include_str!("templates/alloc.h");
@@ -90,13 +91,17 @@ pub fn generate_parser_in_directory(
     let GeneratedParser {
         c_code,
         node_types_json,
+        header_tail,
     } = generate_parser_for_grammar_with_opts(&input_grammar, abi_version, report_symbol_name)?;
 
     write_file(&src_path.join("parser.c"), c_code)?;
     write_file(&src_path.join("node-types.json"), node_types_json)?;
     write_file(&header_path.join("alloc.h"), ALLOC_HEADER)?;
     write_file(&header_path.join("array.h"), ARRAY_HEADER)?;
-    write_file(&header_path.join("parser.h"), tree_sitter::PARSER_HEADER)?;
+    write_file(
+        &header_path.join("parser.h"),
+        format!("{}\n{header_tail}", tree_sitter::PARSER_HEADER),
+    )?;
 
     Ok(())
 }
@@ -132,7 +137,7 @@ fn generate_parser_for_grammar_with_opts(
         &inlines,
         report_symbol_name,
     )?;
-    let c_code = render_c_code(
+    let (c_code, header_tail) = render_c_code(
         &input_grammar.name,
         tables,
         syntax_grammar,
@@ -143,6 +148,7 @@ fn generate_parser_for_grammar_with_opts(
     Ok(GeneratedParser {
         c_code,
         node_types_json: serde_json::to_string_pretty(&node_types_json).unwrap(),
+        header_tail,
     })
 }
 
