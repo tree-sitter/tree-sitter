@@ -55,7 +55,7 @@ install(TARGETS tree-sitter-PARSER_NAME
 
 file(GLOB QUERIES queries/*.scm)
 install(FILES ${QUERIES}
-        DESTINATION "${CMAKE_INSTALL_DATADIR}/tree_sitter/tree-sitter-PARSER_NAME/queries")
+        DESTINATION "${CMAKE_INSTALL_DATADIR}/tree-sitter/queries/PARSER_NAME")
 
 add_custom_target(ts-test "${TREE_SITTER_CLI}" test
                   WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
