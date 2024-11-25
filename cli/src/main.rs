@@ -24,7 +24,7 @@ use tree_sitter_cli::{
     logger,
     parse::{self, ParseFileOptions, ParseOutput, ParseTheme},
     playground, query, tags,
-    test::{self, parse_tests, TestOptions},
+    test::{self, parse_tests, TestOptions, TestStats},
     test_highlight, test_tags, util, version, wasm,
 };
 use tree_sitter_config::Config;
@@ -274,8 +274,8 @@ struct Test {
     pub config_path: Option<PathBuf>,
     #[arg(long, help = "Force showing fields in test diffs")]
     pub show_fields: bool,
-    #[arg(long, help = "Check tests for slow parse rates")]
-    pub check_rates: bool,
+    #[arg(long, help = "Show parsing statistics")]
+    pub stat: Option<TestStats>,
     #[arg(short, long, help = "Force rebuild the parser")]
     pub rebuild: bool,
     #[arg(long, help = "Show only the pass-fail overview tree")]
@@ -938,6 +938,7 @@ impl Test {
     fn run(self, mut loader: loader::Loader, current_dir: &Path) -> Result<()> {
         let config = Config::load(self.config_path)?;
         let color = env::var("NO_COLOR").map_or(true, |v| v != "1");
+        let stat = self.stat.unwrap_or_default();
 
         loader.debug_build(self.debug_build);
         loader.force_rebuild(self.rebuild);
@@ -967,7 +968,9 @@ impl Test {
         let test_corpus_dir = test_dir.join("corpus");
         if test_corpus_dir.is_dir() {
             let languages = languages.iter().map(|(l, n)| (n.as_str(), l)).collect();
-            let outlier_stats = if self.check_rates {
+            let outlier_stats = if stat == TestStats::TotalOnly {
+                None
+            } else {
                 let mut rates = Vec::new();
                 test::get_test_parsing_rate(
                     &mut parser,
@@ -978,17 +981,15 @@ impl Test {
                 if rates.is_empty() {
                     None
                 } else {
-                    let avg: f64 = rates.iter().sum::<f64>() / rates.len() as f64;
+                    let avg = rates.iter().sum::<f64>() / rates.len() as f64;
                     let std_dev = {
-                        let variance: f64 = rates.iter().map(|t| (t - avg).powi(2)).sum::<f64>()
+                        let variance = rates.iter().map(|t| (t - avg).powi(2)).sum::<f64>()
                             / rates.len() as f64;
                         variance.sqrt()
                     };
 
                     Some((avg, std_dev))
                 }
-            } else {
-                None
             };
 
             let mut opts = TestOptions {
@@ -1002,6 +1003,7 @@ impl Test {
                 languages,
                 color,
                 test_num: 1,
+                stat_display: stat,
                 stats: &mut stats,
                 outlier_stats,
                 show_fields: self.show_fields,
