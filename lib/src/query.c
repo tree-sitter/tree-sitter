@@ -2327,6 +2327,49 @@ static TSQueryError ts_query__parse_pattern(
           symbol = WILDCARD_SYMBOL;
         } else if (!strncmp(node_name, "MISSING", length)) {
           is_missing = true;
+          stream_skip_whitespace(stream);
+
+          if (stream_is_ident_start(stream)) {
+            const char *missing_node_name = stream->input;
+            stream_scan_identifier(stream);
+            uint32_t missing_node_length = (uint32_t)(stream->input - missing_node_name);
+            symbol = ts_language_symbol_for_name(
+              self->language,
+              missing_node_name,
+              missing_node_length,
+              true
+            );
+            if (!symbol) {
+              stream_reset(stream, missing_node_name);
+              return TSQueryErrorNodeType;
+            }
+          }
+
+          else if (stream->next == '"') {
+            const char *string_start = stream->input;
+            TSQueryError e = ts_query__parse_string_literal(self, stream);
+            if (e) return e;
+
+            symbol = ts_language_symbol_for_name(
+              self->language,
+              self->string_buffer.contents,
+              self->string_buffer.size,
+              false
+            );
+            if (!symbol) {
+              stream_reset(stream, string_start + 1);
+              return TSQueryErrorNodeType;
+            }
+          }
+
+          else if (stream->next == ')') {
+            symbol = WILDCARD_SYMBOL;
+          }
+
+          else {
+            stream_reset(stream, stream->input);
+            return TSQueryErrorSyntax;
+          }
         }
 
         else {
@@ -2353,7 +2396,6 @@ static TSQueryError ts_query__parse_pattern(
         step->symbol = WILDCARD_SYMBOL;
       }
       if (is_missing) {
-        step->symbol = WILDCARD_SYMBOL;
         step->is_missing = true;
       }
       if (symbol == WILDCARD_SYMBOL) {
@@ -3752,7 +3794,7 @@ static inline bool ts_query_cursor__advance(
               node_does_match = !node_is_error && (is_named || !step->is_named);
             }
           } else {
-            node_does_match = symbol == step->symbol;
+            node_does_match = symbol == step->symbol && (!step->is_missing || is_missing);
           }
           bool later_sibling_can_match = has_later_siblings;
           if ((step->is_immediate && is_named) || state->seeking_immediate_match) {

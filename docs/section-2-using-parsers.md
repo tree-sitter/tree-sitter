@@ -633,7 +633,12 @@ Similarly, if a parser is able to recover from erroneous text by inserting a mis
 (MISSING) @missing-node
 ```
 
-This is useful when attempting to detect all syntax errors in a given parse tree, since these missing node are not captured by `(ERROR)` queries.
+This is useful when attempting to detect all syntax errors in a given parse tree, since these missing node are not captured by `(ERROR)` queries. Specific missing node types can also be queried:
+
+```scheme
+(MISSING identifier) @missing-identifier
+(MISSING ";") @missing-semicolon
+```
 
 #### Anchors
 
