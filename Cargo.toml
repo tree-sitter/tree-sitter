@@ -105,7 +105,7 @@ clap = { version = "4.5.21", features = [
   "unstable-styles",
 ] }
 clap_complete = "4.5.38"
-ctor = "0.2.8"
+ctor = "0.2.9"
 ctrlc = { version = "3.4.5", features = ["termination"] }
 dialoguer = { version = "0.11.0", features = ["fuzzy-select"] }
 dirs = "5.0.1"
@@ -140,7 +140,7 @@ thiserror = "1.0.69"
 tiny_http = "0.12.0"
 toml = "0.8.19"
 unindent = "0.2.3"
-url = { version = "2.5.2", features = ["serde"] }
+url = { version = "2.5.4", features = ["serde"] }
 walkdir = "2.5.0"
 wasmparser = "0.218.0"
 webbrowser = "1.0.2"
