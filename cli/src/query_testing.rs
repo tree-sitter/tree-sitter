@@ -120,17 +120,15 @@ pub fn parse_position_comments(
                         let mut has_arrow = false;
                         let mut negative = false;
                         let mut arrow_end = 0;
-                        let mut arrow_count = 0;
+                        let mut arrow_count = 1;
                         for (i, c) in text.char_indices() {
                             arrow_end = i + 1;
                             if c == '-' && has_left_caret {
                                 has_arrow = true;
-                                arrow_count = 1;
                                 break;
                             }
                             if c == '^' {
                                 has_arrow = true;
-                                arrow_count = 1;
                                 position.column += i;
                                 // Continue counting remaining arrows and update their end column
                                 for (_, c) in text[arrow_end..].char_indices() {
