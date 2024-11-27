@@ -39,14 +39,12 @@ fn test_highlight_test_with_basic_test() {
     assert_eq!(
         assertions,
         &[
-            Assertion::new(1, 5, false, String::from("function")),
-            Assertion::new(1, 11, false, String::from("keyword")),
-            Assertion::new(1, 12, false, String::from("keyword")),
-            Assertion::new(1, 13, false, String::from("keyword")),
-            Assertion::new(4, 9, false, String::from("variable")),
-            Assertion::new(4, 11, true, String::from("variable")),
-            Assertion::new(8, 5, false, String::from("function")),
-            Assertion::new(8, 11, false, String::from("keyword")),
+            Assertion::new(1, 5, 1, false, String::from("function")),
+            Assertion::new(1, 11, 3, false, String::from("keyword")),
+            Assertion::new(4, 9, 1, false, String::from("variable")),
+            Assertion::new(4, 11, 1, true, String::from("variable")),
+            Assertion::new(8, 5, 1, false, String::from("function")),
+            Assertion::new(8, 11, 1, false, String::from("keyword")),
         ]
     );
 

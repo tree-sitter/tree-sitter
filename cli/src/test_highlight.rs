@@ -150,11 +150,13 @@ pub fn iterate_assertions(
     let mut actual_highlights = Vec::new();
     for Assertion {
         position,
+        length,
         negative,
         expected_capture_name: expected_highlight,
     } in assertions
     {
         let mut passed = false;
+        let mut end_column = position.column + length - 1;
         actual_highlights.clear();
 
         // The assertions are ordered by position, so skip past all of the highlights that
@@ -165,11 +167,12 @@ pub fn iterate_assertions(
                 continue;
             }
 
-            // Iterate through all of the highlights that start at or before this assertion's,
+            // Iterate through all of the highlights that start at or before this assertion's
             // position, looking for one that matches the assertion.
             let mut j = i;
             while let (false, Some(highlight)) = (passed, highlights.get(j)) {
-                if highlight.0 > *position {
+                end_column = (*position).column + length - 1;
+                if highlight.0.column > end_column {
                     break 'highlight_loop;
                 }
 
@@ -193,7 +196,7 @@ pub fn iterate_assertions(
         if !passed {
             return Err(Failure {
                 row: position.row,
-                column: position.column,
+                column: end_column,
                 expected_highlight: expected_highlight.clone(),
                 actual_highlights: actual_highlights.into_iter().cloned().collect(),
             }
