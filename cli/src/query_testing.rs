@@ -161,7 +161,6 @@ pub fn parse_position_comments(
                         if let (true, Some(mat)) =
                             (has_arrow, CAPTURE_NAME_REGEX.find(&text[arrow_end..]))
                         {
-                            // Add an assertion check for each arrow
                             assertion_ranges.push((node.start_position(), node.end_position()));
                             result.push(Assertion {
                                 position: to_utf8_point(position, source),
