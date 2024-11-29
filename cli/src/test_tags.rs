@@ -132,7 +132,7 @@ pub fn test_tag(
             // position, looking for one that matches the assertion
             let mut j = i;
             while let (false, Some(tag)) = (passed, tags.get(j)) {
-                end_column = (*position).column + length - 1;
+                end_column = position.column + length - 1;
                 if tag.0.column > end_column {
                     break 'tag_loop;
                 }
