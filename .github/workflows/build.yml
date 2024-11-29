@@ -88,7 +88,8 @@ jobs:
 
     - name: Install cross
       if: ${{ matrix.use-cross }}
-      run: cargo install cross --git https://github.com/cross-rs/cross
+      # TODO: Remove 'RUSTFLAGS=""' onc https://github.com/cross-rs/cross/issues/1561 is resolved
+      run: RUSTFLAGS="" cargo install cross --git https://github.com/cross-rs/cross
 
     - name: Configure cross
       if: ${{ matrix.use-cross }}
