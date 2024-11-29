@@ -114,11 +114,13 @@ pub fn test_tag(
     let mut actual_tags = Vec::<&String>::new();
     for Assertion {
         position,
+        length,
         negative,
         expected_capture_name: expected_tag,
     } in &assertions
     {
         let mut passed = false;
+        let mut end_column = position.column + length - 1;
 
         'tag_loop: while let Some(tag) = tags.get(i) {
             if tag.1 <= *position {
@@ -130,7 +132,8 @@ pub fn test_tag(
             // position, looking for one that matches the assertion
             let mut j = i;
             while let (false, Some(tag)) = (passed, tags.get(j)) {
-                if tag.0 > *position {
+                end_column = (*position).column + length - 1;
+                if tag.0.column > end_column {
                     break 'tag_loop;
                 }
 
@@ -152,7 +155,7 @@ pub fn test_tag(
         if !passed {
             return Err(Failure {
                 row: position.row,
-                column: position.column,
+                column: end_column,
                 expected_tag: expected_tag.clone(),
                 actual_tags: actual_tags.into_iter().cloned().collect(),
             }
