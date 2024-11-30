@@ -139,6 +139,7 @@ jobs:
     - name: Build wasmtime library
       if: ${{ !matrix.use-cross && contains(matrix.features, 'wasm') }}
       run: |
+        mkdir -p target
         WASMTIME_VERSION=$(cargo metadata --format-version=1 --locked --features wasm | \
                            jq -r '.packages[] | select(.name == "wasmtime-c-api-impl") | .version')
         curl -LSs "$WASMTIME_REPO/archive/refs/tags/v${WASMTIME_VERSION}.tar.gz" | tar xzf - -C target
