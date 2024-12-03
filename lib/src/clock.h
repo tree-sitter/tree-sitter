@@ -49,9 +49,9 @@ static inline bool clock_is_gt(TSClock self, TSClock other) {
   return self > other;
 }
 
-#elif defined(CLOCK_MONOTONIC) && !defined(__APPLE__)
+#elif defined(CLOCK_MONOTONIC)
 
-// POSIX with monotonic clock support (Linux)
+// POSIX with monotonic clock support (Linux, macOS)
 // * Represent a time as a monotonic (seconds, nanoseconds) pair.
 // * Represent a duration as a number of microseconds.
 //
@@ -102,7 +102,7 @@ static inline bool clock_is_gt(TSClock self, TSClock other) {
 
 #else
 
-// macOS or POSIX without monotonic clock support
+// POSIX without monotonic clock support
 // * Represent a time as a process clock value.
 // * Represent a duration as a number of process clock ticks.
 //
