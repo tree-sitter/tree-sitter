@@ -223,11 +223,11 @@ pub fn assert_expected_captures(
     let contents = fs::read_to_string(path)?;
     let pairs = parse_position_comments(parser, language, contents.as_bytes())?;
     for assertion in &pairs {
-        if let Some(found) = &infos
-            .iter()
-            .find(|p| assertion.position >= p.start &&
-                 (assertion.position.row < p.end.row || assertion.position.column + assertion.length - 1 < p.end.column))
-        {
+        if let Some(found) = &infos.iter().find(|p| {
+            assertion.position >= p.start
+                && (assertion.position.row < p.end.row
+                    || assertion.position.column + assertion.length - 1 < p.end.column)
+        }) {
             if assertion.expected_capture_name != found.name && found.name != "name" {
                 return Err(anyhow!(
                     "Assertion failed: at {}, found {}, expected {}",
