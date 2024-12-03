@@ -30,7 +30,7 @@ There are currently bindings that allow Tree-sitter to be used from the followin
 #### Third-party
 
 * [Delphi](https://github.com/modersohn/delphi-tree-sitter)
-* [ELisp](https://github.com/emacs-tree-sitter/elisp-tree-sitter)
+* [ELisp](https://www.gnu.org/software/emacs/manual/html_node/elisp/Parsing-Program-Source.html)
 * [Go](https://github.com/smacker/go-tree-sitter)
 * [Guile](https://github.com/Z572/guile-ts)
 * [Java (Android)](https://github.com/AndroidIDEOfficial/android-tree-sitter)

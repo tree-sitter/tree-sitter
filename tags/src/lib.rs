@@ -199,7 +199,7 @@ impl TagsConfiguration {
                         && property
                             .value
                             .as_ref()
-                            .map_or(false, |v| v.as_ref() == "false")
+                            .is_some_and(|v| v.as_ref() == "false")
                     {
                         info.local_scope_inherits = false;
                     }

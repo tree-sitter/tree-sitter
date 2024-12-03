@@ -10,7 +10,6 @@ extern crate alloc;
 #[cfg(not(feature = "std"))]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec::Vec};
 use core::{
-    char,
     ffi::{c_char, c_void, CStr},
     fmt::{self, Write},
     hash, iter,
@@ -2353,8 +2352,24 @@ impl Query {
                 // Error types that report names
                 ffi::TSQueryErrorNodeType | ffi::TSQueryErrorField | ffi::TSQueryErrorCapture => {
                     let suffix = source.split_at(offset).1;
+                    let in_quotes = source.as_bytes()[offset - 1] == b'"';
+                    let mut backslashes = 0;
                     let end_offset = suffix
-                        .find(|c| !char::is_alphanumeric(c) && c != '_' && c != '-')
+                        .find(|c| {
+                            if in_quotes {
+                                if c == '"' && backslashes % 2 == 0 {
+                                    true
+                                } else if c == '\\' {
+                                    backslashes += 1;
+                                    false
+                                } else {
+                                    backslashes = 0;
+                                    false
+                                }
+                            } else {
+                                !char::is_alphanumeric(c) && c != '_' && c != '-'
+                            }
+                        })
                         .unwrap_or(suffix.len());
                     message = suffix.split_at(end_offset).0.to_string();
                     kind = match error_type {

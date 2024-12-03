@@ -3,6 +3,7 @@ from platform import system
 
 from setuptools import Extension, find_packages, setup
 from setuptools.command.build import build
+from setuptools.command.egg_info import egg_info
 from wheel.bdist_wheel import bdist_wheel
 
 sources = [
@@ -10,7 +11,7 @@ sources = [
     "src/parser.c",
 ]
 if path.exists("src/scanner.c"):
-    sources.extend("src/scanner.c")
+    sources.append("src/scanner.c")
 
 if system() != "Windows":
     cflags = ["-std=c11", "-fvisibility=hidden"]
@@ -32,6 +33,13 @@ class BdistWheel(bdist_wheel):
         if python.startswith("cp"):
             python, abi = "cp39", "abi3"
         return python, abi, platform
+
+
+class EggInfo(egg_info):
+    def find_sources(self):
+        super().find_sources()
+        self.filelist.recursive_include("queries", "*.scm")
+        self.filelist.include("src/tree_sitter/*.h")
 
 
 setup(
@@ -58,7 +66,8 @@ setup(
     ],
     cmdclass={
         "build": Build,
-        "bdist_wheel": BdistWheel
+        "bdist_wheel": BdistWheel,
+        "egg_info": EggInfo,
     },
     zip_safe=False
 )

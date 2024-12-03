@@ -14,7 +14,7 @@ fn read_git_sha() -> Option<String> {
     if !crate_path
         .parent()?
         .parent()
-        .map_or(false, |p| p.join(".git").exists())
+        .is_some_and(|p| p.join(".git").exists())
     {
         return None;
     }

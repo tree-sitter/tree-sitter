@@ -25,7 +25,7 @@ add_custom_command(OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/src/parser.c"
                    COMMENT "Generating parser.c")
 
 add_library(tree-sitter-PARSER_NAME src/parser.c)
-if(EXISTS src/scanner.c)
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/scanner.c)
   target_sources(tree-sitter-PARSER_NAME PRIVATE src/scanner.c)
 endif()
 target_include_directories(tree-sitter-PARSER_NAME PRIVATE src)
@@ -52,6 +52,10 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/tree-sitter-PARSER_NAME.pc"
         DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/pkgconfig")
 install(TARGETS tree-sitter-PARSER_NAME
         LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}")
+
+file(GLOB QUERIES queries/*.scm)
+install(FILES ${QUERIES}
+        DESTINATION "${CMAKE_INSTALL_DATADIR}/tree-sitter/queries/PARSER_NAME")
 
 add_custom_target(ts-test "${TREE_SITTER_CLI}" test
                   WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"

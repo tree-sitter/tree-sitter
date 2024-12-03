@@ -30,10 +30,10 @@ fn test_tags_test_with_basic_test() {
     assert_eq!(
         assertions,
         &[
-            Assertion::new(1, 4, false, String::from("definition.function")),
-            Assertion::new(3, 9, false, String::from("reference.call")),
-            Assertion::new(5, 11, false, String::from("reference.call")),
-            Assertion::new(5, 13, true, String::from("variable.parameter")),
+            Assertion::new(1, 4, 1, false, String::from("definition.function")),
+            Assertion::new(3, 9, 1, false, String::from("reference.call")),
+            Assertion::new(5, 11, 1, false, String::from("reference.call")),
+            Assertion::new(5, 13, 1, true, String::from("variable.parameter")),
         ]
     );
 

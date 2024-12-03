@@ -6,6 +6,7 @@ use std::{
 
 use anyhow::{anyhow, Context, Result};
 use heck::{ToKebabCase, ToShoutySnakeCase, ToSnakeCase, ToUpperCamelCase};
+use indoc::indoc;
 use regex::Regex;
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -93,6 +94,9 @@ const TEST_BINDING_PY_TEMPLATE: &str = include_str!("./templates/test_binding.py
 const PACKAGE_SWIFT_TEMPLATE: &str = include_str!("./templates/package.swift");
 const TESTS_SWIFT_TEMPLATE: &str = include_str!("./templates/tests.swift");
 
+const TREE_SITTER_JSON_SCHEMA: &str =
+    "https://tree-sitter.github.io/tree-sitter/assets/schemas/config.schema.json";
+
 #[must_use]
 pub fn path_in_ignore(repo_path: &Path) -> bool {
     [
@@ -133,6 +137,7 @@ impl JsonConfigOpts {
     #[must_use]
     pub fn to_tree_sitter_json(self) -> TreeSitterJSON {
         TreeSitterJSON {
+            schema: Some(TREE_SITTER_JSON_SCHEMA.to_string()),
             grammars: vec![Grammar {
                 name: self.name.clone(),
                 camelcase: Some(self.camelcase),
@@ -226,6 +231,7 @@ pub fn migrate_package_json(repo_path: &Path) -> Result<bool> {
     let name = old_config.name.replace("tree-sitter-", "");
 
     let new_config = TreeSitterJSON {
+        schema: Some(TREE_SITTER_JSON_SCHEMA.to_string()),
         grammars: old_config
             .tree_sitter
             .unwrap()
@@ -480,9 +486,18 @@ pub fn generate_grammar_files(
     // Generate Node bindings
     if tree_sitter_config.bindings.node {
         missing_path(bindings_dir.join("node"), create_dir)?.apply(|path| {
-            missing_path(path.join("index.js"), |path| {
-                generate_file(path, INDEX_JS_TEMPLATE, language_name, &generate_opts)
-            })?;
+            missing_path_else(
+                path.join("index.js"),
+                allow_update,
+                |path| generate_file(path, INDEX_JS_TEMPLATE, language_name, &generate_opts),
+                |path| {
+                    let contents = fs::read_to_string(path)?;
+                    if !contents.contains("bun") {
+                        generate_file(path, INDEX_JS_TEMPLATE, language_name, &generate_opts)?;
+                    }
+                    Ok(())
+                },
+            )?;
 
             missing_path(path.join("index.d.ts"), |path| {
                 generate_file(path, INDEX_D_TS_TEMPLATE, language_name, &generate_opts)
@@ -501,9 +516,19 @@ pub fn generate_grammar_files(
                 generate_file(path, JS_BINDING_CC_TEMPLATE, language_name, &generate_opts)
             })?;
 
-            missing_path(repo_path.join("binding.gyp"), |path| {
-                generate_file(path, BINDING_GYP_TEMPLATE, language_name, &generate_opts)
-            })?;
+            missing_path_else(
+                repo_path.join("binding.gyp"),
+                allow_update,
+                |path| generate_file(path, BINDING_GYP_TEMPLATE, language_name, &generate_opts),
+                |path| {
+                    let contents = fs::read_to_string(path)?;
+                    if contents.contains("fs.exists(") {
+                        write_file(path, contents.replace("fs.exists(", "fs.existsSync("))
+                    } else {
+                        Ok(())
+                    }
+                },
+            )?;
 
             Ok(())
         })?;
@@ -610,9 +635,48 @@ pub fn generate_grammar_files(
                 Ok(())
             })?;
 
-            missing_path(repo_path.join("setup.py"), |path| {
-                generate_file(path, SETUP_PY_TEMPLATE, language_name, &generate_opts)
-            })?;
+            missing_path_else(
+                repo_path.join("setup.py"),
+                allow_update,
+                |path| generate_file(path, SETUP_PY_TEMPLATE, language_name, &generate_opts),
+                |path| {
+                    let mut contents = fs::read_to_string(path)?;
+                    if contents.contains("sources.extend") || !contents.contains("egg_info") {
+                        contents = contents
+                            .replace("sources.extend", "sources.append")
+                            .replace(
+                                "from setuptools.command.build import build\n",
+                                indoc! {"
+                                from setuptools.command.build import build
+                                from setuptools.command.egg_info import egg_info
+                                "},
+                            )
+                            .replace(
+                                "setup(\n",
+                                indoc! {r#"
+                                class EggInfo(egg_info):
+                                    def find_sources(self):
+                                        super().find_sources()
+                                        self.filelist.recursive_include("queries", "*.scm")
+                                        self.filelist.include("src/tree_sitter/*.h")
+
+
+                                setup(
+                                "#},
+                            )
+                            .replace(
+                                "\"bdist_wheel\": BdistWheel\n",
+                                indoc! {r#"
+                                "bdist_wheel": BdistWheel,
+                                        "egg_info": EggInfo,
+                                "#},
+                            );
+                        write_file(path, contents)
+                    } else {
+                        Ok(())
+                    }
+                },
+            )?;
 
             missing_path(repo_path.join("pyproject.toml"), |path| {
                 generate_file(

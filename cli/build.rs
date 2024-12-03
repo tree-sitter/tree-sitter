@@ -65,10 +65,7 @@ fn web_playground_files_present() -> bool {
 fn read_git_sha() -> Option<String> {
     let crate_path = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
 
-    if !crate_path
-        .parent()
-        .map_or(false, |p| p.join(".git").exists())
-    {
+    if !crate_path.parent().is_some_and(|p| p.join(".git").exists()) {
         return None;
     }
 

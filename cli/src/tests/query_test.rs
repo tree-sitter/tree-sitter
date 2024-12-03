@@ -202,6 +202,36 @@ fn test_query_errors_on_invalid_symbols() {
         let language = get_language("javascript");
 
         assert_eq!(
+            Query::new(&language, "\">>>>\"").unwrap_err(),
+            QueryError {
+                row: 0,
+                offset: 1,
+                column: 1,
+                kind: QueryErrorKind::NodeType,
+                message: ">>>>".to_string()
+            }
+        );
+        assert_eq!(
+            Query::new(&language, "\"te\\\"st\"").unwrap_err(),
+            QueryError {
+                row: 0,
+                offset: 1,
+                column: 1,
+                kind: QueryErrorKind::NodeType,
+                message: "te\\\"st".to_string()
+            }
+        );
+        assert_eq!(
+            Query::new(&language, "\"\\\\\" @cap").unwrap_err(),
+            QueryError {
+                row: 0,
+                offset: 1,
+                column: 1,
+                kind: QueryErrorKind::NodeType,
+                message: "\\\\".to_string()
+            }
+        );
+        assert_eq!(
             Query::new(&language, "(clas)").unwrap_err(),
             QueryError {
                 row: 0,

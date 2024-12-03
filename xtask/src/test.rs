@@ -45,8 +45,11 @@ pub fn run(args: &Test) -> Result<()> {
     } else {
         String::new()
     };
+    if let Some(language) = &args.language {
+        env::set_var("TREE_SITTER_LANGUAGE", language);
+    }
     if let Some(example) = &args.example {
-        env::set_var("TREE_SITTER_EXAMPLE", example);
+        env::set_var("TREE_SITTER_EXAMPLE_INCLUDE", example);
     }
     if let Some(seed) = args.seed {
         env::set_var("TREE_SITTER_SEED", seed.to_string());
@@ -86,7 +89,11 @@ pub fn run(args: &Test) -> Result<()> {
         )?;
     } else {
         let mut cargo_cmd = Command::new("cargo");
-        cargo_cmd.arg("test").arg(test_flags).args(&args.args);
+        cargo_cmd.arg("test");
+        if !test_flags.is_empty() {
+            cargo_cmd.arg(test_flags);
+        }
+        cargo_cmd.args(&args.args);
         if args.nocapture {
             cargo_cmd.arg("--").arg("--nocapture");
         }

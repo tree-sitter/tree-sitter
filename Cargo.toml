@@ -95,16 +95,16 @@ codegen-units = 256
 [workspace.dependencies]
 anstyle = "1.0.8"
 anyhow = "1.0.89"
-bstr = "1.10.0"
-cc = "1.1.30"
-clap = { version = "4.5.20", features = [
+bstr = "1.11.0"
+cc = "1.2.1"
+clap = { version = "4.5.21", features = [
   "cargo",
   "derive",
   "env",
   "help",
   "unstable-styles",
 ] }
-clap_complete = "4.5.33"
+clap_complete = "4.5.38"
 ctor = "0.2.8"
 ctrlc = { version = "3.4.5", features = ["termination"] }
 dialoguer = { version = "0.11.0", features = ["fuzzy-select"] }
@@ -129,14 +129,14 @@ regex = "1.10.6"
 regex-syntax = "0.8.4"
 rustc-hash = "2.0.0"
 semver = { version = "1.0.23", features = ["serde"] }
-serde = { version = "1.0.210", features = ["derive"] }
+serde = { version = "1.0.215", features = ["derive"] }
 serde_derive = "1.0.210"
-serde_json = { version = "1.0.128", features = ["preserve_order"] }
+serde_json = { version = "1.0.133", features = ["preserve_order"] }
 similar = "2.6.0"
 smallbitvec = "2.5.3"
 streaming-iterator = "0.1.9"
-tempfile = "3.12.0"
-thiserror = "1.0.64"
+tempfile = "3.14.0"
+thiserror = "1.0.69"
 tiny_http = "0.12.0"
 toml = "0.8.19"
 unindent = "0.2.3"

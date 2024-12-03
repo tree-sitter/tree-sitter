@@ -23,7 +23,11 @@ fn update_cargo(version: &Version) -> Result<()> {
 
     std::fs::write("lib/Cargo.toml", new_lines.join("\n") + "\n")?;
 
-    Ok(())
+    Command::new("cargo")
+        .arg("update")
+        .status()
+        .map(|_| ())
+        .with_context(|| "Failed to execute cargo update")
 }
 
 fn zig_fetch(lines: &mut Vec<String>, version: &Version, url_suffix: &str) -> Result<()> {
@@ -119,7 +123,7 @@ fn create_commit(repo: &Repository, version: &Version) -> Result<()> {
         Some("HEAD"),
         &signature,
         &signature,
-        &format!("build(deps): bump wasmtime to v{version}"),
+        &format!("build(deps): bump wasmtime-c-api to v{version}"),
         &tree,
         &[&parent_commit],
     )?;
@@ -128,10 +132,10 @@ fn create_commit(repo: &Repository, version: &Version) -> Result<()> {
 }
 
 pub fn run(args: &UpgradeWasmtime) -> Result<()> {
-    println!("Upgrading wasmtime in lib/Cargo.toml");
+    println!("Upgrading wasmtime for Rust");
     update_cargo(&args.version)?;
 
-    println!("Upgrading wasmtime in build.zig.zon");
+    println!("Upgrading wasmtime for Zig");
     update_zig(&args.version)?;
 
     let repo = Repository::open(".")?;

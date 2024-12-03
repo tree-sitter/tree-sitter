@@ -141,6 +141,7 @@ These keys specify relative paths from the directory containing `tree-sitter.jso
 * `highlights` - Path to a *highlight query*. Default: `queries/highlights.scm`
 * `locals` - Path to a *local variable query*. Default: `queries/locals.scm`.
 * `injections` - Path to an *injection query*. Default: `queries/injections.scm`.
+* `tags` - Path to an *tag query*. Default: `queries/tags.scm`.
 
 The behaviors of these three files are described in the next section.
 

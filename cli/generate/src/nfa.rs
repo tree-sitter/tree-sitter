@@ -363,9 +363,9 @@ impl CharacterSet {
         }) {
             Ok(ix) | Err(ix) => ix,
         };
-        self.ranges.get(ix).map_or(false, |range| {
-            range.start <= seek_range.start && range.end >= seek_range.end
-        })
+        self.ranges
+            .get(ix)
+            .is_some_and(|range| range.start <= seek_range.start && range.end >= seek_range.end)
     }
 
     pub fn contains(&self, c: char) -> bool {

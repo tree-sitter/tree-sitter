@@ -140,6 +140,8 @@ pub struct LanguageConfigurationJSON {
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct TreeSitterJSON {
+    #[serde(rename = "$schema")]
+    pub schema: Option<String>,
     pub grammars: Vec<Grammar>,
     pub metadata: Metadata,
     #[serde(default)]
@@ -147,9 +149,10 @@ pub struct TreeSitterJSON {
 }
 
 impl TreeSitterJSON {
-    #[must_use]
-    pub fn from_file(path: &Path) -> Option<Self> {
-        serde_json::from_str(&fs::read_to_string(path.join("tree-sitter.json")).ok()?).ok()
+    pub fn from_file(path: &Path) -> Result<Self> {
+        Ok(serde_json::from_str(&fs::read_to_string(
+            path.join("tree-sitter.json"),
+        )?)?)
     }
 
     #[must_use]
@@ -478,7 +481,7 @@ impl Loader {
         scope: &str,
     ) -> Result<Option<(Language, &LanguageConfiguration)>> {
         for configuration in &self.language_configurations {
-            if configuration.scope.as_ref().map_or(false, |s| s == scope) {
+            if configuration.scope.as_ref().is_some_and(|s| s == scope) {
                 let language = self.language_for_id(configuration.language_id)?;
                 return Ok(Some((language, configuration)));
             }
@@ -521,11 +524,15 @@ impl Loader {
             .and_then(|n| n.to_str())
             .and_then(|file_name| self.language_configuration_ids_by_file_type.get(file_name))
             .or_else(|| {
-                path.extension()
-                    .and_then(|extension| extension.to_str())
-                    .and_then(|extension| {
-                        self.language_configuration_ids_by_file_type.get(extension)
-                    })
+                let mut path = path.to_owned();
+                let mut extensions = Vec::with_capacity(2);
+                while let Some(extension) = path.extension() {
+                    extensions.push(extension.to_str()?.to_string());
+                    path = PathBuf::from(path.file_stem()?.to_os_string());
+                }
+                extensions.reverse();
+                self.language_configuration_ids_by_file_type
+                    .get(&extensions.join("."))
             });
 
         if let Some(configuration_ids) = configuration_ids {
@@ -603,6 +610,13 @@ impl Loader {
         } else {
             Ok(None)
         }
+    }
+
+    pub fn language_for_configuration(
+        &self,
+        configuration: &LanguageConfiguration,
+    ) -> Result<Language> {
+        self.language_for_id(configuration.language_id)
     }
 
     fn language_for_id(&self, id: usize) -> Result<Language> {
@@ -841,7 +855,7 @@ impl Loader {
             format!("Failed to execute the C compiler with the following command:\n{command:?}")
         })?;
 
-        lock_file.unlock()?;
+        FileExt::unlock(lock_file)?;
         fs::remove_file(lock_path)?;
 
         if output.status.success() {
@@ -963,13 +977,13 @@ impl Loader {
         } else if Command::new("docker")
             .arg("info")
             .output()
-            .map_or(false, |out| out.status.success())
+            .is_ok_and(|out| out.status.success())
         {
             EmccSource::Docker
         } else if Command::new("podman")
             .arg("--version")
             .output()
-            .map_or(false, |out| out.status.success())
+            .is_ok_and(|out| out.status.success())
         {
             EmccSource::Podman
         } else {
@@ -1112,7 +1126,8 @@ impl Loader {
     ) -> Result<&[LanguageConfiguration]> {
         let initial_language_configuration_count = self.language_configurations.len();
 
-        if let Some(config) = TreeSitterJSON::from_file(parser_path) {
+        let ts_json = TreeSitterJSON::from_file(parser_path);
+        if let Ok(config) = ts_json {
             let language_count = self.languages_by_id.len();
             for grammar in config.grammars {
                 // Determine the path to the parser directory. This can be specified in
@@ -1201,6 +1216,17 @@ impl Loader {
                 {
                     self.language_configuration_in_current_path =
                         Some(self.language_configurations.len() - 1);
+                }
+            }
+        } else if let Err(e) = ts_json {
+            match e.downcast_ref::<std::io::Error>() {
+                // This is noisy, and not really an issue.
+                Some(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+                _ => {
+                    eprintln!(
+                        "Warning: Failed to parse {} -- {e}",
+                        parser_path.join("tree-sitter.json").display()
+                    );
                 }
             }
         }
