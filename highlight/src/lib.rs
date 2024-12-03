@@ -1110,21 +1110,21 @@ impl HtmlRenderer {
         attribute_callback: &F,
     ) -> Result<(), Error>
     where
-        F: Fn(Highlight) -> &'a [u8],
+        F: Fn(Highlight, &mut Vec<u8>) -> (),
     {
         let mut highlights = Vec::new();
         for event in highlighter {
             match event {
                 Ok(HighlightEvent::HighlightStart(s)) => {
                     highlights.push(s);
-                    self.start_highlight(s, attribute_callback);
+                    self.start_highlight(s, &attribute_callback);
                 }
                 Ok(HighlightEvent::HighlightEnd) => {
                     highlights.pop();
                     self.end_highlight();
                 }
                 Ok(HighlightEvent::Source { start, end }) => {
-                    self.add_text(&source[start..end], &highlights, attribute_callback);
+                    self.add_text(&source[start..end], &highlights, &attribute_callback);
                 }
                 Err(a) => return Err(a),
             }
@@ -1155,28 +1155,21 @@ impl HtmlRenderer {
 
     fn add_carriage_return<'a, F>(&mut self, attribute_callback: &F)
     where
-        F: Fn(Highlight) -> &'a [u8],
+        F: Fn(Highlight, &mut Vec<u8>) -> (),
     {
         if let Some(highlight) = self.carriage_return_highlight {
-            let attribute_string = (attribute_callback)(highlight);
-            if !attribute_string.is_empty() {
-                self.html.extend(b"<span ");
-                self.html.extend(attribute_string);
-                self.html.extend(b"></span>");
-            }
+            self.html.extend(b"<span ");
+            (attribute_callback)(highlight, &mut self.html);
+            self.html.extend(b"></span>");
         }
     }
 
     fn start_highlight<'a, F>(&mut self, h: Highlight, attribute_callback: &F)
     where
-        F: Fn(Highlight) -> &'a [u8],
+        F: Fn(Highlight, &mut Vec<u8>) -> (),
     {
-        let attribute_string = (attribute_callback)(h);
-        self.html.extend(b"<span");
-        if !attribute_string.is_empty() {
-            self.html.extend(b" ");
-            self.html.extend(attribute_string);
-        }
+        self.html.extend(b"<span ");
+        (attribute_callback)(h, &mut self.html);
         self.html.extend(b">");
     }
 
@@ -1186,7 +1179,7 @@ impl HtmlRenderer {
 
     fn add_text<'a, F>(&mut self, src: &[u8], highlights: &[Highlight], attribute_callback: &F)
     where
-        F: Fn(Highlight) -> &'a [u8],
+        F: Fn(Highlight, &mut Vec<u8>) -> (),
     {
         pub const fn html_escape(c: u8) -> Option<&'static [u8]> {
             match c as char {
