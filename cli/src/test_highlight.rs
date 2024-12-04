@@ -1,14 +1,17 @@
 use std::{fs, path::Path};
 
-use anstyle::AnsiColor;
+// use anstyle::AnsiColor;
 use anyhow::{anyhow, Result};
 use tree_sitter::Point;
 use tree_sitter_highlight::{Highlight, HighlightConfiguration, HighlightEvent, Highlighter};
 use tree_sitter_loader::{Config, Loader};
 
+// use crate::test_result::HighlightTestResult;
+
 use super::{
     query_testing::{parse_position_comments, to_utf8_point, Assertion, Utf8Point},
-    test::paint,
+    test_result::HighlightTestResult,
+    // test::paint,
     util,
 };
 
@@ -48,46 +51,117 @@ pub fn test_highlights(
     loader_config: &Config,
     highlighter: &mut Highlighter,
     directory: &Path,
-    use_color: bool,
-) -> Result<()> {
-    println!("syntax highlighting:");
-    test_highlights_indented(loader, loader_config, highlighter, directory, use_color, 2)
+) -> Result<HighlightTestResult> {
+    // println!("syntax highlighting:");
+    do_tests(directory, loader, loader_config, highlighter)
+    // print!("{}", results.to_string(use_color, 0));
+    // Ok(results)
 }
 
-fn test_highlights_indented(
+// fn test_highlights_indented(
+//     loader: &Loader,
+//     loader_config: &Config,
+//     highlighter: &mut Highlighter,
+//     directory: &Path,
+//     use_color: bool,
+//     indent_level: usize,
+// ) -> Result<()> {
+//     let mut failed = false;
+
+//     for highlight_test_file in fs::read_dir(directory)? {
+//         let highlight_test_file = highlight_test_file?;
+//         let test_file_path = highlight_test_file.path();
+//         let test_file_name = highlight_test_file.file_name();
+//         print!(
+//             "{indent:indent_level$}",
+//             indent = "",
+//             indent_level = indent_level * 2
+//         );
+//         if test_file_path.is_dir() && test_file_path.read_dir()?.next().is_some() {
+//             println!("{}:", test_file_name.into_string().unwrap());
+//             if test_highlights_indented(
+//                 loader,
+//                 loader_config,
+//                 highlighter,
+//                 &test_file_path,
+//                 use_color,
+//                 indent_level + 1,
+//             )
+//             .is_err()
+//             {
+//                 failed = true;
+//             }
+//         } else {
+//             let (language, language_config) = loader
+//                 .language_configuration_for_file_name(&test_file_path)?
+//                 .ok_or_else(|| {
+//                     anyhow!(
+//                         "{}",
+//                         util::lang_not_found_for_path(test_file_path.as_path(), loader_config)
+//                     )
+//                 })?;
+//             let highlight_config = language_config
+//                 .highlight_config(language, None)?
+//                 .ok_or_else(|| anyhow!("No highlighting config found for {test_file_path:?}"))?;
+//             match test_highlight(
+//                 loader,
+//                 highlighter,
+//                 highlight_config,
+//                 fs::read(&test_file_path)?.as_slice(),
+//             ) {
+//                 Ok(assertion_count) => {
+//                     println!(
+//                         "✓ {} ({assertion_count} assertions)",
+//                         paint(
+//                             use_color.then_some(AnsiColor::Green),
+//                             test_file_name.to_string_lossy().as_ref()
+//                         ),
+//                     );
+//                 }
+//                 Err(e) => {
+//                     println!(
+//                         "✗ {}",
+//                         paint(
+//                             use_color.then_some(AnsiColor::Red),
+//                             test_file_name.to_string_lossy().as_ref()
+//                         )
+//                     );
+//                     println!(
+//                         "{indent:indent_level$}  {e}",
+//                         indent = "",
+//                         indent_level = indent_level * 2
+//                     );
+//                     failed = true;
+//                 }
+//             }
+//         }
+//     }
+
+//     if failed {
+//         Err(anyhow!(""))
+//     } else {
+//         Ok(())
+//     }
+// }
+
+fn do_tests(
+    directory: &Path,
     loader: &Loader,
     loader_config: &Config,
     highlighter: &mut Highlighter,
-    directory: &Path,
-    use_color: bool,
-    indent_level: usize,
-) -> Result<()> {
-    let mut failed = false;
-
+) -> Result<HighlightTestResult> {
+    let mut results = vec![];
     for highlight_test_file in fs::read_dir(directory)? {
         let highlight_test_file = highlight_test_file?;
         let test_file_path = highlight_test_file.path();
         let test_file_name = highlight_test_file.file_name();
-        print!(
-            "{indent:indent_level$}",
-            indent = "",
-            indent_level = indent_level * 2
-        );
+        // If non-empty path, collect a suite result
         if test_file_path.is_dir() && test_file_path.read_dir()?.next().is_some() {
-            println!("{}:", test_file_name.into_string().unwrap());
-            if test_highlights_indented(
-                loader,
-                loader_config,
-                highlighter,
-                &test_file_path,
-                use_color,
-                indent_level + 1,
-            )
-            .is_err()
-            {
-                failed = true;
-            }
-        } else {
+            let dir_result = do_tests(&test_file_path, loader, loader_config, highlighter)?;
+            results.push(dir_result);
+        }
+        // Otherwise, collect test result
+        else {
             let (language, language_config) = loader
                 .language_configuration_for_file_name(&test_file_path)?
                 .ok_or_else(|| {
@@ -106,39 +180,31 @@ fn test_highlights_indented(
                 fs::read(&test_file_path)?.as_slice(),
             ) {
                 Ok(assertion_count) => {
-                    println!(
-                        "✓ {} ({assertion_count} assertions)",
-                        paint(
-                            use_color.then_some(AnsiColor::Green),
-                            test_file_name.to_string_lossy().as_ref()
-                        ),
-                    );
+                    results.push(HighlightTestResult::Pass {
+                        name: test_file_name.into_string().unwrap(),
+                        assertion_count,
+                    });
                 }
-                Err(e) => {
-                    println!(
-                        "✗ {}",
-                        paint(
-                            use_color.then_some(AnsiColor::Red),
-                            test_file_name.to_string_lossy().as_ref()
-                        )
-                    );
-                    println!(
-                        "{indent:indent_level$}  {e}",
-                        indent = "",
-                        indent_level = indent_level * 2
-                    );
-                    failed = true;
+                Err(error) => {
+                    results.push(HighlightTestResult::Fail {
+                        name: test_file_name.into_string().unwrap(),
+                        error,
+                    });
                 }
-            }
+            };
         }
     }
-
-    if failed {
-        Err(anyhow!(""))
-    } else {
-        Ok(())
-    }
+    return Ok(HighlightTestResult::Suite {
+        name: directory.file_name().unwrap().to_string_lossy().into_owned(),
+        children: results,
+    })
+    // if failed {
+    //     Err(anyhow!(""))
+    // } else {
+    //     Ok(HighlightTestResult)
+    // }
 }
+
 pub fn iterate_assertions(
     assertions: &[Assertion],
     highlights: &[(Utf8Point, Utf8Point, Highlight)],

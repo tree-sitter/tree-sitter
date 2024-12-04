@@ -72,6 +72,7 @@ tree-sitter-tags.workspace = true
 
 [dev-dependencies]
 encoding_rs = "0.8.35"
+mockall = "0.13.0"
 widestring = "1.1.0"
 tree_sitter_proc_macro = { path = "src/tests/proc_macro", package = "tree-sitter-tests-proc-macro" }
 

@@ -13,19 +13,13 @@ use glob::glob;
 use heck::ToUpperCamelCase;
 use regex::Regex;
 use semver::Version as SemverVersion;
+use serde_json::json;
 use tree_sitter::{ffi, Parser, Point};
 use tree_sitter_cli::{
     fuzz::{
         fuzz_language_corpus, FuzzOptions, EDIT_COUNT, ITERATION_COUNT, LOG_ENABLED,
         LOG_GRAPH_ENABLED, START_SEED,
-    },
-    highlight,
-    init::{generate_grammar_files, get_root_path, migrate_package_json, JsonConfigOpts},
-    logger,
-    parse::{self, ParseFileOptions, ParseOutput, ParseTheme},
-    playground, query, tags,
-    test::{self, TestOptions},
-    test_highlight, test_tags, util, version, wasm,
+    }, highlight, init::{generate_grammar_files, get_root_path, migrate_package_json, JsonConfigOpts}, logger, parse::{self, ParseFileOptions, ParseOutput, ParseTheme}, playground, query, tags, test::{self, TestOptions}, test_result::{TestResult, HighlightTestResult}, test_highlight, test_tags, util, version, wasm
 };
 use tree_sitter_config::Config;
 use tree_sitter_highlight::Highlighter;
@@ -278,6 +272,12 @@ struct Test {
     pub rebuild: bool,
     #[arg(long, help = "Show only the pass-fail overview tree")]
     pub overview_only: bool,
+    #[arg(
+        long,
+        help = "Generate a JSON report of the test results. Use `:stdout:` as the filename to print to screen.")]
+    pub report: Option<String>,
+    #[arg(long, help = "Open the JSON report in the default browser. Only works if JSON reporting is enabled and an actual filename is provided.")]
+    pub open_report: bool,
 }
 
 #[derive(Args)]
@@ -958,7 +958,7 @@ impl Test {
 
         // Run the corpus tests. Look for them in `test/corpus`.
         let test_corpus_dir = test_dir.join("corpus");
-        if test_corpus_dir.is_dir() {
+        let corpus_results = if test_corpus_dir.is_dir() {
             let mut opts = TestOptions {
                 path: test_corpus_dir,
                 debug: self.debug,
@@ -972,41 +972,107 @@ impl Test {
                 test_num: 1,
                 show_fields: self.show_fields,
                 overview_only: self.overview_only,
+                generate_report: self.report.clone(),
             };
 
-            test::run_tests_at_path(&mut parser, &mut opts)?;
-        }
+            let results = test::run_tests_at_path(&mut parser, &mut opts)?;
+            if let TestResult::Group { name, children, .. } = results {
+                if name == String::from("corpus") {
+                    Some(children)
+                } else {
+                    panic!("This should not happen. Top level should be entire corpus test group.")
+                }
+            } else {
+                panic!("This should not happen. Top level should be a group.")
+            }
+        } else {
+            None
+        };
 
         // Check that all of the queries are valid.
         test::check_queries_at_path(language, &current_dir.join("queries"))?;
 
         // Run the syntax highlighting tests.
         let test_highlight_dir = test_dir.join("highlight");
-        if test_highlight_dir.is_dir() {
+        let highlight_results = if test_highlight_dir.is_dir() {
             let mut highlighter = Highlighter::new();
             highlighter.parser = parser;
-            test_highlight::test_highlights(
+            let highlight_results = test_highlight::test_highlights(
                 &loader,
                 &config.get()?,
                 &mut highlighter,
                 &test_highlight_dir,
-                color,
             )?;
             parser = highlighter.parser;
-        }
+            if self.report.is_none() {
+                println!("syntax highlighting:");
+                print!("{}", highlight_results.to_string(color, 0));
+            }
+            if let HighlightTestResult::Suite { children, name, .. } = highlight_results {
+                if name == String::from("highlight") {
+                    Some(children)
+                } else {
+                    panic!("This should not happen. Top level should be entire highlight test group.")
+                }
+            } else {
+                panic!("This should not happen. Top level should be a group.")
+            }
+            // Some(highlight_results)
+        } else {
+            None
+        };
 
         let test_tag_dir = test_dir.join("tags");
-        if test_tag_dir.is_dir() {
+        let tag_results = if test_tag_dir.is_dir() {
             let mut tags_context = TagsContext::new();
             tags_context.parser = parser;
-            test_tags::test_tags(
+            let tag_results = test_tags::test_tags(
                 &loader,
                 &config.get()?,
                 &mut tags_context,
                 &test_tag_dir,
-                color,
             )?;
+            if self.report.is_none() {
+                println!("tags:");
+                for child in &tag_results {
+                    println!("{}", child.to_string(color));
+                }
+            }
+            tag_results
+        } else {
+            vec![]
+        };
+
+        if self.report.is_some() {
+            let output = format!("{}", json!({
+                "corpus": corpus_results.unwrap_or_default(),
+                "highlight": highlight_results.unwrap_or_default(),
+                "tags": tag_results,
+            }));
+            let target = self.report.unwrap();
+            if target == ":stdout:" {
+                print!("{output}");
+            } else {
+                // let output_dir = current_dir;
+                let ofilename = current_dir.join("report.json");
+                std::fs::write(&ofilename, output)?;
+                if self.open_report {
+                    let fname = ofilename.to_string_lossy();
+                    webbrowser::open(&fname)?;
+                }
+            }
+            return Ok(());
         }
+
+        
+        // if self.report.is_some() {
+        //     print!("{}", json!({
+        //         "corpus": corpus_results.unwrap_or_default(),
+        //         "highlight": highlight_results.unwrap_or_default(),
+        //         "tags": tag_results,
+        //     }));
+        //     return Ok(());
+        // }
 
         // For the rest of the queries, find their tests and run them
         for entry in walkdir::WalkDir::new(current_dir.join("queries"))
