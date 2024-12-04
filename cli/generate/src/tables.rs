@@ -47,6 +47,7 @@ pub struct ParseState {
     pub id: ParseStateId,
     pub terminal_entries: IndexMap<Symbol, ParseTableEntry, BuildHasherDefault<FxHasher>>,
     pub nonterminal_entries: IndexMap<Symbol, GotoAction, BuildHasherDefault<FxHasher>>,
+    pub reserved_words: TokenSet,
     pub lex_state_id: usize,
     pub external_lex_state_id: usize,
     pub core_id: usize,
@@ -58,13 +59,13 @@ pub struct FieldLocation {
     pub inherited: bool,
 }
 
-#[derive(Debug, Default, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct ProductionInfo {
     pub alias_sequence: Vec<Option<Alias>>,
     pub field_map: BTreeMap<String, Vec<FieldLocation>>,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Default, PartialEq, Eq)]
 pub struct ParseTable {
     pub states: Vec<ParseState>,
     pub symbols: Vec<Symbol>,
@@ -149,7 +150,7 @@ impl ParseState {
             }
         }
         for (symbol, action_index, new_state) in updates {
-            if symbol.is_non_terminal() {
+            if symbol.is_non_terminal() || symbol.is_non_reserved_keyword() {
                 self.nonterminal_entries
                     .insert(symbol, GotoAction::Goto(new_state));
             } else {

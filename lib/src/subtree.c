@@ -11,6 +11,7 @@
 #include "./language.h"
 #include "./error_costs.h"
 #include "./ts_assert.h"
+#include "parser.h"
 #include <stddef.h>
 
 typedef struct {

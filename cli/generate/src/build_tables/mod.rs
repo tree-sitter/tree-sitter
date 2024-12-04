@@ -6,7 +6,7 @@ mod item_set_builder;
 mod minimize_parse_table;
 mod token_conflicts;
 
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use anyhow::Result;
 pub use build_lex_table::LARGE_CHARACTER_RANGE_COUNT;
@@ -16,6 +16,7 @@ use self::{
     build_lex_table::build_lex_table,
     build_parse_table::{build_parse_table, ParseStateInfo},
     coincident_tokens::CoincidentTokenIndex,
+    item_set_builder::ParseItemSetBuilder,
     minimize_parse_table::minimize_parse_table,
     token_conflicts::TokenConflictMap,
 };
@@ -23,15 +24,17 @@ use crate::{
     grammars::{InlinedProductionMap, LexicalGrammar, SyntaxGrammar},
     nfa::{CharacterSet, NfaCursor},
     node_types::VariableInfo,
-    rules::{AliasMap, Symbol, SymbolType, TokenSet},
-    tables::{LexTable, ParseAction, ParseTable, ParseTableEntry},
+    rules::{Alias, AliasMap, Symbol, SymbolType, TokenSet},
+    tables::{
+        GotoAction, LexTable, ParseAction, ParseStateId, ParseTable, ParseTableEntry,
+        ProductionInfo,
+    },
 };
 
 pub struct Tables {
     pub parse_table: ParseTable,
     pub main_lex_table: LexTable,
     pub keyword_lex_table: LexTable,
-    pub word_token: Option<Symbol>,
     pub large_character_sets: Vec<(Option<Symbol>, CharacterSet)>,
 }
 
@@ -43,8 +46,15 @@ pub fn build_tables(
     inlines: &InlinedProductionMap,
     report_symbol_name: Option<&str>,
 ) -> Result<Tables> {
-    let (mut parse_table, following_tokens, parse_state_info) =
-        build_parse_table(syntax_grammar, lexical_grammar, inlines, variable_info)?;
+    let item_set_builder = ParseItemSetBuilder::new(syntax_grammar, lexical_grammar, inlines);
+    let following_tokens =
+        get_following_tokens(syntax_grammar, lexical_grammar, inlines, &item_set_builder);
+    let (mut parse_table, parse_state_info) = build_parse_table(
+        syntax_grammar,
+        lexical_grammar,
+        item_set_builder,
+        variable_info,
+    )?;
     let token_conflict_map = TokenConflictMap::new(lexical_grammar, following_tokens);
     let coincident_token_index = CoincidentTokenIndex::new(&parse_table, lexical_grammar);
     let keywords = identify_keywords(
@@ -63,6 +73,12 @@ pub fn build_tables(
         &keywords,
     );
     populate_used_symbols(&mut parse_table, syntax_grammar, lexical_grammar);
+    populate_non_reserved_keyword_actions(
+        &mut parse_table,
+        syntax_grammar,
+        lexical_grammar,
+        &keywords,
+    );
     minimize_parse_table(
         &mut parse_table,
         syntax_grammar,
@@ -97,8 +113,48 @@ pub fn build_tables(
         main_lex_table: lex_tables.main_lex_table,
         keyword_lex_table: lex_tables.keyword_lex_table,
         large_character_sets: lex_tables.large_character_sets,
-        word_token: syntax_grammar.word_token,
     })
+}
+
+fn get_following_tokens(
+    syntax_grammar: &SyntaxGrammar,
+    lexical_grammar: &LexicalGrammar,
+    inlines: &InlinedProductionMap,
+    builder: &ParseItemSetBuilder,
+) -> Vec<TokenSet> {
+    let mut result = vec![TokenSet::new(); lexical_grammar.variables.len()];
+    let productions = syntax_grammar
+        .variables
+        .iter()
+        .flat_map(|v| &v.productions)
+        .chain(&inlines.productions);
+    let all_tokens = (0..result.len())
+        .map(Symbol::terminal)
+        .collect::<TokenSet>();
+    for production in productions {
+        for i in 1..production.steps.len() {
+            let left_tokens = builder.last_set(&production.steps[i - 1].symbol);
+            let right_tokens = builder.first_set(&production.steps[i].symbol);
+            let right_reserved_tokens = builder.reserved_first_set(&production.steps[i].symbol);
+            for left_token in left_tokens.iter() {
+                if left_token.is_terminal() {
+                    result[left_token.index].insert_all_terminals(right_tokens);
+                    if let Some(reserved_tokens) = right_reserved_tokens {
+                        result[left_token.index].insert_all_terminals(reserved_tokens);
+                    }
+                }
+            }
+        }
+    }
+    for extra in &syntax_grammar.extra_symbols {
+        if extra.is_terminal() {
+            for entry in &mut result {
+                entry.insert(*extra);
+            }
+            result[extra.index] = all_tokens.clone();
+        }
+    }
+    result
 }
 
 fn populate_error_state(
@@ -177,6 +233,120 @@ fn populate_error_state(
     }
 
     state.terminal_entries.insert(Symbol::end(), recover_entry);
+}
+
+fn populate_non_reserved_keyword_actions(
+    parse_table: &mut ParseTable,
+    syntax_grammar: &SyntaxGrammar,
+    lexical_grammar: &LexicalGrammar,
+    keywords: &TokenSet,
+) {
+    let Some(word_token) = syntax_grammar.word_token else {
+        return;
+    };
+
+    let mut lookaheads_to_populate = HashMap::<ParseStateId, TokenSet>::new();
+
+    for state_id in 0..parse_table.states.len() {
+        let state = &parse_table.states[state_id];
+        let Some(word_token_successor_state_id) =
+            state.terminal_entries.get(&word_token).and_then(|entry| {
+                if let ParseAction::Shift { state, .. } = entry.actions.last()? {
+                    Some(*state)
+                } else {
+                    None
+                }
+            })
+        else {
+            continue;
+        };
+
+        for token in state.terminal_entries.keys() {
+            if !keywords.contains(token) || state.reserved_words.contains(token) {
+                continue;
+            }
+
+            let Some(keyword_successor_state_id) =
+                state.terminal_entries.get(token).and_then(|entry| {
+                    if let ParseAction::Shift { state, .. } = entry.actions.last()? {
+                        Some(*state)
+                    } else {
+                        None
+                    }
+                })
+            else {
+                continue;
+            };
+
+            let word_token_successor_state = &parse_table.states[word_token_successor_state_id];
+            let keyword_successor_state = &parse_table.states[keyword_successor_state_id];
+
+            for token in word_token_successor_state.terminal_entries.keys() {
+                if !keyword_successor_state.terminal_entries.contains_key(token)
+                    && !token.is_external()
+                {
+                    lookaheads_to_populate
+                        .entry(keyword_successor_state_id)
+                        .or_default()
+                        .insert(*token);
+                }
+            }
+        }
+    }
+
+    if lookaheads_to_populate.is_empty() {
+        return;
+    }
+
+    let non_reserved_keyword_symbol = Symbol::non_reserved_keyword();
+    parse_table.symbols.push(non_reserved_keyword_symbol);
+
+    let production_id = parse_table.production_infos.len();
+    let word_token_name = lexical_grammar.variables[word_token.index].name.clone();
+    parse_table.production_infos.push(ProductionInfo {
+        alias_sequence: vec![Some(Alias {
+            value: word_token_name,
+            is_named: true,
+        })],
+        field_map: BTreeMap::default(),
+    });
+
+    let mut gotos_to_populate = Vec::new();
+    for (state_id, state) in parse_table.states.iter().enumerate() {
+        if let Some(word_entry) = state.terminal_entries.get(&word_token) {
+            if let Some(ParseAction::Shift {
+                state: next_state, ..
+            }) = word_entry.actions.last()
+            {
+                gotos_to_populate.push((state_id, *next_state));
+            }
+        }
+    }
+
+    for (state_id, next_state) in gotos_to_populate {
+        let state = &mut parse_table.states[state_id];
+        state
+            .nonterminal_entries
+            .insert(non_reserved_keyword_symbol, GotoAction::Goto(next_state));
+    }
+
+    for (state_id, tokens) in lookaheads_to_populate {
+        for token in tokens.iter() {
+            let state = &mut parse_table.states[state_id];
+            state.terminal_entries.insert(
+                token,
+                ParseTableEntry {
+                    reusable: false,
+                    actions: vec![ParseAction::Reduce {
+                        symbol: Symbol::non_reserved_keyword(),
+                        child_count: 1,
+                        dynamic_precedence: 0,
+                        production_id,
+                    }],
+                },
+            );
+        }
+    }
 }
 
 fn populate_used_symbols(
@@ -414,9 +584,9 @@ fn report_state_info<'a>(
     for (i, state) in parse_table.states.iter().enumerate() {
         all_state_indices.insert(i);
         let item_set = &parse_state_info[state.id];
-        for (item, _) in &item_set.1.entries {
-            if !item.is_augmented() {
-                symbols_with_state_indices[item.variable_index as usize]
+        for entry in &item_set.1.entries {
+            if !entry.item.is_augmented() {
+                symbols_with_state_indices[entry.item.variable_index as usize]
                     .1
                     .insert(i);
             }

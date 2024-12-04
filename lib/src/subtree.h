@@ -199,7 +199,7 @@ Subtree ts_subtree_new_error(
 );
 MutableSubtree ts_subtree_new_node(
   TSSymbol symbol,
-  SubtreeArray *chiildren,
+  SubtreeArray *children,
   unsigned production_id,
   const TSLanguage *language
 );

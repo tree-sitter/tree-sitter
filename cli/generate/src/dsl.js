@@ -16,6 +16,7 @@ function alias(rule, value) {
       result.value = value.symbol.name;
       return result;
     case Object:
+    case GrammarSymbol:
       if (typeof value.type === 'string' && value.type === 'SYMBOL') {
         result.named = true;
         result.value = value.name;
@@ -69,7 +70,7 @@ function prec(number, rule) {
   };
 }
 
-prec.left = function(number, rule) {
+prec.left = function (number, rule) {
   if (rule == null) {
     rule = number;
     number = 0;
@@ -91,7 +92,7 @@ prec.left = function(number, rule) {
   };
 }
 
-prec.right = function(number, rule) {
+prec.right = function (number, rule) {
   if (rule == null) {
     rule = number;
     number = 0;
@@ -113,7 +114,7 @@ prec.right = function(number, rule) {
   };
 }
 
-prec.dynamic = function(number, rule) {
+prec.dynamic = function (number, rule) {
   checkPrecedence(number);
   checkArguments(
     arguments,
@@ -153,11 +154,26 @@ function seq(...elements) {
   };
 }
 
-function sym(name) {
+class GrammarSymbol {
+  constructor(name) {
+    this.type = "SYMBOL";
+    this.name = name;
+  }
+}
+
+function reserved(name, rule) {
+  if (typeof name !== 'string') {
+    throw new Error('Invalid reserved word set name: ' + name)
+  }
   return {
-    type: "SYMBOL",
-    name
-  };
+    type: "RESERVED",
+    content: normalize(rule),
+    context_name: name,
+  }
+}
+
+function sym(name) {
+  return new GrammarSymbol(name);
 }
 
 function token(value) {
@@ -168,7 +184,7 @@ function token(value) {
   };
 }
 
-token.immediate = function(value) {
+token.immediate = function (value) {
   checkArguments(arguments, arguments.length, token.immediate, 'token.immediate', '', 'literal');
   return {
     type: "IMMEDIATE_TOKEN",
@@ -236,6 +252,7 @@ function grammar(baseGrammar, options) {
       inline: [],
       supertypes: [],
       precedences: [],
+      reserved: {},
     };
   } else {
     baseGrammar = baseGrammar.grammar;
@@ -306,6 +323,28 @@ function grammar(baseGrammar, options) {
         throw new Error(`Rule '${ruleName}' returned undefined.`);
       }
       rules[ruleName] = normalize(rule);
+    }
+  }
+
+  let reserved = baseGrammar.reserved;
+  if (options.reserved) {
+    if (typeof options.reserved !== "object") {
+      throw new Error("Grammar's 'reserved' property must be an object.");
+    }
+
+    for (const reservedWordSetName of Object.keys(options.reserved)) {
+      const reservedWordSetFn = options.reserved[reservedWordSetName]
+      if (typeof reservedWordSetFn !== "function") {
+        throw new Error(`Grammar reserved word sets must all be functions. '${reservedWordSetName}' is not.`);
+      }
+
+      const reservedTokens = reservedWordSetFn.call(ruleBuilder, ruleBuilder, baseGrammar.reserved[reservedWordSetName]);
+
+      if (!Array.isArray(reservedTokens)) {
+        throw new Error(`Grammar's reserved word set functions must all return arrays of rules. '${reservedWordSetName}' does not.`);
+      }
+
+      reserved[reservedWordSetName] = reservedTokens.map(normalize);
     }
   }
 
@@ -439,6 +478,7 @@ function grammar(baseGrammar, options) {
       externals,
       inline,
       supertypes,
+      reserved,
     },
   };
 }
@@ -478,6 +518,7 @@ globalThis.optional = optional;
 globalThis.prec = prec;
 globalThis.repeat = repeat;
 globalThis.repeat1 = repeat1;
+global.reserved = reserved;
 globalThis.seq = seq;
 globalThis.sym = sym;
 globalThis.token = token;

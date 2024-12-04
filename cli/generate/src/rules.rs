@@ -11,6 +11,7 @@ pub enum SymbolType {
     EndOfNonTerminalExtra,
     Terminal,
     NonTerminal,
+    NonReservedKeyword,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -68,18 +69,50 @@ pub enum Rule {
     },
     Repeat(Box<Rule>),
     Seq(Vec<Rule>),
+    Reserved {
+        rule: Box<Rule>,
+        context_name: String,
+    },
 }
 
 // Because tokens are represented as small (~400 max) unsigned integers,
 // sets of tokens can be efficiently represented as bit vectors with each
 // index corresponding to a token, and each value representing whether or not
 // the token is present in the set.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Default, Clone, PartialEq, Eq, Hash)]
 pub struct TokenSet {
     terminal_bits: SmallBitVec,
     external_bits: SmallBitVec,
     eof: bool,
     end_of_nonterminal_extra: bool,
+    non_reserved_keyword: bool,
+}
+
+impl fmt::Debug for TokenSet {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_list().entries(self.iter()).finish()
+    }
+}
+
+impl PartialOrd for TokenSet {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for TokenSet {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.terminal_bits
+            .iter()
+            .cmp(other.terminal_bits.iter())
+            .then_with(|| self.external_bits.iter().cmp(other.external_bits.iter()))
+            .then_with(|| self.eof.cmp(&other.eof))
+            .then_with(|| {
+                self.end_of_nonterminal_extra
+                    .cmp(&other.end_of_nonterminal_extra)
+            })
+            .then_with(|| self.non_reserved_keyword.cmp(&other.non_reserved_keyword))
+    }
 }
 
 impl Rule {
@@ -154,7 +187,9 @@ impl Rule {
         match self {
             Self::Blank | Self::Pattern(..) | Self::NamedSymbol(_) | Self::Symbol(_) => false,
             Self::String(string) => string.is_empty(),
-            Self::Metadata { rule, .. } | Self::Repeat(rule) => rule.is_empty(),
+            Self::Metadata { rule, .. } | Self::Repeat(rule) | Self::Reserved { rule, .. } => {
+                rule.is_empty()
+            }
             Self::Choice(rules) => rules.iter().any(Self::is_empty),
             Self::Seq(rules) => rules.iter().all(Self::is_empty),
         }
@@ -224,6 +259,11 @@ impl Symbol {
     }
 
     #[must_use]
+    pub fn is_non_reserved_keyword(&self) -> bool {
+        self.kind == SymbolType::NonReservedKeyword
+    }
+
+    #[must_use]
     pub fn is_external(&self) -> bool {
         self.kind == SymbolType::External
     }
@@ -238,6 +278,14 @@ impl Symbol {
         Self {
             kind: SymbolType::NonTerminal,
             index,
+        }
+    }
+
+    #[must_use]
+    pub const fn non_reserved_keyword() -> Self {
+        Self {
+            kind: SymbolType::NonReservedKeyword,
+            index: 0,
         }
     }
 
@@ -289,6 +337,7 @@ impl TokenSet {
             external_bits: SmallBitVec::new(),
             eof: false,
             end_of_nonterminal_extra: false,
+            non_reserved_keyword: false,
         }
     }
 
@@ -321,6 +370,11 @@ impl TokenSet {
             } else {
                 None
             })
+            .chain(if self.non_reserved_keyword {
+                Some(Symbol::non_reserved_keyword())
+            } else {
+                None
+            })
     }
 
     pub fn terminals(&self) -> impl Iterator<Item = Symbol> + '_ {
@@ -343,6 +397,7 @@ impl TokenSet {
             SymbolType::External => self.external_bits.get(symbol.index).unwrap_or(false),
             SymbolType::End => self.eof,
             SymbolType::EndOfNonTerminalExtra => self.end_of_nonterminal_extra,
+            SymbolType::NonReservedKeyword => self.non_reserved_keyword,
         }
     }
 
@@ -361,6 +416,10 @@ impl TokenSet {
             }
             SymbolType::EndOfNonTerminalExtra => {
                 self.end_of_nonterminal_extra = true;
+                return;
+            }
+            SymbolType::NonReservedKeyword => {
+                self.non_reserved_keyword = true;
                 return;
             }
         };
@@ -391,9 +450,20 @@ impl TokenSet {
                     false
                 };
             }
+            SymbolType::NonReservedKeyword => {
+                return if self.non_reserved_keyword {
+                    self.non_reserved_keyword = false;
+                    true
+                } else {
+                    false
+                };
+            }
         };
         if other.index < vec.len() && vec[other.index] {
             vec.set(other.index, false);
+            while vec.last() == Some(false) {
+                vec.pop();
+            }
             return true;
         }
         false
@@ -402,8 +472,17 @@ impl TokenSet {
     pub fn is_empty(&self) -> bool {
         !self.eof
             && !self.end_of_nonterminal_extra
+            && !self.non_reserved_keyword
             && !self.terminal_bits.iter().any(|a| a)
             && !self.external_bits.iter().any(|a| a)
+    }
+
+    pub fn len(&self) -> usize {
+        self.eof as usize
+            + self.end_of_nonterminal_extra as usize
+            + self.non_reserved_keyword as usize
+            + self.terminal_bits.iter().filter(|b| *b).count()
+            + self.external_bits.iter().filter(|b| *b).count()
     }
 
     pub fn insert_all_terminals(&mut self, other: &Self) -> bool {
@@ -443,6 +522,10 @@ impl TokenSet {
         if other.end_of_nonterminal_extra {
             result |= !self.end_of_nonterminal_extra;
             self.end_of_nonterminal_extra = true;
+        }
+        if other.non_reserved_keyword {
+            result |= !self.non_reserved_keyword;
+            self.non_reserved_keyword = true;
         }
         result |= self.insert_all_terminals(other);
         result |= self.insert_all_externals(other);
