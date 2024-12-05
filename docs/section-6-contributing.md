@@ -143,3 +143,49 @@ Publishing a new release of the CLI requires these steps:
    cd cli/npm
    npm publish
    ```
+
+## Developing Individual Language Grammars
+
+Grammars for individual languages developed in the [Tree-sitter organization](https://github.com/tree-sitter/) live in `tree-sitter/tree-sitter-LANGUAGE` repositories. This section describes general practices for language grammars. Grammars developed outside of the Tree-sitter organization are strongly recommended to follow these practices for greater consistency within the Tree-sitter ecosystem.
+
+### Contributing
+
+Contributions and fixes to the grammars in the form of PRs are appreciated. To make this process pleasant for both contributors and maintainers, we ask you to follow these guidelines:
+
+- Ensure the build and all tests pass in CI, and query files are updated for the change if necessary.
+
+- Keep the PR in _draft_ mode until they are ready to be reviewed and merged. This helps maintainers to know where their attention is necessary.
+
+- Include tests that cover the proposed changes. This helps the maintainers to understand the effect of the change, and prevents regressions in the future.
+
+- If the changes concern less well known or new language features, it can be helpful to include links to documentation and/or an example program in an online playground to illustrate the change.
+
+- Avoid unnecessary changes to the structure of the syntax tree, to minimize the update work required for direct consumers of the grammar.
+
+- Check if the grammar follows a reference grammar, implementation or other documentation. If so, make sure the change does as well.
+
+### Versioning
+
+Grammars are versioned independently of the Tree-sitter library. Grammar versions follow an adapted semantic versioning scheme. Given a version number MAJOR.MINOR.PATCH, increment the:
+
+1. MAJOR version when changes break direct consumers. Direct consumers are those that process the syntax tree directly, by programmatically traversing and matching nodes, or by executing queries against it.
+
+   For example, renamed nodes, newly introducted nodes, existing nodes that may appear in new positions in the tree, or changed node children commonly change the structure of the syntax tree in a way that may break direct consumers.
+
+2. MINOR version for secondary changes.
+
+   For example, changed highlighting or tags queries.
+
+3. PATCH version when bugs are fixed.
+
+Grammars on major version zero (0.x.y) should increment the minor version when changes break direct consumers.
+
+Versioned grammar releases are generally published to NPM and Cargo.
+
+### Tree-sitter Dependency
+
+Grammars depend on the Tree-sitter library. The version ranges depend on the ABI version that the grammar targets, which should generally be the latest.
+
+- The version of Tree-sitter used to build the grammar is specified as a `devDependency` on `tree-sitter-cli` in `package.json`. This is usually a minor version dependency on the latest Tree-sitter version, such as `"^0.20.1"`.
+
+- The versions of Tree-sitter that are available to Rust users of the grammar are specified as a dependency on `tree-sitter` in `Cargo.toml`. This should be the full range of Tree-sitter versions (including possible future patch versions) that are compatible with the grammar's ABI version, such as `">= 0.19, < 0.21"`.
