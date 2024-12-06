@@ -114,10 +114,20 @@ impl Interner<'_> {
                 Ok(Rule::Seq(result))
             }
             Rule::Repeat(content) => Ok(Rule::Repeat(Box::new(self.intern_rule(content, name)?))),
-            Rule::Metadata { rule, params } => Ok(Rule::Metadata {
-                rule: Box::new(self.intern_rule(rule, name)?),
-                params: params.clone(),
-            }),
+            Rule::Metadata { rule, params } => {
+                if let Some(alias) = &params.alias {
+                    if alias.is_named && self.grammar.supertype_symbols.contains(&alias.value) {
+                        return Err(anyhow!(
+                            "Supertype symbol `{}` cannot be used as alias",
+                            alias.value
+                        ));
+                    }
+                }
+                Ok(Rule::Metadata {
+                    rule: Box::new(self.intern_rule(rule, name)?),
+                    params: params.clone(),
+                })
+            }
             Rule::NamedSymbol(name) => self.intern_name(name).map_or_else(
                 || Err(anyhow!("Undefined symbol `{name}`")),
                 |symbol| Ok(Rule::Symbol(symbol)),
