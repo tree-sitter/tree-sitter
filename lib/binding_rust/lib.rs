@@ -579,6 +579,7 @@ impl Parser {
     /// [`Language::version`] and compare it to this library's
     /// [`LANGUAGE_VERSION`] and [`MIN_COMPATIBLE_LANGUAGE_VERSION`] constants.
     #[doc(alias = "ts_parser_set_language")]
+    #[must_use]
     pub fn set_language(&mut self, language: &Language) -> Result<(), LanguageError> {
         let version = language.version();
         if (MIN_COMPATIBLE_LANGUAGE_VERSION..=LANGUAGE_VERSION).contains(&version) {
