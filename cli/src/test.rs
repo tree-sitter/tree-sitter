@@ -358,8 +358,7 @@ fn run_tests(
 
             if attributes.skip {
                 println!(
-                    "{:>3}. ⌀ {}",
-                    opts.test_num,
+                    "     ⌀ {}",
                     paint(opts.color.then_some(AnsiColor::Yellow), &name),
                 );
                 return Ok(true);
@@ -367,8 +366,7 @@ fn run_tests(
 
             if !attributes.platform {
                 println!(
-                    "{:>3}. ⌀ {}",
-                    opts.test_num,
+                    "     ⌀ {}",
                     paint(opts.color.then_some(AnsiColor::Magenta), &name),
                 );
                 return Ok(true);
