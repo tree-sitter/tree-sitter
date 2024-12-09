@@ -58,7 +58,7 @@ default-features = false
 features = ["cranelift"]
 
 [build-dependencies]
-bindgen = { version = "0.70.1", optional = true }
+bindgen = { version = "0.71.1", optional = true }
 cc.workspace = true
 
 [lib]
