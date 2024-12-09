@@ -1686,7 +1686,7 @@ static bool ts_parser__advance(
 
     // If there were no parse actions for the current lookahead token, then
     // it is not valid in this state. If the current lookahead token is a
-    // keyword, then switch to treating it as the normal word token if that
+    // keyword, then switch to treating it as the normal "word" token if that
     // token is valid in this state.
     if (
       ts_subtree_is_keyword(lookahead) &&
