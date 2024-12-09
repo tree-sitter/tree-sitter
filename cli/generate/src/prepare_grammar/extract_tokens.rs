@@ -141,7 +141,7 @@ pub(super) fn extract_tokens(
         let token = symbol_replacer.replace_symbol(token);
         if token.is_non_terminal() {
             return Err(anyhow!(
-                "Non-terminal symbol '{}' cannot be used as the word token",
+                "Non-terminal symbol '{}' cannot be used as the \"word\" token",
                 &variables[token.index].name
             ));
         }
