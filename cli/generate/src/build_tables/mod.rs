@@ -202,10 +202,10 @@ fn populate_used_symbols(
     parse_table.symbols.push(Symbol::end());
     for (i, value) in terminal_usages.into_iter().enumerate() {
         if value {
-            // Assign the grammar's word token a low numerical index. This ensures that
+            // Assign the grammar's "word" token a low numerical index. This ensures that
             // it can be stored in a subtree with no heap allocations, even for grammars with
             // very large numbers of tokens. This is an optimization, but it's also important to
-            // ensure that a subtree's symbol can be successfully reassigned to the word token
+            // ensure that a subtree's symbol can be successfully reassigned to the "word" token
             // without having to move the subtree to the heap.
             // See https://github.com/tree-sitter/tree-sitter/issues/258
             if syntax_grammar.word_token.map_or(false, |t| t.index == i) {
@@ -279,7 +279,7 @@ fn identify_keywords(
     let mut cursor = NfaCursor::new(&lexical_grammar.nfa, Vec::new());
 
     // First find all of the candidate keyword tokens: tokens that start with
-    // letters or underscore and can match the same string as a word token.
+    // letters or underscore and can match the same string as a "word" token.
     let keyword_candidates = lexical_grammar
         .variables
         .iter()
@@ -331,8 +331,8 @@ fn identify_keywords(
                     continue;
                 }
 
-                // If the word token was already valid in every state containing
-                // this keyword candidate, then substituting the word token won't
+                // If the "word" token was already valid in every state containing
+                // this keyword candidate, then substituting the "word" token won't
                 // introduce any new lexical conflicts.
                 if coincident_token_index
                     .states_with(*token, Symbol::terminal(other_index))
