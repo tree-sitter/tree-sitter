@@ -7,7 +7,7 @@ use std::{
 use anstyle::{AnsiColor, Color, Style};
 use anyhow::{anyhow, Context, Result};
 use clap::{crate_authors, Args, Command, FromArgMatches as _, Subcommand, ValueEnum};
-use clap_complete::{generate, Shell};
+use clap_complete::generate;
 use dialoguer::{theme::ColorfulTheme, Confirm, FuzzySelect, Input};
 use glob::glob;
 use heck::ToUpperCamelCase;
@@ -447,6 +447,16 @@ struct Complete {
         help = "The shell to generate completions for"
     )]
     pub shell: Shell,
+}
+
+#[derive(ValueEnum, Clone)]
+pub enum Shell {
+    Bash,
+    Elvish,
+    Fish,
+    PowerShell,
+    Zsh,
+    Nushell,
 }
 
 impl InitConfig {
@@ -1293,12 +1303,19 @@ impl DumpLanguages {
 
 impl Complete {
     fn run(self, cli: &mut Command) {
-        generate(
-            self.shell,
-            cli,
-            cli.get_name().to_string(),
-            &mut std::io::stdout(),
-        );
+        let name = cli.get_name().to_string();
+        let mut stdout = std::io::stdout();
+
+        match self.shell {
+            Shell::Bash => generate(clap_complete::shells::Bash, cli, &name, &mut stdout),
+            Shell::Elvish => generate(clap_complete::shells::Elvish, cli, &name, &mut stdout),
+            Shell::Fish => generate(clap_complete::shells::Fish, cli, &name, &mut stdout),
+            Shell::PowerShell => {
+                generate(clap_complete::shells::PowerShell, cli, &name, &mut stdout);
+            }
+            Shell::Zsh => generate(clap_complete::shells::Zsh, cli, &name, &mut stdout),
+            Shell::Nushell => generate(clap_complete_nushell::Nushell, cli, &name, &mut stdout),
+        }
     }
 }
 
