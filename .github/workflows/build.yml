@@ -88,7 +88,7 @@ jobs:
 
     - name: Install cross
       if: ${{ matrix.use-cross }}
-      run: cargo install cross --git https://github.com/cross-rs/cross
+      run: RUSTFLAGS="" cargo install cross --git https://github.com/cross-rs/cross
 
     - name: Configure cross
       if: ${{ matrix.use-cross }}
@@ -138,6 +138,7 @@ jobs:
     - name: Build wasmtime library
       if: ${{ !matrix.use-cross && contains(matrix.features, 'wasm') }}
       run: |
+        mkdir -p target
         WASMTIME_VERSION=$(cargo metadata --format-version=1 --locked --features wasm | \
                            jq -r '.packages[] | select(.name == "wasmtime-c-api-impl") | .version')
         curl -LSs "$WASMTIME_REPO/archive/refs/tags/v${WASMTIME_VERSION}.tar.gz" | tar xzf - -C target
@@ -151,6 +152,7 @@ jobs:
         printf 'CMAKE_PREFIX_PATH=%s\n' "$PWD/artifacts" >> $GITHUB_ENV
       env:
         WASMTIME_REPO: https://github.com/bytecodealliance/wasmtime
+        RUSTFLAGS: ""
 
     - name: Build C library (make)
       if: ${{ runner.os != 'Windows' }}
