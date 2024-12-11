@@ -962,6 +962,30 @@ fn test_parsing_with_timeout_and_no_completion() {
     });
 }
 
+// Report Error node to callback
+
+#[test]
+fn test_parsing_exit_on_error_node() {
+    let mut parser = Parser::new();
+    parser.set_language(&get_language("python")).unwrap();
+
+    // Parse an infinite number of malformed print statements, but pause after the malformity is
+    // reported
+    let start_time = time::Instant::now();
+    let tree = parser.parse_with_options(
+        &mut |_, _| b"print(%*^&%*^&%*^&%*^&%*^&%*^&%*^&%*#\"Hello world\")\n",
+        None,
+        Some(ParseOptions::new().progress_callback(&mut |parse_state| {
+            parse_state.has_encountered_error_node() || start_time.elapsed().as_secs() > 1
+        })),
+    );
+    assert!(tree.is_none());
+    assert!(
+        start_time.elapsed().as_secs() < 1,
+        "Didn't fail to code malformity"
+    );
+}
+
 // Included Ranges
 
 #[test]

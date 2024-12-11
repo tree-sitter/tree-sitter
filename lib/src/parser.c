@@ -115,6 +115,7 @@ struct TSParser {
   TSParseState parse_state;
   unsigned included_range_difference_index;
   bool has_scanner_error;
+  bool has_encountered_error_node;
 };
 
 typedef struct {
@@ -1410,6 +1411,7 @@ static void ts_parser__recover(
 
   // Push the new ERROR onto the stack.
   ts_stack_push(self->stack, version, ts_subtree_from_mut(error_repeat), false, ERROR_STATE);
+  self->has_encountered_error_node = true;
   if (ts_subtree_has_external_tokens(lookahead)) {
     ts_stack_set_last_external_token(
       self->stack, version, ts_subtree_last_external_token(lookahead)
@@ -1571,6 +1573,7 @@ static bool ts_parser__advance(
     }
     if (self->parse_options.progress_callback) {
       self->parse_state.current_byte_offset = position;
+      self->parse_state.has_encountered_error_node = self->has_encountered_error_node;
     }
     if (
       self->operation_count == 0 &&
@@ -1868,6 +1871,7 @@ TSParser *ts_parser_new(void) {
   self->old_tree = NULL_SUBTREE;
   self->included_range_differences = (TSRangeArray) array_new();
   self->included_range_difference_index = 0;
+  self->has_encountered_error_node = false;
   ts_parser__set_cached_token(self, 0, NULL_SUBTREE, NULL_SUBTREE);
   return self;
 }
@@ -1998,6 +2002,7 @@ void ts_parser_reset(TSParser *self) {
   }
   self->accept_count = 0;
   self->has_scanner_error = false;
+  self->has_encountered_error_node = false;
 }
 
 TSTree *ts_parser_parse(
