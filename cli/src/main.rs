@@ -61,14 +61,18 @@ enum Commands {
 struct InitConfig;
 
 #[derive(Args)]
-#[command(about = "Initialize a grammar repository", alias = "i")]
+#[command(about = "Initialize a grammar repository", visible_alias = "i")]
 struct Init {
     #[arg(long, short, help = "Update outdated files")]
     pub update: bool,
 }
 
 #[derive(Args)]
-#[command(about = "Generate a parser", alias = "gen", alias = "g")]
+#[command(
+    about = "Generate a parser",
+    visible_alias = "gen",
+    visible_alias = "g"
+)]
 struct Generate {
     #[arg(index = 1, help = "The path to the grammar file")]
     pub grammar_path: Option<String>,
@@ -126,7 +130,7 @@ struct Generate {
 }
 
 #[derive(Args)]
-#[command(about = "Compile a parser", alias = "b")]
+#[command(about = "Compile a parser", visible_alias = "b")]
 struct Build {
     #[arg(short, long, help = "Build a WASM module instead of a dynamic library")]
     pub wasm: bool,
@@ -147,7 +151,7 @@ struct Build {
 }
 
 #[derive(Args)]
-#[command(about = "Parse files", alias = "p")]
+#[command(about = "Parse files", visible_alias = "p")]
 struct Parse {
     #[arg(
         long = "paths",
@@ -230,7 +234,7 @@ pub enum Encoding {
 }
 
 #[derive(Args)]
-#[command(about = "Run a parser's tests", alias = "t")]
+#[command(about = "Run a parser's tests", visible_alias = "t")]
 struct Test {
     #[arg(
         long,
@@ -290,7 +294,7 @@ struct Version {
 }
 
 #[derive(Args)]
-#[command(about = "Fuzz a parser", alias = "f")]
+#[command(about = "Fuzz a parser", visible_alias = "f")]
 struct Fuzz {
     #[arg(long, short, help = "List of test names to skip")]
     pub skip: Option<Vec<String>>,
@@ -321,7 +325,7 @@ struct Fuzz {
 }
 
 #[derive(Args)]
-#[command(about = "Search files using a syntax tree query", alias = "q")]
+#[command(about = "Search files using a syntax tree query", visible_alias = "q")]
 struct Query {
     #[arg(help = "Path to a file with queries", index = 1, required = true)]
     query_path: String,
@@ -357,7 +361,7 @@ struct Query {
 }
 
 #[derive(Args)]
-#[command(about = "Highlight a file", alias = "hi")]
+#[command(about = "Highlight a file", visible_alias = "hi")]
 struct Highlight {
     #[arg(long, short = 'H', help = "Generate highlighting as an HTML document")]
     pub html: bool,
@@ -416,9 +420,9 @@ struct Tags {
 #[derive(Args)]
 #[command(
     about = "Start local playground for a parser in the browser",
-    alias = "play",
-    alias = "pg",
-    alias = "web-ui"
+    visible_alias = "play",
+    visible_alias = "pg",
+    visible_alias = "web-ui"
 )]
 struct Playground {
     #[arg(long, short, help = "Don't open in default browser")]
@@ -431,14 +435,17 @@ struct Playground {
 }
 
 #[derive(Args)]
-#[command(about = "Print info about all known language parsers", alias = "langs")]
+#[command(
+    about = "Print info about all known language parsers",
+    visible_alias = "langs"
+)]
 struct DumpLanguages {
     #[arg(long, help = "The path to an alternative config.json file")]
     pub config_path: Option<PathBuf>,
 }
 
 #[derive(Args)]
-#[command(about = "Generate shell completions", alias = "comp")]
+#[command(about = "Generate shell completions", visible_alias = "comp")]
 struct Complete {
     #[arg(
         long,
