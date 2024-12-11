@@ -12,6 +12,7 @@ extern "C" {
 
 #define LANGUAGE_VERSION_WITH_METADATA 15
 #define LANGUAGE_VERSION_WITH_PRIMARY_STATES 14
+#define LANGUAGE_VERSION_WITH_SUPERTYPE_INFO 15
 
 typedef struct {
   const TSParseAction *actions;

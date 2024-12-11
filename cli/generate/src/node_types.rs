@@ -374,7 +374,7 @@ pub fn generate_node_types_json(
     lexical_grammar: &LexicalGrammar,
     default_aliases: &AliasMap,
     variable_info: &[VariableInfo],
-) -> Vec<NodeInfoJSON> {
+) -> (Vec<NodeInfoJSON>, Vec<(Symbol, Vec<ChildType>)>) {
     let mut node_types_json = BTreeMap::new();
 
     let child_type_to_node_type = |child_type: &ChildType| match child_type {
@@ -467,6 +467,7 @@ pub fn generate_node_types_json(
     );
 
     let mut subtype_map = Vec::new();
+    let mut subtype_symbol_map = Vec::new();
     for (i, info) in variable_info.iter().enumerate() {
         let symbol = Symbol::non_terminal(i);
         let variable = &syntax_grammar.variables[i];
@@ -482,6 +483,10 @@ pub fn generate_node_types_json(
                         children: None,
                         subtypes: None,
                     });
+            let subtype_symbols = info.children.types.clone();
+            // Perform sorting and deduplication after mapping child types to node types.
+            // Otherwise, we will still see duplicate subtypes. The symbols themselves will be
+            // deduplicated in the rendering stage anyway.
             let mut subtypes = info
                 .children
                 .types
@@ -494,6 +499,7 @@ pub fn generate_node_types_json(
                 kind: node_type_json.kind.clone(),
                 named: true,
             };
+            subtype_symbol_map.push((symbol, subtype_symbols));
             subtype_map.push((supertype, subtypes.clone()));
             node_type_json.subtypes = Some(subtypes);
         } else if !syntax_grammar.variables_to_inline.contains(&symbol) {
@@ -675,7 +681,7 @@ pub fn generate_node_types_json(
             .then_with(|| a.kind.cmp(&b.kind))
     });
     result.dedup();
-    result
+    (result, subtype_symbol_map)
 }
 
 fn process_supertypes(info: &mut FieldInfoJSON, subtype_map: &[(NodeTypeJSON, Vec<NodeTypeJSON>)]) {
@@ -1809,6 +1815,7 @@ mod tests {
             &default_aliases,
             &variable_info,
         )
+        .0
     }
 
     fn build_syntax_grammar(

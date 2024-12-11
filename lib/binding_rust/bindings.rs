@@ -760,6 +760,22 @@ extern "C" {
     pub fn ts_language_state_count(self_: *const TSLanguage) -> u32;
 }
 extern "C" {
+    #[doc = " Get the number of supertype symbols in the language."]
+    pub fn ts_language_supertype_count(self_: *const TSLanguage) -> u32;
+}
+extern "C" {
+    #[doc = " Get a list of all supertype symbols for the language."]
+    pub fn ts_language_supertypes(self_: *const TSLanguage) -> *const TSSymbol;
+}
+extern "C" {
+    #[doc = " Get a list of all subtype symbol names for a given supertype symbol. Returns\n the size of said list."]
+    pub fn ts_language_supertype_map(
+        self_: *const TSLanguage,
+        supertype: TSSymbol,
+        start: *mut *const *const ::core::ffi::c_char,
+    ) -> u16;
+}
+extern "C" {
     #[doc = " Get a node type string for the given numerical id."]
     pub fn ts_language_symbol_name(
         self_: *const TSLanguage,
