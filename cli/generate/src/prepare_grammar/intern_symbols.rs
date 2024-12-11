@@ -68,7 +68,7 @@ pub(super) fn intern_symbols(grammar: &InputGrammar) -> Result<InternedGrammar> 
         word_token = Some(
             interner
                 .intern_name(name)
-                .ok_or_else(|| anyhow!("Undefined symbol `{name}` as grammar's word token"))?,
+                .ok_or_else(|| anyhow!("Undefined symbol `{name}` as grammar's \"word\" token"))?,
         );
     }
 
