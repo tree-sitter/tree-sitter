@@ -33,6 +33,7 @@ anyhow.workspace = true
 bstr.workspace = true
 clap.workspace = true
 clap_complete.workspace = true
+clap_complete_nushell.workspace = true
 ctor.workspace = true
 ctrlc.workspace = true
 dialoguer.workspace = true
