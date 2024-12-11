@@ -100,6 +100,7 @@ typedef struct {
   bool contains_captures: 1;
   bool root_pattern_guaranteed: 1;
   bool parent_pattern_guaranteed: 1;
+  bool is_missing: 1;
 } QueryStep;
 
 /*
@@ -2313,6 +2314,7 @@ static TSQueryError ts_query__parse_pattern(
     // Otherwise, this parenthesis is the start of a named node.
     else {
       TSSymbol symbol;
+      bool is_missing = false;
 
       // Parse a normal node name
       if (stream_is_ident_start(stream)) {
@@ -2323,6 +2325,51 @@ static TSQueryError ts_query__parse_pattern(
         // Parse the wildcard symbol
         if (length == 1 && node_name[0] == '_') {
           symbol = WILDCARD_SYMBOL;
+        } else if (!strncmp(node_name, "MISSING", length)) {
+          is_missing = true;
+          stream_skip_whitespace(stream);
+
+          if (stream_is_ident_start(stream)) {
+            const char *missing_node_name = stream->input;
+            stream_scan_identifier(stream);
+            uint32_t missing_node_length = (uint32_t)(stream->input - missing_node_name);
+            symbol = ts_language_symbol_for_name(
+              self->language,
+              missing_node_name,
+              missing_node_length,
+              true
+            );
+            if (!symbol) {
+              stream_reset(stream, missing_node_name);
+              return TSQueryErrorNodeType;
+            }
+          }
+
+          else if (stream->next == '"') {
+            const char *string_start = stream->input;
+            TSQueryError e = ts_query__parse_string_literal(self, stream);
+            if (e) return e;
+
+            symbol = ts_language_symbol_for_name(
+              self->language,
+              self->string_buffer.contents,
+              self->string_buffer.size,
+              false
+            );
+            if (!symbol) {
+              stream_reset(stream, string_start + 1);
+              return TSQueryErrorNodeType;
+            }
+          }
+
+          else if (stream->next == ')') {
+            symbol = WILDCARD_SYMBOL;
+          }
+
+          else {
+            stream_reset(stream, stream->input);
+            return TSQueryErrorSyntax;
+          }
         }
 
         else {
@@ -2347,6 +2394,9 @@ static TSQueryError ts_query__parse_pattern(
       if (ts_language_symbol_metadata(self->language, symbol).supertype) {
         step->supertype_symbol = step->symbol;
         step->symbol = WILDCARD_SYMBOL;
+      }
+      if (is_missing) {
+        step->is_missing = true;
       }
       if (symbol == WILDCARD_SYMBOL) {
         step->is_named = true;
@@ -3641,6 +3691,7 @@ static inline bool ts_query_cursor__advance(
       if (self->on_visible_node) {
         TSSymbol symbol = ts_node_symbol(node);
         bool is_named = ts_node_is_named(node);
+        bool is_missing = ts_node_is_missing(node);
         bool has_later_siblings;
         bool has_later_named_siblings;
         bool can_have_later_siblings_with_this_field;
@@ -3737,9 +3788,13 @@ static inline bool ts_query_cursor__advance(
           // pattern.
           bool node_does_match = false;
           if (step->symbol == WILDCARD_SYMBOL) {
-            node_does_match = !node_is_error && (is_named || !step->is_named);
+            if (step->is_missing) {
+              node_does_match = is_missing;
+            } else {
+              node_does_match = !node_is_error && (is_named || !step->is_named);
+            }
           } else {
-            node_does_match = symbol == step->symbol;
+            node_does_match = symbol == step->symbol && (!step->is_missing || is_missing);
           }
           bool later_sibling_can_match = has_later_siblings;
           if ((step->is_immediate && is_named) || state->seeking_immediate_match) {
