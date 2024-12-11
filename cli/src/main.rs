@@ -596,19 +596,8 @@ impl Init {
             };
 
             let email = || {
-                Input::with_theme(&ColorfulTheme::default())
+                Input::<String>::with_theme(&ColorfulTheme::default())
                     .with_prompt("Author email")
-                    .validate_with({
-                        move |input: &String| -> Result<(), &str> {
-                            if (input.contains('@') && input.contains('.'))
-                                || input.trim().is_empty()
-                            {
-                                Ok(())
-                            } else {
-                                Err("This is not a valid email address")
-                            }
-                        }
-                    })
                     .allow_empty(true)
                     .interact_text()
                     .map(|e| (!e.trim().is_empty()).then_some(e))
