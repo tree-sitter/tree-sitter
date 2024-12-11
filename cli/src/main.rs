@@ -586,11 +586,11 @@ impl Init {
             };
 
             let email = || {
-                Input::with_theme(&ColorfulTheme::default())
+                Input::<String>::with_theme(&ColorfulTheme::default())
                     .with_prompt("Author email")
                     .allow_empty(true)
                     .interact_text()
-                    .map(|e: String| (!e.trim().is_empty()).then_some(e))
+                    .map(|e| (!e.trim().is_empty()).then_some(e))
             };
 
             let url = || {
