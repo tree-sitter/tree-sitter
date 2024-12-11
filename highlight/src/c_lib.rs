@@ -9,10 +9,10 @@ use tree_sitter::Language;
 use super::{Error, Highlight, HighlightConfiguration, Highlighter, HtmlRenderer};
 
 pub struct TSHighlighter {
-    languages: HashMap<String, (Option<Regex>, HighlightConfiguration)>,
-    attribute_strings: Vec<&'static [u8]>,
-    highlight_names: Vec<String>,
-    carriage_return_index: Option<usize>,
+    pub languages: HashMap<String, (Option<Regex>, HighlightConfiguration)>,
+    pub attribute_strings: Vec<&'static [u8]>,
+    pub highlight_names: Vec<String>,
+    pub carriage_return_index: Option<usize>,
 }
 
 pub struct TSHighlightBuffer {
