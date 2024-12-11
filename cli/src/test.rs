@@ -358,8 +358,7 @@ fn run_tests(
 
             if attributes.skip {
                 println!(
-                    "{:>3}.  {}",
-                    opts.test_num,
+                    "     ⌀ {}",
                     paint(opts.color.then_some(AnsiColor::Yellow), &name),
                 );
                 return Ok(true);
@@ -367,8 +366,7 @@ fn run_tests(
 
             if !attributes.platform {
                 println!(
-                    "{:>3}.  {}",
-                    opts.test_num,
+                    "     ⌀ {}",
                     paint(opts.color.then_some(AnsiColor::Magenta), &name),
                 );
                 return Ok(true);
@@ -387,7 +385,7 @@ fn run_tests(
                 if attributes.error {
                     if tree.root_node().has_error() {
                         println!(
-                            "{:>3}.  {}",
+                            "{:>3}. ✓ {}",
                             opts.test_num,
                             paint(opts.color.then_some(AnsiColor::Green), &name)
                         );
@@ -418,7 +416,7 @@ fn run_tests(
                             ));
                         }
                         println!(
-                            "{:>3}.  {}",
+                            "{:>3}. ✗ {}",
                             opts.test_num,
                             paint(opts.color.then_some(AnsiColor::Red), &name)
                         );
