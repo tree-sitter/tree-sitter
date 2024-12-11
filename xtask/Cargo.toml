@@ -17,7 +17,7 @@ workspace = true
 [dependencies]
 anstyle.workspace = true
 anyhow.workspace = true
-bindgen = { version = "0.70.1" }
+bindgen = { version = "0.71.1" }
 cc.workspace = true
 clap.workspace = true
 git2.workspace = true
