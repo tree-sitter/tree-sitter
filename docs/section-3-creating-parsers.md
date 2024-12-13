@@ -557,6 +557,8 @@ Although languages have very different constructs, their constructs can often be
 }
 ```
 
+One important thing to note up front is that the entry point for grammar parsing is defined as the first property in the `rules` object. The formal specification for what constitutes the "first property" is found in the ECMAScript 2015 specification. However, since grammars typically only contain string-based property names, it is safe to assume that the top-most key-value pair in `rules` will be treated as the entry point. In the examples on this page, this rule is called `source_file`, but it can be anything. [Other](https://github.com/tree-sitter/tree-sitter-haskell/blob/2c2fcb22e3b939ed59ae8d6f10500c3213c68670/grammar.js) [grammars](https://github.com/kylegoetz/tree-sitter-unison/blob/3c97db76d3cdbd002dfba493620c2d5df2fd6fa9/grammar.js) have named this property after the programming language whose grammar is described by the file.
+
 Some of the details of this grammar will be explained in more depth later on, but if you focus on the `TODO` comments, you can see that the overall strategy is *breadth-first*. Notably, this initial skeleton does not need to directly match an exact subset of the context-free grammar in the language specification. It just needs to touch on the major groupings of rules in as simple and obvious a way as possible.
 
 With this structure in place, you can now freely decide what part of the grammar to flesh out next. For example, you might decide to start with *types*. One-by-one, you could define the rules for writing basic types and composing them into more complex types:
