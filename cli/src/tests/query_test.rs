@@ -193,6 +193,36 @@ fn test_query_errors_on_invalid_syntax() {
             ]
             .join("\n")
         );
+
+        // MISSING keyword with full pattern
+        assert_eq!(
+            Query::new(
+                &get_language("c"),
+                r"(MISSING (function_declarator (identifier))) "
+            )
+            .unwrap_err()
+            .message,
+            [
+                r"(MISSING (function_declarator (identifier))) ",
+                r"         ^",
+            ]
+            .join("\n")
+        );
+
+        // MISSING keyword with multiple identifiers
+        assert_eq!(
+            Query::new(
+                &get_language("c"),
+                r"(MISSING function_declarator function_declarator) "
+            )
+            .unwrap_err()
+            .message,
+            [
+                r"(MISSING function_declarator function_declarator) ",
+                r"                             ^",
+            ]
+            .join("\n")
+        );
     });
 }
 
@@ -763,6 +793,74 @@ fn test_query_matches_capturing_error_nodes() {
             &query,
             "function a(b,, c, d :e:) {}",
             &[(0, vec![("the-error", ":e:"), ("the-error-identifier", "e")])],
+        );
+    });
+}
+
+#[test]
+fn test_query_matches_capturing_missing_nodes() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+        let query = Query::new(
+            &language,
+            r#"
+            (MISSING
+              ; Comments should be valid
+            ) @missing
+            (MISSING
+              ; Comments should be valid
+              ";"
+              ; Comments should be valid
+              ) @missing-semicolon
+            "#,
+        )
+        .unwrap();
+
+        // Missing anonymous nodes
+        assert_query_matches(
+            &language,
+            &query,
+            "
+            x = function(a) { b; } function(c) { d; }
+            //                    ^ MISSING semicolon here
+            ",
+            &[
+                (0, vec![("missing", "")]),
+                (1, vec![("missing-semicolon", "")]),
+            ],
+        );
+
+        let language = get_language("c");
+        let query = Query::new(
+            &language,
+            "(MISSING field_identifier) @missing-field-ident
+            (MISSING identifier) @missing-ident
+            (MISSING) @missing-anything",
+        )
+        .unwrap();
+
+        // Missing named nodes
+        assert_query_matches(
+            &language,
+            &query,
+            "
+            int main() {
+              if (a.) {
+              //    ^ MISSING field_identifier here
+                b();
+                c();
+
+                if (*) d();
+                //   ^ MISSING identifier here
+              }
+            }
+            ",
+            &[
+                (0, vec![("missing-field-ident", "")]),
+                (2, vec![("missing-anything", "")]),
+                (1, vec![("missing-ident", "")]),
+                (2, vec![("missing-anything", "")]),
+            ],
         );
     });
 }
