@@ -1103,14 +1103,14 @@ impl HtmlRenderer {
         self.line_offsets.push(0);
     }
 
-    pub fn render<'a, F>(
+    pub fn render<F>(
         &mut self,
         highlighter: impl Iterator<Item = Result<HighlightEvent, Error>>,
-        source: &'a [u8],
+        source: &[u8],
         attribute_callback: &F,
     ) -> Result<(), Error>
     where
-        F: Fn(Highlight, &mut Vec<u8>) -> (),
+        F: Fn(Highlight, &mut Vec<u8>),
     {
         let mut highlights = Vec::new();
         for event in highlighter {
@@ -1153,9 +1153,9 @@ impl HtmlRenderer {
             })
     }
 
-    fn add_carriage_return<'a, F>(&mut self, attribute_callback: &F)
+    fn add_carriage_return<F>(&mut self, attribute_callback: &F)
     where
-        F: Fn(Highlight, &mut Vec<u8>) -> (),
+        F: Fn(Highlight, &mut Vec<u8>),
     {
         if let Some(highlight) = self.carriage_return_highlight {
             self.html.extend(b"<span ");
@@ -1164,9 +1164,9 @@ impl HtmlRenderer {
         }
     }
 
-    fn start_highlight<'a, F>(&mut self, h: Highlight, attribute_callback: &F)
+    fn start_highlight<F>(&mut self, h: Highlight, attribute_callback: &F)
     where
-        F: Fn(Highlight, &mut Vec<u8>) -> (),
+        F: Fn(Highlight, &mut Vec<u8>),
     {
         self.html.extend(b"<span ");
         (attribute_callback)(h, &mut self.html);
@@ -1177,9 +1177,9 @@ impl HtmlRenderer {
         self.html.extend(b"</span>");
     }
 
-    fn add_text<'a, F>(&mut self, src: &[u8], highlights: &[Highlight], attribute_callback: &F)
+    fn add_text<F>(&mut self, src: &[u8], highlights: &[Highlight], attribute_callback: &F)
     where
-        F: Fn(Highlight, &mut Vec<u8>) -> (),
+        F: Fn(Highlight, &mut Vec<u8>),
     {
         pub const fn html_escape(c: u8) -> Option<&'static [u8]> {
             match c as char {

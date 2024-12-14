@@ -378,14 +378,18 @@ pub fn ansi(
     Ok(())
 }
 
+pub struct HtmlOptions {
+    pub inline_styles: bool,
+    pub quiet: bool,
+    pub print_time: bool,
+}
+
 pub fn html(
     loader: &Loader,
     theme: &Theme,
     source: &[u8],
     config: &HighlightConfiguration,
-    quiet: bool,
-    inline_styles: bool,
-    print_time: bool,
+    opts: &HtmlOptions,
     cancellation_flag: Option<&AtomicUsize>,
 ) -> Result<()> {
     use std::io::Write;
@@ -401,15 +405,15 @@ pub fn html(
 
     let mut renderer = HtmlRenderer::new();
     renderer.render(events, source, &move |highlight, output| {
-        if inline_styles {
+        if opts.inline_styles {
             output.extend(b"style='");
             output.extend(
                 theme.styles[highlight.0]
                     .css
                     .as_ref()
-                    .map_or_else(|| "".as_bytes(), |css_style| css_style.as_bytes())
+                    .map_or_else(|| "".as_bytes(), |css_style| css_style.as_bytes()),
             );
-            output.extend(b"'")
+            output.extend(b"'");
         } else {
             output.extend(b"class='");
             let mut parts = theme.highlight_names[highlight.0].split('.').peekable();
@@ -423,7 +427,7 @@ pub fn html(
         }
     })?;
 
-    if !quiet {
+    if !opts.quiet {
         writeln!(&mut stdout, "<table>")?;
         for (i, line) in renderer.lines().enumerate() {
             writeln!(
@@ -436,7 +440,7 @@ pub fn html(
         writeln!(&mut stdout, "</table>")?;
     }
 
-    if print_time {
+    if opts.print_time {
         eprintln!("Time: {}ms", time.elapsed().as_millis());
     }
 
