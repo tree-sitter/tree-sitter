@@ -806,7 +806,7 @@ fn test_query_matches_capturing_missing_nodes() {
             r#"
             (MISSING
               ; Comments should be valid
-            ) @missing-node
+            ) @missing
             (MISSING
               ; Comments should be valid
               ";"
@@ -825,7 +825,7 @@ fn test_query_matches_capturing_missing_nodes() {
             //                    ^ MISSING semicolon here
             ",
             &[
-                (0, vec![("missing-node", "")]),
+                (0, vec![("missing", "")]),
                 (1, vec![("missing-semicolon", "")]),
             ],
         );
