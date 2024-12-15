@@ -363,6 +363,11 @@ struct Highlight {
     pub html: bool,
     #[arg(
         long,
+        help = "When generating HTML, use css classes rather than inline styles"
+    )]
+    pub css_classes: bool,
+    #[arg(
+        long,
         help = "Check that highlighting captures conform strictly to standards"
     )]
     pub check: bool,
@@ -1136,10 +1141,11 @@ impl Highlight {
 
         let quiet = self.quiet;
         let html_mode = quiet || self.html;
+        let inline_styles = !self.css_classes;
         let paths = collect_paths(self.paths_file.as_deref(), self.paths)?;
 
         if html_mode && !quiet {
-            println!("{}", highlight::HTML_HEADER);
+            println!("{}", highlight::HTML_HEAD_HEADER);
         }
 
         let cancellation_flag = util::cancel_on_signal();
@@ -1203,15 +1209,32 @@ impl Highlight {
                     }
                 }
 
+                if html_mode && !quiet {
+                    println!("  <style>");
+                    let names = theme_config.theme.highlight_names.iter();
+                    let styles = theme_config.theme.styles.iter();
+                    for (name, style) in names.zip(styles) {
+                        if let Some(css) = &style.css {
+                            println!("    .{name} {{ {css}; }}");
+                        }
+                    }
+                    println!("  </style>");
+                    println!("{}", highlight::HTML_BODY_HEADER);
+                }
+
                 let source = fs::read(path)?;
                 if html_mode {
+                    let html_opts = highlight::HtmlOptions {
+                        inline_styles,
+                        quiet,
+                        print_time: self.time,
+                    };
                     highlight::html(
                         &loader,
                         &theme_config.theme,
                         &source,
                         highlight_config,
-                        quiet,
-                        self.time,
+                        &html_opts,
                         Some(&cancellation_flag),
                     )?;
                 } else {
