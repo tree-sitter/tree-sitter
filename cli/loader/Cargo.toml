@@ -21,8 +21,6 @@ workspace = true
 
 [features]
 wasm = ["tree-sitter/wasm"]
-# TODO: For backward compatibility these must be enabled by default,
-# consider removing for the next semver incompatible release
 default = ["tree-sitter-highlight", "tree-sitter-tags"]
 
 [dependencies]

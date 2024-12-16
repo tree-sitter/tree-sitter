@@ -1385,14 +1385,14 @@ impl LanguageConfiguration<'_> {
                 Some(
                     paths
                         .iter()
-                        .filter(|p| p.ends_with("tree-sitter-highlights.scm"))
+                        .filter(|p| p.ends_with("highlights.scm"))
                         .cloned()
                         .collect::<Vec<_>>(),
                 ),
                 Some(
                     paths
                         .iter()
-                        .filter(|p| p.ends_with("tree-sitter-tags.scm"))
+                        .filter(|p| p.ends_with("tags.scm"))
                         .cloned()
                         .collect::<Vec<_>>(),
                 ),
@@ -1414,7 +1414,7 @@ impl LanguageConfiguration<'_> {
                     } else {
                         self.highlights_filenames.as_deref()
                     },
-                    "tree-sitter-highlights.scm",
+                    "highlights.scm",
                 )?;
                 let (injections_query, injection_ranges) = self.read_queries(
                     if injections_filenames.is_some() {
@@ -1491,7 +1491,7 @@ impl LanguageConfiguration<'_> {
         self.tags_config
             .get_or_try_init(|| {
                 let (tags_query, tags_ranges) =
-                    self.read_queries(self.tags_filenames.as_deref(), "tree-sitter-tags.scm")?;
+                    self.read_queries(self.tags_filenames.as_deref(), "tags.scm")?;
                 let (locals_query, locals_ranges) =
                     self.read_queries(self.locals_filenames.as_deref(), "locals.scm")?;
                 if tags_query.is_empty() {
@@ -1563,9 +1563,7 @@ impl LanguageConfiguration<'_> {
             }
         } else {
             // highlights.scm is needed to test highlights, and tags.scm to test tags
-            if default_path == "tree-sitter-highlights.scm"
-                || default_path == "tree-sitter-tags.scm"
-            {
+            if default_path == "highlights.scm" || default_path == "tags.scm" {
                 eprintln!(
                     indoc! {"
                         Warning: you should add a `{}` entry pointing to the highlights path in the `tree-sitter` object in the grammar's tree-sitter.json file.
