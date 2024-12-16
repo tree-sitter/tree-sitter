@@ -49,47 +49,84 @@ pub fn test_tags(
     directory: &Path,
     use_color: bool,
 ) -> Result<()> {
-    let mut failed = false;
     println!("tags:");
+    test_tags_indented(loader, loader_config, tags_context, directory, use_color, 2)
+}
+
+pub fn test_tags_indented(
+    loader: &Loader,
+    loader_config: &Config,
+    tags_context: &mut TagsContext,
+    directory: &Path,
+    use_color: bool,
+    indent_level: usize,
+) -> Result<()> {
+    let mut failed = false;
+
     for tag_test_file in fs::read_dir(directory)? {
         let tag_test_file = tag_test_file?;
         let test_file_path = tag_test_file.path();
         let test_file_name = tag_test_file.file_name();
-        let (language, language_config) = loader
-            .language_configuration_for_file_name(&test_file_path)?
-            .ok_or_else(|| {
-                anyhow!(
-                    "{}",
-                    util::lang_not_found_for_path(test_file_path.as_path(), loader_config)
-                )
-            })?;
-        let tags_config = language_config
-            .tags_config(language)?
-            .ok_or_else(|| anyhow!("No tags config found for {:?}", test_file_path))?;
-        match test_tag(
-            tags_context,
-            tags_config,
-            fs::read(&test_file_path)?.as_slice(),
-        ) {
-            Ok(assertion_count) => {
-                println!(
-                    "  ✓ {} ({assertion_count} assertions)",
-                    paint(
-                        use_color.then_some(AnsiColor::Green),
-                        test_file_name.to_string_lossy().as_ref()
-                    ),
-                );
-            }
-            Err(e) => {
-                println!(
-                    "  ✗ {}",
-                    paint(
-                        use_color.then_some(AnsiColor::Red),
-                        test_file_name.to_string_lossy().as_ref()
-                    )
-                );
-                println!("    {e}");
+        print!(
+            "{indent:indent_level$}",
+            indent = "",
+            indent_level = indent_level * 2
+        );
+        if test_file_path.is_dir() && test_file_path.read_dir()?.next().is_some() {
+            println!("{}:", test_file_name.to_string_lossy());
+            if test_tags_indented(
+                loader,
+                loader_config,
+                tags_context,
+                &test_file_path,
+                use_color,
+                indent_level + 1,
+            )
+            .is_err()
+            {
                 failed = true;
+            }
+        } else {
+            let (language, language_config) = loader
+                .language_configuration_for_file_name(&test_file_path)?
+                .ok_or_else(|| {
+                    anyhow!(
+                        "{}",
+                        util::lang_not_found_for_path(test_file_path.as_path(), loader_config)
+                    )
+                })?;
+            let tags_config = language_config
+                .tags_config(language)?
+                .ok_or_else(|| anyhow!("No tags config found for {:?}", test_file_path))?;
+            match test_tag(
+                tags_context,
+                tags_config,
+                fs::read(&test_file_path)?.as_slice(),
+            ) {
+                Ok(assertion_count) => {
+                    println!(
+                        "✓ {} ({assertion_count} assertions)",
+                        paint(
+                            use_color.then_some(AnsiColor::Green),
+                            test_file_name.to_string_lossy().as_ref()
+                        ),
+                    );
+                }
+                Err(e) => {
+                    println!(
+                        "✗ {}",
+                        paint(
+                            use_color.then_some(AnsiColor::Red),
+                            test_file_name.to_string_lossy().as_ref()
+                        )
+                    );
+                    println!(
+                        "{indent:indent_level$}  {e}",
+                        indent = "",
+                        indent_level = indent_level * 2
+                    );
+                    failed = true;
+                }
             }
         }
     }
