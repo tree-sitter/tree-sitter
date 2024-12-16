@@ -420,6 +420,55 @@ impl Language {
         unsafe { ffi::ts_language_state_count(self.0) as usize }
     }
 
+    /// Get the number of supertype symbols in the language.
+    #[doc(alias = "ts_language_supertype_count")]
+    #[must_use]
+    pub fn supertype_count(&self) -> usize {
+        unsafe { ffi::ts_language_supertype_count(self.0) as usize }
+    }
+
+    /// Get a list of all supertype symbols for the language.
+    #[doc(alias = "ts_language_supertypes")]
+    #[must_use]
+    pub fn supertypes(&self) -> &[u16] {
+        unsafe {
+            let ptr = ffi::ts_language_supertypes(self.0);
+            if ptr.is_null() {
+                &[]
+            } else {
+                let len = ffi::ts_language_supertype_count(self.0) as usize;
+                slice::from_raw_parts(ptr.cast_mut(), len)
+            }
+        }
+    }
+
+    /// Get a list of all subtype symbol names for a given supertype symbol.
+    #[doc(alias = "ts_language_supertype_map")]
+    #[must_use]
+    pub fn subtypes_for_supertype(&self, supertype: u16) -> Vec<&'static str> {
+        unsafe {
+            let mut start = ptr::null();
+            let len =
+                ffi::ts_language_supertype_map(self.0, supertype, std::ptr::addr_of_mut!(start));
+            if len == 0 {
+                Vec::new()
+            } else {
+                let char_ptrs = slice::from_raw_parts(start, len.into());
+
+                char_ptrs
+                    .iter()
+                    .filter_map(|&ptr| {
+                        if !ptr.is_null() {
+                            CStr::from_ptr(ptr).to_str().ok()
+                        } else {
+                            None
+                        }
+                    })
+                    .collect()
+            }
+        }
+    }
+
     /// Get the name of the node kind for the given numerical id.
     #[doc(alias = "ts_language_symbol_name")]
     #[must_use]

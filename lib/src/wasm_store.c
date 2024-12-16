@@ -153,6 +153,11 @@ typedef struct {
     int32_t deserialize;
   } external_scanner;
   int32_t primary_state_ids;
+  int32_t name;
+  uint32_t supertype_count;
+  int32_t supertypes;
+  int32_t supertype_map_slices;
+  int32_t supertype_map_entries;
 } LanguageInWasmMemory;
 
 // LexerInWasmMemory - The memory layout of a `TSLexer` when compiled to wasm32.
@@ -1206,6 +1211,9 @@ const TSLanguage *ts_wasm_store_load_language(
     wasm_language.alias_sequences,
     wasm_language.field_map_entries,
     wasm_language.field_map_slices,
+    wasm_language.supertypes,
+    wasm_language.supertype_map_entries,
+    wasm_language.supertype_map_slices,
     wasm_language.field_names,
     wasm_language.keyword_lex_fn,
     wasm_language.lex_fn,
@@ -1246,6 +1254,7 @@ const TSLanguage *ts_wasm_store_load_language(
     .large_state_count = wasm_language.large_state_count,
     .production_id_count = wasm_language.production_id_count,
     .field_count = wasm_language.field_count,
+    .supertype_count = wasm_language.supertype_count,
     .max_alias_sequence_length = wasm_language.max_alias_sequence_length,
     .keyword_capture_token = wasm_language.keyword_capture_token,
     .parse_table = copy(
@@ -1304,6 +1313,37 @@ const TSLanguage *ts_wasm_store_load_language(
       wasm_language.field_names,
       wasm_language.field_count + 1,
       &field_name_buffer
+    );
+  }
+
+  if (language->supertype_count > 0) {
+    language->supertypes = copy(
+      &memory[wasm_language.supertypes],
+      wasm_language.supertype_count * sizeof(TSSymbol)
+    );
+
+    // Determine the number of supertype map slices by finding the greatest
+    // supertype ID.
+    int largest_supertype = 0;
+    for (unsigned i = 0; i < language->supertype_count; i++) {
+      TSSymbol supertype = language->supertypes[i];
+      if (supertype > largest_supertype) {
+        largest_supertype = supertype;
+      }
+    }
+
+    language->supertype_map_slices = copy(
+      &memory[wasm_language.supertype_map_slices],
+      (largest_supertype + 1) * sizeof(TSSupertypeMapSlice)
+    );
+
+    TSSymbol last_supertype = language->supertypes[language->supertype_count - 1];
+    TSSupertypeMapSlice last_slice = language->supertype_map_slices[last_supertype];
+    uint32_t supertype_map_entry_count = last_slice.index + last_slice.length;
+
+    language->supertype_map_entries = copy(
+      &memory[wasm_language.supertype_map_entries],
+      supertype_map_entry_count * sizeof(char *)
     );
   }
 
@@ -1729,6 +1769,9 @@ void ts_wasm_language_release(const TSLanguage *self) {
     ts_free((void *)self->external_scanner.symbol_map);
     ts_free((void *)self->field_map_entries);
     ts_free((void *)self->field_map_slices);
+    ts_free((void *)self->supertypes);
+    ts_free((void *)self->supertype_map_entries);
+    ts_free((void *)self->supertype_map_slices);
     ts_free((void *)self->field_names);
     ts_free((void *)self->lex_modes);
     ts_free((void *)self->parse_actions);
