@@ -190,13 +190,21 @@ pub fn parse_position_comments(
     let mut i = 0;
     let lines = source.lines_with_terminator().collect::<Vec<_>>();
     for assertion in &mut result {
+        let original_position = assertion.position;
         loop {
             let on_assertion_line = assertion_ranges[i..]
                 .iter()
                 .any(|(start, _)| start.row == assertion.position.row);
             let on_empty_line = lines[assertion.position.row].len() <= assertion.position.column;
             if on_assertion_line || on_empty_line {
-                assertion.position.row -= 1;
+                if assertion.position.row > 0 {
+                    assertion.position.row -= 1;
+                } else {
+                    return Err(anyhow!(
+                        "Error: could not find a line that corresponds to the assertion `{}` located at {original_position}",
+                        assertion.expected_capture_name
+                    ));
+                }
             } else {
                 while i < assertion_ranges.len()
                     && assertion_ranges[i].0.row < assertion.position.row
