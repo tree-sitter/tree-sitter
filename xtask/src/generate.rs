@@ -1,6 +1,7 @@
-use std::{collections::BTreeSet, ffi::OsStr, fs, path::Path, process::Command};
+use std::{collections::BTreeSet, ffi::OsStr, fs, path::Path, process::Command, str::FromStr};
 
 use anyhow::{Context, Result};
+use bindgen::RustTarget;
 
 use crate::{bail_on_err, GenerateFixtures};
 
@@ -67,6 +68,29 @@ pub fn run_fixtures(args: &GenerateFixtures) -> Result<()> {
 }
 
 pub fn run_bindings() -> Result<()> {
+    let output = Command::new("cargo")
+        .args(["metadata", "--format-version", "1"])
+        .output()
+        .unwrap();
+
+    let metadata = serde_json::from_slice::<serde_json::Value>(&output.stdout).unwrap();
+
+    let Some(rust_version) = metadata
+        .get("packages")
+        .and_then(|packages| packages.as_array())
+        .and_then(|packages| {
+            packages.iter().find_map(|package| {
+                if package["name"] == "tree-sitter" {
+                    package.get("rust_version").and_then(|v| v.as_str())
+                } else {
+                    None
+                }
+            })
+        })
+    else {
+        panic!("Failed to find tree-sitter package in cargo metadata");
+    };
+
     let no_copy = [
         "TSInput",
         "TSLanguage",
@@ -91,6 +115,7 @@ pub fn run_bindings() -> Result<()> {
         .prepend_enum_name(false)
         .use_core()
         .clang_arg("-D TREE_SITTER_FEATURE_WASM")
+        .rust_target(RustTarget::from_str(rust_version).unwrap())
         .generate()
         .expect("Failed to generate bindings");
 

@@ -12,7 +12,7 @@ workspace = true
 proc-macro = true
 
 [dependencies]
-proc-macro2 = "1.0.86"
+proc-macro2 = "1.0.92"
 quote = "1.0.37"
 rand = "0.8.5"
-syn = { version = "2.0.79", features = ["full"] }
+syn = { version = "2.0.90", features = ["full"] }
