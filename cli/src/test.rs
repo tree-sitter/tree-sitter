@@ -5,10 +5,12 @@ use std::{
     io::{self, Write},
     path::{Path, PathBuf},
     str,
+    time::Duration,
 };
 
 use anstyle::{AnsiColor, Color, Style};
 use anyhow::{anyhow, Context, Result};
+use clap::ValueEnum;
 use indoc::indoc;
 use lazy_static::lazy_static;
 use regex::{
@@ -16,10 +18,11 @@ use regex::{
     Regex,
 };
 use similar::{ChangeTag, TextDiff};
-use tree_sitter::{format_sexp, Language, LogType, Parser, Query};
+use tree_sitter::{format_sexp, Language, LogType, Parser, Query, Tree};
 use walkdir::WalkDir;
 
 use super::util;
+use crate::parse::Stats;
 
 lazy_static! {
     static ref HEADER_REGEX: ByteRegex = ByteRegexBuilder::new(
@@ -95,6 +98,14 @@ impl Default for TestAttributes {
     }
 }
 
+#[derive(ValueEnum, Default, Copy, Clone, PartialEq, Eq)]
+pub enum TestStats {
+    All,
+    #[default]
+    OutliersAndTotal,
+    TotalOnly,
+}
+
 pub struct TestOptions<'a> {
     pub path: PathBuf,
     pub debug: bool,
@@ -106,6 +117,10 @@ pub struct TestOptions<'a> {
     pub languages: BTreeMap<&'a str, &'a Language>,
     pub color: bool,
     pub test_num: usize,
+    pub stat_display: TestStats,
+    pub stats: &'a mut Stats,
+    /// mean and standard deviation of parsing rates if `--stat` is `all` or `outliers-and-total`
+    pub outlier_stats: Option<(f64, f64)>,
     pub show_fields: bool,
     pub overview_only: bool,
 }
@@ -384,15 +399,52 @@ fn run_tests(
                         .ok_or_else(|| anyhow!("Language not found: {language_name}"))?;
                     parser.set_language(language)?;
                 }
+                let start = std::time::Instant::now();
                 let tree = parser.parse(&input, None).unwrap();
+                let parse_time = start.elapsed();
+                let adj_parse_rate = adjusted_parse_rate(&tree, parse_time);
+                let stat_display = if opts.stat_display == TestStats::TotalOnly {
+                    String::new()
+                } else {
+                    let true_parse_rate = tree.root_node().byte_range().len() as f64
+                        / (parse_time.as_micros() as f64 / 1000.0);
+                    let outlier_display = if opts
+                        .outlier_stats
+                        // 3 standard deviations below the mean, aka the "Empirical Rule"
+                        .is_some_and(|(avg, std_dev)| {
+                            adj_parse_rate < 3.0f64.mul_add(-std_dev, avg)
+                        }) {
+                        paint(
+                            opts.color.then_some(AnsiColor::Red),
+                            &format!(
+                                " -- Warning: Slow parse rate ({true_parse_rate:.3} bytes/ms)"
+                            ),
+                        )
+                    } else {
+                        String::new()
+                    };
+                    if opts.stat_display == TestStats::All {
+                        format!(" ({true_parse_rate:.3} bytes/ms){outlier_display}")
+                    } else {
+                        outlier_display
+                    }
+                };
+
+                {
+                    opts.stats.total_parses += 1;
+                    opts.stats.total_duration += parse_time;
+                    opts.stats.total_bytes += tree.root_node().byte_range().len();
+                }
 
                 if attributes.error {
                     if tree.root_node().has_error() {
                         println!(
-                            "{:>3}. ✓ {}",
+                            "{:>3}. ✓ {}{}",
                             opts.test_num,
-                            paint(opts.color.then_some(AnsiColor::Green), &name)
+                            paint(opts.color.then_some(AnsiColor::Green), &name),
+                            stat_display,
                         );
+                        opts.stats.successful_parses += 1;
                         if opts.update {
                             let input = String::from_utf8(input.clone()).unwrap();
                             let output = format_sexp(&output, 0);
@@ -420,9 +472,10 @@ fn run_tests(
                             ));
                         }
                         println!(
-                            "{:>3}. ✗ {}",
+                            "{:>3}. ✗ {}{}",
                             opts.test_num,
-                            paint(opts.color.then_some(AnsiColor::Red), &name)
+                            paint(opts.color.then_some(AnsiColor::Red), &name),
+                            stat_display,
                         );
                         failures.push((
                             name.clone(),
@@ -442,10 +495,12 @@ fn run_tests(
 
                     if actual == output {
                         println!(
-                            "{:>3}. ✓ {}",
+                            "{:>3}. ✓ {}{}",
                             opts.test_num,
-                            paint(opts.color.then_some(AnsiColor::Green), &name)
+                            paint(opts.color.then_some(AnsiColor::Green), &name),
+                            stat_display,
                         );
+                        opts.stats.successful_parses += 1;
                         if opts.update {
                             let input = String::from_utf8(input.clone()).unwrap();
                             let output = format_sexp(&output, 0);
@@ -491,16 +546,18 @@ fn run_tests(
                                     divider_delim_len,
                                 ));
                                 println!(
-                                    "{:>3}. ✓ {}",
+                                    "{:>3}. ✓ {}{}",
                                     opts.test_num,
                                     paint(opts.color.then_some(AnsiColor::Blue), &name),
+                                    stat_display,
                                 );
                             }
                         } else {
                             println!(
-                                "{:>3}. ✗ {}",
+                                "{:>3}. ✗ {}{}",
                                 opts.test_num,
                                 paint(opts.color.then_some(AnsiColor::Red), &name),
+                                stat_display,
                             );
                         }
                         failures.push((name.clone(), actual, output.clone()));
@@ -618,6 +675,59 @@ fn count_subtests(test_entry: &TestEntry) -> usize {
             .iter()
             .fold(0, |count, child| count + count_subtests(child)),
     }
+}
+
+/// Runs the parsing tests while recording adjusted parse rates. A parse's
+/// success or failure is ignored
+pub fn get_test_parsing_rate(
+    parser: &mut Parser,
+    test_entry: TestEntry,
+    adj_parse_rates: &mut Vec<f64>,
+    languages: &BTreeMap<&str, &Language>,
+) -> Result<()> {
+    match test_entry {
+        TestEntry::Example {
+            input, attributes, ..
+        } => {
+            if attributes.skip || !attributes.platform {
+                return Ok(());
+            }
+
+            for (i, language_name) in attributes.languages.iter().enumerate() {
+                if !language_name.is_empty() {
+                    let language = languages
+                        .get(language_name.as_ref())
+                        .ok_or_else(|| anyhow!("Language not found: {language_name}"))?;
+                    parser.set_language(language)?;
+                }
+                let start = std::time::Instant::now();
+                let tree = parser.parse(&input, None).unwrap();
+                let parse_time = start.elapsed();
+                adj_parse_rates.push(adjusted_parse_rate(&tree, parse_time));
+
+                if i == attributes.languages.len() - 1 {
+                    // reset to the first language
+                    parser.set_language(languages.values().next().unwrap())?;
+                }
+            }
+        }
+        TestEntry::Group { children, .. } => {
+            for child in children {
+                get_test_parsing_rate(parser, child, adj_parse_rates, languages)?;
+            }
+        }
+    }
+    Ok(())
+}
+
+// Parse time is interpreted in μs before converting to ms to avoid truncation issues
+// Parse rates often have several outliers, leading to a large standard deviation. Taking
+// the log of these rates serves to "flatten" out the distribution, yielding a more
+// usable standard deviation for finding statistically significant slow parse rates
+// NOTE: This is just a heuristic
+#[must_use]
+pub fn adjusted_parse_rate(tree: &Tree, parse_time: Duration) -> f64 {
+    f64::ln(tree.root_node().byte_range().len() as f64 / (parse_time.as_micros() as f64 / 1000.0))
 }
 
 fn write_tests(
