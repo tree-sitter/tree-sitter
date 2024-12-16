@@ -1568,7 +1568,7 @@ impl LanguageConfiguration<'_> {
             {
                 eprintln!(
                     indoc! {"
-                        Warning: you should add a `{}` entry pointing to the highlights path in `tree-sitter` language list in the grammar's package.json
+                        Warning: you should add a `{}` entry pointing to the highlights path in the `tree-sitter` object in the grammar's tree-sitter.json file.
                         See more here: https://tree-sitter.github.io/tree-sitter/syntax-highlighting#query-paths
                     "},
                     default_path.replace(".scm", "")
