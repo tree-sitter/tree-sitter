@@ -133,6 +133,9 @@ struct Test {
     /// Don't capture the output
     #[arg(long)]
     nocapture: bool,
+    /// Enable the wasm tests.
+    #[arg(long, short)]
+    wasm: bool,
 }
 
 #[derive(Args)]

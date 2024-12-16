@@ -57,6 +57,20 @@
       }
     },
 
+    "reserved": {
+      "type": "object",
+      "patternProperties": {
+        "^[a-zA-Z_]\\w*$": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/definitions/rule"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+
     "externals": {
       "type": "array",
       "uniqueItems": true,

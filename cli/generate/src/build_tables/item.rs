@@ -7,7 +7,10 @@ use std::{
 use lazy_static::lazy_static;
 
 use crate::{
-    grammars::{LexicalGrammar, Production, ProductionStep, SyntaxGrammar},
+    grammars::{
+        LexicalGrammar, Production, ProductionStep, ReservedWordSetId, SyntaxGrammar,
+        NO_RESERVED_WORDS,
+    },
     rules::{Associativity, Precedence, Symbol, SymbolType, TokenSet},
 };
 
@@ -23,6 +26,7 @@ lazy_static! {
             associativity: None,
             alias: None,
             field_name: None,
+            reserved_word_set_id: NO_RESERVED_WORDS,
         }],
     };
 }
@@ -58,7 +62,14 @@ pub struct ParseItem<'a> {
 /// to a state in the final parse table.
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub struct ParseItemSet<'a> {
-    pub entries: Vec<(ParseItem<'a>, TokenSet)>,
+    pub entries: Vec<ParseItemSetEntry<'a>>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ParseItemSetEntry<'a> {
+    pub item: ParseItem<'a>,
+    pub lookaheads: TokenSet,
+    pub following_reserved_word_set: ReservedWordSetId,
 }
 
 /// A [`ParseItemSetCore`] is like a [`ParseItemSet`], but without the lookahead
@@ -152,30 +163,26 @@ impl<'a> ParseItem<'a> {
 }
 
 impl<'a> ParseItemSet<'a> {
-    pub fn with(elements: impl IntoIterator<Item = (ParseItem<'a>, TokenSet)>) -> Self {
-        let mut result = Self::default();
-        for (item, lookaheads) in elements {
-            result.insert(item, &lookaheads);
-        }
-        result
-    }
-
-    pub fn insert(&mut self, item: ParseItem<'a>, lookaheads: &TokenSet) -> &mut TokenSet {
-        match self.entries.binary_search_by(|(i, _)| i.cmp(&item)) {
+    pub fn insert(&mut self, item: ParseItem<'a>) -> &mut ParseItemSetEntry<'a> {
+        match self.entries.binary_search_by(|e| e.item.cmp(&item)) {
             Err(i) => {
-                self.entries.insert(i, (item, lookaheads.clone()));
-                &mut self.entries[i].1
+                self.entries.insert(
+                    i,
+                    ParseItemSetEntry {
+                        item,
+                        lookaheads: TokenSet::new(),
+                        following_reserved_word_set: ReservedWordSetId::default(),
+                    },
+                );
+                &mut self.entries[i]
             }
-            Ok(i) => {
-                self.entries[i].1.insert_all(lookaheads);
-                &mut self.entries[i].1
-            }
+            Ok(i) => &mut self.entries[i],
         }
     }
 
     pub fn core(&self) -> ParseItemSetCore<'a> {
         ParseItemSetCore {
-            entries: self.entries.iter().map(|e| e.0).collect(),
+            entries: self.entries.iter().map(|e| e.item).collect(),
         }
     }
 }
@@ -195,14 +202,21 @@ impl fmt::Display for ParseItemDisplay<'_> {
         for (i, step) in self.0.production.steps.iter().enumerate() {
             if i == self.0.step_index as usize {
                 write!(f, " •")?;
-                if let Some(associativity) = step.associativity {
+                if !step.precedence.is_none()
+                    || step.associativity.is_some()
+                    || step.reserved_word_set_id != ReservedWordSetId::default()
+                {
+                    write!(f, " (")?;
                     if step.precedence.is_none() {
-                        write!(f, " ({associativity:?})")?;
-                    } else {
-                        write!(f, " ({} {associativity:?})", step.precedence)?;
+                        write!(f, " {}", step.precedence)?;
                     }
-                } else if !step.precedence.is_none() {
-                    write!(f, " ({})", step.precedence)?;
+                    if let Some(associativity) = step.associativity {
+                        write!(f, " {associativity:?}")?;
+                    }
+                    if step.reserved_word_set_id != ReservedWordSetId::default() {
+                        write!(f, "reserved: {}", step.reserved_word_set_id)?;
+                    }
+                    write!(f, " )")?;
                 }
             }
 
@@ -270,13 +284,21 @@ impl fmt::Display for TokenSetDisplay<'_> {
 
 impl fmt::Display for ParseItemSetDisplay<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        for (item, lookaheads) in &self.0.entries {
-            writeln!(
+        for entry in &self.0.entries {
+            write!(
                 f,
                 "{}\t{}",
-                ParseItemDisplay(item, self.1, self.2),
-                TokenSetDisplay(lookaheads, self.1, self.2)
+                ParseItemDisplay(&entry.item, self.1, self.2),
+                TokenSetDisplay(&entry.lookaheads, self.1, self.2),
             )?;
+            if entry.following_reserved_word_set != ReservedWordSetId::default() {
+                write!(
+                    f,
+                    "\treserved word set: {}",
+                    entry.following_reserved_word_set
+                )?;
+            }
+            writeln!(f)?;
         }
         Ok(())
     }
@@ -296,7 +318,7 @@ impl Hash for ParseItem<'_> {
         // this item, unless any of the following are true:
         //   * the children have fields
         //   * the children have aliases
-        //   * the children are hidden and
+        //   * the children are hidden and represent rules that have fields.
         // See the docs for `has_preceding_inherited_fields`.
         for step in &self.production.steps[0..self.step_index as usize] {
             step.alias.hash(hasher);
@@ -399,9 +421,10 @@ impl Eq for ParseItem<'_> {}
 impl Hash for ParseItemSet<'_> {
     fn hash<H: Hasher>(&self, hasher: &mut H) {
         hasher.write_usize(self.entries.len());
-        for (item, lookaheads) in &self.entries {
-            item.hash(hasher);
-            lookaheads.hash(hasher);
+        for entry in &self.entries {
+            entry.item.hash(hasher);
+            entry.lookaheads.hash(hasher);
+            entry.following_reserved_word_set.hash(hasher);
         }
     }
 }

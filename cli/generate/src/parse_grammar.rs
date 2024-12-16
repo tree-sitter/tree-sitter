@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Result};
 use serde::Deserialize;
 use serde_json::{Map, Value};
 
@@ -8,6 +8,7 @@ use super::{
     grammars::{InputGrammar, PrecedenceEntry, Variable, VariableType},
     rules::{Precedence, Rule},
 };
+use crate::grammars::ReservedWordContext;
 
 #[derive(Deserialize)]
 #[serde(tag = "type")]
@@ -68,6 +69,10 @@ enum RuleJSON {
     IMMEDIATE_TOKEN {
         content: Box<RuleJSON>,
     },
+    RESERVED {
+        context_name: String,
+        content: Box<RuleJSON>,
+    },
 }
 
 #[derive(Deserialize)]
@@ -93,7 +98,10 @@ pub struct GrammarJSON {
     inline: Vec<String>,
     #[serde(default)]
     supertypes: Vec<String>,
+    #[serde(default)]
     word: Option<String>,
+    #[serde(default)]
+    reserved: Map<String, Value>,
 }
 
 fn rule_is_referenced(rule: &Rule, target: &str) -> bool {
@@ -102,7 +110,9 @@ fn rule_is_referenced(rule: &Rule, target: &str) -> bool {
         Rule::Choice(rules) | Rule::Seq(rules) => {
             rules.iter().any(|r| rule_is_referenced(r, target))
         }
-        Rule::Metadata { rule, .. } => rule_is_referenced(rule, target),
+        Rule::Metadata { rule, .. } | Rule::Reserved { rule, .. } => {
+            rule_is_referenced(rule, target)
+        }
         Rule::Repeat(inner) => rule_is_referenced(inner, target),
         Rule::Blank | Rule::String(_) | Rule::Pattern(_, _) | Rule::Symbol(_) => false,
     }
@@ -226,6 +236,27 @@ pub(crate) fn parse_grammar(input: &str) -> Result<InputGrammar> {
         });
     }
 
+    let reserved_words = grammar_json
+        .reserved
+        .into_iter()
+        .map(|(name, rule_values)| {
+            let mut reserved_words = Vec::new();
+
+            let Value::Array(rule_values) = rule_values else {
+                bail!("reserved word sets must be arrays");
+            };
+
+            for value in rule_values {
+                let rule_json: RuleJSON = serde_json::from_value(value)?;
+                reserved_words.push(parse_rule(rule_json));
+            }
+            Ok(ReservedWordContext {
+                name,
+                reserved_words,
+            })
+        })
+        .collect::<Result<Vec<_>>>()?;
+
     Ok(InputGrammar {
         name: grammar_json.name,
         word_token: grammar_json.word,
@@ -236,6 +267,7 @@ pub(crate) fn parse_grammar(input: &str) -> Result<InputGrammar> {
         variables,
         extra_symbols,
         external_tokens,
+        reserved_words,
     })
 }
 
@@ -283,6 +315,13 @@ fn parse_rule(json: RuleJSON) -> Rule {
         RuleJSON::PREC_DYNAMIC { value, content } => {
             Rule::prec_dynamic(value, parse_rule(*content))
         }
+        RuleJSON::RESERVED {
+            content,
+            context_name,
+        } => Rule::Reserved {
+            rule: Box::new(parse_rule(*content)),
+            context_name,
+        },
         RuleJSON::TOKEN { content } => Rule::token(parse_rule(*content)),
         RuleJSON::IMMEDIATE_TOKEN { content } => Rule::immediate_token(parse_rule(*content)),
     }

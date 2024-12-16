@@ -10,7 +10,7 @@ extern "C" {
 
 #define ts_builtin_sym_error_repeat (ts_builtin_sym_error - 1)
 
-#define LANGUAGE_VERSION_WITH_METADATA 15
+#define LANGUAGE_VERSION_WITH_RESERVED_WORDS 15
 #define LANGUAGE_VERSION_WITH_PRIMARY_STATES 14
 
 typedef struct {
@@ -36,9 +36,9 @@ typedef struct {
 } LookaheadIterator;
 
 void ts_language_table_entry(const TSLanguage *self, TSStateId state, TSSymbol symbol, TableEntry *result);
-
+TSLexerMode ts_language_lex_mode_for_state(const TSLanguage *self, TSStateId state);
+bool ts_language_is_reserved_word(const TSLanguage *self, TSStateId state, TSSymbol symbol);
 TSSymbolMetadata ts_language_symbol_metadata(const TSLanguage *self, TSSymbol symbol);
-
 TSSymbol ts_language_public_symbol(const TSLanguage *self, TSSymbol symbol);
 
 static inline bool ts_language_is_symbol_external(const TSLanguage *self, TSSymbol symbol) {

@@ -80,7 +80,7 @@
 static const unsigned MAX_VERSION_COUNT = 6;
 static const unsigned MAX_VERSION_COUNT_OVERFLOW = 4;
 static const unsigned MAX_SUMMARY_DEPTH = 16;
-static const unsigned MAX_COST_DIFFERENCE = 16 * ERROR_COST_PER_SKIPPED_TREE;
+static const unsigned MAX_COST_DIFFERENCE = 18 * ERROR_COST_PER_SKIPPED_TREE;
 static const unsigned OP_COUNT_PER_PARSER_TIMEOUT_CHECK = 100;
 
 typedef struct {
@@ -342,7 +342,7 @@ static bool ts_parser__better_version_exists(
   return false;
 }
 
-static bool ts_parser__call_main_lex_fn(TSParser *self, TSLexMode lex_mode) {
+static bool ts_parser__call_main_lex_fn(TSParser *self, TSLexerMode lex_mode) {
   if (ts_language_is_wasm(self->language)) {
     return ts_wasm_store_call_lex_main(self->wasm_store, lex_mode.lex_state);
   } else {
@@ -473,10 +473,10 @@ static bool ts_parser__can_reuse_first_leaf(
   Subtree tree,
   TableEntry *table_entry
 ) {
-  TSLexMode current_lex_mode = self->language->lex_modes[state];
   TSSymbol leaf_symbol = ts_subtree_leaf_symbol(tree);
   TSStateId leaf_state = ts_subtree_leaf_parse_state(tree);
-  TSLexMode leaf_lex_mode = self->language->lex_modes[leaf_state];
+  TSLexerMode current_lex_mode = ts_language_lex_mode_for_state(self->language, state);
+  TSLexerMode leaf_lex_mode = ts_language_lex_mode_for_state(self->language, leaf_state);
 
   // At the end of a non-terminal extra node, the lexer normally returns
   // NULL, which indicates that the parser should look for a reduce action
@@ -487,7 +487,7 @@ static bool ts_parser__can_reuse_first_leaf(
   // If the token was created in a state with the same set of lookaheads, it is reusable.
   if (
     table_entry->action_count > 0 &&
-    memcmp(&leaf_lex_mode, &current_lex_mode, sizeof(TSLexMode)) == 0 &&
+    memcmp(&leaf_lex_mode, &current_lex_mode, sizeof(TSLexerMode)) == 0 &&
     (
       leaf_symbol != self->language->keyword_capture_token ||
       (!ts_subtree_is_keyword(tree) && ts_subtree_parse_state(tree) == state)
@@ -507,7 +507,7 @@ static Subtree ts_parser__lex(
   StackVersion version,
   TSStateId parse_state
 ) {
-  TSLexMode lex_mode = self->language->lex_modes[parse_state];
+  TSLexerMode lex_mode = ts_language_lex_mode_for_state(self->language, parse_state);
   if (lex_mode.lex_state == (uint16_t)-1) {
     LOG("no_lookahead_after_non_terminal_extra");
     return NULL_SUBTREE;
@@ -601,7 +601,7 @@ static Subtree ts_parser__lex(
 
     if (!error_mode) {
       error_mode = true;
-      lex_mode = self->language->lex_modes[ERROR_STATE];
+      lex_mode = ts_language_lex_mode_for_state(self->language, ERROR_STATE);
       ts_lexer_reset(&self->lexer, start_position);
       continue;
     }
@@ -658,7 +658,10 @@ static Subtree ts_parser__lex(
       if (
         is_keyword &&
         self->lexer.token_end_position.bytes == end_byte &&
-        ts_language_has_actions(self->language, parse_state, self->lexer.data.result_symbol)
+        (
+          ts_language_has_actions(self->language, parse_state, self->lexer.data.result_symbol) ||
+          ts_language_is_reserved_word(self->language, parse_state, self->lexer.data.result_symbol)
+        )
       ) {
         symbol = self->lexer.data.result_symbol;
       }
@@ -1684,15 +1687,20 @@ static bool ts_parser__advance(
       return true;
     }
 
-    // If there were no parse actions for the current lookahead token, then
-    // it is not valid in this state. If the current lookahead token is a
-    // keyword, then switch to treating it as the normal word token if that
-    // token is valid in this state.
+    // If the current lookahead token is a keyword that is not valid, but the
+    // default word token *is* valid, then treat the lookahead token as the word
+    // token instead.
     if (
       ts_subtree_is_keyword(lookahead) &&
-      ts_subtree_symbol(lookahead) != self->language->keyword_capture_token
+      ts_subtree_symbol(lookahead) != self->language->keyword_capture_token &&
+      !ts_language_is_reserved_word(self->language, state, ts_subtree_symbol(lookahead))
     ) {
-      ts_language_table_entry(self->language, state, self->language->keyword_capture_token, &table_entry);
+      ts_language_table_entry(
+        self->language,
+        state,
+        self->language->keyword_capture_token,
+        &table_entry
+      );
       if (table_entry.action_count > 0) {
         LOG(
           "switch from_keyword:%s, to_word_token:%s",
@@ -1707,19 +1715,10 @@ static bool ts_parser__advance(
       }
     }
 
-    // If the current lookahead token is not valid and the parser is
-    // already in the error state, restart the error recovery process.
-    // TODO - can this be unified with the other `RECOVER` case above?
-    if (state == ERROR_STATE) {
-      ts_parser__recover(self, version, lookahead);
-      return true;
-    }
-
-    // If the current lookahead token is not valid and the previous
-    // subtree on the stack was reused from an old tree, it isn't actually
-    // valid to reuse it. Remove it from the stack, and in its place,
-    // push each of its children. Then try again to process the current
-    // lookahead.
+    // If the current lookahead token is not valid and the previous subtree on
+    // the stack was reused from an old tree, then it wasn't actually valid to
+    // reuse that previous subtree. Remove it from the stack, and in its place,
+    // push each of its children. Then try again to process the current lookahead.
     if (ts_parser__breakdown_top_of_stack(self, version)) {
       state = ts_stack_state(self->stack, version);
       ts_subtree_release(&self->tree_pool, lookahead);
@@ -1727,11 +1726,11 @@ static bool ts_parser__advance(
       continue;
     }
 
-    // At this point, the current lookahead token is definitely not valid
-    // for this parse stack version. Mark this version as paused and continue
-    // processing any other stack versions that might exist. If some other
-    // version advances successfully, then this version can simply be removed.
-    // But if all versions end up paused, then error recovery is needed.
+    // Otherwise, there is definitely an error in this version of the parse stack.
+    // Mark this version as paused and continue processing any other stack
+    // versions that exist. If some other version advances successfully, then
+    // this version can simply be removed. But if all versions end up paused,
+    // then error recovery is needed.
     LOG("detect_error");
     ts_stack_pause(self->stack, version, lookahead);
     return true;
