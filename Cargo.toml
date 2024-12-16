@@ -104,7 +104,7 @@ clap = { version = "4.5.23", features = [
   "help",
   "unstable-styles",
 ] }
-clap_complete = "4.5.38"
+clap_complete = "4.5.39"
 clap_complete_nushell = "4.5.4"
 ctor = "0.2.9"
 ctrlc = { version = "3.4.5", features = ["termination"] }
