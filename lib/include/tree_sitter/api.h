@@ -93,6 +93,7 @@ typedef struct TSInput {
 typedef struct TSParseState {
   void *payload;
   uint32_t current_byte_offset;
+  bool has_encountered_error_node;
 } TSParseState;
 
 typedef struct TSParseOptions {

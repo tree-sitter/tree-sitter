@@ -82,6 +82,7 @@ pub struct TSInput {
 pub struct TSParseState {
     pub payload: *mut ::core::ffi::c_void,
     pub current_byte_offset: u32,
+    pub has_encountered_error_node: bool,
 }
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
