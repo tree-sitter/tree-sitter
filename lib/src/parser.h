@@ -132,13 +132,13 @@ struct TSLanguage {
   const char *name;
 };
 
-static inline bool set_contains(TSCharacterRange *ranges, uint32_t len, int32_t lookahead) {
+static inline bool set_contains(const TSCharacterRange *ranges, uint32_t len, int32_t lookahead) {
   uint32_t index = 0;
   uint32_t size = len - index;
   while (size > 1) {
     uint32_t half_size = size / 2;
     uint32_t mid_index = index + half_size;
-    TSCharacterRange *range = &ranges[mid_index];
+    const TSCharacterRange *range = &ranges[mid_index];
     if (lookahead >= range->start && lookahead <= range->end) {
       return true;
     } else if (lookahead > range->end) {
@@ -146,7 +146,7 @@ static inline bool set_contains(TSCharacterRange *ranges, uint32_t len, int32_t 
     }
     size -= half_size;
   }
-  TSCharacterRange *range = &ranges[index];
+  const TSCharacterRange *range = &ranges[index];
   return (lookahead >= range->start && lookahead <= range->end);
 }
 
