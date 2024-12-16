@@ -74,7 +74,7 @@ fn test_highlights_indented(
             indent_level = indent_level * 2
         );
         if test_file_path.is_dir() && test_file_path.read_dir()?.next().is_some() {
-            println!("{}:", test_file_name.into_string().unwrap());
+            println!("{}:", test_file_name.to_string_lossy());
             if test_highlights_indented(
                 loader,
                 loader_config,
