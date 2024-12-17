@@ -5,11 +5,15 @@ mod clippy;
 mod fetch;
 mod generate;
 mod test;
+mod upgrade_emscripten;
 mod upgrade_wasmtime;
+
+use std::path::Path;
 
 use anstyle::{AnsiColor, Color, Style};
 use anyhow::Result;
 use clap::{crate_authors, Args, Command, FromArgMatches as _, Subcommand};
+use git2::{Oid, Repository};
 use semver::Version;
 
 #[derive(Subcommand)]
@@ -42,6 +46,8 @@ enum Commands {
     TestWasm,
     /// Upgrade the wasmtime dependency.
     UpgradeWasmtime(UpgradeWasmtime),
+    /// Upgrade the emscripten file.
+    UpgradeEmscripten,
 }
 
 #[derive(Args)]
@@ -208,6 +214,7 @@ fn run() -> Result<()> {
         Commands::UpgradeWasmtime(upgrade_wasmtime_options) => {
             upgrade_wasmtime::run(&upgrade_wasmtime_options)?;
         }
+        Commands::UpgradeEmscripten => upgrade_emscripten::run()?,
     }
 
     Ok(())
@@ -251,4 +258,27 @@ const fn get_styles() -> clap::builder::Styles {
                 .fg_color(Some(Color::Ansi(AnsiColor::Green))),
         )
         .placeholder(Style::new().fg_color(Some(Color::Ansi(AnsiColor::White))))
+}
+
+pub fn create_commit(repo: &Repository, msg: &str, paths: &[&str]) -> Result<Oid> {
+    let mut index = repo.index()?;
+    for path in paths {
+        index.add_path(Path::new(path))?;
+    }
+
+    index.write()?;
+
+    let tree_id = index.write_tree()?;
+    let tree = repo.find_tree(tree_id)?;
+    let signature = repo.signature()?;
+    let parent_commit = repo.revparse_single("HEAD")?.peel_to_commit()?;
+
+    Ok(repo.commit(
+        Some("HEAD"),
+        &signature,
+        &signature,
+        msg,
+        &tree,
+        &[&parent_commit],
+    )?)
 }

@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, path::Path};
+use std::cmp::Ordering;
 
 use anyhow::{anyhow, Result};
 use git2::{DiffOptions, Repository};
@@ -6,7 +6,7 @@ use indoc::indoc;
 use semver::{BuildMetadata, Prerelease, Version};
 use toml::Value;
 
-use crate::BumpVersion;
+use crate::{create_commit, BumpVersion};
 
 pub fn get_latest_tag(repo: &Repository) -> Result<String> {
     let mut tags = repo
@@ -140,42 +140,26 @@ pub fn run(args: BumpVersion) -> Result<()> {
 }
 
 fn tag_next_version(repo: &Repository, next_version: &Version) -> Result<()> {
-    // first add the manifests
-
-    let mut index = repo.index()?;
-
-    for file in [
-        "Cargo.toml",
-        "Cargo.lock",
-        "cli/Cargo.toml",
-        "cli/config/Cargo.toml",
-        "cli/loader/Cargo.toml",
-        "lib/Cargo.toml",
-        "highlight/Cargo.toml",
-        "tags/Cargo.toml",
-        "cli/npm/package.json",
-        "lib/binding_web/package.json",
-        "Makefile",
-        "lib/CMakeLists.txt",
-        "build.zig.zon",
-    ] {
-        index.add_path(Path::new(file))?;
-    }
-
-    index.write()?;
-
-    let tree_id = index.write_tree()?;
-    let tree = repo.find_tree(tree_id)?;
     let signature = repo.signature()?;
-    let parent_commit = repo.revparse_single("HEAD")?.peel_to_commit()?;
 
-    let commit_id = repo.commit(
-        Some("HEAD"),
-        &signature,
-        &signature,
+    let commit_id = create_commit(
+        repo,
         &format!("{next_version}"),
-        &tree,
-        &[&parent_commit],
+        &[
+            "Cargo.toml",
+            "Cargo.lock",
+            "cli/Cargo.toml",
+            "cli/config/Cargo.toml",
+            "cli/loader/Cargo.toml",
+            "lib/Cargo.toml",
+            "highlight/Cargo.toml",
+            "tags/Cargo.toml",
+            "cli/npm/package.json",
+            "lib/binding_web/package.json",
+            "Makefile",
+            "lib/CMakeLists.txt",
+            "build.zig.zon",
+        ],
     )?;
 
     let tag = repo.tag(
