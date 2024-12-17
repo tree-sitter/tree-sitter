@@ -1,10 +1,10 @@
-use std::{path::Path, process::Command};
+use std::process::Command;
 
 use anyhow::{Context, Result};
 use git2::Repository;
 use semver::Version;
 
-use crate::UpgradeWasmtime;
+use crate::{create_commit, UpgradeWasmtime};
 
 const WASMTIME_RELEASE_URL: &str = "https://github.com/bytecodealliance/wasmtime/releases/download";
 
@@ -108,29 +108,6 @@ fn update_zig(version: &Version) -> Result<()> {
     Ok(())
 }
 
-fn create_commit(repo: &Repository, version: &Version) -> Result<()> {
-    let mut index = repo.index()?;
-    index.add_path(Path::new("lib/Cargo.toml"))?;
-    index.add_path(Path::new("build.zig.zon"))?;
-    index.write()?;
-
-    let tree_id = index.write_tree()?;
-    let tree = repo.find_tree(tree_id)?;
-    let signature = repo.signature()?;
-    let parent_commit = repo.revparse_single("HEAD")?.peel_to_commit()?;
-
-    let _ = repo.commit(
-        Some("HEAD"),
-        &signature,
-        &signature,
-        &format!("build(deps): bump wasmtime-c-api to v{version}"),
-        &tree,
-        &[&parent_commit],
-    )?;
-
-    Ok(())
-}
-
 pub fn run(args: &UpgradeWasmtime) -> Result<()> {
     println!("Upgrading wasmtime for Rust");
     update_cargo(&args.version)?;
@@ -139,7 +116,11 @@ pub fn run(args: &UpgradeWasmtime) -> Result<()> {
     update_zig(&args.version)?;
 
     let repo = Repository::open(".")?;
-    create_commit(&repo, &args.version)?;
+    create_commit(
+        &repo,
+        &format!("build(deps): bump wasmtime-c-api to v{}", args.version),
+        &["lib/Cargo.toml", "build.zig.zon"],
+    )?;
 
     Ok(())
 }
