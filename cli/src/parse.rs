@@ -221,7 +221,7 @@ pub fn parse_file_at_path(parser: &mut Parser, opts: &ParseFileOptions) -> Resul
         })));
     }
 
-    let time = Instant::now();
+    let parse_time = Instant::now();
 
     #[inline(always)]
     fn is_utf16_le_bom(bom_bytes: &[u8]) -> bool {
@@ -315,6 +315,7 @@ pub fn parse_file_at_path(parser: &mut Parser, opts: &ParseFileOptions) -> Resul
             Some(parse_opts),
         ),
     };
+    let parse_duration = parse_time.elapsed();
 
     let stdout = io::stdout();
     let mut stdout = stdout.lock();
@@ -324,6 +325,7 @@ pub fn parse_file_at_path(parser: &mut Parser, opts: &ParseFileOptions) -> Resul
             println!("BEFORE:\n{}", String::from_utf8_lossy(&source_code));
         }
 
+        let edit_time = Instant::now();
         for (i, edit) in opts.edits.iter().enumerate() {
             let edit = parse_edit_flag(&source_code, edit)?;
             perform_edit(&mut tree, &mut source_code, &edit)?;
@@ -333,11 +335,12 @@ pub fn parse_file_at_path(parser: &mut Parser, opts: &ParseFileOptions) -> Resul
                 println!("AFTER {i}:\n{}", String::from_utf8_lossy(&source_code));
             }
         }
+        let edit_duration = edit_time.elapsed();
 
         parser.stop_printing_dot_graphs();
 
-        let duration = time.elapsed();
-        let duration_ms = duration.as_micros() as f64 / 1e3;
+        let parse_duration_ms = parse_duration.as_micros() as f64 / 1e3;
+        let edit_duration_ms = edit_duration.as_micros() as f64 / 1e3;
         let mut cursor = tree.walk();
 
         if opts.output == ParseOutput::Normal {
@@ -548,11 +551,12 @@ pub fn parse_file_at_path(parser: &mut Parser, opts: &ParseFileOptions) -> Resul
         }
 
         if first_error.is_some() || opts.print_time {
+            let path = opts.path.to_string_lossy();
             write!(
                 &mut stdout,
-                "{:width$}\t{duration_ms:>7.2} ms\t{:>6} bytes/ms",
-                opts.path.to_str().unwrap(),
-                (source_code.len() as u128 * 1_000_000) / duration.as_nanos(),
+                "{:width$}\tParse: {parse_duration_ms:>7.2} ms\t{:>6} bytes/ms",
+                path,
+                (source_code.len() as u128 * 1_000_000) / parse_duration.as_nanos(),
                 width = opts.max_path_length
             )?;
             if let Some(node) = first_error {
@@ -578,23 +582,31 @@ pub fn parse_file_at_path(parser: &mut Parser, opts: &ParseFileOptions) -> Resul
                     start.row, start.column, end.row, end.column
                 )?;
             }
+            if !opts.edits.is_empty() {
+                write!(
+                    &mut stdout,
+                    "\n{:width$}\tEdit:  {edit_duration_ms:>7.2} ms",
+                    " ".repeat(path.len()),
+                    width = opts.max_path_length,
+                )?;
+            }
             writeln!(&mut stdout)?;
         }
 
         return Ok(ParseResult {
             successful: first_error.is_none(),
             bytes: source_code.len(),
-            duration: Some(duration),
+            duration: Some(parse_duration),
         });
     }
     parser.stop_printing_dot_graphs();
 
     if opts.print_time {
-        let duration = time.elapsed();
+        let duration = parse_time.elapsed();
         let duration_ms = duration.as_micros() as f64 / 1e3;
         writeln!(
             &mut stdout,
-            "{:width$}\t{duration_ms:>7.2} ms\t(timed out)",
+            "{:width$}\tParse: {duration_ms:>7.2} ms\t(timed out)",
             opts.path.to_str().unwrap(),
             width = opts.max_path_length
         )?;
