@@ -32,7 +32,7 @@ pub fn run() -> Result<()> {
     let repo = Repository::open(".")?;
     create_commit(
         &repo,
-        "build(deps): bump emscripten version",
+        &format!("build(deps): bump emscripten to {version}"),
         &["cli/loader/emscripten-version"],
     )?;
 
