@@ -24,7 +24,7 @@ use tree_sitter_cli::{
     logger,
     parse::{self, ParseFileOptions, ParseOutput, ParseTheme},
     playground, query, tags,
-    test::{self, parse_tests, TestOptions, TestStats},
+    test::{self, TestOptions, TestStats},
     test_highlight, test_tags, util, version, wasm,
 };
 use tree_sitter_config::Config;
@@ -967,32 +967,10 @@ impl Test {
         // Run the corpus tests. Look for them in `test/corpus`.
         let test_corpus_dir = test_dir.join("corpus");
         if test_corpus_dir.is_dir() {
-            let languages = languages.iter().map(|(l, n)| (n.as_str(), l)).collect();
-            let outlier_stats = if stat == TestStats::TotalOnly {
-                None
-            } else {
-                let mut rates = Vec::new();
-                test::get_test_parsing_rate(
-                    &mut parser,
-                    parse_tests(&test_corpus_dir)?,
-                    &mut rates,
-                    &languages,
-                )?;
-                if rates.is_empty() {
-                    None
-                } else {
-                    let avg = rates.iter().sum::<f64>() / rates.len() as f64;
-                    let std_dev = {
-                        let variance = rates.iter().map(|t| (t - avg).powi(2)).sum::<f64>()
-                            / rates.len() as f64;
-                        variance.sqrt()
-                    };
-
-                    Some((avg, std_dev))
-                }
-            };
-
+            let mut output = String::new();
+            let mut rates = Vec::new();
             let mut opts = TestOptions {
+                output: &mut output,
                 path: test_corpus_dir,
                 debug: self.debug,
                 debug_graph: self.debug_graph,
@@ -1000,12 +978,12 @@ impl Test {
                 exclude: self.exclude,
                 update: self.update,
                 open_log: self.open_log,
-                languages,
+                languages: languages.iter().map(|(l, n)| (n.as_str(), l)).collect(),
                 color,
                 test_num: 1,
+                parse_rates: &mut rates,
                 stat_display: stat,
                 stats: &mut stats,
-                outlier_stats,
                 show_fields: self.show_fields,
                 overview_only: self.overview_only,
             };
