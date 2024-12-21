@@ -95,3 +95,67 @@ fn test_symbol_metadata_checks() {
         }
     }
 }
+
+#[test]
+fn test_supertype_data() {
+    let language = get_language("rust");
+    assert_eq!(language.supertype_count(), 5);
+    assert_eq!(language.supertypes().len(), language.supertype_count());
+    assert_eq!(
+        language
+            .supertypes()
+            .iter()
+            .filter_map(|&s| language.node_kind_for_id(s))
+            .map(|s| s.to_string())
+            .collect::<Vec<String>>(),
+        vec![
+            "_expression",
+            "_literal",
+            "_literal_pattern",
+            "_pattern",
+            "_type"
+        ]
+    );
+    for &supertype in language.supertypes() {
+        match language.node_kind_for_id(supertype) {
+            Some("_literal") => {
+                assert_eq!(
+                    language.subtypes_for_supertype(supertype),
+                    &[
+                        "boolean_literal",
+                        "char_literal",
+                        "float_literal",
+                        "integer_literal",
+                        "raw_string_literal",
+                        "string_literal"
+                    ]
+                );
+            }
+            Some("_pattern") => {
+                assert_eq!(
+                    language.subtypes_for_supertype(supertype),
+                    &[
+                        "_",
+                        "_literal_pattern",
+                        "captured_pattern",
+                        "const_block",
+                        "identifier",
+                        "macro_invocation",
+                        "mut_pattern",
+                        "or_pattern",
+                        "range_pattern",
+                        "ref_pattern",
+                        "reference_pattern",
+                        "remaining_field_pattern",
+                        "scoped_identifier",
+                        "slice_pattern",
+                        "struct_pattern",
+                        "tuple_pattern",
+                        "tuple_struct_pattern",
+                    ]
+                );
+            }
+            _ => {}
+        }
+    }
+}

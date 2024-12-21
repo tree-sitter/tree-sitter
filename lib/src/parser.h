@@ -32,6 +32,11 @@ typedef struct {
 } TSFieldMapSlice;
 
 typedef struct {
+  uint16_t index;
+  uint16_t length;
+} TSSupertypeMapSlice;
+
+typedef struct {
   bool visible;
   bool named;
   bool supertype;
@@ -130,6 +135,10 @@ struct TSLanguage {
   } external_scanner;
   const TSStateId *primary_state_ids;
   const char *name;
+  uint32_t supertype_count;
+  const TSSymbol *supertypes;
+  const TSSupertypeMapSlice *supertype_map_slices;
+  const char * const *supertype_map_entries;
 };
 
 static inline bool set_contains(TSCharacterRange *ranges, uint32_t len, int32_t lookahead) {

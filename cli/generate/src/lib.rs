@@ -118,7 +118,7 @@ fn generate_parser_for_grammar_with_opts(
         prepare_grammar(input_grammar)?;
     let variable_info =
         node_types::get_variable_info(&syntax_grammar, &lexical_grammar, &simple_aliases)?;
-    let node_types_json = node_types::generate_node_types_json(
+    let (node_types_json, subtype_map) = node_types::generate_node_types_json(
         &syntax_grammar,
         &lexical_grammar,
         &simple_aliases,
@@ -131,6 +131,7 @@ fn generate_parser_for_grammar_with_opts(
         &variable_info,
         &inlines,
         report_symbol_name,
+        &subtype_map,
     )?;
     let c_code = render_c_code(
         &input_grammar.name,
