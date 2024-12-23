@@ -182,13 +182,21 @@ pub fn run_wasm(args: &BuildWasm) -> Result<()> {
 pub fn run_wasm_stdlib() -> Result<()> {
     let export_flags = include_str!("../../lib/src/wasm/stdlib-symbols.txt")
         .lines()
-        .map(|line| format!("-Wl,--export={}", &line[1..line.len() - 1]))
+        .map(|line| format!("-Wl,--export={}", &line[1..line.len() - 2]))
         .collect::<Vec<String>>();
 
-    let mut command = Command::new("target/wasi-sdk-21.0/bin/clang-17");
+    let mut command = Command::new("docker");
 
     let output = command
         .args([
+            "run",
+            "--rm",
+            "-v",
+            format!("{}:/src", std::env::current_dir().unwrap().display()).as_str(),
+            "-w",
+            "/src",
+            "ghcr.io/webassembly/wasi-sdk",
+            "/opt/wasi-sdk/bin/clang",
             "-o",
             "stdlib.wasm",
             "-Os",

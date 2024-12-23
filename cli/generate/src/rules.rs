@@ -68,18 +68,48 @@ pub enum Rule {
     },
     Repeat(Box<Rule>),
     Seq(Vec<Rule>),
+    Reserved {
+        rule: Box<Rule>,
+        context_name: String,
+    },
 }
 
 // Because tokens are represented as small (~400 max) unsigned integers,
 // sets of tokens can be efficiently represented as bit vectors with each
 // index corresponding to a token, and each value representing whether or not
 // the token is present in the set.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Default, Clone, PartialEq, Eq, Hash)]
 pub struct TokenSet {
     terminal_bits: SmallBitVec,
     external_bits: SmallBitVec,
     eof: bool,
     end_of_nonterminal_extra: bool,
+}
+
+impl fmt::Debug for TokenSet {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_list().entries(self.iter()).finish()
+    }
+}
+
+impl PartialOrd for TokenSet {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for TokenSet {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.terminal_bits
+            .iter()
+            .cmp(other.terminal_bits.iter())
+            .then_with(|| self.external_bits.iter().cmp(other.external_bits.iter()))
+            .then_with(|| self.eof.cmp(&other.eof))
+            .then_with(|| {
+                self.end_of_nonterminal_extra
+                    .cmp(&other.end_of_nonterminal_extra)
+            })
+    }
 }
 
 impl Rule {
@@ -154,7 +184,9 @@ impl Rule {
         match self {
             Self::Blank | Self::Pattern(..) | Self::NamedSymbol(_) | Self::Symbol(_) => false,
             Self::String(string) => string.is_empty(),
-            Self::Metadata { rule, .. } | Self::Repeat(rule) => rule.is_empty(),
+            Self::Metadata { rule, .. } | Self::Repeat(rule) | Self::Reserved { rule, .. } => {
+                rule.is_empty()
+            }
             Self::Choice(rules) => rules.iter().any(Self::is_empty),
             Self::Seq(rules) => rules.iter().all(Self::is_empty),
         }
@@ -394,6 +426,9 @@ impl TokenSet {
         };
         if other.index < vec.len() && vec[other.index] {
             vec.set(other.index, false);
+            while vec.last() == Some(false) {
+                vec.pop();
+            }
             return true;
         }
         false
@@ -404,6 +439,13 @@ impl TokenSet {
             && !self.end_of_nonterminal_extra
             && !self.terminal_bits.iter().any(|a| a)
             && !self.external_bits.iter().any(|a| a)
+    }
+
+    pub fn len(&self) -> usize {
+        self.eof as usize
+            + self.end_of_nonterminal_extra as usize
+            + self.terminal_bits.iter().filter(|b| *b).count()
+            + self.external_bits.iter().filter(|b| *b).count()
     }
 
     pub fn insert_all_terminals(&mut self, other: &Self) -> bool {

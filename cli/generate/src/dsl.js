@@ -16,6 +16,7 @@ function alias(rule, value) {
       result.value = value.symbol.name;
       return result;
     case Object:
+    case GrammarSymbol:
       if (typeof value.type === 'string' && value.type === 'SYMBOL') {
         result.named = true;
         result.value = value.name;
@@ -153,11 +154,26 @@ function seq(...elements) {
   };
 }
 
-function sym(name) {
+class GrammarSymbol {
+  constructor(name) {
+    this.type = "SYMBOL";
+    this.name = name;
+  }
+}
+
+function reserved(wordset, rule) {
+  if (typeof wordset !== 'string') {
+    throw new Error('Invalid reserved word set name: ' + wordset)
+  }
   return {
-    type: "SYMBOL",
-    name
-  };
+    type: "RESERVED",
+    content: normalize(rule),
+    context_name: wordset,
+  }
+}
+
+function sym(name) {
+  return new GrammarSymbol(name);
 }
 
 function token(value) {
@@ -236,6 +252,7 @@ function grammar(baseGrammar, options) {
       inline: [],
       supertypes: [],
       precedences: [],
+      reserved: {},
     };
   } else {
     baseGrammar = baseGrammar.grammar;
@@ -306,6 +323,28 @@ function grammar(baseGrammar, options) {
         throw new Error(`Rule '${ruleName}' returned undefined.`);
       }
       rules[ruleName] = normalize(rule);
+    }
+  }
+
+  let reserved = baseGrammar.reserved;
+  if (options.reserved) {
+    if (typeof options.reserved !== "object") {
+      throw new Error("Grammar's 'reserved' property must be an object.");
+    }
+
+    for (const reservedWordSetName of Object.keys(options.reserved)) {
+      const reservedWordSetFn = options.reserved[reservedWordSetName]
+      if (typeof reservedWordSetFn !== "function") {
+        throw new Error(`Grammar reserved word sets must all be functions. '${reservedWordSetName}' is not.`);
+      }
+
+      const reservedTokens = reservedWordSetFn.call(ruleBuilder, ruleBuilder, baseGrammar.reserved[reservedWordSetName]);
+
+      if (!Array.isArray(reservedTokens)) {
+        throw new Error(`Grammar's reserved word set functions must all return arrays of rules. '${reservedWordSetName}' does not.`);
+      }
+
+      reserved[reservedWordSetName] = reservedTokens.map(normalize);
     }
   }
 
@@ -439,6 +478,7 @@ function grammar(baseGrammar, options) {
       externals,
       inline,
       supertypes,
+      reserved,
     },
   };
 }
@@ -478,6 +518,7 @@ globalThis.optional = optional;
 globalThis.prec = prec;
 globalThis.repeat = repeat;
 globalThis.repeat1 = repeat1;
+global.reserved = reserved;
 globalThis.seq = seq;
 globalThis.sym = sym;
 globalThis.token = token;

@@ -47,6 +47,7 @@ pub struct ParseState {
     pub id: ParseStateId,
     pub terminal_entries: IndexMap<Symbol, ParseTableEntry, BuildHasherDefault<FxHasher>>,
     pub nonterminal_entries: IndexMap<Symbol, GotoAction, BuildHasherDefault<FxHasher>>,
+    pub reserved_words: TokenSet,
     pub lex_state_id: usize,
     pub external_lex_state_id: usize,
     pub core_id: usize,
@@ -64,7 +65,7 @@ pub struct ProductionInfo {
     pub field_map: BTreeMap<String, Vec<FieldLocation>>,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Default, PartialEq, Eq)]
 pub struct ParseTable {
     pub states: Vec<ParseState>,
     pub symbols: Vec<Symbol>,

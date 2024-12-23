@@ -2,7 +2,7 @@ use anyhow::{anyhow, Result};
 
 use super::InternedGrammar;
 use crate::{
-    grammars::{InputGrammar, Variable, VariableType},
+    grammars::{InputGrammar, ReservedWordContext, Variable, VariableType},
     rules::{Rule, Symbol},
 };
 
@@ -43,6 +43,18 @@ pub(super) fn intern_symbols(grammar: &InputGrammar) -> Result<InternedGrammar> 
         supertype_symbols.push(interner.intern_name(supertype_symbol_name).ok_or_else(|| {
             anyhow!("Undefined symbol `{supertype_symbol_name}` in grammar's supertypes array")
         })?);
+    }
+
+    let mut reserved_words = Vec::with_capacity(grammar.reserved_words.len());
+    for reserved_word_set in &grammar.reserved_words {
+        let mut interned_set = Vec::new();
+        for rule in &reserved_word_set.reserved_words {
+            interned_set.push(interner.intern_rule(rule, None)?);
+        }
+        reserved_words.push(ReservedWordContext {
+            name: reserved_word_set.name.clone(),
+            reserved_words: interned_set,
+        });
     }
 
     let mut expected_conflicts = Vec::new();
@@ -87,6 +99,7 @@ pub(super) fn intern_symbols(grammar: &InputGrammar) -> Result<InternedGrammar> 
         supertype_symbols,
         word_token,
         precedence_orderings: grammar.precedence_orderings.clone(),
+        reserved_word_sets: reserved_words,
     })
 }
 
@@ -117,6 +130,10 @@ impl Interner<'_> {
             Rule::Metadata { rule, params } => Ok(Rule::Metadata {
                 rule: Box::new(self.intern_rule(rule, name)?),
                 params: params.clone(),
+            }),
+            Rule::Reserved { rule, context_name } => Ok(Rule::Reserved {
+                rule: Box::new(self.intern_rule(rule, name)?),
+                context_name: context_name.clone(),
             }),
             Rule::NamedSymbol(name) => self.intern_name(name).map_or_else(
                 || Err(anyhow!("Undefined symbol `{name}`")),
