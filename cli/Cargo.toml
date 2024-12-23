@@ -37,7 +37,6 @@ clap_complete_nushell.workspace = true
 ctor.workspace = true
 ctrlc.workspace = true
 dialoguer.workspace = true
-dirs.workspace = true
 filetime.workspace = true
 glob.workspace = true
 heck.workspace = true

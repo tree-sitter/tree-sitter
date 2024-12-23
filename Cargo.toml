@@ -109,7 +109,7 @@ clap_complete_nushell = "4.5.4"
 ctor = "0.2.9"
 ctrlc = { version = "3.4.5", features = ["termination"] }
 dialoguer = { version = "0.11.0", features = ["fuzzy-select"] }
-dirs = "5.0.1"
+etcetera = "0.8.0"
 filetime = "0.2.25"
 fs4 = "0.12.0"
 git2 = "0.19.0"

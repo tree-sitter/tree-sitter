@@ -17,6 +17,6 @@ workspace = true
 
 [dependencies]
 anyhow.workspace = true
-dirs.workspace = true
+etcetera.workspace = true
 serde.workspace = true
 serde_json.workspace = true

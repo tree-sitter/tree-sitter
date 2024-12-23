@@ -20,6 +20,7 @@ use std::{
 #[cfg(any(feature = "tree-sitter-highlight", feature = "tree-sitter-tags"))]
 use anyhow::Error;
 use anyhow::{anyhow, Context, Result};
+use etcetera::BaseStrategy as _;
 use fs4::fs_std::FileExt;
 use indoc::indoc;
 use lazy_static::lazy_static;
@@ -258,7 +259,7 @@ where
     D: Deserializer<'de>,
 {
     let paths = Vec::<PathBuf>::deserialize(deserializer)?;
-    let Some(home) = dirs::home_dir() else {
+    let Ok(home) = etcetera::home_dir() else {
         return Ok(paths);
     };
     let standardized = paths
@@ -281,7 +282,7 @@ fn standardize_path(path: PathBuf, home: &Path) -> PathBuf {
 impl Config {
     #[must_use]
     pub fn initial() -> Self {
-        let home_dir = dirs::home_dir().expect("Cannot determine home directory");
+        let home_dir = etcetera::home_dir().expect("Cannot determine home directory");
         Self {
             parser_directories: vec![
                 home_dir.join("github"),
@@ -377,12 +378,22 @@ unsafe impl Sync for Loader {}
 
 impl Loader {
     pub fn new() -> Result<Self> {
-        let parser_lib_path = match env::var("TREE_SITTER_LIBDIR") {
-            Ok(path) => PathBuf::from(path),
-            _ => dirs::cache_dir()
-                .ok_or_else(|| anyhow!("Cannot determine cache directory"))?
+        let parser_lib_path = if let Ok(path) = env::var("TREE_SITTER_LIBDIR") {
+            PathBuf::from(path)
+        } else {
+            if cfg!(target_os = "macos") {
+                let legacy_apple_path = etcetera::base_strategy::Apple::new()?
+                    .cache_dir() // `$HOME/Library/Caches/`
+                    .join("tree-sitter");
+                if legacy_apple_path.exists() && legacy_apple_path.is_dir() {
+                    std::fs::remove_dir_all(legacy_apple_path)?;
+                }
+            }
+
+            etcetera::choose_base_strategy()?
+                .cache_dir()
                 .join("tree-sitter")
-                .join("lib"),
+                .join("lib")
         };
         Ok(Self::with_parser_lib_path(parser_lib_path))
     }
@@ -733,8 +744,8 @@ impl Loader {
                 .join("lock")
                 .join(format!("{}.lock", config.name))
         } else {
-            dirs::cache_dir()
-                .ok_or_else(|| anyhow!("Cannot determine cache directory"))?
+            etcetera::choose_base_strategy()?
+                .cache_dir()
                 .join("tree-sitter")
                 .join("lock")
                 .join(format!("{}.lock", config.name))
