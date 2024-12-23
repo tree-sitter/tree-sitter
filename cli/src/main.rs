@@ -24,7 +24,7 @@ use tree_sitter_cli::{
     logger,
     parse::{self, ParseFileOptions, ParseOutput, ParseTheme},
     playground, query, tags,
-    test::{self, TestOptions},
+    test::{self, TestOptions, TestStats},
     test_highlight, test_tags, util, version, wasm,
 };
 use tree_sitter_config::Config;
@@ -274,6 +274,8 @@ struct Test {
     pub config_path: Option<PathBuf>,
     #[arg(long, help = "Force showing fields in test diffs")]
     pub show_fields: bool,
+    #[arg(long, help = "Show parsing statistics")]
+    pub stat: Option<TestStats>,
     #[arg(short, long, help = "Force rebuild the parser")]
     pub rebuild: bool,
     #[arg(long, help = "Show only the pass-fail overview tree")]
@@ -936,6 +938,7 @@ impl Test {
     fn run(self, mut loader: loader::Loader, current_dir: &Path) -> Result<()> {
         let config = Config::load(self.config_path)?;
         let color = env::var("NO_COLOR").map_or(true, |v| v != "1");
+        let stat = self.stat.unwrap_or_default();
 
         loader.debug_build(self.debug_build);
         loader.force_rebuild(self.rebuild);
@@ -959,11 +962,15 @@ impl Test {
         parser.set_language(language)?;
 
         let test_dir = current_dir.join("test");
+        let mut stats = parse::Stats::default();
 
         // Run the corpus tests. Look for them in `test/corpus`.
         let test_corpus_dir = test_dir.join("corpus");
         if test_corpus_dir.is_dir() {
+            let mut output = String::new();
+            let mut rates = Vec::new();
             let mut opts = TestOptions {
+                output: &mut output,
                 path: test_corpus_dir,
                 debug: self.debug,
                 debug_graph: self.debug_graph,
@@ -974,11 +981,15 @@ impl Test {
                 languages: languages.iter().map(|(l, n)| (n.as_str(), l)).collect(),
                 color,
                 test_num: 1,
+                parse_rates: &mut rates,
+                stat_display: stat,
+                stats: &mut stats,
                 show_fields: self.show_fields,
                 overview_only: self.overview_only,
             };
 
             test::run_tests_at_path(&mut parser, &mut opts)?;
+            println!("\n{stats}");
         }
 
         // Check that all of the queries are valid.
