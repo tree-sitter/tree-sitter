@@ -377,7 +377,7 @@ enum TextPredicateCapture {
     AnyString(u32, Box<[Box<str>]>, bool),
 }
 
-// TODO: Remove this struct at at some point. If `core::str::lossy::Utf8Lossy`
+// TODO: Remove this struct at some point. If `core::str::lossy::Utf8Lossy`
 // is ever stabilized.
 pub struct LossyUtf8<'a> {
     bytes: &'a [u8],
@@ -2155,7 +2155,7 @@ impl<'cursor> TreeCursor<'cursor> {
     /// Note, that this function may be slower than
     /// [`goto_next_sibling`](TreeCursor::goto_next_sibling) due to how node
     /// positions are stored. In the worst case, this will need to iterate
-    /// through all the children upto the previous sibling node to recalculate
+    /// through all the children up to the previous sibling node to recalculate
     /// its position.
     #[doc(alias = "ts_tree_cursor_goto_previous_sibling")]
     pub fn goto_previous_sibling(&mut self) -> bool {
@@ -2445,7 +2445,7 @@ impl Query {
             }
         }
 
-        // Build a vector to store capture qunatifiers.
+        // Build a vector to store capture quantifiers.
         for i in 0..pattern_count {
             let mut capture_quantifiers = Vec::with_capacity(capture_count as usize);
             for j in 0..capture_count {

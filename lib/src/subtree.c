@@ -767,7 +767,7 @@ Subtree ts_subtree_edit(Subtree self, const TSInputEdit *input_edit, SubtreePool
 
       // Keep editing child nodes until a node is reached that starts after the edit.
       // Also, if this node's validity depends on its column position, then continue
-      // invaliditing child nodes until reaching a line break.
+      // invalidating child nodes until reaching a line break.
       if ((
         (child_left.bytes > edit.old_end.bytes) ||
         (child_left.bytes == edit.old_end.bytes && child_size.bytes > 0 && i > 0)
