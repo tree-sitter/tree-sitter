@@ -1491,7 +1491,7 @@ impl Generator {
         }
 
         // Lexing
-        add_line!(self, ".lex_modes = ts_lex_modes,");
+        add_line!(self, ".lex_modes = (const void*)ts_lex_modes,");
         add_line!(self, ".lex_fn = ts_lex,");
         if let Some(keyword_capture_token) = self.syntax_grammar.word_token {
             add_line!(self, ".keyword_lex_fn = ts_lex_keywords,");
