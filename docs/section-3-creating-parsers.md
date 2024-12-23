@@ -558,6 +558,9 @@ Although languages have very different constructs, their constructs can often be
 }
 ```
 
+One important fact to know up front is that the start rule for the grammar is the first property in the `rules` object.
+In the example above, that would correspond to `source_file`, but it can be named anything.
+
 Some of the details of this grammar will be explained in more depth later on, but if you focus on the `TODO` comments, you can see that the overall strategy is *breadth-first*. Notably, this initial skeleton does not need to directly match an exact subset of the context-free grammar in the language specification. It just needs to touch on the major groupings of rules in as simple and obvious a way as possible.
 
 With this structure in place, you can now freely decide what part of the grammar to flesh out next. For example, you might decide to start with *types*. One-by-one, you could define the rules for writing basic types and composing them into more complex types:
