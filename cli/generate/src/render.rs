@@ -983,11 +983,7 @@ impl Generator {
             return;
         }
 
-        add_line!(
-            self,
-            "static TSCharacterRange {}[] = {{",
-            info.constant_name
-        );
+        add_line!(self, "const TSCharacterRange {}[] = {{", info.constant_name);
 
         indent!(self);
         for (ix, range) in characters.ranges().enumerate() {
