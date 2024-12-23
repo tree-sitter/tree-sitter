@@ -815,7 +815,7 @@ bool ts_tree_cursor_goto_next_sibling(TSTreeCursor *self);
  *
  * Note, that this function may be slower than
  * [`ts_tree_cursor_goto_next_sibling`] due to how node positions are stored. In
- * the worst case, this will need to iterate through all the children upto the
+ * the worst case, this will need to iterate through all the children up to the
  * previous sibling node to recalculate its position.
  */
 bool ts_tree_cursor_goto_previous_sibling(TSTreeCursor *self);
@@ -1044,7 +1044,7 @@ void ts_query_cursor_delete(TSQueryCursor *self);
 void ts_query_cursor_exec(TSQueryCursor *self, const TSQuery *query, TSNode node);
 
 /**
- * Start running a gievn query on a given node, with some options.
+ * Start running a given query on a given node, with some options.
  */
 void ts_query_cursor_exec_with_options(
   TSQueryCursor *self,

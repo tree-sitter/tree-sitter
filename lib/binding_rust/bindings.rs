@@ -545,7 +545,7 @@ extern "C" {
     pub fn ts_tree_cursor_goto_next_sibling(self_: *mut TSTreeCursor) -> bool;
 }
 extern "C" {
-    #[doc = " Move the cursor to the previous sibling of its current node.\n\n This returns `true` if the cursor successfully moved, and returns `false` if\n there was no previous sibling node.\n\n Note, that this function may be slower than\n [`ts_tree_cursor_goto_next_sibling`] due to how node positions are stored. In\n the worst case, this will need to iterate through all the children upto the\n previous sibling node to recalculate its position."]
+    #[doc = " Move the cursor to the previous sibling of its current node.\n\n This returns `true` if the cursor successfully moved, and returns `false` if\n there was no previous sibling node.\n\n Note, that this function may be slower than\n [`ts_tree_cursor_goto_next_sibling`] due to how node positions are stored. In\n the worst case, this will need to iterate through all the children up to the\n previous sibling node to recalculate its position."]
     pub fn ts_tree_cursor_goto_previous_sibling(self_: *mut TSTreeCursor) -> bool;
 }
 extern "C" {
@@ -681,7 +681,7 @@ extern "C" {
     pub fn ts_query_cursor_exec(self_: *mut TSQueryCursor, query: *const TSQuery, node: TSNode);
 }
 extern "C" {
-    #[doc = " Start running a gievn query on a given node, with some options."]
+    #[doc = " Start running a given query on a given node, with some options."]
     pub fn ts_query_cursor_exec_with_options(
         self_: *mut TSQueryCursor,
         query: *const TSQuery,

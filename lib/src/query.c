@@ -123,7 +123,7 @@ typedef struct {
 } SymbolTable;
 
 /**
- * CaptureQuantififers - a data structure holding the quantifiers of pattern captures.
+ * CaptureQuantifiers - a data structure holding the quantifiers of pattern captures.
  */
 typedef Array(uint8_t) CaptureQuantifiers;
 
