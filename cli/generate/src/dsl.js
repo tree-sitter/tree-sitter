@@ -70,7 +70,7 @@ function prec(number, rule) {
   };
 }
 
-prec.left = function (number, rule) {
+prec.left = function(number, rule) {
   if (rule == null) {
     rule = number;
     number = 0;
@@ -92,7 +92,7 @@ prec.left = function (number, rule) {
   };
 }
 
-prec.right = function (number, rule) {
+prec.right = function(number, rule) {
   if (rule == null) {
     rule = number;
     number = 0;
@@ -114,7 +114,7 @@ prec.right = function (number, rule) {
   };
 }
 
-prec.dynamic = function (number, rule) {
+prec.dynamic = function(number, rule) {
   checkPrecedence(number);
   checkArguments(
     arguments,
@@ -161,14 +161,14 @@ class GrammarSymbol {
   }
 }
 
-function reserved(name, rule) {
-  if (typeof name !== 'string') {
-    throw new Error('Invalid reserved word set name: ' + name)
+function reserved(wordset, rule) {
+  if (typeof wordset !== 'string') {
+    throw new Error('Invalid reserved word set name: ' + wordset)
   }
   return {
     type: "RESERVED",
     content: normalize(rule),
-    context_name: name,
+    context_name: wordset,
   }
 }
 
@@ -184,7 +184,7 @@ function token(value) {
   };
 }
 
-token.immediate = function (value) {
+token.immediate = function(value) {
   checkArguments(arguments, arguments.length, token.immediate, 'token.immediate', '', 'literal');
   return {
     type: "IMMEDIATE_TOKEN",
