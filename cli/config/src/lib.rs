@@ -2,7 +2,8 @@
 
 use std::{env, fs, path::PathBuf};
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
+use etcetera::BaseStrategy as _;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -38,8 +39,24 @@ impl Config {
             return Ok(Some(xdg_path));
         }
 
-        let legacy_path = dirs::home_dir()
-            .ok_or_else(|| anyhow!("Cannot determine home directory"))?
+        if cfg!(target_os = "macos") {
+            let legacy_apple_path = etcetera::base_strategy::Apple::new()?
+                .data_dir() // `$HOME/Library/Application Support/`
+                .join("tree-sitter")
+                .join("config.json");
+            if legacy_apple_path.is_file() {
+                fs::create_dir_all(xdg_path.parent().unwrap())?;
+                fs::rename(&legacy_apple_path, &xdg_path)?;
+                println!(
+                    "Warning: your config.json file has been automatically migrated from \"{}\" to \"{}\"",
+                    legacy_apple_path.display(),
+                    xdg_path.display()
+                );
+                return Ok(Some(xdg_path));
+            }
+        }
+
+        let legacy_path = etcetera::home_dir()?
             .join(".tree-sitter")
             .join("config.json");
         if legacy_path.is_file() {
@@ -50,8 +67,8 @@ impl Config {
     }
 
     fn xdg_config_file() -> Result<PathBuf> {
-        let xdg_path = dirs::config_dir()
-            .ok_or_else(|| anyhow!("Cannot determine config directory"))?
+        let xdg_path = etcetera::choose_base_strategy()?
+            .config_dir()
             .join("tree-sitter")
             .join("config.json");
         Ok(xdg_path)
@@ -63,7 +80,7 @@ impl Config {
     ///   - Location specified by the path parameter if provided
     ///   - `$TREE_SITTER_DIR/config.json`, if the `TREE_SITTER_DIR` environment variable is set
     ///   - `tree-sitter/config.json` in your default user configuration directory, as determined by
-    ///     [`dirs::config_dir`](https://docs.rs/dirs/*/dirs/fn.config_dir.html)
+    ///     [`etcetera::choose_base_strategy`](https://docs.rs/etcetera/*/etcetera/#basestrategy)
     ///   - `$HOME/.tree-sitter/config.json` as a fallback from where tree-sitter _used_ to store
     ///     its configuration
     pub fn load(path: Option<PathBuf>) -> Result<Self> {
