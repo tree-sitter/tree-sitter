@@ -1,7 +1,7 @@
 use std::{
     fmt, fs,
     io::{self, StdoutLock, Write},
-    path::Path,
+    path::{Path, PathBuf},
     sync::atomic::{AtomicUsize, Ordering},
     time::{Duration, Instant},
 };
@@ -17,7 +17,7 @@ use tree_sitter::{
 use super::util;
 use crate::{fuzz::edits::Edit, test::paint};
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize)]
 pub struct Stats {
     pub successful_parses: usize,
     pub total_parses: usize,
@@ -177,9 +177,65 @@ pub enum ParseOutput {
     Dot,
 }
 
+/// A position in a multi-line text document, in terms of rows and columns.
+///
+/// Rows and columns are zero-based.
+///
+/// This serves as a serializable wrapper for `Point`
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]
+pub struct ParsePoint {
+    pub row: usize,
+    pub column: usize,
+}
+
+impl From<Point> for ParsePoint {
+    fn from(value: Point) -> Self {
+        Self {
+            row: value.row,
+            column: value.column,
+        }
+    }
+}
+
+#[derive(Serialize, Default, Debug, Clone)]
+pub struct ParseSummary {
+    pub file: PathBuf,
+    pub successful: bool,
+    pub start: Option<ParsePoint>,
+    pub end: Option<ParsePoint>,
+    pub duration: Option<Duration>,
+    pub bytes: Option<u128>,
+}
+
+impl ParseSummary {
+    pub fn new(path: &Path) -> Self {
+        Self {
+            file: path.to_path_buf(),
+            successful: false,
+            ..Default::default()
+        }
+    }
+}
+
+#[derive(Serialize, Debug)]
+pub struct ParseStats {
+    pub parse_summaries: Vec<ParseSummary>,
+    pub cumulative_stats: Stats,
+}
+
+impl ParseStats {
+    pub fn new() -> Self {
+        Self {
+            parse_summaries: Vec::new(),
+            cumulative_stats: Stats::default(),
+        }
+    }
+}
+
 pub struct ParseFileOptions<'a> {
     pub edits: &'a [&'a str],
     pub output: ParseOutput,
+    pub stats: &'a mut ParseStats,
     pub print_time: bool,
     pub timeout: u64,
     pub debug: bool,
@@ -341,6 +397,10 @@ pub fn parse_file_at_path(
         let edit_duration = edit_time.elapsed();
 
         parser.stop_printing_dot_graphs();
+
+        let current_summary = opts.stats.parse_summaries.last_mut().unwrap();
+        current_summary.start = Some(tree.root_node().start_position().into());
+        current_summary.end = Some(tree.root_node().end_position().into());
 
         let parse_duration_ms = parse_duration.as_micros() as f64 / 1e3;
         let edit_duration_ms = edit_duration.as_micros() as f64 / 1e3;

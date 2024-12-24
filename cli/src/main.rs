@@ -213,6 +213,9 @@ struct Parse {
     /// Open `log.html` in the default browser, if `--debug-graph` is supplied
     #[arg(long)]
     pub open_log: bool,
+    /// Output parsing results in a JSON format
+    #[arg(long, short = 'j')]
+    pub output_json_summary: bool,
     /// The path to an alternative config.json file
     #[arg(long)]
     pub config_path: Option<PathBuf>,
@@ -812,7 +815,7 @@ impl Parse {
             ParseOutput::Xml
         } else if self.output_cst {
             ParseOutput::Cst
-        } else if self.quiet {
+        } else if self.quiet || self.output_json_summary {
             ParseOutput::Quiet
         } else {
             ParseOutput::Normal
@@ -859,7 +862,7 @@ impl Parse {
         loader.find_all_languages(&loader_config)?;
 
         let should_track_stats = self.stat;
-        let mut stats = parse::Stats::default();
+        let mut stats = parse::ParseStats::new();
 
         let options = ParseFileOptions {
             edits: &edits
@@ -882,11 +885,11 @@ impl Parse {
             if should_track_stats {
                 stats.total_parses += 1;
                 if parse_result.successful {
-                    stats.successful_parses += 1;
+                    stats.cumulative_stats.successful_parses += 1;
                 }
                 if let Some(duration) = parse_result.duration {
-                    stats.total_bytes += parse_result.bytes;
-                    stats.total_duration += duration;
+                    stats.cumulative_stats.total_bytes += parse_result.bytes;
+                    stats.cumulative_stats.total_duration += duration;
                 }
             }
 
@@ -972,7 +975,10 @@ impl Parse {
         }
 
         if should_track_stats {
-            println!("\n{stats}");
+            println!("\n{}", stats.cumulative_stats);
+        }
+        if self.output_json_summary {
+            println!("{}", serde_json::to_string_pretty(&stats)?);
         }
 
         if has_error {
