@@ -21,6 +21,7 @@ let tree;
   const codeInput = document.getElementById('code-input');
   const languageSelect = document.getElementById('language-select');
   const loggingCheckbox = document.getElementById('logging-checkbox');
+  const anonymousNodesCheckbox = document.getElementById('anonymous-nodes-checkbox');
   const outputContainer = document.getElementById('output-container');
   const outputContainerScroll = document.getElementById('output-container-scroll');
   const playgroundContainer = document.getElementById('playground-container');
@@ -68,6 +69,7 @@ let tree;
   queryEditor.on('changes', debounce(handleQueryChange, 150));
 
   loggingCheckbox.addEventListener('change', handleLoggingChange);
+  anonymousNodesCheckbox.addEventListener('change', renderTree);
   queryCheckbox.addEventListener('change', handleQueryEnableChange);
   languageSelect.addEventListener('change', handleLanguageChange);
   outputContainer.addEventListener('click', handleTreeClick);
@@ -148,6 +150,8 @@ let tree;
         displayName = `MISSING ${cursor.nodeType}`
       } else if (cursor.nodeIsNamed) {
         displayName = cursor.nodeType;
+      } else if(!cursor.nodeIsNamed && anonymousNodesCheckbox.checked) {
+        displayName = cursor.nodeType
       }
 
       if (visitedChildren) {
