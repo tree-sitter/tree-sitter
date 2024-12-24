@@ -1,0 +1,73 @@
+.ts-playground .CodeMirror {
+  background-color: #f9f9f9 !important;
+  color: #080808 !important;
+}
+
+.ts-playground .CodeMirror-gutters {
+  background: #ebebeb !important;
+  color: #333 !important;
+  border-right: 1px solid #e8e8e8 !important;
+}
+
+.ts-playground .CodeMirror-cursor {
+  border-left: 2px solid #000 !important;
+}
+
+.ts-playground .CodeMirror-selected {
+  background: rgba(39, 95, 255, 0.3) !important;
+}
+
+.ts-playground .CodeMirror-line::selection,
+.ts-playground .CodeMirror-line>span::selection,
+.ts-playground .CodeMirror-line>span>span::selection {
+  background: rgba(39, 95, 255, 0.3) !important;
+}
+
+.ts-playground .CodeMirror-activeline-background {
+  background: rgba(36, 99, 180, 0.12) !important;
+}
+
+.ayu .ts-playground .CodeMirror,
+.coal .ts-playground .CodeMirror,
+.navy .ts-playground .CodeMirror {
+  background-color: #1d1f21 !important;
+  color: #c5c8c6 !important;
+}
+
+.ayu .ts-playground .CodeMirror-gutters,
+.coal .ts-playground .CodeMirror-gutters,
+.navy .ts-playground .CodeMirror-gutters {
+  background: #25282c !important;
+  color: #c5c8c6 !important;
+  border-right: 1px solid #282a2e !important;
+}
+
+.ayu .ts-playground .CodeMirror-cursor,
+.coal .ts-playground .CodeMirror-cursor,
+.navy .ts-playground .CodeMirror-cursor {
+  border-left: 2px solid #aeafad !important;
+}
+
+.ayu .ts-playground .CodeMirror-selected,
+.coal .ts-playground .CodeMirror-selected,
+.navy .ts-playground .CodeMirror-selected {
+  background: #373b41 !important;
+}
+
+.ayu .ts-playground .CodeMirror-line::selection,
+.ayu .ts-playground .CodeMirror-line>span::selection,
+.ayu .ts-playground .CodeMirror-line>span>span::selection,
+.coal .ts-playground .CodeMirror-line::selection,
+.coal .ts-playground .CodeMirror-line>span::selection,
+.coal .ts-playground .CodeMirror-line>span>span::selection,
+.navy .ts-playground .CodeMirror-line::selection,
+.navy .ts-playground .CodeMirror-line>span::selection,
+.navy .ts-playground .CodeMirror-line>span>span::selection {
+  background: #373b41 !important;
+}
+
+.ayu .ts-playground .CodeMirror-activeline-background,
+.coal .ts-playground .CodeMirror-activeline-background,
+.navy .ts-playground .CodeMirror-activeline-background {
+  background: #282a2e !important;
+}
