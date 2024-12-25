@@ -5,8 +5,9 @@ use lazy_static::lazy_static;
 use rand::{prelude::StdRng, SeedableRng};
 use streaming_iterator::StreamingIterator;
 use tree_sitter::{
-    CaptureQuantifier, Language, Node, Parser, Point, Query, QueryCursor, QueryCursorOptions,
-    QueryError, QueryErrorKind, QueryPredicate, QueryPredicateArg, QueryProperty,
+    CaptureQuantifier, InputEdit, Language, Node, Parser, Point, Query, QueryCursor,
+    QueryCursorOptions, QueryError, QueryErrorKind, QueryPredicate, QueryPredicateArg,
+    QueryProperty, Range,
 };
 use tree_sitter_generate::generate_parser_for_grammar;
 use unindent::Unindent;
@@ -5333,4 +5334,73 @@ fn test_query_execution_with_timeout() {
         .matches(&query, tree.root_node(), source_code.as_bytes())
         .count();
     assert_eq!(matches, 1000);
+}
+
+#[test]
+fn idk() {
+    let language = get_language("rust");
+    let mut parser = Parser::new();
+    parser.set_language(&language).unwrap();
+
+    let code = r#"fn main() {
+    println!("{:?}", foo());
+}"#;
+    parser
+        .set_included_ranges(&[Range {
+            start_byte: 24,
+            end_byte: 39,
+            start_point: Point::new(0, 0), // 5, 12
+            end_point: Point::new(0, 0),   // 5, 27
+        }])
+        .unwrap();
+
+    let query = Query::new(&language, "(call_expression) @cap").unwrap();
+    let mut cursor = QueryCursor::new();
+
+    let mut tree = parser.parse(code, None).unwrap();
+
+    let matches = {
+        let root_node = tree.root_node();
+        let matches = cursor.matches(&query, root_node, code.as_bytes());
+        collect_matches(matches, &query, code)
+            .into_iter()
+            .map(|(i, m)| {
+                (
+                    i,
+                    m.into_iter()
+                        .map(|(k, v)| (k.to_string(), v.to_string()))
+                        .collect::<Vec<_>>(),
+                )
+            })
+            .collect::<Vec<_>>()
+    };
+
+    tree.edit(&InputEdit {
+        start_byte: 40,
+        old_end_byte: 40,
+        new_end_byte: 41,
+        start_position: Point::new(1, 28),
+        old_end_position: Point::new(1, 28),
+        new_end_position: Point::new(2, 0),
+    });
+
+    let tree2 = parser.parse(code, Some(&tree)).unwrap();
+
+    let matches2 = {
+        let root_node = tree2.root_node();
+        let matches = cursor.matches(&query, root_node, code.as_bytes());
+        collect_matches(matches, &query, code)
+            .into_iter()
+            .map(|(i, m)| {
+                (
+                    i,
+                    m.into_iter()
+                        .map(|(k, v)| (k.to_string(), v.to_string()))
+                        .collect::<Vec<_>>(),
+                )
+            })
+            .collect::<Vec<_>>()
+    };
+
+    assert_eq!(matches, matches2);
 }
