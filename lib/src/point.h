@@ -22,7 +22,7 @@ static inline TSPoint point_sub(TSPoint a, TSPoint b) {
   if (a.row > b.row)
     return point__new(a.row - b.row, a.column);
   else
-    return point__new(0, a.column - b.column);
+    return point__new(0, (a.column >= b.column) ? a.column - b.column : 0);
 }
 
 static inline bool point_lte(TSPoint a, TSPoint b) {
