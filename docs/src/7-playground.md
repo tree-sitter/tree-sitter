@@ -101,6 +101,6 @@ you must use at least one capture, like <code>(node_name) @capture-name</code></
 <script src="https://cdnjs.cloudflare.com/ajax/libs/clusterize.js/0.19.0/clusterize.min.js"></script>
 <script>
 setTimeout(() => {
-window.initializePlayground()
+window.initializePlayground({local: false})
 }, 1)
 </script>
