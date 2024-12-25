@@ -160,21 +160,51 @@ Publishing a new release of the CLI and lib requires these steps:
 4. CI will build the binaries and upload them to the GitHub release and the NPM registry. It will also publish the Rust
 crates to crates.io.
 
+## Developing Documentation
+
+Our current static site generator for documentation is [`mdBook`][mdBook], with a little bit of custom JavaScript to handle
+the playground page. Most of the documentation is written in Markdown, including this file! You can find these files
+at [`docs/src`][docs src]. The playground code can be found in [`docs/assets/js/playground.js`][playground], and its corresponding
+css at [`docs/assets/css/playground.css`][playground css]. To run and iterate on the docs locally, the
+[`mdbook`][mdbook cli] CLI tool is required, which can be installed with `cargo install mdbook`. Once you've installed it,
+you can run the following command to start a local server:
+
+```sh
+cd docs
+mdbook serve --open
+```
+
+`mdbook` has a live-reload feature, so any changes you make to the markdown files will be reflected in the browser after
+a short delay. Once you've made a change that you're happy with, you can submit a PR with your changes.
+
+The playground page is a little more complicated, but if you know some basic JavaScript and CSS you should be able to make
+changes. The editor of choice we use for the playground is [CodeMirror][codemirror], and the tree-sitter module is fetched
+from [here][js url]. This, along with the wasm module and wasm parsers, live in
+the [.github.io repo][gh.io repo].
+
 [cli crate]: https://crates.io/crates/tree-sitter-cli
 [cli package]: https://www.npmjs.com/package/tree-sitter-cli
+[codemirror]: https://codemirror.net
 [covenant]: https://www.contributor-covenant.org/version/1/4/code-of-conduct
 [crates]: https://crates.io
 [docker]: https://www.docker.com
+[docs src]: https://github.com/tree-sitter/tree-sitter/tree/master/docs/src
 [emscripten]: https://emscripten.org
+[gh.io repo]: https://github.com/tree-sitter/tree-sitter.github.io
 [go.dev]: https://pkg.go.dev
 [go package]: https://pkg.go.dev/github.com/tree-sitter/go-tree-sitter
 [go ts]: https://github.com/tree-sitter/go-tree-sitter
 [highlight crate]: https://crates.io/crates/tree-sitter-highlight
+[js url]: https://tree-sitter.github.io/tree-sitter.js
 [lib crate]: https://crates.io/crates/tree-sitter
+[mdBook]: https://rust-lang.github.io/mdBook
+[mdbook cli]: https://rust-lang.github.io/mdBook/guide/installation.html
 [node package]: https://www.npmjs.com/package/tree-sitter
 [node ts]: https://github.com/tree-sitter/node-tree-sitter
 [npm version]: https://docs.npmjs.com/cli/version
 [npmjs]: https://npmjs.com
+[playground]: https://github.com/tree-sitter/tree-sitter/blob/master/docs/assets/js/playground.js
+[playground css]: https://github.com/tree-sitter/tree-sitter/blob/master/docs/assets/css/playground.css
 [podman]: https://podman.io
 [py package]: https://pypi.org/project/tree-sitter
 [py ts]: https://github.com/tree-sitter/py-tree-sitter
