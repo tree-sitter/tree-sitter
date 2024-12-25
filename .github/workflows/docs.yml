@@ -1,8 +1,8 @@
 name: Deploy Docs
 on:
   push:
-    branches:
-      - "master"
+    branches: [master]
+    paths: [docs/**]
 
 jobs:
   deploy-docs:
