@@ -33,7 +33,7 @@ macro_rules! optional_resource {
     };
 }
 
-optional_resource!(get_playground_js, "docs/assets/js/playground.js");
+optional_resource!(get_playground_js, "docs/src/assets/js/playground.js");
 optional_resource!(get_lib_js, "lib/binding_web/tree-sitter.js");
 optional_resource!(get_lib_wasm, "lib/binding_web/tree-sitter.wasm");
 

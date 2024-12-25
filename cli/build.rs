@@ -52,7 +52,7 @@ fn main() {
 
 fn web_playground_files_present() -> bool {
     let paths = [
-        "../docs/assets/js/playground.js",
+        "../docs/src/assets/js/playground.js",
         "../lib/binding_web/tree-sitter.js",
         "../lib/binding_web/tree-sitter.wasm",
     ];
