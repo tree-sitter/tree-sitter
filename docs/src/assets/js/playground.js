@@ -262,10 +262,10 @@ window.initializePlayground = async function initializePlayground() {
                 : 'node-link anonymous';
 
           row = `<div class="tree-row">${"  ".repeat(indentLevel)}${fieldName}` +
-                `<a class='${nodeClass}' href="#" data-id=${id} ` +
-                `data-range="${start.row},${start.column},${end.row},${end.column}">` +
-                `${displayName}</a> <span class="position-info">` +
-                `[${start.row}, ${start.column}] - [${end.row}, ${end.column}]</span>`;
+            `<a class='${nodeClass}' href="#" data-id=${id} ` +
+            `data-range="${start.row},${start.column},${end.row},${end.column}">` +
+            `${displayName}</a> <span class="position-info">` +
+            `[${start.row}, ${start.column}] - [${end.row}, ${end.column}]</span>`;
           finishedRow = true;
         }
 
