@@ -68,7 +68,7 @@ void tree_sitter_my_language_external_scanner_destroy(void *payload) {
 
 This function should free any memory used by your scanner. It is called once when a parser is deleted or assigned a different
 language. It receives as an argument the same pointer that was returned from the _create_ function. If your _create_ function
-didn't allocate any memory, this function can be a noop.
+didn't allocate any memory, this function can be a no-op.
 
 ## Serialize
 
@@ -110,6 +110,20 @@ their values from the byte buffer.
 
 ## Scan
 
+Typically, one will
+
+- Call `lexer->advance` several times, if the characters are valid for the token being lexed.
+
+- Optionally, call `lexer->mark_end` to mark the end of the token, and "peek ahead"
+to check if the next character (or set of characters) invalidates the token.
+
+- Set `lexer->result_symbol` to the token type.
+
+- Return `true` from the scanning function, indicating that a token was successfully lexed.
+
+Tree-sitter will then push resulting node to the parse stack, and the input position will remain where it reached at the
+point `lexer->mark_end` was called.
+
 ```c
 bool tree_sitter_my_language_external_scanner_scan(
   void *payload,
@@ -120,8 +134,7 @@ bool tree_sitter_my_language_external_scanner_scan(
 }
 ```
 
-This function is responsible for recognizing external tokens. It should return `true` if a token was recognized, and `false`
-otherwise. It is called with a "lexer" struct with the following fields:
+The second parameter to this function is the lexer, of type `TSLexer`. The `TSLexer` struct has the following fields:
 
 - **`int32_t lookahead`** — The current next character in the input stream, represented as a 32-bit unicode code point.
 
