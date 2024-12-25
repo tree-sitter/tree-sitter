@@ -206,6 +206,11 @@ input[type="checkbox"]:focus {
   background: rgba(36, 99, 180, 0.12) !important;
 }
 
+.query-error {
+  text-decoration: underline red dashed;
+  -webkit-text-decoration: underline red dashed;
+}
+
 /* Output Container Styles */
 #output-container {
   color: #080808;
@@ -228,6 +233,10 @@ input[type="checkbox"]:focus {
 #output-container a {
   color: var(--primary-color);
   text-decoration: none;
+}
+
+#output-container a:hover {
+  text-decoration: underline;
 }
 
 #output-container a.node-link.anonymous {
