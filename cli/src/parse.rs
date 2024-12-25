@@ -204,10 +204,11 @@ pub struct ParseSummary {
     pub start: Option<ParsePoint>,
     pub end: Option<ParsePoint>,
     pub duration: Option<Duration>,
-    pub bytes: Option<u128>,
+    pub bytes: Option<usize>,
 }
 
 impl ParseSummary {
+    #[must_use]
     pub fn new(path: &Path) -> Self {
         Self {
             file: path.to_path_buf(),
@@ -217,19 +218,10 @@ impl ParseSummary {
     }
 }
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Debug, Default)]
 pub struct ParseStats {
     pub parse_summaries: Vec<ParseSummary>,
     pub cumulative_stats: Stats,
-}
-
-impl ParseStats {
-    pub fn new() -> Self {
-        Self {
-            parse_summaries: Vec::new(),
-            cumulative_stats: Stats::default(),
-        }
-    }
 }
 
 pub struct ParseFileOptions<'a> {
@@ -260,8 +252,8 @@ pub fn parse_file_at_path(
     path: &Path,
     name: &str,
     max_path_length: usize,
-    opts: &ParseFileOptions,
-) -> Result<ParseResult> {
+    opts: &mut ParseFileOptions,
+) -> Result<()> {
     let mut _log_session = None;
     parser.set_language(language)?;
     let mut source_code = fs::read(path).with_context(|| format!("Error reading {name:?}"))?;
@@ -397,10 +389,6 @@ pub fn parse_file_at_path(
         let edit_duration = edit_time.elapsed();
 
         parser.stop_printing_dot_graphs();
-
-        let current_summary = opts.stats.parse_summaries.last_mut().unwrap();
-        current_summary.start = Some(tree.root_node().start_position().into());
-        current_summary.end = Some(tree.root_node().end_position().into());
 
         let parse_duration_ms = parse_duration.as_micros() as f64 / 1e3;
         let edit_duration_ms = edit_duration.as_micros() as f64 / 1e3;
@@ -656,11 +644,16 @@ pub fn parse_file_at_path(
             writeln!(&mut stdout)?;
         }
 
-        return Ok(ParseResult {
-            successful: first_error.is_none(),
-            bytes: source_code.len(),
+        opts.stats.parse_summaries.push(ParseSummary {
+            file: path.to_path_buf(),
+            successful: true,
+            start: Some(tree.root_node().start_position().into()),
+            end: Some(tree.root_node().end_position().into()),
             duration: Some(parse_duration),
+            bytes: Some(source_code.len()),
         });
+
+        return Ok(());
     }
     parser.stop_printing_dot_graphs();
 
@@ -675,11 +668,16 @@ pub fn parse_file_at_path(
         )?;
     }
 
-    Ok(ParseResult {
+    opts.stats.parse_summaries.push(ParseSummary {
+        file: path.to_path_buf(),
         successful: false,
-        bytes: source_code.len(),
+        start: None,
+        end: None,
         duration: None,
-    })
+        bytes: Some(source_code.len()),
+    });
+
+    Ok(())
 }
 
 const fn escape_invisible(c: char) -> Option<&'static str> {

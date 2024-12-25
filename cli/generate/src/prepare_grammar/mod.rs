@@ -12,7 +12,14 @@ use std::{
     mem,
 };
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
+pub use expand_tokens::ExpandTokensError;
+pub use extract_tokens::ExtractTokensError;
+pub use flatten_grammar::FlattenGrammarError;
+pub use intern_symbols::InternSymbolsError;
+pub use process_inlines::ProcessInlinesError;
+use serde::Serialize;
+use thiserror::Error;
 
 pub use self::expand_tokens::expand_tokens;
 use self::{
@@ -67,11 +74,67 @@ impl<T, U> Default for IntermediateGrammar<T, U> {
     }
 }
 
+pub type PrepareGrammarResult<T> = Result<T, PrepareGrammarError>;
+
+#[derive(Debug, Error, Serialize)]
+#[error(transparent)]
+pub enum PrepareGrammarError {
+    ValidatePrecedences(#[from] ValidatePrecedenceError),
+    InternSymbols(#[from] InternSymbolsError),
+    ExtractTokens(#[from] ExtractTokensError),
+    FlattenGrammar(#[from] FlattenGrammarError),
+    ExpandTokens(#[from] ExpandTokensError),
+    ProcessInlines(#[from] ProcessInlinesError),
+}
+
+pub type ValidatePrecedenceResult<T> = Result<T, ValidatePrecedenceError>;
+
+#[derive(Debug, Error, Serialize)]
+#[error(transparent)]
+pub enum ValidatePrecedenceError {
+    Undeclared(#[from] UndeclaredPrecedenceError),
+    Ordering(#[from] ConflictingPrecedenceOrderingError),
+}
+
+#[derive(Debug, Error, Serialize)]
+pub struct UndeclaredPrecedenceError {
+    pub precedence: String,
+    pub rule: String,
+}
+
+impl std::fmt::Display for UndeclaredPrecedenceError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Undeclared precedence '{}' in rule '{}'",
+            self.precedence, self.rule
+        )?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Error, Serialize)]
+pub struct ConflictingPrecedenceOrderingError {
+    pub precedence_1: String,
+    pub precedence_2: String,
+}
+
+impl std::fmt::Display for ConflictingPrecedenceOrderingError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Conflicting orderings for precedences {} and {}",
+            self.precedence_1, self.precedence_2
+        )?;
+        Ok(())
+    }
+}
+
 /// Transform an input grammar into separate components that are ready
 /// for parse table construction.
 pub fn prepare_grammar(
     input_grammar: &InputGrammar,
-) -> Result<(
+) -> PrepareGrammarResult<(
     SyntaxGrammar,
     LexicalGrammar,
     InlinedProductionMap,
@@ -92,10 +155,14 @@ pub fn prepare_grammar(
 /// Check that all of the named precedences used in the grammar are declared
 /// within the `precedences` lists, and also that there are no conflicting
 /// precedence orderings declared in those lists.
-fn validate_precedences(grammar: &InputGrammar) -> Result<()> {
+fn validate_precedences(grammar: &InputGrammar) -> ValidatePrecedenceResult<()> {
     // Check that no rule contains a named precedence that is not present in
     // any of the `precedences` lists.
-    fn validate(rule_name: &str, rule: &Rule, names: &HashSet<&String>) -> Result<()> {
+    fn validate(
+        rule_name: &str,
+        rule: &Rule,
+        names: &HashSet<&String>,
+    ) -> ValidatePrecedenceResult<()> {
         match rule {
             Rule::Repeat(rule) => validate(rule_name, rule, names),
             Rule::Seq(elements) | Rule::Choice(elements) => elements
@@ -104,7 +171,10 @@ fn validate_precedences(grammar: &InputGrammar) -> Result<()> {
             Rule::Metadata { rule, params } => {
                 if let Precedence::Name(n) = &params.precedence {
                     if !names.contains(n) {
-                        return Err(anyhow!("Undeclared precedence '{n}' in rule '{rule_name}'"));
+                        Err(UndeclaredPrecedenceError {
+                            precedence: n.to_string(),
+                            rule: rule_name.to_string(),
+                        })?;
                     }
                 }
                 validate(rule_name, rule, names)?;
@@ -134,9 +204,10 @@ fn validate_precedences(grammar: &InputGrammar) -> Result<()> {
                     }
                     hash_map::Entry::Occupied(e) => {
                         if e.get() != &ordering {
-                            return Err(anyhow!(
-                                "Conflicting orderings for precedences {entry1} and {entry2}",
-                            ));
+                            Err(ConflictingPrecedenceOrderingError {
+                                precedence_1: entry1.to_string(),
+                                precedence_2: entry2.to_string(),
+                            })?;
                         }
                     }
                 }

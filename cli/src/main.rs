@@ -22,7 +22,7 @@ use tree_sitter_cli::{
     init::{generate_grammar_files, get_root_path, migrate_package_json, JsonConfigOpts},
     input::{get_input, get_tmp_source_file, CliInput},
     logger,
-    parse::{self, ParseFileOptions, ParseOutput, ParseResult, ParseTheme},
+    parse::{self, ParseFileOptions, ParseOutput, ParseTheme},
     playground, query,
     tags::{self, TagsOptions},
     test::{self, TestOptions, TestStats},
@@ -121,6 +121,9 @@ struct Generate {
     /// Produce a report of the states for the given rule, use `-` to report every rule
     #[arg(long)]
     pub report_states_for_rule: Option<String>,
+    /// Report conflicts in a JSON format
+    #[arg(long)]
+    pub json: bool,
     /// The name or path of the JavaScript runtime to use for generating parsers
     #[arg(
         long,
@@ -215,7 +218,7 @@ struct Parse {
     pub open_log: bool,
     /// Output parsing results in a JSON format
     #[arg(long, short = 'j')]
-    pub output_json_summary: bool,
+    pub json: bool,
     /// The path to an alternative config.json file
     #[arg(long)]
     pub config_path: Option<PathBuf>,
@@ -729,14 +732,22 @@ impl Generate {
                         version.parse().expect("invalid abi version flag")
                     }
                 });
-        tree_sitter_generate::generate_parser_in_directory(
+        if let Err(err) = tree_sitter_generate::generate_parser_in_directory(
             current_dir,
             self.output.as_deref(),
             self.grammar_path.as_deref(),
             abi_version,
             self.report_states_for_rule.as_deref(),
             self.js_runtime.as_deref(),
-        )?;
+        ) {
+            if self.json {
+                eprintln!("{}", serde_json::to_string_pretty(&err)?);
+                // Exit early to prevent errors from being printed a second time in the caller
+                std::process::exit(1);
+            } else {
+                return Err(err.into());
+            }
+        }
         if self.build {
             if let Some(path) = self.libdir {
                 loader = loader::Loader::with_parser_lib_path(PathBuf::from(path));
@@ -815,7 +826,7 @@ impl Parse {
             ParseOutput::Xml
         } else if self.output_cst {
             ParseOutput::Cst
-        } else if self.quiet || self.output_json_summary {
+        } else if self.quiet || self.json {
             ParseOutput::Quiet
         } else {
             ParseOutput::Normal
@@ -862,9 +873,9 @@ impl Parse {
         loader.find_all_languages(&loader_config)?;
 
         let should_track_stats = self.stat;
-        let mut stats = parse::ParseStats::new();
+        let mut stats = parse::ParseStats::default();
 
-        let options = ParseFileOptions {
+        let mut options = ParseFileOptions {
             edits: &edits
                 .iter()
                 .map(std::string::String::as_str)
@@ -872,6 +883,7 @@ impl Parse {
             output,
             print_time: time,
             timeout,
+            stats: &mut stats,
             debug: self.debug,
             debug_graph: self.debug_graph,
             cancellation_flag: Some(&cancellation_flag),
@@ -881,14 +893,15 @@ impl Parse {
             parse_theme: &parse_theme,
         };
 
-        let mut update_stats = |parse_result: ParseResult| {
+        let mut update_stats = |stats: &mut parse::ParseStats| {
+            let parse_result = stats.parse_summaries.last().unwrap();
             if should_track_stats {
-                stats.total_parses += 1;
+                stats.cumulative_stats.total_parses += 1;
                 if parse_result.successful {
                     stats.cumulative_stats.successful_parses += 1;
                 }
-                if let Some(duration) = parse_result.duration {
-                    stats.cumulative_stats.total_bytes += parse_result.bytes;
+                if let (Some(duration), Some(bytes)) = (parse_result.duration, parse_result.bytes) {
+                    stats.cumulative_stats.total_bytes += bytes;
                     stats.cumulative_stats.total_duration += duration;
                 }
             }
@@ -915,15 +928,15 @@ impl Parse {
                     let language =
                         loader.select_language(path, current_dir, self.scope.as_deref())?;
 
-                    let parse_result = parse::parse_file_at_path(
+                    parse::parse_file_at_path(
                         &mut parser,
                         &language,
                         path,
                         &path.display().to_string(),
                         max_path_length,
-                        &options,
+                        &mut options,
                     )?;
-                    update_stats(parse_result);
+                    update_stats(options.stats);
                 }
             }
 
@@ -941,15 +954,15 @@ impl Parse {
                     .map(|(l, _)| l.clone())
                     .ok_or_else(|| anyhow!("No language found"))?;
 
-                let parse_result = parse::parse_file_at_path(
+                parse::parse_file_at_path(
                     &mut parser,
                     &language,
                     &path,
                     &name,
                     name.chars().count(),
-                    &options,
+                    &mut options,
                 )?;
-                update_stats(parse_result);
+                update_stats(&mut stats);
                 fs::remove_file(path)?;
             }
 
@@ -961,15 +974,15 @@ impl Parse {
                 let name = "stdin";
                 let language = loader.select_language(&path, current_dir, None)?;
 
-                let parse_result = parse::parse_file_at_path(
+                parse::parse_file_at_path(
                     &mut parser,
                     &language,
                     &path,
                     name,
                     name.chars().count(),
-                    &options,
+                    &mut options,
                 )?;
-                update_stats(parse_result);
+                update_stats(&mut stats);
                 fs::remove_file(path)?;
             }
         }
@@ -977,7 +990,7 @@ impl Parse {
         if should_track_stats {
             println!("\n{}", stats.cumulative_stats);
         }
-        if self.output_json_summary {
+        if self.json {
             println!("{}", serde_json::to_string_pretty(&stats)?);
         }
 
