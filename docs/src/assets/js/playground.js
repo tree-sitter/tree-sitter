@@ -1,3 +1,23 @@
+function initializeLocalTheme() {
+  const themeToggle = document.getElementById('theme-toggle');
+  if (!themeToggle) return;
+
+  // Load saved theme or use system preference
+  const savedTheme = localStorage.getItem('theme');
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const initialTheme = savedTheme || (prefersDark ? 'dark' : 'light');
+
+  // Set initial theme
+  document.documentElement.setAttribute('data-theme', initialTheme);
+
+  themeToggle.addEventListener('click', () => {
+    const currentTheme = document.documentElement.getAttribute('data-theme');
+    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', newTheme);
+    localStorage.setItem('theme', newTheme);
+  });
+}
+
 function initializeCustomSelect() {
   const button = document.getElementById('language-button');
   const select = document.getElementById('language-select');
@@ -31,7 +51,11 @@ function initializeCustomSelect() {
   });
 }
 
-window.initializePlayground = async function initializePlayground() {
+window.initializePlayground = async function initializePlayground(opts) {
+  const { local } = opts;
+  if (local) {
+    initializeLocalTheme();
+  }
   initializeCustomSelect();
 
   let tree;
@@ -214,7 +238,6 @@ window.initializePlayground = async function initializePlayground() {
       }
 
       let displayName;
-      let displayClass = 'plain';
       if (cursor.nodeIsMissing) {
         const nodeTypeText = cursor.nodeIsNamed ? cursor.nodeType : `"${cursor.nodeType}"`;
         displayName = `MISSING ${nodeTypeText}`;
