@@ -2,8 +2,14 @@ name: Check Bindgen Output
 
 on:
   pull_request:
+    paths:
+      - lib/include/tree_sitter/api.h
+      - lib/binding_rust/bindings.rs
   push:
     branches: [master]
+    paths:
+      - lib/include/tree_sitter/api.h
+      - lib/binding_rust/bindings.rs
 
 jobs:
   check-bindgen:
