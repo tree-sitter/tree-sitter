@@ -157,6 +157,7 @@ static inline bool ts_subtree_can_inline(Length padding, Length size, uint32_t l
     padding.bytes < TS_MAX_INLINE_TREE_LENGTH &&
     padding.extent.row < 16 &&
     padding.extent.column < TS_MAX_INLINE_TREE_LENGTH &&
+    size.bytes < TS_MAX_INLINE_TREE_LENGTH &&
     size.extent.row == 0 &&
     size.extent.column < TS_MAX_INLINE_TREE_LENGTH &&
     lookahead_bytes < 16;
