@@ -114,7 +114,8 @@ struct Generate {
         help = "Produce a report of the states for the given rule, use `-` to report every rule"
     )]
     pub report_states_for_rule: Option<String>,
-
+    #[arg(long, help = "Report conflicts in a JSON format")]
+    pub json_errors: bool,
     #[arg(
         long,
         value_name = "EXECUTABLE",
@@ -727,14 +728,22 @@ impl Generate {
                         version.parse().expect("invalid abi version flag")
                     }
                 });
-        tree_sitter_generate::generate_parser_in_directory(
+        if let Err(err) = tree_sitter_generate::generate_parser_in_directory(
             current_dir,
             self.output.as_deref(),
             self.grammar_path.as_deref(),
             abi_version,
             self.report_states_for_rule.as_deref(),
             self.js_runtime.as_deref(),
-        )?;
+        ) {
+            if self.json_errors {
+                eprintln!("{}", serde_json::to_string_pretty(&err)?);
+            } else {
+                eprintln!("{err}");
+            }
+            // Exit early to prevent errors from being printed a second time in the caller
+            std::process::exit(1);
+        }
         if self.build {
             if let Some(path) = self.libdir {
                 loader = loader::Loader::with_parser_lib_path(PathBuf::from(path));
@@ -874,7 +883,7 @@ impl Parse {
         loader.find_all_languages(&loader_config)?;
 
         let should_track_stats = self.stat;
-        let mut stats = parse::ParseStats::new();
+        let mut stats = parse::ParseStats::default();
 
         for path in &paths {
             let path = Path::new(&path);

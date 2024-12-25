@@ -1,13 +1,13 @@
 use std::{
     cmp::Ordering,
-    collections::{BTreeMap, HashMap, HashSet, VecDeque},
-    fmt::Write,
+    collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque},
     hash::BuildHasherDefault,
 };
 
-use anyhow::{anyhow, Result};
 use indexmap::{map::Entry, IndexMap};
 use rustc_hash::FxHasher;
+use serde::Serialize;
+use thiserror::Error;
 
 use super::{
     item::{ParseItem, ParseItemSet, ParseItemSetCore, ParseItemSetEntry},
@@ -64,6 +64,176 @@ struct ParseTableBuilder<'a> {
     parse_table: ParseTable,
 }
 
+pub type BuildTableResult<T> = Result<T, ParseTableBuilderError>;
+
+#[derive(Debug, Error, Serialize)]
+pub enum ParseTableBuilderError {
+    #[error("Unresolved conflict for symbol sequence:\n\n{0}")]
+    Conflict(#[from] ConflictError),
+    #[error("Extra rules must have unambiguous endings. Conflicting rules: {0}")]
+    AmbiguousExtra(#[from] AmbiguousExtraError),
+}
+
+#[derive(Default, Debug, Serialize)]
+pub struct ConflictError {
+    pub symbol_sequence: Vec<String>,
+    pub conflicting_lookahead: String,
+    pub possible_interpretations: Vec<Interpretation>,
+    pub possible_resolutions: Vec<Resolution>,
+}
+
+#[derive(Default, Debug, Serialize)]
+pub struct Interpretation {
+    pub preceding_symbols: Vec<String>,
+    pub variable_name: String,
+    pub production_step_symbols: Vec<String>,
+    pub step_index: u32,
+    pub done: bool,
+    pub conflicting_lookahead: String,
+    pub precedence: Option<String>,
+    pub associativity: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub enum Resolution {
+    Precedence { symbols: Vec<String> },
+    Associativity { symbols: Vec<String> },
+    AddConflict { symbols: Vec<String> },
+}
+
+#[derive(Debug, Serialize)]
+pub struct AmbiguousExtraError {
+    pub parent_symbols: Vec<String>,
+}
+
+impl std::fmt::Display for ConflictError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        for symbol in &self.symbol_sequence {
+            write!(f, "  {symbol}")?;
+        }
+        writeln!(f, "  •  {}  …\n", self.conflicting_lookahead)?;
+
+        writeln!(f, "Possible interpretations:\n")?;
+        let mut interpretations = self
+            .possible_interpretations
+            .iter()
+            .map(|i| {
+                let line = i.to_string();
+                let prec_line = if let (Some(precedence), Some(associativity)) =
+                    (&i.precedence, &i.associativity)
+                {
+                    Some(format!(
+                        "(precedence: {precedence}, associativity: {associativity})",
+                    ))
+                } else {
+                    i.precedence
+                        .as_ref()
+                        .map(|precedence| format!("(precedence: {precedence})"))
+                };
+
+                (line, prec_line)
+            })
+            .collect::<Vec<_>>();
+        let max_interpretation_length = interpretations
+            .iter()
+            .map(|i| i.0.chars().count())
+            .max()
+            .unwrap();
+        interpretations.sort_unstable();
+        for (i, (line, prec_suffix)) in interpretations.into_iter().enumerate() {
+            write!(f, "  {}:", i + 1).unwrap();
+            write!(f, "{line}")?;
+            if let Some(prec_suffix) = prec_suffix {
+                write!(
+                    f,
+                    "{:1$}",
+                    "",
+                    max_interpretation_length.saturating_sub(line.chars().count()) + 2
+                )?;
+                write!(f, "{prec_suffix}")?;
+            }
+            writeln!(f)?;
+        }
+
+        writeln!(f, "\nPossible resolutions:\n")?;
+        for (i, resolution) in self.possible_resolutions.iter().enumerate() {
+            writeln!(f, "  {}:  {resolution}", i + 1)?;
+        }
+        Ok(())
+    }
+}
+
+impl std::fmt::Display for Interpretation {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        for symbol in &self.preceding_symbols {
+            write!(f, "  {symbol}")?;
+        }
+        write!(f, "  ({}", self.variable_name)?;
+        for (i, symbol) in self.production_step_symbols.iter().enumerate() {
+            if i == self.step_index as usize {
+                write!(f, "  •")?;
+            }
+            write!(f, "  {symbol}")?;
+        }
+        write!(f, ")")?;
+        if self.done {
+            write!(f, "  •  {}  …", self.conflicting_lookahead)?;
+        }
+        Ok(())
+    }
+}
+
+impl std::fmt::Display for Resolution {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Self::Precedence { symbols } => {
+                write!(f, "Specify a higher precedence in ")?;
+                for (i, symbol) in symbols.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, " and ")?;
+                    }
+                    write!(f, "`{symbol}`")?;
+                }
+                write!(f, " than in the other rules.")?;
+            }
+            Self::Associativity { symbols } => {
+                write!(f, "Specify a left or right associativity in ")?;
+                for (i, symbol) in symbols.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "`{symbol}`")?;
+                }
+            }
+            Self::AddConflict { symbols } => {
+                write!(f, "Add a conflict for these rules: ")?;
+                for (i, symbol) in symbols.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "`{symbol}`")?;
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+impl std::fmt::Display for AmbiguousExtraError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        for (i, symbol) in self.parent_symbols.iter().enumerate() {
+            if i > 0 {
+                write!(f, ", ")?;
+            }
+            write!(f, "{symbol}")?;
+        }
+        Ok(())
+    }
+}
+
+impl std::error::Error for ConflictError {}
+impl std::error::Error for AmbiguousExtraError {}
+
 impl<'a> ParseTableBuilder<'a> {
     fn new(
         syntax_grammar: &'a SyntaxGrammar,
@@ -92,7 +262,7 @@ impl<'a> ParseTableBuilder<'a> {
         }
     }
 
-    fn build(mut self) -> Result<(ParseTable, Vec<ParseStateInfo<'a>>)> {
+    fn build(mut self) -> BuildTableResult<(ParseTable, Vec<ParseStateInfo<'a>>)> {
         // Ensure that the empty alias sequence has index 0.
         self.parse_table
             .production_infos
@@ -222,7 +392,7 @@ impl<'a> ParseTableBuilder<'a> {
         mut preceding_auxiliary_symbols: AuxiliarySymbolSequence,
         state_id: ParseStateId,
         item_set: &ParseItemSet<'a>,
-    ) -> Result<()> {
+    ) -> BuildTableResult<()> {
         let mut terminal_successors = BTreeMap::new();
         let mut non_terminal_successors = BTreeMap::new();
         let mut lookaheads_with_conflicts = TokenSet::new();
@@ -426,15 +596,18 @@ impl<'a> ParseTableBuilder<'a> {
                         }
                     })
                     .collect::<HashSet<_>>();
-                let mut message =
-                    "Extra rules must have unambiguous endings. Conflicting rules: ".to_string();
-                for (i, variable_index) in parent_symbols.iter().enumerate() {
-                    if i > 0 {
-                        message += ", ";
-                    }
-                    message += &self.syntax_grammar.variables[*variable_index as usize].name;
-                }
-                return Err(anyhow!(message));
+                let parent_symbol_names = parent_symbols
+                    .iter()
+                    .map(|&variable_index| {
+                        self.syntax_grammar.variables[variable_index as usize]
+                            .name
+                            .clone()
+                    })
+                    .collect::<Vec<_>>();
+
+                Err(AmbiguousExtraError {
+                    parent_symbols: parent_symbol_names,
+                })?;
             }
         }
         // Add actions for the start tokens of each non-terminal extra rule.
@@ -507,7 +680,7 @@ impl<'a> ParseTableBuilder<'a> {
         preceding_auxiliary_symbols: &[AuxiliarySymbolInfo],
         conflicting_lookahead: Symbol,
         reduction_info: &ReductionInfo,
-    ) -> Result<()> {
+    ) -> BuildTableResult<()> {
         let entry = self.parse_table.states[state_id]
             .terminal_entries
             .get_mut(&conflicting_lookahead)
@@ -521,7 +694,7 @@ impl<'a> ParseTableBuilder<'a> {
         // precedence, and there can still be SHIFT/REDUCE conflicts.
         let mut considered_associativity = false;
         let mut shift_precedence = Vec::<(&Precedence, Symbol)>::new();
-        let mut conflicting_items = HashSet::new();
+        let mut conflicting_items = BTreeSet::new();
         for ParseItemSetEntry {
             item, lookaheads, ..
         } in &item_set.entries
@@ -662,93 +835,55 @@ impl<'a> ParseTableBuilder<'a> {
             return Ok(());
         }
 
-        let mut msg = "Unresolved conflict for symbol sequence:\n\n".to_string();
+        let mut conflict_error = ConflictError::default();
         for symbol in preceding_symbols {
-            write!(&mut msg, "  {}", self.symbol_name(symbol)).unwrap();
+            conflict_error
+                .symbol_sequence
+                .push(self.symbol_name(symbol).to_string());
         }
+        conflict_error.conflicting_lookahead = self.symbol_name(&conflicting_lookahead).to_string();
 
-        writeln!(
-            &mut msg,
-            "  •  {}  …\n",
-            self.symbol_name(&conflicting_lookahead)
-        )
-        .unwrap();
-        writeln!(&mut msg, "Possible interpretations:\n").unwrap();
-
-        let mut interpretations = conflicting_items
+        let interpretations = conflicting_items
             .iter()
             .map(|item| {
-                let mut line = String::new();
-                for preceding_symbol in preceding_symbols
+                let preceding_symbols = preceding_symbols
                     .iter()
                     .take(preceding_symbols.len() - item.step_index as usize)
-                {
-                    write!(&mut line, "  {}", self.symbol_name(preceding_symbol)).unwrap();
-                }
+                    .map(|symbol| self.symbol_name(symbol).to_string())
+                    .collect::<Vec<_>>();
 
-                write!(
-                    &mut line,
-                    "  ({}",
-                    &self.syntax_grammar.variables[item.variable_index as usize].name
-                )
-                .unwrap();
+                let variable_name = self.syntax_grammar.variables[item.variable_index as usize]
+                    .name
+                    .clone();
 
-                for (j, step) in item.production.steps.iter().enumerate() {
-                    if j as u32 == item.step_index {
-                        write!(&mut line, "  •").unwrap();
-                    }
-                    write!(&mut line, "  {}", self.symbol_name(&step.symbol)).unwrap();
-                }
+                let production_step_symbols = item
+                    .production
+                    .steps
+                    .iter()
+                    .map(|step| self.symbol_name(&step.symbol).to_string())
+                    .collect::<Vec<_>>();
 
-                write!(&mut line, ")").unwrap();
-
-                if item.is_done() {
-                    write!(
-                        &mut line,
-                        "  •  {}  …",
-                        self.symbol_name(&conflicting_lookahead)
-                    )
-                    .unwrap();
-                }
-
-                let precedence = item.precedence();
-                let associativity = item.associativity();
-
-                let prec_line = if let Some(associativity) = associativity {
-                    Some(format!(
-                        "(precedence: {precedence}, associativity: {associativity:?})",
-                    ))
-                } else if !precedence.is_none() {
-                    Some(format!("(precedence: {precedence})"))
-                } else {
-                    None
+                let precedence = match item.precedence() {
+                    Precedence::None => None,
+                    _ => Some(item.precedence().to_string()),
                 };
 
-                (line, prec_line)
+                let associativity = item.associativity().map(|assoc| format!("{assoc:?}"));
+
+                Interpretation {
+                    preceding_symbols,
+                    variable_name,
+                    production_step_symbols,
+                    step_index: item.step_index,
+                    done: item.is_done(),
+                    conflicting_lookahead: self.symbol_name(&conflicting_lookahead).to_string(),
+                    precedence,
+                    associativity,
+                }
             })
             .collect::<Vec<_>>();
+        conflict_error.possible_interpretations = interpretations;
 
-        let max_interpretation_length = interpretations
-            .iter()
-            .map(|i| i.0.chars().count())
-            .max()
-            .unwrap();
-        interpretations.sort_unstable();
-        for (i, (line, prec_suffix)) in interpretations.into_iter().enumerate() {
-            write!(&mut msg, "  {}:", i + 1).unwrap();
-            msg += &line;
-            if let Some(prec_suffix) = prec_suffix {
-                for _ in line.chars().count()..max_interpretation_length {
-                    msg.push(' ');
-                }
-                msg += "  ";
-                msg += &prec_suffix;
-            }
-            msg.push('\n');
-        }
-
-        let mut resolution_count = 0;
-        writeln!(&mut msg, "\nPossible resolutions:\n").unwrap();
         let mut shift_items = Vec::new();
         let mut reduce_items = Vec::new();
         for item in conflicting_items {
@@ -761,76 +896,57 @@ impl<'a> ParseTableBuilder<'a> {
         shift_items.sort_unstable();
         reduce_items.sort_unstable();
 
-        let list_rule_names = |mut msg: &mut String, items: &[&ParseItem]| {
+        let get_rule_names = |items: &[&ParseItem]| -> Vec<String> {
             let mut last_rule_id = None;
+            let mut result = Vec::new();
             for item in items {
                 if last_rule_id == Some(item.variable_index) {
                     continue;
                 }
-
-                if last_rule_id.is_some() {
-                    write!(&mut msg, " and").unwrap();
-                }
-
                 last_rule_id = Some(item.variable_index);
-                write!(
-                    msg,
-                    " `{}`",
-                    self.symbol_name(&Symbol::non_terminal(item.variable_index as usize))
-                )
-                .unwrap();
+                result.push(self.symbol_name(&Symbol::non_terminal(item.variable_index as usize)));
             }
+
+            result
         };
 
         if actual_conflict.len() > 1 {
             if !shift_items.is_empty() {
-                resolution_count += 1;
-                write!(
-                    &mut msg,
-                    "  {resolution_count}:  Specify a higher precedence in",
-                )
-                .unwrap();
-                list_rule_names(&mut msg, &shift_items);
-                writeln!(&mut msg, " than in the other rules.").unwrap();
+                let names = get_rule_names(&shift_items);
+                conflict_error
+                    .possible_resolutions
+                    .push(Resolution::Precedence { symbols: names });
             }
 
             for item in &reduce_items {
-                resolution_count += 1;
-                writeln!(
-                    &mut msg,
-                    "  {resolution_count}:  Specify a higher precedence in `{}` than in the other rules.",
-                    self.symbol_name(&Symbol::non_terminal(item.variable_index as usize))
-                )
-                .unwrap();
+                let name = self.symbol_name(&Symbol::non_terminal(item.variable_index as usize));
+                conflict_error
+                    .possible_resolutions
+                    .push(Resolution::Precedence {
+                        symbols: vec![name],
+                    });
             }
         }
 
         if considered_associativity {
-            resolution_count += 1;
-            write!(
-                &mut msg,
-                "  {resolution_count}:  Specify a left or right associativity in",
-            )
-            .unwrap();
-            list_rule_names(&mut msg, &reduce_items);
-            writeln!(&mut msg).unwrap();
+            let names = get_rule_names(&reduce_items);
+            conflict_error
+                .possible_resolutions
+                .push(Resolution::Associativity { symbols: names });
         }
 
-        resolution_count += 1;
-        write!(
-            &mut msg,
-            "  {resolution_count}:  Add a conflict for these rules: ",
-        )
-        .unwrap();
-        for (i, symbol) in actual_conflict.iter().enumerate() {
-            if i > 0 {
-                write!(&mut msg, ", ").unwrap();
-            }
-            write!(&mut msg, "`{}`", self.symbol_name(symbol)).unwrap();
-        }
-        writeln!(&mut msg).unwrap();
+        conflict_error
+            .possible_resolutions
+            .push(Resolution::AddConflict {
+                symbols: actual_conflict
+                    .iter()
+                    .map(|s| self.symbol_name(s))
+                    .collect(),
+            });
 
-        Err(anyhow!(msg))
+        self.actual_conflicts.insert(actual_conflict);
+
+        Err(conflict_error)?
     }
 
     fn compare_precedence(
@@ -999,7 +1115,7 @@ pub fn build_parse_table<'a>(
     lexical_grammar: &'a LexicalGrammar,
     item_set_builder: ParseItemSetBuilder<'a>,
     variable_info: &'a [VariableInfo],
-) -> Result<(ParseTable, Vec<ParseStateInfo<'a>>)> {
+) -> BuildTableResult<(ParseTable, Vec<ParseStateInfo<'a>>)> {
     ParseTableBuilder::new(
         syntax_grammar,
         lexical_grammar,

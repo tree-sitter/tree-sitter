@@ -208,6 +208,7 @@ pub struct ParseSummary {
 }
 
 impl ParseSummary {
+    #[must_use]
     pub fn new(path: &Path) -> Self {
         Self {
             file: path.to_path_buf(),
@@ -217,19 +218,10 @@ impl ParseSummary {
     }
 }
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Debug, Default)]
 pub struct ParseStats {
     pub parse_summaries: Vec<ParseSummary>,
     pub cumulative_stats: Stats,
-}
-
-impl ParseStats {
-    pub fn new() -> Self {
-        Self {
-            parse_summaries: Vec::new(),
-            cumulative_stats: Stats::default(),
-        }
-    }
 }
 
 pub struct ParseFileOptions<'a> {
