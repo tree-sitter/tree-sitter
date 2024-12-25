@@ -28,7 +28,7 @@ use std::os::fd::AsRawFd;
 #[cfg(all(windows, feature = "std"))]
 use std::os::windows::io::AsRawHandle;
 
-use streaming_iterator::{StreamingIterator, StreamingIteratorMut};
+pub use streaming_iterator::{StreamingIterator, StreamingIteratorMut};
 use tree_sitter_language::LanguageFn;
 
 #[cfg(feature = "wasm")]
@@ -2962,6 +2962,10 @@ impl QueryCursor {
     /// captures. Because multiple patterns can match the same set of nodes,
     /// one match may contain captures that appear *before* some of the
     /// captures from a previous match.
+    ///
+    /// Iterating over a `QueryMatches` object requires the `StreamingIterator`
+    /// or `StreamingIteratorMut` trait to be in scope. This can be done via
+    /// `use tree_sitter::StreamingIterator` or `use tree_sitter::StreamingIteratorMut`
     #[doc(alias = "ts_query_cursor_exec")]
     pub fn matches<'query, 'cursor: 'query, 'tree, T: TextProvider<I>, I: AsRef<[u8]>>(
         &'cursor mut self,
@@ -3045,6 +3049,10 @@ impl QueryCursor {
     ///
     /// This is useful if you don't care about which pattern matched, and just
     /// want a single, ordered sequence of captures.
+    ///
+    /// Iterating over a `QueryCaptures` object requires the `StreamingIterator`
+    /// or `StreamingIteratorMut` trait to be in scope. This can be done via
+    /// `use tree_sitter::StreamingIterator` or `use tree_sitter::StreamingIteratorMut`
     #[doc(alias = "ts_query_cursor_exec")]
     pub fn captures<'query, 'cursor: 'query, 'tree, T: TextProvider<I>, I: AsRef<[u8]>>(
         &'cursor mut self,
