@@ -1,8 +1,9 @@
 use std::collections::HashSet;
 
-use anyhow::{anyhow, bail, Result};
-use serde::Deserialize;
+use anyhow::Result;
+use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
+use thiserror::Error;
 
 use super::{
     grammars::{InputGrammar, PrecedenceEntry, Variable, VariableType},
@@ -104,6 +105,26 @@ pub struct GrammarJSON {
     reserved: Map<String, Value>,
 }
 
+pub type ParseGrammarResult<T> = Result<T, ParseGrammarError>;
+
+#[derive(Debug, Error, Serialize)]
+pub enum ParseGrammarError {
+    #[error("{0}")]
+    Serialization(String),
+    #[error("Rules in the `extras` array must not contain empty strings")]
+    InvalidExtra,
+    #[error("Invalid rule in precedences array. Only strings and symbols are allowed")]
+    Unexpected,
+    #[error("Reserved word sets must be arrays")]
+    InvalidReservedWordSet,
+}
+
+impl From<serde_json::Error> for ParseGrammarError {
+    fn from(value: serde_json::Error) -> Self {
+        Self::Serialization(value.to_string())
+    }
+}
+
 fn rule_is_referenced(rule: &Rule, target: &str) -> bool {
     match rule {
         Rule::NamedSymbol(name) => name == target,
@@ -153,24 +174,22 @@ fn variable_is_used(
     result
 }
 
-pub(crate) fn parse_grammar(input: &str) -> Result<InputGrammar> {
+pub(crate) fn parse_grammar(input: &str) -> ParseGrammarResult<InputGrammar> {
     let mut grammar_json = serde_json::from_str::<GrammarJSON>(input)?;
 
     let mut extra_symbols =
         grammar_json
             .extras
             .into_iter()
-            .try_fold(Vec::new(), |mut acc, item| {
+            .try_fold(Vec::<Rule>::new(), |mut acc, item| {
                 let rule = parse_rule(item);
                 if let Rule::String(ref value) = rule {
                     if value.is_empty() {
-                        return Err(anyhow!(
-                            "Rules in the `extras` array must not contain empty strings"
-                        ));
+                        Err(ParseGrammarError::InvalidExtra)?;
                     }
                 }
                 acc.push(rule);
-                Ok(acc)
+                ParseGrammarResult::Ok(acc)
             })?;
 
     let mut external_tokens = grammar_json
@@ -186,11 +205,7 @@ pub(crate) fn parse_grammar(input: &str) -> Result<InputGrammar> {
             ordering.push(match entry {
                 RuleJSON::STRING { value } => PrecedenceEntry::Name(value),
                 RuleJSON::SYMBOL { name } => PrecedenceEntry::Symbol(name),
-                _ => {
-                    return Err(anyhow!(
-                        "Invalid rule in precedences array. Only strings and symbols are allowed"
-                    ))
-                }
+                _ => Err(ParseGrammarError::Unexpected)?,
             });
         }
         precedence_orderings.push(ordering);
@@ -202,7 +217,7 @@ pub(crate) fn parse_grammar(input: &str) -> Result<InputGrammar> {
         .rules
         .into_iter()
         .map(|(n, r)| Ok((n, parse_rule(serde_json::from_value(r)?))))
-        .collect::<Result<Vec<_>>>()?;
+        .collect::<ParseGrammarResult<Vec<_>>>()?;
 
     let mut in_progress = HashSet::new();
 
@@ -243,19 +258,18 @@ pub(crate) fn parse_grammar(input: &str) -> Result<InputGrammar> {
             let mut reserved_words = Vec::new();
 
             let Value::Array(rule_values) = rule_values else {
-                bail!("reserved word sets must be arrays");
+                Err(ParseGrammarError::InvalidReservedWordSet)?
             };
 
             for value in rule_values {
-                let rule_json: RuleJSON = serde_json::from_value(value)?;
-                reserved_words.push(parse_rule(rule_json));
+                reserved_words.push(parse_rule(serde_json::from_value(value)?));
             }
             Ok(ReservedWordContext {
                 name,
                 reserved_words,
             })
         })
-        .collect::<Result<Vec<_>>>()?;
+        .collect::<ParseGrammarResult<Vec<_>>>()?;
 
     Ok(InputGrammar {
         name: grammar_json.name,

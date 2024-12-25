@@ -5,12 +5,15 @@ use std::{
     process::{Command, Stdio},
 };
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::Result;
 use build_tables::build_tables;
 use grammars::InputGrammar;
 use lazy_static::lazy_static;
+pub use node_types::VariableInfoError;
 use parse_grammar::parse_grammar;
+pub use parse_grammar::ParseGrammarError;
 use prepare_grammar::prepare_grammar;
+pub use prepare_grammar::PrepareGrammarError;
 use regex::{Regex, RegexBuilder};
 use render::render_c_code;
 use semver::Version;
@@ -27,6 +30,10 @@ mod render;
 mod rules;
 mod tables;
 
+pub use build_tables::ParseTableBuilderError;
+use serde::Serialize;
+use thiserror::Error;
+
 lazy_static! {
     static ref JSON_COMMENT_REGEX: Regex = RegexBuilder::new("^\\s*//.*")
         .multi_line(true)
@@ -42,6 +49,88 @@ struct GeneratedParser {
 pub const ALLOC_HEADER: &str = include_str!("templates/alloc.h");
 pub const ARRAY_HEADER: &str = include_str!("templates/array.h");
 
+pub type GenerateResult<T> = Result<T, GenerateError>;
+
+#[derive(Debug, Error, Serialize)]
+pub enum GenerateError {
+    #[error("Error with specified path -- {0}")]
+    GrammarPath(String),
+    #[error("{0}")]
+    IO(String),
+    #[error(transparent)]
+    LoadGrammarFile(#[from] LoadGrammarError),
+    #[error(transparent)]
+    ParseGrammar(#[from] ParseGrammarError),
+    #[error(transparent)]
+    Prepare(#[from] PrepareGrammarError),
+    #[error(transparent)]
+    VariableInfo(#[from] VariableInfoError),
+    #[error(transparent)]
+    BuildTables(#[from] ParseTableBuilderError),
+}
+
+impl From<std::io::Error> for GenerateError {
+    fn from(value: std::io::Error) -> Self {
+        Self::IO(value.to_string())
+    }
+}
+
+pub type LoadGrammarFileResult<T> = Result<T, LoadGrammarError>;
+
+#[derive(Debug, Error, Serialize)]
+pub enum LoadGrammarError {
+    #[error("Path to a grammar file with `.js` or `.json` extension is required")]
+    InvalidPath,
+    #[error("Failed to load grammar.js -- {0}")]
+    LoadJSGrammarFile(#[from] JSError),
+    #[error("Failed to load grammar.json -- {0}")]
+    IO(String),
+    #[error("Unknown grammar file extension: {0:?}")]
+    FileExtension(PathBuf),
+}
+
+impl From<std::io::Error> for LoadGrammarError {
+    fn from(value: std::io::Error) -> Self {
+        Self::IO(value.to_string())
+    }
+}
+
+pub type JSResult<T> = Result<T, JSError>;
+
+#[derive(Debug, Error, Serialize)]
+pub enum JSError {
+    #[error("Failed to run `{runtime}` -- {error}")]
+    JSRuntimeSpawn { runtime: String, error: String },
+    #[error("Got invalid UTF8 from `{runtime}` -- {error}")]
+    JSRuntimeUtf8 { runtime: String, error: String },
+    #[error("`{runtime}` process exited with status {code}")]
+    JSRuntimeExit { runtime: String, code: i32 },
+    #[error("{0}")]
+    IO(String),
+    #[error("Could not parse this package's version as semver -- {0}")]
+    Semver(String),
+    #[error("Failed to serialze grammar JSON -- {0}")]
+    Serialzation(String),
+}
+
+impl From<std::io::Error> for JSError {
+    fn from(value: std::io::Error) -> Self {
+        Self::IO(value.to_string())
+    }
+}
+
+impl From<serde_json::Error> for JSError {
+    fn from(value: serde_json::Error) -> Self {
+        Self::Serialzation(value.to_string())
+    }
+}
+
+impl From<semver::Error> for JSError {
+    fn from(value: semver::Error) -> Self {
+        Self::Semver(value.to_string())
+    }
+}
+
 pub fn generate_parser_in_directory(
     repo_path: &Path,
     out_path: Option<&str>,
@@ -49,7 +138,7 @@ pub fn generate_parser_in_directory(
     abi_version: usize,
     report_symbol_name: Option<&str>,
     js_runtime: Option<&str>,
-) -> Result<()> {
+) -> GenerateResult<()> {
     let mut repo_path = repo_path.to_owned();
     let mut grammar_path = grammar_path;
 
@@ -58,7 +147,7 @@ pub fn generate_parser_in_directory(
         let path = PathBuf::from(path);
         if !path
             .try_exists()
-            .with_context(|| "Some error with specified path")?
+            .map_err(|e| GenerateError::GrammarPath(e.to_string()))?
         {
             fs::create_dir_all(&path)?;
             grammar_path = None;
@@ -79,8 +168,11 @@ pub fn generate_parser_in_directory(
     fs::create_dir_all(&header_path)?;
 
     if grammar_path.file_name().unwrap() != "grammar.json" {
-        fs::write(src_path.join("grammar.json"), &grammar_json)
-            .with_context(|| format!("Failed to write grammar.json to {src_path:?}"))?;
+        fs::write(src_path.join("grammar.json"), &grammar_json).map_err(|e| {
+            GenerateError::IO(format!(
+                "Failed to write grammar.json to {src_path:?} -- {e}"
+            ))
+        })?;
     }
 
     // Parse and preprocess the grammar.
@@ -101,7 +193,7 @@ pub fn generate_parser_in_directory(
     Ok(())
 }
 
-pub fn generate_parser_for_grammar(grammar_json: &str) -> Result<(String, String)> {
+pub fn generate_parser_for_grammar(grammar_json: &str) -> GenerateResult<(String, String)> {
     let grammar_json = JSON_COMMENT_REGEX.replace_all(grammar_json, "\n");
     let input_grammar = parse_grammar(&grammar_json)?;
     let parser =
@@ -113,7 +205,7 @@ fn generate_parser_for_grammar_with_opts(
     input_grammar: &InputGrammar,
     abi_version: usize,
     report_symbol_name: Option<&str>,
-) -> Result<GeneratedParser> {
+) -> GenerateResult<GeneratedParser> {
     let (syntax_grammar, lexical_grammar, inlines, simple_aliases) =
         prepare_grammar(input_grammar)?;
     let variable_info =
@@ -146,23 +238,21 @@ fn generate_parser_for_grammar_with_opts(
     })
 }
 
-pub fn load_grammar_file(grammar_path: &Path, js_runtime: Option<&str>) -> Result<String> {
+pub fn load_grammar_file(
+    grammar_path: &Path,
+    js_runtime: Option<&str>,
+) -> LoadGrammarFileResult<String> {
     if grammar_path.is_dir() {
-        return Err(anyhow!(
-            "Path to a grammar file with `.js` or `.json` extension is required"
-        ));
+        Err(LoadGrammarError::InvalidPath)?;
     }
     match grammar_path.extension().and_then(|e| e.to_str()) {
-        Some("js") => Ok(load_js_grammar_file(grammar_path, js_runtime)
-            .with_context(|| "Failed to load grammar.js")?),
-        Some("json") => {
-            Ok(fs::read_to_string(grammar_path).with_context(|| "Failed to load grammar.json")?)
-        }
-        _ => Err(anyhow!("Unknown grammar file extension: {grammar_path:?}",)),
+        Some("js") => Ok(load_js_grammar_file(grammar_path, js_runtime)?),
+        Some("json") => Ok(fs::read_to_string(grammar_path)?),
+        _ => Err(LoadGrammarError::FileExtension(grammar_path.to_owned()))?,
     }
 }
 
-fn load_js_grammar_file(grammar_path: &Path, js_runtime: Option<&str>) -> Result<String> {
+fn load_js_grammar_file(grammar_path: &Path, js_runtime: Option<&str>) -> JSResult<String> {
     let grammar_path = fs::canonicalize(grammar_path)?;
 
     #[cfg(windows)]
@@ -191,14 +281,17 @@ fn load_js_grammar_file(grammar_path: &Path, js_runtime: Option<&str>) -> Result
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .spawn()
-        .with_context(|| format!("Failed to run `{js_runtime}`"))?;
+        .map_err(|e| JSError::JSRuntimeSpawn {
+            runtime: js_runtime.to_string(),
+            error: e.to_string(),
+        })?;
 
     let mut js_stdin = js_process
         .stdin
         .take()
-        .with_context(|| format!("Failed to open stdin for {js_runtime}"))?;
-    let cli_version = Version::parse(env!("CARGO_PKG_VERSION"))
-        .with_context(|| "Could not parse this package's version as semver.")?;
+        .ok_or_else(|| JSError::IO(format!("Failed to open stdin for `{js_runtime}`")))?;
+
+    let cli_version = Version::parse(env!("CARGO_PKG_VERSION"))?;
     write!(
         js_stdin,
         "globalThis.TREE_SITTER_CLI_VERSION_MAJOR = {};
@@ -206,20 +299,28 @@ fn load_js_grammar_file(grammar_path: &Path, js_runtime: Option<&str>) -> Result
          globalThis.TREE_SITTER_CLI_VERSION_PATCH = {};",
         cli_version.major, cli_version.minor, cli_version.patch,
     )
-    .with_context(|| format!("Failed to write tree-sitter version to {js_runtime}'s stdin"))?;
-    js_stdin
-        .write(include_bytes!("./dsl.js"))
-        .with_context(|| format!("Failed to write grammar dsl to {js_runtime}'s stdin"))?;
+    .map_err(|e| {
+        JSError::IO(format!(
+            "Failed to write tree-sitter version to `{js_runtime}`'s stdin -- {e}"
+        ))
+    })?;
+    js_stdin.write(include_bytes!("./dsl.js")).map_err(|e| {
+        JSError::IO(format!(
+            "Failed to write grammar dsl to `{js_runtime}`'s stdin -- {e}"
+        ))
+    })?;
     drop(js_stdin);
 
     let output = js_process
         .wait_with_output()
-        .with_context(|| format!("Failed to read output from {js_runtime}"))?;
+        .map_err(|e| JSError::IO(format!("Failed to read output from `{js_runtime}` -- {e}")))?;
     match output.status.code() {
-        None => panic!("{js_runtime} process was killed"),
+        None => panic!("`{js_runtime}` process was killed"),
         Some(0) => {
-            let stdout = String::from_utf8(output.stdout)
-                .with_context(|| format!("Got invalid UTF8 from {js_runtime}"))?;
+            let stdout = String::from_utf8(output.stdout).map_err(|e| JSError::JSRuntimeUtf8 {
+                runtime: js_runtime.to_string(),
+                error: e.to_string(),
+            })?;
 
             let mut grammar_json = &stdout[..];
 
@@ -234,18 +335,18 @@ fn load_js_grammar_file(grammar_path: &Path, js_runtime: Option<&str>) -> Result
                 stdout.flush()?;
             }
 
-            Ok(serde_json::to_string_pretty(
-                &serde_json::from_str::<serde_json::Value>(grammar_json)
-                    .with_context(|| "Failed to parse grammar JSON")?,
-            )
-            .with_context(|| "Failed to serialize grammar JSON")?
-                + "\n")
+            Ok(serde_json::to_string_pretty(&serde_json::from_str::<
+                serde_json::Value,
+            >(grammar_json)?)?)
         }
-        Some(code) => Err(anyhow!("{js_runtime} process exited with status {code}")),
+        Some(code) => Err(JSError::JSRuntimeExit {
+            runtime: js_runtime.to_string(),
+            code,
+        }),
     }
 }
 
-pub fn write_file(path: &Path, body: impl AsRef<[u8]>) -> Result<()> {
+pub fn write_file(path: &Path, body: impl AsRef<[u8]>) -> GenerateResult<()> {
     fs::write(path, body)
-        .with_context(|| format!("Failed to write {:?}", path.file_name().unwrap()))
+        .map_err(|e| GenerateError::IO(format!("Failed to write {:?} -- {e}", path.file_name())))
 }

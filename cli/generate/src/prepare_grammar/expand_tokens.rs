@@ -1,9 +1,10 @@
-use anyhow::{anyhow, Context, Result};
-use indoc::indoc;
+use anyhow::Result;
 use regex_syntax::{
     hir::{Class, Hir, HirKind},
     ParserBuilder,
 };
+use serde::Serialize;
+use thiserror::Error;
 
 use super::ExtractedLexicalGrammar;
 use crate::{
@@ -16,6 +17,40 @@ struct NfaBuilder {
     nfa: Nfa,
     is_sep: bool,
     precedence_stack: Vec<i32>,
+}
+
+pub type ExpandTokensResult<T> = Result<T, ExpandTokensError>;
+
+#[derive(Debug, Error, Serialize)]
+pub enum ExpandTokensError {
+    #[error(
+        "The rule `{0}` matches the empty string.
+Tree-sitter does not support syntactic rules that match the empty string
+unless they are used only as the grammar's start rule.
+        "
+    )]
+    EmptyString(String),
+    #[error(transparent)]
+    Processing(ExpandTokensProcessingError),
+    #[error(transparent)]
+    ExpandRule(ExpandRuleError),
+}
+
+#[derive(Debug, Error, Serialize)]
+pub struct ExpandTokensProcessingError {
+    rule: String,
+    error: ExpandRuleError,
+}
+
+impl std::fmt::Display for ExpandTokensProcessingError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(
+            f,
+            "Error processing rule {}: Grammar error: Unexpected rule {:?}",
+            self.rule, self.error
+        )?;
+        Ok(())
+    }
 }
 
 fn get_implicit_precedence(rule: &Rule) -> i32 {
@@ -41,7 +76,7 @@ const fn get_completion_precedence(rule: &Rule) -> i32 {
     0
 }
 
-pub fn expand_tokens(mut grammar: ExtractedLexicalGrammar) -> Result<LexicalGrammar> {
+pub fn expand_tokens(mut grammar: ExtractedLexicalGrammar) -> ExpandTokensResult<LexicalGrammar> {
     let mut builder = NfaBuilder {
         nfa: Nfa::new(),
         is_sep: true,
@@ -58,14 +93,7 @@ pub fn expand_tokens(mut grammar: ExtractedLexicalGrammar) -> Result<LexicalGram
     let mut variables = Vec::new();
     for (i, variable) in grammar.variables.into_iter().enumerate() {
         if variable.rule.is_empty() {
-            return Err(anyhow!(
-                indoc! {"
-                The rule `{}` matches the empty string.
-                Tree-sitter does not support syntactic rules that match the empty string
-                unless they are used only as the grammar's start rule.
-            "},
-                variable.name
-            ));
+            Err(ExpandTokensError::EmptyString(variable.name.clone()))?;
         }
 
         let is_immediate_token = match &variable.rule {
@@ -81,12 +109,19 @@ pub fn expand_tokens(mut grammar: ExtractedLexicalGrammar) -> Result<LexicalGram
         let last_state_id = builder.nfa.last_state_id();
         builder
             .expand_rule(&variable.rule, last_state_id)
-            .with_context(|| format!("Error processing rule {}", variable.name))?;
+            .map_err(|e| {
+                ExpandTokensError::Processing(ExpandTokensProcessingError {
+                    rule: variable.name.clone(),
+                    error: e,
+                })
+            })?;
 
         if !is_immediate_token {
             builder.is_sep = true;
             let last_state_id = builder.nfa.last_state_id();
-            builder.expand_rule(&separator_rule, last_state_id)?;
+            builder
+                .expand_rule(&separator_rule, last_state_id)
+                .map_err(ExpandTokensError::ExpandRule)?;
         }
 
         variables.push(LexicalVariable {
@@ -103,8 +138,30 @@ pub fn expand_tokens(mut grammar: ExtractedLexicalGrammar) -> Result<LexicalGram
     })
 }
 
+pub type ExpandRuleResult<T> = Result<T, ExpandRuleError>;
+
+#[derive(Debug, Error, Serialize)]
+pub enum ExpandRuleError {
+    #[error("Grammar error: Unexpected rule {0:?}")]
+    UnexpectedRule(Rule),
+    #[error("{0}")]
+    Parse(String),
+    #[error(transparent)]
+    ExpandRegex(ExpandRegexError),
+}
+
+pub type ExpandRegexResult<T> = Result<T, ExpandRegexError>;
+
+#[derive(Debug, Error, Serialize)]
+pub enum ExpandRegexError {
+    #[error("{0}")]
+    Utf8(String),
+    #[error("Regex error: Assertions are not supported")]
+    Assertion,
+}
+
 impl NfaBuilder {
-    fn expand_rule(&mut self, rule: &Rule, mut next_state_id: u32) -> Result<bool> {
+    fn expand_rule(&mut self, rule: &Rule, mut next_state_id: u32) -> ExpandRuleResult<bool> {
         match rule {
             Rule::Pattern(s, f) => {
                 // With unicode enabled, `\w`, `\s` and `\d` expand to character sets that are much
@@ -124,8 +181,11 @@ impl NfaBuilder {
                     .unicode(true)
                     .utf8(false)
                     .build();
-                let hir = parser.parse(&s)?;
+                let hir = parser
+                    .parse(&s)
+                    .map_err(|e| ExpandRuleError::Parse(e.to_string()))?;
                 self.expand_regex(&hir, next_state_id)
+                    .map_err(ExpandRuleError::ExpandRegex)
             }
             Rule::String(s) => {
                 for c in s.chars().rev() {
@@ -189,15 +249,19 @@ impl NfaBuilder {
                 result
             }
             Rule::Blank => Ok(false),
-            _ => Err(anyhow!("Grammar error: Unexpected rule {rule:?}")),
+            _ => Err(ExpandRuleError::UnexpectedRule(rule.clone()))?,
         }
     }
 
-    fn expand_regex(&mut self, hir: &Hir, mut next_state_id: u32) -> Result<bool> {
+    fn expand_regex(&mut self, hir: &Hir, mut next_state_id: u32) -> ExpandRegexResult<bool> {
         match hir.kind() {
             HirKind::Empty => Ok(false),
             HirKind::Literal(literal) => {
-                for character in std::str::from_utf8(&literal.0)?.chars().rev() {
+                for character in std::str::from_utf8(&literal.0)
+                    .map_err(|e| ExpandRegexError::Utf8(e.to_string()))?
+                    .chars()
+                    .rev()
+                {
                     let char_set = CharacterSet::from_char(character);
                     self.push_advance(char_set, next_state_id);
                     next_state_id = self.nfa.last_state_id();
@@ -234,7 +298,7 @@ impl NfaBuilder {
                     Ok(true)
                 }
             },
-            HirKind::Look(_) => Err(anyhow!("Regex error: Assertions are not supported")),
+            HirKind::Look(_) => Err(ExpandRegexError::Assertion)?,
             HirKind::Repetition(repetition) => match (repetition.min, repetition.max) {
                 (0, Some(1)) => self.expand_zero_or_one(&repetition.sub, next_state_id),
                 (1, None) => self.expand_one_or_more(&repetition.sub, next_state_id),
@@ -293,7 +357,7 @@ impl NfaBuilder {
         }
     }
 
-    fn expand_one_or_more(&mut self, hir: &Hir, next_state_id: u32) -> Result<bool> {
+    fn expand_one_or_more(&mut self, hir: &Hir, next_state_id: u32) -> ExpandRegexResult<bool> {
         self.nfa.states.push(NfaState::Accept {
             variable_index: 0,
             precedence: 0,
@@ -309,7 +373,7 @@ impl NfaBuilder {
         }
     }
 
-    fn expand_zero_or_one(&mut self, hir: &Hir, next_state_id: u32) -> Result<bool> {
+    fn expand_zero_or_one(&mut self, hir: &Hir, next_state_id: u32) -> ExpandRegexResult<bool> {
         if self.expand_regex(hir, next_state_id)? {
             self.push_split(next_state_id);
             Ok(true)
@@ -318,7 +382,7 @@ impl NfaBuilder {
         }
     }
 
-    fn expand_zero_or_more(&mut self, hir: &Hir, next_state_id: u32) -> Result<bool> {
+    fn expand_zero_or_more(&mut self, hir: &Hir, next_state_id: u32) -> ExpandRegexResult<bool> {
         if self.expand_one_or_more(hir, next_state_id)? {
             self.push_split(next_state_id);
             Ok(true)
@@ -327,7 +391,12 @@ impl NfaBuilder {
         }
     }
 
-    fn expand_count(&mut self, hir: &Hir, count: u32, mut next_state_id: u32) -> Result<bool> {
+    fn expand_count(
+        &mut self,
+        hir: &Hir,
+        count: u32,
+        mut next_state_id: u32,
+    ) -> ExpandRegexResult<bool> {
         let mut result = false;
         for _ in 0..count {
             if self.expand_regex(hir, next_state_id)? {

@@ -8,8 +8,9 @@ mod token_conflicts;
 
 use std::collections::{BTreeSet, HashMap};
 
-use anyhow::Result;
 pub use build_lex_table::LARGE_CHARACTER_RANGE_COUNT;
+use build_parse_table::BuildTableResult;
+pub use build_parse_table::ParseTableBuilderError;
 use log::info;
 
 use self::{
@@ -42,7 +43,7 @@ pub fn build_tables(
     variable_info: &[VariableInfo],
     inlines: &InlinedProductionMap,
     report_symbol_name: Option<&str>,
-) -> Result<Tables> {
+) -> BuildTableResult<Tables> {
     let item_set_builder = ParseItemSetBuilder::new(syntax_grammar, lexical_grammar, inlines);
     let following_tokens =
         get_following_tokens(syntax_grammar, lexical_grammar, inlines, &item_set_builder);

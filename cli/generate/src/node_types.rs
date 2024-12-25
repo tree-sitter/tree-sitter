@@ -3,8 +3,9 @@ use std::{
     collections::{BTreeMap, HashMap, HashSet},
 };
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use serde::Serialize;
+use thiserror::Error;
 
 use super::{
     grammars::{LexicalGrammar, SyntaxGrammar, VariableType},
@@ -132,6 +133,14 @@ impl ChildQuantity {
     }
 }
 
+pub type VariableInfoResult<T> = Result<T, VariableInfoError>;
+
+#[derive(Debug, Error, Serialize)]
+pub enum VariableInfoError {
+    #[error("Grammar error: Supertype symbols must always have a single visible child, but `{0}` can have multiple")]
+    InvalidSupertype(String),
+}
+
 /// Compute a summary of the public-facing structure of each variable in the
 /// grammar. Each variable in the grammar corresponds to a distinct public-facing
 /// node type.
@@ -157,7 +166,7 @@ pub fn get_variable_info(
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
     default_aliases: &AliasMap,
-) -> Result<Vec<VariableInfo>> {
+) -> VariableInfoResult<Vec<VariableInfo>> {
     let child_type_is_visible = |t: &ChildType| {
         variable_type_for_child_type(t, syntax_grammar, lexical_grammar) >= VariableType::Anonymous
     };
@@ -338,13 +347,7 @@ pub fn get_variable_info(
     for supertype_symbol in &syntax_grammar.supertype_symbols {
         if result[supertype_symbol.index].has_multi_step_production {
             let variable = &syntax_grammar.variables[supertype_symbol.index];
-            return Err(anyhow!(
-                concat!(
-                    "Grammar error: Supertype symbols must always ",
-                    "have a single visible child, but `{}` can have multiple"
-                ),
-                variable.name
-            ));
+            Err(VariableInfoError::InvalidSupertype(variable.name.clone()))?;
         }
     }
 

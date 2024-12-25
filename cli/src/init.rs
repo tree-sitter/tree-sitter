@@ -381,7 +381,8 @@ pub fn generate_grammar_files(
             let Some(opts) = opts else { unreachable!() };
 
             let tree_sitter_json = opts.clone().to_tree_sitter_json();
-            write_file(path, serde_json::to_string_pretty(&tree_sitter_json)?)
+            write_file(path, serde_json::to_string_pretty(&tree_sitter_json)?)?;
+            Ok(())
         },
         |path| {
             // updating the config, if needed
@@ -523,10 +524,9 @@ pub fn generate_grammar_files(
                 |path| {
                     let contents = fs::read_to_string(path)?;
                     if contents.contains("fs.exists(") {
-                        write_file(path, contents.replace("fs.exists(", "fs.existsSync("))
-                    } else {
-                        Ok(())
+                        write_file(path, contents.replace("fs.exists(", "fs.existsSync("))?;
                     }
+                    Ok(())
                 },
             )?;
 
@@ -566,10 +566,9 @@ pub fn generate_grammar_files(
                     let contents = fs::read_to_string(path)?;
                     let old = "add_custom_target(test";
                     if contents.contains(old) {
-                        write_file(path, contents.replace(old, "add_custom_target(ts-test"))
-                    } else {
-                        Ok(())
+                        write_file(path, contents.replace(old, "add_custom_target(ts-test"))?;
                     }
+                    Ok(())
                 },
             )?;
 
@@ -671,10 +670,9 @@ pub fn generate_grammar_files(
                                         "egg_info": EggInfo,
                                 "#},
                             );
-                        write_file(path, contents)
-                    } else {
-                        Ok(())
+                        write_file(path, contents)?;
                     }
+                    Ok(())
                 },
             )?;
 
@@ -951,7 +949,8 @@ fn generate_file(
         }
     }
 
-    write_file(path, replacement)
+    write_file(path, replacement)?;
+    Ok(())
 }
 
 fn create_dir(path: &Path) -> Result<()> {

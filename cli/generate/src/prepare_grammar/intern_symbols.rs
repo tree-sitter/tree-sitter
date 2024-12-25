@@ -1,4 +1,6 @@
-use anyhow::{anyhow, Result};
+use anyhow::Result;
+use serde::Serialize;
+use thiserror::Error;
 
 use super::InternedGrammar;
 use crate::{
@@ -6,11 +8,27 @@ use crate::{
     rules::{Rule, Symbol},
 };
 
-pub(super) fn intern_symbols(grammar: &InputGrammar) -> Result<InternedGrammar> {
+pub type InternSymbolsResult<T> = Result<T, InternSymbolsError>;
+
+#[derive(Debug, Error, Serialize)]
+pub enum InternSymbolsError {
+    #[error("A grammar's start rule must be visible.")]
+    HiddenStartRule,
+    #[error("Undefined symbol `{0}`")]
+    Undefined(String),
+    #[error("Undefined symbol `{0}` in grammar's supertypes array")]
+    UndefinedSupertype(String),
+    #[error("Undefined symbol `{0}` in grammar's conflicts array")]
+    UndefinedConflict(String),
+    #[error("Undefined symbol `{0}` as grammar's word token")]
+    UndefinedWordToken(String),
+}
+
+pub(super) fn intern_symbols(grammar: &InputGrammar) -> InternSymbolsResult<InternedGrammar> {
     let interner = Interner { grammar };
 
     if variable_type_for_name(&grammar.variables[0].name) == VariableType::Hidden {
-        return Err(anyhow!("A grammar's start rule must be visible."));
+        Err(InternSymbolsError::HiddenStartRule)?;
     }
 
     let mut variables = Vec::with_capacity(grammar.variables.len());
@@ -41,7 +59,7 @@ pub(super) fn intern_symbols(grammar: &InputGrammar) -> Result<InternedGrammar> 
     let mut supertype_symbols = Vec::with_capacity(grammar.supertype_symbols.len());
     for supertype_symbol_name in &grammar.supertype_symbols {
         supertype_symbols.push(interner.intern_name(supertype_symbol_name).ok_or_else(|| {
-            anyhow!("Undefined symbol `{supertype_symbol_name}` in grammar's supertypes array")
+            InternSymbolsError::UndefinedSupertype(supertype_symbol_name.clone())
         })?);
     }
 
@@ -61,9 +79,11 @@ pub(super) fn intern_symbols(grammar: &InputGrammar) -> Result<InternedGrammar> 
     for conflict in &grammar.expected_conflicts {
         let mut interned_conflict = Vec::with_capacity(conflict.len());
         for name in conflict {
-            interned_conflict.push(interner.intern_name(name).ok_or_else(|| {
-                anyhow!("Undefined symbol `{name}` in grammar's conflicts array")
-            })?);
+            interned_conflict.push(
+                interner
+                    .intern_name(name)
+                    .ok_or_else(|| InternSymbolsError::UndefinedConflict(name.clone()))?,
+            );
         }
         expected_conflicts.push(interned_conflict);
     }
@@ -80,7 +100,7 @@ pub(super) fn intern_symbols(grammar: &InputGrammar) -> Result<InternedGrammar> 
         word_token = Some(
             interner
                 .intern_name(name)
-                .ok_or_else(|| anyhow!("Undefined symbol `{name}` as grammar's word token"))?,
+                .ok_or_else(|| InternSymbolsError::UndefinedWordToken(name.clone()))?,
         );
     }
 
@@ -108,7 +128,7 @@ struct Interner<'a> {
 }
 
 impl Interner<'_> {
-    fn intern_rule(&self, rule: &Rule, name: Option<&str>) -> Result<Rule> {
+    fn intern_rule(&self, rule: &Rule, name: Option<&str>) -> InternSymbolsResult<Rule> {
         match rule {
             Rule::Choice(elements) => {
                 self.check_single(elements, name);
@@ -136,7 +156,7 @@ impl Interner<'_> {
                 context_name: context_name.clone(),
             }),
             Rule::NamedSymbol(name) => self.intern_name(name).map_or_else(
-                || Err(anyhow!("Undefined symbol `{name}`")),
+                || Err(InternSymbolsError::Undefined(name.clone())),
                 |symbol| Ok(Rule::Symbol(symbol)),
             ),
             _ => Ok(rule.clone()),

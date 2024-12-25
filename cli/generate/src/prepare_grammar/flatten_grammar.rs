@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
-use anyhow::{anyhow, Result};
-use indoc::indoc;
+use anyhow::Result;
+use serde::Serialize;
+use thiserror::Error;
 
 use super::ExtractedSyntaxGrammar;
 use crate::{
@@ -10,6 +11,24 @@ use crate::{
     },
     rules::{Alias, Associativity, Precedence, Rule, Symbol, TokenSet},
 };
+
+pub type FlattenGrammarResult<T> = Result<T, FlattenGrammarError>;
+
+#[derive(Debug, Error, Serialize)]
+pub enum FlattenGrammarError {
+    #[error("No such reserved word set: {0}")]
+    NoReservedWordSet(String),
+    #[error(
+        "The rule `{0}` matches the empty string.
+
+Tree-sitter does not support syntactic rules that match the empty string
+unless they are used only as the grammar's start rule.
+"
+    )]
+    EmptyString(String),
+    #[error("Rule `{0}` cannot be inlined because it contains a reference to itself")]
+    RecursiveInline(String),
+}
 
 struct RuleFlattener {
     production: Production,
@@ -37,7 +56,7 @@ impl RuleFlattener {
         }
     }
 
-    fn flatten_variable(&mut self, variable: Variable) -> Result<SyntaxVariable> {
+    fn flatten_variable(&mut self, variable: Variable) -> FlattenGrammarResult<SyntaxVariable> {
         let mut productions = Vec::new();
         for rule in extract_choices(variable.rule) {
             let production = self.flatten_rule(rule)?;
@@ -52,7 +71,7 @@ impl RuleFlattener {
         })
     }
 
-    fn flatten_rule(&mut self, rule: Rule) -> Result<Production> {
+    fn flatten_rule(&mut self, rule: Rule) -> FlattenGrammarResult<Production> {
         self.production = Production::default();
         self.alias_stack.clear();
         self.reserved_word_stack.clear();
@@ -63,7 +82,7 @@ impl RuleFlattener {
         Ok(self.production.clone())
     }
 
-    fn apply(&mut self, rule: Rule, at_end: bool) -> Result<bool> {
+    fn apply(&mut self, rule: Rule, at_end: bool) -> FlattenGrammarResult<bool> {
         match rule {
             Rule::Seq(members) => {
                 let mut result = false;
@@ -138,7 +157,9 @@ impl RuleFlattener {
                     self.reserved_word_set_ids
                         .get(&context_name)
                         .copied()
-                        .ok_or_else(|| anyhow!("no such reserved word set: {context_name}"))?,
+                        .ok_or_else(|| {
+                            FlattenGrammarError::NoReservedWordSet(context_name.clone())
+                        })?,
                 );
                 let did_push = self.apply(*rule, at_end)?;
                 self.reserved_word_stack.pop();
@@ -224,7 +245,9 @@ fn symbol_is_used(variables: &[SyntaxVariable], symbol: Symbol) -> bool {
     false
 }
 
-pub(super) fn flatten_grammar(grammar: ExtractedSyntaxGrammar) -> Result<SyntaxGrammar> {
+pub(super) fn flatten_grammar(
+    grammar: ExtractedSyntaxGrammar,
+) -> FlattenGrammarResult<SyntaxGrammar> {
     let mut reserved_word_set_ids_by_name = HashMap::new();
     for (ix, set) in grammar.reserved_word_sets.iter().enumerate() {
         reserved_word_set_ids_by_name.insert(set.name.clone(), ReservedWordSetId(ix));
@@ -235,31 +258,20 @@ pub(super) fn flatten_grammar(grammar: ExtractedSyntaxGrammar) -> Result<SyntaxG
         .variables
         .into_iter()
         .map(|variable| flattener.flatten_variable(variable))
-        .collect::<Result<Vec<_>>>()?;
+        .collect::<FlattenGrammarResult<Vec<_>>>()?;
 
     for (i, variable) in variables.iter().enumerate() {
         let symbol = Symbol::non_terminal(i);
 
         for production in &variable.productions {
             if production.steps.is_empty() && symbol_is_used(&variables, symbol) {
-                return Err(anyhow!(
-                    indoc! {"
-                The rule `{}` matches the empty string.
-
-                Tree-sitter does not support syntactic rules that match the empty string
-                unless they are used only as the grammar's start rule.
-                "},
-                    variable.name
-                ));
+                Err(FlattenGrammarError::EmptyString(variable.name.clone()))?;
             }
 
             if grammar.variables_to_inline.contains(&symbol)
                 && production.steps.iter().any(|step| step.symbol == symbol)
             {
-                return Err(anyhow!(
-                    "Rule `{}` cannot be inlined because it contains a reference to itself.",
-                    variable.name,
-                ));
+                Err(FlattenGrammarError::RecursiveInline(variable.name.clone()))?;
             }
         }
     }
