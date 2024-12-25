@@ -1,17 +1,22 @@
+<div style="display: flex; justify-content: center; margin-left: 32px;">
+    <a href="./"><img src="assets/images/tree-sitter-small.png" width="200" height="200" alt="Tree-sitter logo" /></a>
+</div>
+
 # Introduction
 
-Tree-sitter is a parser generator tool and an incremental parsing library. It can build a concrete syntax tree for a source file and efficiently update the syntax tree as the source file is edited. Tree-sitter aims to be:
+Tree-sitter is a parser generator tool and an incremental parsing library. It can build a concrete syntax tree for a source
+file and efficiently update the syntax tree as the source file is edited. Tree-sitter aims to be:
 
 - **General** enough to parse any programming language
 - **Fast** enough to parse on every keystroke in a text editor
 - **Robust** enough to provide useful results even in the presence of syntax errors
 - **Dependency-free** so that the runtime library (which is written in pure [C11](https://github.com/tree-sitter/tree-sitter/tree/master/lib)) can be embedded in any application
 
-### Language Bindings
+## Language Bindings
 
-There are currently bindings that allow Tree-sitter to be used from the following languages:
+There are bindings that allow Tree-sitter to be used from the following languages:
 
-#### Official
+### Official
 
 - [C#](https://github.com/tree-sitter/csharp-tree-sitter)
 - [Go](https://github.com/tree-sitter/go-tree-sitter)
@@ -24,7 +29,7 @@ There are currently bindings that allow Tree-sitter to be used from the followin
 - [Rust](https://github.com/tree-sitter/tree-sitter/tree/master/lib/binding_rust)
 - [Zig](https://github.com/tree-sitter/zig-tree-sitter)
 
-#### Third-party
+### Third-party
 
 - [Delphi](https://github.com/modersohn/delphi-tree-sitter)
 - [ELisp](https://www.gnu.org/software/emacs/manual/html_node/elisp/Parsing-Program-Source.html)
@@ -42,7 +47,7 @@ There are currently bindings that allow Tree-sitter to be used from the followin
 - [Ruby](https://github.com/calicoday/ruby-tree-sitter-ffi)
 - [Swift](https://github.com/ChimeHQ/SwiftTreeSitter)
 
-### Parsers
+## Parsers
 
 The following parsers can be found in the upstream organization:
 
@@ -73,13 +78,13 @@ The following parsers can be found in the upstream organization:
 
 A list of known parsers can be found in the [wiki](https://github.com/tree-sitter/tree-sitter/wiki/List-of-parsers).
 
-### Talks on Tree-sitter
+## Talks on Tree-sitter
 
 - [Strange Loop 2018](https://www.thestrangeloop.com/2018/tree-sitter---a-new-parsing-system-for-programming-tools.html)
 - [FOSDEM 2018](https://www.youtube.com/watch?v=0CGzC_iss-8)
 - [GitHub Universe 2017](https://www.youtube.com/watch?v=a1rC79DHpmY)
 
-### Underlying Research
+## Underlying Research
 
 The design of Tree-sitter was greatly influenced by the following research papers:
 
