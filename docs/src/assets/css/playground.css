@@ -251,7 +251,10 @@ input[type="checkbox"]:focus {
 }
 
 /* Dark Theme Overrides */
-.ayu, .coal, .navy {
+.ayu,
+.coal,
+.navy {
+
   & #language-select,
   & .select-button {
     background-color: var(--dark-bg);

@@ -9,8 +9,8 @@ src = "src"
 title = "Tree-sitter"
 
 [output.html]
-additional-css = ["assets/css/playground.css"]
-additional-js = ["assets/js/playground.js"]
+additional-css = ["src/assets/css/playground.css"]
+additional-js = ["src/assets/js/playground.js"]
 git-repository-url = "https://github.com/tree-sitter/tree-sitter"
 git-repository-icon = "fa-github"
 edit-url-template = "https://github.com/tree-sitter/tree-sitter/edit/master/docs/{path}"
