@@ -18,7 +18,7 @@ function initializeLocalTheme() {
   });
 }
 
-function initializeCustomSelect() {
+function initializeCustomSelect(initialValue = null) {
   const button = document.getElementById('language-button');
   const select = document.getElementById('language-select');
   if (!button || !select) return;
@@ -26,6 +26,9 @@ function initializeCustomSelect() {
   const dropdown = button.nextElementSibling;
   const selectedValue = button.querySelector('.selected-value');
 
+  if (initialValue) {
+    select.value = initialValue;
+  }
   selectedValue.textContent = select.options[select.selectedIndex].text;
 
   button.addEventListener('click', (e) => {
@@ -565,6 +568,7 @@ window.initializePlayground = async function initializePlayground(opts) {
       queryInput.value = query;
       codeInput.value = sourceCode;
       languageSelect.value = language;
+      initializeCustomSelect(language);
       anonymousNodes.checked = anonNodes === "true";
       queryCheckbox.checked = queryEnabled === "true";
     }
