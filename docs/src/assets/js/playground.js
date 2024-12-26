@@ -18,7 +18,7 @@ function initializeLocalTheme() {
   });
 }
 
-function initializeCustomSelect() {
+function initializeCustomSelect({ initialValue = null, addListeners = false }) {
   const button = document.getElementById('language-button');
   const select = document.getElementById('language-select');
   if (!button || !select) return;
@@ -26,29 +26,34 @@ function initializeCustomSelect() {
   const dropdown = button.nextElementSibling;
   const selectedValue = button.querySelector('.selected-value');
 
+  if (initialValue) {
+    select.value = initialValue;
+  }
   selectedValue.textContent = select.options[select.selectedIndex].text;
 
-  button.addEventListener('click', (e) => {
-    e.preventDefault(); // Prevent form submission
-    dropdown.classList.toggle('show');
-  });
-
-  document.addEventListener('click', (e) => {
-    if (!button.contains(e.target)) {
-      dropdown.classList.remove('show');
-    }
-  });
-
-  dropdown.querySelectorAll('.option').forEach(option => {
-    option.addEventListener('click', () => {
-      selectedValue.textContent = option.textContent;
-      select.value = option.dataset.value;
-      dropdown.classList.remove('show');
-
-      const event = new Event('change');
-      select.dispatchEvent(event);
+  if (addListeners) {
+    button.addEventListener('click', (e) => {
+      e.preventDefault(); // Prevent form submission
+      dropdown.classList.toggle('show');
     });
-  });
+
+    document.addEventListener('click', (e) => {
+      if (!button.contains(e.target)) {
+        dropdown.classList.remove('show');
+      }
+    });
+
+    dropdown.querySelectorAll('.option').forEach(option => {
+      option.addEventListener('click', () => {
+        selectedValue.textContent = option.textContent;
+        select.value = option.dataset.value;
+        dropdown.classList.remove('show');
+
+        const event = new Event('change');
+        select.dispatchEvent(event);
+      });
+    });
+  }
 }
 
 window.initializePlayground = async function initializePlayground(opts) {
@@ -56,7 +61,7 @@ window.initializePlayground = async function initializePlayground(opts) {
   if (local) {
     initializeLocalTheme();
   }
-  initializeCustomSelect();
+  initializeCustomSelect({ addListeners: true });
 
   let tree;
 
@@ -565,6 +570,7 @@ window.initializePlayground = async function initializePlayground(opts) {
       queryInput.value = query;
       codeInput.value = sourceCode;
       languageSelect.value = language;
+      initializeCustomSelect({ initialValue: language });
       anonymousNodes.checked = anonNodes === "true";
       queryCheckbox.checked = queryEnabled === "true";
     }
