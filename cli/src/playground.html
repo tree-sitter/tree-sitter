@@ -20,6 +20,11 @@
       </div>
 
       <div class=header-item>
+        <label for="anonymous-nodes-checkbox">show anonymous nodes</label>
+        <input id="anonymous-nodes-checkbox" type="checkbox"></input>
+      </div>
+
+      <div class=header-item>
         <label for="query-checkbox">query</label>
         <input id="query-checkbox" type="checkbox"></input>
       </div>
@@ -66,6 +71,12 @@
   <script>LANGUAGE_BASE_URL = "";</script>
   <script src=tree-sitter.js></script>
   <script src=playground.js></script>
+
+  <script>
+  setTimeout(() => {
+    window.initializePlayground({local: true});
+  }, 1000);
+  </script>
 
   <style>
     body {
