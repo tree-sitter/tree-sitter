@@ -29,7 +29,11 @@ function initializeCustomSelect({ initialValue = null, addListeners = false }) {
   if (initialValue) {
     select.value = initialValue;
   }
-  selectedValue.textContent = select.options[select.selectedIndex].text;
+  if (select.selectedIndex >= 0 && select.options[select.selectedIndex]) {
+    selectedValue.textContent = select.options[select.selectedIndex].text;
+  } else {
+    selectedValue.textContent = 'JavaScript';
+  }
 
   if (addListeners) {
     button.addEventListener('click', (e) => {
