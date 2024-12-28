@@ -5342,6 +5342,7 @@ fn idk() {
     let mut parser = Parser::new();
     parser.set_language(&language).unwrap();
 
+    #[allow(clippy::literal_string_with_formatting_args)]
     let code = r#"fn main() {
     println!("{:?}", foo());
 }"#;
