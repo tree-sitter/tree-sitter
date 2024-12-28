@@ -694,12 +694,12 @@ TSNode ts_node_next_named_sibling(TSNode self);
 TSNode ts_node_prev_named_sibling(TSNode self);
 
 /**
- * Get the node's first child that extends beyond the given byte offset.
+ * Get the node's first child that contains or starts after the given byte offset.
  */
 TSNode ts_node_first_child_for_byte(TSNode self, uint32_t byte);
 
 /**
- * Get the node's first named child that extends beyond the given byte offset.
+ * Get the node's first named child that contains or starts after the given byte offset.
  */
 TSNode ts_node_first_named_child_for_byte(TSNode self, uint32_t byte);
 
@@ -860,7 +860,7 @@ uint32_t ts_tree_cursor_current_descendant_index(const TSTreeCursor *self);
 uint32_t ts_tree_cursor_current_depth(const TSTreeCursor *self);
 
 /**
- * Move the cursor to the first child of its current node that extends beyond
+ * Move the cursor to the first child of its current node that contains or starts after
  * the given byte offset or point.
  *
  * This returns the index of the child node if one was found, and returns -1
