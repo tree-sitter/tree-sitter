@@ -465,11 +465,11 @@ extern "C" {
     pub fn ts_node_prev_named_sibling(self_: TSNode) -> TSNode;
 }
 extern "C" {
-    #[doc = " Get the node's first child that extends beyond the given byte offset."]
+    #[doc = " Get the node's first child that contains or starts after the given byte offset."]
     pub fn ts_node_first_child_for_byte(self_: TSNode, byte: u32) -> TSNode;
 }
 extern "C" {
-    #[doc = " Get the node's first named child that extends beyond the given byte offset."]
+    #[doc = " Get the node's first named child that contains or starts after the given byte offset."]
     pub fn ts_node_first_named_child_for_byte(self_: TSNode, byte: u32) -> TSNode;
 }
 extern "C" {
@@ -569,7 +569,7 @@ extern "C" {
     pub fn ts_tree_cursor_current_depth(self_: *const TSTreeCursor) -> u32;
 }
 extern "C" {
-    #[doc = " Move the cursor to the first child of its current node that extends beyond\n the given byte offset or point.\n\n This returns the index of the child node if one was found, and returns -1\n if no such child was found."]
+    #[doc = " Move the cursor to the first child of its current node that contains or starts after\n the given byte offset or point.\n\n This returns the index of the child node if one was found, and returns -1\n if no such child was found."]
     pub fn ts_tree_cursor_goto_first_child_for_byte(
         self_: *mut TSTreeCursor,
         goal_byte: u32,
