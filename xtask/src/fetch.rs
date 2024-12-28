@@ -47,7 +47,7 @@ pub fn run_fixtures() -> Result<()> {
             ]);
             bail_on_err(
                 &command.spawn()?.wait_with_output()?,
-                "Failed to clone the {grammar} grammar",
+                &format!("Failed to clone the {grammar} grammar"),
             )?;
         }
 
@@ -57,14 +57,14 @@ pub fn run_fixtures() -> Result<()> {
         command.args(["fetch", "origin", r#ref, "--depth", "1"]);
         bail_on_err(
             &command.spawn()?.wait_with_output()?,
-            "Failed to fetch the {grammar} grammar",
+            &format!("Failed to fetch the {grammar} grammar"),
         )?;
 
         let mut command = Command::new("git");
         command.args(["reset", "--hard", "FETCH_HEAD"]);
         bail_on_err(
             &command.spawn()?.wait_with_output()?,
-            "Failed to reset the {grammar} grammar",
+            &format!("Failed to reset the {grammar} grammar"),
         )?;
 
         Ok(())

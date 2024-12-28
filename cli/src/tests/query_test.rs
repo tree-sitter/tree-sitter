@@ -5337,11 +5337,12 @@ fn test_query_execution_with_timeout() {
 }
 
 #[test]
-fn idk() {
+fn test_query_execution_with_points_causing_underflow() {
     let language = get_language("rust");
     let mut parser = Parser::new();
     parser.set_language(&language).unwrap();
 
+    #[allow(clippy::literal_string_with_formatting_args)]
     let code = r#"fn main() {
     println!("{:?}", foo());
 }"#;
