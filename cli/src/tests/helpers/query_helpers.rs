@@ -320,8 +320,8 @@ pub fn assert_query_matches(
     let tree = parser.parse(source, None).unwrap();
     let mut cursor = QueryCursor::new();
     let matches = cursor.matches(query, tree.root_node(), source.as_bytes());
-    pretty_assertions::assert_eq!(collect_matches(matches, query, source), expected);
-    pretty_assertions::assert_eq!(cursor.did_exceed_match_limit(), false);
+    pretty_assertions::assert_eq!(expected, collect_matches(matches, query, source));
+    pretty_assertions::assert_eq!(false, cursor.did_exceed_match_limit());
 }
 
 pub fn collect_matches<'a>(
