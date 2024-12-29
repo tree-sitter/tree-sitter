@@ -81,7 +81,7 @@ typedef struct {
  *     for the entire top-level pattern. When iterating through a query's
  *     captures using `ts_query_cursor_next_capture`, this field is used to
  *     detect that a capture can safely be returned from a match that has not
- *     even completed  yet.
+ *     even completed yet.
  */
 typedef struct {
   TSSymbol symbol;
@@ -174,7 +174,8 @@ typedef struct {
  *    list of captures from the `CaptureListPool`.
  * - `seeking_immediate_match` - A flag that indicates that the state's next
  *    step must be matched by the very next sibling. This is used when
- *    processing repetitions.
+ *    processing repetitions, or when processing a wildcard node followed by
+ *    an anchor.
  * - `has_in_progress_alternatives` - A flag that indicates that there is are
  *    other states that have the same captures as this state, but are at
  *    different steps in their pattern. This means that in order to obey the
@@ -3919,7 +3920,6 @@ static inline bool ts_query_cursor__advance(
 
           // Advance this state to the next step of its pattern.
           state->step_index++;
-          state->seeking_immediate_match = false;
           LOG(
             "  advance state. pattern:%u, step:%u\n",
             state->pattern_index,
@@ -3927,6 +3927,21 @@ static inline bool ts_query_cursor__advance(
           );
 
           QueryStep *next_step = &self->query->steps.contents[state->step_index];
+
+          // For a given step, if the current symbol is the wildcard symbol, `_`, and it is **not**
+          // named, meaning it should capture anonymous nodes, **and** the next step is immediate,
+          // we reuse the `seeking_immediate_match` flag to indicate that we are looking for an
+          // immediate match due to an unnamed wildcard symbol.
+          //
+          // The reason for this is that typically, anchors will not consider anonymous nodes,
+          // but we're special casing the wildcard symbol to allow for any immediate matches,
+          // regardless of whether they are named or not.
+          if (step->symbol == WILDCARD_SYMBOL && !step->is_named && next_step->is_immediate) {
+              state->seeking_immediate_match = true;
+          } else {
+              state->seeking_immediate_match = false;
+          }
+
           if (stop_on_definite_step && next_step->root_pattern_guaranteed) did_match = true;
 
           // If this state's next step has an alternative step, then copy the state in order
