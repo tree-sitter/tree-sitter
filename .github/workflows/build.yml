@@ -88,8 +88,11 @@ jobs:
 
     - name: Install cross
       if: ${{ matrix.use-cross }}
-      # TODO: Remove 'RUSTFLAGS=""' onc https://github.com/cross-rs/cross/issues/1561 is resolved
-      run: RUSTFLAGS="" cargo install cross --git https://github.com/cross-rs/cross
+      run: |
+        if [ ! -x "$(command -v cross)" ]; then
+          # TODO: Remove 'RUSTFLAGS=""' once https://github.com/cross-rs/cross/issues/1561 is resolved
+          RUSTFLAGS="" cargo install cross --git https://github.com/cross-rs/cross
+        fi
 
     - name: Configure cross
       if: ${{ matrix.use-cross }}
