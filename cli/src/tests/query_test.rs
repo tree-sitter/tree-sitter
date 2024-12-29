@@ -5405,3 +5405,40 @@ fn test_query_execution_with_points_causing_underflow() {
 
     assert_eq!(matches, matches2);
 }
+
+#[test]
+fn test_wildcard_behavior_before_anchor() {
+    let language = get_language("python");
+    let mut parser = Parser::new();
+    parser.set_language(&language).unwrap();
+
+    let source = "
+        (a, b)
+        (c, d,)
+    ";
+
+    //  In this query, we're targeting any *named* node immediately before a closing parenthesis.
+    let query = Query::new(&language, r#"(tuple (_) @last . ")" .) @match"#).unwrap();
+    assert_query_matches(
+        &language,
+        &query,
+        source,
+        &[
+            (0, vec![("match", "(a, b)"), ("last", "b")]),
+            (0, vec![("match", "(c, d,)"), ("last", "d")]),
+        ],
+    );
+
+    // In this query, we're targeting *any* node immediately before a closing
+    // parenthesis.
+    let query = Query::new(&language, r#"(tuple _ @last . ")" .) @match"#).unwrap();
+    assert_query_matches(
+        &language,
+        &query,
+        source,
+        &[
+            (0, vec![("match", "(a, b)"), ("last", "b")]),
+            (0, vec![("match", "(c, d,)"), ("last", ",")]),
+        ],
+    );
+}
