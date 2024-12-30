@@ -22,3 +22,10 @@ boost-title = 2
 boost-hierarchy = 2
 boost-paragraph = 1
 expand = true
+
+[output.html.redirect]
+"/syntax-highlighting.html" = "/3-syntax-highlighting.html"
+"/code-navigation-systems" = "/4-code-navigation.html"
+"/implementation" = "/5-implementation.html"
+"/contributing" = "/6-contributing.html"
+"/playground" = "/7-playground.html"
