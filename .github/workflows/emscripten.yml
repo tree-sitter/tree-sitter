@@ -26,7 +26,7 @@ jobs:
           GIT_AUTHOR_EMAIL: 49699333+dependabot[bot]@users.noreply.github.com
           GIT_COMMITTER_NAME: dependabot[bot]
           GIT_COMMITTER_EMAIL: 49699333+dependabot[bot]@users.noreply.github.com
-        run: cargo xtask update-emscripten
+        run: cargo xtask upgrade-emscripten
 
       - name: Push updated version
         run: git push origin HEAD:$GITHUB_HEAD_REF
