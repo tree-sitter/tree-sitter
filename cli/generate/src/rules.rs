@@ -41,8 +41,6 @@ pub struct MetadataParams {
     pub dynamic_precedence: i32,
     pub associativity: Option<Associativity>,
     pub is_token: bool,
-    pub is_string: bool,
-    pub is_active: bool,
     pub is_main_token: bool,
     pub alias: Option<Alias>,
     pub field_name: Option<String>,
