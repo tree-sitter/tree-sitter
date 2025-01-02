@@ -679,7 +679,12 @@ fn write_node_text(
             // and adjust the column by setting it to the length of *this* line.
             node_range.start_point.row += i;
             node_range.end_point.row = node_range.start_point.row;
-            node_range.end_point.column = line.len();
+            node_range.end_point.column = line.len()
+                + if i == 0 {
+                    node_range.start_point.column
+                } else {
+                    0
+                };
             let formatted_line = render_line_feed(line, opts);
             if !opts.no_ranges {
                 write!(
