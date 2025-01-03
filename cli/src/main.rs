@@ -41,41 +41,58 @@ const DEFAULT_GENERATE_ABI_VERSION: usize = 15;
 #[derive(Subcommand)]
 #[command(about="Generates and tests parsers", author=crate_authors!("\n"), styles=get_styles())]
 enum Commands {
+    /// Generate a default config file
     InitConfig(InitConfig),
+    /// Initialize a grammar repository
     Init(Init),
+    /// Generate a parser
     Generate(Generate),
+    /// Compile a parser
     Build(Build),
+    /// Parse files
     Parse(Parse),
+    /// Run a parser's tests
     Test(Test),
+    /// Increment the version of a grammar
     Version(Version),
+    /// Fuzz a parser
     Fuzz(Fuzz),
+    /// Search files using a syntax tree query
     Query(Query),
+    /// Highlight a file
     Highlight(Highlight),
+    /// Generate a list of tags
     Tags(Tags),
+    /// Start local playground for a parser in the browser
     Playground(Playground),
+    /// Print info about all known language parsers
     DumpLanguages(DumpLanguages),
+    /// Generate shell completions
     Complete(Complete),
 }
 
 #[derive(Args)]
-#[command(about = "Generate a default config file")]
 struct InitConfig;
 
 #[derive(Args)]
-#[command(about = "Initialize a grammar repository", alias = "i")]
+#[command(alias = "i")]
 struct Init {
-    #[arg(long, short, help = "Update outdated files")]
+    /// Update outdated files
+    #[arg(long, short)]
     pub update: bool,
 }
 
 #[derive(Args)]
-#[command(about = "Generate a parser", alias = "gen", alias = "g")]
+#[command(alias = "gen", alias = "g")]
 struct Generate {
-    #[arg(index = 1, help = "The path to the grammar file")]
+    /// The path to the grammar file
+    #[arg(index = 1)]
     pub grammar_path: Option<String>,
-    #[arg(long, short, help = "Show debug log during generation")]
+    /// Show debug log during generation
+    #[arg(long, short)]
     pub log: bool,
-    #[arg(long, help = "Deprecated (no-op)")]
+    /// Deprecated (no-op)
+    #[arg(long)]
     pub no_bindings: bool,
     #[arg(
         long = "abi",
@@ -89,137 +106,125 @@ struct Generate {
                 )
     )]
     pub abi_version: Option<String>,
-    #[arg(
-        long,
-        short = 'b',
-        help = "Compile all defined languages in the current dir"
-    )]
+    /// Compile all defined languages in the current dir
+    #[arg(long, short = 'b')]
     pub build: bool,
-    #[arg(long, short = '0', help = "Compile a parser in debug mode")]
+    /// Compile a parser in debug mode
+    #[arg(long, short = '0')]
     pub debug_build: bool,
-    #[arg(
-        long,
-        value_name = "PATH",
-        help = "The path to the directory containing the parser library"
-    )]
+    /// The path to the directory containing the parser library
+    #[arg(long, value_name = "PATH")]
     pub libdir: Option<String>,
-    #[arg(
-        long,
-        short,
-        value_name = "DIRECTORY",
-        help = "The path to output the generated source files"
-    )]
+    /// The path to output the generated source files
+    #[arg(long, short, value_name = "DIRECTORY")]
     pub output: Option<String>,
-    #[arg(
-        long,
-        help = "Produce a report of the states for the given rule, use `-` to report every rule"
-    )]
+    /// Produce a report of the states for the given rule, use `-` to report every rule
+    #[arg(long)]
     pub report_states_for_rule: Option<String>,
-
+    /// The name or path of the JavaScript runtime to use for generating parsers
     #[arg(
         long,
         value_name = "EXECUTABLE",
         env = "TREE_SITTER_JS_RUNTIME",
-        default_value = "node",
-        help = "The name or path of the JavaScript runtime to use for generating parsers"
+        default_value = "node"
     )]
     pub js_runtime: Option<String>,
 }
 
 #[derive(Args)]
-#[command(about = "Compile a parser", alias = "b")]
+#[command(alias = "b")]
 struct Build {
-    #[arg(short, long, help = "Build a WASM module instead of a dynamic library")]
+    /// Build a WASM module instead of a dynamic library
+    #[arg(short, long)]
     pub wasm: bool,
-    #[arg(
-        short,
-        long,
-        help = "Run emscripten via docker even if it is installed locally (only if building a WASM module with --wasm)"
-    )]
+    /// Run emscripten via docker even if it is installed locally (only if building a WASM module
+    /// with --wasm)
+    #[arg(short, long)]
     pub docker: bool,
-    #[arg(short, long, help = "The path to output the compiled file")]
+    /// The path to output the compiled file
+    #[arg(short, long)]
     pub output: Option<String>,
-    #[arg(index = 1, num_args = 1, help = "The path to the grammar directory")]
+    /// The path to the grammar directory
+    #[arg(index = 1, num_args = 1)]
     pub path: Option<String>,
-    #[arg(long, help = "Make the parser reuse the same allocator as the library")]
+    /// Make the parser reuse the same allocator as the library
+    #[arg(long)]
     pub reuse_allocator: bool,
-    #[arg(long, short = '0', help = "Compile a parser in debug mode")]
+    /// Compile a parser in debug mode
+    #[arg(long, short = '0')]
     pub debug: bool,
 }
 
 #[derive(Args)]
-#[command(about = "Parse files", alias = "p")]
+#[command(alias = "p")]
 struct Parse {
-    #[arg(
-        long = "paths",
-        help = "The path to a file with paths to source file(s)"
-    )]
+    /// The path to a file with paths to source file(s)
+    #[arg(long = "paths")]
     pub paths_file: Option<PathBuf>,
-    #[arg(num_args=1.., help = "The source file(s) to use")]
+    /// The source file(s) to use
+    #[arg(num_args=1..)]
     pub paths: Option<Vec<PathBuf>>,
-    #[arg(
-        long,
-        help = "Select a language by the scope instead of a file extension"
-    )]
+    /// Select a language by the scope instead of a file extension
+    #[arg(long)]
     pub scope: Option<String>,
-    #[arg(long, short = 'd', help = "Show parsing debug log")]
+    /// Show parsing debug log
+    #[arg(long, short = 'd')]
     pub debug: bool,
-    #[arg(long, short = '0', help = "Compile a parser in debug mode")]
+    /// Compile a parser in debug mode
+    #[arg(long, short = '0')]
     pub debug_build: bool,
-    #[arg(
-        long,
-        short = 'D',
-        help = "Produce the log.html file with debug graphs"
-    )]
+    /// Produce the log.html file with debug graphs
+    #[arg(long, short = 'D')]
     pub debug_graph: bool,
-    #[arg(
-        long,
-        help = "Compile parsers to wasm instead of native dynamic libraries"
-    )]
+    /// Compile parsers to wasm instead of native dynamic libraries
+    #[arg(long)]
     pub wasm: bool,
-    #[arg(long = "dot", help = "Output the parse data with graphviz dot")]
+    /// Output the parse data with graphviz dot
+    #[arg(long = "dot")]
+    /// Output the parse data in XML format
     pub output_dot: bool,
-    #[arg(
-        long = "xml",
-        short = 'x',
-        help = "Output the parse data in XML format"
-    )]
+    #[arg(long = "xml", short = 'x')]
     pub output_xml: bool,
-    #[arg(
-        long = "cst",
-        short = 'c',
-        help = "Output the parse data in a pretty-printed CST format"
-    )]
+    /// Output the parse data in a pretty-printed CST format
+    #[arg(long = "cst", short = 'c')]
     pub output_cst: bool,
-    #[arg(long, short, help = "Show parsing statistic")]
+    /// Show parsing statistic
+    #[arg(long, short)]
     pub stat: bool,
-    #[arg(long, help = "Interrupt the parsing process by timeout (µs)")]
+    /// Interrupt the parsing process by timeout (µs)
+    #[arg(long)]
     pub timeout: Option<u64>,
-    #[arg(long, short, help = "Measure execution time")]
+    /// Measure execution time
+    #[arg(long, short)]
     pub time: bool,
-    #[arg(long, short, help = "Suppress main output")]
+    /// Suppress main output
+    #[arg(long, short)]
     pub quiet: bool,
+    #[allow(clippy::doc_markdown)]
+    /// Apply edits in the format: \"row, col delcount insert_text\"
     #[arg(
         long,
         num_args = 1..,
-        help = "Apply edits in the format: \"row, col delcount insert_text\""
     )]
     pub edits: Option<Vec<String>>,
-    #[arg(long, help = "The encoding of the input files")]
+    /// The encoding of the input files
+    #[arg(long)]
     pub encoding: Option<Encoding>,
-    #[arg(
-        long,
-        help = "Open `log.html` in the default browser, if `--debug-graph` is supplied"
-    )]
+    /// Open `log.html` in the default browser, if `--debug-graph` is supplied
+    #[arg(long)]
     pub open_log: bool,
-    #[arg(long, help = "The path to an alternative config.json file")]
+    /// The path to an alternative config.json file
+    #[arg(long)]
     pub config_path: Option<PathBuf>,
-    #[arg(long, short = 'n', help = "Parse the contents of a specific test")]
+    /// Parse the contents of a specific test
+    #[arg(long, short = 'n')]
     #[clap(conflicts_with = "paths", conflicts_with = "paths_file")]
     pub test_number: Option<u32>,
-    #[arg(short, long, help = "Force rebuild the parser")]
+    /// Force rebuild the parser
+    #[arg(short, long)]
     pub rebuild: bool,
-    #[arg(long, help = "Omit ranges in the output")]
+    /// Omit ranges in the output
+    #[arg(long)]
     pub no_ranges: bool,
 }
 
@@ -231,55 +236,46 @@ pub enum Encoding {
 }
 
 #[derive(Args)]
-#[command(about = "Run a parser's tests", alias = "t")]
+#[command(alias = "t")]
 struct Test {
-    #[arg(
-        long,
-        short,
-        help = "Only run corpus test cases whose name matches the given regex"
-    )]
+    /// Only run corpus test cases whose name matches the given regex
+    #[arg(long, short)]
     pub include: Option<Regex>,
-    #[arg(
-        long,
-        short,
-        help = "Only run corpus test cases whose name does not match the given regex"
-    )]
+    /// Only run corpus test cases whose name does not match the given regex
+    #[arg(long, short)]
     pub exclude: Option<Regex>,
-    #[arg(
-        long,
-        short,
-        help = "Update all syntax trees in corpus files with current parser output"
-    )]
+    /// Update all syntax trees in corpus files with current parser output
+    #[arg(long, short)]
     pub update: bool,
-    #[arg(long, short = 'd', help = "Show parsing debug log")]
+    /// Show parsing debug log
+    #[arg(long, short = 'd')]
     pub debug: bool,
-    #[arg(long, short = '0', help = "Compile a parser in debug mode")]
+    /// Compile a parser in debug mode
+    #[arg(long, short = '0')]
     pub debug_build: bool,
-    #[arg(
-        long,
-        short = 'D',
-        help = "Produce the log.html file with debug graphs"
-    )]
+    /// Produce the log.html file with debug graphs
+    #[arg(long, short = 'D')]
     pub debug_graph: bool,
-    #[arg(
-        long,
-        help = "Compile parsers to wasm instead of native dynamic libraries"
-    )]
+    /// Compile parsers to wasm instead of native dynamic libraries
+    #[arg(long)]
     pub wasm: bool,
-    #[arg(
-        long,
-        help = "Open `log.html` in the default browser, if `--debug-graph` is supplied"
-    )]
+    /// Open `log.html` in the default browser, if `--debug-graph` is supplied
+    #[arg(long)]
     pub open_log: bool,
-    #[arg(long, help = "The path to an alternative config.json file")]
+    /// The path to an alternative config.json file
+    #[arg(long)]
     pub config_path: Option<PathBuf>,
-    #[arg(long, help = "Force showing fields in test diffs")]
+    /// Force showing fields in test diffs
+    #[arg(long)]
     pub show_fields: bool,
-    #[arg(long, help = "Show parsing statistics")]
+    /// Show parsing statistics
+    #[arg(long)]
     pub stat: Option<TestStats>,
-    #[arg(short, long, help = "Force rebuild the parser")]
+    /// Force rebuild the parser
+    #[arg(short, long)]
     pub rebuild: bool,
-    #[arg(long, help = "Show only the pass-fail overview tree")]
+    /// Show only the pass-fail overview tree
+    #[arg(long)]
     pub overview_only: bool,
 }
 
@@ -293,180 +289,171 @@ struct Version {
 }
 
 #[derive(Args)]
-#[command(about = "Fuzz a parser", alias = "f")]
+#[command(alias = "f")]
 struct Fuzz {
-    #[arg(long, short, help = "List of test names to skip")]
+    /// List of test names to skip
+    #[arg(long, short)]
     pub skip: Option<Vec<String>>,
-    #[arg(long, help = "Subdirectory to the language")]
+    /// Subdirectory to the language
+    #[arg(long)]
     pub subdir: Option<String>,
-    #[arg(long, help = "Maximum number of edits to perform per fuzz test")]
+    /// Maximum number of edits to perform per fuzz test
+    #[arg(long)]
     pub edits: Option<usize>,
-    #[arg(long, help = "Number of fuzzing iterations to run per test")]
+    /// Number of fuzzing iterations to run per test
+    #[arg(long)]
     pub iterations: Option<usize>,
-    #[arg(
-        long,
-        short,
-        help = "Only fuzz corpus test cases whose name matches the given regex"
-    )]
+    /// Only fuzz corpus test cases whose name matches the given regex
+    #[arg(long, short)]
     pub include: Option<Regex>,
-    #[arg(
-        long,
-        short,
-        help = "Only fuzz corpus test cases whose name does not match the given regex"
-    )]
+    /// Only fuzz corpus test cases whose name does not match the given regex
+    #[arg(long, short)]
     pub exclude: Option<Regex>,
-    #[arg(long, help = "Enable logging of graphs and input")]
+    /// Enable logging of graphs and input
+    #[arg(long)]
     pub log_graphs: bool,
-    #[arg(long, short, help = "Enable parser logging")]
+    /// Enable parser logging
+    #[arg(long, short)]
     pub log: bool,
-    #[arg(short, long, help = "Force rebuild the parser")]
+    /// Force rebuild the parser
+    #[arg(short, long)]
     pub rebuild: bool,
 }
 
 #[derive(Args)]
-#[command(about = "Search files using a syntax tree query", alias = "q")]
+#[command(alias = "q")]
 struct Query {
-    #[arg(help = "Path to a file with queries", index = 1, required = true)]
+    /// Path to a file with queries
+    #[arg(index = 1, required = true)]
     query_path: PathBuf,
-    #[arg(long, short, help = "Measure execution time")]
+    /// Measure execution time
+    #[arg(long, short)]
     pub time: bool,
-    #[arg(long, short, help = "Suppress main output")]
+    /// Suppress main output
+    #[arg(long, short)]
     pub quiet: bool,
-    #[arg(
-        long = "paths",
-        help = "The path to a file with paths to source file(s)"
-    )]
+    /// The path to a file with paths to source file(s)
+    #[arg(long = "paths")]
     pub paths_file: Option<PathBuf>,
-    #[arg(index = 2, num_args=1.., help = "The source file(s) to use")]
+    /// The source file(s) to use
+    #[arg(index = 2, num_args=1..)]
     pub paths: Option<Vec<PathBuf>>,
-    #[arg(
-        long,
-        help = "The range of byte offsets in which the query will be executed"
-    )]
+    /// The range of byte offsets in which the query will be executed
+    #[arg(long)]
     pub byte_range: Option<String>,
-    #[arg(long, help = "The range of rows in which the query will be executed")]
+    /// The range of rows in which the query will be executed
+    #[arg(long)]
     pub row_range: Option<String>,
-    #[arg(
-        long,
-        help = "Select a language by the scope instead of a file extension"
-    )]
+    /// Select a language by the scope instead of a file extension
+    #[arg(long)]
     pub scope: Option<String>,
-    #[arg(long, short, help = "Order by captures instead of matches")]
+    /// Order by captures instead of matches
+    #[arg(long, short)]
     pub captures: bool,
-    #[arg(long, help = "Whether to run query tests or not")]
+    /// Whether to run query tests or not
+    #[arg(long)]
     pub test: bool,
-    #[arg(long, help = "The path to an alternative config.json file")]
+    /// The path to an alternative config.json file
+    #[arg(long)]
     pub config_path: Option<PathBuf>,
-    #[arg(long, short = 'n', help = "Query the contents of a specific test")]
+    /// Query the contents of a specific test
+    #[arg(long, short = 'n')]
     #[clap(conflicts_with = "paths", conflicts_with = "paths_file")]
     pub test_number: Option<u32>,
 }
 
 #[derive(Args)]
-#[command(about = "Highlight a file", alias = "hi")]
+#[command(alias = "hi")]
 struct Highlight {
-    #[arg(long, short = 'H', help = "Generate highlighting as an HTML document")]
+    /// Generate highlighting as an HTML document
+    #[arg(long, short = 'H')]
     pub html: bool,
-    #[arg(
-        long,
-        help = "When generating HTML, use css classes rather than inline styles"
-    )]
+    /// When generating HTML, use css classes rather than inline styles
+    #[arg(long)]
     pub css_classes: bool,
-    #[arg(
-        long,
-        help = "Check that highlighting captures conform strictly to standards"
-    )]
+    /// Check that highlighting captures conform strictly to standards
+    #[arg(long)]
     pub check: bool,
-    #[arg(long, help = "The path to a file with captures")]
+    /// The path to a file with captures
+    #[arg(long)]
     pub captures_path: Option<PathBuf>,
-    #[arg(long, num_args = 1.., help = "The paths to files with queries")]
+    /// The paths to files with queries
+    #[arg(long, num_args = 1..)]
     pub query_paths: Option<Vec<String>>,
-    #[arg(
-        long,
-        help = "Select a language by the scope instead of a file extension"
-    )]
+    /// Select a language by the scope instead of a file extension
+    #[arg(long)]
     pub scope: Option<String>,
-    #[arg(long, short, help = "Measure execution time")]
+    /// Measure execution time
+    #[arg(long, short)]
     pub time: bool,
-    #[arg(long, short, help = "Suppress main output")]
+    /// Suppress main output
+    #[arg(long, short)]
     pub quiet: bool,
-    #[arg(
-        long = "paths",
-        help = "The path to a file with paths to source file(s)"
-    )]
+    /// The path to a file with paths to source file(s)
+    #[arg(long = "paths")]
     pub paths_file: Option<PathBuf>,
-    #[arg(num_args = 1.., help = "The source file(s) to use")]
+    /// The source file(s) to use
+    #[arg(num_args = 1..)]
     pub paths: Option<Vec<PathBuf>>,
-    #[arg(long, help = "The path to an alternative config.json file")]
+    /// The path to an alternative config.json file
+    #[arg(long)]
     pub config_path: Option<PathBuf>,
-    #[arg(long, short = 'n', help = "Highlight the contents of a specific test")]
+    /// Highlight the contents of a specific test
+    #[arg(long, short = 'n')]
     #[clap(conflicts_with = "paths", conflicts_with = "paths_file")]
     pub test_number: Option<u32>,
 }
 
 #[derive(Args)]
-#[command(about = "Generate a list of tags")]
 struct Tags {
-    #[arg(
-        long,
-        help = "Select a language by the scope instead of a file extension"
-    )]
+    /// Select a language by the scope instead of a file extension
+    #[arg(long)]
     pub scope: Option<String>,
-    #[arg(long, short, help = "Measure execution time")]
+    /// Measure execution time
+    #[arg(long, short)]
     pub time: bool,
-    #[arg(long, short, help = "Suppress main output")]
+    /// Suppress main output
+    #[arg(long, short)]
     pub quiet: bool,
-    #[arg(
-        long = "paths",
-        help = "The path to a file with paths to source file(s)"
-    )]
+    /// The path to a file with paths to source file(s)
+    #[arg(long = "paths")]
     pub paths_file: Option<PathBuf>,
-    #[arg(num_args = 1.., help = "The source file(s) to use")]
+    /// The source file(s) to use
+    #[arg(num_args = 1..)]
     pub paths: Option<Vec<PathBuf>>,
-    #[arg(long, help = "The path to an alternative config.json file")]
+    /// The path to an alternative config.json file
+    #[arg(long)]
     pub config_path: Option<PathBuf>,
-    #[arg(
-        long,
-        short = 'n',
-        help = "Generate tags from the contents of a specific test"
-    )]
+    /// Generate tags from the contents of a specific test
+    #[arg(long, short = 'n')]
     #[clap(conflicts_with = "paths", conflicts_with = "paths_file")]
     pub test_number: Option<u32>,
 }
 
 #[derive(Args)]
-#[command(
-    about = "Start local playground for a parser in the browser",
-    alias = "play",
-    alias = "pg",
-    alias = "web-ui"
-)]
+#[command(alias = "play", alias = "pg", alias = "web-ui")]
 struct Playground {
-    #[arg(long, short, help = "Don't open in default browser")]
+    /// Don't open in default browser
+    #[arg(long, short)]
     pub quiet: bool,
-    #[arg(
-        long,
-        help = "Path to the directory containing the grammar and wasm files"
-    )]
+    /// Path to the directory containing the grammar and wasm files
+    #[arg(long)]
     pub grammar_path: Option<String>,
 }
 
 #[derive(Args)]
-#[command(about = "Print info about all known language parsers", alias = "langs")]
+#[command(alias = "langs")]
 struct DumpLanguages {
-    #[arg(long, help = "The path to an alternative config.json file")]
+    /// The path to an alternative config.json file
+    #[arg(long)]
     pub config_path: Option<PathBuf>,
 }
 
 #[derive(Args)]
-#[command(about = "Generate shell completions", alias = "comp")]
+#[command(alias = "comp")]
 struct Complete {
-    #[arg(
-        long,
-        short,
-        value_enum,
-        help = "The shell to generate completions for"
-    )]
+    /// The shell to generate completions for
+    #[arg(long, short, value_enum)]
     pub shell: Shell,
 }
 
