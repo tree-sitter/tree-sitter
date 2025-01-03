@@ -1130,6 +1130,12 @@ impl Loader {
         }
     }
 
+    #[must_use]
+    pub fn get_language_configuration_in_current_path(&self) -> Option<&LanguageConfiguration> {
+        self.language_configuration_in_current_path
+            .map(|i| &self.language_configurations[i])
+    }
+
     pub fn find_language_configurations_at_path(
         &mut self,
         parser_path: &Path,
