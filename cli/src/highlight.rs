@@ -1,10 +1,11 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     fmt::Write,
     fs,
     io::{self, Write as _},
-    path, str,
-    sync::atomic::AtomicUsize,
+    path::{self, Path, PathBuf},
+    str,
+    sync::{atomic::AtomicUsize, Arc},
     time::Instant,
 };
 
@@ -340,108 +341,142 @@ fn closest_xterm_color(red: u8, green: u8, blue: u8) -> Color {
     ))
 }
 
-pub fn ansi(
-    loader: &Loader,
-    theme: &Theme,
-    source: &[u8],
-    config: &HighlightConfiguration,
-    print_time: bool,
-    cancellation_flag: Option<&AtomicUsize>,
-) -> Result<()> {
-    let stdout = io::stdout();
-    let mut stdout = stdout.lock();
-    let time = Instant::now();
-    let mut highlighter = Highlighter::new();
-
-    let events = highlighter.highlight(config, source, cancellation_flag, |string| {
-        loader.highlight_config_for_injection_string(string)
-    })?;
-
-    let mut style_stack = vec![theme.default_style().ansi];
-    for event in events {
-        match event? {
-            HighlightEvent::HighlightStart(highlight) => {
-                style_stack.push(theme.styles[highlight.0].ansi);
-            }
-            HighlightEvent::HighlightEnd => {
-                style_stack.pop();
-            }
-            HighlightEvent::Source { start, end } => {
-                let style = style_stack.last().unwrap();
-                write!(&mut stdout, "{style}").unwrap();
-                stdout.write_all(&source[start..end])?;
-                write!(&mut stdout, "{style:#}").unwrap();
-            }
-        }
-    }
-
-    if print_time {
-        eprintln!("Time: {}ms", time.elapsed().as_millis());
-    }
-
-    Ok(())
-}
-
-pub struct HtmlOptions {
+pub struct HighlightOptions {
+    pub theme: Theme,
+    pub check: bool,
+    pub captures_path: Option<PathBuf>,
     pub inline_styles: bool,
+    pub html: bool,
     pub quiet: bool,
     pub print_time: bool,
+    pub cancellation_flag: Arc<AtomicUsize>,
 }
 
-pub fn html(
+pub fn highlight(
     loader: &Loader,
-    theme: &Theme,
-    source: &[u8],
+    path: &Path,
+    name: &str,
     config: &HighlightConfiguration,
-    opts: &HtmlOptions,
-    cancellation_flag: Option<&AtomicUsize>,
+    print_name: bool,
+    opts: &HighlightOptions,
 ) -> Result<()> {
-    use std::io::Write;
+    if opts.check {
+        let names = if let Some(path) = opts.captures_path.as_deref() {
+            let file = fs::read_to_string(path)?;
+            let capture_names = file
+                .lines()
+                .filter_map(|line| {
+                    if line.trim().is_empty() || line.trim().starts_with(';') {
+                        return None;
+                    }
+                    line.split(';').next().map(|s| s.trim().trim_matches('"'))
+                })
+                .collect::<HashSet<_>>();
+            config.nonconformant_capture_names(&capture_names)
+        } else {
+            config.nonconformant_capture_names(&HashSet::new())
+        };
+        if names.is_empty() {
+            eprintln!("All highlight captures conform to standards.");
+        } else {
+            eprintln!(
+                "Non-standard highlight {} detected:",
+                if names.len() > 1 {
+                    "captures"
+                } else {
+                    "capture"
+                }
+            );
+            for name in names {
+                eprintln!("* {name}");
+            }
+        }
+    }
 
+    let source = fs::read(path)?;
     let stdout = io::stdout();
     let mut stdout = stdout.lock();
     let time = Instant::now();
     let mut highlighter = Highlighter::new();
+    let events =
+        highlighter.highlight(config, &source, Some(&opts.cancellation_flag), |string| {
+            loader.highlight_config_for_injection_string(string)
+        })?;
+    let theme = &opts.theme;
 
-    let events = highlighter.highlight(config, source, cancellation_flag, |string| {
-        loader.highlight_config_for_injection_string(string)
-    })?;
+    if !opts.quiet && print_name {
+        writeln!(&mut stdout, "{name}")?;
+    }
 
-    let mut renderer = HtmlRenderer::new();
-    renderer.render(events, source, &move |highlight, output| {
-        if opts.inline_styles {
-            output.extend(b"style='");
-            output.extend(
-                theme.styles[highlight.0]
-                    .css
-                    .as_ref()
-                    .map_or_else(|| "".as_bytes(), |css_style| css_style.as_bytes()),
-            );
-            output.extend(b"'");
-        } else {
-            output.extend(b"class='");
-            let mut parts = theme.highlight_names[highlight.0].split('.').peekable();
-            while let Some(part) = parts.next() {
-                output.extend(part.as_bytes());
-                if parts.peek().is_some() {
-                    output.extend(b" ");
+    if opts.html {
+        if !opts.quiet {
+            writeln!(&mut stdout, "{HTML_HEAD_HEADER}")?;
+            writeln!(&mut stdout, "  <style>")?;
+            let names = theme.highlight_names.iter();
+            let styles = theme.styles.iter();
+            for (name, style) in names.zip(styles) {
+                if let Some(css) = &style.css {
+                    writeln!(&mut stdout, "    .{name} {{ {css}; }}")?;
                 }
             }
-            output.extend(b"'");
-        }
-    })?;
-
-    if !opts.quiet {
-        writeln!(&mut stdout, "<table>")?;
-        for (i, line) in renderer.lines().enumerate() {
-            writeln!(
-                &mut stdout,
-                "<tr><td class=line-number>{}</td><td class=line>{line}</td></tr>",
-                i + 1,
-            )?;
+            writeln!(&mut stdout, "  </style>")?;
+            writeln!(&mut stdout, "{HTML_BODY_HEADER}")?;
         }
 
-        writeln!(&mut stdout, "</table>")?;
+        let mut renderer = HtmlRenderer::new();
+        renderer.render(events, &source, &move |highlight, output| {
+            if opts.inline_styles {
+                output.extend(b"style='");
+                output.extend(
+                    theme.styles[highlight.0]
+                        .css
+                        .as_ref()
+                        .map_or_else(|| "".as_bytes(), |css_style| css_style.as_bytes()),
+                );
+                output.extend(b"'");
+            } else {
+                output.extend(b"class='");
+                let mut parts = theme.highlight_names[highlight.0].split('.').peekable();
+                while let Some(part) = parts.next() {
+                    output.extend(part.as_bytes());
+                    if parts.peek().is_some() {
+                        output.extend(b" ");
+                    }
+                }
+                output.extend(b"'");
+            }
+        })?;
+
+        if !opts.quiet {
+            writeln!(&mut stdout, "<table>")?;
+            for (i, line) in renderer.lines().enumerate() {
+                writeln!(
+                    &mut stdout,
+                    "<tr><td class=line-number>{}</td><td class=line>{line}</td></tr>",
+                    i + 1,
+                )?;
+            }
+            writeln!(&mut stdout, "</table>")?;
+            writeln!(&mut stdout, "{HTML_FOOTER}")?;
+        }
+    } else {
+        let mut style_stack = vec![theme.default_style().ansi];
+        for event in events {
+            match event? {
+                HighlightEvent::HighlightStart(highlight) => {
+                    style_stack.push(theme.styles[highlight.0].ansi);
+                }
+                HighlightEvent::HighlightEnd => {
+                    style_stack.pop();
+                }
+                HighlightEvent::Source { start, end } => {
+                    let style = style_stack.last().unwrap();
+                    write!(&mut stdout, "{style}").unwrap();
+                    stdout.write_all(&source[start..end])?;
+                    write!(&mut stdout, "{style:#}").unwrap();
+                }
+            }
+        }
     }
 
     if opts.print_time {

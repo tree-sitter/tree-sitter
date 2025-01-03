@@ -378,7 +378,7 @@ struct Highlight {
     )]
     pub check: bool,
     #[arg(long, help = "The path to a file with captures")]
-    pub captures_path: Option<String>,
+    pub captures_path: Option<PathBuf>,
     #[arg(long, num_args = 1.., help = "The paths to files with queries")]
     pub query_paths: Option<Vec<String>>,
     #[arg(
@@ -394,11 +394,14 @@ struct Highlight {
         long = "paths",
         help = "The path to a file with paths to source file(s)"
     )]
-    pub paths_file: Option<String>,
+    pub paths_file: Option<PathBuf>,
     #[arg(num_args = 1.., help = "The source file(s) to use")]
-    pub paths: Option<Vec<String>>,
+    pub paths: Option<Vec<PathBuf>>,
     #[arg(long, help = "The path to an alternative config.json file")]
     pub config_path: Option<PathBuf>,
+    #[arg(long, short = 'n', help = "Highlight the contents of a specific test")]
+    #[clap(conflicts_with = "paths", conflicts_with = "paths_file")]
+    pub test_number: Option<u32>,
 }
 
 #[derive(Args)]
@@ -1271,135 +1274,163 @@ impl Query {
 }
 
 impl Highlight {
-    fn run(self, mut loader: loader::Loader) -> Result<()> {
+    fn run(self, mut loader: loader::Loader, current_dir: &Path) -> Result<()> {
         let config = Config::load(self.config_path)?;
         let theme_config: tree_sitter_cli::highlight::ThemeConfig = config.get()?;
         loader.configure_highlights(&theme_config.theme.highlight_names);
         let loader_config = config.get()?;
         loader.find_all_languages(&loader_config)?;
 
-        let quiet = self.quiet;
-        let html_mode = quiet || self.html;
-        let inline_styles = !self.css_classes;
-        let paths = collect_paths(self.paths_file.as_deref(), self.paths)?;
-
-        if html_mode && !quiet {
-            println!("{}", highlight::HTML_HEAD_HEADER);
-        }
-
         let cancellation_flag = util::cancel_on_signal();
 
-        let mut language = None;
+        let (mut language, mut language_configuration) = (None, None);
         if let Some(scope) = self.scope.as_deref() {
-            language = loader.language_configuration_for_scope(scope)?;
+            if let Some((lang, lang_config)) = loader.language_configuration_for_scope(scope)? {
+                language = Some(lang);
+                language_configuration = Some(lang_config);
+            };
             if language.is_none() {
                 return Err(anyhow!("Unknown scope '{scope}'"));
             }
         }
 
-        for path in paths {
-            let path = Path::new(&path);
-            let (language, language_config) = match language.clone() {
-                Some(v) => v,
-                None => {
-                    if let Some(v) = loader.language_configuration_for_file_name(path)? {
-                        v
-                    } else {
-                        eprintln!("{}", util::lang_not_found_for_path(path, &loader_config));
-                        continue;
-                    }
-                }
-            };
+        let options = HighlightOptions {
+            theme: theme_config.theme,
+            check: self.check,
+            captures_path: self.captures_path,
+            inline_styles: !self.css_classes,
+            html: self.html,
+            quiet: self.quiet,
+            print_time: self.time,
+            cancellation_flag: cancellation_flag.clone(),
+        };
 
-            if let Some(highlight_config) =
-                language_config.highlight_config(language, self.query_paths.as_deref())?
-            {
-                if self.check {
-                    let names = if let Some(path) = self.captures_path.as_deref() {
-                        let path = Path::new(path);
-                        let file = fs::read_to_string(path)?;
-                        let capture_names = file
-                            .lines()
-                            .filter_map(|line| {
-                                if line.trim().is_empty() || line.trim().starts_with(';') {
-                                    return None;
+        let input = get_input(
+            self.paths_file.as_deref(),
+            self.paths,
+            self.test_number,
+            &cancellation_flag,
+        )?;
+        match input {
+            CliInput::Paths(paths) => {
+                let print_name = paths.len() > 1;
+                for path in paths {
+                    let (language, language_config) =
+                        match (language.clone(), language_configuration) {
+                            (Some(l), Some(lc)) => (l, lc),
+                            _ => {
+                                if let Some((lang, lang_config)) =
+                                    loader.language_configuration_for_file_name(&path)?
+                                {
+                                    (lang, lang_config)
+                                } else {
+                                    eprintln!(
+                                        "{}",
+                                        util::lang_not_found_for_path(&path, &loader_config)
+                                    );
+                                    continue;
                                 }
-                                line.split(';').next().map(|s| s.trim().trim_matches('"'))
-                            })
-                            .collect::<HashSet<_>>();
-                        highlight_config.nonconformant_capture_names(&capture_names)
-                    } else {
-                        highlight_config.nonconformant_capture_names(&HashSet::new())
-                    };
-                    if names.is_empty() {
-                        eprintln!("All highlight captures conform to standards.");
+                            }
+                        };
+
+                    if let Some(highlight_config) =
+                        language_config.highlight_config(language, self.query_paths.as_deref())?
+                    {
+                        highlight::highlight(
+                            &loader,
+                            &path,
+                            &path.display().to_string(),
+                            highlight_config,
+                            print_name,
+                            &options,
+                        )?;
                     } else {
                         eprintln!(
-                            "Non-standard highlight {} detected:",
-                            if names.len() > 1 {
-                                "captures"
-                            } else {
-                                "capture"
-                            }
+                            "No syntax highlighting config found for path {}",
+                            path.display()
                         );
-                        for name in names {
-                            eprintln!("* {name}");
-                        }
                     }
                 }
+            }
 
-                if html_mode && !quiet {
-                    println!("  <style>");
-                    let names = theme_config.theme.highlight_names.iter();
-                    let styles = theme_config.theme.styles.iter();
-                    for (name, style) in names.zip(styles) {
-                        if let Some(css) = &style.css {
-                            println!("    .{name} {{ {css}; }}");
-                        }
-                    }
-                    println!("  </style>");
-                    println!("{}", highlight::HTML_BODY_HEADER);
+            CliInput::Test {
+                name,
+                contents,
+                languages: language_names,
+            } => {
+                let path = get_tmp_source_file(&contents)?;
+
+                let languages = loader.languages_at_path(current_dir)?;
+                let language = languages
+                    .iter()
+                    .find(|(_, n)| language_names.contains(&Box::from(n.as_str())))
+                    .or_else(|| languages.first())
+                    .map(|(l, _)| l.clone())
+                    .ok_or_else(|| anyhow!("No language found in current path"))?;
+                let language_config = loader
+                    .get_language_configuration_in_current_path()
+                    .ok_or_else(|| anyhow!("No language configuration found in current path"))?;
+
+                if let Some(highlight_config) =
+                    language_config.highlight_config(language, self.query_paths.as_deref())?
+                {
+                    highlight::highlight(&loader, &path, &name, highlight_config, false, &options)?;
+                } else {
+                    eprintln!("No syntax highlighting config found for test {name}");
                 }
+                fs::remove_file(path)?;
+            }
 
-                let source = fs::read(path)?;
-                if html_mode {
-                    let html_opts = highlight::HtmlOptions {
-                        inline_styles,
-                        quiet,
-                        print_time: self.time,
+            CliInput::Stdin(contents) => {
+                // Place user input and highlight output on separate lines
+                println!();
+
+                let path = get_tmp_source_file(&contents)?;
+
+                let (language, language_config) =
+                    if let (Some(l), Some(lc)) = (language.clone(), language_configuration) {
+                        (l, lc)
+                    } else {
+                        let languages = loader.languages_at_path(current_dir)?;
+                        let language = languages
+                            .first()
+                            .map(|(l, _)| l.clone())
+                            .ok_or_else(|| anyhow!("No language found in current path"))?;
+                        let language_configuration = loader
+                            .get_language_configuration_in_current_path()
+                            .ok_or_else(|| {
+                                anyhow!("No language configuration found in current path")
+                            })?;
+                        (language, language_configuration)
                     };
-                    highlight::html(
+
+                if let Some(highlight_config) =
+                    language_config.highlight_config(language, self.query_paths.as_deref())?
+                {
+                    highlight::highlight(
                         &loader,
-                        &theme_config.theme,
-                        &source,
+                        &path,
+                        "stdin",
                         highlight_config,
-                        &html_opts,
-                        Some(&cancellation_flag),
+                        false,
+                        &options,
                     )?;
                 } else {
-                    highlight::ansi(
-                        &loader,
-                        &theme_config.theme,
-                        &source,
-                        highlight_config,
-                        self.time,
-                        Some(&cancellation_flag),
-                    )?;
+                    eprintln!(
+                        "No syntax highlighting config found for path {}",
+                        current_dir.display()
+                    );
                 }
-            } else {
-                eprintln!("No syntax highlighting config found for path {path:?}");
+                fs::remove_file(path)?;
             }
         }
 
-        if html_mode && !quiet {
-            println!("{}", highlight::HTML_FOOTER);
-        }
         Ok(())
     }
 }
 
 impl Tags {
-    fn run(self, mut loader: loader::Loader) -> Result<()> {
+    fn run(self, mut loader: loader::Loader, current_dir: &Path) -> Result<()> {
         let config = Config::load(self.config_path)?;
         let loader_config = config.get()?;
         loader.find_all_languages(&loader_config)?;
@@ -1533,7 +1564,7 @@ fn run() -> Result<()> {
         Commands::Version(version_options) => version_options.run(current_dir)?,
         Commands::Fuzz(fuzz_options) => fuzz_options.run(loader, &current_dir)?,
         Commands::Query(query_options) => query_options.run(loader, &current_dir)?,
-        Commands::Highlight(highlight_options) => highlight_options.run(loader)?,
+        Commands::Highlight(highlight_options) => highlight_options.run(loader, &current_dir)?,
         Commands::Tags(tags_options) => tags_options.run(loader)?,
         Commands::Playground(playground_options) => playground_options.run(&current_dir)?,
         Commands::DumpLanguages(dump_options) => dump_options.run(loader)?,
