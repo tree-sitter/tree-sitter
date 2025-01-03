@@ -77,7 +77,7 @@ jobs:
       matrix:
         directory: [cli/npm, lib/binding_web]
     steps:
-      - name: CHeckout repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Set up Node
