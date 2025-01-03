@@ -420,11 +420,18 @@ struct Tags {
         long = "paths",
         help = "The path to a file with paths to source file(s)"
     )]
-    pub paths_file: Option<String>,
+    pub paths_file: Option<PathBuf>,
     #[arg(num_args = 1.., help = "The source file(s) to use")]
-    pub paths: Option<Vec<String>>,
+    pub paths: Option<Vec<PathBuf>>,
     #[arg(long, help = "The path to an alternative config.json file")]
     pub config_path: Option<PathBuf>,
+    #[arg(
+        long,
+        short = 'n',
+        help = "Generate tags from the contents of a specific test"
+    )]
+    #[clap(conflicts_with = "paths", conflicts_with = "paths_file")]
+    pub test_number: Option<u32>,
 }
 
 #[derive(Args)]
@@ -1434,15 +1441,127 @@ impl Tags {
         let config = Config::load(self.config_path)?;
         let loader_config = config.get()?;
         loader.find_all_languages(&loader_config)?;
-        let paths = collect_paths(self.paths_file.as_deref(), self.paths)?;
-        tags::generate_tags(
-            &loader,
-            &config.get()?,
-            self.scope.as_deref(),
-            &paths,
-            self.quiet,
-            self.time,
+
+        let cancellation_flag = util::cancel_on_signal();
+
+        let (mut language, mut language_configuration) = (None, None);
+        if let Some(scope) = self.scope.as_deref() {
+            if let Some((lang, lang_config)) = loader.language_configuration_for_scope(scope)? {
+                language = Some(lang);
+                language_configuration = Some(lang_config);
+            };
+            if language.is_none() {
+                return Err(anyhow!("Unknown scope '{scope}'"));
+            }
+        }
+
+        let options = TagsOptions {
+            scope: self.scope,
+            quiet: self.quiet,
+            print_time: self.time,
+            cancellation_flag: cancellation_flag.clone(),
+        };
+
+        let input = get_input(
+            self.paths_file.as_deref(),
+            self.paths,
+            self.test_number,
+            &cancellation_flag,
         )?;
+        match input {
+            CliInput::Paths(paths) => {
+                let indent = paths.len() > 1;
+                for path in paths {
+                    let (language, language_config) =
+                        match (language.clone(), language_configuration) {
+                            (Some(l), Some(lc)) => (l, lc),
+                            _ => {
+                                if let Some((lang, lang_config)) =
+                                    loader.language_configuration_for_file_name(&path)?
+                                {
+                                    (lang, lang_config)
+                                } else {
+                                    eprintln!(
+                                        "{}",
+                                        util::lang_not_found_for_path(&path, &loader_config)
+                                    );
+                                    continue;
+                                }
+                            }
+                        };
+
+                    if let Some(tags_config) = language_config.tags_config(language)? {
+                        tags::generate_tags(
+                            &path,
+                            &path.display().to_string(),
+                            tags_config,
+                            indent,
+                            &options,
+                        )?;
+                    } else {
+                        eprintln!("No tags config found for path {}", path.display());
+                    }
+                }
+            }
+
+            CliInput::Test {
+                name,
+                contents,
+                languages: language_names,
+            } => {
+                let path = get_tmp_source_file(&contents)?;
+
+                let languages = loader.languages_at_path(current_dir)?;
+                let language = languages
+                    .iter()
+                    .find(|(_, n)| language_names.contains(&Box::from(n.as_str())))
+                    .or_else(|| languages.first())
+                    .map(|(l, _)| l.clone())
+                    .ok_or_else(|| anyhow!("No language found in current path"))?;
+                let language_config = loader
+                    .get_language_configuration_in_current_path()
+                    .ok_or_else(|| anyhow!("No language configuration found in current path"))?;
+
+                if let Some(tags_config) = language_config.tags_config(language)? {
+                    tags::generate_tags(&path, &name, tags_config, false, &options)?;
+                } else {
+                    eprintln!("No tags config found for test {name}");
+                }
+                fs::remove_file(path)?;
+            }
+
+            CliInput::Stdin(contents) => {
+                // Place user input and tags output on separate lines
+                println!();
+
+                let path = get_tmp_source_file(&contents)?;
+
+                let (language, language_config) =
+                    if let (Some(l), Some(lc)) = (language.clone(), language_configuration) {
+                        (l, lc)
+                    } else {
+                        let languages = loader.languages_at_path(current_dir)?;
+                        let language = languages
+                            .first()
+                            .map(|(l, _)| l.clone())
+                            .ok_or_else(|| anyhow!("No language found in current path"))?;
+                        let language_configuration = loader
+                            .get_language_configuration_in_current_path()
+                            .ok_or_else(|| {
+                                anyhow!("No language configuration found in current path")
+                            })?;
+                        (language, language_configuration)
+                    };
+
+                if let Some(tags_config) = language_config.tags_config(language)? {
+                    tags::generate_tags(&path, "stdin", tags_config, false, &options)?;
+                } else {
+                    eprintln!("No tags config found for path {}", current_dir.display());
+                }
+                fs::remove_file(path)?;
+            }
+        }
+
         Ok(())
     }
 }
@@ -1565,7 +1684,7 @@ fn run() -> Result<()> {
         Commands::Fuzz(fuzz_options) => fuzz_options.run(loader, &current_dir)?,
         Commands::Query(query_options) => query_options.run(loader, &current_dir)?,
         Commands::Highlight(highlight_options) => highlight_options.run(loader, &current_dir)?,
-        Commands::Tags(tags_options) => tags_options.run(loader)?,
+        Commands::Tags(tags_options) => tags_options.run(loader, &current_dir)?,
         Commands::Playground(playground_options) => playground_options.run(&current_dir)?,
         Commands::DumpLanguages(dump_options) => dump_options.run(loader)?,
         Commands::Complete(complete_options) => complete_options.run(&mut cli),
