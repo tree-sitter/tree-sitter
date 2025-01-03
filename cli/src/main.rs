@@ -114,7 +114,8 @@ struct Generate {
         help = "Produce a report of the states for the given rule, use `-` to report every rule"
     )]
     pub report_states_for_rule: Option<String>,
-
+    #[arg(long, help = "Report conflicts in a JSON format")]
+    pub json_errors: bool,
     #[arg(
         long,
         value_name = "EXECUTABLE",
@@ -211,6 +212,8 @@ struct Parse {
         help = "Open `log.html` in the default browser, if `--debug-graph` is supplied"
     )]
     pub open_log: bool,
+    #[arg(long, short = 'j', help = "Output parsing results in a JSON format")]
+    pub output_json_summary: bool,
     #[arg(long, help = "The path to an alternative config.json file")]
     pub config_path: Option<PathBuf>,
     #[arg(long, short = 'n', help = "Parse the contents of a specific test")]
@@ -725,14 +728,22 @@ impl Generate {
                         version.parse().expect("invalid abi version flag")
                     }
                 });
-        tree_sitter_generate::generate_parser_in_directory(
+        if let Err(err) = tree_sitter_generate::generate_parser_in_directory(
             current_dir,
             self.output.as_deref(),
             self.grammar_path.as_deref(),
             abi_version,
             self.report_states_for_rule.as_deref(),
             self.js_runtime.as_deref(),
-        )?;
+        ) {
+            if self.json_errors {
+                eprintln!("{}", serde_json::to_string_pretty(&err)?);
+            } else {
+                eprintln!("{err}");
+            }
+            // Exit early to prevent errors from being printed a second time in the caller
+            std::process::exit(1);
+        }
         if self.build {
             if let Some(path) = self.libdir {
                 loader = loader::Loader::with_parser_lib_path(PathBuf::from(path));
@@ -811,7 +822,7 @@ impl Parse {
             ParseOutput::Xml
         } else if self.output_cst {
             ParseOutput::Cst
-        } else if self.quiet {
+        } else if self.quiet || self.output_json_summary {
             ParseOutput::Quiet
         } else {
             ParseOutput::Normal
@@ -872,7 +883,7 @@ impl Parse {
         loader.find_all_languages(&loader_config)?;
 
         let should_track_stats = self.stat;
-        let mut stats = parse::Stats::default();
+        let mut stats = parse::ParseStats::default();
 
         for path in &paths {
             let path = Path::new(&path);
@@ -886,7 +897,9 @@ impl Parse {
                 .set_language(&language)
                 .context("incompatible language")?;
 
-            let opts = ParseFileOptions {
+            stats.parse_summaries.push(parse::ParseSummary::new(path));
+
+            let mut opts = ParseFileOptions {
                 language: language.clone(),
                 path,
                 edits: &edits
@@ -895,6 +908,7 @@ impl Parse {
                     .collect::<Vec<&str>>(),
                 max_path_length,
                 output,
+                stats: &mut stats,
                 print_time: time,
                 timeout,
                 debug: self.debug,
@@ -906,16 +920,20 @@ impl Parse {
                 parse_theme: &parse_theme,
             };
 
-            let parse_result = parse::parse_file_at_path(&mut parser, &opts)?;
+            let parse_result = parse::parse_file_at_path(&mut parser, &mut opts)?;
+            let last_summary = stats.parse_summaries.last_mut().unwrap();
+            last_summary.successful = parse_result.successful;
+            last_summary.duration = parse_result.duration;
+            last_summary.bytes = Some(parse_result.bytes as u128);
 
-            if should_track_stats {
-                stats.total_parses += 1;
+            if should_track_stats || self.output_json_summary {
+                stats.cumulative_stats.total_parses += 1;
                 if parse_result.successful {
-                    stats.successful_parses += 1;
+                    stats.cumulative_stats.successful_parses += 1;
                 }
                 if let Some(duration) = parse_result.duration {
-                    stats.total_bytes += parse_result.bytes;
-                    stats.total_duration += duration;
+                    stats.cumulative_stats.total_bytes += parse_result.bytes;
+                    stats.cumulative_stats.total_duration += duration;
                 }
             }
 
@@ -923,7 +941,10 @@ impl Parse {
         }
 
         if should_track_stats {
-            println!("\n{stats}");
+            println!("\n{}", stats.cumulative_stats);
+        }
+        if self.output_json_summary {
+            println!("{}", serde_json::to_string_pretty(&stats)?);
         }
 
         if has_error {

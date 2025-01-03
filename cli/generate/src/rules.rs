@@ -1,10 +1,11 @@
 use std::{collections::HashMap, fmt};
 
+use serde::Serialize;
 use smallbitvec::SmallBitVec;
 
 use super::grammars::VariableType;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]
 pub enum SymbolType {
     External,
     End,
@@ -13,19 +14,19 @@ pub enum SymbolType {
     NonTerminal,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]
 pub enum Associativity {
     Left,
     Right,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]
 pub struct Alias {
     pub value: String,
     pub is_named: bool,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Default, Serialize)]
 pub enum Precedence {
     #[default]
     None,
@@ -35,7 +36,7 @@ pub enum Precedence {
 
 pub type AliasMap = HashMap<Symbol, Alias>;
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Serialize)]
 pub struct MetadataParams {
     pub precedence: Precedence,
     pub dynamic_precedence: i32,
@@ -46,13 +47,13 @@ pub struct MetadataParams {
     pub field_name: Option<String>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]
 pub struct Symbol {
     pub kind: SymbolType,
     pub index: usize,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize)]
 pub enum Rule {
     Blank,
     String(String),

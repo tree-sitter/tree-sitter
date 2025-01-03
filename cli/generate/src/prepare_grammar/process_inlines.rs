@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
+use serde::Serialize;
+use thiserror::Error;
 
 use crate::{
     grammars::{InlinedProductionMap, LexicalGrammar, Production, ProductionStep, SyntaxGrammar},
@@ -187,29 +189,38 @@ impl InlinedProductionMapBuilder {
     }
 }
 
+pub type ProcessInlinesResult<T> = Result<T, ProcessInlinesError>;
+
+#[derive(Debug, Error, Serialize)]
+pub enum ProcessInlinesError {
+    #[error("External token `{0}` cannot be inlined")]
+    ExternalToken(String),
+    #[error("Token `{0}` cannot be inlined")]
+    Token(String),
+    #[error("Rule `{0}` cannot be inlined because it is the first rule")]
+    FirstRule(String),
+}
+
 pub(super) fn process_inlines(
     grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
-) -> Result<InlinedProductionMap> {
+) -> ProcessInlinesResult<InlinedProductionMap> {
     for symbol in &grammar.variables_to_inline {
         match symbol.kind {
             SymbolType::External => {
-                return Err(anyhow!(
-                    "External token `{}` cannot be inlined",
-                    grammar.external_tokens[symbol.index].name
-                ))
+                Err(ProcessInlinesError::ExternalToken(
+                    grammar.external_tokens[symbol.index].name.clone(),
+                ))?;
             }
             SymbolType::Terminal => {
-                return Err(anyhow!(
-                    "Token `{}` cannot be inlined",
-                    lexical_grammar.variables[symbol.index].name,
-                ))
+                Err(ProcessInlinesError::Token(
+                    lexical_grammar.variables[symbol.index].name.clone(),
+                ))?;
             }
             SymbolType::NonTerminal if symbol.index == 0 => {
-                return Err(anyhow!(
-                    "Rule `{}` cannot be inlined because it is the first rule",
-                    grammar.variables[symbol.index].name,
-                ))
+                Err(ProcessInlinesError::FirstRule(
+                    grammar.variables[symbol.index].name.clone(),
+                ))?;
             }
             _ => {}
         }
