@@ -105,7 +105,7 @@ interface Grammar<
    * @param $ grammar rules
    * @param previous array of externals from the base schema, if any
    *
-   * @see https://tree-sitter.github.io/tree-sitter/creating-parsers#external-scanners
+   * @see https://tree-sitter.github.io/tree-sitter/creating-parsers/4-external-scanners
    */
   externals?: (
     $: Record<string, SymbolRule<string>>,
@@ -143,7 +143,7 @@ interface Grammar<
    *
    * @param $ grammar rules
    *
-   * @see https://tree-sitter.github.io/tree-sitter/using-parsers#static-node-types
+   * @see https://tree-sitter.github.io/tree-sitter/using-parsers/6-static-node-types
    */
   supertypes?: (
     $: GrammarSymbols<RuleName | BaseGrammarRuleName>,
@@ -156,7 +156,7 @@ interface Grammar<
    *
    * @param $ grammar rules
    *
-   * @see https://tree-sitter.github.io/tree-sitter/creating-parsers#keyword-extraction
+   * @see https://tree-sitter.github.io/tree-sitter/creating-parsers/3-writing-the-grammar#keyword-extraction
    */
   word?: ($: GrammarSymbols<RuleName | BaseGrammarRuleName>) => RuleOrLiteral;
 }
