@@ -9,7 +9,6 @@ use anyhow::{anyhow, Context, Result};
 use clap::{crate_authors, Args, Command, FromArgMatches as _, Subcommand, ValueEnum};
 use clap_complete::generate;
 use dialoguer::{theme::ColorfulTheme, Confirm, FuzzySelect, Input};
-use glob::glob;
 use heck::ToUpperCamelCase;
 use regex::Regex;
 use semver::Version as SemverVersion;
@@ -19,11 +18,13 @@ use tree_sitter_cli::{
         fuzz_language_corpus, FuzzOptions, EDIT_COUNT, ITERATION_COUNT, LOG_ENABLED,
         LOG_GRAPH_ENABLED, START_SEED,
     },
-    highlight,
+    highlight::{self, HighlightOptions},
     init::{generate_grammar_files, get_root_path, migrate_package_json, JsonConfigOpts},
+    input::{get_input, get_tmp_source_file, CliInput},
     logger,
-    parse::{self, ParseFileOptions, ParseOutput, ParseTheme},
-    playground, query, tags,
+    parse::{self, ParseFileOptions, ParseOutput, ParseResult, ParseTheme},
+    playground, query,
+    tags::{self, TagsOptions},
     test::{self, TestOptions, TestStats},
     test_highlight, test_tags, util, version, wasm,
 };
@@ -153,9 +154,9 @@ struct Parse {
         long = "paths",
         help = "The path to a file with paths to source file(s)"
     )]
-    pub paths_file: Option<String>,
+    pub paths_file: Option<PathBuf>,
     #[arg(num_args=1.., help = "The source file(s) to use")]
-    pub paths: Option<Vec<String>>,
+    pub paths: Option<Vec<PathBuf>>,
     #[arg(
         long,
         help = "Select a language by the scope instead of a file extension"
@@ -853,20 +854,6 @@ impl Parse {
 
         let timeout = self.timeout.unwrap_or_default();
 
-        let (paths, language) = if let Some(target_test) = self.test_number {
-            let (test_path, language_names) = test::get_tmp_test_file(target_test, color)?;
-            let languages = loader.languages_at_path(current_dir)?;
-            let language = languages
-                .iter()
-                .find(|(_, n)| language_names.contains(&Box::from(n.as_str())))
-                .map(|(l, _)| l.clone());
-            let paths = collect_paths(None, Some(vec![test_path.to_str().unwrap().to_owned()]))?;
-            (paths, language)
-        } else {
-            (collect_paths(self.paths_file.as_deref(), self.paths)?, None)
-        };
-
-        let max_path_length = paths.iter().map(|p| p.chars().count()).max().unwrap_or(0);
         let mut has_error = false;
         let loader_config = config.get()?;
         loader.find_all_languages(&loader_config)?;
@@ -874,40 +861,24 @@ impl Parse {
         let should_track_stats = self.stat;
         let mut stats = parse::Stats::default();
 
-        for path in &paths {
-            let path = Path::new(&path);
+        let options = ParseFileOptions {
+            edits: &edits
+                .iter()
+                .map(std::string::String::as_str)
+                .collect::<Vec<&str>>(),
+            output,
+            print_time: time,
+            timeout,
+            debug: self.debug,
+            debug_graph: self.debug_graph,
+            cancellation_flag: Some(&cancellation_flag),
+            encoding,
+            open_log: self.open_log,
+            no_ranges: self.no_ranges,
+            parse_theme: &parse_theme,
+        };
 
-            let language = if let Some(ref language) = language {
-                language.clone()
-            } else {
-                loader.select_language(path, current_dir, self.scope.as_deref())?
-            };
-            parser
-                .set_language(&language)
-                .context("incompatible language")?;
-
-            let opts = ParseFileOptions {
-                language: language.clone(),
-                path,
-                edits: &edits
-                    .iter()
-                    .map(std::string::String::as_str)
-                    .collect::<Vec<&str>>(),
-                max_path_length,
-                output,
-                print_time: time,
-                timeout,
-                debug: self.debug,
-                debug_graph: self.debug_graph,
-                cancellation_flag: Some(&cancellation_flag),
-                encoding,
-                open_log: self.open_log,
-                no_ranges: self.no_ranges,
-                parse_theme: &parse_theme,
-            };
-
-            let parse_result = parse::parse_file_at_path(&mut parser, &opts)?;
-
+        let mut update_stats = |parse_result: ParseResult| {
             if should_track_stats {
                 stats.total_parses += 1;
                 if parse_result.successful {
@@ -920,6 +891,84 @@ impl Parse {
             }
 
             has_error |= !parse_result.successful;
+        };
+
+        let input = get_input(
+            self.paths_file.as_deref(),
+            self.paths,
+            self.test_number,
+            &cancellation_flag,
+        )?;
+        match input {
+            CliInput::Paths(paths) => {
+                let max_path_length = paths
+                    .iter()
+                    .map(|p| p.to_string_lossy().chars().count())
+                    .max()
+                    .unwrap_or(0);
+
+                for path in &paths {
+                    let path = Path::new(&path);
+                    let language =
+                        loader.select_language(path, current_dir, self.scope.as_deref())?;
+
+                    let parse_result = parse::parse_file_at_path(
+                        &mut parser,
+                        &language,
+                        path,
+                        &path.display().to_string(),
+                        max_path_length,
+                        &options,
+                    )?;
+                    update_stats(parse_result);
+                }
+            }
+
+            CliInput::Test {
+                name,
+                contents,
+                languages: language_names,
+            } => {
+                let path = get_tmp_source_file(&contents)?;
+                let languages = loader.languages_at_path(current_dir)?;
+                let language = languages
+                    .iter()
+                    .find(|(_, n)| language_names.contains(&Box::from(n.as_str())))
+                    .or_else(|| languages.first())
+                    .map(|(l, _)| l.clone())
+                    .ok_or_else(|| anyhow!("No language found"))?;
+
+                let parse_result = parse::parse_file_at_path(
+                    &mut parser,
+                    &language,
+                    &path,
+                    &name,
+                    name.chars().count(),
+                    &options,
+                )?;
+                update_stats(parse_result);
+                fs::remove_file(path)?;
+            }
+
+            CliInput::Stdin(contents) => {
+                // Place user input and parser output on separate lines
+                println!();
+
+                let path = get_tmp_source_file(&contents)?;
+                let name = "stdin";
+                let language = loader.select_language(&path, current_dir, None)?;
+
+                let parse_result = parse::parse_file_at_path(
+                    &mut parser,
+                    &language,
+                    &path,
+                    name,
+                    name.chars().count(),
+                    &options,
+                )?;
+                update_stats(parse_result);
+                fs::remove_file(path)?;
+            }
         }
 
         if should_track_stats {
