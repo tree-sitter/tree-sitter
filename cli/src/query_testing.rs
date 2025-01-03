@@ -1,4 +1,4 @@
-use std::fs;
+use std::{fs, path::Path};
 
 use anyhow::{anyhow, Result};
 use bstr::{BStr, ByteSlice};
@@ -224,7 +224,7 @@ pub fn parse_position_comments(
 
 pub fn assert_expected_captures(
     infos: &[CaptureInfo],
-    path: &str,
+    path: &Path,
     parser: &mut Parser,
     language: &Language,
 ) -> Result<usize> {
