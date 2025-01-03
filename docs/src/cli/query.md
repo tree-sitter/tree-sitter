@@ -43,3 +43,7 @@ Whether to run query tests or not.
 ### `--config-path <CONFIG_PATH>`
 
 The path to an alternative configuration (`config.json`) file. See [the init-config command](./init-config.md) for more information.
+
+### `-n/--test-number <TEST_NUMBER>`
+
+Query the contents of a specific test.
