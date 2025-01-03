@@ -21,12 +21,10 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1
 
       - name: Run emscripten update xtask
-        env:
-          GIT_AUTHOR_NAME: dependabot[bot]
-          GIT_AUTHOR_EMAIL: 49699333+dependabot[bot]@users.noreply.github.com
-          GIT_COMMITTER_NAME: dependabot[bot]
-          GIT_COMMITTER_EMAIL: 49699333+dependabot[bot]@users.noreply.github.com
-        run: cargo xtask upgrade-emscripten
+        run: |
+          git config --global user.name "dependabot[bot]"
+          git config --global user.email "49699333+dependabot[bot]@users.noreply.github.com"
+          cargo xtask upgrade-emscripten
 
       - name: Push updated version
         run: git push origin HEAD:$GITHUB_HEAD_REF
