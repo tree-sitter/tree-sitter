@@ -327,7 +327,7 @@ struct Fuzz {
 #[command(about = "Search files using a syntax tree query", alias = "q")]
 struct Query {
     #[arg(help = "Path to a file with queries", index = 1, required = true)]
-    query_path: String,
+    query_path: PathBuf,
     #[arg(long, short, help = "Measure execution time")]
     pub time: bool,
     #[arg(long, short, help = "Suppress main output")]
@@ -336,9 +336,9 @@ struct Query {
         long = "paths",
         help = "The path to a file with paths to source file(s)"
     )]
-    pub paths_file: Option<String>,
+    pub paths_file: Option<PathBuf>,
     #[arg(index = 2, num_args=1.., help = "The source file(s) to use")]
-    pub paths: Option<Vec<String>>,
+    pub paths: Option<Vec<PathBuf>>,
     #[arg(
         long,
         help = "The range of byte offsets in which the query will be executed"
@@ -357,6 +357,9 @@ struct Query {
     pub test: bool,
     #[arg(long, help = "The path to an alternative config.json file")]
     pub config_path: Option<PathBuf>,
+    #[arg(long, short = 'n', help = "Query the contents of a specific test")]
+    #[clap(conflicts_with = "paths", conflicts_with = "paths_file")]
+    pub test_number: Option<u32>,
 }
 
 #[derive(Args)]
@@ -1084,31 +1087,37 @@ impl Test {
                 .map(|s| s.to_str().unwrap_or_default())
                 .unwrap_or_default();
             if stem != "highlights" && stem != "tags" {
-                let paths = walkdir::WalkDir::new(test_dir.join(stem))
+                let entries = walkdir::WalkDir::new(test_dir.join(stem))
                     .into_iter()
                     .filter_map(|e| {
                         let entry = e.ok()?;
                         if entry.file_type().is_file() {
-                            Some(String::from(entry.path().to_string_lossy()))
+                            Some(entry)
                         } else {
                             None
                         }
                     })
-                    .collect::<Vec<String>>();
-                if !paths.is_empty() {
+                    .collect::<Vec<_>>();
+                if !entries.is_empty() {
                     println!("{stem}:");
                 }
-                query::query_files_at_paths(
-                    language,
-                    paths,
-                    entry.path(),
-                    false,
-                    None,
-                    None,
-                    true,
-                    false,
-                    false,
-                )?;
+
+                for entry in entries {
+                    let path = entry.path();
+                    query::query_file_at_path(
+                        language,
+                        path,
+                        &path.display().to_string(),
+                        path,
+                        false,
+                        None,
+                        None,
+                        true,
+                        false,
+                        false,
+                        false,
+                    )?;
+                }
             }
         }
         Ok(())
@@ -1156,11 +1165,8 @@ impl Fuzz {
 impl Query {
     fn run(self, mut loader: loader::Loader, current_dir: &Path) -> Result<()> {
         let config = Config::load(self.config_path)?;
-        let paths = collect_paths(self.paths_file.as_deref(), self.paths)?;
         let loader_config = config.get()?;
         loader.find_all_languages(&loader_config)?;
-        let language =
-            loader.select_language(Path::new(&paths[0]), current_dir, self.scope.as_deref())?;
         let query_path = Path::new(&self.query_path);
 
         let byte_range = self.byte_range.as_ref().and_then(|range| {
@@ -1176,17 +1182,90 @@ impl Query {
             Some(Point::new(start, 0)..Point::new(end, 0))
         });
 
-        query::query_files_at_paths(
-            &language,
-            paths,
-            query_path,
-            self.captures,
-            byte_range,
-            point_range,
-            self.test,
-            self.quiet,
-            self.time,
+        let cancellation_flag = util::cancel_on_signal();
+
+        let input = get_input(
+            self.paths_file.as_deref(),
+            self.paths,
+            self.test_number,
+            &cancellation_flag,
         )?;
+
+        match input {
+            CliInput::Paths(paths) => {
+                let language = loader.select_language(
+                    Path::new(&paths[0]),
+                    current_dir,
+                    self.scope.as_deref(),
+                )?;
+
+                for path in paths {
+                    query::query_file_at_path(
+                        &language,
+                        &path,
+                        &path.display().to_string(),
+                        query_path,
+                        self.captures,
+                        byte_range.clone(),
+                        point_range.clone(),
+                        self.test,
+                        self.quiet,
+                        self.time,
+                        false,
+                    )?;
+                }
+            }
+            CliInput::Test {
+                name,
+                contents,
+                languages: language_names,
+            } => {
+                let path = get_tmp_source_file(&contents)?;
+                let languages = loader.languages_at_path(current_dir)?;
+                let language = languages
+                    .iter()
+                    .find(|(_, n)| language_names.contains(&Box::from(n.as_str())))
+                    .or_else(|| languages.first())
+                    .map(|(l, _)| l.clone())
+                    .ok_or_else(|| anyhow!("No language found"))?;
+                query::query_file_at_path(
+                    &language,
+                    &path,
+                    &name,
+                    query_path,
+                    self.captures,
+                    byte_range,
+                    point_range,
+                    self.test,
+                    self.quiet,
+                    self.time,
+                    true,
+                )?;
+                fs::remove_file(path)?;
+            }
+            CliInput::Stdin(contents) => {
+                // Place user input and query output on separate lines
+                println!();
+
+                let path = get_tmp_source_file(&contents)?;
+                let language = loader.select_language(&path, current_dir, None)?;
+                query::query_file_at_path(
+                    &language,
+                    &path,
+                    "stdin",
+                    query_path,
+                    self.captures,
+                    byte_range,
+                    point_range,
+                    self.test,
+                    self.quiet,
+                    self.time,
+                    true,
+                )?;
+                fs::remove_file(path)?;
+            }
+        }
+
         Ok(())
     }
 }
