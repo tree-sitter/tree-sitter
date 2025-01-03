@@ -268,64 +268,6 @@ pub fn run_tests_at_path(parser: &mut Parser, opts: &mut TestOptions) -> Result<
     }
 }
 
-#[allow(clippy::type_complexity)]
-pub fn get_test_info<'test>(
-    test_entry: &'test TestEntry,
-    target_test: u32,
-    test_num: &mut u32,
-) -> Option<(&'test str, &'test [u8], Vec<Box<str>>)> {
-    match test_entry {
-        TestEntry::Example {
-            name,
-            input,
-            attributes,
-            ..
-        } => {
-            if *test_num == target_test {
-                return Some((name, input, attributes.languages.clone()));
-            }
-            *test_num += 1;
-        }
-        TestEntry::Group { children, .. } => {
-            for child in children {
-                if let Some((name, input, languages)) = get_test_info(child, target_test, test_num)
-                {
-                    return Some((name, input, languages));
-                }
-            }
-        }
-    }
-
-    None
-}
-
-/// Writes the input of `target_test` to a temporary file and returns the path
-pub fn get_tmp_test_file(target_test: u32, color: bool) -> Result<(PathBuf, Vec<Box<str>>)> {
-    let current_dir = std::env::current_dir().unwrap();
-    let test_dir = current_dir.join("test").join("corpus");
-
-    // Get the input of the target test
-    let test_entry = parse_tests(&test_dir)?;
-    let mut test_num = 0;
-    let Some((test_name, test_contents, languages)) =
-        get_test_info(&test_entry, target_test - 1, &mut test_num)
-    else {
-        return Err(anyhow!("Failed to fetch contents of test #{target_test}"));
-    };
-
-    // Write the test contents to a temporary file
-    let test_path = std::env::temp_dir().join(".tree-sitter-test");
-    let mut test_file = std::fs::File::create(&test_path)?;
-    test_file.write_all(test_contents)?;
-
-    println!(
-        "{target_test}. {}\n",
-        paint(color.then_some(AnsiColor::Green), test_name)
-    );
-
-    Ok((test_path, languages))
-}
-
 pub fn check_queries_at_path(language: &Language, path: &Path) -> Result<()> {
     if path.exists() {
         for entry in WalkDir::new(path)
