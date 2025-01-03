@@ -178,10 +178,7 @@ pub enum ParseOutput {
 }
 
 pub struct ParseFileOptions<'a> {
-    pub language: Language,
-    pub path: &'a Path,
     pub edits: &'a [&'a str],
-    pub max_path_length: usize,
     pub output: ParseOutput,
     pub print_time: bool,
     pub timeout: u64,
@@ -201,11 +198,17 @@ pub struct ParseResult {
     pub duration: Option<Duration>,
 }
 
-pub fn parse_file_at_path(parser: &mut Parser, opts: &ParseFileOptions) -> Result<ParseResult> {
+pub fn parse_file_at_path(
+    parser: &mut Parser,
+    language: &Language,
+    path: &Path,
+    name: &str,
+    max_path_length: usize,
+    opts: &ParseFileOptions,
+) -> Result<ParseResult> {
     let mut _log_session = None;
-    parser.set_language(&opts.language)?;
-    let mut source_code = fs::read(opts.path)
-        .with_context(|| format!("Error reading source file {:?}", opts.path))?;
+    parser.set_language(language)?;
+    let mut source_code = fs::read(path).with_context(|| format!("Error reading {name:?}"))?;
 
     // Render an HTML graph if `--debug-graph` was passed
     if opts.debug_graph {
@@ -551,13 +554,13 @@ pub fn parse_file_at_path(parser: &mut Parser, opts: &ParseFileOptions) -> Resul
         }
 
         if first_error.is_some() || opts.print_time {
-            let path = opts.path.to_string_lossy();
+            let path = path.to_string_lossy();
             write!(
                 &mut stdout,
                 "{:width$}\tParse: {parse_duration_ms:>7.2} ms\t{:>6} bytes/ms",
-                path,
+                name,
                 (source_code.len() as u128 * 1_000_000) / parse_duration.as_nanos(),
-                width = opts.max_path_length
+                width = max_path_length
             )?;
             if let Some(node) = first_error {
                 let start = node.start_position();
@@ -587,7 +590,7 @@ pub fn parse_file_at_path(parser: &mut Parser, opts: &ParseFileOptions) -> Resul
                     &mut stdout,
                     "\n{:width$}\tEdit:  {edit_duration_ms:>7.2} ms",
                     " ".repeat(path.len()),
-                    width = opts.max_path_length,
+                    width = max_path_length,
                 )?;
             }
             writeln!(&mut stdout)?;
@@ -607,8 +610,8 @@ pub fn parse_file_at_path(parser: &mut Parser, opts: &ParseFileOptions) -> Resul
         writeln!(
             &mut stdout,
             "{:width$}\tParse: {duration_ms:>7.2} ms\t(timed out)",
-            opts.path.to_str().unwrap(),
-            width = opts.max_path_length
+            path.to_str().unwrap(),
+            width = max_path_length
         )?;
     }
 
