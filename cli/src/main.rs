@@ -181,8 +181,8 @@ struct Parse {
     pub wasm: bool,
     /// Output the parse data with graphviz dot
     #[arg(long = "dot")]
-    /// Output the parse data in XML format
     pub output_dot: bool,
+    /// Output the parse data in XML format
     #[arg(long = "xml", short = 'x')]
     pub output_xml: bool,
     /// Output the parse data in a pretty-printed CST format
