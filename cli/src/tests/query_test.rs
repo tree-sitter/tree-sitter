@@ -5550,3 +5550,31 @@ function foo() {
         &[(0, vec![("part", "function foo() {\n    \"bar\"\n}")])],
     );
 }
+
+#[test]
+fn test_unfinished_captures_are_not_definite_with_pending_anchors() {
+    let language = get_language("javascript");
+    let mut parser = Parser::new();
+    parser.set_language(&language).unwrap();
+
+    let source_code = "
+const foo = [
+  1, 2, 3
+]
+";
+
+    let tree = parser.parse(source_code, None).unwrap();
+    let query = Query::new(&language, r#"(array (_) @foo . "]")"#).unwrap();
+    let mut matches_cursor = QueryCursor::new();
+    let mut captures_cursor = QueryCursor::new();
+
+    let captures = captures_cursor.captures(&query, tree.root_node(), source_code.as_bytes());
+    let captures = collect_captures(captures, &query, source_code);
+
+    let matches = matches_cursor.matches(&query, tree.root_node(), source_code.as_bytes());
+    let matches = collect_matches(matches, &query, source_code);
+
+    assert_eq!(captures, vec![("foo", "3")]);
+    assert_eq!(matches.len(), 1);
+    assert_eq!(matches[0].1, captures);
+}

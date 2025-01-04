@@ -3206,7 +3206,7 @@ static bool ts_query_cursor__first_in_progress_capture(
   uint32_t *state_index,
   uint32_t *byte_offset,
   uint32_t *pattern_index,
-  bool *root_pattern_guaranteed
+  bool *is_definite
 ) {
   bool result = false;
   *state_index = UINT32_MAX;
@@ -3241,8 +3241,11 @@ static bool ts_query_cursor__first_in_progress_capture(
       (node_start_byte == *byte_offset && state->pattern_index < *pattern_index)
     ) {
       QueryStep *step = &self->query->steps.contents[state->step_index];
-      if (root_pattern_guaranteed) {
-        *root_pattern_guaranteed = step->root_pattern_guaranteed;
+      if (is_definite) {
+        // We're being a bit conservative here by asserting that the following step
+        // is not immediate, because this capture might end up being discarded if the
+        // following symbol in the tree isn't the required symbol for this step.
+        *is_definite = step->root_pattern_guaranteed && !step->is_immediate;
       } else if (step->root_pattern_guaranteed) {
         continue;
       }
