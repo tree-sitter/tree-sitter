@@ -369,6 +369,90 @@ pub fn get_variable_info(
     Ok(result)
 }
 
+fn get_aliases_by_symbol(
+    syntax_grammar: &SyntaxGrammar,
+    default_aliases: &AliasMap,
+) -> HashMap<Symbol, HashSet<Option<Alias>>> {
+    let mut aliases_by_symbol = HashMap::new();
+    for (symbol, alias) in default_aliases {
+        aliases_by_symbol.insert(*symbol, {
+            let mut aliases = HashSet::new();
+            aliases.insert(Some(alias.clone()));
+            aliases
+        });
+    }
+    for extra_symbol in &syntax_grammar.extra_symbols {
+        if !default_aliases.contains_key(extra_symbol) {
+            aliases_by_symbol
+                .entry(*extra_symbol)
+                .or_insert_with(HashSet::new)
+                .insert(None);
+        }
+    }
+    for variable in &syntax_grammar.variables {
+        for production in &variable.productions {
+            for step in &production.steps {
+                aliases_by_symbol
+                    .entry(step.symbol)
+                    .or_insert_with(HashSet::new)
+                    .insert(
+                        step.alias
+                            .as_ref()
+                            .or_else(|| default_aliases.get(&step.symbol))
+                            .cloned(),
+                    );
+            }
+        }
+    }
+    aliases_by_symbol.insert(
+        Symbol::non_terminal(0),
+        std::iter::once(&None).cloned().collect(),
+    );
+    aliases_by_symbol
+}
+
+pub fn get_supertype_symbol_map(
+    syntax_grammar: &SyntaxGrammar,
+    default_aliases: &AliasMap,
+    variable_info: &[VariableInfo],
+) -> Vec<(Symbol, Vec<ChildType>)> {
+    let aliases_by_symbol = get_aliases_by_symbol(syntax_grammar, default_aliases);
+    let mut subtype_symbol_map = vec![];
+
+    let mut symbols_by_alias = HashMap::new();
+    for (symbol, aliases) in &aliases_by_symbol {
+        for alias in aliases.iter().flatten() {
+            symbols_by_alias
+                .entry(alias)
+                .or_insert_with(Vec::new)
+                .push(*symbol);
+        }
+    }
+
+    for (i, info) in variable_info.iter().enumerate() {
+        let symbol = Symbol::non_terminal(i);
+        if syntax_grammar.supertype_symbols.contains(&symbol) {
+            let subtype_symbols = info
+                .children
+                .types
+                .iter()
+                .flat_map(|ct| match ct {
+                    ChildType::Aliased(alias) => {
+                        let mut syms = vec![ChildType::Aliased(alias.clone())];
+                        if let Some(symbols) = symbols_by_alias.get(alias) {
+                            syms.extend(symbols.iter().map(|s| ChildType::Normal(*s)));
+                        }
+                        syms
+                    }
+                    ChildType::Normal(symbol) => vec![ChildType::Normal(*symbol)],
+                })
+                .collect();
+            subtype_symbol_map.push((symbol, subtype_symbols));
+        }
+    }
+    subtype_symbol_map
+}
+
 pub fn generate_node_types_json(
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
@@ -430,41 +514,7 @@ pub fn generate_node_types_json(
         }
     };
 
-    let mut aliases_by_symbol = HashMap::new();
-    for (symbol, alias) in default_aliases {
-        aliases_by_symbol.insert(*symbol, {
-            let mut aliases = HashSet::new();
-            aliases.insert(Some(alias.clone()));
-            aliases
-        });
-    }
-    for extra_symbol in &syntax_grammar.extra_symbols {
-        if !default_aliases.contains_key(extra_symbol) {
-            aliases_by_symbol
-                .entry(*extra_symbol)
-                .or_insert_with(HashSet::new)
-                .insert(None);
-        }
-    }
-    for variable in &syntax_grammar.variables {
-        for production in &variable.productions {
-            for step in &production.steps {
-                aliases_by_symbol
-                    .entry(step.symbol)
-                    .or_insert_with(HashSet::new)
-                    .insert(
-                        step.alias
-                            .as_ref()
-                            .or_else(|| default_aliases.get(&step.symbol))
-                            .cloned(),
-                    );
-            }
-        }
-    }
-    aliases_by_symbol.insert(
-        Symbol::non_terminal(0),
-        std::iter::once(&None).cloned().collect(),
-    );
+    let aliases_by_symbol = get_aliases_by_symbol(syntax_grammar, default_aliases);
 
     let mut subtype_map = Vec::new();
     for (i, info) in variable_info.iter().enumerate() {

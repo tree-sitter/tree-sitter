@@ -1,6 +1,6 @@
 use std::{
     cmp,
-    collections::{HashMap, HashSet},
+    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
     fmt::Write,
     mem::swap,
 };
@@ -15,6 +15,7 @@ use super::{
         ParseTableEntry,
     },
 };
+use crate::node_types::ChildType;
 
 const SMALL_STATE_THRESHOLD: usize = 64;
 const ABI_VERSION_MIN: usize = 14;
@@ -80,6 +81,7 @@ struct Generator {
     reserved_word_sets: Vec<TokenSet>,
     reserved_word_set_ids_by_parse_state: Vec<usize>,
     field_names: Vec<String>,
+    supertype_map: BTreeMap<String, Vec<ChildType>>,
 
     #[allow(unused)]
     abi_version: usize,
@@ -114,6 +116,10 @@ impl Generator {
 
         self.add_non_terminal_alias_map();
         self.add_primary_state_id_list();
+
+        if !self.supertype_map.is_empty() && self.abi_version >= ABI_VERSION_WITH_RESERVED_WORDS {
+            self.add_supertype_map();
+        }
 
         let buffer_offset_before_lex_functions = self.buffer.len();
 
@@ -253,6 +259,16 @@ impl Generator {
                     };
 
                     self.alias_ids.entry(alias.clone()).or_insert(alias_id);
+                }
+            }
+
+            if self.abi_version >= ABI_VERSION_WITH_RESERVED_WORDS {
+                for (supertype, subtypes) in &production_info.supertype_map {
+                    if let Some(supertype) = self.symbol_ids.get(supertype) {
+                        self.supertype_map
+                            .entry(supertype.clone())
+                            .or_insert_with(|| subtypes.clone());
+                    }
                 }
             }
         }
@@ -404,6 +420,7 @@ impl Generator {
             "#define PRODUCTION_ID_COUNT {}",
             self.parse_table.production_infos.len()
         );
+        add_line!(self, "#define SUPERTYPE_COUNT {}", self.supertype_map.len());
         add_line!(self, "");
     }
 
@@ -689,7 +706,7 @@ impl Generator {
 
         add_line!(
             self,
-            "static const TSFieldMapSlice ts_field_map_slices[PRODUCTION_ID_COUNT] = {{",
+            "static const TSMapSlice ts_field_map_slices[PRODUCTION_ID_COUNT] = {{",
         );
         indent!(self);
         for (production_id, (row_id, length)) in field_map_ids.into_iter().enumerate() {
@@ -719,6 +736,72 @@ impl Generator {
                     add!(self, ", .inherited = true");
                 }
                 add!(self, "}},\n");
+            }
+            dedent!(self);
+        }
+
+        dedent!(self);
+        add_line!(self, "}};");
+        add_line!(self, "");
+    }
+
+    fn add_supertype_map(&mut self) {
+        add_line!(
+            self,
+            "static const TSSymbol ts_supertype_symbols[SUPERTYPE_COUNT] = {{"
+        );
+        indent!(self);
+        for supertype in self.supertype_map.keys() {
+            add_line!(self, "{supertype},");
+        }
+        dedent!(self);
+        add_line!(self, "}};\n");
+
+        add_line!(
+            self,
+            "static const TSMapSlice ts_supertype_map_slices[] = {{",
+        );
+        indent!(self);
+        let mut row_id = 0;
+        let mut supertype_ids = vec![0];
+        let mut supertype_string_map = BTreeMap::new();
+        for (supertype, subtypes) in &self.supertype_map {
+            supertype_string_map.insert(
+                supertype,
+                subtypes
+                    .iter()
+                    .filter_map(|s| match s {
+                        ChildType::Normal(symbol) => self.symbol_ids.get(symbol).cloned(),
+                        ChildType::Aliased(alias) => self.alias_ids.get(alias).cloned(),
+                    })
+                    .collect::<BTreeSet<String>>(),
+            );
+        }
+        for (supertype, subtypes) in &supertype_string_map {
+            let length = subtypes.len();
+            add_line!(
+                self,
+                "[{supertype}] = {{.index = {row_id}, .length = {length}}},",
+            );
+            row_id += length;
+            supertype_ids.push(row_id);
+        }
+        dedent!(self);
+        add_line!(self, "}};");
+        add_line!(self, "");
+
+        add_line!(
+            self,
+            "static const TSSymbol ts_supertype_map_entries[] = {{",
+        );
+        indent!(self);
+        for (i, (_, subtypes)) in supertype_string_map.iter().enumerate() {
+            let row_index = supertype_ids[i];
+            add_line!(self, "[{row_index}] =");
+            indent!(self);
+            for subtype in subtypes {
+                add_whitespace!(self);
+                add!(self, "{subtype},\n");
             }
             dedent!(self);
         }
@@ -1462,6 +1545,9 @@ impl Generator {
         add_line!(self, ".state_count = STATE_COUNT,");
         add_line!(self, ".large_state_count = LARGE_STATE_COUNT,");
         add_line!(self, ".production_id_count = PRODUCTION_ID_COUNT,");
+        if self.abi_version >= ABI_VERSION_WITH_RESERVED_WORDS {
+            add_line!(self, ".supertype_count = SUPERTYPE_COUNT,");
+        }
         add_line!(self, ".field_count = FIELD_COUNT,");
         add_line!(
             self,
@@ -1482,6 +1568,11 @@ impl Generator {
             add_line!(self, ".field_names = ts_field_names,");
             add_line!(self, ".field_map_slices = ts_field_map_slices,");
             add_line!(self, ".field_map_entries = ts_field_map_entries,");
+        }
+        if !self.supertype_map.is_empty() && self.abi_version >= ABI_VERSION_WITH_RESERVED_WORDS {
+            add_line!(self, ".supertype_map_slices = ts_supertype_map_slices,");
+            add_line!(self, ".supertype_map_entries = ts_supertype_map_entries,");
+            add_line!(self, ".supertype_symbols = ts_supertype_symbols,");
         }
         add_line!(self, ".symbol_metadata = ts_symbol_metadata,");
         add_line!(self, ".public_symbol_map = ts_symbol_map,");

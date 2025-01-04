@@ -4,6 +4,7 @@ use super::{
     nfa::CharacterSet,
     rules::{Alias, Symbol, TokenSet},
 };
+use crate::node_types::ChildType;
 pub type ProductionInfoId = usize;
 pub type ParseStateId = usize;
 pub type LexStateId = usize;
@@ -63,6 +64,7 @@ pub struct FieldLocation {
 pub struct ProductionInfo {
     pub alias_sequence: Vec<Option<Alias>>,
     pub field_map: BTreeMap<String, Vec<FieldLocation>>,
+    pub supertype_map: BTreeMap<Symbol, Vec<ChildType>>,
 }
 
 #[derive(Debug, Default, PartialEq, Eq)]

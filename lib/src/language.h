@@ -236,7 +236,7 @@ static inline void ts_language_field_map(
     return;
   }
 
-  TSFieldMapSlice slice = self->field_map_slices[production_id];
+  TSMapSlice slice = self->field_map_slices[production_id];
   *start = &self->field_map_entries[slice.index];
   *end = &self->field_map_entries[slice.index] + slice.length;
 }

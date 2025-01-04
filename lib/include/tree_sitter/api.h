@@ -1167,6 +1167,21 @@ uint32_t ts_language_symbol_count(const TSLanguage *self);
 uint32_t ts_language_state_count(const TSLanguage *self);
 
 /**
+ * Get a list of all supertype symbols for the language.
+*/
+const TSSymbol *ts_language_supertypes(const TSLanguage *self, uint32_t *length);
+
+/**
+ * Get a list of all subtype symbol ids for a given supertype symbol. Returns
+ * the size of said list.
+ */
+uint16_t ts_language_supertype_map(
+  const TSLanguage *self,
+  TSSymbol supertype,
+  const TSSymbol **subtypes
+);
+
+/**
  * Get a node type string for the given numerical id.
  */
 const char *ts_language_symbol_name(const TSLanguage *self, TSSymbol symbol);
