@@ -2491,7 +2491,20 @@ static TSQueryError ts_query__parse_pattern(
                 capture_quantifiers_delete(&child_capture_quantifiers);
                 return TSQueryErrorSyntax;
               }
-              self->steps.contents[last_child_step_index].is_last_child = true;
+              // Mark this step *and* its alternatives as the last child of the parent.
+              QueryStep *last_child_step = &self->steps.contents[last_child_step_index];
+              last_child_step->is_last_child = true;
+              if (last_child_step->alternative_index != NONE) {
+                QueryStep *alternative_step = &self->steps.contents[last_child_step->alternative_index];
+                alternative_step->is_last_child = true;
+                while (
+                  alternative_step->alternative_index != NONE &&
+                  alternative_step->alternative_index < self->steps.size
+                ) {
+                  alternative_step = &self->steps.contents[alternative_step->alternative_index];
+                  alternative_step->is_last_child = true;
+                }
+              }
             }
 
             if (negated_field_count) {
