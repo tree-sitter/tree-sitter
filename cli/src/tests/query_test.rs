@@ -5520,3 +5520,33 @@ fn f() {
     );
     assert_eq!(matches, flipped_matches);
 }
+
+#[test]
+fn test_wildcard_parent_allows_fallible_child_patterns() {
+    let language = get_language("javascript");
+    let mut parser = Parser::new();
+    parser.set_language(&language).unwrap();
+
+    let source_code = r#"
+function foo() {
+    "bar"
+}
+    "#;
+
+    let query = Query::new(
+        &language,
+        "(function_declaration
+          (_
+            (expression_statement)
+          )
+        ) @part",
+    )
+    .unwrap();
+
+    assert_query_matches(
+        &language,
+        &query,
+        source_code,
+        &[(0, vec![("part", "function foo() {\n    \"bar\"\n}")])],
+    );
+}

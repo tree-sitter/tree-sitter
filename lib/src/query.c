@@ -3004,7 +3004,7 @@ bool ts_query__step_is_fallible(
   return (
     next_step->depth != PATTERN_DONE_MARKER &&
     next_step->depth > step->depth &&
-    !next_step->parent_pattern_guaranteed
+    (!next_step->parent_pattern_guaranteed || step->symbol == WILDCARD_SYMBOL)
   );
 }
 
