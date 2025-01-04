@@ -379,7 +379,7 @@ struct Highlight {
     pub captures_path: Option<PathBuf>,
     /// The paths to files with queries
     #[arg(long, num_args = 1..)]
-    pub query_paths: Option<Vec<String>>,
+    pub query_paths: Option<Vec<PathBuf>>,
     /// Select a language by the scope instead of a file extension
     #[arg(long)]
     pub scope: Option<String>,

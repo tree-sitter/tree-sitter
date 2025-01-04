@@ -62,12 +62,12 @@ pub struct Config {
 pub enum PathsJSON {
     #[default]
     Empty,
-    Single(String),
-    Multiple(Vec<String>),
+    Single(PathBuf),
+    Multiple(Vec<PathBuf>),
 }
 
 impl PathsJSON {
-    fn into_vec(self) -> Option<Vec<String>> {
+    fn into_vec(self) -> Option<Vec<PathBuf>> {
         match self {
             Self::Empty => None,
             Self::Single(s) => Some(vec![s]),
@@ -306,10 +306,10 @@ pub struct LanguageConfiguration<'a> {
     pub injection_regex: Option<Regex>,
     pub file_types: Vec<String>,
     pub root_path: PathBuf,
-    pub highlights_filenames: Option<Vec<String>>,
-    pub injections_filenames: Option<Vec<String>>,
-    pub locals_filenames: Option<Vec<String>>,
-    pub tags_filenames: Option<Vec<String>>,
+    pub highlights_filenames: Option<Vec<PathBuf>>,
+    pub injections_filenames: Option<Vec<PathBuf>>,
+    pub locals_filenames: Option<Vec<PathBuf>>,
+    pub tags_filenames: Option<Vec<PathBuf>>,
     pub language_name: String,
     language_id: usize,
     #[cfg(feature = "tree-sitter-highlight")]
@@ -1395,7 +1395,7 @@ impl LanguageConfiguration<'_> {
     pub fn highlight_config(
         &self,
         language: Language,
-        paths: Option<&[String]>,
+        paths: Option<&[PathBuf]>,
     ) -> Result<Option<&HighlightConfiguration>> {
         let (highlights_filenames, injections_filenames, locals_filenames) = match paths {
             Some(paths) => (
@@ -1545,7 +1545,7 @@ impl LanguageConfiguration<'_> {
     #[cfg(any(feature = "tree-sitter-highlight", feature = "tree-sitter-tags"))]
     fn include_path_in_query_error(
         mut error: QueryError,
-        ranges: &[(String, Range<usize>)],
+        ranges: &[(PathBuf, Range<usize>)],
         source: &str,
         start_offset: usize,
     ) -> Error {
@@ -1565,9 +1565,9 @@ impl LanguageConfiguration<'_> {
     #[cfg(any(feature = "tree-sitter-highlight", feature = "tree-sitter-tags"))]
     fn read_queries(
         &self,
-        paths: Option<&[String]>,
+        paths: Option<&[PathBuf]>,
         default_path: &str,
-    ) -> Result<(String, Vec<(String, Range<usize>)>)> {
+    ) -> Result<(String, Vec<(PathBuf, Range<usize>)>)> {
         let mut query = String::new();
         let mut path_ranges = Vec::new();
         if let Some(paths) = paths {
@@ -1594,7 +1594,7 @@ impl LanguageConfiguration<'_> {
             if path.exists() {
                 query = fs::read_to_string(&path)
                     .with_context(|| format!("Failed to read query file {path:?}"))?;
-                path_ranges.push((default_path.to_string(), 0..query.len()));
+                path_ranges.push((PathBuf::from(default_path), 0..query.len()));
             }
         }
 
