@@ -304,6 +304,9 @@ pub struct QueryMatches<'query, 'tree: 'query, T: TextProvider<I>, I: AsRef<[u8]
 }
 
 /// A sequence of [`QueryCapture`]s associated with a given [`QueryCursor`].
+///
+/// During iteration, each element contains a [`QueryMatch`] and index. The index can
+/// be used to access the new capture inside of the [`QueryMatch::captures`]'s [`captures`].
 pub struct QueryCaptures<'query, 'tree: 'query, T: TextProvider<I>, I: AsRef<[u8]>> {
     ptr: *mut ffi::TSQueryCursor,
     query: &'query Query,
