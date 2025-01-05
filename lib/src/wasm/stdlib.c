@@ -3,6 +3,8 @@
 // as needed, and freeing is mostly a noop. But in the special case of freeing
 // the last-allocated pointer, we'll reuse that pointer again.
 
+#ifdef TREE_SITTER_FEATURE_WASM
+
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -107,3 +109,5 @@ void *realloc(void *ptr, size_t new_size) {
   memcpy(result, &region->data, region->size);
   return result;
 }
+
+#endif
