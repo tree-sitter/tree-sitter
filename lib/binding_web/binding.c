@@ -212,6 +212,20 @@ int ts_language_type_is_visible_wasm(const TSLanguage *self, TSSymbol typeId) {
   return symbolType <= TSSymbolTypeAnonymous;
 }
 
+void ts_language_supertypes_wasm(const TSLanguage *self) {
+  uint32_t length;
+  const TSSymbol *supertypes = ts_language_supertypes(self, &length);
+  TRANSFER_BUFFER[0] = (const void *)length;
+  TRANSFER_BUFFER[1] = supertypes;
+}
+
+void ts_language_subtypes_wasm(const TSLanguage *self, TSSymbol supertype) {
+  uint32_t length;
+  const TSSymbol *subtypes = ts_language_subtypes(self, supertype, &length);
+  TRANSFER_BUFFER[0] = (const void *)length;
+  TRANSFER_BUFFER[1] = subtypes;
+}
+
 /******************/
 /* Section - Tree */
 /******************/
