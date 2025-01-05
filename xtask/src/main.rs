@@ -1,6 +1,7 @@
 mod benchmark;
 mod build_wasm;
 mod bump;
+mod check_wasm_exports;
 mod clippy;
 mod fetch;
 mod generate;
@@ -28,6 +29,8 @@ enum Commands {
     BuildWasmStdlib,
     /// Bumps the version of the workspace.
     BumpVersion(BumpVersion),
+    /// Checks that WASM exports are synced.
+    CheckWasmExports,
     /// Runs `cargo clippy`.
     Clippy(Clippy),
     /// Fetches emscripten.
@@ -204,6 +207,7 @@ fn run() -> Result<()> {
         Commands::BuildWasm(build_wasm_options) => build_wasm::run_wasm(&build_wasm_options)?,
         Commands::BuildWasmStdlib => build_wasm::run_wasm_stdlib()?,
         Commands::BumpVersion(bump_options) => bump::run(bump_options)?,
+        Commands::CheckWasmExports => check_wasm_exports::run()?,
         Commands::Clippy(clippy_options) => clippy::run(&clippy_options)?,
         Commands::FetchEmscripten => fetch::run_emscripten()?,
         Commands::FetchFixtures => fetch::run_fixtures()?,
