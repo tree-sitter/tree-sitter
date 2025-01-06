@@ -211,6 +211,11 @@ function normalize(value) {
         type: 'PATTERN',
         value: value.source
       };
+    case RustRegex:
+      return {
+        type: 'PATTERN',
+        value: value.value
+      };
     case ReferenceError:
       throw value
     default:
@@ -483,6 +488,12 @@ function grammar(baseGrammar, options) {
   };
 }
 
+class RustRegex {
+  constructor(value) {
+    this.value = value;
+  }
+}
+
 function checkArguments(args, ruleCount, caller, callerName, suffix = '', argType = 'rule') {
   // Allow for .map() usage where additional arguments are index and the entire array.
   const isMapCall = ruleCount === 3 && typeof args[1] === 'number' && Array.isArray(args[2]);
@@ -524,6 +535,7 @@ globalThis.sym = sym;
 globalThis.token = token;
 globalThis.grammar = grammar;
 globalThis.field = field;
+globalThis.RustRegex = RustRegex;
 
 const result = await import(getEnv("TREE_SITTER_GRAMMAR_PATH"));
 const object = {

@@ -8,8 +8,18 @@ called `$`. The syntax `$.identifier` is how you refer to another grammar symbol
 or `$.UNEXPECTED` should be avoided as they have special meaning for the `tree-sitter test` command.
 - **String and Regex literals** — The terminal symbols in a grammar are described using JavaScript strings and regular
 expressions. Of course during parsing, Tree-sitter does not actually use JavaScript's regex engine to evaluate these regexes;
-it generates its own regex-matching logic as part of each parser. Regex literals are just used as a convenient way of writing
-regular expressions in your grammar.
+it generates its own regex-matching logic based on the Rust regex syntax as part of each parser. Regex literals are just
+used as a convenient way of writing regular expressions in your grammar. You can use Rust regular expressions in your grammar
+DSL through the `RustRegex` class. Simply pass your regex pattern as a string:
+
+```js
+new RustRegex('(?i)[a-z_][a-z0-9_]*') // matches a simple identifier
+```
+
+Unlike JavaScript's builtin `RegExp` class, which takes a pattern and flags as separate arguments, `RustRegex` only
+accepts a single pattern string. While it doesn't support separate flags, you can use inline flags within the pattern itself.
+For more details about Rust's regex syntax and capabilities, check out the [Rust regex documentation][rust regex].
+
 - **Regex Limitations** — Only a subset of the Regex engine is actually
 supported. This is due to certain features like lookahead and lookaround assertions
 not feasible to use in an LR(1) grammar, as well as certain flags being unnecessary
@@ -128,5 +138,6 @@ object that coreesponds an empty array, signifying *no* keywords are reserved.
 [keyword-extraction]: ./3-writing-the-grammar.md#keyword-extraction
 [lr-conflict]: https://en.wikipedia.org/wiki/LR_parser#Conflicts_in_the_constructed_tables
 [named-vs-anonymous-nodes]: ../using-parsers/2-basic-parsing.md#named-vs-anonymous-nodes
+[rust regex]: https://docs.rs/regex/1.1.8/regex/#grouping-and-flags
 [static-node-types]: ../using-parsers/6-static-node-types.md
 [yacc-prec]: https://docs.oracle.com/cd/E19504-01/802-5880/6i9k05dh3/index.html
