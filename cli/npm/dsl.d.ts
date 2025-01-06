@@ -33,7 +33,15 @@ type Rule =
   | SymbolRule<string>
   | TokenRule;
 
-type RuleOrLiteral = Rule | RegExp | string;
+class RustRegex {
+  value: string;
+
+  constructor(pattern: string) {
+    this.value = pattern;
+  }
+}
+
+type RuleOrLiteral = Rule | RegExp | RustRegex | string;
 
 type GrammarSymbols<RuleName extends string> = {
   [name in RuleName]: SymbolRule<name>;

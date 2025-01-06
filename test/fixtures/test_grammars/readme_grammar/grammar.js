@@ -31,6 +31,6 @@ module.exports = grammar({
 
     comment: _ => /#.*/,
 
-    variable: _ => /[a-zA-Z]\w*/,
+    variable: _ => new RustRegex('(?i:[a-z])\\w*'),
   },
 });
