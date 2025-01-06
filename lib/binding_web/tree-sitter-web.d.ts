@@ -1,4 +1,4 @@
-declare module 'web-tree-sitter' {
+declare module "web-tree-sitter" {
   class Parser {
     /**
      *
@@ -6,7 +6,11 @@ declare module 'web-tree-sitter' {
      */
     static init(moduleOptions?: object): Promise<void>;
     delete(): void;
-    parse(input: string | Parser.Input, oldTree?: Parser.Tree, options?: Parser.Options): Parser.Tree;
+    parse(
+      input: string | Parser.Input,
+      oldTree?: Parser.Tree,
+      options?: Parser.Options,
+    ): Parser.Tree;
     getIncludedRanges(): Parser.Range[];
     getTimeoutMicros(): number;
     setTimeoutMicros(timeout: number): void;
@@ -20,6 +24,11 @@ declare module 'web-tree-sitter' {
   namespace Parser {
     export type Options = {
       includedRanges?: Range[];
+      progressCallback?: (state: Parser.State) => boolean;
+    };
+
+    export type State = {
+      currentOffset: number;
     };
 
     export type Point = {
@@ -28,10 +37,10 @@ declare module 'web-tree-sitter' {
     };
 
     export type Range = {
-      startIndex: number,
-      endIndex: number,
-      startPosition: Point,
-      endPosition: Point
+      startIndex: number;
+      endIndex: number;
+      startPosition: Point;
+      endPosition: Point;
     };
 
     export type Edit = {
@@ -46,7 +55,7 @@ declare module 'web-tree-sitter' {
     export type Logger = (
       message: string,
       params: { [param: string]: string },
-      type: "parse" | "lex"
+      type: "parse" | "lex",
     ) => void;
 
     export interface Input {
@@ -105,10 +114,20 @@ declare module 'web-tree-sitter' {
       namedDescendantForIndex(index: number): SyntaxNode;
       namedDescendantForIndex(startIndex: number, endIndex: number): SyntaxNode;
       descendantForPosition(position: Point): SyntaxNode;
-      descendantForPosition(startPosition: Point, endPosition: Point): SyntaxNode;
+      descendantForPosition(
+        startPosition: Point,
+        endPosition: Point,
+      ): SyntaxNode;
       namedDescendantForPosition(position: Point): SyntaxNode;
-      namedDescendantForPosition(startPosition: Point, endPosition: Point): SyntaxNode;
-      descendantsOfType(types: String | Array<String>, startPosition?: Point, endPosition?: Point): Array<SyntaxNode>;
+      namedDescendantForPosition(
+        startPosition: Point,
+        endPosition: Point,
+      ): SyntaxNode;
+      descendantsOfType(
+        types: String | Array<String>,
+        startPosition?: Point,
+        endPosition?: Point,
+      ): Array<SyntaxNode>;
 
       walk(): TreeCursor;
     }
@@ -131,6 +150,7 @@ declare module 'web-tree-sitter' {
       readonly currentDepth: number;
       readonly currentDescendantIndex: number;
 
+      copy(): TreeCursor;
       reset(node: SyntaxNode): void;
       resetTo(cursor: TreeCursor): void;
       delete(): void;
@@ -171,6 +191,10 @@ declare module 'web-tree-sitter' {
       captures: QueryCapture[];
     }
 
+    export type QueryState = {
+      currentOffset: number;
+    };
+
     export type QueryOptions = {
       startPosition?: Point;
       endPosition?: Point;
@@ -179,6 +203,7 @@ declare module 'web-tree-sitter' {
       matchLimit?: number;
       maxStartDepth?: number;
       timeoutMicros?: number;
+      progressCallback: (state: QueryState) => boolean;
     };
 
     export interface PredicateResult {
@@ -186,8 +211,17 @@ declare module 'web-tree-sitter' {
       operands: { name: string; type: string }[];
     }
 
+    export enum CaptureQuantifier {
+      Zero = 0,
+      ZeroOrOne = 1,
+      ZeroOrMore = 2,
+      One = 3,
+      OneOrMore = 4,
+    }
+
     export class Query {
       captureNames: string[];
+      captureQuantifiers: CaptureQuantifier[];
       readonly predicates: { [name: string]: Function }[];
       readonly setProperties: any[];
       readonly assertedProperties: any[];
@@ -204,6 +238,7 @@ declare module 'web-tree-sitter' {
       isPatternRooted(patternIndex: number): boolean;
       isPatternNonLocal(patternIndex: number): boolean;
       startIndexForPattern(patternIndex: number): number;
+      endIndexForPattern(patternIndex: number): number;
       didExceedMatchLimit(): boolean;
     }
 
@@ -238,5 +273,5 @@ declare module 'web-tree-sitter' {
     }
   }
 
-  export = Parser
+  export = Parser;
 }

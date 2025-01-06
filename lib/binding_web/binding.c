@@ -121,6 +121,14 @@ extern void tree_sitter_log_callback(
   const char *message
 );
 
+extern bool tree_sitter_progress_callback(
+  uint32_t current_offset
+);
+
+extern bool tree_sitter_query_progress_callback(
+  uint32_t current_offset
+);
+
 static const char *call_parse_callback(
   void *payload,
   uint32_t byte,
@@ -150,6 +158,18 @@ static void call_log_callback(
   tree_sitter_log_callback(log_type == TSLogTypeLex, message);
 }
 
+static bool progress_callback(
+  TSParseState *state
+) {
+  return tree_sitter_progress_callback(state->current_byte_offset);
+}
+
+static bool query_progress_callback(
+  TSQueryCursorState *state
+) {
+  return tree_sitter_query_progress_callback(state->current_byte_offset);
+}
+
 void ts_parser_new_wasm() {
   TSParser *parser = ts_parser_new();
   char *input_buffer = calloc(INPUT_BUFFER_SIZE, sizeof(char));
@@ -172,7 +192,8 @@ TSTree *ts_parser_parse_wasm(
   TSInput input = {
     input_buffer,
     call_parse_callback,
-    TSInputEncodingUTF16LE
+    TSInputEncodingUTF16LE,
+    NULL,
   };
   if (range_count) {
     for (unsigned i = 0; i < range_count; i++) {
@@ -183,7 +204,10 @@ TSTree *ts_parser_parse_wasm(
   } else {
     ts_parser_set_included_ranges(self, NULL, 0);
   }
-  return ts_parser_parse(self, old_tree, input);
+
+  TSParseOptions options = {.payload = NULL, .progress_callback = progress_callback};
+
+  return ts_parser_parse_with_options(self, old_tree, input, options);
 }
 
 void ts_parser_included_ranges_wasm(TSParser *self) {
@@ -276,6 +300,12 @@ void ts_tree_cursor_new_wasm(const TSTree *tree) {
   TSNode node = unmarshal_node(tree);
   TSTreeCursor cursor = ts_tree_cursor_new(node);
   marshal_cursor(&cursor);
+}
+
+void ts_tree_cursor_copy_wasm(const TSTree *tree) {
+  TSTreeCursor cursor = unmarshal_cursor(TRANSFER_BUFFER, tree);
+  TSTreeCursor copy = ts_tree_cursor_copy(&cursor);
+  marshal_cursor(&copy);
 }
 
 void ts_tree_cursor_delete_wasm(const TSTree *tree) {
@@ -445,6 +475,11 @@ uint16_t ts_node_symbol_wasm(const TSTree *tree) {
 const char *ts_node_field_name_for_child_wasm(const TSTree *tree, uint32_t index) {
   TSNode node = unmarshal_node(tree);
   return ts_node_field_name_for_child(node, index);
+}
+
+const char *ts_node_field_name_for_named_child_wasm(const TSTree *tree, uint32_t index) {
+  TSNode node = unmarshal_node(tree);
+  return ts_node_field_name_for_named_child(node, index);
 }
 
 void ts_node_children_by_field_id_wasm(const TSTree *tree, uint32_t field_id) {
@@ -826,7 +861,10 @@ void ts_query_matches_wasm(
   ts_query_cursor_set_match_limit(scratch_query_cursor, match_limit);
   ts_query_cursor_set_max_start_depth(scratch_query_cursor, max_start_depth);
   ts_query_cursor_set_timeout_micros(scratch_query_cursor, timeout_micros);
-  ts_query_cursor_exec(scratch_query_cursor, self, node);
+
+  TSQueryCursorOptions options = {.payload = NULL, .progress_callback = query_progress_callback};
+
+  ts_query_cursor_exec_with_options(scratch_query_cursor, self, node, &options);
 
   uint32_t index = 0;
   uint32_t match_count = 0;
