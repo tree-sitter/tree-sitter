@@ -96,7 +96,7 @@ codegen-units = 256
 anstyle = "1.0.10"
 anyhow = "1.0.94"
 bstr = "1.11.3"
-cc = "1.2.6"
+cc = "1.2.7"
 clap = { version = "4.5.23", features = [
   "cargo",
   "derive",
