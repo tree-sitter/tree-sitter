@@ -1,0 +1,9 @@
+===========================
+missing next named sibling
+===========================
+
+(a) b c
+
+---
+
+(source (list_lit (sym_lit (sym_name))) (sym_lit (sym_name)) (sym_lit (sym_name)))
