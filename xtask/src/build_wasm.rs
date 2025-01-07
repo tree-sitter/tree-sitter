@@ -1,13 +1,21 @@
 use std::{
+    collections::HashSet,
     ffi::{OsStr, OsString},
     fmt::Write,
     fs,
+    path::PathBuf,
     process::Command,
+    time::Duration,
 };
 
 use anyhow::{anyhow, Result};
+use notify::{
+    event::{AccessKind, AccessMode},
+    EventKind, RecursiveMode,
+};
+use notify_debouncer_full::new_debouncer;
 
-use crate::{bail_on_err, BuildWasm, EMSCRIPTEN_TAG};
+use crate::{bail_on_err, watch_wasm, BuildWasm, EMSCRIPTEN_TAG};
 
 #[derive(PartialEq, Eq)]
 enum EmccSource {
@@ -96,9 +104,10 @@ pub fn run_wasm(args: &BuildWasm) -> Result<()> {
 
     fs::create_dir_all("target/scratch").unwrap();
 
-    let exported_functions = concat!(
-        include_str!("../../lib/src/wasm/stdlib-symbols.txt"),
-        include_str!("../../lib/binding_web/exports.txt")
+    let exported_functions = format!(
+        "{}{}",
+        fs::read_to_string("lib/src/wasm/stdlib-symbols.txt")?,
+        fs::read_to_string("lib/binding_web/exports.txt")?
     )
     .replace('"', "")
     .lines()
@@ -160,9 +169,20 @@ pub fn run_wasm(args: &BuildWasm) -> Result<()> {
         "-o",
         "target/scratch/tree-sitter.js",
     ]);
+    let command = command.args(&emscripten_flags);
 
+    if args.watch {
+        watch_wasm!(|| build_wasm(command));
+    } else {
+        build_wasm(command)?;
+    }
+
+    Ok(())
+}
+
+fn build_wasm(cmd: &mut Command) -> Result<()> {
     bail_on_err(
-        &command.args(emscripten_flags).spawn()?.wait_with_output()?,
+        &cmd.spawn()?.wait_with_output()?,
         "Failed to compile the Tree-sitter WASM library",
     )?;
 

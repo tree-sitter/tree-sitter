@@ -30,7 +30,7 @@ enum Commands {
     /// Bumps the version of the workspace.
     BumpVersion(BumpVersion),
     /// Checks that WASM exports are synced.
-    CheckWasmExports,
+    CheckWasmExports(CheckWasmExports),
     /// Runs `cargo clippy`.
     Clippy(Clippy),
     /// Fetches emscripten.
@@ -82,6 +82,9 @@ struct BuildWasm {
     /// Run emscripten with verbose output.
     #[arg(long, short)]
     verbose: bool,
+    /// Rebuild when relevant files are changed.
+    #[arg(long, short)]
+    watch: bool,
 }
 
 #[derive(Args)]
@@ -89,6 +92,13 @@ struct BumpVersion {
     /// The version to bump to.
     #[arg(long, short)]
     version: Option<Version>,
+}
+
+#[derive(Args)]
+struct CheckWasmExports {
+    /// Recheck when relevant files are changed.
+    #[arg(long, short)]
+    watch: bool,
 }
 
 #[derive(Args)]
@@ -207,7 +217,7 @@ fn run() -> Result<()> {
         Commands::BuildWasm(build_wasm_options) => build_wasm::run_wasm(&build_wasm_options)?,
         Commands::BuildWasmStdlib => build_wasm::run_wasm_stdlib()?,
         Commands::BumpVersion(bump_options) => bump::run(bump_options)?,
-        Commands::CheckWasmExports => check_wasm_exports::run()?,
+        Commands::CheckWasmExports(check_options) => check_wasm_exports::run(&check_options)?,
         Commands::Clippy(clippy_options) => clippy::run(&clippy_options)?,
         Commands::FetchEmscripten => fetch::run_emscripten()?,
         Commands::FetchFixtures => fetch::run_fixtures()?,
@@ -288,4 +298,58 @@ pub fn create_commit(repo: &Repository, msg: &str, paths: &[&str]) -> Result<Oid
         &tree,
         &[&parent_commit],
     )?)
+}
+
+#[macro_export]
+macro_rules! watch_wasm {
+    ($watch_fn:expr) => {
+        if let Err(e) = $watch_fn() {
+            eprintln!("{e}");
+        }
+
+        let watch_files = [
+            "binding.c",
+            "binding.js",
+            "exports.txt",
+            "imports.js",
+            "prefix.js",
+            "suffix.js",
+        ]
+        .iter()
+        .map(PathBuf::from)
+        .collect::<HashSet<PathBuf>>();
+        let (tx, rx) = std::sync::mpsc::channel();
+        let mut debouncer = new_debouncer(Duration::from_secs(1), None, tx)?;
+        debouncer.watch("lib/binding_web", RecursiveMode::NonRecursive)?;
+
+        for result in rx {
+            match result {
+                Ok(events) => {
+                    for event in events {
+                        if event.kind == EventKind::Access(AccessKind::Close(AccessMode::Write))
+                            && event
+                                .paths
+                                .iter()
+                                .filter_map(|p| p.file_name())
+                                .any(|p| watch_files.contains(&PathBuf::from(p)))
+                        {
+                            if let Err(e) = $watch_fn() {
+                                eprintln!("{e}");
+                            }
+                        }
+                    }
+                }
+                Err(errors) => {
+                    return Err(anyhow!(
+                        "{}",
+                        errors
+                            .into_iter()
+                            .map(|e| e.to_string())
+                            .collect::<Vec<_>>()
+                            .join("\n")
+                    ));
+                }
+            }
+        }
+    };
 }
