@@ -1636,7 +1636,7 @@ fn main() {
             }
         }
         if !err.to_string().is_empty() {
-            eprintln!("{err:?}");
+            eprintln!("{err}");
         }
         std::process::exit(1);
     }
