@@ -7,6 +7,12 @@
   "directories": {
     "test": "test"
   },
+  "files": [
+    "README.md",
+    "tree-sitter.js",
+    "tree-sitter.wasm",
+    "tree-sitter-web.d.ts"
+  ],
   "scripts": {
     "test": "mocha",
     "prepack": "cp ../../LICENSE .",
