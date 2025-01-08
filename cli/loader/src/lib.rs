@@ -986,7 +986,6 @@ impl Loader {
         let source = if !force_docker && Command::new(emcc_name).output().is_ok() {
             EmccSource::Native
         } else if Command::new("docker")
-            .arg("info")
             .output()
             .is_ok_and(|out| out.status.success())
         {
