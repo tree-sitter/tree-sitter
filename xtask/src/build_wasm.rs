@@ -33,7 +33,6 @@ pub fn run_wasm(args: &BuildWasm) -> Result<()> {
     let source = if !args.docker && Command::new(emcc_name).output().is_ok() {
         EmccSource::Native
     } else if Command::new("docker")
-        .arg("info")
         .output()
         .is_ok_and(|out| out.status.success())
     {
