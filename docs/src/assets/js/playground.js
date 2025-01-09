@@ -114,6 +114,7 @@ window.initializePlayground = async function initializePlayground(opts) {
   const queryCheckbox = document.getElementById("query-checkbox");
   const queryContainer = document.getElementById("query-container");
   const queryInput = document.getElementById("query-input");
+  const accessibilityCheckbox = document.getElementById("accessibility-checkbox");
   const updateTimeSpan = document.getElementById("update-time");
   const languagesByName = {};
 
@@ -172,6 +173,7 @@ window.initializePlayground = async function initializePlayground(opts) {
   loggingCheckbox.addEventListener("change", handleLoggingChange);
   anonymousNodes.addEventListener('change', renderTree);
   queryCheckbox.addEventListener("change", handleQueryEnableChange);
+  accessibilityCheckbox.addEventListener("change",handleQueryChange);
   languageSelect.addEventListener("change", handleLanguageChange);
   outputContainer.addEventListener("click", handleTreeClick);
 
@@ -321,6 +323,14 @@ window.initializePlayground = async function initializePlayground(opts) {
     handleCursorMovement();
   }
 
+  function getCaptureCSS(name) {
+    if (accessibilityCheckbox.checked) {
+      return `color: white; background-color: ${colorForCaptureName(name)}`;
+    } else {
+      return `color: ${colorForCaptureName(name)}`;
+    }
+  }
+
   function runTreeQuery(_, startRow, endRow) {
     if (endRow == null) {
       const viewport = codeEditor.getViewport();
@@ -349,7 +359,7 @@ window.initializePlayground = async function initializePlayground(opts) {
             {
               inclusiveLeft: true,
               inclusiveRight: true,
-              css: `color: ${colorForCaptureName(name)}`,
+              css: getCaptureCSS(name),
             },
           );
         }

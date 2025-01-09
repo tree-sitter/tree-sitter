@@ -59,6 +59,9 @@
 <input id="query-checkbox" type="checkbox"></input>
 <label for="query-checkbox">Query</label>
 
+<input id="accessibility-checkbox" type="checkbox"></input>
+<label for="accessibility-checkbox">Accessibility</label>
+
 <textarea id="code-input">
 </textarea>
 
