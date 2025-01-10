@@ -11,8 +11,9 @@ These directories are created in the "default" location for your platform:
 * On Unix, `$XDG_CONFIG_HOME/tree-sitter` or `$HOME/.config/tree-sitter`
 * On Windows, `%APPDATA%\tree-sitter` or `$HOME\AppData\Roaming\tree-sitter`
 
-> Note that the CLI will work if there's no config file present, falling back on default values > for each configuration
-> option.
+```admonish info
+The CLI will work if there's no config file present, falling back on default values for each configuration option.
+```
 
 When you run the `init-config` command, it will print out the location of the file that it creates so that you can easily
 find and modify it.
@@ -113,8 +114,13 @@ An example theme can be seen below:
 ## `parse-theme`
 
 The [`tree-sitter parse`](./parse.md) command will output a pretty-printed CST when the `-c/--cst` option is used. You can
-control what colors are used for various parts of the tree in your configuration file. Note that omitting a field will cause
-the relevant text to be rendered with its default color.
+control what colors are used for various parts of the tree in your configuration file.
+
+```admonish note
+Omitting a field will cause the relevant text to be rendered with its default color.
+```
+
+An example parse theme can be seen below:
 
 ```json
 {

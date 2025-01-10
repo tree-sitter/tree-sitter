@@ -228,11 +228,11 @@ Possible resolutions:
   4:  Add a conflict for these rules: `binary_expression` `unary_expression`
 ```
 
-<div class="warning">
+```admonish hint
 The • character in the error message indicates where exactly during
 parsing the conflict occurs, or in other words, where the parser is encountering
 ambiguity.
-</div>
+```
 
 For an expression like `-a * b`, it's not clear whether the `-` operator applies to the `a * b` or just to the `a`. This
 is where the `prec` function [described in the previous page][grammar dsl] comes into play. By wrapping a rule with `prec`,

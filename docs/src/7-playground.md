@@ -81,9 +81,11 @@
 You can also run playground locally (with your own grammar) using the
 <a href="/cli/playground.html">CLI</a>'s <code>tree-sitter playground</code> subcommand.
 </p>
-<blockquote>
-<p><strong>Note:</strong> Logging (if enabled) can be viewed in the browser's console.</p>
-</blockquote>
+
+```admonish info
+Logging (if enabled) can be viewed in the browser's console.
+```
+
 <p>The syntax tree should update as you type in the code. As you move around the
 code, the current node should be highlighted in the tree; you can also click any
 node in the tree to select the corresponding part of the code.</p>

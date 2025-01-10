@@ -155,11 +155,13 @@ Then, in our config file, we could map each of these highlight names to a color:
 
 Running `tree-sitter highlight` on this Go file would produce output like this:
 
-<pre class='highlight' style='border: 1px solid #aaa;'>
+```admonish example collapsible=true, title='Output'
+<pre class='highlight'>
 <span style='color: purple;'>func</span> <span style='color: #005fd7;'>increment</span>(<span>a</span> <span style='color: green;'>int</span>) <span style='color: green;'>int</span> {
     <span style='color: purple;'>return</span> <span>a</span> <span style='font-weight: bold;color: #4e4e4e;'>+</span> <span style='font-weight: bold;color: #875f00;'>1</span>
 }
 </pre>
+```
 
 ### Local Variables
 
@@ -286,7 +288,8 @@ and blocks create local *scopes*, parameters and assignments create *definitions
 
 Running `tree-sitter highlight` on this ruby file would produce output like this:
 
-<pre class='highlight' style='border: 1px solid #aaa;'>
+```admonish example collapsible=true, title='Output'
+<pre class='highlight'>
 <span style='color: purple;'>def</span> <span style='color: #005fd7;'>process_list</span><span style='color: #4e4e4e;'>(</span><span style='text-decoration: underline;'>list</span><span style='color: #4e4e4e;'>)</span>
   <span>context</span> <span style='font-weight: bold;color: #4e4e4e;'>=</span> <span style='color: #005fd7;'>current_context</span>
   <span style='text-decoration: underline;'>list</span><span style='color: #4e4e4e;'>.</span><span style='color: #005fd7;'>map</span> <span style='color: purple;'>do</span> |<span style='text-decoration: underline;'>item</span>|
@@ -297,6 +300,7 @@ Running `tree-sitter highlight` on this ruby file would produce output like this
 <span>item</span> <span style='font-weight: bold;color: #4e4e4e;'>=</span> <span style='font-weight: bold;color: #875f00;'>5</span>
 <span>list</span> <span style='font-weight: bold;color: #4e4e4e;'>=</span> [<span>item</span><span style='color: #4e4e4e;'>]</span>
 </pre>
+```
 
 ### Language Injection
 
@@ -404,18 +408,19 @@ var abc = function(d) {
 };
 ```
 
-From the Sublime text docs:
+```admonish cite title='From the Sublime text docs'
+The two types of tests are:
 
-> The two types of tests are:
->
-> **Caret**: ^ this will test the following selector against the scope on the most recent non-test line. It will test it
-> at the same column the ^ is in. Consecutive ^s will test each column against the selector.
->
-> **Arrow**: <- this will test the following selector against the scope on the most recent non-test line. It will test it
-> at the same column as the comment character is in.
+**Caret**: ^ this will test the following selector against the scope on the most recent non-test line. It will test it
+at the same column the ^ is in. Consecutive ^s will test each column against the selector.
 
-Note that an exclamation mark (`!`) can be used to negate a selector. For example, `!keyword` will match any scope that is
+**Arrow**: <- this will test the following selector against the scope on the most recent non-test line. It will test it
+at the same column as the comment character is in.
+```
+```admonish note
+An exclamation mark (`!`) can be used to negate a selector. For example, `!keyword` will match any scope that is
 not the `keyword` class.
+```
 
 [erb]: https://en.wikipedia.org/wiki/ERuby
 [highlight crate]: https://github.com/tree-sitter/tree-sitter/tree/master/highlight

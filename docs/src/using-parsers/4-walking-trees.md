@@ -4,14 +4,13 @@ You can access every node in a syntax tree using the `TSNode` APIs [described ea
 to access a large number of nodes, the fastest way to do so is with a _tree cursor_. A cursor is a stateful object that
 allows you to walk a syntax tree with maximum efficiency.
 
-<div class="warning">
-
-Note that the given input node is considered the root of the cursor, and the cursor cannot walk outside this node.
+```admonish note
+The given input node is considered the root of the cursor, and the cursor cannot walk outside this node.
 Going to the parent or any sibling of the root node will always return `false`.
 
 This has no unexpected effects if the given input node is the actual `root` node of the tree, but is something to keep in
 mind when using cursors constructed with a node that is not the `root` node.
-</div>
+```
 
 You can initialize a cursor from any node:
 

@@ -154,8 +154,11 @@ TSTree *ts_tree_copy(const TSTree *);
 
 Internally, copying a syntax tree just entails incrementing an atomic reference count. Conceptually, it provides you a new
 tree which you can freely query, edit, reparse, or delete on a new thread while continuing to use the original tree on a
-different thread. Note that individual `TSTree` instances are _not_ thread safe; you must copy a tree if you want to use
-it on multiple threads simultaneously.
+different thread.
+
+```admonish danger
+Individual `TSTree` instances are _not_ thread safe; you must copy a tree if you want to use it on multiple threads simultaneously.
+```
 
 [ejs]: https://ejs.co
 [erb]: https://ruby-doc.org/stdlib-2.5.1/libdoc/erb/rdoc/ERB.html

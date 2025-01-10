@@ -37,7 +37,9 @@ mkdir tree-sitter-${LOWER_PARSER_NAME}
 cd tree-sitter-${LOWER_PARSER_NAME}
 ```
 
-Note that the `LOWER-` prefix here means the "lowercase" name of the language.
+```admonish note
+The `LOWER-` prefix here means the "lowercase" name of the language.
+```
 
 ### Init
 
@@ -72,8 +74,10 @@ module.exports = grammar({
 });
 ```
 
-Note that the placeholders shown above would be replaced with the corresponding data you provided in the `init` sub-command's
+```admonish info
+The placeholders shown above would be replaced with the corresponding data you provided in the `init` sub-command's
 prompts.
+```
 
 To learn more about this command, check the [reference page](../cli/init.md).
 
