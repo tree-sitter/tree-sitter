@@ -164,8 +164,8 @@ crates to crates.io.
 
 Our current static site generator for documentation is [`mdBook`][mdBook], with a little bit of custom JavaScript to handle
 the playground page. Most of the documentation is written in Markdown, including this file! You can find these files
-at [`docs/src`][docs src]. The playground code can be found in [`docs/assets/js/playground.js`][playground], and its corresponding
-css at [`docs/assets/css/playground.css`][playground css]. To run and iterate on the docs locally, the
+at [`docs/src`][docs src]. The playground code can be found in [`docs/src/assets/js/playground.js`][playground], and its corresponding
+css at [`docs/src/assets/css/playground.css`][playground css]. To run and iterate on the docs locally, the
 [`mdbook`][mdbook cli] CLI tool is required, which can be installed with `cargo install mdbook`. Once you've installed it,
 you can run the following command to start a local server:
 
@@ -203,8 +203,8 @@ the [.github.io repo][gh.io repo].
 [node ts]: https://github.com/tree-sitter/node-tree-sitter
 [npm version]: https://docs.npmjs.com/cli/version
 [npmjs]: https://npmjs.com
-[playground]: https://github.com/tree-sitter/tree-sitter/blob/master/docs/assets/js/playground.js
-[playground css]: https://github.com/tree-sitter/tree-sitter/blob/master/docs/assets/css/playground.css
+[playground]: https://github.com/tree-sitter/tree-sitter/blob/master/docs/src/assets/js/playground.js
+[playground css]: https://github.com/tree-sitter/tree-sitter/blob/master/docs/src/assets/css/playground.css
 [podman]: https://podman.io
 [py package]: https://pypi.org/project/tree-sitter
 [py ts]: https://github.com/tree-sitter/py-tree-sitter
