@@ -2494,7 +2494,10 @@ static TSQueryError ts_query__parse_pattern(
               // Mark this step *and* its alternatives as the last child of the parent.
               QueryStep *last_child_step = &self->steps.contents[last_child_step_index];
               last_child_step->is_last_child = true;
-              if (last_child_step->alternative_index != NONE) {
+              if (
+                last_child_step->alternative_index != NONE &&
+                last_child_step->alternative_index < self->steps.size
+              ) {
                 QueryStep *alternative_step = &self->steps.contents[last_child_step->alternative_index];
                 alternative_step->is_last_child = true;
                 while (
