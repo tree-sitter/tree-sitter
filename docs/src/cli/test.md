@@ -18,7 +18,11 @@ Skip tests whose names match this regex.
 
 ### `-u/--update`
 
-Update the expected output of tests. Note that tests containing `ERROR` nodes or `MISSING` nodes will not be updated.
+Update the expected output of tests. 
+
+```admonish info
+Tests containing `ERROR` nodes or `MISSING` nodes will not be updated.
+```
 
 ### `-d/--debug`
 

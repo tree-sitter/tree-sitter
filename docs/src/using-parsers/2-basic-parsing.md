@@ -53,7 +53,9 @@ typedef uint32_t (*DecodeFunction)(
 );
 ```
 
-> Note that the `TSInputEncoding` must be set to `TSInputEncodingCustom` for the `decode` function to be called.
+```admonish attention
+The `TSInputEncoding` must be set to `TSInputEncodingCustom` for the `decode` function to be called.
+```
 
 The `string` argument is a pointer to the text to decode, which comes from the `read` function, and the `length` argument
 is the length of the `string`. The `code_point` argument is a pointer to an integer that represents the decoded code point,

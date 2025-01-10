@@ -186,13 +186,15 @@ To recap about the predicates and directives Tree-Sitter's bindings support:
 
 - `#strip!` removes text from a capture
 
-_Note_ — Predicates and directives are not handled directly by the Tree-sitter C library.
+```admonish info
+Predicates and directives are not handled directly by the Tree-sitter C library.
 They are just exposed in a structured form so that higher-level code can perform
 the filtering. However, higher-level bindings to Tree-sitter like
 [the Rust Crate][rust crate]
 or the [WebAssembly binding][wasm binding]
 do implement a few common predicates like those explained above. In the future, more "standard" predicates and directives
 may be added.
+```
 
 [cgo]: https://pkg.go.dev/cmd/cgo
 [rust crate]: https://github.com/tree-sitter/tree-sitter/tree/master/lib/binding_rust

@@ -31,9 +31,12 @@ func x() int {
 * Then the **input source code** is written, followed by a line containing three or more `-` (dash) characters.
 
 * Then, the **expected output syntax tree** is written as an [S-expression][s-exp]. The exact placement of whitespace in
-the S-expression doesn't matter, but ideally the syntax tree should be legible. Note that the S-expression does not show
-syntax nodes like `func`, `(` and `;`, which are expressed as strings and regexes in the grammar. It only shows the *named*
-nodes, as described in [this section][named-vs-anonymous-nodes] of the page on parser usage.
+the S-expression doesn't matter, but ideally the syntax tree should be legible. 
+
+```admonish tip
+The S-expression does not show syntax nodes like `func`, `(` and `;`, which are expressed as strings and regexes in the grammar.
+It only shows the *named* nodes, as described in [this section][named-vs-anonymous-nodes] of the page on parser usage.
+```
 
   The expected output section can also *optionally* show the [*field names*][node-field-names] associated with each child
   node. To include field names in your tests, you write a node's field name followed by a colon, before the node itself in
@@ -89,8 +92,10 @@ but doubly acquaints readers with a way to examine expected outputs and understa
 Tests can be annotated with a few `attributes`. Attributes must be put in the header, below the test name, and start with
 a `:`. A couple of attributes also take in a parameter, which require the use of parenthesis.
 
-**Note**: If you'd like to supply in multiple parameters, e.g. to run tests on multiple platforms or to test multiple languages,
+```admonish tip
+If you'd like to supply in multiple parameters, e.g. to run tests on multiple platforms or to test multiple languages,
 you can repeat the attribute on a new line.
+```
 
 The following attributes are available:
 
