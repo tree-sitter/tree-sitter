@@ -427,6 +427,12 @@ It would then correctly recognize the code as invalid.
 Aside from improving error detection, keyword extraction also has performance benefits. It allows Tree-sitter to generate
 a smaller, simpler lexing function, which means that **the parser will compile much more quickly**.
 
+```admonish note
+The word token must be a unique token that is not reused by another rule. If you want to have a word token used in a
+rule that's called something else, you should just alias the word token instead, like how the Rust grammar does it
+<a href="https://github.com/tree-sitter/tree-sitter-rust/blob/1f63b33efee17e833e0ea29266dd3d713e27e321/grammar.js#L1605">here</a>
+```
+
 [ambiguous-grammar]: https://en.wikipedia.org/wiki/Ambiguous_grammar
 [antlr]: https://www.antlr.org
 [bison]: https://en.wikipedia.org/wiki/GNU_bison
