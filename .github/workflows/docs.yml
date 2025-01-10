@@ -17,6 +17,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Set up Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+
       - name: Install mdbook
         env:
           GH_TOKEN: ${{ github.token }}
@@ -26,6 +29,9 @@ jobs:
           mkdir mdbook
           curl -sSL "$url" | tar -xz -C mdbook
           printf '%s/mdbook\n' "$PWD" >> "$GITHUB_PATH"
+
+      - name: Install mdbook-admonish
+        run: cargo install mdbook-admonish
 
       - name: Build Book
         run: mdbook build docs
