@@ -257,6 +257,32 @@ impl fmt::Display for ParseItemDisplay<'_> {
     }
 }
 
+const fn escape_invisible(c: char) -> Option<&'static str> {
+    Some(match c {
+        '\n' => "\\n",
+        '\r' => "\\r",
+        '\t' => "\\t",
+        '\0' => "\\0",
+        '\\' => "\\\\",
+        '\x0b' => "\\v",
+        '\x0c' => "\\f",
+        _ => return None,
+    })
+}
+
+fn display_variable_name(source: &str) -> String {
+    source
+        .chars()
+        .fold(String::with_capacity(source.len()), |mut acc, c| {
+            if let Some(esc) = escape_invisible(c) {
+                acc.push_str(esc);
+            } else {
+                acc.push(c);
+            }
+            acc
+        })
+}
+
 impl fmt::Display for TokenSetDisplay<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         write!(f, "[")?;
@@ -267,7 +293,7 @@ impl fmt::Display for TokenSetDisplay<'_> {
 
             if symbol.is_terminal() {
                 if let Some(variable) = self.2.variables.get(symbol.index) {
-                    write!(f, "{}", &variable.name)?;
+                    write!(f, "{}", display_variable_name(&variable.name))?;
                 } else {
                     write!(f, "terminal-{}", symbol.index)?;
                 }
