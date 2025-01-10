@@ -26,8 +26,8 @@ unless they are used only as the grammar's start rule.
     ExternalTokenNonTerminal(String),
     #[error("Non-symbol rules cannot be used as external tokens")]
     NonSymbolExternalToken,
-    #[error("Non-terminal symbol '{0}' cannot be used as the word token")]
-    NonTerminalWordToken(String),
+    #[error("Non-terminal symbol '{0}' cannot be used as the word token, because its rule is duplicated in '{1}'")]
+    NonTerminalWordToken(String, String),
     #[error("Reserved words must be tokens")]
     NonTokenReservedWord,
 }
@@ -161,8 +161,16 @@ pub(super) fn extract_tokens(
     if let Some(token) = grammar.word_token {
         let token = symbol_replacer.replace_symbol(token);
         if token.is_non_terminal() {
+            let word_token_variable = &variables[token.index];
+            let conflicting_variable = variables
+                .iter()
+                .enumerate()
+                .find(|(i, v)| *i != token.index && v.rule == word_token_variable.rule)
+                .expect("Failed to find a variable with the same rule as the word token");
+
             Err(ExtractTokensError::NonTerminalWordToken(
-                variables[token.index].name.clone(),
+                word_token_variable.name.clone(),
+                conflicting_variable.1.name.clone(),
             ))?;
         }
         word_token = Some(token);
