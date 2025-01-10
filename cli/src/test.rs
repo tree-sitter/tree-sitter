@@ -65,6 +65,7 @@ pub enum TestEntry {
         has_fields: bool,
         attributes_str: String,
         attributes: TestAttributes,
+        file_name: Option<String>,
     },
 }
 
@@ -114,6 +115,7 @@ pub struct TestOptions<'a> {
     pub debug_graph: bool,
     pub include: Option<Regex>,
     pub exclude: Option<Regex>,
+    pub file_name: Option<String>,
     pub update: bool,
     pub open_log: bool,
     pub languages: BTreeMap<&'a str, &'a Language>,
@@ -360,6 +362,7 @@ fn run_tests(
             has_fields,
             attributes_str,
             attributes,
+            ..
         } => {
             write!(opts.output, "{}", "  ".repeat(indent_level as usize))?;
 
@@ -559,11 +562,16 @@ fn run_tests(
             }
 
             indent_level += 1;
-            let mut advance_counter = opts.test_num;
             let failure_count = failures.len();
             let mut has_printed = false;
 
-            let matches_filter = |name: &str, opts: &TestOptions| {
+            let matches_filter = |name: &str, file_name: &Option<String>, opts: &TestOptions| {
+                if let (Some(test_file_path), Some(filter_file_name)) = (file_name, &opts.file_name)
+                {
+                    if !filter_file_name.eq(test_file_path) {
+                        return false;
+                    }
+                }
                 if let Some(include) = &opts.include {
                     include.is_match(name)
                 } else if let Some(exclude) = &opts.exclude {
@@ -573,15 +581,11 @@ fn run_tests(
                 }
             };
 
-            let mut should_skip = |entry: &TestEntry, opts: &TestOptions| match entry {
-                TestEntry::Example { name, .. } => {
-                    advance_counter += 1;
-                    !matches_filter(name, opts)
-                }
-                TestEntry::Group { .. } => {
-                    advance_counter += count_subtests(entry);
-                    false
-                }
+            let should_skip = |entry: &TestEntry, opts: &TestOptions| match entry {
+                TestEntry::Example {
+                    name, file_name, ..
+                } => !matches_filter(name, file_name, opts),
+                TestEntry::Group { .. } => false,
             };
 
             for child in children {
@@ -644,15 +648,6 @@ fn run_tests(
         }
     }
     Ok(true)
-}
-
-fn count_subtests(test_entry: &TestEntry) -> usize {
-    match test_entry {
-        TestEntry::Example { .. } => 1,
-        TestEntry::Group { children, .. } => children
-            .iter()
-            .fold(0, |count, child| count + count_subtests(child)),
-    }
 }
 
 // Parse time is interpreted in ns before converting to ms to avoid truncation issues
@@ -729,7 +724,7 @@ pub fn parse_tests(path: &Path) -> io::Result<TestEntry> {
         Ok(TestEntry::Group {
             name,
             children,
-            file_path: None,
+            file_path: Some(path.to_path_buf()),
         })
     } else {
         let content = fs::read_to_string(path)?;
@@ -918,6 +913,12 @@ fn parse_test_content(name: String, content: &str, file_path: Option<PathBuf>) -
                     // fields will not be checked.
                     let has_fields = SEXP_FIELD_REGEX.is_match(&output);
 
+                    let file_name = if let Some(ref path) = file_path {
+                        path.file_name().map(|n| n.to_string_lossy().to_string())
+                    } else {
+                        None
+                    };
+
                     let t = TestEntry::Example {
                         name: prev_name,
                         input,
@@ -927,6 +928,7 @@ fn parse_test_content(name: String, content: &str, file_path: Option<PathBuf>) -
                         has_fields,
                         attributes_str: prev_attributes_str,
                         attributes: prev_attributes,
+                        file_name,
                     };
 
                     children.push(t);
@@ -991,6 +993,7 @@ d
                         has_fields: false,
                         attributes_str: String::new(),
                         attributes: TestAttributes::default(),
+                        file_name: None,
                     },
                     TestEntry::Example {
                         name: "The second test".to_string(),
@@ -1001,6 +1004,7 @@ d
                         has_fields: false,
                         attributes_str: String::new(),
                         attributes: TestAttributes::default(),
+                        file_name: None,
                     },
                 ],
                 file_path: None,
@@ -1052,6 +1056,7 @@ abc
                         has_fields: false,
                         attributes_str: String::new(),
                         attributes: TestAttributes::default(),
+                        file_name: None,
                     },
                     TestEntry::Example {
                         name: "Code ending with dashes".to_string(),
@@ -1062,6 +1067,7 @@ abc
                         has_fields: false,
                         attributes_str: String::new(),
                         attributes: TestAttributes::default(),
+                        file_name: None,
                     },
                 ],
                 file_path: None,
@@ -1217,6 +1223,7 @@ code
                         has_fields: false,
                         attributes_str: String::new(),
                         attributes: TestAttributes::default(),
+                        file_name: None,
                     },
                     TestEntry::Example {
                         name: "sexp with comment between".to_string(),
@@ -1227,6 +1234,7 @@ code
                         has_fields: false,
                         attributes_str: String::new(),
                         attributes: TestAttributes::default(),
+                        file_name: None,
                     },
                     TestEntry::Example {
                         name: "sexp with ';'".to_string(),
@@ -1237,6 +1245,7 @@ code
                         has_fields: false,
                         attributes_str: String::new(),
                         attributes: TestAttributes::default(),
+                        file_name: None,
                     }
                 ],
                 file_path: None,
@@ -1331,6 +1340,7 @@ Subsequent test containing equals
                         has_fields: false,
                         attributes_str: String::new(),
                         attributes: TestAttributes::default(),
+                        file_name: None,
                     },
                     TestEntry::Example {
                         name: "Second test".to_string(),
@@ -1341,6 +1351,7 @@ Subsequent test containing equals
                         has_fields: false,
                         attributes_str: String::new(),
                         attributes: TestAttributes::default(),
+                        file_name: None,
                     },
                     TestEntry::Example {
                         name: "Test name with = symbol".to_string(),
@@ -1351,6 +1362,7 @@ Subsequent test containing equals
                         has_fields: false,
                         attributes_str: String::new(),
                         attributes: TestAttributes::default(),
+                        file_name: None,
                     },
                     TestEntry::Example {
                         name: "Test containing equals".to_string(),
@@ -1361,6 +1373,7 @@ Subsequent test containing equals
                         has_fields: false,
                         attributes_str: String::new(),
                         attributes: TestAttributes::default(),
+                        file_name: None,
                     },
                     TestEntry::Example {
                         name: "Subsequent test containing equals".to_string(),
@@ -1371,6 +1384,7 @@ Subsequent test containing equals
                         has_fields: false,
                         attributes_str: String::new(),
                         attributes: TestAttributes::default(),
+                        file_name: None,
                     }
                 ],
                 file_path: None,
@@ -1417,6 +1431,7 @@ code with ----
                         has_fields: false,
                         attributes_str: String::new(),
                         attributes: TestAttributes::default(),
+                        file_name: None,
                     },
                     TestEntry::Example {
                         name: "name with === signs".to_string(),
@@ -1427,6 +1442,7 @@ code with ----
                         has_fields: false,
                         attributes_str: String::new(),
                         attributes: TestAttributes::default(),
+                        file_name: None,
                     }
                 ]
             }
@@ -1471,6 +1487,7 @@ a
                         error: false,
                         languages: vec!["".into()]
                     },
+                    file_name: None,
                 }]
             }
         );
@@ -1529,6 +1546,7 @@ a
                             error: false,
                             languages: vec!["".into()]
                         },
+                        file_name: None,
                     },
                     TestEntry::Example {
                         name: "Test with bad platform marker".to_string(),
@@ -1549,6 +1567,7 @@ a
                             error: false,
                             languages: vec!["foo".into()]
                         },
+                        file_name: None,
                     }
                 ]
             }

@@ -250,6 +250,9 @@ struct Test {
     /// Only run corpus test cases whose name does not match the given regex
     #[arg(long, short)]
     pub exclude: Option<Regex>,
+    /// Only run corpus test cases from from a given filename
+    #[arg(long)]
+    pub file_name: Option<String>,
     /// Update all syntax trees in corpus files with current parser output
     #[arg(long, short)]
     pub update: bool,
@@ -1044,6 +1047,7 @@ impl Test {
                 debug_graph: self.debug_graph,
                 include: self.include,
                 exclude: self.exclude,
+                file_name: self.file_name,
                 update: self.update,
                 open_log: self.open_log,
                 languages: languages.iter().map(|(l, n)| (n.as_str(), l)).collect(),
