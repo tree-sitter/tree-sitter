@@ -55,6 +55,12 @@ a true ambiguity or a *local* ambiguity given one token of lookahead, Tree-sitte
 the rule with the higher precedence. The default precedence of all rules is zero. This works similarly to the
 [precedence directives][yacc-prec] in Yacc grammars.
 
+  This function can also be used to assign lexical precedence to a given
+  token, but it must be wrapped in a `token` call, such as `token(prec(1, 'foo'))`. This reads as "the token `foo` has a
+  lexical precedence of 1". The purpose of lexical precedence is to solve the issue where multiple tokens can match the same
+  set of characters, but one token should be preferred over the other. See [Lexical Precedence vs Parse Precedence][lexical vs parse]
+  for a more detailed explanation.
+
 - **Left Associativity : `prec.left([number], rule)`** — This function marks the given rule as left-associative (and optionally
 applies a numerical precedence). When an LR(1) conflict arises in which all the rules have the same numerical precedence,
 Tree-sitter will consult the rules' associativity. If there is a left-associative rule, Tree-sitter will prefer matching
@@ -137,6 +143,7 @@ object that coreesponds an empty array, signifying *no* keywords are reserved.
 [ebnf]: https://en.wikipedia.org/wiki/Extended_Backus%E2%80%93Naur_form
 [external-scanners]: ./4-external-scanners.md
 [keyword-extraction]: ./3-writing-the-grammar.md#keyword-extraction
+[lexical vs parse]: ./3-writing-the-grammar.md#lexical-precedence-vs-parse-precedence
 [lr-conflict]: https://en.wikipedia.org/wiki/LR_parser#Conflicts_in_the_constructed_tables
 [named-vs-anonymous-nodes]: ../using-parsers/2-basic-parsing.md#named-vs-anonymous-nodes
 [rust regex]: https://docs.rs/regex/1.1.8/regex/#grouping-and-flags
