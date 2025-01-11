@@ -6,7 +6,7 @@ src/parser.c linguist-generated
 src/tree_sitter/* linguist-generated
 
 # C bindings
-bindings/c/* linguist-generated
+bindings/c/** linguist-generated
 CMakeLists.txt linguist-generated
 Makefile linguist-generated
 
