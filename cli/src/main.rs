@@ -748,7 +748,8 @@ impl Generate {
                 // Exit early to prevent errors from being printed a second time in the caller
                 std::process::exit(1);
             } else {
-                return Err(err.into());
+                // Removes extra context associated with the error
+                Err(anyhow!(err.to_string()))?;
             }
         }
         if self.build {
@@ -1640,7 +1641,7 @@ fn main() {
             }
         }
         if !err.to_string().is_empty() {
-            eprintln!("{err}");
+            eprintln!("{err:?}");
         }
         std::process::exit(1);
     }
