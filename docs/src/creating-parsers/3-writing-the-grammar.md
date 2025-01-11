@@ -418,8 +418,8 @@ which rule is chosen to interpret a given sequence of tokens. _Lexical precedenc
 at a given position of text, and it is a lower-level operation that is done first. The above list fully captures Tree-sitter's
 lexical precedence rules, and you will probably refer back to this section of the documentation more often than any other.
 Most of the time when you really get stuck, you're dealing with a lexical precedence problem. Pay particular attention to
-the difference in meaning between using `prec` inside the `token` function versus outside it. The _lexical precedence_ syntax
-is `token(prec(N, ...))`.
+the difference in meaning between using `prec` inside the `token` function versus outside it. The _lexical precedence_ syntax,
+as mentioned in the previous page, is `token(prec(N, ...))`.
 
 ## Keywords
 
