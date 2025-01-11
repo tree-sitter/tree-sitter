@@ -425,7 +425,6 @@ fn test_feature_corpus_files() {
 
                 if !passed {
                     failure_count += 1;
-                    continue;
                 }
             }
         }
