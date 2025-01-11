@@ -557,37 +557,6 @@ TSNode ts_node_parent(TSNode self) {
   return node;
 }
 
-TSNode ts_node_child_containing_descendant(TSNode self, TSNode descendant) {
-  uint32_t start_byte = ts_node_start_byte(descendant);
-  uint32_t end_byte = ts_node_end_byte(descendant);
-  bool is_empty = start_byte == end_byte;
-
-  do {
-    NodeChildIterator iter = ts_node_iterate_children(&self);
-    do {
-      if (
-        !ts_node_child_iterator_next(&iter, &self)
-        || ts_node_start_byte(self) > start_byte
-        || self.id == descendant.id
-      ) {
-        return ts_node__null();
-      }
-
-      // If the descendant is empty, and the end byte is within `self`,
-      // we check whether `self` contains it or not.
-      if (is_empty && iter.position.bytes >= end_byte && ts_node_child_count(self) > 0) {
-        TSNode child = ts_node_child_with_descendant(self, descendant);
-        // If the child is not null, return self if it's relevant, else return the child
-        if (!ts_node_is_null(child)) {
-          return ts_node__is_relevant(self, true) ? self : child;
-        }
-      }
-    } while ((is_empty ? iter.position.bytes <= end_byte : iter.position.bytes < end_byte) || ts_node_child_count(self) == 0);
-  } while (!ts_node__is_relevant(self, true));
-
-  return self;
-}
-
 TSNode ts_node_child_with_descendant(TSNode self, TSNode descendant) {
   uint32_t start_byte = ts_node_start_byte(descendant);
   uint32_t end_byte = ts_node_end_byte(descendant);
