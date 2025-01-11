@@ -397,15 +397,11 @@ extern "C" {
     pub fn ts_node_next_parse_state(self_: TSNode) -> TSStateId;
 }
 extern "C" {
-    #[doc = " Get the node's immediate parent.\n Prefer [`ts_node_child_containing_descendant`] for\n iterating over the node's ancestors."]
+    #[doc = " Get the node's immediate parent.\n Prefer [`ts_node_child_with_descendant`] for\n iterating over the node's ancestors."]
     pub fn ts_node_parent(self_: TSNode) -> TSNode;
 }
 extern "C" {
-    #[doc = " @deprecated use [`ts_node_contains_descendant`] instead, this will be removed in 0.25\n\n Get the node's child containing `descendant`. This will not return\n the descendant if it is a direct child of `self`, for that use\n `ts_node_contains_descendant`."]
-    pub fn ts_node_child_containing_descendant(self_: TSNode, descendant: TSNode) -> TSNode;
-}
-extern "C" {
-    #[doc = " Get the node that contains `descendant`.\n\n Note that this can return `descendant` itself, unlike the deprecated function\n [`ts_node_child_containing_descendant`]."]
+    #[doc = " Get the node that contains `descendant`.\n\n Note that this can return `descendant` itself."]
     pub fn ts_node_child_with_descendant(self_: TSNode, descendant: TSNode) -> TSNode;
 }
 extern "C" {
