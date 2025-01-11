@@ -129,45 +129,40 @@ published as [`tree-sitter`][py package] on [PyPI.org][pypi].
 * [`tree-sitter/go-tree-sitter`][go ts] — Go bindings to the core library,
 published as [`tree_sitter`][go package] on [pkg.go.dev][go.dev].
 
-## Publishing New Releases (Maintainers Only)
-
-Publishing a new release of the CLI and lib requires these steps:
-
-1. Commit and push all outstanding changes and verify that CI passes:
-
-   ```sh
-   git commit -m "Fix things"
-   git push
-   ```
-
-2. Upgrade manifest files and create a new tag:
-
-   ```sh
-   cargo xtask bump-version --version <NEXT_VERSION>
-   ```
-
-   This will determine the current version, increment the version to the one specified, and update the relevant files for
-   Rust, Node, Zig, CMake, and Make. It will then create a commit and a tag for the new version. For more information
-   about the arguments that are allowed, see the documentation for the [`npm version`][npm version] command.
-
-3. Push the commit and the tag:
-
-   ```sh
-   git push
-   git push --tags
-   ```
-
-4. CI will build the binaries and upload them to the GitHub release and the NPM registry. It will also publish the Rust
-crates to crates.io.
-
 ## Developing Documentation
 
 Our current static site generator for documentation is [`mdBook`][mdBook], with a little bit of custom JavaScript to handle
 the playground page. Most of the documentation is written in Markdown, including this file! You can find these files
-at [`docs/src`][docs src]. The playground code can be found in [`docs/src/assets/js/playground.js`][playground], and its corresponding
-css at [`docs/src/assets/css/playground.css`][playground css]. To run and iterate on the docs locally, the
-[`mdbook`][mdbook cli] CLI tool is required, which can be installed with `cargo install mdbook`. Once you've installed it,
-you can run the following command to start a local server:
+at [`docs/src`][docs src]. If you'd like to submit a PR to improve the documentation, navigate to the page you'd like to
+edit and hit the edit icon at the top right of the page.
+
+### Prerequisites for Local Development
+
+```admonish note
+We're assuming you have `cargo` installed, the Rust package manager.
+```
+
+To run and iterate on the docs locally, the
+[`mdbook`][mdbook cli] CLI tool is required, which can be installed with
+
+```sh
+cargo install mdbook
+```
+
+You might have noticed we have some fancy admonitions sprinkled throughout the documentation, like the note above.
+These are created using [`mdbook-admonish`][admonish], a [preprocessor][preprocessor] for `mdBook`. As such, this is also
+a requirement for developing the documentation locally. To install it, run:
+
+```sh
+cargo install mdbook-admonish
+```
+
+Once you've installed it, you can begin using admonitions in your markdown files. See the [reference][admonish reference]
+for more information.
+
+### Spinning it up
+
+Now that you've installed the prerequisites, you can run the following command to start a local server:
 
 ```sh
 cd docs
@@ -177,11 +172,16 @@ mdbook serve --open
 `mdbook` has a live-reload feature, so any changes you make to the markdown files will be reflected in the browser after
 a short delay. Once you've made a change that you're happy with, you can submit a PR with your changes.
 
-The playground page is a little more complicated, but if you know some basic JavaScript and CSS you should be able to make
-changes. The editor of choice we use for the playground is [CodeMirror][codemirror], and the tree-sitter module is fetched
-from [here][js url]. This, along with the wasm module and wasm parsers, live in
-the [.github.io repo][gh.io repo].
+### Improving the Playground
 
+The playground page is a little more complicated, but if you know some basic JavaScript and CSS you should be able to make
+changes. The playground code can be found in [`docs/src/assets/js/playground.js`][playground], and its corresponding css
+at [`docs/src/assets/css/playground.css`][playground css]. The editor of choice we use for the playground is [CodeMirror][codemirror],
+and the tree-sitter module is fetched from [here][js url]. This, along with the wasm module and wasm parsers, live in the
+[.github.io repo][gh.io repo].
+
+[admonish]: https://github.com/tommilligan/mdbook-admonish
+[admonish reference]: https://tommilligan.github.io/mdbook-admonish/reference.html
 [cli crate]: https://crates.io/crates/tree-sitter-cli
 [cli package]: https://www.npmjs.com/package/tree-sitter-cli
 [codemirror]: https://codemirror.net
@@ -201,11 +201,11 @@ the [.github.io repo][gh.io repo].
 [mdbook cli]: https://rust-lang.github.io/mdBook/guide/installation.html
 [node package]: https://www.npmjs.com/package/tree-sitter
 [node ts]: https://github.com/tree-sitter/node-tree-sitter
-[npm version]: https://docs.npmjs.com/cli/version
 [npmjs]: https://npmjs.com
 [playground]: https://github.com/tree-sitter/tree-sitter/blob/master/docs/src/assets/js/playground.js
 [playground css]: https://github.com/tree-sitter/tree-sitter/blob/master/docs/src/assets/css/playground.css
 [podman]: https://podman.io
+[preprocessor]: https://rust-lang.github.io/mdBook/for_developers/preprocessors.html
 [py package]: https://pypi.org/project/tree-sitter
 [py ts]: https://github.com/tree-sitter/py-tree-sitter
 [pypi]: https://pypi.org
