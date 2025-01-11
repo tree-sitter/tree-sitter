@@ -898,6 +898,7 @@ fn parse_test_content(name: String, content: &str, file_path: Option<PathBuf>) -
 
                     // Remove trailing newline from the input.
                     input.pop();
+                    #[cfg(target_os = "windows")]
                     if input.last() == Some(&b'\r') {
                         input.pop();
                     }
