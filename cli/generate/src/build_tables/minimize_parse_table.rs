@@ -151,9 +151,7 @@ impl Minimizer<'_> {
             &mut group_ids_by_state_id,
             0,
             |left, right, groups| self.state_successors_differ(left, right, groups),
-        ) {
-            continue;
-        }
+        ) {}
 
         let error_group_index = state_ids_by_group_id
             .iter()
@@ -262,7 +260,7 @@ impl Minimizer<'_> {
         for (symbol, s1) in &state1.nonterminal_entries {
             if let Some(s2) = state2.nonterminal_entries.get(symbol) {
                 match (s1, s2) {
-                    (GotoAction::ShiftExtra, GotoAction::ShiftExtra) => continue,
+                    (GotoAction::ShiftExtra, GotoAction::ShiftExtra) => {}
                     (GotoAction::Goto(s1), GotoAction::Goto(s2)) => {
                         let group1 = group_ids_by_state_id[*s1];
                         let group2 = group_ids_by_state_id[*s2];

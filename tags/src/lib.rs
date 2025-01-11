@@ -149,7 +149,7 @@ impl TagsConfiguration {
                 "doc" => doc_capture_index = Some(i as u32),
                 "local.scope" => local_scope_capture_index = Some(i as u32),
                 "local.definition" => local_definition_capture_index = Some(i as u32),
-                "local.reference" | "" => continue,
+                "local.reference" | "" => {}
                 _ => {
                     let mut is_definition = false;
 

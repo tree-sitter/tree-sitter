@@ -1056,7 +1056,6 @@ impl Generator {
                     }
                     self.add_character(end);
                     add!(self, ")");
-                    continue;
                 } else if end == start {
                     add!(self, "lookahead == ");
                     self.add_character(start);
