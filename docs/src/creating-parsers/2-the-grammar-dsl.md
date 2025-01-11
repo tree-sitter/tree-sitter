@@ -95,7 +95,8 @@ one passed into the `wordset` parameter. This is useful for contextual keywords,
 be used as a variable name in most contexts, but can be used as a property name.
 
 In addition to the `name` and `rules` fields, grammars have a few other optional public fields that influence the behavior
-of the parser.
+of the parser. Each of these fields is a function that accepts the grammar object (`$`) as its only parameter, like the
+grammar rules themselves. These fields are:
 
 - **`extras`** — an array of tokens that may appear *anywhere* in the language. This is often used for whitespace and
 comments. The default value of `extras` is to accept whitespace. To control whitespace explicitly, specify
