@@ -507,7 +507,7 @@ extern "C" {
     pub fn ts_node_eq(self_: TSNode, other: TSNode) -> bool;
 }
 extern "C" {
-    #[doc = " Create a new tree cursor starting from the given node.\n\n A tree cursor allows you to walk a syntax tree more efficiently than is\n possible using the [`TSNode`] functions. It is a mutable object that is always\n on a certain syntax node, and can be moved imperatively to different nodes."]
+    #[doc = " Create a new tree cursor starting from the given node.\n\n A tree cursor allows you to walk a syntax tree more efficiently than is\n possible using the [`TSNode`] functions. It is a mutable object that is always\n on a certain syntax node, and can be moved imperatively to different nodes.\n\n Note that the given node is considered the root of the cursor,\n and the cursor cannot walk outside this node."]
     pub fn ts_tree_cursor_new(node: TSNode) -> TSTreeCursor;
 }
 extern "C" {
@@ -537,15 +537,15 @@ extern "C" {
     pub fn ts_tree_cursor_current_field_id(self_: *const TSTreeCursor) -> TSFieldId;
 }
 extern "C" {
-    #[doc = " Move the cursor to the parent of its current node.\n\n This returns `true` if the cursor successfully moved, and returns `false`\n if there was no parent node (the cursor was already on the root node)."]
+    #[doc = " Move the cursor to the parent of its current node.\n\n This returns `true` if the cursor successfully moved, and returns `false`\n if there was no parent node (the cursor was already on the root node).\n\n Note that the node the cursor was constructed with is considered the root\n of the cursor, and the cursor cannot walk outside this node."]
     pub fn ts_tree_cursor_goto_parent(self_: *mut TSTreeCursor) -> bool;
 }
 extern "C" {
-    #[doc = " Move the cursor to the next sibling of its current node.\n\n This returns `true` if the cursor successfully moved, and returns `false`\n if there was no next sibling node."]
+    #[doc = " Move the cursor to the next sibling of its current node.\n\n This returns `true` if the cursor successfully moved, and returns `false`\n if there was no next sibling node.\n\n Note that the node the cursor was constructed with is considered the root\n of the cursor, and the cursor cannot walk outside this node."]
     pub fn ts_tree_cursor_goto_next_sibling(self_: *mut TSTreeCursor) -> bool;
 }
 extern "C" {
-    #[doc = " Move the cursor to the previous sibling of its current node.\n\n This returns `true` if the cursor successfully moved, and returns `false` if\n there was no previous sibling node.\n\n Note, that this function may be slower than\n [`ts_tree_cursor_goto_next_sibling`] due to how node positions are stored. In\n the worst case, this will need to iterate through all the children up to the\n previous sibling node to recalculate its position."]
+    #[doc = " Move the cursor to the previous sibling of its current node.\n\n This returns `true` if the cursor successfully moved, and returns `false` if\n there was no previous sibling node.\n\n Note, that this function may be slower than\n [`ts_tree_cursor_goto_next_sibling`] due to how node positions are stored. In\n the worst case, this will need to iterate through all the children up to the\n previous sibling node to recalculate its position. Also note that the node the cursor\n was constructed with is considered the root of the cursor, and the cursor cannot\n walk outside this node."]
     pub fn ts_tree_cursor_goto_previous_sibling(self_: *mut TSTreeCursor) -> bool;
 }
 extern "C" {

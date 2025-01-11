@@ -748,6 +748,9 @@ bool ts_node_eq(TSNode self, TSNode other);
  * A tree cursor allows you to walk a syntax tree more efficiently than is
  * possible using the [`TSNode`] functions. It is a mutable object that is always
  * on a certain syntax node, and can be moved imperatively to different nodes.
+ *
+ * Note that the given node is considered the root of the cursor,
+ * and the cursor cannot walk outside this node.
  */
 TSTreeCursor ts_tree_cursor_new(TSNode node);
 
@@ -796,6 +799,9 @@ TSFieldId ts_tree_cursor_current_field_id(const TSTreeCursor *self);
  *
  * This returns `true` if the cursor successfully moved, and returns `false`
  * if there was no parent node (the cursor was already on the root node).
+ *
+ * Note that the node the cursor was constructed with is considered the root
+ * of the cursor, and the cursor cannot walk outside this node.
  */
 bool ts_tree_cursor_goto_parent(TSTreeCursor *self);
 
@@ -804,6 +810,9 @@ bool ts_tree_cursor_goto_parent(TSTreeCursor *self);
  *
  * This returns `true` if the cursor successfully moved, and returns `false`
  * if there was no next sibling node.
+ *
+ * Note that the node the cursor was constructed with is considered the root
+ * of the cursor, and the cursor cannot walk outside this node.
  */
 bool ts_tree_cursor_goto_next_sibling(TSTreeCursor *self);
 
@@ -816,7 +825,9 @@ bool ts_tree_cursor_goto_next_sibling(TSTreeCursor *self);
  * Note, that this function may be slower than
  * [`ts_tree_cursor_goto_next_sibling`] due to how node positions are stored. In
  * the worst case, this will need to iterate through all the children up to the
- * previous sibling node to recalculate its position.
+ * previous sibling node to recalculate its position. Also note that the node the cursor
+ * was constructed with is considered the root of the cursor, and the cursor cannot
+ * walk outside this node.
  */
 bool ts_tree_cursor_goto_previous_sibling(TSTreeCursor *self);
 

@@ -2021,6 +2021,9 @@ impl<'tree> Node<'tree> {
     }
 
     /// Create a new [`TreeCursor`] starting from this node.
+    ///
+    /// Note that the given node is considered the root of the cursor,
+    /// and the cursor cannot walk outside this node.
     #[doc(alias = "ts_tree_cursor_new")]
     #[must_use]
     pub fn walk(&self) -> TreeCursor<'tree> {
@@ -2158,6 +2161,9 @@ impl<'cursor> TreeCursor<'cursor> {
     /// This returns `true` if the cursor successfully moved, and returns
     /// `false` if there was no parent node (the cursor was already on the
     /// root node).
+    ///
+    /// Note that the node the cursor was constructed with is considered the root
+    /// of the cursor, and the cursor cannot walk outside this node.
     #[doc(alias = "ts_tree_cursor_goto_parent")]
     pub fn goto_parent(&mut self) -> bool {
         unsafe { ffi::ts_tree_cursor_goto_parent(&mut self.0) }
@@ -2167,6 +2173,9 @@ impl<'cursor> TreeCursor<'cursor> {
     ///
     /// This returns `true` if the cursor successfully moved, and returns
     /// `false` if there was no next sibling node.
+    ///
+    /// Note that the node the cursor was constructed with is considered the root
+    /// of the cursor, and the cursor cannot walk outside this node.
     #[doc(alias = "ts_tree_cursor_goto_next_sibling")]
     pub fn goto_next_sibling(&mut self) -> bool {
         unsafe { ffi::ts_tree_cursor_goto_next_sibling(&mut self.0) }
@@ -2189,7 +2198,8 @@ impl<'cursor> TreeCursor<'cursor> {
     /// [`goto_next_sibling`](TreeCursor::goto_next_sibling) due to how node
     /// positions are stored. In the worst case, this will need to iterate
     /// through all the children up to the previous sibling node to recalculate
-    /// its position.
+    /// its position. Also note that the node the cursor was constructed with is
+    /// considered the root of the cursor, and the cursor cannot walk outside this node.
     #[doc(alias = "ts_tree_cursor_goto_previous_sibling")]
     pub fn goto_previous_sibling(&mut self) -> bool {
         unsafe { ffi::ts_tree_cursor_goto_previous_sibling(&mut self.0) }
