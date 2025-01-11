@@ -6,7 +6,7 @@ use std::{
 
 use anyhow::{anyhow, Context, Result};
 use heck::{ToKebabCase, ToShoutySnakeCase, ToSnakeCase, ToUpperCamelCase};
-use indoc::indoc;
+use indoc::{formatdoc, indoc};
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
@@ -288,9 +288,16 @@ pub fn generate_grammar_files(
     })?;
 
     // Write .gitattributes file
-    missing_path(repo_path.join(".gitattributes"), |path| {
-        generate_file(path, GITATTRIBUTES_TEMPLATE, language_name, &generate_opts)
-    })?;
+    missing_path_else(
+        repo_path.join(".gitattributes"),
+        allow_update,
+        |path| generate_file(path, GITATTRIBUTES_TEMPLATE, language_name, &generate_opts),
+        |path| {
+            let contents = fs::read_to_string(path)?;
+            write_file(path, contents.replace("bindings/c/* ", "bindings/c/** "))?;
+            Ok(())
+        },
+    )?;
 
     // Write .editorconfig file
     missing_path(repo_path.join(".editorconfig"), |path| {
@@ -376,10 +383,19 @@ pub fn generate_grammar_files(
     // Generate C bindings
     if tree_sitter_config.bindings.c {
         missing_path(bindings_dir.join("c"), create_dir)?.apply(|path| {
-            missing_path(
-                path.join(format!("tree-sitter-{language_name}.h")),
-                |path| generate_file(path, PARSER_NAME_H_TEMPLATE, language_name, &generate_opts),
-            )?;
+            let old_file = &path.join(format!("tree-sitter-{language_name}.h"));
+            if allow_update && fs::exists(old_file).unwrap_or(false) {
+                fs::remove_file(old_file)?;
+            }
+            missing_path(path.join("tree_sitter"), create_dir)?.apply(|include_path| {
+                missing_path(
+                    include_path.join(format!("tree-sitter-{language_name}.h")),
+                    |path| {
+                        generate_file(path, PARSER_NAME_H_TEMPLATE, language_name, &generate_opts)
+                    },
+                )?;
+                Ok(())
+            })?;
 
             missing_path(
                 path.join(format!("tree-sitter-{language_name}.pc.in")),
@@ -393,20 +409,50 @@ pub fn generate_grammar_files(
                 },
             )?;
 
-            missing_path(repo_path.join("Makefile"), |path| {
-                generate_file(path, MAKEFILE_TEMPLATE, language_name, &generate_opts)
-            })?;
+            missing_path_else(
+                repo_path.join("Makefile"),
+                allow_update,
+                |path| {
+                    generate_file(path, MAKEFILE_TEMPLATE, language_name, &generate_opts)
+                },
+                |path| {
+                    let contents = fs::read_to_string(path)?.replace(
+                        "-m644 bindings/c/$(LANGUAGE_NAME).h",
+                        "-m644 bindings/c/tree_sitter/$(LANGUAGE_NAME).h"
+                    );
+                    write_file(path, contents)?;
+                    Ok(())
+                },
+            )?;
 
             missing_path_else(
                 repo_path.join("CMakeLists.txt"),
                 allow_update,
                 |path| generate_file(path, CMAKELISTS_TXT_TEMPLATE, language_name, &generate_opts),
                 |path| {
-                    let contents = fs::read_to_string(path)?;
-                    let old = "add_custom_target(test";
-                    if contents.contains(old) {
-                        write_file(path, contents.replace(old, "add_custom_target(ts-test"))?;
-                    }
+                    let mut contents = fs::read_to_string(path)?;
+                    contents = contents
+                        .replace("add_custom_target(test", "add_custom_target(ts-test")
+                        .replace(
+                            &formatdoc! {r#"
+                            install(FILES bindings/c/tree-sitter-{language_name}.h
+                                    DESTINATION "${{CMAKE_INSTALL_INCLUDEDIR}}/tree_sitter")
+                            "#},
+                            indoc! {r#"
+                            install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/bindings/c/tree_sitter"
+                                    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+                                    FILES_MATCHING PATTERN "*.h")
+                            "#}
+                        ).replace(
+                            &format!("target_include_directories(tree-sitter-{language_name} PRIVATE src)"),
+                            &formatdoc! {"
+                            target_include_directories(tree-sitter-{language_name}
+                                                       PRIVATE src
+                                                       INTERFACE $<BUILD_INTERFACE:${{CMAKE_CURRENT_SOURCE_DIR}}/bindings/c>
+                                                                 $<INSTALL_INTERFACE:${{CMAKE_INSTALL_INCLUDEDIR}}>)
+                            "}
+                        );
+                    write_file(path, contents)?;
                     Ok(())
                 },
             )?;
