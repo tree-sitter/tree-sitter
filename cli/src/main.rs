@@ -19,7 +19,7 @@ use tree_sitter_cli::{
         LOG_GRAPH_ENABLED, START_SEED,
     },
     highlight::{self, HighlightOptions},
-    init::{generate_grammar_files, get_root_path, migrate_package_json, JsonConfigOpts},
+    init::{generate_grammar_files, get_root_path, JsonConfigOpts},
     input::{get_input, get_tmp_source_file, CliInput},
     logger,
     parse::{self, ParseFileOptions, ParseOutput, ParseTheme},
@@ -497,9 +497,8 @@ impl InitConfig {
 }
 
 impl Init {
-    fn run(self, current_dir: &Path, migrated: bool) -> Result<()> {
-        let configure_json = !current_dir.join("tree-sitter.json").exists()
-            && (!current_dir.join("package.json").exists() || !migrated);
+    fn run(self, current_dir: &Path) -> Result<()> {
+        let configure_json = !current_dir.join("tree-sitter.json").exists();
 
         let (language_name, json_config_opts) = if configure_json {
             let mut opts = JsonConfigOpts::default();
@@ -1640,7 +1639,7 @@ fn main() {
             }
         }
         if !err.to_string().is_empty() {
-            eprintln!("{err}");
+            eprintln!("{err:?}");
         }
         std::process::exit(1);
     }
@@ -1675,17 +1674,9 @@ fn run() -> Result<()> {
     let current_dir = env::current_dir().unwrap();
     let loader = loader::Loader::new()?;
 
-    let migrated = if !current_dir.join("tree-sitter.json").exists()
-        && current_dir.join("package.json").exists()
-    {
-        migrate_package_json(&current_dir).unwrap_or(false)
-    } else {
-        false
-    };
-
     match command {
         Commands::InitConfig(_) => InitConfig::run()?,
-        Commands::Init(init_options) => init_options.run(&current_dir, migrated)?,
+        Commands::Init(init_options) => init_options.run(&current_dir)?,
         Commands::Generate(generate_options) => generate_options.run(loader, &current_dir)?,
         Commands::Build(build_options) => build_options.run(loader, &current_dir)?,
         Commands::Parse(parse_options) => parse_options.run(loader, &current_dir)?,

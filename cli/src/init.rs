@@ -7,15 +7,11 @@ use std::{
 use anyhow::{anyhow, Context, Result};
 use heck::{ToKebabCase, ToShoutySnakeCase, ToSnakeCase, ToUpperCamelCase};
 use indoc::indoc;
-use regex::Regex;
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use tree_sitter_generate::write_file;
-use tree_sitter_loader::{
-    Author, Bindings, Grammar, Links, Metadata, PackageJSON, PackageJSONAuthor,
-    PackageJSONRepository, PathsJSON, TreeSitterJSON,
-};
+use tree_sitter_loader::{Author, Bindings, Grammar, Links, Metadata, PathsJSON, TreeSitterJSON};
 use url::Url;
 
 const CLI_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -206,163 +202,6 @@ struct GenerateOpts<'a> {
     repository: Option<&'a str>,
     version: &'a Version,
     camel_parser_name: &'a str,
-}
-
-// TODO: remove in 0.25
-// A return value of true means migration was successful, and false if not.
-pub fn migrate_package_json(repo_path: &Path) -> Result<bool> {
-    let root_path =
-        get_root_path(&repo_path.join("package.json")).unwrap_or_else(|_| repo_path.to_path_buf());
-    let (package_json_path, tree_sitter_json_path) = (
-        root_path.join("package.json"),
-        root_path.join("tree-sitter.json"),
-    );
-
-    let old_config = serde_json::from_str::<PackageJSON>(
-        &fs::read_to_string(&package_json_path)
-            .with_context(|| format!("Failed to read package.json in {}", root_path.display()))?,
-    )?;
-
-    if old_config.tree_sitter.is_none() {
-        eprintln!("Failed to find `tree-sitter` section in package.json, unable to migrate");
-        return Ok(false);
-    }
-
-    let name = old_config.name.replace("tree-sitter-", "");
-
-    let new_config = TreeSitterJSON {
-        schema: Some(TREE_SITTER_JSON_SCHEMA.to_string()),
-        grammars: old_config
-            .tree_sitter
-            .unwrap()
-            .into_iter()
-            .map(|l| Grammar {
-                name: name.clone(),
-                camelcase: Some(name.to_upper_camel_case()),
-                scope: l.scope.unwrap_or_else(|| format!("source.{name}")),
-                path: Some(l.path),
-                external_files: l.external_files,
-                file_types: l.file_types,
-                highlights: l.highlights,
-                injections: l.injections,
-                locals: l.locals,
-                tags: l.tags,
-                injection_regex: l.injection_regex,
-                first_line_regex: l.first_line_regex,
-                content_regex: l.content_regex,
-            })
-            .collect(),
-        metadata: Metadata {
-            version: old_config.version,
-            license: old_config
-                .license
-                .map_or_else(|| Some("MIT".to_string()), Some),
-            description: old_config
-                .description
-                .map_or_else(|| Some(format!("{name} grammar for tree-sitter")), Some),
-            authors: {
-                let authors = old_config
-                    .author
-                    .map_or_else(|| vec![].into_iter(), |a| vec![a].into_iter())
-                    .chain(old_config.maintainers.unwrap_or_default())
-                    .filter_map(|a| match a {
-                        PackageJSONAuthor::String(s) => {
-                            let mut name = s.trim().to_string();
-                            if name.is_empty() {
-                                return None;
-                            }
-
-                            let mut email = None;
-                            let mut url = None;
-
-                            if let Some(url_start) = name.rfind('(') {
-                                if let Some(url_end) = name.rfind(')') {
-                                    url = Some(name[url_start + 1..url_end].trim().to_string());
-                                    name = name[..url_start].trim().to_string();
-                                }
-                            }
-
-                            if let Some(email_start) = name.rfind('<') {
-                                if let Some(email_end) = name.rfind('>') {
-                                    email =
-                                        Some(name[email_start + 1..email_end].trim().to_string());
-                                    name = name[..email_start].trim().to_string();
-                                }
-                            }
-
-                            Some(Author { name, email, url })
-                        }
-                        PackageJSONAuthor::Object { name, email, url } => {
-                            if name.is_empty() {
-                                None
-                            } else {
-                                Some(Author { name, email, url })
-                            }
-                        }
-                    })
-                    .collect::<Vec<_>>();
-                if authors.is_empty() {
-                    None
-                } else {
-                    Some(authors)
-                }
-            },
-            links: Some(Links {
-                repository: old_config
-                    .repository
-                    .map(|r| match r {
-                        PackageJSONRepository::String(s) => {
-                            if let Some(stripped) = s.strip_prefix("github:") {
-                                Url::parse(&format!("https://github.com/{stripped}"))
-                            } else if Regex::new(r"^[\w.-]+/[\w.-]+$").unwrap().is_match(&s) {
-                                Url::parse(&format!("https://github.com/{s}"))
-                            } else if let Some(stripped) = s.strip_prefix("gitlab:") {
-                                Url::parse(&format!("https://gitlab.com/{stripped}"))
-                            } else if let Some(stripped) = s.strip_prefix("bitbucket:") {
-                                Url::parse(&format!("https://bitbucket.org/{stripped}"))
-                            } else {
-                                Url::parse(&s)
-                            }
-                        }
-                        PackageJSONRepository::Object { url, .. } => Url::parse(&url),
-                    })
-                    .transpose()?
-                    .unwrap_or_else(|| {
-                        Url::parse(&format!(
-                            "https://github.com/tree-sitter/tree-sitter-{name}"
-                        ))
-                        .expect("Failed to parse default repository URL")
-                    }),
-                homepage: None,
-            }),
-            namespace: None,
-        },
-        bindings: Bindings::default(),
-    };
-
-    write_file(
-        &tree_sitter_json_path,
-        serde_json::to_string_pretty(&new_config)? + "\n",
-    )?;
-
-    // Remove the `tree-sitter` field in-place
-    let mut package_json = serde_json::from_str::<Map<String, Value>>(
-        &fs::read_to_string(&package_json_path)
-            .with_context(|| format!("Failed to read package.json in {}", root_path.display()))?,
-    )
-    .unwrap();
-    package_json.remove("tree-sitter");
-    write_file(
-        &root_path.join("package.json"),
-        serde_json::to_string_pretty(&package_json)? + "\n",
-    )?;
-
-    println!("Warning: your package.json's `tree-sitter` field has been automatically migrated to the new `tree-sitter.json` config file");
-    println!(
-        "For more information, visit https://tree-sitter.github.io/tree-sitter/creating-parsers"
-    );
-
-    Ok(true)
 }
 
 pub fn generate_grammar_files(
