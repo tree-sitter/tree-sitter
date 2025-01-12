@@ -121,7 +121,7 @@ pub struct ParseState(NonNull<ffi::TSParseState>);
 
 impl ParseState {
     #[must_use]
-    pub fn current_byte_offset(&self) -> usize {
+    pub const fn current_byte_offset(&self) -> usize {
         unsafe { self.0.as_ref() }.current_byte_offset as usize
     }
 }
@@ -132,7 +132,7 @@ pub struct QueryCursorState(NonNull<ffi::TSQueryCursorState>);
 
 impl QueryCursorState {
     #[must_use]
-    pub fn current_byte_offset(&self) -> usize {
+    pub const fn current_byte_offset(&self) -> usize {
         unsafe { self.0.as_ref() }.current_byte_offset as usize
     }
 }
@@ -1371,7 +1371,7 @@ impl Parser {
         if let Some(flag) = flag {
             ffi::ts_parser_set_cancellation_flag(
                 self.0.as_ptr(),
-                (flag as *const AtomicUsize).cast::<usize>(),
+                std::ptr::from_ref::<AtomicUsize>(flag).cast::<usize>(),
             );
         } else {
             ffi::ts_parser_set_cancellation_flag(self.0.as_ptr(), ptr::null());
