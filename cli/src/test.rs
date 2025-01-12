@@ -724,7 +724,7 @@ pub fn parse_tests(path: &Path) -> io::Result<TestEntry> {
         Ok(TestEntry::Group {
             name,
             children,
-            file_path: Some(path.to_path_buf()),
+            file_path: None,
         })
     } else {
         let content = fs::read_to_string(path)?;
