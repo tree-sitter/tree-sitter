@@ -16,13 +16,13 @@ body = """
     {% for commit in commits%}\
         {% if not commit.scope %}\
             - {{ commit.message | upper_first }}\
-              {% if commit.github.pr_number %} (<https://github.com/{{ remote.github.owner }}/{{ remote.github.repo }}/pull/{{ commit.github.pr_number }}>){%- endif %}
+              {% if commit.remote.pr_number %} (<https://github.com/{{ remote.github.owner }}/{{ remote.github.repo }}/pull/{{ commit.remote.pr_number }}>){%- endif %}
         {% endif %}\
     {% endfor %}\
     {% for group, commits in commits | group_by(attribute="scope") %}\
         {% for commit in commits %}\
             - **{{commit.scope}}**: {{ commit.message | upper_first }}\
-                {% if commit.github.pr_number %} (<https://github.com/{{ remote.github.owner }}/{{ remote.github.repo }}/pull/{{ commit.github.pr_number }}>){%- endif %}
+                {% if commit.remote.pr_number %} (<https://github.com/{{ remote.github.owner }}/{{ remote.github.repo }}/pull/{{ commit.remote.pr_number }}>){%- endif %}
         {% endfor %}\
     {% endfor %}
 {% endfor %}
