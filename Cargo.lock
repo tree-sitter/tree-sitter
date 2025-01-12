@@ -2014,7 +2014,6 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.16",
  "topological-sort",
- "tree-sitter",
  "url",
 ]
 
