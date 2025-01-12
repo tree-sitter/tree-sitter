@@ -179,6 +179,21 @@ between `IdentifierReference` and `Expression`. If we were to create a concrete 
 according to the language spec, it would have twenty levels of nesting, and it would contain nodes with names like `BitwiseXORExpression`,
 which are unrelated to the actual code.
 
+## Standard Rule Names
+
+Tree-sitter places no restrictions on how to name the rules of your grammar. It can be helpful, however, to follow certain conventions
+used by many other established grammars in the ecosystem. Some of these well-established patterns are listed below:
+
+- `source_file`: Represents an entire source file, this rule is commonly used as the root node for a grammar,
+- `expression`/`statement`: Used to represent statements and expressions for a given language. Commonly defined as a choice between several
+more specific sub-expression/sub-statement rules.
+- `block`: Used as the parent node for block scopes, with its children representing the block's contents.
+- `type`: Represents the types of a language such as `int`, `char`, and `void`.
+- `identifier`: Used for constructs like variable names, function arguments, and object fields; this rule is commonly used as the `word`
+token in grammars.
+- `string`: Used to represent `"string literals"`.
+- `comment`: Used to represent comments, this rule is commonly used as an `extra`.
+
 ## Using Precedence
 
 To produce a readable syntax tree, we'd like to model JavaScript expressions using a much flatter structure like this:
