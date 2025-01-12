@@ -519,6 +519,51 @@ fn test_query_errors_on_impossible_patterns() {
                 .join("\n")
             })
         );
+        assert_eq!(
+            Query::new(&js_lang, "(identifier/identifier)").unwrap_err(),
+            QueryError {
+                row: 0,
+                offset: 0,
+                column: 0,
+                kind: QueryErrorKind::Structure,
+                message: [
+                    "(identifier/identifier)", //
+                    "^"
+                ]
+                .join("\n")
+            }
+        );
+
+        if js_lang.version() >= 15 {
+            assert_eq!(
+                Query::new(&js_lang, "(statement/identifier)").unwrap_err(),
+                QueryError {
+                    row: 0,
+                    offset: 0,
+                    column: 0,
+                    kind: QueryErrorKind::Structure,
+                    message: [
+                        "(statement/identifier)", //
+                        "^"
+                    ]
+                    .join("\n")
+                }
+            );
+            assert_eq!(
+                Query::new(&js_lang, "(statement/pattern)").unwrap_err(),
+                QueryError {
+                    row: 0,
+                    offset: 0,
+                    column: 0,
+                    kind: QueryErrorKind::Structure,
+                    message: [
+                        "(statement/pattern)", //
+                        "^"
+                    ]
+                    .join("\n")
+                }
+            );
+        }
     });
 }
 

@@ -2316,10 +2316,10 @@ static TSQueryError ts_query__parse_pattern(
     else {
       TSSymbol symbol;
       bool is_missing = false;
+      const char *node_name = stream->input;
 
       // Parse a normal node name
       if (stream_is_ident_start(stream)) {
-        const char *node_name = stream->input;
         stream_scan_identifier(stream);
         uint32_t length = (uint32_t)(stream->input - node_name);
 
@@ -2406,24 +2406,54 @@ static TSQueryError ts_query__parse_pattern(
       stream_skip_whitespace(stream);
 
       if (stream->next == '/') {
+        if (!step->supertype_symbol) {
+          stream_reset(stream, node_name - 1); // reset to the start of the node
+          return TSQueryErrorStructure;
+        }
+
         stream_advance(stream);
         if (!stream_is_ident_start(stream)) {
           return TSQueryErrorSyntax;
         }
 
-        const char *node_name = stream->input;
+        const char *subtype_node_name = stream->input;
         stream_scan_identifier(stream);
-        uint32_t length = (uint32_t)(stream->input - node_name);
+        uint32_t length = (uint32_t)(stream->input - subtype_node_name);
 
         step->symbol = ts_language_symbol_for_name(
           self->language,
-          node_name,
+          subtype_node_name,
           length,
           true
         );
         if (!step->symbol) {
-          stream_reset(stream, node_name);
+          stream_reset(stream, subtype_node_name);
           return TSQueryErrorNodeType;
+        }
+
+        // Get all the possible subtypes for the given supertype,
+        // and check if the given subtype is valid.
+        if (self->language->version >= LANGUAGE_VERSION_WITH_RESERVED_WORDS) {
+          uint32_t subtype_length;
+          const TSSymbol *subtypes = ts_language_subtypes(
+            self->language,
+            step->supertype_symbol,
+            &subtype_length
+          );
+
+          bool subtype_is_valid = false;
+          for (uint32_t i = 0; i < subtype_length; i++) {
+            if (subtypes[i] == step->symbol) {
+              subtype_is_valid = true;
+              break;
+            }
+          }
+
+          // This subtype is not valid for the given supertype.
+          if (!subtype_is_valid) {
+            stream_reset(stream, node_name - 1); // reset to the start of the node
+            return TSQueryErrorStructure;
+          }
         }
 
         stream_skip_whitespace(stream);
