@@ -39,6 +39,8 @@ pub struct NodeInfoJSON {
     named: bool,
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     root: bool,
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    extra: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     fields: Option<BTreeMap<String, FieldInfoJSON>>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -517,6 +519,7 @@ pub fn generate_node_types_json(
                         kind: variable.name.clone(),
                         named: true,
                         root: false,
+                        extra: false,
                         fields: None,
                         children: None,
                         subtypes: None,
@@ -560,6 +563,7 @@ pub fn generate_node_types_json(
                         kind: kind.clone(),
                         named: is_named,
                         root: i == 0,
+                        extra: false,
                         fields: Some(BTreeMap::new()),
                         children: None,
                         subtypes: None,
@@ -664,6 +668,29 @@ pub fn generate_node_types_json(
                         })
                     })
             });
+    let extra_names = syntax_grammar
+        .extra_symbols
+        .iter()
+        .flat_map(|symbol| {
+            aliases_by_symbol
+                .get(symbol)
+                .unwrap_or(&empty)
+                .iter()
+                .map(|alias| {
+                    alias.as_ref().map_or(
+                        match symbol.kind {
+                            SymbolType::NonTerminal => &syntax_grammar.variables[symbol.index].name,
+                            SymbolType::Terminal => &lexical_grammar.variables[symbol.index].name,
+                            SymbolType::External => {
+                                &syntax_grammar.external_tokens[symbol.index].name
+                            }
+                            _ => unreachable!(),
+                        },
+                        |alias| &alias.value,
+                    )
+                })
+        })
+        .collect::<HashSet<_>>();
 
     for (name, kind) in regular_tokens.chain(external_tokens) {
         match kind {
@@ -675,6 +702,7 @@ pub fn generate_node_types_json(
                             kind: name.clone(),
                             named: true,
                             root: false,
+                            extra: extra_names.contains(&name),
                             fields: None,
                             children: None,
                             subtypes: None,
@@ -692,6 +720,7 @@ pub fn generate_node_types_json(
                 kind: name.clone(),
                 named: false,
                 root: false,
+                extra: extra_names.contains(&name),
                 fields: None,
                 children: None,
                 subtypes: None,
@@ -810,6 +839,7 @@ mod tests {
                 kind: "v1".to_string(),
                 named: true,
                 root: true,
+                extra: false,
                 subtypes: None,
                 children: None,
                 fields: Some(
@@ -848,6 +878,7 @@ mod tests {
                 kind: ";".to_string(),
                 named: false,
                 root: false,
+                extra: false,
                 subtypes: None,
                 children: None,
                 fields: None
@@ -859,6 +890,7 @@ mod tests {
                 kind: "v2".to_string(),
                 named: true,
                 root: false,
+                extra: false,
                 subtypes: None,
                 children: None,
                 fields: None
@@ -904,6 +936,7 @@ mod tests {
                 kind: "v1".to_string(),
                 named: true,
                 root: true,
+                extra: false,
                 subtypes: None,
                 children: None,
                 fields: Some(
@@ -942,6 +975,7 @@ mod tests {
                 kind: ";".to_string(),
                 named: false,
                 root: false,
+                extra: false,
                 subtypes: None,
                 children: None,
                 fields: None
@@ -953,6 +987,7 @@ mod tests {
                 kind: "v2".to_string(),
                 named: true,
                 root: false,
+                extra: false,
                 subtypes: None,
                 children: None,
                 fields: None
@@ -964,6 +999,7 @@ mod tests {
                 kind: "v3".to_string(),
                 named: true,
                 root: false,
+                extra: true,
                 subtypes: None,
                 children: None,
                 fields: None
@@ -1010,6 +1046,7 @@ mod tests {
                 kind: "_v2".to_string(),
                 named: true,
                 root: false,
+                extra: false,
                 fields: None,
                 children: None,
                 subtypes: Some(vec![
@@ -1034,6 +1071,7 @@ mod tests {
                 kind: "v1".to_string(),
                 named: true,
                 root: true,
+                extra: false,
                 subtypes: None,
                 children: None,
                 fields: Some(
@@ -1097,6 +1135,7 @@ mod tests {
                 kind: "v1".to_string(),
                 named: true,
                 root: true,
+                extra: false,
                 subtypes: None,
                 children: Some(FieldInfoJSON {
                     multiple: true,
@@ -1135,6 +1174,7 @@ mod tests {
                 kind: "v2".to_string(),
                 named: true,
                 root: false,
+                extra: false,
                 subtypes: None,
                 children: Some(FieldInfoJSON {
                     multiple: false,
@@ -1180,6 +1220,7 @@ mod tests {
                 kind: "v1".to_string(),
                 named: true,
                 root: true,
+                extra: false,
                 subtypes: None,
                 children: Some(FieldInfoJSON {
                     multiple: true,
@@ -1254,6 +1295,7 @@ mod tests {
                 kind: "identifier".to_string(),
                 named: true,
                 root: false,
+                extra: false,
                 subtypes: None,
                 children: None,
                 fields: None,
@@ -1265,6 +1307,7 @@ mod tests {
                 kind: "type_identifier".to_string(),
                 named: true,
                 root: false,
+                extra: false,
                 subtypes: None,
                 children: None,
                 fields: None,
@@ -1307,6 +1350,7 @@ mod tests {
                 kind: "a".to_string(),
                 named: true,
                 root: true,
+                extra: false,
                 subtypes: None,
                 children: Some(FieldInfoJSON {
                     multiple: true,
@@ -1355,6 +1399,7 @@ mod tests {
                 kind: "script".to_string(),
                 named: true,
                 root: true,
+                extra: false,
                 fields: Some(BTreeMap::new()),
                 children: None,
                 subtypes: None
@@ -1412,6 +1457,7 @@ mod tests {
                     kind: "a".to_string(),
                     named: true,
                     root: false,
+                    extra: false,
                     subtypes: None,
                     children: None,
                     fields: Some(
@@ -1468,6 +1514,7 @@ mod tests {
                     kind: "script".to_string(),
                     named: true,
                     root: true,
+                    extra: false,
                     subtypes: None,
                     // Only one node
                     children: Some(FieldInfoJSON {
@@ -1523,6 +1570,7 @@ mod tests {
                 kind: "b".to_string(),
                 named: true,
                 root: false,
+                extra: false,
                 subtypes: None,
                 children: Some(FieldInfoJSON {
                     multiple: true,
