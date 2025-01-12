@@ -1997,7 +1997,6 @@ dependencies = [
  "serde_json",
  "smallbitvec",
  "thiserror 2.0.11",
- "tree-sitter",
  "url",
 ]
 

@@ -5,6 +5,8 @@ use std::{
     mem::swap,
 };
 
+use crate::LANGUAGE_VERSION;
+
 use super::{
     build_tables::Tables,
     grammars::{ExternalToken, LexicalGrammar, SyntaxGrammar, VariableType},
@@ -19,7 +21,7 @@ use super::{
 
 const SMALL_STATE_THRESHOLD: usize = 64;
 const ABI_VERSION_MIN: usize = 14;
-const ABI_VERSION_MAX: usize = tree_sitter::LANGUAGE_VERSION;
+const ABI_VERSION_MAX: usize = LANGUAGE_VERSION;
 const ABI_VERSION_WITH_RESERVED_WORDS: usize = 15;
 const BUILD_VERSION: &str = env!("CARGO_PKG_VERSION");
 const BUILD_SHA: Option<&'static str> = option_env!("BUILD_SHA");

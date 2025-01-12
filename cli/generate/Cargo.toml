@@ -31,5 +31,3 @@ serde_json.workspace = true
 smallbitvec.workspace = true
 thiserror.workspace = true
 url.workspace = true
-
-tree-sitter.workspace = true
