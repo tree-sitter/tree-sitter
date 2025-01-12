@@ -253,7 +253,7 @@ impl InlinedProductionMap {
         step_index: u32,
     ) -> Option<impl Iterator<Item = &'a Production> + 'a> {
         self.production_map
-            .get(&(production as *const Production, step_index))
+            .get(&(std::ptr::from_ref::<Production>(production), step_index))
             .map(|production_indices| {
                 production_indices
                     .iter()

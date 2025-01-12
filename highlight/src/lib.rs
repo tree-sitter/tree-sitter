@@ -951,7 +951,7 @@ where
                     for prop in layer.config.query.property_settings(match_.pattern_index) {
                         if prop.key.as_ref() == "local.scope-inherits" {
                             scope.inherits =
-                                prop.value.as_ref().map_or(true, |r| r.as_ref() == "true");
+                                prop.value.as_ref().is_none_or(|r| r.as_ref() == "true");
                         }
                     }
                     layer.scope_stack.push(scope);
