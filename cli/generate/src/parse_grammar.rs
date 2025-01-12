@@ -125,23 +125,32 @@ impl From<serde_json::Error> for ParseGrammarError {
     }
 }
 
-fn rule_is_referenced(rule: &Rule, target: &str) -> bool {
+/// Check if a rule is referenced by another rule.
+///
+/// This function is used to determine if a variable is used in a given rule,
+/// and `is_other` indicates if the rule is an external, and if it is,
+/// to not assume that a named symbol that is equal to itself means it's being referenced.
+///
+/// For example, if we have an external rule **and** a normal rule both called `foo`,
+/// `foo` should not be thought of as directly used unless it's used within another rule.
+fn rule_is_referenced(rule: &Rule, target: &str, is_external: bool) -> bool {
     match rule {
-        Rule::NamedSymbol(name) => name == target,
+        Rule::NamedSymbol(name) => name == target && !is_external,
         Rule::Choice(rules) | Rule::Seq(rules) => {
-            rules.iter().any(|r| rule_is_referenced(r, target))
+            rules.iter().any(|r| rule_is_referenced(r, target, false))
         }
         Rule::Metadata { rule, .. } | Rule::Reserved { rule, .. } => {
-            rule_is_referenced(rule, target)
+            rule_is_referenced(rule, target, is_external)
         }
-        Rule::Repeat(inner) => rule_is_referenced(inner, target),
+        Rule::Repeat(inner) => rule_is_referenced(inner, target, false),
         Rule::Blank | Rule::String(_) | Rule::Pattern(_, _) | Rule::Symbol(_) => false,
     }
 }
 
 fn variable_is_used(
     grammar_rules: &[(String, Rule)],
-    other_rules: (&[Rule], &[Rule]),
+    extras: &[Rule],
+    externals: &[Rule],
     target_name: &str,
     in_progress: &mut HashSet<String>,
 ) -> bool {
@@ -150,11 +159,16 @@ fn variable_is_used(
         return true;
     }
 
-    if other_rules
-        .0
+    if extras
         .iter()
-        .chain(other_rules.1.iter())
-        .any(|rule| rule_is_referenced(rule, target_name))
+        .any(|rule| rule_is_referenced(rule, target_name, false))
+    {
+        return true;
+    }
+
+    if externals
+        .iter()
+        .any(|rule| rule_is_referenced(rule, target_name, true))
     {
         return true;
     }
@@ -164,10 +178,10 @@ fn variable_is_used(
         .iter()
         .filter(|(key, _)| *key != target_name)
         .any(|(name, rule)| {
-            if !rule_is_referenced(rule, target_name) || in_progress.contains(name) {
+            if !rule_is_referenced(rule, target_name, false) || in_progress.contains(name) {
                 return false;
             }
-            variable_is_used(grammar_rules, other_rules, name, in_progress)
+            variable_is_used(grammar_rules, extras, externals, name, in_progress)
         });
     in_progress.remove(target_name);
 
@@ -224,16 +238,17 @@ pub(crate) fn parse_grammar(input: &str) -> ParseGrammarResult<InputGrammar> {
     for (name, rule) in &rules {
         if !variable_is_used(
             &rules,
-            (&extra_symbols, &external_tokens),
+            &extra_symbols,
+            &external_tokens,
             name,
             &mut in_progress,
-        ) && grammar_json.word.as_ref().is_some_and(|w| w != name)
+        ) && grammar_json.word.as_ref().is_none_or(|w| w != name)
         {
             grammar_json.conflicts.retain(|r| !r.contains(name));
             grammar_json.supertypes.retain(|r| r != name);
             grammar_json.inline.retain(|r| r != name);
-            extra_symbols.retain(|r| !rule_is_referenced(r, name));
-            external_tokens.retain(|r| !rule_is_referenced(r, name));
+            extra_symbols.retain(|r| !rule_is_referenced(r, name, true));
+            external_tokens.retain(|r| !rule_is_referenced(r, name, true));
             precedence_orderings.retain(|r| {
                 !r.iter().any(|e| {
                     let PrecedenceEntry::Symbol(s) = e else {
