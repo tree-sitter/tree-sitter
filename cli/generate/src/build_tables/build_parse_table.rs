@@ -72,6 +72,10 @@ pub enum ParseTableBuilderError {
     Conflict(#[from] ConflictError),
     #[error("Extra rules must have unambiguous endings. Conflicting rules: {0}")]
     AmbiguousExtra(#[from] AmbiguousExtraError),
+    #[error(
+        "The non-terminal rule `{0}` is used in a non-terminal `extra` rule, which is not allowed."
+    )]
+    ImproperNonTerminalExtra(String),
 }
 
 #[derive(Default, Debug, Serialize)]
@@ -310,6 +314,12 @@ impl<'a> ParseTableBuilder<'a> {
 
         // Add a state for each starting terminal of a non-terminal extra rule.
         for (terminal, item_set) in non_terminal_extra_item_sets_by_first_terminal {
+            if terminal.is_non_terminal() {
+                Err(ParseTableBuilderError::ImproperNonTerminalExtra(
+                    self.symbol_name(&terminal),
+                ))?;
+            }
+
             self.non_terminal_extra_states
                 .push((terminal, self.parse_table.states.len()));
             self.add_parse_state(&Vec::new(), &Vec::new(), item_set);
