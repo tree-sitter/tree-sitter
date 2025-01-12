@@ -47,8 +47,6 @@ smallbitvec.workspace = true
 thiserror.workspace = true
 topological-sort.workspace = true
 
-tree-sitter.workspace = true
-
 [target.'cfg(windows)'.dependencies]
 url = { workspace = true, optional = true }
 
