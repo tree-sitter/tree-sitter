@@ -749,7 +749,7 @@ impl Generate {
                 std::process::exit(1);
             } else {
                 // Removes extra context associated with the error
-                Err(anyhow!(err.to_string()))?;
+                Err(anyhow!(err.to_string())).with_context(|| "Error when generating parser")?;
             }
         }
         if self.build {
