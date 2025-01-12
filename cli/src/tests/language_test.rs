@@ -97,10 +97,13 @@ fn test_symbol_metadata_checks() {
 }
 
 #[test]
-#[ignore = "CI is flaky"]
 fn test_supertypes() {
     let language = get_language("rust");
     let supertypes = language.supertypes();
+
+    if language.version() < 15 {
+        return;
+    }
 
     assert_eq!(supertypes.len(), 5);
     assert_eq!(
