@@ -22,7 +22,7 @@ use tree_sitter_cli::{
     init::{generate_grammar_files, get_root_path, JsonConfigOpts},
     input::{get_input, get_tmp_source_file, CliInput},
     logger,
-    parse::{self, ParseFileOptions, ParseOutput, ParseTheme},
+    parse::{self, ParseDebugType, ParseFileOptions, ParseOutput, ParseTheme},
     playground, query,
     tags::{self, TagsOptions},
     test::{self, TestOptions, TestStats},
@@ -171,8 +171,9 @@ struct Parse {
     #[arg(long)]
     pub scope: Option<String>,
     /// Show parsing debug log
-    #[arg(long, short = 'd')]
-    pub debug: bool,
+    #[arg(long, short = 'd')] // TODO: Rework once clap adds `default_missing_value_t`
+    #[allow(clippy::option_option)]
+    pub debug: Option<Option<ParseDebugType>>,
     /// Compile a parser in debug mode
     #[arg(long, short = '0')]
     pub debug_build: bool,
@@ -877,6 +878,11 @@ impl Parse {
 
         let should_track_stats = self.stat;
         let mut stats = parse::ParseStats::default();
+        let debug: ParseDebugType = match self.debug {
+            None => ParseDebugType::Quiet,
+            Some(None) => ParseDebugType::Normal,
+            Some(Some(specifier)) => specifier,
+        };
 
         let mut options = ParseFileOptions {
             edits: &edits
@@ -887,7 +893,7 @@ impl Parse {
             print_time: time,
             timeout,
             stats: &mut stats,
-            debug: self.debug,
+            debug,
             debug_graph: self.debug_graph,
             cancellation_flag: Some(&cancellation_flag),
             encoding,

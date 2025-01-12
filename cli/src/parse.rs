@@ -8,6 +8,7 @@ use std::{
 
 use anstyle::{AnsiColor, Color, RgbColor};
 use anyhow::{anyhow, Context, Result};
+use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
 use tree_sitter::{
     ffi, InputEdit, Language, LogType, ParseOptions, ParseState, Parser, Point, Range, Tree,
@@ -224,13 +225,21 @@ pub struct ParseStats {
     pub cumulative_stats: Stats,
 }
 
+#[derive(Serialize, ValueEnum, Debug, Clone, Default, Eq, PartialEq)]
+pub enum ParseDebugType {
+    #[default]
+    Quiet,
+    Normal,
+    Pretty,
+}
+
 pub struct ParseFileOptions<'a> {
     pub edits: &'a [&'a str],
     pub output: ParseOutput,
     pub stats: &'a mut ParseStats,
     pub print_time: bool,
     pub timeout: u64,
-    pub debug: bool,
+    pub debug: ParseDebugType,
     pub debug_graph: bool,
     pub cancellation_flag: Option<&'a AtomicUsize>,
     pub encoding: Option<u32>,
@@ -263,12 +272,43 @@ pub fn parse_file_at_path(
         _log_session = Some(util::log_graphs(parser, "log.html", opts.open_log)?);
     }
     // Log to stderr if `--debug` was passed
-    else if opts.debug {
+    else if opts.debug != ParseDebugType::Quiet {
+        let mut curr_version: usize = 0usize;
+        let use_color = std::env::var("NO_COLOR").map_or(true, |v| v != "1");
         parser.set_logger(Some(Box::new(|log_type, message| {
-            if log_type == LogType::Lex {
-                io::stderr().write_all(b"  ").unwrap();
+            if opts.debug == ParseDebugType::Normal {
+                if log_type == LogType::Lex {
+                    write!(&mut io::stderr(), "  ").unwrap();
+                };
+                writeln!(&mut io::stderr(), "{message}").unwrap();
+            } else {
+                let colors = &[
+                    AnsiColor::White,
+                    AnsiColor::Red,
+                    AnsiColor::Blue,
+                    AnsiColor::Green,
+                    AnsiColor::Cyan,
+                    AnsiColor::Yellow,
+                ];
+                if message.starts_with("process version:") {
+                    let comma_idx = message.find(',').unwrap();
+                    curr_version = message["process version:".len()..comma_idx]
+                        .parse()
+                        .unwrap();
+                }
+                let color = if use_color {
+                    Some(colors[curr_version])
+                } else {
+                    None
+                };
+                let mut out = if log_type == LogType::Lex {
+                    "  ".to_string()
+                } else {
+                    String::new()
+                };
+                out += &paint(color, message);
+                writeln!(&mut io::stderr(), "{out}").unwrap();
             }
-            writeln!(&mut io::stderr(), "{message}").unwrap();
         })));
     }
 
