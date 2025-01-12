@@ -45,7 +45,7 @@ jobs:
 
       - name: Create release
         run: |-
-          gh release create \
+          gh release create ${{ github.ref_name }} \
             target/tree-sitter-*.gz \
             target/tree-sitter.wasm \
             target/tree-sitter.js
