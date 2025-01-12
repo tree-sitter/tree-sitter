@@ -117,6 +117,8 @@ pub enum ParseGrammarError {
     Unexpected,
     #[error("Reserved word sets must be arrays")]
     InvalidReservedWordSet,
+    #[error("Grammar Error: Unexpected rule `{0}` in `token()` call")]
+    UnexpectedRule(String),
 }
 
 impl From<serde_json::Error> for ParseGrammarError {
@@ -182,7 +184,7 @@ pub(crate) fn parse_grammar(input: &str) -> ParseGrammarResult<InputGrammar> {
             .extras
             .into_iter()
             .try_fold(Vec::<Rule>::new(), |mut acc, item| {
-                let rule = parse_rule(item);
+                let rule = parse_rule(item, false)?;
                 if let Rule::String(ref value) = rule {
                     if value.is_empty() {
                         Err(ParseGrammarError::InvalidExtra)?;
@@ -195,8 +197,8 @@ pub(crate) fn parse_grammar(input: &str) -> ParseGrammarResult<InputGrammar> {
     let mut external_tokens = grammar_json
         .externals
         .into_iter()
-        .map(parse_rule)
-        .collect::<Vec<_>>();
+        .map(|e| parse_rule(e, false))
+        .collect::<ParseGrammarResult<Vec<_>>>()?;
 
     let mut precedence_orderings = Vec::with_capacity(grammar_json.precedences.len());
     for list in grammar_json.precedences {
@@ -216,7 +218,7 @@ pub(crate) fn parse_grammar(input: &str) -> ParseGrammarResult<InputGrammar> {
     let rules = grammar_json
         .rules
         .into_iter()
-        .map(|(n, r)| Ok((n, parse_rule(serde_json::from_value(r)?))))
+        .map(|(n, r)| Ok((n, parse_rule(serde_json::from_value(r)?, false)?)))
         .collect::<ParseGrammarResult<Vec<_>>>()?;
 
     let mut in_progress = HashSet::new();
@@ -262,7 +264,7 @@ pub(crate) fn parse_grammar(input: &str) -> ParseGrammarResult<InputGrammar> {
             };
 
             for value in rule_values {
-                reserved_words.push(parse_rule(serde_json::from_value(value)?));
+                reserved_words.push(parse_rule(serde_json::from_value(value)?, false)?);
             }
             Ok(ReservedWordContext {
                 name,
@@ -285,16 +287,16 @@ pub(crate) fn parse_grammar(input: &str) -> ParseGrammarResult<InputGrammar> {
     })
 }
 
-fn parse_rule(json: RuleJSON) -> Rule {
+fn parse_rule(json: RuleJSON, is_token: bool) -> ParseGrammarResult<Rule> {
     match json {
         RuleJSON::ALIAS {
             content,
             value,
             named,
-        } => Rule::alias(parse_rule(*content), value, named),
-        RuleJSON::BLANK => Rule::Blank,
-        RuleJSON::STRING { value } => Rule::String(value),
-        RuleJSON::PATTERN { value, flags } => Rule::Pattern(
+        } => parse_rule(*content, is_token).map(|r| Rule::alias(r, value, named)),
+        RuleJSON::BLANK => Ok(Rule::Blank),
+        RuleJSON::STRING { value } => Ok(Rule::String(value)),
+        RuleJSON::PATTERN { value, flags } => Ok(Rule::Pattern(
             value,
             flags.map_or(String::new(), |f| {
                 f.matches(|c| {
@@ -310,34 +312,54 @@ fn parse_rule(json: RuleJSON) -> Rule {
                 })
                 .collect()
             }),
-        ),
-        RuleJSON::SYMBOL { name } => Rule::NamedSymbol(name),
-        RuleJSON::CHOICE { members } => Rule::choice(members.into_iter().map(parse_rule).collect()),
-        RuleJSON::FIELD { content, name } => Rule::field(name, parse_rule(*content)),
-        RuleJSON::SEQ { members } => Rule::seq(members.into_iter().map(parse_rule).collect()),
-        RuleJSON::REPEAT1 { content } => Rule::repeat(parse_rule(*content)),
-        RuleJSON::REPEAT { content } => {
-            Rule::choice(vec![Rule::repeat(parse_rule(*content)), Rule::Blank])
+        )),
+        RuleJSON::SYMBOL { name } => {
+            if is_token {
+                Err(ParseGrammarError::UnexpectedRule(name))?
+            } else {
+                Ok(Rule::NamedSymbol(name))
+            }
         }
-        RuleJSON::PREC { value, content } => Rule::prec(value.into(), parse_rule(*content)),
+        RuleJSON::CHOICE { members } => members
+            .into_iter()
+            .map(|m| parse_rule(m, is_token))
+            .collect::<ParseGrammarResult<Vec<_>>>()
+            .map(Rule::choice),
+        RuleJSON::FIELD { content, name } => {
+            parse_rule(*content, is_token).map(|r| Rule::field(name, r))
+        }
+        RuleJSON::SEQ { members } => members
+            .into_iter()
+            .map(|m| parse_rule(m, is_token))
+            .collect::<ParseGrammarResult<Vec<_>>>()
+            .map(Rule::seq),
+        RuleJSON::REPEAT1 { content } => parse_rule(*content, is_token).map(Rule::repeat),
+        RuleJSON::REPEAT { content } => {
+            parse_rule(*content, is_token).map(|m| Rule::choice(vec![Rule::repeat(m), Rule::Blank]))
+        }
+        RuleJSON::PREC { value, content } => {
+            parse_rule(*content, is_token).map(|r| Rule::prec(value.into(), r))
+        }
         RuleJSON::PREC_LEFT { value, content } => {
-            Rule::prec_left(value.into(), parse_rule(*content))
+            parse_rule(*content, is_token).map(|r| Rule::prec_left(value.into(), r))
         }
         RuleJSON::PREC_RIGHT { value, content } => {
-            Rule::prec_right(value.into(), parse_rule(*content))
+            parse_rule(*content, is_token).map(|r| Rule::prec_right(value.into(), r))
         }
         RuleJSON::PREC_DYNAMIC { value, content } => {
-            Rule::prec_dynamic(value, parse_rule(*content))
+            parse_rule(*content, is_token).map(|r| Rule::prec_dynamic(value, r))
         }
         RuleJSON::RESERVED {
             content,
             context_name,
-        } => Rule::Reserved {
-            rule: Box::new(parse_rule(*content)),
+        } => parse_rule(*content, is_token).map(|r| Rule::Reserved {
+            rule: Box::new(r),
             context_name,
-        },
-        RuleJSON::TOKEN { content } => Rule::token(parse_rule(*content)),
-        RuleJSON::IMMEDIATE_TOKEN { content } => Rule::immediate_token(parse_rule(*content)),
+        }),
+        RuleJSON::TOKEN { content } => parse_rule(*content, true).map(Rule::token),
+        RuleJSON::IMMEDIATE_TOKEN { content } => {
+            parse_rule(*content, is_token).map(Rule::immediate_token)
+        }
     }
 }
 
