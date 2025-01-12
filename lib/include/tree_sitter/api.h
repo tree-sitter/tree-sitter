@@ -477,6 +477,13 @@ void ts_tree_edit(TSTree *self, const TSInputEdit *edit);
  * You need to pass the old tree that was passed to parse, as well as the new
  * tree that was returned from that function.
  *
+ * The returned ranges indicate areas where the hierarchical structure of syntax
+ * nodes (from root to leaf) has changed between the old and new trees. Characters
+ * outside these ranges have identical ancestor nodes in both trees.
+ *
+ * Note that the returned ranges may be slightly larger than the exact changed areas,
+ * but Tree-sitter attempts to make them as small as possible.
+ *
  * The returned array is allocated using `malloc` and the caller is responsible
  * for freeing it using `free`. The length of the array will be written to the
  * given `length` pointer.
@@ -1102,6 +1109,15 @@ uint64_t ts_query_cursor_timeout_micros(const TSQueryCursor *self);
 /**
  * Set the range of bytes in which the query will be executed.
  *
+ * The query cursor will return matches that intersect with the given point range.
+ * This means that a match may be returned even if some of its captures fall
+ * outside the specified range, as long as at least part of the match
+ * overlaps with the range.
+ *
+ * For example, if a query pattern matches a node that spans a larger area
+ * than the specified range, but part of that node intersects with the range,
+ * the entire match will be returned.
+ *
  * This will return `false` if the start byte is greater than the end byte, otherwise
  * it will return `true`.
  */
@@ -1109,6 +1125,15 @@ bool ts_query_cursor_set_byte_range(TSQueryCursor *self, uint32_t start_byte, ui
 
 /**
  * Set the range of (row, column) positions in which the query will be executed.
+ *
+ * The query cursor will return matches that intersect with the given point range.
+ * This means that a match may be returned even if some of its captures fall
+ * outside the specified range, as long as at least part of the match
+ * overlaps with the range.
+ *
+ * For example, if a query pattern matches a node that spans a larger area
+ * than the specified range, but part of that node intersects with the range,
+ * the entire match will be returned.
  *
  * This will return `false` if the start point is greater than the end point, otherwise
  * it will return `true`.
