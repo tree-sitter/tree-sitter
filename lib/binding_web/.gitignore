@@ -1,6 +1,8 @@
+dist/
 /tree-sitter.js
+/tree-sitter.js.map
 /tree-sitter.wasm
-package-lock.json
+/tree-sitter.wasm.map
 node_modules
 *.tgz
 LICENSE
