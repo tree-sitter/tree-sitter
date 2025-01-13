@@ -106,7 +106,7 @@ pub fn run_wasm(args: &BuildWasm) -> Result<()> {
     let exported_functions = format!(
         "{}{}",
         fs::read_to_string("lib/src/wasm/stdlib-symbols.txt")?,
-        fs::read_to_string("lib/binding_web/exports.txt")?
+        fs::read_to_string("lib/binding_web/wasm/exports.txt")?
     )
     .replace('"', "")
     .lines()
@@ -120,53 +120,37 @@ pub fn run_wasm(args: &BuildWasm) -> Result<()> {
     let exported_functions = format!("EXPORTED_FUNCTIONS={exported_functions}");
     let exported_runtime_methods = "EXPORTED_RUNTIME_METHODS=stringToUTF16,AsciiToString";
 
+    std::env::set_var("EMCC_DEBUG_SAVE", "1");
+
+    #[rustfmt::skip]
     emscripten_flags.extend([
-        "-s",
-        "WASM=1",
-        "-s",
-        "INITIAL_MEMORY=33554432",
-        "-s",
-        "ALLOW_MEMORY_GROWTH=1",
-        "-s",
-        "SUPPORT_BIG_ENDIAN=1",
-        "-s",
-        "MAIN_MODULE=2",
-        "-s",
-        "FILESYSTEM=0",
-        "-s",
-        "NODEJS_CATCH_EXIT=0",
-        "-s",
-        "NODEJS_CATCH_REJECTION=0",
-        "-s",
-        &exported_functions,
-        "-s",
-        exported_runtime_methods,
+        "-gsource-map",
+        "--source-map-base", ".",
+        "-s", "WASM=1",
+        "-s", "INITIAL_MEMORY=33554432",
+        "-s", "ALLOW_MEMORY_GROWTH=1",
+        "-s", "SUPPORT_BIG_ENDIAN=1",
+        "-s", "MAIN_MODULE=2",
+        "-s", "FILESYSTEM=0",
+        "-s", "NODEJS_CATCH_EXIT=0",
+        "-s", "NODEJS_CATCH_REJECTION=0",
+        "-s", &exported_functions,
+        "-s", exported_runtime_methods,
         "-fno-exceptions",
         "-std=c11",
-        "-D",
-        "fprintf(...)=",
-        "-D",
-        "NDEBUG=",
-        "-D",
-        "_POSIX_C_SOURCE=200112L",
-        "-D",
-        "_DEFAULT_SOURCE=",
-        "-I",
-        "lib/src",
-        "-I",
-        "lib/include",
-        "--js-library",
-        "lib/binding_web/imports.js",
-        "--pre-js",
-        "lib/binding_web/prefix.js",
-        "--post-js",
-        "lib/binding_web/binding.js",
-        "--post-js",
-        "lib/binding_web/suffix.js",
+        "-D", "fprintf(...)=",
+        "-D", "NDEBUG=",
+        "-D", "_POSIX_C_SOURCE=200112L",
+        "-D", "_DEFAULT_SOURCE=",
+        "-I", "lib/src",
+        "-I", "lib/include",
+        "--js-library", "lib/binding_web/wasm/imports.js",
+        "--pre-js",     "lib/binding_web/wasm/prefix.js",
+        "--post-js",    "lib/binding_web/dist/tree-sitter.js",
+        "--post-js",    "lib/binding_web/wasm/suffix.js",
+        "-o",           "target/scratch/tree-sitter.js",
         "lib/src/lib.c",
-        "lib/binding_web/binding.c",
-        "-o",
-        "target/scratch/tree-sitter.js",
+        "lib/binding_web/lib/tree-sitter.c",
     ]);
     let command = command.args(&emscripten_flags);
 
@@ -193,6 +177,11 @@ fn build_wasm(cmd: &mut Command) -> Result<()> {
     fs::rename(
         "target/scratch/tree-sitter.wasm",
         "lib/binding_web/tree-sitter.wasm",
+    )?;
+
+    fs::rename(
+        "target/scratch/tree-sitter.wasm.map",
+        "lib/binding_web/tree-sitter.wasm.map",
     )?;
 
     Ok(())

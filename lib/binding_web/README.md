@@ -50,6 +50,14 @@ await Parser.init();
 // the library is ready
 ```
 
+To install a debug version of the library, pass in `--debug` when running `npm install`:
+
+```sh
+npm install web-tree-sitter --debug
+```
+
+This will load the debug version of the `.wasm` file, which includes sourcemaps for both the JS and WASM files, debug symbols, and assertions.
+
 ### Basic Usage
 
 First, create a parser:

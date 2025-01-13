@@ -8,7 +8,7 @@ declare module "web-tree-sitter" {
     delete(): void;
     parse(
       input: string | Parser.Input,
-      oldTree?: Parser.Tree,
+      oldTree?: Parser.Tree | null,
       options?: Parser.Options,
     ): Parser.Tree;
     getIncludedRanges(): Parser.Range[];
@@ -59,7 +59,7 @@ declare module "web-tree-sitter" {
     ) => void;
 
     export interface Input {
-      (index: number, position?: Point): string | null;
+      (index: number, position?: Point): string | null | undefined;
     }
 
     export interface SyntaxNode {
@@ -104,6 +104,7 @@ declare module "web-tree-sitter" {
       childForFieldName(fieldName: string): SyntaxNode | null;
       childForFieldId(fieldId: number): SyntaxNode | null;
       fieldNameForChild(childIndex: number): string | null;
+      fieldNameForNamedChild(childIndex: number): string | null;
       childrenForFieldName(fieldName: string): Array<SyntaxNode>;
       childrenForFieldId(fieldId: number): Array<SyntaxNode>;
       firstChildForIndex(index: number): SyntaxNode | null;
@@ -203,8 +204,18 @@ declare module "web-tree-sitter" {
       matchLimit?: number;
       maxStartDepth?: number;
       timeoutMicros?: number;
-      progressCallback: (state: QueryState) => boolean;
+      progressCallback?: (state: QueryState) => boolean;
     };
+
+    export interface Predicate {
+      operator: string;
+      operands: PredicateStep[];
+    }
+
+    type PredicateStep =
+      | { type: 'string'; value: string }
+      | { type: 'capture'; name: string };
+
 
     export interface PredicateResult {
       operator: string;
@@ -220,13 +231,13 @@ declare module "web-tree-sitter" {
     }
 
     export class Query {
-      captureNames: string[];
-      captureQuantifiers: CaptureQuantifier[];
+      readonly captureNames: string[];
+      readonly captureQuantifiers: CaptureQuantifier[];
       readonly predicates: { [name: string]: Function }[];
       readonly setProperties: any[];
       readonly assertedProperties: any[];
       readonly refutedProperties: any[];
-      readonly matchLimit: number;
+      readonly matchLimit?: number;
 
       delete(): void;
       captures(node: SyntaxNode, options?: QueryOptions): QueryCapture[];
@@ -245,10 +256,12 @@ declare module "web-tree-sitter" {
     class Language {
       static load(input: string | Uint8Array): Promise<Language>;
 
+      readonly name: string | null;
       readonly version: number;
       readonly fieldCount: number;
       readonly stateCount: number;
       readonly nodeTypeCount: number;
+
 
       fieldNameForId(fieldId: number): string | null;
       fieldIdForName(fieldName: string): number | null;
@@ -256,6 +269,8 @@ declare module "web-tree-sitter" {
       nodeTypeForId(typeId: number): string | null;
       nodeTypeIsNamed(typeId: number): boolean;
       nodeTypeIsVisible(typeId: number): boolean;
+      get supertypes(): number[];
+      subtypes(supertype: number): number[];
       nextState(stateId: number, typeId: number): number;
       query(source: string): Query;
       lookaheadIterator(stateId: number): LookaheadIterable | null;

@@ -1,13 +1,22 @@
-const {assert} = require('chai');
-let Parser; let JavaScript;
+import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
+import TSParser, { type Language, type Tree, type Query, type QueryCapture, type QueryMatch } from 'web-tree-sitter';
+import helper from './helper';
+
+let Parser: typeof TSParser;
+let JavaScript: Language;
 
 describe('Query', () => {
-  let parser; let tree; let query;
+  let parser: TSParser;
+  let tree: Tree | null;
+  let query: Query | null;
 
-  before(async () => ({Parser, JavaScript} = await require('./helper')));
+  beforeAll(async () => {
+    ({ Parser, JavaScript } = await helper);
+  });
 
   beforeEach(() => {
-    parser = new Parser().setLanguage(JavaScript);
+    parser = new Parser();
+    parser.setLanguage(JavaScript);
   });
 
   afterEach(() => {
@@ -18,36 +27,39 @@ describe('Query', () => {
 
   describe('construction', () => {
     it('throws an error on invalid patterns', () => {
-      assert.throws(() => {
+      expect(() => {
         JavaScript.query('(function_declaration wat)');
-      }, 'Bad syntax at offset 22: \'wat)\'...');
-      assert.throws(() => {
+      }).toThrow('Bad syntax at offset 22: \'wat)\'...');
+
+      expect(() => {
         JavaScript.query('(non_existent)');
-      }, 'Bad node name \'non_existent\'');
-      assert.throws(() => {
+      }).toThrow('Bad node name \'non_existent\'');
+
+      expect(() => {
         JavaScript.query('(a)');
-      }, 'Bad node name \'a\'');
-      assert.throws(() => {
+      }).toThrow('Bad node name \'a\'');
+
+      expect(() => {
         JavaScript.query('(function_declaration non_existent:(identifier))');
-      }, 'Bad field name \'non_existent\'');
-      assert.throws(() => {
+      }).toThrow('Bad field name \'non_existent\'');
+
+      expect(() => {
         JavaScript.query('(function_declaration name:(statement_block))');
-      }, 'Bad pattern structure at offset 22: \'name:(statement_block))\'');
+      }).toThrow('Bad pattern structure at offset 22: \'name:(statement_block))\'');
     });
 
     it('throws an error on invalid predicates', () => {
-      assert.throws(() => {
+      expect(() => {
         JavaScript.query('((identifier) @abc (#eq? @ab hi))');
-      }, 'Bad capture name @ab');
-      assert.throws(() => {
-        JavaScript.query('((identifier) @abc (#eq? @ab hi))');
-      }, 'Bad capture name @ab');
-      assert.throws(() => {
+      }).toThrow('Bad capture name @ab');
+
+      expect(() => {
         JavaScript.query('((identifier) @abc (#eq?))');
-      }, 'Wrong number of arguments to `#eq?` predicate. Expected 2, got 0');
-      assert.throws(() => {
+      }).toThrow('Wrong number of arguments to `#eq?` predicate. Expected 2, got 0');
+
+      expect(() => {
         JavaScript.query('((identifier) @a (#eq? @a @a @a))');
-      }, 'Wrong number of arguments to `#eq?` predicate. Expected 2, got 3');
+      }).toThrow('Wrong number of arguments to `#eq?` predicate. Expected 2, got 3');
     });
   });
 
@@ -59,28 +71,28 @@ describe('Query', () => {
         (call_expression function: (identifier) @fn-ref)
       `);
       const matches = query.matches(tree.rootNode);
-      assert.deepEqual(formatMatches(matches), [
-        {pattern: 0, captures: [{name: 'fn-def', text: 'one'}]},
-        {pattern: 1, captures: [{name: 'fn-ref', text: 'two'}]},
-        {pattern: 0, captures: [{name: 'fn-def', text: 'three'}]},
+      expect(formatMatches(matches)).toEqual([
+        { pattern: 0, captures: [{ name: 'fn-def', text: 'one' }] },
+        { pattern: 1, captures: [{ name: 'fn-ref', text: 'two' }] },
+        { pattern: 0, captures: [{ name: 'fn-def', text: 'three' }] },
       ]);
     });
 
-    it('can search in a specified ranges', () => {
+    it('can search in specified ranges', () => {
       tree = parser.parse('[a, b,\nc, d,\ne, f,\ng, h]');
       query = JavaScript.query('(identifier) @element');
       const matches = query.matches(
         tree.rootNode,
         {
-          startPosition: {row: 1, column: 1},
-          endPosition: {row: 3, column: 1},
-        },
+          startPosition: { row: 1, column: 1 },
+          endPosition: { row: 3, column: 1 },
+        }
       );
-      assert.deepEqual(formatMatches(matches), [
-        {pattern: 0, captures: [{name: 'element', text: 'd'}]},
-        {pattern: 0, captures: [{name: 'element', text: 'e'}]},
-        {pattern: 0, captures: [{name: 'element', text: 'f'}]},
-        {pattern: 0, captures: [{name: 'element', text: 'g'}]},
+      expect(formatMatches(matches)).toEqual([
+        { pattern: 0, captures: [{ name: 'element', text: 'd' }] },
+        { pattern: 0, captures: [{ name: 'element', text: 'e' }] },
+        { pattern: 0, captures: [{ name: 'element', text: 'f' }] },
+        { pattern: 0, captures: [{ name: 'element', text: 'g' }] },
       ]);
     });
 
@@ -104,9 +116,9 @@ describe('Query', () => {
       `);
 
       const matches = query.matches(tree.rootNode);
-      assert.deepEqual(formatMatches(matches), [
-        {pattern: 0, captures: [{name: 'name', text: 'giraffe'}]},
-        {pattern: 0, captures: [{name: 'name', text: 'gross'}]},
+      expect(formatMatches(matches)).toEqual([
+        { pattern: 0, captures: [{ name: 'name', text: 'giraffe' }] },
+        { pattern: 0, captures: [{ name: 'name', text: 'gross' }] },
       ]);
     });
 
@@ -122,8 +134,8 @@ describe('Query', () => {
       `);
 
       const matches = query.matches(tree.rootNode);
-      assert.deepEqual(formatMatches(matches), [
-        {pattern: 0, captures: [{name: 'variable.builtin', text: 'window'}]},
+      expect(formatMatches(matches)).toEqual([
+        { pattern: 0, captures: [{ name: 'variable.builtin', text: 'window' }] },
       ]);
     });
   });
@@ -156,19 +168,19 @@ describe('Query', () => {
       `);
 
       const captures = query.captures(tree.rootNode);
-      assert.deepEqual(formatCaptures(captures), [
-        {name: 'method.def', text: 'bc'},
-        {name: 'delimiter', text: ':'},
-        {name: 'method.alias', text: 'de'},
-        {name: 'function.def', text: 'fg'},
-        {name: 'operator', text: '='},
-        {name: 'function.alias', text: 'hi'},
-        {name: 'method.def', text: 'jk'},
-        {name: 'delimiter', text: ':'},
-        {name: 'method.alias', text: 'lm'},
-        {name: 'function.def', text: 'no'},
-        {name: 'operator', text: '='},
-        {name: 'function.alias', text: 'pq'},
+      expect(formatCaptures(captures)).toEqual([
+        { name: 'method.def', text: 'bc' },
+        { name: 'delimiter', text: ':' },
+        { name: 'method.alias', text: 'de' },
+        { name: 'function.def', text: 'fg' },
+        { name: 'operator', text: '=' },
+        { name: 'function.alias', text: 'hi' },
+        { name: 'method.def', text: 'jk' },
+        { name: 'delimiter', text: ':' },
+        { name: 'method.alias', text: 'lm' },
+        { name: 'function.def', text: 'no' },
+        { name: 'operator', text: '=' },
+        { name: 'function.alias', text: 'pq' },
       ]);
     });
 
@@ -197,21 +209,21 @@ describe('Query', () => {
       `);
 
       const captures = query.captures(tree.rootNode);
-      assert.deepEqual(formatCaptures(captures), [
-        {name: 'variable', text: 'panda'},
-        {name: 'variable', text: 'toad'},
-        {name: 'variable', text: 'ab'},
-        {name: 'variable', text: 'require'},
-        {name: 'function.builtin', text: 'require'},
-        {name: 'variable', text: 'Cd'},
-        {name: 'constructor', text: 'Cd'},
-        {name: 'variable', text: 'EF'},
-        {name: 'constructor', text: 'EF'},
-        {name: 'constant', text: 'EF'},
+      expect(formatCaptures(captures)).toEqual([
+        { name: 'variable', text: 'panda' },
+        { name: 'variable', text: 'toad' },
+        { name: 'variable', text: 'ab' },
+        { name: 'variable', text: 'require' },
+        { name: 'function.builtin', text: 'require' },
+        { name: 'variable', text: 'Cd' },
+        { name: 'constructor', text: 'Cd' },
+        { name: 'variable', text: 'EF' },
+        { name: 'constructor', text: 'EF' },
+        { name: 'constant', text: 'EF' },
       ]);
     });
 
-    it('handles conditions that compare the text of capture to each other', () => {
+    it('handles conditions that compare the text of captures to each other', () => {
       tree = parser.parse(`
         ab = abc + 1;
         def = de + 1;
@@ -229,9 +241,9 @@ describe('Query', () => {
       `);
 
       const captures = query.captures(tree.rootNode);
-      assert.deepEqual(formatCaptures(captures), [
-        {name: 'id1', text: 'ghi'},
-        {name: 'id2', text: 'ghi'},
+      expect(formatCaptures(captures)).toEqual([
+        { name: 'id1', text: 'ghi' },
+        { name: 'id2', text: 'ghi' },
       ]);
     });
 
@@ -248,16 +260,20 @@ describe('Query', () => {
       `);
 
       const captures = query.captures(tree.rootNode);
-      assert.deepEqual(formatCaptures(captures), [
-        {name: 'func', text: 'a', setProperties: {foo: null, bar: 'baz'}},
+      expect(formatCaptures(captures)).toEqual([
+        {
+          name: 'func',
+          text: 'a',
+          setProperties: { foo: null, bar: 'baz' }
+        },
         {
           name: 'prop',
           text: 'c',
-          assertedProperties: {foo: null},
-          refutedProperties: {bar: 'baz'},
+          assertedProperties: { foo: null },
+          refutedProperties: { bar: 'baz' },
         },
       ]);
-      assert.ok(!query.didExceedMatchLimit());
+      expect(query.didExceedMatchLimit()).toBe(false);
     });
 
     it('detects queries with too many permutations to track', () => {
@@ -275,90 +291,81 @@ describe('Query', () => {
         (array (identifier) @pre (identifier) @post)
       `);
 
-      query.captures(tree.rootNode, {matchLimit: 32});
-      assert.ok(query.didExceedMatchLimit());
+      query.captures(tree.rootNode, { matchLimit: 32 });
+      expect(query.didExceedMatchLimit()).toBe(true);
     });
 
     it('handles quantified captures properly', () => {
-      let captures;
-
       tree = parser.parse(`
         /// foo
         /// bar
         /// baz
       `);
 
-      query = JavaScript.query(`
-        (
-          (comment)+ @foo
-          (#any-eq? @foo "/// foo")
-        )
-      `);
-
-      const expectCount = (tree, queryText, expectedCount) => {
+      const expectCount = (tree: Tree, queryText: string, expectedCount: number) => {
         query = JavaScript.query(queryText);
-        captures = query.captures(tree.rootNode);
-        assert.equal(captures.length, expectedCount);
+        const captures = query.captures(tree.rootNode);
+        expect(captures).toHaveLength(expectedCount);
       };
 
       expectCount(
         tree,
         `((comment)+ @foo (#any-eq? @foo "/// foo"))`,
-        3,
+        3
       );
 
       expectCount(
         tree,
         `((comment)+ @foo (#eq? @foo "/// foo"))`,
-        0,
+        0
       );
 
       expectCount(
         tree,
         `((comment)+ @foo (#any-not-eq? @foo "/// foo"))`,
-        3,
+        3
       );
 
       expectCount(
         tree,
         `((comment)+ @foo (#not-eq? @foo "/// foo"))`,
-        0,
+        0
       );
 
       expectCount(
         tree,
         `((comment)+ @foo (#match? @foo "^/// foo"))`,
-        0,
+        0
       );
 
       expectCount(
         tree,
         `((comment)+ @foo (#any-match? @foo "^/// foo"))`,
-        3,
+        3
       );
 
       expectCount(
         tree,
         `((comment)+ @foo (#not-match? @foo "^/// foo"))`,
-        0,
+        0
       );
 
       expectCount(
         tree,
         `((comment)+ @foo (#not-match? @foo "fsdfsdafdfs"))`,
-        3,
+        3
       );
 
       expectCount(
         tree,
         `((comment)+ @foo (#any-not-match? @foo "^///"))`,
-        0,
+        0
       );
 
       expectCount(
         tree,
         `((comment)+ @foo (#any-not-match? @foo "^/// foo"))`,
-        3,
+        3
       );
     });
   });
@@ -381,37 +388,39 @@ describe('Query', () => {
         "if" @d
       `);
 
-      assert.deepEqual(query.predicatesForPattern(0), [
+      expect(query.predicatesForPattern(0)).toStrictEqual([
         {
           operator: 'something?',
           operands: [
-            {type: 'capture', name: 'a'},
-            {type: 'capture', name: 'b'},
+            { type: 'capture', name: 'a' },
+            { type: 'capture', name: 'b' },
           ],
         },
         {
           operator: 'something-else?',
           operands: [
-            {type: 'capture', name: 'a'},
-            {type: 'string', value: 'A'},
-            {type: 'capture', name: 'b'},
-            {type: 'string', value: 'B'},
+            { type: 'capture', name: 'a' },
+            { type: 'string', value: 'A' },
+            { type: 'capture', name: 'b' },
+            { type: 'string', value: 'B' },
           ],
         },
       ]);
-      assert.deepEqual(query.predicatesForPattern(1), [
+
+      expect(query.predicatesForPattern(1)).toStrictEqual([
         {
           operator: 'hello!',
-          operands: [{type: 'capture', name: 'c'}],
+          operands: [{ type: 'capture', name: 'c' }],
         },
       ]);
-      assert.deepEqual(query.predicatesForPattern(2), []);
+
+      expect(query.predicatesForPattern(2)).toEqual([]);
     });
   });
 
   describe('.disableCapture', () => {
     it('disables a capture', () => {
-      const query = JavaScript.query(`
+      query = JavaScript.query(`
         (function_declaration
           (identifier) @name1 @name2 @name3
           (statement_block) @body1 @body2)
@@ -421,15 +430,15 @@ describe('Query', () => {
       const tree = parser.parse(source);
 
       let matches = query.matches(tree.rootNode);
-      assert.deepEqual(formatMatches(matches), [
+      expect(formatMatches(matches)).toEqual([
         {
           pattern: 0,
           captures: [
-            {name: 'name1', text: 'foo'},
-            {name: 'name2', text: 'foo'},
-            {name: 'name3', text: 'foo'},
-            {name: 'body1', text: '{ return 1; }'},
-            {name: 'body2', text: '{ return 1; }'},
+            { name: 'name1', text: 'foo' },
+            { name: 'name2', text: 'foo' },
+            { name: 'name3', text: 'foo' },
+            { name: 'body1', text: '{ return 1; }' },
+            { name: 'body2', text: '{ return 1; }' },
           ],
         },
       ]);
@@ -438,31 +447,32 @@ describe('Query', () => {
       // single node.
       query.disableCapture('name2');
       matches = query.matches(tree.rootNode);
-      assert.deepEqual(formatMatches(matches), [
+      expect(formatMatches(matches)).toEqual([
         {
           pattern: 0,
           captures: [
-            {name: 'name1', text: 'foo'},
-            {name: 'name3', text: 'foo'},
-            {name: 'body1', text: '{ return 1; }'},
-            {name: 'body2', text: '{ return 1; }'},
+            { name: 'name1', text: 'foo' },
+            { name: 'name3', text: 'foo' },
+            { name: 'body1', text: '{ return 1; }' },
+            { name: 'body2', text: '{ return 1; }' },
           ],
         },
       ]);
     });
   });
 
-  describe('Set a timeout', () =>
+  describe('Set a timeout', () => {
     it('returns less than the expected matches', () => {
       tree = parser.parse('function foo() while (true) { } }\n'.repeat(1000));
       query = JavaScript.query(
-        '(function_declaration name: (identifier) @function)',
+        '(function_declaration name: (identifier) @function)'
       );
-      const matches = query.matches(tree.rootNode, {timeoutMicros: 1000});
-      assert.isBelow(matches.length, 1000);
-      const matches2 = query.matches(tree.rootNode, {timeoutMicros: 0});
-      assert.equal(matches2.length, 1000);
-    }));
+      const matches = query.matches(tree.rootNode, { timeoutMicros: 1000 });
+      expect(matches.length).toBeLessThan(1000);
+      const matches2 = query.matches(tree.rootNode, { timeoutMicros: 0 });
+      expect(matches2).toHaveLength(1000);
+    });
+  });
 
   describe('Start and end indices for patterns', () => {
     it('Returns the start and end indices for a pattern', () => {
@@ -489,22 +499,17 @@ describe('Query', () => {
 
       const query = JavaScript.query(source);
 
-      assert.equal(query.startIndexForPattern(0), 0);
-      assert.equal(query.endIndexForPattern(0), '"+" @operator\n'.length);
-      assert.equal(query.startIndexForPattern(5), patterns1.length);
-      assert.equal(
-        query.endIndexForPattern(5),
-        patterns1.length + '(identifier) @a\n'.length,
+      expect(query.startIndexForPattern(0)).toBe(0);
+      expect(query.endIndexForPattern(0)).toBe('"+" @operator\n'.length);
+      expect(query.startIndexForPattern(5)).toBe(patterns1.length);
+      expect(query.endIndexForPattern(5)).toBe(
+        patterns1.length + '(identifier) @a\n'.length
       );
-      assert.equal(
-        query.startIndexForPattern(7),
-        patterns1.length + patterns2.length,
-      );
-      assert.equal(
-        query.endIndexForPattern(7),
+      expect(query.startIndexForPattern(7)).toBe(patterns1.length + patterns2.length);
+      expect(query.endIndexForPattern(7)).toBe(
         patterns1.length +
-          patterns2.length +
-          '((identifier) @b (#match? @b i))\n'.length,
+        patterns2.length +
+        '((identifier) @b (#match? @b i))\n'.length
       );
     });
   });
@@ -525,12 +530,12 @@ describe('Query', () => {
       const source = 'class A { constructor() {} } function b() { return 1; }';
       tree = parser.parse(source);
       const matches = query.matches(tree.rootNode);
-      assert.deepEqual(formatMatches(matches), [
+      expect(formatMatches(matches)).toEqual([
         {
           pattern: 3,
-          captures: [{name: 'body', text: '{ constructor() {} }'}],
+          captures: [{ name: 'body', text: '{ constructor() {} }' }],
         },
-        {pattern: 1, captures: [{name: 'body', text: '{ return 1; }'}]},
+        { pattern: 1, captures: [{ name: 'body', text: '{ return 1; }' }] },
       ]);
     });
   });
@@ -539,7 +544,7 @@ describe('Query', () => {
     it('Returns less than the expected matches', () => {
       tree = parser.parse('function foo() while (true) { } }\n'.repeat(1000));
       query = JavaScript.query(
-        '(function_declaration) @function',
+        '(function_declaration) @function'
       );
 
       const startTime = performance.now();
@@ -553,24 +558,25 @@ describe('Query', () => {
             }
             return false;
           },
-        },
+        }
       );
-      assert.isBelow(matches.length, 1000);
+      expect(matches.length).toBeLessThan(1000);
 
       const matches2 = query.matches(tree.rootNode);
-      assert.equal(matches2.length, 1000);
+      expect(matches2).toHaveLength(1000);
     });
   });
 });
 
-function formatMatches(matches) {
-  return matches.map(({pattern, captures}) => ({
+// Helper functions
+function formatMatches(matches: any[]): QueryMatch[] {
+  return matches.map(({ pattern, captures }) => ({
     pattern,
     captures: formatCaptures(captures),
   }));
 }
 
-function formatCaptures(captures) {
+function formatCaptures(captures: any[]): QueryCapture[] {
   return captures.map((c) => {
     const node = c.node;
     delete c.node;
