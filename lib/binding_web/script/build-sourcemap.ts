@@ -1,20 +1,22 @@
 import { readFileSync, writeFileSync } from 'fs';
-import { SourceMapGenerator, SourceMapConsumer } from 'source-map';
+import { SourceMapGenerator, SourceMapConsumer, RawSourceMap } from 'source-map';
 
 async function fixSourceMap() {
-  const distMap = JSON.parse(readFileSync('dist/tree-sitter.js.map', 'utf8'));
+  const distMap = JSON.parse(readFileSync('dist/tree-sitter.js.map', 'utf8')) as RawSourceMap;
   const distJs = readFileSync('dist/tree-sitter.js', 'utf8').split('\n');
   const finalJs = readFileSync('tree-sitter.js', 'utf8').split('\n');
 
-  const lineMap = new Map();
+  const lineMap = new Map<number, number>();
 
+  let currentFinalLine = 0;
   for (let distLine = 0; distLine < distJs.length; distLine++) {
     const line = distJs[distLine].trim();
     if (!line) continue;
 
-    for (let finalLine = 0; finalLine < finalJs.length; finalLine++) {
+    for (let finalLine = currentFinalLine; finalLine < finalJs.length; finalLine++) {
       if (finalJs[finalLine].trim() === line) {
         lineMap.set(distLine + 1, finalLine + 1);
+        currentFinalLine = finalLine;
         break;
       }
     }
@@ -23,7 +25,7 @@ async function fixSourceMap() {
   const consumer = await new SourceMapConsumer(distMap);
   const generator = new SourceMapGenerator({
     file: 'tree-sitter.js',
-    sourceRoot: ''
+    sourceRoot: '',
   });
 
   consumer.eachMapping(mapping => {
@@ -32,15 +34,15 @@ async function fixSourceMap() {
       generator.addMapping({
         generated: {
           line: finalLine,
-          column: mapping.generatedColumn
+          column: mapping.generatedColumn,
         },
         original: {
           line: mapping.originalLine,
-          column: mapping.originalColumn
+          column: mapping.originalColumn,
         },
         // Fix the source path to be relative to binding_web
         source: `src/${mapping.source.split('/').pop()}`,
-        name: mapping.name
+        name: mapping.name,
       });
     }
   });
@@ -50,7 +52,7 @@ async function fixSourceMap() {
     if (content) {
       generator.setSourceContent(
         `src/${source.split('/').pop()}`,
-        content
+        content,
       );
     }
   }
