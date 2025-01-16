@@ -1,4 +1,4 @@
-import { CaptureQuantifier } from "./query";
+import { CaptureQuantifier } from './query';
 
 export interface Point {
   row: number;
@@ -48,14 +48,15 @@ export function assertInternal(x: unknown): asserts x is Internal {
   if (x !== INTERNAL) throw new Error('Illegal constructor');
 }
 
-export function isPoint(point: Point): point is Point {
+export function isPoint(point?: Point): point is Point {
   return (
     !!point &&
-    typeof (point as Point).row === 'number' &&
-    typeof (point as Point).column === 'number'
+    typeof (point).row === 'number' &&
+    typeof (point).column === 'number'
   );
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 export const C: EmscriptenModule & {
   // Global
   _ts_init(): number;
@@ -69,7 +70,6 @@ export const C: EmscriptenModule & {
   _ts_parser_new_wasm(): void;
   _ts_parser_delete(address: number): void;
   _ts_parser_set_language(parserAddress: number, languageAddress: number): void;
-  _ts_language_version(address: number): number;
   _ts_parser_enable_logger_wasm(address: number, enabled: number): void;
   _ts_parser_parse_wasm(
     address: number,
@@ -234,5 +234,5 @@ export const C: EmscriptenModule & {
   _ts_lookahead_iterator_reset(address: number, languageAddress: number, stateId: number): boolean;
   _ts_lookahead_iterator_next(address: number): boolean;
 
-  // @ts-ignore
+  // @ts-expect-error Module is defined after compilation
 } = Module;

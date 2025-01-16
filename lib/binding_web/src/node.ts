@@ -7,7 +7,6 @@ import { TRANSFER_BUFFER } from './parser';
 declare const AsciiToString: (ptr: number) => string;
 
 export class Node {
-  // @ts-ignore
   private [0]: number; // Internal handle for WASM
   private _children?: (Node | null)[];
   private _namedChildren?: (Node | null)[];

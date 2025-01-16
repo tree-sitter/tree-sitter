@@ -30,17 +30,23 @@
     "tree-sitter.js.map",
     "tree-sitter.wasm",
     "tree-sitter.wasm.map",
-    "tree-sitter-web.d.ts"
+    "tree-sitter-web.d.ts",
+    "debug/tree-sitter.js",
+    "debug/tree-sitter.js.map",
+    "debug/tree-sitter.wasm",
+    "debug/tree-sitter.wasm.map"
   ],
   "devDependencies": {
+    "@eslint/js": "^9.18.0",
     "@types/emscripten": "^1.39.13",
     "@types/node": "^22.10.7",
-    "@vitest/coverage-v8": "^2.1.8",
+    "@vitest/coverage-v8": "^3.0.2",
     "esbuild": "^0.24.2",
-    "eslint": ">=9.18.0",
+    "eslint": "^9.18.0",
     "source-map": "^0.7.4",
     "typescript": "^5.7.3",
-    "vitest": "^2.1.8"
+    "typescript-eslint": "^8.20.0",
+    "vitest": "^3.0.2"
   },
   "scripts": {
     "build:ts": "esbuild src/index.ts --bundle --platform=neutral --format=cjs --global-name=TreeSitterImpl --outfile=dist/tree-sitter.js --external:fs/* --external:fs/promises --sourcemap --sources-content=true --keep-names",

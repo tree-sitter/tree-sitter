@@ -155,33 +155,38 @@ pub fn run_wasm(args: &BuildWasm) -> Result<()> {
     let command = command.args(&emscripten_flags);
 
     if args.watch {
-        watch_wasm!(|| build_wasm(command));
+        watch_wasm!(|| build_wasm(command, args.debug));
     } else {
-        build_wasm(command)?;
+        build_wasm(command, args.debug)?;
     }
 
     Ok(())
 }
 
-fn build_wasm(cmd: &mut Command) -> Result<()> {
+fn build_wasm(cmd: &mut Command, debug: bool) -> Result<()> {
     bail_on_err(
         &cmd.spawn()?.wait_with_output()?,
         "Failed to compile the Tree-sitter WASM library",
     )?;
 
-    fs::rename(
-        "target/scratch/tree-sitter.js",
-        "lib/binding_web/tree-sitter.js",
-    )?;
+    let dir = if debug {
+        PathBuf::from("lib/binding_web/debug")
+    } else {
+        PathBuf::from("lib/binding_web")
+    };
+
+    fs::create_dir_all(&dir)?;
+
+    fs::rename("target/scratch/tree-sitter.js", dir.join("tree-sitter.js"))?;
 
     fs::rename(
         "target/scratch/tree-sitter.wasm",
-        "lib/binding_web/tree-sitter.wasm",
+        dir.join("tree-sitter.wasm"),
     )?;
 
     fs::rename(
         "target/scratch/tree-sitter.wasm.map",
-        "lib/binding_web/tree-sitter.wasm.map",
+        dir.join("tree-sitter.wasm.map"),
     )?;
 
     Ok(())

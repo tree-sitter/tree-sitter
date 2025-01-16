@@ -3,7 +3,7 @@ import { Node } from './node';
 import { marshalNode, unmarshalCaptures } from './marshal';
 import { TRANSFER_BUFFER } from './parser';
 
-// @ts-ignore
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 let currentQueryProgressCallback: ((percent: number) => void) | null = null;
 
 interface QueryOptions {
@@ -17,9 +17,7 @@ interface QueryOptions {
   progressCallback?: (percent: number) => void;
 }
 
-export interface Properties {
-  [key: string]: string | null;
-}
+export type Properties = Record<string, string | null>;
 
 export interface Predicate {
   operator: string;
@@ -56,7 +54,7 @@ export type PredicateStep =
   | { type: 'string'; value: string }
   | { type: 'capture'; value?: string, name: string };
 
-export type TextPredicate = (captures: Array<Capture>) => boolean;
+export type TextPredicate = (captures: Capture[]) => boolean;
 
 export class Query {
   private [0]: number; // Internal handle for WASM
@@ -64,7 +62,7 @@ export class Query {
   private textPredicates: TextPredicate[][];
 
   readonly captureNames: string[];
-  readonly captureQuantifiers: number[][];
+  readonly captureQuantifiers: CaptureQuantifier[][];
   readonly predicates: Predicate[][];
   readonly setProperties: Properties[];
   readonly assertedProperties: Properties[];
@@ -75,7 +73,7 @@ export class Query {
     internal: Internal,
     address: number,
     captureNames: string[],
-    captureQuantifiers: number[][],
+    captureQuantifiers: CaptureQuantifier[][],
     textPredicates: TextPredicate[][],
     predicates: Predicate[][],
     setProperties: Properties[],
@@ -103,13 +101,13 @@ export class Query {
     node: Node,
     options: QueryOptions = {}
   ): QueryMatch[] {
-    const startPosition = options.startPosition || ZERO_POINT;
-    const endPosition = options.endPosition || ZERO_POINT;
-    const startIndex = options.startIndex || 0;
-    const endIndex = options.endIndex || 0;
-    const matchLimit = options.matchLimit || 0xFFFFFFFF;
-    const maxStartDepth = options.maxStartDepth || 0xFFFFFFFF;
-    const timeoutMicros = options.timeoutMicros || 0;
+    const startPosition = options.startPosition ?? ZERO_POINT;
+    const endPosition = options.endPosition ?? ZERO_POINT;
+    const startIndex = options.startIndex ?? 0;
+    const endIndex = options.endIndex ?? 0;
+    const matchLimit = options.matchLimit ?? 0xFFFFFFFF;
+    const maxStartDepth = options.maxStartDepth ?? 0xFFFFFFFF;
+    const timeoutMicros = options.timeoutMicros ?? 0;
     const progressCallback = options.progressCallback;
 
     if (typeof matchLimit !== 'number') {
@@ -151,7 +149,7 @@ export class Query {
     const rawCount = getValue(TRANSFER_BUFFER, 'i32');
     const startAddress = getValue(TRANSFER_BUFFER + SIZE_OF_INT, 'i32');
     const didExceedMatchLimit = getValue(TRANSFER_BUFFER + 2 * SIZE_OF_INT, 'i32');
-    const result = new Array(rawCount);
+    const result = new Array<QueryMatch>(rawCount);
     this.exceededMatchLimit = Boolean(didExceedMatchLimit);
 
     let filteredCount = 0;
@@ -162,17 +160,17 @@ export class Query {
       const captureCount = getValue(address, 'i32');
       address += SIZE_OF_INT;
 
-      const captures: Capture[] = new Array(captureCount);
+      const captures = new Array<Capture>(captureCount);
       address = unmarshalCaptures(this, node.tree, address, captures);
 
       if (this.textPredicates[pattern].every((p) => p(captures))) {
         result[filteredCount] = { pattern, captures };
         const setProperties = this.setProperties[pattern];
-        if (setProperties) result[filteredCount].setProperties = setProperties;
+        result[filteredCount].setProperties = setProperties;
         const assertedProperties = this.assertedProperties[pattern];
-        if (assertedProperties) result[filteredCount].assertedProperties = assertedProperties;
+        result[filteredCount].assertedProperties = assertedProperties;
         const refutedProperties = this.refutedProperties[pattern];
-        if (refutedProperties) result[filteredCount].refutedProperties = refutedProperties;
+        result[filteredCount].refutedProperties = refutedProperties;
         filteredCount++;
       }
     }
@@ -187,13 +185,13 @@ export class Query {
     node: Node,
     options: QueryOptions = {}
   ): Capture[] {
-    const startPosition = options.startPosition || ZERO_POINT;
-    const endPosition = options.endPosition || ZERO_POINT;
-    const startIndex = options.startIndex || 0;
-    const endIndex = options.endIndex || 0;
-    const matchLimit = options.matchLimit || 0xFFFFFFFF;
-    const maxStartDepth = options.maxStartDepth || 0xFFFFFFFF;
-    const timeoutMicros = options.timeoutMicros || 0;
+    const startPosition = options.startPosition ?? ZERO_POINT;
+    const endPosition = options.endPosition ?? ZERO_POINT;
+    const startIndex = options.startIndex ?? 0;
+    const endIndex = options.endIndex ?? 0;
+    const matchLimit = options.matchLimit ?? 0xFFFFFFFF;
+    const maxStartDepth = options.maxStartDepth ?? 0xFFFFFFFF;
+    const timeoutMicros = options.timeoutMicros ?? 0;
     const progressCallback = options.progressCallback;
 
     if (typeof matchLimit !== 'number') {
@@ -254,11 +252,11 @@ export class Query {
       if (this.textPredicates[pattern].every((p) => p(captures))) {
         const capture = captures[captureIndex];
         const setProperties = this.setProperties[pattern];
-        if (setProperties) capture.setProperties = setProperties;
+        capture.setProperties = setProperties;
         const assertedProperties = this.assertedProperties[pattern];
-        if (assertedProperties) capture.assertedProperties = assertedProperties;
+        capture.assertedProperties = assertedProperties;
         const refutedProperties = this.refutedProperties[pattern];
-        if (refutedProperties) capture.refutedProperties = refutedProperties;
+        capture.refutedProperties = refutedProperties;
         result.push(capture);
       }
     }

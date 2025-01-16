@@ -1,15 +1,15 @@
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
-import helper from './helper';
-import TSParser, { type Language } from 'web-tree-sitter';
+import helper, { type LanguageName } from './helper';
+import type { default as ParserType, Language } from 'web-tree-sitter';
 
-let Parser: typeof TSParser;
+let Parser: typeof ParserType;
 let JavaScript: Language;
 let HTML: Language;
 let JSON: Language;
-let languageURL: (name: string) => string;
+let languageURL: (name: LanguageName) => string;
 
 describe('Parser', () => {
-  let parser: TSParser;
+  let parser: ParserType;
 
   beforeAll(async () => {
     ({ Parser, JavaScript, HTML, JSON, languageURL } = await helper);
@@ -33,8 +33,10 @@ describe('Parser', () => {
     });
 
     it('throws an exception when the given object is not a tree-sitter language', () => {
-      expect(() => parser.setLanguage({} as any)).toThrow(/Argument must be a Language/);
-      expect(() => parser.setLanguage(1 as any)).toThrow(/Argument must be a Language/);
+      // @ts-expect-error Testing invalid arguments
+      expect(() => { parser.setLanguage({}); }).toThrow(/Argument must be a Language/);
+      // @ts-expect-error Testing invalid arguments
+      expect(() => { parser.setLanguage(1); }).toThrow(/Argument must be a Language/);
     });
   });
 
@@ -56,7 +58,7 @@ describe('Parser', () => {
     });
 
     it('allows the callback to be retrieved later', () => {
-      const callback = () => { };
+      const callback = () => { return; };
       parser.setLogger(callback);
       expect(parser.getLogger()).toBe(callback);
       parser.setLogger(false);
@@ -72,12 +74,13 @@ describe('Parser', () => {
     });
 
     it('throws an error when given a truthy value that isn\'t a function', () => {
-      expect(() => parser.setLogger('5' as any)).toThrow('Logger callback must be a function');
+      // @ts-expect-error Testing invalid arguments
+      expect(() => { parser.setLogger('5'); }).toThrow('Logger callback must be a function');
     });
 
     it('rethrows errors thrown by the logging callback', () => {
       const error = new Error('The error message');
-      parser.setLogger((_msg) => {
+      parser.setLogger(() => {
         throw error;
       });
       expect(() => parser.parse('ok;')).toThrow('The error message');
@@ -219,7 +222,7 @@ describe('Parser', () => {
   });
 
   describe('.parse', () => {
-    let tree: TSParser.Tree | null;
+    let tree: ParserType.Tree | null;
 
     beforeEach(() => {
       tree = null;
@@ -245,9 +248,12 @@ describe('Parser', () => {
     });
 
     it('throws an exception when the given input is not a function', () => {
-      expect(() => parser.parse(null as any)).toThrow('Argument must be a string or a function');
-      expect(() => parser.parse(5 as any)).toThrow('Argument must be a string or a function');
-      expect(() => parser.parse({} as any)).toThrow('Argument must be a string or a function');
+      // @ts-expect-error Testing invalid arguments
+      expect(() => parser.parse(null)).toThrow('Argument must be a string or a function');
+      // @ts-expect-error Testing invalid arguments
+      expect(() => parser.parse(5)).toThrow('Argument must be a string or a function');
+      // @ts-expect-error Testing invalid arguments
+      expect(() => parser.parse({})).toThrow('Argument must be a string or a function');
     });
 
     it('handles long input strings', { timeout: 5000 }, () => {
@@ -259,7 +265,7 @@ describe('Parser', () => {
       expect(tree.rootNode.firstChild!.firstChild!.namedChildCount).toBe(repeatCount);
     });
 
-    it('can use the bash parser', async () => {
+    it('can use the bash parser', { timeout: 5000 }, async () => {
       parser.setLanguage(await Parser.Language.load(languageURL('bash')));
       tree = parser.parse('FOO=bar echo <<EOF 2> err.txt > hello.txt \nhello${FOO}\nEOF');
       expect(tree.rootNode.toString()).toBe(
@@ -274,7 +280,7 @@ describe('Parser', () => {
         '(heredoc_body ' +
         '(expansion (variable_name)) (heredoc_content)) (heredoc_end))))'
       );
-    }, { timeout: 5000 });
+    });
 
     it('can use the c++ parser', { timeout: 5000 }, async () => {
       parser.setLanguage(await Parser.Language.load(languageURL('cpp')));
@@ -391,7 +397,7 @@ describe('Parser', () => {
 
       const startTime = performance.now();
       let currentByteOffset = 0;
-      const progressCallback = (state: TSParser.State) => {
+      const progressCallback = (state: ParserType.State) => {
         expect(state.currentOffset).toBeGreaterThanOrEqual(currentByteOffset);
         currentByteOffset = state.currentOffset;
 
@@ -402,7 +408,7 @@ describe('Parser', () => {
       };
 
       expect(() => parser.parse(
-        (offset, _) => offset === 0 ? '[' : ',0',
+        (offset) => offset === 0 ? '[' : ',0',
         null,
         { progressCallback },
       )

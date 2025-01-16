@@ -4,11 +4,7 @@ import { Node } from './node';
 import { TRANSFER_BUFFER } from './parser';
 import { CaptureQuantifier, Predicate, PredicateStep, Properties, Query, TextPredicate } from './query';
 
-declare const UTF8ToString: (ptr: number, maxBytesToRead?: number) => string;
-declare const lengthBytesUTF8: (str: string) => number;
-declare const stringToUTF8: (str: string, outPtr: number, maxBytesToRead: number) => void;
-declare const getValue: (ptr: number, type: string) => any;
-declare const loadWebAssemblyModule: (bytes: Uint8Array, options: { loadAsync: boolean }) => Promise<any>;
+declare const loadWebAssemblyModule: (bytes: Uint8Array, options: { loadAsync: boolean }) => Promise<Record<string, () => number>>;
 
 const PREDICATE_STEP_TYPE_CAPTURE = 1;
 const PREDICATE_STEP_TYPE_STRING = 2;
@@ -24,13 +20,13 @@ export class Language {
   constructor(internal: Internal, address: number) {
     assertInternal(internal);
     this[0] = address;
-    this.types = new Array(C._ts_language_symbol_count(this[0]));
+    this.types = new Array<string>(C._ts_language_symbol_count(this[0]));
     for (let i = 0, n = this.types.length; i < n; i++) {
       if (C._ts_language_symbol_type(this[0], i) < 2) {
         this.types[i] = UTF8ToString(C._ts_language_symbol_name(this[0], i));
       }
     }
-    this.fields = new Array(C._ts_language_field_count(this[0]) + 1);
+    this.fields = new Array<string>(C._ts_language_field_count(this[0]) + 1);
     for (let i = 0, n = this.fields.length; i < n; i++) {
       const fieldName = C._ts_language_field_name_for_id(this[0], i);
       if (fieldName !== 0) {
@@ -65,7 +61,7 @@ export class Language {
   }
 
   fieldNameForId(fieldId: number): string | null {
-    return this.fields[fieldId] || null;
+    return this.fields[fieldId] ?? null;
   }
 
   idForNodeType(type: string, named: boolean): number | null {
@@ -98,7 +94,7 @@ export class Language {
     C._ts_language_supertypes_wasm(this[0]);
     const count = getValue(TRANSFER_BUFFER, 'i32');
     const buffer = getValue(TRANSFER_BUFFER + SIZE_OF_INT, 'i32');
-    const result = new Array(count);
+    const result = new Array<number>(count);
 
     if (count > 0) {
       let address = buffer;
@@ -115,7 +111,7 @@ export class Language {
     C._ts_language_subtypes_wasm(this[0], supertype);
     const count = getValue(TRANSFER_BUFFER, 'i32');
     const buffer = getValue(TRANSFER_BUFFER + SIZE_OF_INT, 'i32');
-    const result = new Array(count);
+    const result = new Array<number>(count);
 
     if (count > 0) {
       let address = buffer;
@@ -155,7 +151,7 @@ export class Language {
       const errorByte = getValue(TRANSFER_BUFFER, 'i32');
       const errorIndex = UTF8ToString(sourceAddress, errorByte).length;
       const suffix = source.slice(errorIndex, errorIndex + 100).split('\n')[0];
-      let word = suffix.match(QUERY_WORD_REGEX)?.[0] || '';
+      let word = suffix.match(QUERY_WORD_REGEX)?.[0] ?? '';
       let error: Error;
 
       switch (errorId) {
@@ -178,7 +174,9 @@ export class Language {
           break;
       }
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
       (error as any).index = errorIndex;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
       (error as any).length = word.length;
       C._free(sourceAddress);
       throw error;
@@ -188,7 +186,7 @@ export class Language {
     const captureCount = C._ts_query_capture_count(address);
     const patternCount = C._ts_query_pattern_count(address);
     const captureNames = new Array<string>(captureCount);
-    const captureQuantifiers = new Array<Array<CaptureQuantifier>>(patternCount);
+    const captureQuantifiers = new Array<CaptureQuantifier[]>(patternCount);
     const stringValues = new Array<string>(stringCount);
 
     for (let i = 0; i < captureCount; i++) {
@@ -223,8 +221,8 @@ export class Language {
     const setProperties = new Array<Properties>(patternCount);
     const assertedProperties = new Array<Properties>(patternCount);
     const refutedProperties = new Array<Properties>(patternCount);
-    const predicates = new Array<Array<Predicate>>(patternCount);
-    const textPredicates = new Array<Array<TextPredicate>>(patternCount);
+    const predicates = new Array<Predicate[]>(patternCount);
+    const textPredicates = new Array<TextPredicate[]>(patternCount);
 
     for (let i = 0; i < patternCount; i++) {
       const predicatesAddress = C._ts_query_predicates_for_pattern(
@@ -255,7 +253,7 @@ export class Language {
             throw new Error('Predicates must begin with a literal value');
           }
 
-          const operator = steps[0].value!;
+          const operator = steps[0].value;
           let isPositive = true;
           let matchAll = true;
           let captureName: string | undefined;
@@ -278,8 +276,8 @@ export class Language {
               }
               matchAll = !operator.startsWith('any-');
               if (steps[2].type === 'capture') {
-                const captureName1 = steps[1].name!;
-                const captureName2 = steps[2].name!;
+                const captureName1 = steps[1].name;
+                const captureName2 = steps[2].name;
                 textPredicates[i].push((captures) => {
                   const nodes1: Node[] = [];
                   const nodes2: Node[] = [];
@@ -366,7 +364,7 @@ export class Language {
                 );
               }
               if (!setProperties[i]) setProperties[i] = {};
-              setProperties[i][steps[1].value!] = steps[2]?.value || null;
+              setProperties[i][steps[1].value!] = steps[2]?.value ?? null;
               break;
             }
 
@@ -384,7 +382,7 @@ export class Language {
               }
               const properties = operator === 'is?' ? assertedProperties : refutedProperties;
               if (!properties[i]) properties[i] = {};
-              properties[i][steps[1].value!] = steps[2]?.value || null;
+              properties[i][steps[1].value!] = steps[2]?.value ?? null;
               break;
             }
 
@@ -448,15 +446,14 @@ export class Language {
     );
   }
 
-  static load(input: string | Uint8Array): Promise<Language> {
+  static async load(input: string | Uint8Array): Promise<Language> {
     let bytes: Promise<Uint8Array>;
     if (input instanceof Uint8Array) {
       bytes = Promise.resolve(input);
     } else {
-      // @ts-ignore
-      if (globalThis.process?.versions?.node) {
-        // @ts-ignore
-        const fs = require('fs/promises');
+      if (globalThis.process.versions.node) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-require-imports
+        const fs: typeof import('fs/promises') = require('fs/promises');
         bytes = fs.readFile(input);
       } else {
         bytes = fetch(input)
@@ -472,20 +469,15 @@ export class Language {
       }
     }
 
-    return bytes
-      .then((bytes) => loadWebAssemblyModule(bytes, { loadAsync: true }))
-      .then((mod) => {
-        const symbolNames = Object.keys(mod);
-        const functionName = symbolNames.find((key) =>
-          LANGUAGE_FUNCTION_REGEX.test(key) &&
-          !key.includes('external_scanner_'),
-        );
-        if (!functionName) {
-          console.log(`Couldn't find language function in WASM file. Symbols:\n${JSON.stringify(symbolNames, null, 2)}`);
-          throw new Error('Language.load failed: no language function found in WASM file');
-        }
-        const languageAddress = mod[functionName]();
-        return new Language(INTERNAL, languageAddress);
-      });
+    const mod = await loadWebAssemblyModule(await bytes, { loadAsync: true });
+    const symbolNames = Object.keys(mod);
+    const functionName = symbolNames.find((key) => LANGUAGE_FUNCTION_REGEX.test(key) && 
+      !key.includes('external_scanner_'));
+    if (!functionName) {
+        console.log(`Couldn't find language function in WASM file. Symbols:\n${JSON.stringify(symbolNames, null, 2)}`);
+        throw new Error('Language.load failed: no language function found in WASM file');
+    }
+    const languageAddress = mod[functionName]();
+    return new Language(INTERNAL, languageAddress);
   }
 }

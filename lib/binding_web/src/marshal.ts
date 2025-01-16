@@ -5,7 +5,7 @@ import { Query } from "./query";
 import { TreeCursor } from "./tree_cursor";
 import { TRANSFER_BUFFER } from "./parser";
 
-export function unmarshalCaptures(query: Query, tree: Tree, address: number, result: Array<{name: string, node: Node}>) {
+export function unmarshalCaptures(query: Query, tree: Tree, address: number, result: {name: string, node: Node}[]) {
   for (let i = 0, n = result.length; i < n; i++) {
     const captureIndex = getValue(address, 'i32');
     address += SIZE_OF_INT;

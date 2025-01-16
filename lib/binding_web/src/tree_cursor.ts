@@ -5,14 +5,14 @@ import { TRANSFER_BUFFER } from './parser';
 import { getText, Tree } from './tree';
 
 export class TreeCursor {
-  // @ts-ignore
-  private [0]: number; // Internal handle for WASM
-  // @ts-ignore
-  private [1]: number; // Internal handle for WASM
-  // @ts-ignore
-  private [2]: number; // Internal handle for WASM
-  // @ts-ignore
-  private [3]: number; // Internal handle for WASM
+  // @ts-expect-error Internal handle for WASM
+  private [0]: number;
+  // @ts-expect-error Internal handle for WASM
+  private [1]: number;
+  // @ts-expect-error Internal handle for WASM
+  private [2]: number;
+  // @ts-expect-error Internal handle for WASM
+  private [3]: number;
 
   private tree: Tree;
 

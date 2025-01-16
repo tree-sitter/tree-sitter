@@ -3,10 +3,6 @@ import { Language } from './language';
 import { marshalRange, unmarshalRange } from './marshal';
 import { Tree } from './tree';
 
-declare const getValue: (ptr: number, type: string) => any;
-declare const Module: { [key: string]: any };
-declare let initPromise: Promise<void>;
-
 interface ParseOptions {
   includedRanges?: Range[];
   progressCallback?: (percent: number) => void;
@@ -21,16 +17,15 @@ export let TRANSFER_BUFFER: number;
 let VERSION: number;
 let MIN_COMPATIBLE_VERSION: number;
 
-// @ts-ignore
 let currentParseCallback: ((index: number, position: Point) => string) | null = null;
-// @ts-ignore
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 let currentLogCallback: LogCallback = null;
-// @ts-ignore
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 let currentProgressCallback: ((percent: number) => void) | null = null;
 
 export class ParserImpl {
-  protected [0]: number = 0;
-  protected [1]: number = 0;
+  protected [0] = 0;
+  protected [1] = 0;
   protected language: Language | null = null;
   protected logCallback: LogCallback = null;
   static Language: typeof Language;
@@ -94,7 +89,7 @@ export class ParserImpl {
       throw new Error('Argument must be a string or a function');
     }
 
-    if (options?.progressCallback) {
+    if (options.progressCallback) {
       currentProgressCallback = options.progressCallback;
     } else {
       currentProgressCallback = null;
@@ -110,7 +105,7 @@ export class ParserImpl {
 
     let rangeCount = 0;
     let rangeAddress = 0;
-    if (options?.includedRanges) {
+    if (options.includedRanges) {
       rangeCount = options.includedRanges.length;
       rangeAddress = C._calloc(rangeCount, SIZE_OF_RANGE);
       let address = rangeAddress;
@@ -154,7 +149,7 @@ export class ParserImpl {
     C._ts_parser_included_ranges_wasm(this[0]);
     const count = getValue(TRANSFER_BUFFER, 'i32');
     const buffer = getValue(TRANSFER_BUFFER + SIZE_OF_INT, 'i32');
-    const result: Range[] = new Array(count);
+    const result = new Array<Range>(count);
 
     if (count > 0) {
       let address = buffer;

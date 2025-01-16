@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
-import TSParser, { type Language, type Tree, type TreeCursor, type Edit, Point } from 'web-tree-sitter';
+import type { default as ParserType, Language, Tree, TreeCursor, Edit, Point } from 'web-tree-sitter';
 import helper from './helper';
 
-let Parser: typeof TSParser;
+let Parser: typeof ParserType;
 let JavaScript: Language;
 
 interface CursorState {
@@ -15,7 +15,7 @@ interface CursorState {
 }
 
 describe('Tree', () => {
-  let parser: TSParser;
+  let parser: ParserType;
   let tree: Tree;
 
   beforeAll(async () => {

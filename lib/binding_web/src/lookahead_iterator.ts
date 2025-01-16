@@ -37,11 +37,10 @@ export class LookaheadIterator implements Iterable<string> {
   }
 
   [Symbol.iterator](): Iterator<string> {
-    const self = this;
     return {
-      next(): IteratorResult<string> {
-        if (C._ts_lookahead_iterator_next(self[0])) {
-          return { done: false, value: self.currentType };
+      next: (): IteratorResult<string> => {
+        if (C._ts_lookahead_iterator_next(this[0])) {
+          return { done: false, value: this.currentType };
         }
         return { done: true, value: '' };
       }
