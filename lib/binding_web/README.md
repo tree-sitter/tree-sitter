@@ -139,9 +139,28 @@ const tree = parser.parse((index, position) => {
 });
 ```
 
-### Generate .wasm language files
+### Getting the `.wasm` language files
 
-The following example shows how to generate `.wasm` file for tree-sitter JavaScript grammar.
+There are several options on how to get the `.wasm` files for the languages you want to parse.
+
+#### From npmjs.com
+
+The recommended way is to just install the package from npm. For example, to parse JavaScript, you can install the `tree-sitter-javascript` package:
+
+```sh
+npm install tree-sitter-javascript
+```
+
+Then you can find the `.wasm` file in the `node_modules/tree-sitter-javascript` directory.
+
+#### From GitHub
+
+You can also download the `.wasm` files from GitHub releases, so long as the repository uses our reusable workflow to publish them.
+For example, you can download the JavaScript `.wasm` file from the tree-sitter-javascript [releases page](https://github.com/tree-sitter/tree-sitter-javascript/releases/latest)
+
+#### Generating `.wasm` files
+
+You can also generate the `.wasm` file for your desired grammar. Shown below is an example of how to generate the `.wasm` file for the JavaScript grammar.
 
 **IMPORTANT**: [emscripten](https://emscripten.org/docs/getting_started/downloads.html), [docker](https://www.docker.com/), or [podman](https://podman.io) need to be installed.
 
@@ -159,7 +178,7 @@ npx tree-sitter build --wasm node_modules/tree-sitter-javascript
 
 If everything is fine, file `tree-sitter-javascript.wasm` should be generated in current directory.
 
-#### Running .wasm in Node.js
+### Running .wasm in Node.js
 
 Notice that executing `.wasm` files in node.js is considerably slower than running [node.js bindings](https://github.com/tree-sitter/node-tree-sitter). However could be useful for testing purposes:
 
@@ -176,11 +195,11 @@ const Parser = require('web-tree-sitter');
 })();
 ```
 
-#### Running .wasm in browser
+### Running .wasm in browser
 
 `web-tree-sitter` can run in the browser, but there are some common pitfalls.
 
-##### Loading the .wasm file
+#### Loading the .wasm file
 
 `web-tree-sitter` needs to load the `tree-sitter.wasm` file. By default, it assumes that this file is available in the
 same path as the JavaScript code. Therefore, if the code is being served from `http://localhost:3000/bundle.js`, then
@@ -204,7 +223,7 @@ where the loader expects the script to be. It returns the path where the loader 
 case, we want to return just the `scriptName` so that the loader will look at `http://localhost:3000/tree-sitter.wasm`
 and not `http://localhost:3000/_next/static/chunks/pages/tree-sitter.wasm`.
 
-##### `Can't resolve 'fs' in 'node_modules/web-tree-sitter'`
+#### "Can't resolve 'fs' in 'node_modules/web-tree-sitter"
 
 Most bundlers will notice that the `tree-sitter.js` file is attempting to import `fs`, i.e. node's file system library.
 Since this doesn't exist in the browser, the bundlers will get confused. For webpack you can fix this by adding the
