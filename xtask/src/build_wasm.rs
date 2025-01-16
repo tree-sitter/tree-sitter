@@ -25,6 +25,18 @@ enum EmccSource {
 }
 
 pub fn run_wasm(args: &BuildWasm) -> Result<()> {
+    let npm = if cfg!(target_os = "windows") {
+        "npm.cmd"
+    } else {
+        "npm"
+    };
+    let npm = Command::new(npm)
+        .current_dir("lib/binding_web")
+        .args(["run", "build:ts"])
+        .output()
+        .expect("Failed to run npm run build:ts");
+    bail_on_err(&npm, "Failed to run npm run build:ts")?;
+
     let mut emscripten_flags = vec!["-O3", "--minify", "0"];
 
     if args.debug {
