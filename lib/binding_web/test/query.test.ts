@@ -1,12 +1,12 @@
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
-import TSParser, { type Language, type Tree, type Query, type QueryCapture, type QueryMatch } from 'web-tree-sitter';
+import type { default as ParserType, Language, Tree, Query, QueryCapture, QueryMatch } from 'web-tree-sitter';
 import helper from './helper';
 
-let Parser: typeof TSParser;
+let Parser: typeof ParserType;
 let JavaScript: Language;
 
 describe('Query', () => {
-  let parser: TSParser;
+  let parser: ParserType;
   let tree: Tree | null;
   let query: Query | null;
 
@@ -552,7 +552,7 @@ describe('Query', () => {
       const matches = query.matches(
         tree.rootNode,
         {
-          progressCallback: (_) => {
+          progressCallback: () => {
             if (performance.now() - startTime > 1) {
               return true;
             }
@@ -569,16 +569,17 @@ describe('Query', () => {
 });
 
 // Helper functions
-function formatMatches(matches: any[]): QueryMatch[] {
+function formatMatches(matches: QueryMatch[]): QueryMatch[] {
   return matches.map(({ pattern, captures }) => ({
     pattern,
     captures: formatCaptures(captures),
   }));
 }
 
-function formatCaptures(captures: any[]): QueryCapture[] {
+function formatCaptures(captures: QueryCapture[]): QueryCapture[] {
   return captures.map((c) => {
     const node = c.node;
+    // @ts-expect-error We're not interested in the node object for these tests
     delete c.node;
     c.text = node.text;
     return c;

@@ -22,45 +22,43 @@ declare module "web-tree-sitter" {
   }
 
   namespace Parser {
-    export type Options = {
+    export interface Options {
       includedRanges?: Range[];
       progressCallback?: (state: Parser.State) => boolean;
-    };
+    }
 
-    export type State = {
+    export interface State {
       currentOffset: number;
-    };
+    }
 
-    export type Point = {
+    export interface Point {
       row: number;
       column: number;
-    };
+    }
 
-    export type Range = {
+    export interface Range {
       startIndex: number;
       endIndex: number;
       startPosition: Point;
       endPosition: Point;
-    };
+    }
 
-    export type Edit = {
+    export interface Edit {
       startIndex: number;
       oldEndIndex: number;
       newEndIndex: number;
       startPosition: Point;
       oldEndPosition: Point;
       newEndPosition: Point;
-    };
+    }
 
     export type Logger = (
       message: string,
-      params: { [param: string]: string },
+      params: Record<string, string>,
       type: "parse" | "lex",
     ) => void;
 
-    export interface Input {
-      (index: number, position?: Point): string | null | undefined;
-    }
+    export type Input = (index: number, position?: Point) => string | null | undefined;
 
     export interface SyntaxNode {
       tree: Tree;
@@ -83,8 +81,8 @@ declare module "web-tree-sitter" {
       startIndex: number;
       endIndex: number;
       parent: SyntaxNode | null;
-      children: Array<SyntaxNode>;
-      namedChildren: Array<SyntaxNode>;
+      children: SyntaxNode[];
+      namedChildren: SyntaxNode[];
       childCount: number;
       namedChildCount: number;
       firstChild: SyntaxNode | null;
@@ -105,30 +103,20 @@ declare module "web-tree-sitter" {
       childForFieldId(fieldId: number): SyntaxNode | null;
       fieldNameForChild(childIndex: number): string | null;
       fieldNameForNamedChild(childIndex: number): string | null;
-      childrenForFieldName(fieldName: string): Array<SyntaxNode>;
-      childrenForFieldId(fieldId: number): Array<SyntaxNode>;
+      childrenForFieldName(fieldName: string): SyntaxNode[];
+      childrenForFieldId(fieldId: number): SyntaxNode[];
       firstChildForIndex(index: number): SyntaxNode | null;
       firstNamedChildForIndex(index: number): SyntaxNode | null;
 
-      descendantForIndex(index: number): SyntaxNode;
-      descendantForIndex(startIndex: number, endIndex: number): SyntaxNode;
-      namedDescendantForIndex(index: number): SyntaxNode;
-      namedDescendantForIndex(startIndex: number, endIndex: number): SyntaxNode;
-      descendantForPosition(position: Point): SyntaxNode;
-      descendantForPosition(
-        startPosition: Point,
-        endPosition: Point,
-      ): SyntaxNode;
-      namedDescendantForPosition(position: Point): SyntaxNode;
-      namedDescendantForPosition(
-        startPosition: Point,
-        endPosition: Point,
-      ): SyntaxNode;
+      descendantForIndex(...args: [index: number] | [startIndex: number, endIndex: number]): SyntaxNode;
+      namedDescendantForIndex(...args: [index: number] | [startIndex: number, endIndex: number]): SyntaxNode;
+      descendantForPosition(...args: [position: Point] | [startPosition: Point, endPosition: Point]): SyntaxNode;
+      namedDescendantForPosition(...args: [position: Point] | [startPosition: Point, endPosition: Point]): SyntaxNode;
       descendantsOfType(
-        types: String | Array<String>,
+        types: string | string[],
         startPosition?: Point,
         endPosition?: Point,
-      ): Array<SyntaxNode>;
+      ): SyntaxNode[];
 
       walk(): TreeCursor;
     }
@@ -178,13 +166,15 @@ declare module "web-tree-sitter" {
       getLanguage(): Language;
     }
 
+    export type Properties = Record<string, string | null>;
+
     export interface QueryCapture {
       name: string;
       text?: string;
       node: SyntaxNode;
-      setProperties?: { [prop: string]: string | null };
-      assertedProperties?: { [prop: string]: string | null };
-      refutedProperties?: { [prop: string]: string | null };
+      setProperties?: Properties;
+      assertedProperties?: Properties;
+      refutedProperties?: Properties;
     }
 
     export interface QueryMatch {
@@ -192,11 +182,11 @@ declare module "web-tree-sitter" {
       captures: QueryCapture[];
     }
 
-    export type QueryState = {
+    export interface QueryState {
       currentOffset: number;
-    };
+    }
 
-    export type QueryOptions = {
+    export interface QueryOptions {
       startPosition?: Point;
       endPosition?: Point;
       startIndex?: number;
@@ -205,7 +195,7 @@ declare module "web-tree-sitter" {
       maxStartDepth?: number;
       timeoutMicros?: number;
       progressCallback?: (state: QueryState) => boolean;
-    };
+    }
 
     export interface Predicate {
       operator: string;
@@ -222,21 +212,23 @@ declare module "web-tree-sitter" {
       operands: { name: string; type: string }[];
     }
 
-    export enum CaptureQuantifier {
-      Zero = 0,
-      ZeroOrOne = 1,
-      ZeroOrMore = 2,
-      One = 3,
-      OneOrMore = 4,
-    }
+    export const CaptureQuantifier = {
+      Zero: 0,
+      ZeroOrOne: 1,
+      ZeroOrMore: 2,
+      One: 3,
+      OneOrMore: 4
+    } as const;
+
+    export type CaptureQuantifier = typeof CaptureQuantifier[keyof typeof CaptureQuantifier];
 
     export class Query {
       readonly captureNames: string[];
-      readonly captureQuantifiers: CaptureQuantifier[];
-      readonly predicates: { [name: string]: Function }[];
-      readonly setProperties: any[];
-      readonly assertedProperties: any[];
-      readonly refutedProperties: any[];
+      readonly captureQuantifiers: CaptureQuantifier[][];
+      readonly predicates: Predicate[][];
+      readonly setProperties: Properties[];
+      readonly assertedProperties: Properties[];
+      readonly refutedProperties: Properties[];
       readonly matchLimit?: number;
 
       delete(): void;

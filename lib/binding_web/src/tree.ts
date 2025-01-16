@@ -23,7 +23,7 @@ export function getText(tree: Tree, startIndex: number, endIndex: number, startP
       result = result.slice(0, length);
     }
   }
-  return result || '';
+  return result ?? '';
 }
 
 export class Tree {
@@ -83,7 +83,7 @@ export class Tree {
     C._ts_tree_get_changed_ranges_wasm(this[0], other[0]);
     const count = getValue(TRANSFER_BUFFER, 'i32');
     const buffer = getValue(TRANSFER_BUFFER + SIZE_OF_INT, 'i32');
-    const result = new Array(count);
+    const result = new Array<Range>(count);
 
     if (count > 0) {
       let address = buffer;
@@ -100,7 +100,7 @@ export class Tree {
     C._ts_tree_included_ranges_wasm(this[0]);
     const count = getValue(TRANSFER_BUFFER, 'i32');
     const buffer = getValue(TRANSFER_BUFFER + SIZE_OF_INT, 'i32');
-    const result = new Array(count);
+    const result = new Array<Range>(count);
 
     if (count > 0) {
       let address = buffer;

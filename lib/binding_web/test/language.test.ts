@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import helper from './helper';
-import TSParser, { type LookaheadIterable, type Language } from 'web-tree-sitter';
+import type { default as ParserType, LookaheadIterable, Language } from 'web-tree-sitter';
 
 let JavaScript: Language;
 let Rust: Language;
@@ -40,10 +40,10 @@ describe('Language', () => {
 
       expect(exportStatementId).toBeLessThan(JavaScript.nodeTypeCount);
       expect(starId).toBeLessThan(JavaScript.nodeTypeCount);
-      expect(JavaScript.nodeTypeIsNamed(exportStatementId!)).toBe(true);
-      expect(JavaScript.nodeTypeForId(exportStatementId!)).toBe('export_statement');
-      expect(JavaScript.nodeTypeIsNamed(starId!)).toBe(false);
-      expect(JavaScript.nodeTypeForId(starId!)).toBe('*');
+      expect(JavaScript.nodeTypeIsNamed(exportStatementId)).toBe(true);
+      expect(JavaScript.nodeTypeForId(exportStatementId)).toBe('export_statement');
+      expect(JavaScript.nodeTypeIsNamed(starId)).toBe(false);
+      expect(JavaScript.nodeTypeForId(starId)).toBe('*');
     });
 
     it('handles invalid inputs', () => {
@@ -135,7 +135,7 @@ describe('Lookahead iterator', () => {
   let state: number;
 
   beforeAll(async () => {
-    let Parser: typeof TSParser;
+    let Parser: typeof ParserType;
     ({ JavaScript, Parser } = await helper);
     const parser = new Parser();
     parser.setLanguage(JavaScript);
@@ -149,7 +149,7 @@ describe('Lookahead iterator', () => {
     expect(lookahead).toBeDefined();
   });
 
-  afterAll(() => lookahead.delete());
+  afterAll(() => { lookahead.delete() });
 
   const expected = ['(', 'identifier', '*', 'formal_parameters', 'html_comment', 'comment'];
 

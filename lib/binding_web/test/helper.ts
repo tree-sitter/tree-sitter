@@ -1,13 +1,16 @@
-import TSParser from "web-tree-sitter";
+import type { default as ParserType } from 'web-tree-sitter';
+import path from 'path';
 
-// @ts-ignore
-const Parser: typeof TSParser = await import('..').then(m => m.default);
+// @ts-expect-error We're intentionally importing ../tree-sitter.js
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
+const Parser: typeof ParserType = await import('..').then(m => m.default);
 
 // https://github.com/tree-sitter/tree-sitter/blob/master/xtask/src/fetch.rs#L15
-type LanguageName = "bash" | "c" | "cpp" | "embedded-template" | "go" | "html" | "java" | "javascript" | "jsdoc" | "json" | "php" | "python" | "ruby" | "rust" | "typescript";
+export type LanguageName = 'bash' | 'c' | 'cpp' | 'embedded-template' | 'go' | 'html' | 'java' | 'javascript' | 'jsdoc' | 'json' | 'php' | 'python' | 'ruby' | 'rust' | 'typescript' | 'tsx';
 
 function languageURL(name: LanguageName): string {
-  return new URL(`../../../target/release/tree-sitter-${name}.wasm`, import.meta.url).pathname;
+  const basePath = process.cwd();
+  return path.join(basePath, `../../target/release/tree-sitter-${name}.wasm`);
 }
 
 export default Parser.init().then(async () => ({
