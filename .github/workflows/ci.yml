@@ -40,7 +40,9 @@ jobs:
           components: clippy, rustfmt
 
       - name: Lint files
-        run: make lint
+        run: |
+          make lint
+          make lint-web
 
   sanitize:
     uses: ./.github/workflows/sanitize.yml
