@@ -44,6 +44,7 @@
     "esbuild": "^0.24.2",
     "eslint": "^9.18.0",
     "source-map": "^0.7.4",
+    "tsx": "^4.19.2",
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.20.0",
     "vitest": "^3.0.2"
@@ -51,13 +52,16 @@
   "scripts": {
     "build:ts": "esbuild src/index.ts --bundle --platform=neutral --format=cjs --global-name=TreeSitterImpl --outfile=dist/tree-sitter.js --external:fs/* --external:fs/promises --sourcemap --sources-content=true --keep-names",
     "build:wasm": "cd ../../ && cargo xtask build-wasm",
-    "build:sourcemap": "node script/build-sourcemap.js",
+    "build:wasm:debug": "cd ../../ && cargo xtask build-wasm --debug",
+    "build:sourcemap": "tsx script/build-sourcemap.ts",
     "build": "npm run build:ts && npm run build:wasm && npm run build:sourcemap",
-    "build:debug": "npm run build:ts && npm run build:wasm:debug && mkdir -p debug && mv tree-sitter.* debug/",
+    "build:debug": "npm run build:ts && npm run build:wasm:debug && cp debug/* . && npm run build:sourcemap",
+    "lint": "eslint src/*.ts script/*.ts",
+    "lint:fix": "eslint src/*.ts script/*.ts --fix",
     "test": "vitest run",
     "test:watch": "vitest",
     "prepack": "cp ../../LICENSE .",
-    "prepublishOnly": "node script/check-artifacts-fresh.js",
-    "postinstall": "node scripts/postinstall.js"
+    "prepublishOnly": "tsx script/check-artifacts-fresh.ts",
+    "postinstall": "node script/postinstall.js"
   }
 }
