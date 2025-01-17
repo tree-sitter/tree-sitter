@@ -443,12 +443,6 @@ void ts_lexer_finish(Lexer *self, uint32_t *lookahead_end_byte) {
   }
 }
 
-void ts_lexer_advance_to_end(Lexer *self) {
-  while (self->chunk) {
-    ts_lexer__advance(&self->data, false);
-  }
-}
-
 void ts_lexer_mark_end(Lexer *self) {
   ts_lexer__mark_end(&self->data);
 }
