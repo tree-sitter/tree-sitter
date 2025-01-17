@@ -669,12 +669,6 @@ Subtree ts_subtree_edit(Subtree self, const TSInputEdit *input_edit, SubtreePool
       padding = edit.new_end;
     }
 
-    // If the edit is a pure insertion right at the start of the subtree,
-    // shift the subtree over according to the insertion.
-    else if (edit.start.bytes == padding.bytes && is_pure_insertion) {
-      padding = edit.new_end;
-    }
-
     // If the edit is within this subtree, resize the subtree to reflect the edit.
     else if (
       edit.start.bytes < total_size.bytes ||
