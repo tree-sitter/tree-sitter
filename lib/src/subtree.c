@@ -289,7 +289,7 @@ MutableSubtree ts_subtree_make_mut(SubtreePool *pool, Subtree self) {
   return result;
 }
 
-static void ts_subtree__compress(
+void ts_subtree_compress(
   MutableSubtree self,
   unsigned count,
   const TSLanguage *language,
@@ -332,38 +332,6 @@ static void ts_subtree__compress(
     ts_subtree_summarize_children(grandchild, language);
     ts_subtree_summarize_children(child, language);
     ts_subtree_summarize_children(tree, language);
-  }
-}
-
-void ts_subtree_balance(Subtree self, SubtreePool *pool, const TSLanguage *language) {
-  array_clear(&pool->tree_stack);
-
-  if (ts_subtree_child_count(self) > 0 && self.ptr->ref_count == 1) {
-    array_push(&pool->tree_stack, ts_subtree_to_mut_unsafe(self));
-  }
-
-  while (pool->tree_stack.size > 0) {
-    MutableSubtree tree = array_pop(&pool->tree_stack);
-
-    if (tree.ptr->repeat_depth > 0) {
-      Subtree child1 = ts_subtree_children(tree)[0];
-      Subtree child2 = ts_subtree_children(tree)[tree.ptr->child_count - 1];
-      long repeat_delta = (long)ts_subtree_repeat_depth(child1) - (long)ts_subtree_repeat_depth(child2);
-      if (repeat_delta > 0) {
-        unsigned n = (unsigned)repeat_delta;
-        for (unsigned i = n / 2; i > 0; i /= 2) {
-          ts_subtree__compress(tree, i, language, &pool->tree_stack);
-          n -= i;
-        }
-      }
-    }
-
-    for (uint32_t i = 0; i < tree.ptr->child_count; i++) {
-      Subtree child = ts_subtree_children(tree)[i];
-      if (ts_subtree_child_count(child) > 0 && child.ptr->ref_count == 1) {
-        array_push(&pool->tree_stack, ts_subtree_to_mut_unsafe(child));
-      }
-    }
   }
 }
 
