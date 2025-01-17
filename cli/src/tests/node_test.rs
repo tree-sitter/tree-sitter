@@ -331,6 +331,49 @@ fn test_next_sibling_of_zero_width_node() {
     assert_eq!(missing_c.kind(), "c");
     let node_d = root_node.child(3).unwrap();
     assert_eq!(missing_c.next_sibling().unwrap(), node_d);
+
+    let prev_sibling = node_d.prev_sibling().unwrap();
+    assert_eq!(prev_sibling, missing_c);
+}
+
+#[test]
+fn test_first_child_for_offset() {
+    let mut parser = Parser::new();
+    parser.set_language(&get_language("javascript")).unwrap();
+    let tree = parser.parse("x10 + 100", None).unwrap();
+    let sum_node = tree.root_node().child(0).unwrap().child(0).unwrap();
+
+    assert_eq!(
+        sum_node.first_child_for_byte(0).unwrap().kind(),
+        "identifier"
+    );
+    assert_eq!(
+        sum_node.first_child_for_byte(1).unwrap().kind(),
+        "identifier"
+    );
+    assert_eq!(sum_node.first_child_for_byte(3).unwrap().kind(), "+");
+    assert_eq!(sum_node.first_child_for_byte(5).unwrap().kind(), "number");
+}
+
+#[test]
+fn test_first_named_child_for_offset() {
+    let mut parser = Parser::new();
+    parser.set_language(&get_language("javascript")).unwrap();
+    let tree = parser.parse("x10 + 100", None).unwrap();
+    let sum_node = tree.root_node().child(0).unwrap().child(0).unwrap();
+
+    assert_eq!(
+        sum_node.first_named_child_for_byte(0).unwrap().kind(),
+        "identifier"
+    );
+    assert_eq!(
+        sum_node.first_named_child_for_byte(1).unwrap().kind(),
+        "identifier"
+    );
+    assert_eq!(
+        sum_node.first_named_child_for_byte(3).unwrap().kind(),
+        "number"
+    );
 }
 
 #[test]
@@ -711,6 +754,13 @@ fn test_node_descendant_for_range() {
 
         assert_eq!(child, child2);
     }
+
+    // Negative test, start > end
+    assert_eq!(array_node.descendant_for_byte_range(1, 0), None);
+    assert_eq!(
+        array_node.descendant_for_point_range(Point::new(6, 8), Point::new(6, 7)),
+        None
+    );
 }
 
 #[test]
@@ -786,6 +836,20 @@ fn test_node_is_extra() {
     assert_eq!(comment_node.kind(), "comment");
     assert!(!root_node.is_extra());
     assert!(comment_node.is_extra());
+}
+
+#[test]
+fn test_node_is_error() {
+    let mut parser = Parser::new();
+    parser.set_language(&get_language("javascript")).unwrap();
+    let tree = parser.parse("foo(", None).unwrap();
+    let root_node = tree.root_node();
+    assert_eq!(root_node.kind(), "program");
+    assert!(root_node.has_error());
+
+    let child = root_node.child(0).unwrap();
+    assert_eq!(child.kind(), "ERROR");
+    assert!(child.is_error());
 }
 
 #[test]
