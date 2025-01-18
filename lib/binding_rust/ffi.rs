@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 #![allow(non_upper_case_globals)]
 #![allow(non_camel_case_types)]
+#![allow(clippy::missing_const_for_fn)]
 
 #[cfg(feature = "bindgen")]
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
