@@ -60,7 +60,7 @@ pub fn run(args: &CheckWasmExports) -> Result<()> {
 }
 
 fn check_wasm_exports() -> Result<()> {
-    let mut wasm_exports = std::fs::read_to_string("lib/binding_web/wasm/exports.txt")?
+    let mut wasm_exports = std::fs::read_to_string("lib/binding_web/lib/exports.txt")?
         .lines()
         .map(|s| s.replace("_wasm", "").replace("byte", "index"))
         // remove leading and trailing quotes, trailing comma

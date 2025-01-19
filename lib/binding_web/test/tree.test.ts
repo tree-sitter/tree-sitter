@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
-import type { default as ParserType, Language, Tree, TreeCursor, Edit, Point } from 'web-tree-sitter';
+import type { Parser as ParserType, Point, Language, Tree, Edit, TreeCursor } from '../src';
 import helper from './helper';
 
 let Parser: typeof ParserType;

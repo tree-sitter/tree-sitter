@@ -24,19 +24,18 @@ enum EmccSource {
     Podman,
 }
 
-pub fn run_wasm(args: &BuildWasm) -> Result<()> {
-    let npm = if cfg!(target_os = "windows") {
-        "npm.cmd"
-    } else {
-        "npm"
-    };
-    let npm = Command::new(npm)
-        .current_dir("lib/binding_web")
-        .args(["run", "build:ts"])
-        .output()
-        .expect("Failed to run npm run build:ts");
-    bail_on_err(&npm, "Failed to run npm run build:ts")?;
+const EXPORTED_RUNTIME_METHODS: [&str; 8] = [
+    "AsciiToString",
+    "stringToUTF8",
+    "UTF8ToString",
+    "lengthBytesUTF8",
+    "stringToUTF16",
+    "loadWebAssemblyModule",
+    "getValue",
+    "setValue",
+];
 
+pub fn run_wasm(args: &BuildWasm) -> Result<()> {
     let mut emscripten_flags = vec!["-O3", "--minify", "0"];
 
     if args.debug {
@@ -118,7 +117,7 @@ pub fn run_wasm(args: &BuildWasm) -> Result<()> {
     let exported_functions = format!(
         "{}{}",
         fs::read_to_string("lib/src/wasm/stdlib-symbols.txt")?,
-        fs::read_to_string("lib/binding_web/wasm/exports.txt")?
+        fs::read_to_string("lib/binding_web/lib/exports.txt")?
     )
     .replace('"', "")
     .lines()
@@ -130,7 +129,10 @@ pub fn run_wasm(args: &BuildWasm) -> Result<()> {
     .to_string();
 
     let exported_functions = format!("EXPORTED_FUNCTIONS={exported_functions}");
-    let exported_runtime_methods = "EXPORTED_RUNTIME_METHODS=stringToUTF16,AsciiToString";
+    let exported_runtime_methods = format!(
+        "EXPORTED_RUNTIME_METHODS={}",
+        EXPORTED_RUNTIME_METHODS.join(",")
+    );
 
     std::env::set_var("EMCC_DEBUG_SAVE", "1");
 
@@ -138,7 +140,11 @@ pub fn run_wasm(args: &BuildWasm) -> Result<()> {
     emscripten_flags.extend([
         "-gsource-map",
         "--source-map-base", ".",
+        "-fno-exceptions",
+        "-std=c11",
         "-s", "WASM=1",
+        "-s", "EXPORT_ES6",
+        "-s", "MODULARIZE=1",
         "-s", "INITIAL_MEMORY=33554432",
         "-s", "ALLOW_MEMORY_GROWTH=1",
         "-s", "SUPPORT_BIG_ENDIAN=1",
@@ -147,58 +153,38 @@ pub fn run_wasm(args: &BuildWasm) -> Result<()> {
         "-s", "NODEJS_CATCH_EXIT=0",
         "-s", "NODEJS_CATCH_REJECTION=0",
         "-s", &exported_functions,
-        "-s", exported_runtime_methods,
-        "-fno-exceptions",
-        "-std=c11",
+        "-s", &exported_runtime_methods,
         "-D", "fprintf(...)=",
         "-D", "NDEBUG=",
         "-D", "_POSIX_C_SOURCE=200112L",
         "-D", "_DEFAULT_SOURCE=",
         "-I", "lib/src",
         "-I", "lib/include",
-        "--js-library", "lib/binding_web/wasm/imports.js",
-        "--pre-js",     "lib/binding_web/wasm/prefix.js",
-        "--post-js",    "lib/binding_web/dist/tree-sitter.js",
-        "--post-js",    "lib/binding_web/wasm/suffix.js",
-        "-o",           "target/scratch/tree-sitter.js",
+        "--js-library", "lib/binding_web/lib/imports.js",
+        "--pre-js",     "lib/binding_web/lib/prefix.js",
+        "-o",           "lib/binding_web/lib/tree-sitter.js",
         "lib/src/lib.c",
         "lib/binding_web/lib/tree-sitter.c",
     ]);
+    if args.emit_tsd {
+        emscripten_flags.extend(["--emit-tsd", "tree-sitter.d.ts"]);
+    }
+
     let command = command.args(&emscripten_flags);
 
     if args.watch {
-        watch_wasm!(|| build_wasm(command, args.debug));
+        watch_wasm!(|| build_wasm(command));
     } else {
-        build_wasm(command, args.debug)?;
+        build_wasm(command)?;
     }
 
     Ok(())
 }
 
-fn build_wasm(cmd: &mut Command, debug: bool) -> Result<()> {
+fn build_wasm(cmd: &mut Command) -> Result<()> {
     bail_on_err(
         &cmd.spawn()?.wait_with_output()?,
         "Failed to compile the Tree-sitter WASM library",
-    )?;
-
-    let dir = if debug {
-        PathBuf::from("lib/binding_web/debug")
-    } else {
-        PathBuf::from("lib/binding_web")
-    };
-
-    fs::create_dir_all(&dir)?;
-
-    fs::rename("target/scratch/tree-sitter.js", dir.join("tree-sitter.js"))?;
-
-    fs::rename(
-        "target/scratch/tree-sitter.wasm",
-        dir.join("tree-sitter.wasm"),
-    )?;
-
-    fs::rename(
-        "target/scratch/tree-sitter.wasm.map",
-        dir.join("tree-sitter.wasm.map"),
     )?;
 
     Ok(())

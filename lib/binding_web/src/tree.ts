@@ -61,7 +61,7 @@ export class Tree {
 
   rootNodeWithOffset(offsetBytes: number, offsetExtent: Point): Node {
     const address = TRANSFER_BUFFER + SIZE_OF_NODE;
-    setValue(address, offsetBytes, 'i32');
+    C.setValue(address, offsetBytes, 'i32');
     marshalPoint(address + SIZE_OF_INT, offsetExtent);
     C._ts_tree_root_node_with_offset_wasm(this[0]);
     return unmarshalNode(this)!;
@@ -81,8 +81,8 @@ export class Tree {
     }
 
     C._ts_tree_get_changed_ranges_wasm(this[0], other[0]);
-    const count = getValue(TRANSFER_BUFFER, 'i32');
-    const buffer = getValue(TRANSFER_BUFFER + SIZE_OF_INT, 'i32');
+    const count = C.getValue(TRANSFER_BUFFER, 'i32');
+    const buffer = C.getValue(TRANSFER_BUFFER + SIZE_OF_INT, 'i32');
     const result = new Array<Range>(count);
 
     if (count > 0) {
@@ -98,8 +98,8 @@ export class Tree {
 
   getIncludedRanges(): Range[] {
     C._ts_tree_included_ranges_wasm(this[0]);
-    const count = getValue(TRANSFER_BUFFER, 'i32');
-    const buffer = getValue(TRANSFER_BUFFER + SIZE_OF_INT, 'i32');
+    const count = C.getValue(TRANSFER_BUFFER, 'i32');
+    const buffer = C.getValue(TRANSFER_BUFFER + SIZE_OF_INT, 'i32');
     const result = new Array<Range>(count);
 
     if (count > 0) {

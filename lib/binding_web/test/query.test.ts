@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
-import type { default as ParserType, Language, Tree, Query, QueryCapture, QueryMatch } from 'web-tree-sitter';
+import type { Parser as ParserType, Language, Tree, Query, QueryMatch, QueryCapture } from '../src';
 import helper from './helper';
 
 let Parser: typeof ParserType;
@@ -576,12 +576,11 @@ function formatMatches(matches: QueryMatch[]): QueryMatch[] {
   }));
 }
 
-function formatCaptures(captures: QueryCapture[]): QueryCapture[] {
+function formatCaptures(captures: QueryCapture[]): (QueryCapture & { text: string })[] {
   return captures.map((c) => {
     const node = c.node;
     // @ts-expect-error We're not interested in the node object for these tests
     delete c.node;
-    c.text = node.text;
-    return c;
+    return { ...c, text: node.text };
   });
 }

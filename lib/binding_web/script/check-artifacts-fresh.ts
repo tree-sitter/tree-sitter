@@ -17,9 +17,9 @@ const inputFiles = [
   '../src/tree.ts',
   '../src/tree_cursor.ts',
   '../dist/tree-sitter.js',
-  '../wasm/exports.txt',
-  '../wasm/imports.js',
-  '../wasm/prefix.js',
+  '../lib/exports.txt',
+  '../lib/imports.js',
+  '../lib/prefix.js',
   ...listFiles('../../include/tree_sitter'),
   ...listFiles('../../src'),
 ];

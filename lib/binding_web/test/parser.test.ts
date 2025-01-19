@@ -1,18 +1,19 @@
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
 import helper, { type LanguageName } from './helper';
-import type { default as ParserType, Language } from 'web-tree-sitter';
+import type { ParseState, Tree, Parser as ParserType, Language as LanguageType } from '../src';
 
 let Parser: typeof ParserType;
-let JavaScript: Language;
-let HTML: Language;
-let JSON: Language;
+let Language: typeof LanguageType;
+let JavaScript: LanguageType;
+let HTML: LanguageType;
+let JSON: LanguageType;
 let languageURL: (name: LanguageName) => string;
 
 describe('Parser', () => {
   let parser: ParserType;
 
   beforeAll(async () => {
-    ({ Parser, JavaScript, HTML, JSON, languageURL } = await helper);
+    ({ Parser, Language, JavaScript, HTML, JSON, languageURL } = await helper);
   });
 
   beforeEach(() => {
@@ -25,7 +26,7 @@ describe('Parser', () => {
 
   describe('.setLanguage', () => {
     it('allows setting the language to null', () => {
-      expect(parser.getLanguage()).toBeUndefined();
+      expect(parser.getLanguage()).toBeNull();
       parser.setLanguage(JavaScript);
       expect(parser.getLanguage()).toBe(JavaScript);
       parser.setLanguage(null);
@@ -134,7 +135,7 @@ describe('Parser', () => {
       const templateStringNode = jsTree.rootNode.descendantForIndex(
         sourceCode.indexOf('`<'),
         sourceCode.indexOf('>`')
-      );
+      )!;
       expect(templateStringNode.type).toBe('template_string');
 
       const openQuoteNode = templateStringNode.child(0)!;
@@ -222,7 +223,7 @@ describe('Parser', () => {
   });
 
   describe('.parse', () => {
-    let tree: ParserType.Tree | null;
+    let tree: Tree | null;
 
     beforeEach(() => {
       tree = null;
@@ -266,7 +267,7 @@ describe('Parser', () => {
     });
 
     it('can use the bash parser', { timeout: 5000 }, async () => {
-      parser.setLanguage(await Parser.Language.load(languageURL('bash')));
+      parser.setLanguage(await Language.load(languageURL('bash')));
       tree = parser.parse('FOO=bar echo <<EOF 2> err.txt > hello.txt \nhello${FOO}\nEOF');
       expect(tree.rootNode.toString()).toBe(
         '(program ' +
@@ -283,7 +284,7 @@ describe('Parser', () => {
     });
 
     it('can use the c++ parser', { timeout: 5000 }, async () => {
-      parser.setLanguage(await Parser.Language.load(languageURL('cpp')));
+      parser.setLanguage(await Language.load(languageURL('cpp')));
       tree = parser.parse('const char *s = R"EOF(HELLO WORLD)EOF";');
       expect(tree.rootNode.toString()).toBe(
         '(translation_unit (declaration ' +
@@ -296,7 +297,7 @@ describe('Parser', () => {
     });
 
     it('can use the HTML parser', { timeout: 5000 }, async () => {
-      parser.setLanguage(await Parser.Language.load(languageURL('html')));
+      parser.setLanguage(await Language.load(languageURL('html')));
       tree = parser.parse('<div><span><custom></custom></span></div>');
       expect(tree.rootNode.toString()).toBe(
         '(document (element (start_tag (tag_name)) (element (start_tag (tag_name)) ' +
@@ -305,7 +306,7 @@ describe('Parser', () => {
     });
 
     it('can use the python parser', { timeout: 5000 }, async () => {
-      parser.setLanguage(await Parser.Language.load(languageURL('python')));
+      parser.setLanguage(await Language.load(languageURL('python')));
       tree = parser.parse('class A:\n  def b():\n    c()');
       expect(tree.rootNode.toString()).toBe(
         '(module (class_definition ' +
@@ -321,7 +322,7 @@ describe('Parser', () => {
     });
 
     it('can use the rust parser', { timeout: 5000 }, async () => {
-      parser.setLanguage(await Parser.Language.load(languageURL('rust')));
+      parser.setLanguage(await Language.load(languageURL('rust')));
       tree = parser.parse('const x: &\'static str = r###"hello"###;');
       expect(tree.rootNode.toString()).toBe(
         '(source_file (const_item ' +
@@ -332,7 +333,7 @@ describe('Parser', () => {
     });
 
     it('can use the typescript parser', { timeout: 5000 }, async () => {
-      parser.setLanguage(await Parser.Language.load(languageURL('typescript')));
+      parser.setLanguage(await Language.load(languageURL('typescript')));
       tree = parser.parse('a()\nb()\n[c]');
       expect(tree.rootNode.toString()).toBe(
         '(program ' +
@@ -346,7 +347,7 @@ describe('Parser', () => {
     });
 
     it('can use the tsx parser', { timeout: 5000 }, async () => {
-      parser.setLanguage(await Parser.Language.load(languageURL('tsx')));
+      parser.setLanguage(await Language.load(languageURL('tsx')));
       tree = parser.parse('a()\nb()\n[c]');
       expect(tree.rootNode.toString()).toBe(
         '(program ' +
@@ -397,7 +398,7 @@ describe('Parser', () => {
 
       const startTime = performance.now();
       let currentByteOffset = 0;
-      const progressCallback = (state: ParserType.State) => {
+      const progressCallback = (state: ParseState) => {
         expect(state.currentOffset).toBeGreaterThanOrEqual(currentByteOffset);
         currentByteOffset = state.currentOffset;
 
