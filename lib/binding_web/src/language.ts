@@ -1,10 +1,8 @@
-import { INTERNAL, Internal, assertInternal, SIZE_OF_INT, SIZE_OF_SHORT, C } from './constants';
+import { C, INTERNAL, Internal, assertInternal, SIZE_OF_INT, SIZE_OF_SHORT } from './constants';
 import { LookaheadIterator } from './lookahead_iterator';
 import { Node } from './node';
 import { TRANSFER_BUFFER } from './parser';
 import { CaptureQuantifier, Predicate, PredicateStep, Properties, Query, TextPredicate } from './query';
-
-declare const loadWebAssemblyModule: (bytes: Uint8Array, options: { loadAsync: boolean }) => Promise<Record<string, () => number>>;
 
 const PREDICATE_STEP_TYPE_CAPTURE = 1;
 const PREDICATE_STEP_TYPE_STRING = 2;
@@ -23,14 +21,14 @@ export class Language {
     this.types = new Array<string>(C._ts_language_symbol_count(this[0]));
     for (let i = 0, n = this.types.length; i < n; i++) {
       if (C._ts_language_symbol_type(this[0], i) < 2) {
-        this.types[i] = UTF8ToString(C._ts_language_symbol_name(this[0], i));
+        this.types[i] = C.UTF8ToString(C._ts_language_symbol_name(this[0], i));
       }
     }
     this.fields = new Array<string>(C._ts_language_field_count(this[0]) + 1);
     for (let i = 0, n = this.fields.length; i < n; i++) {
       const fieldName = C._ts_language_field_name_for_id(this[0], i);
       if (fieldName !== 0) {
-        this.fields[i] = UTF8ToString(fieldName);
+        this.fields[i] = C.UTF8ToString(fieldName);
       } else {
         this.fields[i] = null;
       }
@@ -40,7 +38,7 @@ export class Language {
   get name(): string | null {
     const ptr = C._ts_language_name(this[0]);
     if (ptr === 0) return null;
-    return UTF8ToString(ptr);
+    return C.UTF8ToString(ptr);
   }
 
   get version(): number {
@@ -65,10 +63,10 @@ export class Language {
   }
 
   idForNodeType(type: string, named: boolean): number | null {
-    const typeLength = lengthBytesUTF8(type);
+    const typeLength = C.lengthBytesUTF8(type);
     const typeAddress = C._malloc(typeLength + 1);
-    stringToUTF8(type, typeAddress, typeLength + 1);
-    const result = C._ts_language_symbol_for_name(this[0], typeAddress, typeLength, named);
+    C.stringToUTF8(type, typeAddress, typeLength + 1);
+    const result = C._ts_language_symbol_for_name(this[0], typeAddress, typeLength, named ? 1 : 0);
     C._free(typeAddress);
     return result || null;
   }
@@ -79,7 +77,7 @@ export class Language {
 
   nodeTypeForId(typeId: number): string | null {
     const name = C._ts_language_symbol_name(this[0], typeId);
-    return name ? UTF8ToString(name) : null;
+    return name ? C.UTF8ToString(name) : null;
   }
 
   nodeTypeIsNamed(typeId: number): boolean {
@@ -92,14 +90,14 @@ export class Language {
 
   get supertypes(): number[] {
     C._ts_language_supertypes_wasm(this[0]);
-    const count = getValue(TRANSFER_BUFFER, 'i32');
-    const buffer = getValue(TRANSFER_BUFFER + SIZE_OF_INT, 'i32');
+    const count = C.getValue(TRANSFER_BUFFER, 'i32');
+    const buffer = C.getValue(TRANSFER_BUFFER + SIZE_OF_INT, 'i32');
     const result = new Array<number>(count);
 
     if (count > 0) {
       let address = buffer;
       for (let i = 0; i < count; i++) {
-        result[i] = getValue(address, 'i16');
+        result[i] = C.getValue(address, 'i16');
         address += SIZE_OF_SHORT;
       }
     }
@@ -109,14 +107,14 @@ export class Language {
 
   subtypes(supertype: number): number[] {
     C._ts_language_subtypes_wasm(this[0], supertype);
-    const count = getValue(TRANSFER_BUFFER, 'i32');
-    const buffer = getValue(TRANSFER_BUFFER + SIZE_OF_INT, 'i32');
+    const count = C.getValue(TRANSFER_BUFFER, 'i32');
+    const buffer = C.getValue(TRANSFER_BUFFER + SIZE_OF_INT, 'i32');
     const result = new Array<number>(count);
 
     if (count > 0) {
       let address = buffer;
       for (let i = 0; i < count; i++) {
-        result[i] = getValue(address, 'i16');
+        result[i] = C.getValue(address, 'i16');
         address += SIZE_OF_SHORT;
       }
     }
@@ -135,9 +133,9 @@ export class Language {
   }
 
   query(source: string): Query {
-    const sourceLength = lengthBytesUTF8(source);
+    const sourceLength = C.lengthBytesUTF8(source);
     const sourceAddress = C._malloc(sourceLength + 1);
-    stringToUTF8(source, sourceAddress, sourceLength + 1);
+    C.stringToUTF8(source, sourceAddress, sourceLength + 1);
     const address = C._ts_query_new(
       this[0],
       sourceAddress,
@@ -147,9 +145,9 @@ export class Language {
     );
 
     if (!address) {
-      const errorId = getValue(TRANSFER_BUFFER + SIZE_OF_INT, 'i32');
-      const errorByte = getValue(TRANSFER_BUFFER, 'i32');
-      const errorIndex = UTF8ToString(sourceAddress, errorByte).length;
+      const errorId = C.getValue(TRANSFER_BUFFER + SIZE_OF_INT, 'i32');
+      const errorByte = C.getValue(TRANSFER_BUFFER, 'i32');
+      const errorIndex = C.UTF8ToString(sourceAddress, errorByte).length;
       const suffix = source.slice(errorIndex, errorIndex + 100).split('\n')[0];
       let word = suffix.match(QUERY_WORD_REGEX)?.[0] ?? '';
       let error: Error;
@@ -195,15 +193,15 @@ export class Language {
         i,
         TRANSFER_BUFFER
       );
-      const nameLength = getValue(TRANSFER_BUFFER, 'i32');
-      captureNames[i] = UTF8ToString(nameAddress, nameLength);
+      const nameLength = C.getValue(TRANSFER_BUFFER, 'i32');
+      captureNames[i] = C.UTF8ToString(nameAddress, nameLength);
     }
 
     for (let i = 0; i < patternCount; i++) {
       const captureQuantifiersArray = new Array<CaptureQuantifier>(captureCount);
       for (let j = 0; j < captureCount; j++) {
         const quantifier = C._ts_query_capture_quantifier_for_id(address, i, j);
-        captureQuantifiersArray[j] = quantifier;
+        captureQuantifiersArray[j] = quantifier as CaptureQuantifier;
       }
       captureQuantifiers[i] = captureQuantifiersArray;
     }
@@ -214,8 +212,8 @@ export class Language {
         i,
         TRANSFER_BUFFER
       );
-      const nameLength = getValue(TRANSFER_BUFFER, 'i32');
-      stringValues[i] = UTF8ToString(valueAddress, nameLength);
+      const nameLength = C.getValue(TRANSFER_BUFFER, 'i32');
+      stringValues[i] = C.UTF8ToString(valueAddress, nameLength);
     }
 
     const setProperties = new Array<Properties>(patternCount);
@@ -230,7 +228,7 @@ export class Language {
         i,
         TRANSFER_BUFFER
       );
-      const stepCount = getValue(TRANSFER_BUFFER, 'i32');
+      const stepCount = C.getValue(TRANSFER_BUFFER, 'i32');
 
       predicates[i] = [];
       textPredicates[i] = [];
@@ -238,9 +236,9 @@ export class Language {
       const steps: PredicateStep[] = [];
       let stepAddress = predicatesAddress;
       for (let j = 0; j < stepCount; j++) {
-        const stepType = getValue(stepAddress, 'i32');
+        const stepType = C.getValue(stepAddress, 'i32');
         stepAddress += SIZE_OF_INT;
-        const stepValueId: number = getValue(stepAddress, 'i32');
+        const stepValueId: number = C.getValue(stepAddress, 'i32');
         stepAddress += SIZE_OF_INT;
 
         if (stepType === PREDICATE_STEP_TYPE_CAPTURE) {
@@ -469,7 +467,7 @@ export class Language {
       }
     }
 
-    const mod = await loadWebAssemblyModule(await bytes, { loadAsync: true });
+    const mod = await C.loadWebAssemblyModule(await bytes, { loadAsync: true });
     const symbolNames = Object.keys(mod);
     const functionName = symbolNames.find((key) => LANGUAGE_FUNCTION_REGEX.test(key) && 
       !key.includes('external_scanner_'));

@@ -150,7 +150,7 @@ export class TreeCursor {
 
   gotoFirstChildForIndex(goalIndex: number): boolean {
     marshalTreeCursor(this);
-    setValue(TRANSFER_BUFFER + SIZE_OF_CURSOR, goalIndex, 'i32');
+    C.setValue(TRANSFER_BUFFER + SIZE_OF_CURSOR, goalIndex, 'i32');
     const result = C._ts_tree_cursor_goto_first_child_for_index_wasm(this.tree[0]);
     unmarshalTreeCursor(this);
     return result === 1;

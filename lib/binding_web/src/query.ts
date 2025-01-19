@@ -3,8 +3,7 @@ import { Node } from './node';
 import { marshalNode, unmarshalCaptures } from './marshal';
 import { TRANSFER_BUFFER } from './parser';
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-let currentQueryProgressCallback: ((percent: number) => void) | null = null;
+// let currentQueryProgressCallback: ((percent: number) => void) | null = null;
 
 interface QueryOptions {
   startPosition?: Point;
@@ -127,7 +126,7 @@ export class Query {
     }
 
     if (progressCallback) {
-      currentQueryProgressCallback = progressCallback;
+      C.currentQueryProgressCallback = progressCallback;
     }
 
     marshalNode(node);
@@ -146,18 +145,18 @@ export class Query {
       timeoutMicros,
     );
 
-    const rawCount = getValue(TRANSFER_BUFFER, 'i32');
-    const startAddress = getValue(TRANSFER_BUFFER + SIZE_OF_INT, 'i32');
-    const didExceedMatchLimit = getValue(TRANSFER_BUFFER + 2 * SIZE_OF_INT, 'i32');
+    const rawCount = C.getValue(TRANSFER_BUFFER, 'i32');
+    const startAddress = C.getValue(TRANSFER_BUFFER + SIZE_OF_INT, 'i32');
+    const didExceedMatchLimit = C.getValue(TRANSFER_BUFFER + 2 * SIZE_OF_INT, 'i32');
     const result = new Array<QueryMatch>(rawCount);
     this.exceededMatchLimit = Boolean(didExceedMatchLimit);
 
     let filteredCount = 0;
     let address = startAddress;
     for (let i = 0; i < rawCount; i++) {
-      const pattern = getValue(address, 'i32');
+      const pattern = C.getValue(address, 'i32');
       address += SIZE_OF_INT;
-      const captureCount = getValue(address, 'i32');
+      const captureCount = C.getValue(address, 'i32');
       address += SIZE_OF_INT;
 
       const captures = new Array<Capture>(captureCount);
@@ -177,7 +176,7 @@ export class Query {
     result.length = filteredCount;
 
     C._free(startAddress);
-    currentQueryProgressCallback = null;
+    C.currentQueryProgressCallback = null;
     return result;
   }
 
@@ -211,7 +210,7 @@ export class Query {
     }
 
     if (progressCallback) {
-      currentQueryProgressCallback = progressCallback;
+      C.currentQueryProgressCallback = progressCallback;
     }
 
     marshalNode(node);
@@ -230,20 +229,20 @@ export class Query {
       timeoutMicros,
     );
 
-    const count = getValue(TRANSFER_BUFFER, 'i32');
-    const startAddress = getValue(TRANSFER_BUFFER + SIZE_OF_INT, 'i32');
-    const didExceedMatchLimit = getValue(TRANSFER_BUFFER + 2 * SIZE_OF_INT, 'i32');
+    const count = C.getValue(TRANSFER_BUFFER, 'i32');
+    const startAddress = C.getValue(TRANSFER_BUFFER + SIZE_OF_INT, 'i32');
+    const didExceedMatchLimit = C.getValue(TRANSFER_BUFFER + 2 * SIZE_OF_INT, 'i32');
     const result: Capture[] = [];
     this.exceededMatchLimit = Boolean(didExceedMatchLimit);
 
     const captures: Capture[] = [];
     let address = startAddress;
     for (let i = 0; i < count; i++) {
-      const pattern = getValue(address, 'i32');
+      const pattern = C.getValue(address, 'i32');
       address += SIZE_OF_INT;
-      const captureCount = getValue(address, 'i32');
+      const captureCount = C.getValue(address, 'i32');
       address += SIZE_OF_INT;
-      const captureIndex = getValue(address, 'i32');
+      const captureIndex = C.getValue(address, 'i32');
       address += SIZE_OF_INT;
 
       captures.length = captureCount;
@@ -262,7 +261,7 @@ export class Query {
     }
 
     C._free(startAddress);
-    currentQueryProgressCallback = null;
+    C.currentQueryProgressCallback = null;
     return result;
   }
 
@@ -271,9 +270,9 @@ export class Query {
   }
 
   disableCapture(captureName: string): void {
-    const captureNameLength = lengthBytesUTF8(captureName);
+    const captureNameLength = C.lengthBytesUTF8(captureName);
     const captureNameAddress = C._malloc(captureNameLength + 1);
-    stringToUTF8(captureName, captureNameAddress, captureNameLength + 1);
+    C.stringToUTF8(captureName, captureNameAddress, captureNameLength + 1);
     C._ts_query_disable_capture(this[0], captureNameAddress, captureNameLength);
     C._free(captureNameAddress);
   }
@@ -317,11 +316,7 @@ export class Query {
     return C._ts_query_is_pattern_rooted(this[0], patternIndex) === 1;
   }
 
-  isPatternGuaranteedAtStep(patternIndex: number, stepIndex: number): boolean {
-    return C._ts_query_is_pattern_guaranteed_at_step(
-      this[0],
-      patternIndex,
-      stepIndex
-    ) === 1;
+  isPatternGuaranteedAtStep(byteIndex: number): boolean {
+    return C._ts_query_is_pattern_guaranteed_at_step(this[0], byteIndex) === 1;
   }
 }

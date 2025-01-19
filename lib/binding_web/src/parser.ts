@@ -1,6 +1,7 @@
-import { C, INTERNAL, Point, Range, SIZE_OF_INT, SIZE_OF_RANGE } from './constants';
+import { C, INTERNAL, Point, Range, SIZE_OF_INT, SIZE_OF_RANGE, setModule } from './constants';
 import { Language } from './language';
 import { marshalRange, unmarshalRange } from './marshal';
+import { checkModule, initializeBinding } from './bindings';
 import { Tree } from './tree';
 
 interface ParseOptions {
@@ -17,29 +18,38 @@ export let TRANSFER_BUFFER: number;
 let VERSION: number;
 let MIN_COMPATIBLE_VERSION: number;
 
-let currentParseCallback: ((index: number, position: Point) => string) | null = null;
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-let currentLogCallback: LogCallback = null;
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-let currentProgressCallback: ((percent: number) => void) | null = null;
+// declare let currentParseCallback: ((index: number, position: Point) => string) | null;
+// // eslint-disable-next-line @typescript-eslint/no-unused-vars
+// declare let currentLogCallback: LogCallback;
+// // eslint-disable-next-line @typescript-eslint/no-unused-vars
+// declare let currentProgressCallback: ((percent: number) => void) | null;
 
-export class ParserImpl {
+export class Parser {
   protected [0] = 0;
   protected [1] = 0;
   protected language: Language | null = null;
   protected logCallback: LogCallback = null;
   static Language: typeof Language;
 
-  static init() {
+  // This must always be called before creating a Parser.
+  static async init(moduleOptions: EmscriptenModule) {
+    setModule(await initializeBinding(moduleOptions));
     TRANSFER_BUFFER = C._ts_init();
-    VERSION = getValue(TRANSFER_BUFFER, 'i32');
-    MIN_COMPATIBLE_VERSION = getValue(TRANSFER_BUFFER + SIZE_OF_INT, 'i32');
+    VERSION = C.getValue(TRANSFER_BUFFER, 'i32');
+    MIN_COMPATIBLE_VERSION = C.getValue(TRANSFER_BUFFER + SIZE_OF_INT, 'i32');
+  }
+
+  constructor() {
+    this.initialize();
   }
 
   initialize() {
+    if (!checkModule()) {
+      throw new Error("cannot construct a Parser before calling `init()`");
+    }
     C._ts_parser_new_wasm();
-    this[0] = getValue(TRANSFER_BUFFER, 'i32');
-    this[1] = getValue(TRANSFER_BUFFER + SIZE_OF_INT, 'i32');
+    this[0] = C.getValue(TRANSFER_BUFFER, 'i32');
+    this[1] = C.getValue(TRANSFER_BUFFER + SIZE_OF_INT, 'i32');
   }
 
   delete() {
@@ -82,24 +92,24 @@ export class ParserImpl {
     options: ParseOptions = {}
   ): Tree {
     if (typeof callback === 'string') {
-      currentParseCallback = (index: number) => callback.slice(index);
+      C.currentParseCallback = (index: number) => callback.slice(index);
     } else if (typeof callback === 'function') {
-      currentParseCallback = callback;
+      C.currentParseCallback = callback;
     } else {
       throw new Error('Argument must be a string or a function');
     }
 
     if (options.progressCallback) {
-      currentProgressCallback = options.progressCallback;
+      C.currentProgressCallback = options.progressCallback;
     } else {
-      currentProgressCallback = null;
+      C.currentProgressCallback = null;
     }
 
     if (this.logCallback) {
-      currentLogCallback = this.logCallback;
+      C.currentLogCallback = this.logCallback;
       C._ts_parser_enable_logger_wasm(this[0], 1);
     } else {
-      currentLogCallback = null;
+      C.currentLogCallback = null;
       C._ts_parser_enable_logger_wasm(this[0], 0);
     }
 
@@ -124,9 +134,9 @@ export class ParserImpl {
     );
 
     if (!treeAddress) {
-      currentParseCallback = null;
-      currentLogCallback = null;
-      currentProgressCallback = null;
+      C.currentParseCallback = null;
+      C.currentLogCallback = null;
+      C.currentProgressCallback = null;
       throw new Error('Parsing failed');
     }
 
@@ -134,10 +144,10 @@ export class ParserImpl {
       throw new Error('Parser must have a language to parse');
     }
 
-    const result = new Tree(INTERNAL, treeAddress, this.language, currentParseCallback);
-    currentParseCallback = null;
-    currentLogCallback = null;
-    currentProgressCallback = null;
+    const result = new Tree(INTERNAL, treeAddress, this.language, C.currentParseCallback);
+    C.currentParseCallback = null;
+    C.currentLogCallback = null;
+    C.currentProgressCallback = null;
     return result;
   }
 
@@ -147,8 +157,8 @@ export class ParserImpl {
 
   getIncludedRanges(): Range[] {
     C._ts_parser_included_ranges_wasm(this[0]);
-    const count = getValue(TRANSFER_BUFFER, 'i32');
-    const buffer = getValue(TRANSFER_BUFFER + SIZE_OF_INT, 'i32');
+    const count = C.getValue(TRANSFER_BUFFER, 'i32');
+    const buffer = C.getValue(TRANSFER_BUFFER + SIZE_OF_INT, 'i32');
     const result = new Array<Range>(count);
 
     if (count > 0) {
@@ -168,7 +178,7 @@ export class ParserImpl {
   }
 
   setTimeoutMicros(timeout: number): void {
-    C._ts_parser_set_timeout_micros(this[0], timeout);
+    C._ts_parser_set_timeout_micros(this[0], 0, timeout);
   }
 
   setLogger(callback: LogCallback): this {

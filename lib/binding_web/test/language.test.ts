@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import helper from './helper';
-import type { default as ParserType, LookaheadIterable, Language } from 'web-tree-sitter';
+import type { Parser as ParserType, LookaheadIterator, Language } from '../src';
 
+let Parser: typeof ParserType;
 let JavaScript: Language;
 let Rust: Language;
 
@@ -35,8 +36,8 @@ describe('Language', () => {
 
   describe('.idForNodeType, .nodeTypeForId, .nodeTypeIsNamed', () => {
     it('converts between the string and integer representations of a node type', () => {
-      const exportStatementId = JavaScript.idForNodeType('export_statement', true);
-      const starId = JavaScript.idForNodeType('*', false);
+      const exportStatementId = JavaScript.idForNodeType('export_statement', true)!;
+      const starId = JavaScript.idForNodeType('*', false)!;
 
       expect(exportStatementId).toBeLessThan(JavaScript.nodeTypeCount);
       expect(starId).toBeLessThan(JavaScript.nodeTypeCount);
@@ -131,12 +132,11 @@ describe('Language', () => {
 });
 
 describe('Lookahead iterator', () => {
-  let lookahead: LookaheadIterable;
+  let lookahead: LookaheadIterator;
   let state: number;
 
   beforeAll(async () => {
-    let Parser: typeof ParserType;
-    ({ JavaScript, Parser } = await helper);
+    ({ Parser, JavaScript } = await helper);
     const parser = new Parser();
     parser.setLanguage(JavaScript);
     const tree = parser.parse('function fn() {}');

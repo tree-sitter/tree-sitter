@@ -85,6 +85,10 @@ struct BuildWasm {
     /// Rebuild when relevant files are changed.
     #[arg(long, short)]
     watch: bool,
+    /// Emit TypeScript type definitions for the generated bindings,
+    /// requires `tsc` to be available.
+    #[arg(long, short)]
+    emit_tsd: bool,
 }
 
 #[derive(Args)]

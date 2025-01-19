@@ -1,5 +1,8 @@
 debug/
 dist/
+/lib/tree-sitter.js
+/lib/tree-sitter.wasm
+/lib/tree-sitter.wasm.map
 /tree-sitter.js
 /tree-sitter.js.map
 /tree-sitter.wasm

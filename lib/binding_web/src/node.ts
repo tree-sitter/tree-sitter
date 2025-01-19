@@ -4,8 +4,6 @@ import { TreeCursor } from './tree_cursor';
 import { marshalNode, marshalPoint, unmarshalNode, unmarshalPoint } from './marshal';
 import { TRANSFER_BUFFER } from './parser';
 
-declare const AsciiToString: (ptr: number) => string;
-
 export class Node {
   private [0]: number; // Internal handle for WASM
   private _children?: (Node | null)[];
@@ -145,14 +143,14 @@ export class Node {
     marshalNode(this);
     const address = C._ts_node_field_name_for_child_wasm(this.tree[0], index);
     if (!address) return null;
-    return AsciiToString(address);
+    return C.AsciiToString(address);
   }
 
   fieldNameForNamedChild(index: number): string | null {
     marshalNode(this);
     const address = C._ts_node_field_name_for_named_child_wasm(this.tree[0], index);
     if (!address) return null;
-    return AsciiToString(address);
+    return C.AsciiToString(address);
   }
 
   childrenForFieldName(fieldName: string): (Node | null)[] {
@@ -164,8 +162,8 @@ export class Node {
   childrenForFieldId(fieldId: number): (Node | null)[] {
     marshalNode(this);
     C._ts_node_children_by_field_id_wasm(this.tree[0], fieldId);
-    const count = getValue(TRANSFER_BUFFER, 'i32');
-    const buffer = getValue(TRANSFER_BUFFER + SIZE_OF_INT, 'i32');
+    const count = C.getValue(TRANSFER_BUFFER, 'i32');
+    const buffer = C.getValue(TRANSFER_BUFFER + SIZE_OF_INT, 'i32');
     const result = new Array<Node | null>(count);
 
     if (count > 0) {
@@ -182,7 +180,7 @@ export class Node {
   firstChildForIndex(index: number): Node | null {
     marshalNode(this);
     const address = TRANSFER_BUFFER + SIZE_OF_NODE;
-    setValue(address, index, 'i32');
+    C.setValue(address, index, 'i32');
     C._ts_node_first_child_for_byte_wasm(this.tree[0]);
     return unmarshalNode(this.tree);
   }
@@ -190,7 +188,7 @@ export class Node {
   firstNamedChildForIndex(index: number): Node | null {
     marshalNode(this);
     const address = TRANSFER_BUFFER + SIZE_OF_NODE;
-    setValue(address, index, 'i32');
+    C.setValue(address, index, 'i32');
     C._ts_node_first_named_child_for_byte_wasm(this.tree[0]);
     return unmarshalNode(this.tree);
   }
@@ -225,8 +223,8 @@ export class Node {
     if (!this._children) {
       marshalNode(this);
       C._ts_node_children_wasm(this.tree[0]);
-      const count = getValue(TRANSFER_BUFFER, 'i32');
-      const buffer = getValue(TRANSFER_BUFFER + SIZE_OF_INT, 'i32');
+      const count = C.getValue(TRANSFER_BUFFER, 'i32');
+      const buffer = C.getValue(TRANSFER_BUFFER + SIZE_OF_INT, 'i32');
       this._children = new Array<Node>(count);
       if (count > 0) {
         let address = buffer;
@@ -244,8 +242,8 @@ export class Node {
     if (!this._namedChildren) {
       marshalNode(this);
       C._ts_node_named_children_wasm(this.tree[0]);
-      const count = getValue(TRANSFER_BUFFER, 'i32');
-      const buffer = getValue(TRANSFER_BUFFER + SIZE_OF_INT, 'i32');
+      const count = C.getValue(TRANSFER_BUFFER, 'i32');
+      const buffer = C.getValue(TRANSFER_BUFFER + SIZE_OF_INT, 'i32');
       this._namedChildren = new Array<Node>(count);
       if (count > 0) {
         let address = buffer;
@@ -278,7 +276,7 @@ export class Node {
     // Copy the array of symbols to the WASM heap
     const symbolsAddress = C._malloc(SIZE_OF_INT * symbols.length);
     for (let i = 0, n = symbols.length; i < n; i++) {
-      setValue(symbolsAddress + i * SIZE_OF_INT, symbols[i], 'i32');
+      C.setValue(symbolsAddress + i * SIZE_OF_INT, symbols[i], 'i32');
     }
 
     // Call the C API to compute the descendants
@@ -294,8 +292,8 @@ export class Node {
     );
 
     // Instantiate the nodes based on the data returned
-    const descendantCount = getValue(TRANSFER_BUFFER, 'i32');
-    const descendantAddress = getValue(TRANSFER_BUFFER + SIZE_OF_INT, 'i32');
+    const descendantCount = C.getValue(TRANSFER_BUFFER, 'i32');
+    const descendantAddress = C.getValue(TRANSFER_BUFFER + SIZE_OF_INT, 'i32');
     const result = new Array<Node | null>(descendantCount);
     if (descendantCount > 0) {
       let address = descendantAddress;
@@ -353,8 +351,8 @@ export class Node {
 
     marshalNode(this);
     const address = TRANSFER_BUFFER + SIZE_OF_NODE;
-    setValue(address, start, 'i32');
-    setValue(address + SIZE_OF_INT, end, 'i32');
+    C.setValue(address, start, 'i32');
+    C.setValue(address + SIZE_OF_INT, end, 'i32');
     C._ts_node_descendant_for_index_wasm(this.tree[0]);
     return unmarshalNode(this.tree);
   }
@@ -366,8 +364,8 @@ export class Node {
 
     marshalNode(this);
     const address = TRANSFER_BUFFER + SIZE_OF_NODE;
-    setValue(address, start, 'i32');
-    setValue(address + SIZE_OF_INT, end, 'i32');
+    C.setValue(address, start, 'i32');
+    C.setValue(address + SIZE_OF_INT, end, 'i32');
     C._ts_node_named_descendant_for_index_wasm(this.tree[0]);
     return unmarshalNode(this.tree);
   }
@@ -437,7 +435,7 @@ export class Node {
   toString() {
     marshalNode(this);
     const address = C._ts_node_to_string_wasm(this.tree[0]);
-    const result = AsciiToString(address);
+    const result = C.AsciiToString(address);
     C._free(address);
     return result;
   }

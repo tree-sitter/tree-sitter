@@ -50,12 +50,11 @@
     "vitest": "^3.0.2"
   },
   "scripts": {
-    "build:ts": "esbuild src/index.ts --bundle --platform=neutral --format=cjs --global-name=TreeSitterImpl --outfile=dist/tree-sitter.js --external:fs/* --external:fs/promises --sourcemap --sources-content=true --keep-names",
+    "build:ts": "esbuild src/index.ts --bundle --format=esm --platform=node --global-name=TreeSitterImpl --outfile=tree-sitter.js --external:fs/* --external:fs/promises --sourcemap --sources-content=true --keep-names && cp lib/*wasm* .",
     "build:wasm": "cd ../../ && cargo xtask build-wasm",
     "build:wasm:debug": "cd ../../ && cargo xtask build-wasm --debug",
-    "build:sourcemap": "tsx script/build-sourcemap.ts",
-    "build": "npm run build:ts && npm run build:wasm && npm run build:sourcemap",
-    "build:debug": "npm run build:ts && npm run build:wasm:debug && cp debug/* . && npm run build:sourcemap",
+    "build": "npm run build:wasm && npm run build:ts",
+    "build:debug": "npm run build:wasm:debug && npm run build:ts && cp debug/* .",
     "lint": "eslint src/*.ts script/*.ts",
     "lint:fix": "eslint src/*.ts script/*.ts --fix",
     "test": "vitest run",
