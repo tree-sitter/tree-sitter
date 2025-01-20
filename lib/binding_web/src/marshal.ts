@@ -1,10 +1,16 @@
 import { Edit, INTERNAL, Point, Range, SIZE_OF_INT, SIZE_OF_NODE, SIZE_OF_POINT, C } from "./constants";
 import { Node } from "./node";
 import { Tree } from "./tree";
-import { Query } from "./query";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { Query, type QueryMatch } from "./query";
 import { TreeCursor } from "./tree_cursor";
 import { TRANSFER_BUFFER } from "./parser";
 
+/**
+ * @internal
+ *
+ * Unmarshals a {@link QueryMatch} to the transfer buffer.
+ */
 export function unmarshalCaptures(query: Query, tree: Tree, address: number, result: {name: string, node: Node}[]) {
   for (let i = 0, n = result.length; i < n; i++) {
     const captureIndex = C.getValue(address, 'i32');
@@ -16,6 +22,11 @@ export function unmarshalCaptures(query: Query, tree: Tree, address: number, res
   return address;
 }
 
+/**
+ * @internal
+ *
+ * Marshals a {@link Node} to the transfer buffer.
+ */
 export function marshalNode(node: Node) {
   let address = TRANSFER_BUFFER;
   C.setValue(address, node.id, 'i32');
@@ -29,6 +40,11 @@ export function marshalNode(node: Node) {
   C.setValue(address, node[0], 'i32');
 }
 
+/**
+ * @internal
+ *
+ * Unmarshals a {@link Node} from the transfer buffer.
+ */
 export function unmarshalNode(tree: Tree, address = TRANSFER_BUFFER): Node | null {
   const id = C.getValue(address, 'i32');
   address += SIZE_OF_INT;
@@ -53,6 +69,11 @@ export function unmarshalNode(tree: Tree, address = TRANSFER_BUFFER): Node | nul
   return result;
 }
 
+/**
+ * @internal
+ *
+ * Marshals a {@link TreeCursor} to the transfer buffer.
+ */
 export function marshalTreeCursor(cursor: TreeCursor, address = TRANSFER_BUFFER) {
   C.setValue(address + 0 * SIZE_OF_INT, cursor[0], 'i32');
   C.setValue(address + 1 * SIZE_OF_INT, cursor[1], 'i32');
@@ -60,6 +81,11 @@ export function marshalTreeCursor(cursor: TreeCursor, address = TRANSFER_BUFFER)
   C.setValue(address + 3 * SIZE_OF_INT, cursor[3], 'i32');
 }
 
+/**
+ * @internal
+ *
+ * Unmarshals a {@link TreeCursor} from the transfer buffer.
+ */
 export function unmarshalTreeCursor(cursor: TreeCursor) {
   cursor[0] = C.getValue(TRANSFER_BUFFER + 0 * SIZE_OF_INT, 'i32');
   cursor[1] = C.getValue(TRANSFER_BUFFER + 1 * SIZE_OF_INT, 'i32');
@@ -67,11 +93,21 @@ export function unmarshalTreeCursor(cursor: TreeCursor) {
   cursor[3] = C.getValue(TRANSFER_BUFFER + 3 * SIZE_OF_INT, 'i32');
 }
 
+/**
+ * @internal
+ *
+ * Marshals a {@link Point} to the transfer buffer.
+ */
 export function marshalPoint(address: number, point: Point): void {
   C.setValue(address, point.row, 'i32');
   C.setValue(address + SIZE_OF_INT, point.column, 'i32');
 }
 
+/**
+ * @internal
+ *
+ * Unmarshals a {@link Point} from the transfer buffer.
+ */
 export function unmarshalPoint(address: number): Point {
   const result = {
     row: C.getValue(address, 'i32') >>> 0,
@@ -80,6 +116,11 @@ export function unmarshalPoint(address: number): Point {
   return result;
 }
 
+/**
+ * @internal
+ *
+ * Marshals a {@link Range} to the transfer buffer.
+ */
 export function marshalRange(address: number, range: Range): void {
   marshalPoint(address, range.startPosition); address += SIZE_OF_POINT;
   marshalPoint(address, range.endPosition); address += SIZE_OF_POINT;
@@ -87,6 +128,11 @@ export function marshalRange(address: number, range: Range): void {
   C.setValue(address, range.endIndex, 'i32'); address += SIZE_OF_INT;
 }
 
+/**
+ * @internal
+ *
+ * Unmarshals a {@link Range} from the transfer buffer.
+ */
 export function unmarshalRange(address: number): Range {
   const result = {} as Range;
   result.startPosition = unmarshalPoint(address); address += SIZE_OF_POINT;
@@ -96,6 +142,11 @@ export function unmarshalRange(address: number): Range {
   return result;
 }
 
+/**
+ * @internal
+ *
+ * Marshals an {@link Edit} to the transfer buffer.
+ */
 export function marshalEdit(edit: Edit, address = TRANSFER_BUFFER) {
   marshalPoint(address, edit.startPosition); address += SIZE_OF_POINT;
   marshalPoint(address, edit.oldEndPosition); address += SIZE_OF_POINT;
