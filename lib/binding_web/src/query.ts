@@ -106,8 +106,11 @@ export interface QueryCapture {
 
 /** A match of a {@link Query} to a particular set of {@link Node}s. */
 export interface QueryMatch {
-  /** The index of the pattern that matched. */
+  /** @deprecated Use `patternIndex` instead, this will be removed in 0.26. */
   pattern: number;
+
+  /** The index of the pattern that matched. */
+  patternIndex: number;
 
   /** The captures associated with the match. */
   captures: QueryCapture[];
@@ -298,7 +301,7 @@ export class Query {
     let filteredCount = 0;
     let address = startAddress;
     for (let i = 0; i < rawCount; i++) {
-      const pattern = C.getValue(address, 'i32');
+      const patternIndex = C.getValue(address, 'i32');
       address += SIZE_OF_INT;
       const captureCount = C.getValue(address, 'i32');
       address += SIZE_OF_INT;
@@ -306,13 +309,13 @@ export class Query {
       const captures = new Array<QueryCapture>(captureCount);
       address = unmarshalCaptures(this, node.tree, address, captures);
 
-      if (this.textPredicates[pattern].every((p) => p(captures))) {
-        result[filteredCount] = { pattern, captures };
-        const setProperties = this.setProperties[pattern];
+      if (this.textPredicates[patternIndex].every((p) => p(captures))) {
+        result[filteredCount] = { pattern: patternIndex, patternIndex, captures };
+        const setProperties = this.setProperties[patternIndex];
         result[filteredCount].setProperties = setProperties;
-        const assertedProperties = this.assertedProperties[pattern];
+        const assertedProperties = this.assertedProperties[patternIndex];
         result[filteredCount].assertedProperties = assertedProperties;
-        const refutedProperties = this.refutedProperties[pattern];
+        const refutedProperties = this.refutedProperties[patternIndex];
         result[filteredCount].refutedProperties = refutedProperties;
         filteredCount++;
       }
