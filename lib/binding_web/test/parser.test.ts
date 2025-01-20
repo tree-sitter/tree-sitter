@@ -1,19 +1,18 @@
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
 import helper, { type LanguageName } from './helper';
-import type { ParseState, Tree, Parser as ParserType, Language as LanguageType } from '../src';
+import type { ParseState, Tree } from '../src';
+import { Parser, Language } from '../src';
 
-let Parser: typeof ParserType;
-let Language: typeof LanguageType;
-let JavaScript: LanguageType;
-let HTML: LanguageType;
-let JSON: LanguageType;
+let JavaScript: Language;
+let HTML: Language;
+let JSON: Language;
 let languageURL: (name: LanguageName) => string;
 
 describe('Parser', () => {
-  let parser: ParserType;
+  let parser: Parser;
 
   beforeAll(async () => {
-    ({ Parser, Language, JavaScript, HTML, JSON, languageURL } = await helper);
+    ({ JavaScript, HTML, JSON, languageURL } = await helper);
   });
 
   beforeEach(() => {
@@ -49,7 +48,7 @@ describe('Parser', () => {
     it('calls the given callback for each parse event', () => {
       const debugMessages: string[] = [];
       parser.setLogger((message) => debugMessages.push(message));
-      parser.parse('a + b + c');
+      parser.parse('a + b + c')!;
       expect(debugMessages).toEqual(expect.arrayContaining([
         'skip character:\' \'',
         'consume character:\'b\'',
@@ -70,7 +69,7 @@ describe('Parser', () => {
       const debugMessages: string[] = [];
       parser.setLogger((message) => debugMessages.push(message));
       parser.setLogger(false);
-      parser.parse('a + b * c');
+      parser.parse('a + b * c')!;
       expect(debugMessages).toHaveLength(0);
     });
 
@@ -92,7 +91,7 @@ describe('Parser', () => {
     it('parses the text within a range', () => {
       parser.setLanguage(HTML);
       const sourceCode = '<span>hi</span><script>console.log(\'sup\');</script>';
-      const htmlTree = parser.parse(sourceCode);
+      const htmlTree = parser.parse(sourceCode)!;
       const scriptContentNode = htmlTree.rootNode.child(1)!.child(1)!;
       expect(scriptContentNode.type).toBe('raw_text');
 
@@ -115,7 +114,7 @@ describe('Parser', () => {
         sourceCode,
         null,
         { includedRanges: ranges }
-      );
+      )!;
       expect(parser.getIncludedRanges()).toEqual(ranges);
 
       expect(jsTree.rootNode.toString()).toBe(
@@ -131,7 +130,7 @@ describe('Parser', () => {
     it('parses the text within multiple ranges', () => {
       parser.setLanguage(JavaScript);
       const sourceCode = 'html `<div>Hello, ${name.toUpperCase()}, it\'s <b>${now()}</b>.</div>`';
-      const jsTree = parser.parse(sourceCode);
+      const jsTree = parser.parse(sourceCode)!;
       const templateStringNode = jsTree.rootNode.descendantForIndex(
         sourceCode.indexOf('`<'),
         sourceCode.indexOf('>`')
@@ -165,7 +164,7 @@ describe('Parser', () => {
         },
       ];
 
-      const htmlTree = parser.parse(sourceCode, null, { includedRanges: htmlRanges });
+      const htmlTree = parser.parse(sourceCode, null, { includedRanges: htmlRanges })!;
 
       expect(htmlTree.rootNode.toString()).toBe(
         '(document (element' +
@@ -212,7 +211,7 @@ describe('Parser', () => {
         endPosition: { row: 10, column: 12 + endIndex },
       };
 
-      const htmlTree = parser.parse(sourceCode, null, { includedRanges: [rangeToParse] });
+      const htmlTree = parser.parse(sourceCode, null, { includedRanges: [rangeToParse] })!;
 
       expect(htmlTree.getIncludedRanges()[0]).toEqual(rangeToParse);
 
@@ -236,13 +235,13 @@ describe('Parser', () => {
 
     it('reads from the given input', () => {
       const parts = ['first', '_', 'second', '_', 'third'];
-      tree = parser.parse(() => parts.shift());
+      tree = parser.parse(() => parts.shift())!;
       expect(tree.rootNode.toString()).toBe('(program (expression_statement (identifier)))');
     });
 
     it('stops reading when the input callback returns something that\'s not a string', () => {
       const parts = ['abc', 'def', 'ghi', {}, {}, {}, 'second-word', ' '];
-      tree = parser.parse(() => parts.shift() as string);
+      tree = parser.parse(() => parts.shift() as string)!;
       expect(tree.rootNode.toString()).toBe('(program (expression_statement (identifier)))');
       expect(tree.rootNode.endIndex).toBe(9);
       expect(parts).toHaveLength(2);
@@ -261,14 +260,14 @@ describe('Parser', () => {
       const repeatCount = 10000;
       const inputString = `[${Array(repeatCount).fill('0').join(',')}]`;
 
-      tree = parser.parse(inputString);
+      tree = parser.parse(inputString)!;
       expect(tree.rootNode.type).toBe('program');
       expect(tree.rootNode.firstChild!.firstChild!.namedChildCount).toBe(repeatCount);
     });
 
     it('can use the bash parser', { timeout: 5000 }, async () => {
       parser.setLanguage(await Language.load(languageURL('bash')));
-      tree = parser.parse('FOO=bar echo <<EOF 2> err.txt > hello.txt \nhello${FOO}\nEOF');
+      tree = parser.parse('FOO=bar echo <<EOF 2> err.txt > hello.txt \nhello${FOO}\nEOF')!;
       expect(tree.rootNode.toString()).toBe(
         '(program ' +
         '(redirected_statement ' +
@@ -285,7 +284,7 @@ describe('Parser', () => {
 
     it('can use the c++ parser', { timeout: 5000 }, async () => {
       parser.setLanguage(await Language.load(languageURL('cpp')));
-      tree = parser.parse('const char *s = R"EOF(HELLO WORLD)EOF";');
+      tree = parser.parse('const char *s = R"EOF(HELLO WORLD)EOF";')!;
       expect(tree.rootNode.toString()).toBe(
         '(translation_unit (declaration ' +
         '(type_qualifier) ' +
@@ -298,7 +297,7 @@ describe('Parser', () => {
 
     it('can use the HTML parser', { timeout: 5000 }, async () => {
       parser.setLanguage(await Language.load(languageURL('html')));
-      tree = parser.parse('<div><span><custom></custom></span></div>');
+      tree = parser.parse('<div><span><custom></custom></span></div>')!;
       expect(tree.rootNode.toString()).toBe(
         '(document (element (start_tag (tag_name)) (element (start_tag (tag_name)) ' +
         '(element (start_tag (tag_name)) (end_tag (tag_name))) (end_tag (tag_name))) (end_tag (tag_name))))'
@@ -307,7 +306,7 @@ describe('Parser', () => {
 
     it('can use the python parser', { timeout: 5000 }, async () => {
       parser.setLanguage(await Language.load(languageURL('python')));
-      tree = parser.parse('class A:\n  def b():\n    c()');
+      tree = parser.parse('class A:\n  def b():\n    c()')!;
       expect(tree.rootNode.toString()).toBe(
         '(module (class_definition ' +
         'name: (identifier) ' +
@@ -323,7 +322,7 @@ describe('Parser', () => {
 
     it('can use the rust parser', { timeout: 5000 }, async () => {
       parser.setLanguage(await Language.load(languageURL('rust')));
-      tree = parser.parse('const x: &\'static str = r###"hello"###;');
+      tree = parser.parse('const x: &\'static str = r###"hello"###;')!;
       expect(tree.rootNode.toString()).toBe(
         '(source_file (const_item ' +
         'name: (identifier) ' +
@@ -334,7 +333,7 @@ describe('Parser', () => {
 
     it('can use the typescript parser', { timeout: 5000 }, async () => {
       parser.setLanguage(await Language.load(languageURL('typescript')));
-      tree = parser.parse('a()\nb()\n[c]');
+      tree = parser.parse('a()\nb()\n[c]')!;
       expect(tree.rootNode.toString()).toBe(
         '(program ' +
         '(expression_statement (call_expression function: (identifier) arguments: (arguments))) ' +
@@ -348,7 +347,7 @@ describe('Parser', () => {
 
     it('can use the tsx parser', { timeout: 5000 }, async () => {
       parser.setLanguage(await Language.load(languageURL('tsx')));
-      tree = parser.parse('a()\nb()\n[c]');
+      tree = parser.parse('a()\nb()\n[c]')!;
       expect(tree.rootNode.toString()).toBe(
         '(program ' +
         '(expression_statement (call_expression function: (identifier) arguments: (arguments))) ' +
@@ -384,7 +383,7 @@ describe('Parser', () => {
             endPosition: { row: 0, column: end2 },
           },
         ],
-      });
+      })!;
 
       expect(tree.rootNode.toString()).toBe(
         '(program ' +
@@ -408,12 +407,11 @@ describe('Parser', () => {
         return false;
       };
 
-      expect(() => parser.parse(
+      expect(parser.parse(
         (offset) => offset === 0 ? '[' : ',0',
         null,
         { progressCallback },
-      )
-      ).toThrowError();
+      )).toBeNull();
     });
   });
 });

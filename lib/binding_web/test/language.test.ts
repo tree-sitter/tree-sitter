@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import helper from './helper';
-import type { Parser as ParserType, LookaheadIterator, Language } from '../src';
+import type { LookaheadIterator, Language } from '../src';
+import { Parser } from '../src';
 
-let Parser: typeof ParserType;
 let JavaScript: Language;
 let Rust: Language;
 
@@ -136,10 +136,10 @@ describe('Lookahead iterator', () => {
   let state: number;
 
   beforeAll(async () => {
-    ({ Parser, JavaScript } = await helper);
+    ({ JavaScript } = await helper);
     const parser = new Parser();
     parser.setLanguage(JavaScript);
-    const tree = parser.parse('function fn() {}');
+    const tree = parser.parse('function fn() {}')!;
     parser.delete();
     const cursor = tree.walk();
     expect(cursor.gotoFirstChild()).toBe(true);

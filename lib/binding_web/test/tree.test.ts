@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
-import type { Parser as ParserType, Point, Language, Tree, Edit, TreeCursor } from '../src';
+import type { Point, Language, Tree, Edit, TreeCursor } from '../src';
+import { Parser } from '../src';
 import helper from './helper';
 
-let Parser: typeof ParserType;
 let JavaScript: Language;
 
 interface CursorState {
@@ -15,11 +15,11 @@ interface CursorState {
 }
 
 describe('Tree', () => {
-  let parser: ParserType;
+  let parser: Parser;
   let tree: Tree;
 
   beforeAll(async () => {
-    ({ Parser, JavaScript } = await helper);
+    ({ JavaScript } = await helper);
   });
 
   beforeEach(() => {
@@ -38,7 +38,7 @@ describe('Tree', () => {
 
     it('updates the positions of nodes', () => {
       input = 'abc + cde';
-      tree = parser.parse(input);
+      tree = parser.parse(input)!;
       expect(tree.rootNode.toString()).toBe(
         '(program (expression_statement (binary_expression left: (identifier) right: (identifier))))'
       );
@@ -63,7 +63,7 @@ describe('Tree', () => {
       expect(variableNode2!.startIndex).toBe(9);
       expect(variableNode2!.endIndex).toBe(12);
 
-      tree = parser.parse(input, tree);
+      tree = parser.parse(input, tree)!;
       expect(tree.rootNode.toString()).toBe(
         '(program (expression_statement (binary_expression left: (binary_expression left: (identifier) right: (identifier)) right: (identifier))))'
       );
@@ -72,7 +72,7 @@ describe('Tree', () => {
     it('handles non-ascii characters', () => {
       input = 'αβδ + cde';
 
-      tree = parser.parse(input);
+      tree = parser.parse(input)!;
       expect(tree.rootNode.toString()).toBe(
         '(program (expression_statement (binary_expression left: (identifier) right: (identifier))))'
       );
@@ -86,7 +86,7 @@ describe('Tree', () => {
       variableNode = tree.rootNode.firstChild!.firstChild!.lastChild;
       expect(variableNode!.startIndex).toBe(input.indexOf('cde'));
 
-      tree = parser.parse(input, tree);
+      tree = parser.parse(input, tree)!;
       expect(tree.rootNode.toString()).toBe(
         '(program (expression_statement (binary_expression left: (binary_expression left: (identifier) right: (identifier)) right: (identifier))))'
       );
@@ -96,7 +96,7 @@ describe('Tree', () => {
   describe('.getChangedRanges(previous)', () => {
     it('reports the ranges of text whose syntactic meaning has changed', () => {
       let sourceCode = 'abcdefg + hij';
-      tree = parser.parse(sourceCode);
+      tree = parser.parse(sourceCode)!;
 
       expect(tree.rootNode.toString()).toBe(
         '(program (expression_statement (binary_expression left: (identifier) right: (identifier))))'
@@ -112,7 +112,7 @@ describe('Tree', () => {
         newEndPosition: { row: 0, column: 5 },
       });
 
-      const tree2 = parser.parse(sourceCode, tree);
+      const tree2 = parser.parse(sourceCode, tree)!;
       expect(tree2.rootNode.toString()).toBe(
         '(program (expression_statement (binary_expression left: (binary_expression left: (identifier) right: (identifier)) right: (identifier))))'
       );
@@ -131,7 +131,7 @@ describe('Tree', () => {
     });
 
     it('throws an exception if the argument is not a tree', () => {
-      tree = parser.parse('abcdefg + hij');
+      tree = parser.parse('abcdefg + hij')!;
 
       expect(() => {
         tree.getChangedRanges({} as Tree);
@@ -147,7 +147,7 @@ describe('Tree', () => {
     });
 
     it('returns a cursor that can be used to walk the tree', () => {
-      tree = parser.parse('a * b + c / d');
+      tree = parser.parse('a * b + c / d')!;
       cursor = tree.walk();
 
       assertCursorState(cursor, {
@@ -306,7 +306,7 @@ describe('Tree', () => {
     });
 
     it('keeps track of the field name associated with each node', () => {
-      tree = parser.parse('a.b();');
+      tree = parser.parse('a.b();')!;
       cursor = tree.walk();
       cursor.gotoFirstChild();
       cursor.gotoFirstChild();
@@ -334,7 +334,7 @@ describe('Tree', () => {
     });
 
     it('returns a cursor that can be reset anywhere in the tree', () => {
-      tree = parser.parse('a * b + c / d');
+      tree = parser.parse('a * b + c / d')!;
       cursor = tree.walk();
       const root = tree.rootNode.firstChild;
 
@@ -369,7 +369,7 @@ describe('Tree', () => {
 
     it('creates another tree that remains stable if the original tree is edited', () => {
       input = 'abc + cde';
-      tree = parser.parse(input);
+      tree = parser.parse(input)!;
       expect(tree.rootNode.toString()).toBe(
         '(program (expression_statement (binary_expression left: (identifier) right: (identifier))))'
       );
