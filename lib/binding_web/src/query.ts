@@ -88,6 +88,9 @@ export interface QueryPredicate {
  * {@link Query}.
  */
 export interface QueryCapture {
+  /** The index of the pattern that matched. */
+  patternIndex: number;
+
   /** The name of the capture */
   name: string;
 
@@ -307,7 +310,7 @@ export class Query {
       address += SIZE_OF_INT;
 
       const captures = new Array<QueryCapture>(captureCount);
-      address = unmarshalCaptures(this, node.tree, address, captures);
+      address = unmarshalCaptures(this, node.tree, address, patternIndex, captures);
 
       if (this.textPredicates[patternIndex].every((p) => p(captures))) {
         result[filteredCount] = { pattern: patternIndex, patternIndex, captures };
@@ -396,7 +399,7 @@ export class Query {
     const captures = new Array<QueryCapture>();
     let address = startAddress;
     for (let i = 0; i < count; i++) {
-      const pattern = C.getValue(address, 'i32');
+      const patternIndex = C.getValue(address, 'i32');
       address += SIZE_OF_INT;
       const captureCount = C.getValue(address, 'i32');
       address += SIZE_OF_INT;
@@ -404,15 +407,15 @@ export class Query {
       address += SIZE_OF_INT;
 
       captures.length = captureCount;
-      address = unmarshalCaptures(this, node.tree, address, captures);
+      address = unmarshalCaptures(this, node.tree, address, patternIndex, captures);
 
-      if (this.textPredicates[pattern].every(p => p(captures))) {
+      if (this.textPredicates[patternIndex].every(p => p(captures))) {
         const capture = captures[captureIndex];
-        const setProperties = this.setProperties[pattern];
+        const setProperties = this.setProperties[patternIndex];
         capture.setProperties = setProperties;
-        const assertedProperties = this.assertedProperties[pattern];
+        const assertedProperties = this.assertedProperties[patternIndex];
         capture.assertedProperties = assertedProperties;
-        const refutedProperties = this.refutedProperties[pattern];
+        const refutedProperties = this.refutedProperties[patternIndex];
         capture.refutedProperties = refutedProperties;
         result.push(capture);
       }
