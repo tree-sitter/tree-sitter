@@ -186,7 +186,14 @@ jobs:
     - name: Build wasm library
       # No reason to build on the same Github runner hosts many times
       if: ${{ !matrix.no-run && !matrix.use-cross }}
-      run: $BUILD_CMD run -p xtask -- build-wasm
+      shell: bash
+      run: |
+        cd lib/binding_web
+        npm ci
+        CJS=true npm run build
+        CJS=true npm run build:debug
+        npm run build
+        npm run build:debug
 
     - name: Build target
       run: $BUILD_CMD build --release --target=${{ matrix.target }} --features=${{ matrix.features }}
@@ -236,6 +243,16 @@ jobs:
         name: tree-sitter.wasm
         path: |
           lib/binding_web/tree-sitter.js
+          lib/binding_web/tree-sitter.js.map
+          lib/binding_web/tree-sitter.cjs
+          lib/binding_web/tree-sitter.cjs.map
           lib/binding_web/tree-sitter.wasm
+          lib/binding_web/tree-sitter.wasm.map
+          lib/binding_web/debug/tree-sitter.cjs
+          lib/binding_web/debug/tree-sitter.cjs.map
+          lib/binding_web/debug/tree-sitter.js
+          lib/binding_web/debug/tree-sitter.js.map
+          lib/binding_web/debug/tree-sitter.wasm
+          lib/binding_web/debug/tree-sitter.wasm.map
         if-no-files-found: error
         retention-days: 7

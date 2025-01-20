@@ -312,12 +312,10 @@ macro_rules! watch_wasm {
         }
 
         let watch_files = [
-            "binding.c",
-            "binding.js",
-            "exports.txt",
-            "imports.js",
-            "prefix.js",
-            "suffix.js",
+            "lib/tree-sitter.c",
+            "lib/exports.txt",
+            "lib/imports.js",
+            "lib/prefix.js",
         ]
         .iter()
         .map(PathBuf::from)

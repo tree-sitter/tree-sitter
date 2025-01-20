@@ -1,12 +1,9 @@
 debug/
 dist/
-/lib/tree-sitter.js
-/lib/tree-sitter.wasm
-/lib/tree-sitter.wasm.map
-/tree-sitter.js
-/tree-sitter.js.map
-/tree-sitter.wasm
-/tree-sitter.wasm.map
+tree-sitter*
+lib/tree-sitter*
+!lib/tree-sitter.c
+!lib/tree-sitter.d.ts
 node_modules
 *.tgz
 LICENSE
