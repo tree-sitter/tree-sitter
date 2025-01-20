@@ -26,11 +26,11 @@ describe('Parser', () => {
 
   describe('.setLanguage', () => {
     it('allows setting the language to null', () => {
-      expect(parser.getLanguage()).toBeNull();
+      expect(parser.language).toBeNull();
       parser.setLanguage(JavaScript);
-      expect(parser.getLanguage()).toBe(JavaScript);
+      expect(parser.language).toBe(JavaScript);
       parser.setLanguage(null);
-      expect(parser.getLanguage()).toBeNull();
+      expect(parser.language).toBeNull();
     });
 
     it('throws an exception when the given object is not a tree-sitter language', () => {

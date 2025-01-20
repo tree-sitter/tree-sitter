@@ -43,6 +43,7 @@
 "ts_node_next_named_sibling_wasm",
 "ts_node_next_sibling_wasm",
 "ts_node_parent_wasm",
+"ts_node_child_with_descendant_wasm",
 "ts_node_prev_named_sibling_wasm",
 "ts_node_prev_sibling_wasm",
 "ts_node_descendant_count_wasm",

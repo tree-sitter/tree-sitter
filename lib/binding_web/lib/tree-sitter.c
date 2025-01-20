@@ -597,6 +597,12 @@ void ts_node_parent_wasm(const TSTree *tree) {
   marshal_node(TRANSFER_BUFFER, ts_node_parent(node));
 }
 
+void ts_node_child_with_descendant_wasm(const TSTree *tree) {
+  TSNode node = unmarshal_node(tree);
+  TSNode descendant = unmarshal_node(tree);
+  marshal_node(TRANSFER_BUFFER, ts_node_child_with_descendant(node, descendant));
+}
+
 void ts_node_descendant_for_index_wasm(const TSTree *tree) {
   TSNode node = unmarshal_node(tree);
   const void **address = TRANSFER_BUFFER + SIZE_OF_NODE;

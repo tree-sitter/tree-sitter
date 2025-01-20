@@ -174,6 +174,7 @@ interface WasmModule {
   _ts_node_prev_named_sibling_wasm(_0: number): void;
   _ts_node_descendant_count_wasm(_0: number): number;
   _ts_node_parent_wasm(_0: number): void;
+  _ts_node_child_with_descendant_wasm(_0: number): void;
   _ts_node_descendant_for_index_wasm(_0: number): void;
   _ts_node_named_descendant_for_index_wasm(_0: number): void;
   _ts_node_descendant_for_position_wasm(_0: number): void;
