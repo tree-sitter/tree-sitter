@@ -21,11 +21,6 @@ export interface Edit {
   newEndIndex: number;
 }
 
-export interface ParserOptions {
-  includedRanges?: Range[];
-  progressCallback?: (progress: { currentOffset: number }) => boolean;
-}
-
 export const SIZE_OF_SHORT = 2;
 export const SIZE_OF_INT = 4;
 export const SIZE_OF_CURSOR = 4 * SIZE_OF_INT;
@@ -35,7 +30,7 @@ export const SIZE_OF_RANGE = 2 * SIZE_OF_INT + 2 * SIZE_OF_POINT;
 export const ZERO_POINT: Point = { row: 0, column: 0 };
 
 // Types for callbacks
-export type ParseCallback = (index: number, position: Point) => string | null;
+export type ParseCallback = (index: number, position: Point) => string | undefined;
 export type ProgressCallback = (progress: { currentOffset: number }) => boolean;
 export type LogCallback = (message: string, isLex: boolean) => void;
 

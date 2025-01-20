@@ -2,7 +2,10 @@ import { C, Internal, assertInternal } from './constants';
 import { Language } from './language';
 
 export class LookaheadIterator implements Iterable<string> {
-  private [0]: number; // Internal handle for WASM
+  /** @internal */
+  private [0] = 0; // Internal handle for WASM
+
+  /** @internal */
   private language: Language;
 
   constructor(internal: Internal, address: number, language: Language) {

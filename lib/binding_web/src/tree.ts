@@ -27,7 +27,8 @@ export function getText(tree: Tree, startIndex: number, endIndex: number, startP
 }
 
 export class Tree {
-  private [0]: number; // Internal handle for WASM
+  /** @internal */
+  private [0] = 0; // Internal handle for WASM
 
   textCallback: ParseCallback;
   language: Language;

@@ -5,8 +5,13 @@ import { marshalNode, marshalPoint, unmarshalNode, unmarshalPoint } from './mars
 import { TRANSFER_BUFFER } from './parser';
 
 export class Node {
-  private [0]: number; // Internal handle for WASM
+  /** @internal */
+  private [0] = 0; // Internal handle for WASM
+
+  /** @internal */
   private _children?: (Node | null)[];
+
+  /** @internal */
   private _namedChildren?: (Node | null)[];
 
   id!: number;
