@@ -15,7 +15,7 @@ You can download the `tree-sitter.js` and `tree-sitter.wasm` files from [the lat
 <script src="/the/path/to/tree-sitter.js"></script>
 
 <script>
-  const Parser = window.TreeSitter;
+  const { Parser } = window.TreeSitter;
   Parser.init().then(() => { /* the library is ready */ });
 </script>
 ```
@@ -23,14 +23,14 @@ You can download the `tree-sitter.js` and `tree-sitter.wasm` files from [the lat
 You can also install [the `web-tree-sitter` module](https://www.npmjs.com/package/web-tree-sitter) from NPM and load it using a system like Webpack:
 
 ```js
-const Parser = require('web-tree-sitter');
+const { Parser } = require('web-tree-sitter');
 Parser.init().then(() => { /* the library is ready */ });
 ```
 
 or Vite:
 
 ```js
-import Parser from 'web-tree-sitter';
+import { Parser }  from 'web-tree-sitter';
 Parser.init().then(() => { /* the library is ready */ });
 ```
 
@@ -63,13 +63,14 @@ This will load the debug version of the `.wasm` file, which includes sourcemaps 
 First, create a parser:
 
 ```js
-const parser = new Parser;
+const parser = new Parser();
 ```
 
 Then assign a language to the parser. Tree-sitter languages are packaged as individual `.wasm` files (more on this below):
 
 ```js
-const JavaScript = await Parser.Language.load('/path/to/tree-sitter-javascript.wasm');
+const { Language } = require('web-tree-sitter');
+const JavaScript = await Language.load('/path/to/tree-sitter-javascript.wasm');
 parser.setLanguage(JavaScript);
 ```
 
@@ -223,6 +224,8 @@ where the loader expects the script to be. It returns the path where the loader 
 case, we want to return just the `scriptName` so that the loader will look at `http://localhost:3000/tree-sitter.wasm`
 and not `http://localhost:3000/_next/static/chunks/pages/tree-sitter.wasm`.
 
+For more information on the module options you can pass in, see the [emscripten documentation][emscripten-module-options].
+
 #### "Can't resolve 'fs' in 'node_modules/web-tree-sitter"
 
 Most bundlers will notice that the `tree-sitter.js` file is attempting to import `fs`, i.e. node's file system library.
@@ -238,3 +241,5 @@ following to your webpack config:
   }
 }
 ```
+
+[emscripten-module-options]: https://emscripten.org/docs/api_reference/module.html#affecting-execution
