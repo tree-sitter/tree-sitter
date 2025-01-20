@@ -143,7 +143,7 @@ pub fn run_wasm(args: &BuildWasm) -> Result<()> {
         "-fno-exceptions",
         "-std=c11",
         "-s", "WASM=1",
-        "-s", "EXPORT_ES6",
+        "-s", "EXPORT_ES6=1",
         "-s", "MODULARIZE=1",
         "-s", "INITIAL_MEMORY=33554432",
         "-s", "ALLOW_MEMORY_GROWTH=1",

@@ -15,8 +15,17 @@
       "email": "amaanq12@gmail.com"
     }
   ],
-  "main": "tree-sitter.js",
   "type": "module",
+  "exports": {
+    ".": {
+      "import": "./tree-sitter.js",
+      "require": "./tree-sitter.cjs"
+    },
+    "./debug": {
+      "import": "./debug/tree-sitter.js",
+      "require": "./debug/tree-sitter.cjs"
+    }
+  },
   "types": "web-tree-sitter.d.ts",
   "keywords": [
     "incremental",
@@ -26,15 +35,21 @@
   ],
   "files": [
     "README.md",
+    "tree-sitter.cjs",
+    "tree-sitter.cjs.map",
     "tree-sitter.js",
     "tree-sitter.js.map",
     "tree-sitter.wasm",
     "tree-sitter.wasm.map",
-    "tree-sitter-web.d.ts",
-    "debug/tree-sitter.js",
-    "debug/tree-sitter.js.map",
-    "debug/tree-sitter.wasm",
-    "debug/tree-sitter.wasm.map"
+    "tree-sitter-debug.cjs",
+    "tree-sitter-debug.cjs.map",
+    "tree-sitter-debug.js",
+    "tree-sitter-debug.js.map",
+    "tree-sitter-debug.wasm",
+    "tree-sitter-debug.wasm.map",
+    "web-tree-sitter.d.ts",
+    "web-tree-sitter.d.ts.map",
+    "src/**/*.ts"
   ],
   "devDependencies": {
     "@eslint/js": "^9.18.0",
@@ -51,18 +66,17 @@
     "vitest": "^3.0.2"
   },
   "scripts": {
-    "build:ts": "esbuild src/index.ts --bundle --format=esm --platform=node --global-name=TreeSitterImpl --outfile=tree-sitter.js --external:fs/* --external:fs/promises --sourcemap --sources-content=true --keep-names && cp lib/*wasm* .",
+    "build:ts": "node script/build.js",
     "build:wasm": "cd ../../ && cargo xtask build-wasm",
     "build:wasm:debug": "cd ../../ && cargo xtask build-wasm --debug",
     "build": "npm run build:wasm && npm run build:ts",
-    "build:debug": "npm run build:wasm:debug && npm run build:ts && cp debug/* .",
-    "lint": "eslint src/*.ts script/*.ts",
-    "lint:fix": "eslint src/*.ts script/*.ts --fix",
+    "build:debug": "npm run build:wasm:debug && npm run build:ts -- --debug",
     "build:dts": "node script/generate-dts.js",
+    "lint": "eslint src/*.ts script/*.ts test/*.ts",
+    "lint:fix": "eslint src/*.ts script/*.ts test/*.ts --fix",
     "test": "vitest run",
     "test:watch": "vitest",
     "prepack": "cp ../../LICENSE .",
-    "prepublishOnly": "tsx script/check-artifacts-fresh.ts",
-    "postinstall": "node script/postinstall.js"
+    "prepublishOnly": "tsx script/check-artifacts-fresh.ts"
   }
 }
