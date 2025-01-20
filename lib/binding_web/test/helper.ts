@@ -1,11 +1,5 @@
-import { type Parser as ParserType, type Language as LanguageType } from '../src';
+import { Parser, Language } from '../src';
 import path from 'path';
-
-// @ts-expect-error We're intentionally importing ../tree-sitter.js
-import { Parser as ParserImpl, Language as LanguageImpl } from '..';
-
-const Parser = ParserImpl as typeof ParserType;
-const Language = LanguageImpl as typeof LanguageType;
 
 // https://github.com/tree-sitter/tree-sitter/blob/master/xtask/src/fetch.rs#L15
 export type LanguageName = 'bash' | 'c' | 'cpp' | 'embedded-template' | 'go' | 'html' | 'java' | 'javascript' | 'jsdoc' | 'json' | 'php' | 'python' | 'ruby' | 'rust' | 'typescript' | 'tsx';
@@ -16,8 +10,6 @@ function languageURL(name: LanguageName): string {
 }
 
 export default Parser.init().then(async () => ({
-  Parser,
-  Language,
   languageURL,
   C: await Language.load(languageURL('c')),
   EmbeddedTemplate: await Language.load(languageURL('embedded-template')),

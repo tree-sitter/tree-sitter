@@ -1,17 +1,17 @@
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
-import type { Parser as ParserType, Language, Tree, Query, QueryMatch, QueryCapture } from '../src';
+import type { Language, Tree, QueryMatch, QueryCapture } from '../src';
+import { Parser, Query } from '../src';
 import helper from './helper';
 
-let Parser: typeof ParserType;
 let JavaScript: Language;
 
 describe('Query', () => {
-  let parser: ParserType;
+  let parser: Parser;
   let tree: Tree | null;
   let query: Query | null;
 
   beforeAll(async () => {
-    ({ Parser, JavaScript } = await helper);
+    ({ JavaScript } = await helper);
   });
 
   beforeEach(() => {
@@ -65,7 +65,7 @@ describe('Query', () => {
 
   describe('.matches', () => {
     it('returns all of the matches for the given query', () => {
-      tree = parser.parse('function one() { two(); function three() {} }');
+      tree = parser.parse('function one() { two(); function three() {} }')!;
       query = JavaScript.query(`
         (function_declaration name: (identifier) @fn-def)
         (call_expression function: (identifier) @fn-ref)
@@ -79,7 +79,7 @@ describe('Query', () => {
     });
 
     it('can search in specified ranges', () => {
-      tree = parser.parse('[a, b,\nc, d,\ne, f,\ng, h]');
+      tree = parser.parse('[a, b,\nc, d,\ne, f,\ng, h]')!;
       query = JavaScript.query('(identifier) @element');
       const matches = query.matches(
         tree.rootNode,
@@ -104,7 +104,7 @@ describe('Query', () => {
         gross(3, []);
         hiccup([]);
         gaff(5);
-      `);
+      `)!;
 
       // Find all calls to functions beginning with 'g', where one argument
       // is an array literal.
@@ -125,7 +125,7 @@ describe('Query', () => {
     it('handles multiple matches where the first one is filtered', () => {
       tree = parser.parse(`
         const a = window.b;
-      `);
+      `)!;
 
       query = JavaScript.query(`
         ((identifier) @variable.builtin
@@ -151,7 +151,7 @@ describe('Query', () => {
             const no = function pq() {}
           },
         });
-      `);
+      `)!;
       query = JavaScript.query(`
         (pair
           key: _ @method.def
@@ -192,7 +192,7 @@ describe('Query', () => {
         toad
         const ab = require('./ab');
         new Cd(EF);
-      `);
+      `)!;
 
       query = JavaScript.query(`
         ((identifier) @variable
@@ -228,7 +228,7 @@ describe('Query', () => {
         ab = abc + 1;
         def = de + 1;
         ghi = ghi + 1;
-      `);
+      `)!;
 
       query = JavaScript.query(`
         (
@@ -248,7 +248,7 @@ describe('Query', () => {
     });
 
     it('handles patterns with properties', () => {
-      tree = parser.parse(`a(b.c);`);
+      tree = parser.parse(`a(b.c);`)!;
       query = JavaScript.query(`
         ((call_expression (identifier) @func)
          (#set! foo)
@@ -285,7 +285,7 @@ describe('Query', () => {
           hello, hello, hello, hello, hello, hello, hello, hello, hello, hello,
           hello, hello, hello, hello, hello, hello, hello, hello, hello, hello,
         ];
-      `);
+      `)!;
 
       query = JavaScript.query(`
         (array (identifier) @pre (identifier) @post)
@@ -300,7 +300,7 @@ describe('Query', () => {
         /// foo
         /// bar
         /// baz
-      `);
+      `)!;
 
       const expectCount = (tree: Tree, queryText: string, expectedCount: number) => {
         query = JavaScript.query(queryText);
@@ -427,7 +427,7 @@ describe('Query', () => {
       `);
 
       const source = 'function foo() { return 1; }';
-      const tree = parser.parse(source);
+      const tree = parser.parse(source)!;
 
       let matches = query.matches(tree.rootNode);
       expect(formatMatches(matches)).toEqual([
@@ -463,7 +463,7 @@ describe('Query', () => {
 
   describe('Set a timeout', () => {
     it('returns less than the expected matches', () => {
-      tree = parser.parse('function foo() while (true) { } }\n'.repeat(1000));
+      tree = parser.parse('function foo() while (true) { } }\n'.repeat(1000))!;
       query = JavaScript.query(
         '(function_declaration name: (identifier) @function)'
       );
@@ -528,7 +528,7 @@ describe('Query', () => {
       query.disablePattern(2);
 
       const source = 'class A { constructor() {} } function b() { return 1; }';
-      tree = parser.parse(source);
+      tree = parser.parse(source)!;
       const matches = query.matches(tree.rootNode);
       expect(formatMatches(matches)).toEqual([
         {
@@ -542,7 +542,7 @@ describe('Query', () => {
 
   describe('Executes with a timeout', () => {
     it('Returns less than the expected matches', () => {
-      tree = parser.parse('function foo() while (true) { } }\n'.repeat(1000));
+      tree = parser.parse('function foo() while (true) { } }\n'.repeat(1000))!;
       query = JavaScript.query(
         '(function_declaration) @function'
       );
