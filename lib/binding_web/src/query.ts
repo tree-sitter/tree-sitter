@@ -1,7 +1,14 @@
-import { Internal, assertInternal, Point, ZERO_POINT, SIZE_OF_INT, C } from './constants';
+import { Point, ZERO_POINT, SIZE_OF_INT, C } from './constants';
 import { Node } from './node';
 import { marshalNode, unmarshalCaptures } from './marshal';
 import { TRANSFER_BUFFER } from './parser';
+import { Language } from './language';
+
+const PREDICATE_STEP_TYPE_CAPTURE = 1;
+
+const PREDICATE_STEP_TYPE_STRING = 2;
+
+const QUERY_WORD_REGEX = /[\w-]+/g;
 
 /**
  * Options for query execution
@@ -109,7 +116,7 @@ export interface QueryCapture {
 
 /** A match of a {@link Query} to a particular set of {@link Node}s. */
 export interface QueryMatch {
-  /** @deprecated Use `patternIndex` instead, this will be removed in 0.26. */
+  /** @deprecated since version 0.25.0, use `patternIndex` instead. */
   pattern: number;
 
   /** The index of the pattern that matched. */
@@ -204,19 +211,322 @@ export class Query {
   /** The maximum number of in-progress matches for this cursor. */
   matchLimit?: number;
 
-  /** @internal */
-  constructor(
-    internal: Internal,
-    address: number,
-    captureNames: string[],
-    captureQuantifiers: CaptureQuantifier[][],
-    textPredicates: TextPredicate[][],
-    predicates: QueryPredicate[][],
-    setProperties: QueryProperties[],
-    assertedProperties: QueryProperties[],
-    refutedProperties: QueryProperties[],
-  ) {
-    assertInternal(internal);
+  /**
+   * Create a new query from a string containing one or more S-expression
+   * patterns.
+   *
+   * The query is associated with a particular language, and can only be run
+   * on syntax nodes parsed with that language. References to Queries can be
+   * shared between multiple threads.
+   *
+   * @link {@see https://tree-sitter.github.io/tree-sitter/using-parsers/queries}
+   */
+  constructor(language: Language, source: string) {
+    const sourceLength = C.lengthBytesUTF8(source);
+    const sourceAddress = C._malloc(sourceLength + 1);
+    C.stringToUTF8(source, sourceAddress, sourceLength + 1);
+    const address = C._ts_query_new(
+      language[0],
+      sourceAddress,
+      sourceLength,
+      TRANSFER_BUFFER,
+      TRANSFER_BUFFER + SIZE_OF_INT
+    );
+
+    if (!address) {
+      const errorId = C.getValue(TRANSFER_BUFFER + SIZE_OF_INT, 'i32');
+      const errorByte = C.getValue(TRANSFER_BUFFER, 'i32');
+      const errorIndex = C.UTF8ToString(sourceAddress, errorByte).length;
+      const suffix = source.slice(errorIndex, errorIndex + 100).split('\n')[0];
+      let word = suffix.match(QUERY_WORD_REGEX)?.[0] ?? '';
+      let error: Error;
+
+      switch (errorId) {
+        case 2:
+          error = new RangeError(`Bad node name '${word}'`);
+          break;
+        case 3:
+          error = new RangeError(`Bad field name '${word}'`);
+          break;
+        case 4:
+          error = new RangeError(`Bad capture name @${word}`);
+          break;
+        case 5:
+          error = new TypeError(`Bad pattern structure at offset ${errorIndex}: '${suffix}'...`);
+          word = '';
+          break;
+        default:
+          error = new SyntaxError(`Bad syntax at offset ${errorIndex}: '${suffix}'...`);
+          word = '';
+          break;
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
+      (error as any).index = errorIndex;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
+      (error as any).length = word.length;
+      C._free(sourceAddress);
+      throw error;
+    }
+
+    const stringCount = C._ts_query_string_count(address);
+    const captureCount = C._ts_query_capture_count(address);
+    const patternCount = C._ts_query_pattern_count(address);
+    const captureNames = new Array<string>(captureCount);
+    const captureQuantifiers = new Array<CaptureQuantifier[]>(patternCount);
+    const stringValues = new Array<string>(stringCount);
+
+    for (let i = 0; i < captureCount; i++) {
+      const nameAddress = C._ts_query_capture_name_for_id(
+        address,
+        i,
+        TRANSFER_BUFFER
+      );
+      const nameLength = C.getValue(TRANSFER_BUFFER, 'i32');
+      captureNames[i] = C.UTF8ToString(nameAddress, nameLength);
+    }
+
+    for (let i = 0; i < patternCount; i++) {
+      const captureQuantifiersArray = new Array<CaptureQuantifier>(captureCount);
+      for (let j = 0; j < captureCount; j++) {
+        const quantifier = C._ts_query_capture_quantifier_for_id(address, i, j);
+        captureQuantifiersArray[j] = quantifier as CaptureQuantifier;
+      }
+      captureQuantifiers[i] = captureQuantifiersArray;
+    }
+
+    for (let i = 0; i < stringCount; i++) {
+      const valueAddress = C._ts_query_string_value_for_id(
+        address,
+        i,
+        TRANSFER_BUFFER
+      );
+      const nameLength = C.getValue(TRANSFER_BUFFER, 'i32');
+      stringValues[i] = C.UTF8ToString(valueAddress, nameLength);
+    }
+
+    const setProperties = new Array<QueryProperties>(patternCount);
+    const assertedProperties = new Array<QueryProperties>(patternCount);
+    const refutedProperties = new Array<QueryProperties>(patternCount);
+    const predicates = new Array<QueryPredicate[]>(patternCount);
+    const textPredicates = new Array<TextPredicate[]>(patternCount);
+
+    for (let i = 0; i < patternCount; i++) {
+      const predicatesAddress = C._ts_query_predicates_for_pattern(
+        address,
+        i,
+        TRANSFER_BUFFER
+      );
+      const stepCount = C.getValue(TRANSFER_BUFFER, 'i32');
+
+      predicates[i] = [];
+      textPredicates[i] = [];
+
+      const steps = new Array<PredicateStep>();
+      const isStringStep = (step: PredicateStep): step is { type: 'string', value: string } => {
+        return step.type === 'string';
+      }
+
+      let stepAddress = predicatesAddress;
+      for (let j = 0; j < stepCount; j++) {
+        const stepType = C.getValue(stepAddress, 'i32');
+        stepAddress += SIZE_OF_INT;
+        const stepValueId: number = C.getValue(stepAddress, 'i32');
+        stepAddress += SIZE_OF_INT;
+
+        if (stepType === PREDICATE_STEP_TYPE_CAPTURE) {
+          const name = captureNames[stepValueId];
+          steps.push({ type: 'capture', name });
+        } else if (stepType === PREDICATE_STEP_TYPE_STRING) {
+          steps.push({ type: 'string', value: stringValues[stepValueId] });
+        } else if (steps.length > 0) {
+          if (steps[0].type !== 'string') {
+            throw new Error('Predicates must begin with a literal value');
+          }
+
+          const operator = steps[0].value;
+          let isPositive = true;
+          let matchAll = true;
+          let captureName: string | undefined;
+
+          switch (operator) {
+            case 'any-not-eq?':
+            case 'not-eq?':
+              isPositive = false;
+            case 'any-eq?':
+            case 'eq?': {
+              if (steps.length !== 3) {
+                throw new Error(
+                  `Wrong number of arguments to \`#${operator}\` predicate. Expected 2, got ${steps.length - 1}`
+                );
+              }
+              if (steps[1].type !== 'capture') {
+                throw new Error(
+                  `First argument of \`#${operator}\` predicate must be a capture. Got "${steps[1].value}"`
+                );
+              }
+              matchAll = !operator.startsWith('any-');
+              if (steps[2].type === 'capture') {
+                const captureName1 = steps[1].name;
+                const captureName2 = steps[2].name;
+                textPredicates[i].push((captures) => {
+                  const nodes1: Node[] = [];
+                  const nodes2: Node[] = [];
+                  for (const c of captures) {
+                    if (c.name === captureName1) nodes1.push(c.node);
+                    if (c.name === captureName2) nodes2.push(c.node);
+                  }
+                  const compare = (n1: { text: string }, n2: { text: string }, positive: boolean) => {
+                    return positive ? n1.text === n2.text : n1.text !== n2.text;
+                  };
+                  return matchAll
+                    ? nodes1.every((n1) => nodes2.some((n2) => compare(n1, n2, isPositive)))
+                    : nodes1.some((n1) => nodes2.some((n2) => compare(n1, n2, isPositive)));
+                });
+              } else {
+                captureName = steps[1].name;
+                const stringValue = steps[2].value;
+                const matches = (n: Node) => n.text === stringValue;
+                const doesNotMatch = (n: Node) => n.text !== stringValue;
+                textPredicates[i].push((captures) => {
+                  const nodes = [];
+                  for (const c of captures) {
+                    if (c.name === captureName) nodes.push(c.node);
+                  }
+                  const test = isPositive ? matches : doesNotMatch;
+                  return matchAll ?
+                    nodes.every(test) :
+                    nodes.some(test);
+                });
+              }
+              break;
+            }
+
+            case 'any-not-match?':
+            case 'not-match?':
+              isPositive = false;
+            case 'any-match?':
+            case 'match?': {
+              if (steps.length !== 3) {
+                throw new Error(
+                  `Wrong number of arguments to \`#${operator}\` predicate. Expected 2, got ${steps.length - 1}.`,
+                );
+              }
+              if (steps[1].type !== 'capture') {
+                throw new Error(
+                  `First argument of \`#${operator}\` predicate must be a capture. Got "${steps[1].value}".`,
+                );
+              }
+              if (steps[2].type !== 'string') {
+                throw new Error(
+                  `Second argument of \`#${operator}\` predicate must be a string. Got @${steps[2].name}.`,
+                );
+              }
+              captureName = steps[1].name;
+              const regex = new RegExp(steps[2].value);
+              matchAll = !operator.startsWith('any-');
+              textPredicates[i].push((captures) => {
+                const nodes = [];
+                for (const c of captures) {
+                  if (c.name === captureName) nodes.push(c.node.text);
+                }
+                const test = (text: string, positive: boolean) => {
+                  return positive ?
+                    regex.test(text) :
+                    !regex.test(text);
+                };
+                if (nodes.length === 0) return !isPositive;
+                return matchAll ?
+                  nodes.every((text) => test(text, isPositive)) :
+                  nodes.some((text) => test(text, isPositive));
+              });
+              break;
+            }
+
+            case 'set!': {
+              if (steps.length < 2 || steps.length > 3) {
+                throw new Error(
+                  `Wrong number of arguments to \`#set!\` predicate. Expected 1 or 2. Got ${steps.length - 1}.`,
+                );
+              }
+              if (!steps.every(isStringStep)) {
+                throw new Error(
+                  `Arguments to \`#set!\` predicate must be strings.".`,
+                );
+              }
+              if (!setProperties[i]) setProperties[i] = {};
+              setProperties[i][steps[1].value] = steps[2]?.value ?? null;
+              break;
+            }
+
+            case 'is?':
+            case 'is-not?': {
+              if (steps.length < 2 || steps.length > 3) {
+                throw new Error(
+                  `Wrong number of arguments to \`#${operator}\` predicate. Expected 1 or 2. Got ${steps.length - 1}.`,
+                );
+              }
+              if (!steps.every(isStringStep)) {
+                throw new Error(
+                  `Arguments to \`#${operator}\` predicate must be strings.".`,
+                );
+              }
+              const properties = operator === 'is?' ? assertedProperties : refutedProperties;
+              if (!properties[i]) properties[i] = {};
+              properties[i][steps[1].value] = steps[2]?.value ?? null;
+              break;
+            }
+
+            case 'not-any-of?':
+              isPositive = false;
+            case 'any-of?': {
+              if (steps.length < 2) {
+                throw new Error(
+                  `Wrong number of arguments to \`#${operator}\` predicate. Expected at least 1. Got ${steps.length - 1}.`,
+                );
+              }
+              if (steps[1].type !== 'capture') {
+                throw new Error(
+                  `First argument of \`#${operator}\` predicate must be a capture. Got "${steps[1].value}".`,
+                );
+              }
+              captureName = steps[1].name;
+
+              const stringSteps = steps.slice(2);
+              if (!stringSteps.every(isStringStep)) {
+                throw new Error(
+                  `Arguments to \`#${operator}\` predicate must be strings.".`,
+                );
+              }
+              const values = stringSteps.map((s) => s.value);
+
+              textPredicates[i].push((captures) => {
+                const nodes = [];
+                for (const c of captures) {
+                  if (c.name === captureName) nodes.push(c.node.text);
+                }
+                if (nodes.length === 0) return !isPositive;
+                return nodes.every((text) => values.includes(text)) === isPositive;
+              });
+              break;
+            }
+
+            default:
+              predicates[i].push({ operator, operands: steps.slice(1) });
+          }
+
+          steps.length = 0;
+        }
+      }
+
+      Object.freeze(setProperties[i]);
+      Object.freeze(assertedProperties[i]);
+      Object.freeze(refutedProperties[i]);
+    }
+
+    C._free(sourceAddress);
+
+
     this[0] = address;
     this.captureNames = captureNames;
     this.captureQuantifiers = captureQuantifiers;
