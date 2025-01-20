@@ -292,6 +292,8 @@ declare module 'web-tree-sitter' {
 		 */
 		lookaheadIterator(stateId: number): LookaheadIterator | null;
 		/**
+		 * @deprecated since version 0.25.0, call `new` on a {@link Query} instead
+		 *
 		 * Create a new query from a string containing one or more S-expression
 		 * patterns.
 		 *
@@ -802,6 +804,8 @@ declare module 'web-tree-sitter' {
 	 * {@link Query}.
 	 */
 	export interface QueryCapture {
+		/** The index of the pattern that matched. */
+		patternIndex: number;
 		/** The name of the capture */
 		name: string;
 		/** The captured node */
@@ -815,8 +819,10 @@ declare module 'web-tree-sitter' {
 	}
 	/** A match of a {@link Query} to a particular set of {@link Node}s. */
 	export interface QueryMatch {
-		/** The index of the pattern that matched. */
+		/** @deprecated since version 0.25.0, use `patternIndex` instead. */
 		pattern: number;
+		/** The index of the pattern that matched. */
+		patternIndex: number;
 		/** The captures associated with the match. */
 		captures: QueryCapture[];
 		/** The properties for predicates declared with the operator `set!`. */
@@ -878,6 +884,17 @@ declare module 'web-tree-sitter' {
 		readonly refutedProperties: QueryProperties[];
 		/** The maximum number of in-progress matches for this cursor. */
 		matchLimit?: number;
+		/**
+		 * Create a new query from a string containing one or more S-expression
+		 * patterns.
+		 *
+		 * The query is associated with a particular language, and can only be run
+		 * on syntax nodes parsed with that language. References to Queries can be
+		 * shared between multiple threads.
+		 *
+		 * @link {@see https://tree-sitter.github.io/tree-sitter/using-parsers/queries}
+		 */
+		constructor(language: Language, source: string);
 		/** Delete the query, freeing its resources. */
 		delete(): void;
 		/**
