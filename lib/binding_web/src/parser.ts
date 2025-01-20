@@ -1,16 +1,17 @@
-import { C, INTERNAL, Point, Range, SIZE_OF_INT, SIZE_OF_RANGE, setModule } from './constants';
+import { C, INTERNAL, LogCallback, ParseCallback, Range, SIZE_OF_INT, SIZE_OF_RANGE, setModule } from './constants';
 import { Language } from './language';
 import { marshalRange, unmarshalRange } from './marshal';
 import { checkModule, initializeBinding } from './bindings';
 import { Tree } from './tree';
 
-interface ParseOptions {
+export interface ParseOptions {
   includedRanges?: Range[];
-  progressCallback?: (percent: number) => void;
+  progressCallback?: (state: ParseState) => void;
 }
 
-type ParseCallback = ((index: number, position: Point) => string) | string;
-type LogCallback = ((message: string, type: number, row: number, column: number) => void) | null;
+export interface ParseState {
+  currentOffset: number;
+}
 
 // Global variable for transferring data across the FFI boundary
 export let TRANSFER_BUFFER: number;
@@ -18,21 +19,23 @@ export let TRANSFER_BUFFER: number;
 let VERSION: number;
 let MIN_COMPATIBLE_VERSION: number;
 
-// declare let currentParseCallback: ((index: number, position: Point) => string) | null;
-// // eslint-disable-next-line @typescript-eslint/no-unused-vars
-// declare let currentLogCallback: LogCallback;
-// // eslint-disable-next-line @typescript-eslint/no-unused-vars
-// declare let currentProgressCallback: ((percent: number) => void) | null;
-
 export class Parser {
-  protected [0] = 0;
-  protected [1] = 0;
-  protected language: Language | null = null;
-  protected logCallback: LogCallback = null;
-  static Language: typeof Language;
+  /** @internal */
+  private [0] = 0; // Internal handle for WASM
 
-  // This must always be called before creating a Parser.
-  static async init(moduleOptions: EmscriptenModule) {
+  /** @internal */
+  private [1] = 0; // Internal handle for WASM
+
+  /** @internal */
+  private language: Language | null = null;
+
+  /** @internal */
+  private logCallback: LogCallback | null = null;
+
+  /**
+   * This must always be called before creating a Parser.
+   */
+  static async init(moduleOptions?: EmscriptenModule) {
     setModule(await initializeBinding(moduleOptions));
     TRANSFER_BUFFER = C._ts_init();
     VERSION = C.getValue(TRANSFER_BUFFER, 'i32');
@@ -87,7 +90,7 @@ export class Parser {
   }
 
   parse(
-    callback: ParseCallback,
+    callback: string | ParseCallback,
     oldTree?: Tree | null,
     options: ParseOptions = {}
   ): Tree {
@@ -181,7 +184,7 @@ export class Parser {
     C._ts_parser_set_timeout_micros(this[0], 0, timeout);
   }
 
-  setLogger(callback: LogCallback): this {
+  setLogger(callback: LogCallback | boolean | null): this {
     if (!callback) {
       this.logCallback = null;
     } else if (typeof callback !== 'function') {
@@ -192,7 +195,7 @@ export class Parser {
     return this;
   }
 
-  getLogger(): LogCallback {
+  getLogger(): LogCallback | null {
     return this.logCallback;
   }
 }

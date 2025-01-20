@@ -3,9 +3,7 @@ import { Node } from './node';
 import { marshalNode, unmarshalCaptures } from './marshal';
 import { TRANSFER_BUFFER } from './parser';
 
-// let currentQueryProgressCallback: ((percent: number) => void) | null = null;
-
-interface QueryOptions {
+export interface QueryOptions {
   startPosition?: Point;
   endPosition?: Point;
   startIndex?: number;
@@ -13,7 +11,11 @@ interface QueryOptions {
   matchLimit?: number;
   maxStartDepth?: number;
   timeoutMicros?: number;
-  progressCallback?: (percent: number) => void;
+  progressCallback?: (state: QueryState) => void;
+}
+
+export interface QueryState {
+  currentOffset: number;
 }
 
 export type Properties = Record<string, string | null>;
@@ -23,7 +25,7 @@ export interface Predicate {
   operands: PredicateStep[];
 }
 
-export interface Capture {
+export interface QueryCapture {
   name: string;
   node: Node;
   setProperties?: Properties;
@@ -43,7 +45,7 @@ export type CaptureQuantifier = typeof CaptureQuantifier[keyof typeof CaptureQua
 
 export interface QueryMatch {
   pattern: number;
-  captures: Capture[];
+  captures: QueryCapture[];
   setProperties?: Properties;
   assertedProperties?: Properties;
   refutedProperties?: Properties;
@@ -53,11 +55,16 @@ export type PredicateStep =
   | { type: 'string'; value: string }
   | { type: 'capture'; value?: string, name: string };
 
-export type TextPredicate = (captures: Capture[]) => boolean;
+export type TextPredicate = (captures: QueryCapture[]) => boolean;
 
 export class Query {
-  private [0]: number; // Internal handle for WASM
+  /** @internal */
+  private [0] = 0; // Internal handle for WASM
+
+  /** @internal */
   private exceededMatchLimit: boolean;
+
+  /** @internal */
   private textPredicates: TextPredicate[][];
 
   readonly captureNames: string[];
@@ -159,7 +166,7 @@ export class Query {
       const captureCount = C.getValue(address, 'i32');
       address += SIZE_OF_INT;
 
-      const captures = new Array<Capture>(captureCount);
+      const captures = new Array<QueryCapture>(captureCount);
       address = unmarshalCaptures(this, node.tree, address, captures);
 
       if (this.textPredicates[pattern].every((p) => p(captures))) {
@@ -183,7 +190,7 @@ export class Query {
   captures(
     node: Node,
     options: QueryOptions = {}
-  ): Capture[] {
+  ): QueryCapture[] {
     const startPosition = options.startPosition ?? ZERO_POINT;
     const endPosition = options.endPosition ?? ZERO_POINT;
     const startIndex = options.startIndex ?? 0;
@@ -232,10 +239,10 @@ export class Query {
     const count = C.getValue(TRANSFER_BUFFER, 'i32');
     const startAddress = C.getValue(TRANSFER_BUFFER + SIZE_OF_INT, 'i32');
     const didExceedMatchLimit = C.getValue(TRANSFER_BUFFER + 2 * SIZE_OF_INT, 'i32');
-    const result: Capture[] = [];
+    const result: QueryCapture[] = [];
     this.exceededMatchLimit = Boolean(didExceedMatchLimit);
 
-    const captures: Capture[] = [];
+    const captures: QueryCapture[] = [];
     let address = startAddress;
     for (let i = 0; i < count; i++) {
       const pattern = C.getValue(address, 'i32');

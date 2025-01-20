@@ -5,15 +5,19 @@ import { TRANSFER_BUFFER } from './parser';
 import { getText, Tree } from './tree';
 
 export class TreeCursor {
-  // @ts-expect-error Internal handle for WASM
-  private [0]: number;
-  // @ts-expect-error Internal handle for WASM
-  private [1]: number;
-  // @ts-expect-error Internal handle for WASM
-  private [2]: number;
-  // @ts-expect-error Internal handle for WASM
-  private [3]: number;
+  /** @internal */
+  private [0] = 0; // Internal handle for WASM
 
+  /** @internal */
+  private [1] = 0; // Internal handle for WASM
+
+  /** @internal */
+  private [2] = 0; // Internal handle for WASM
+
+  /** @internal */
+  private [3] = 0; // Internal handle for WASM
+
+  /** @internal */
   private tree: Tree;
 
   constructor(internal: Internal, tree: Tree) {
@@ -109,10 +113,10 @@ export class TreeCursor {
     return C._ts_tree_cursor_end_index_wasm(this.tree[0]);
   }
 
-  get currentNode(): Node | null {
+  get currentNode(): Node {
     marshalTreeCursor(this);
     C._ts_tree_cursor_current_node_wasm(this.tree[0]);
-    return unmarshalNode(this.tree);
+    return unmarshalNode(this.tree)!;
   }
 
   get currentFieldId(): number {
