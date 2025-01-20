@@ -1,3 +1,5 @@
+import { Parser, Language } from './tree-sitter.js';
+
 function initializeLocalTheme() {
   const themeToggle = document.getElementById('theme-toggle');
   if (!themeToggle) return;
@@ -60,7 +62,7 @@ function initializeCustomSelect({ initialValue = null, addListeners = false }) {
   }
 }
 
-window.initializePlayground = async function initializePlayground(opts) {
+export async function initializePlayground(opts) {
   const { local } = opts;
   if (local) {
     initializeLocalTheme();
@@ -120,9 +122,9 @@ window.initializePlayground = async function initializePlayground(opts) {
 
   loadState();
 
-  await TreeSitter.init();
+  await Parser.init();
 
-  const parser = new TreeSitter();
+  const parser = new Parser();
 
   console.log(parser, codeInput, queryInput);
 
@@ -173,7 +175,7 @@ window.initializePlayground = async function initializePlayground(opts) {
   loggingCheckbox.addEventListener("change", handleLoggingChange);
   anonymousNodes.addEventListener('change', renderTree);
   queryCheckbox.addEventListener("change", handleQueryEnableChange);
-  accessibilityCheckbox.addEventListener("change",handleQueryChange);
+  accessibilityCheckbox.addEventListener("change", handleQueryChange);
   languageSelect.addEventListener("change", handleLanguageChange);
   outputContainer.addEventListener("click", handleTreeClick);
 
@@ -188,7 +190,7 @@ window.initializePlayground = async function initializePlayground(opts) {
       const url = `${LANGUAGE_BASE_URL}/tree-sitter-${newLanguageName}.wasm`;
       languageSelect.disabled = true;
       try {
-        languagesByName[newLanguageName] = await TreeSitter.Language.load(url);
+        languagesByName[newLanguageName] = await Language.load(url);
       } catch (e) {
         console.error(e);
         languageSelect.value = languageName;
@@ -396,7 +398,7 @@ window.initializePlayground = async function initializePlayground(opts) {
       const queryText = queryEditor.getValue();
 
       try {
-        query = parser.getLanguage().query(queryText);
+        query = parser.language.query(queryText);
         let match;
 
         let row = 0;
