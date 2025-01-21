@@ -1850,10 +1850,14 @@ static unsigned ts_parser__condense_stack(TSParser *self) {
 static bool ts_parser__balance_subtree(TSParser *self) {
   Subtree finished_tree = self->finished_tree;
 
-  array_clear(&self->tree_pool.tree_stack);
-
-  if (!self->canceled_balancing && ts_subtree_child_count(finished_tree) > 0 && finished_tree.ptr->ref_count == 1) {
-    array_push(&self->tree_pool.tree_stack, ts_subtree_to_mut_unsafe(finished_tree));
+  // If we haven't canceled balancing in progress before, then we want to clear the tree stack and
+  // push the initial finished tree onto it. Otherwise, if we're resuming balancing after a
+  // cancellation, we don't want to clear the tree stack.
+  if (!self->canceled_balancing) {
+    array_clear(&self->tree_pool.tree_stack);
+    if (ts_subtree_child_count(finished_tree) > 0 && finished_tree.ptr->ref_count == 1) {
+      array_push(&self->tree_pool.tree_stack, ts_subtree_to_mut_unsafe(finished_tree));
+    }
   }
 
   while (self->tree_pool.tree_stack.size > 0) {
