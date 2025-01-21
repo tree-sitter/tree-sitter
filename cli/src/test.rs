@@ -6,6 +6,7 @@ use std::{
     io::{self, Write},
     path::{Path, PathBuf},
     str,
+    sync::LazyLock,
     time::Duration,
 };
 
@@ -13,7 +14,6 @@ use anstyle::{AnsiColor, Color, Style};
 use anyhow::{anyhow, Context, Result};
 use clap::ValueEnum;
 use indoc::indoc;
-use lazy_static::lazy_static;
 use regex::{
     bytes::{Regex as ByteRegex, RegexBuilder as ByteRegexBuilder},
     Regex,
@@ -25,29 +25,36 @@ use walkdir::WalkDir;
 use super::util;
 use crate::parse::Stats;
 
-lazy_static! {
-    static ref HEADER_REGEX: ByteRegex = ByteRegexBuilder::new(
+static HEADER_REGEX: LazyLock<ByteRegex> = LazyLock::new(|| {
+    ByteRegexBuilder::new(
         r"^(?x)
            (?P<equals>(?:=+){3,})
            (?P<suffix1>[^=\r\n][^\r\n]*)?
            \r?\n
            (?P<test_name_and_markers>(?:([^=\r\n]|\s+:)[^\r\n]*\r?\n)+)
            ===+
-           (?P<suffix2>[^=\r\n][^\r\n]*)?\r?\n"
+           (?P<suffix2>[^=\r\n][^\r\n]*)?\r?\n",
     )
     .multi_line(true)
     .build()
-    .unwrap();
-    static ref DIVIDER_REGEX: ByteRegex =
-        ByteRegexBuilder::new(r"^(?P<hyphens>(?:-+){3,})(?P<suffix>[^-\r\n][^\r\n]*)?\r?\n")
-            .multi_line(true)
-            .build()
-            .unwrap();
-    static ref COMMENT_REGEX: Regex = Regex::new(r"(?m)^\s*;.*$").unwrap();
-    static ref WHITESPACE_REGEX: Regex = Regex::new(r"\s+").unwrap();
-    static ref SEXP_FIELD_REGEX: Regex = Regex::new(r" \w+: \(").unwrap();
-    static ref POINT_REGEX: Regex = Regex::new(r"\s*\[\s*\d+\s*,\s*\d+\s*\]\s*").unwrap();
-}
+    .unwrap()
+});
+
+static DIVIDER_REGEX: LazyLock<ByteRegex> = LazyLock::new(|| {
+    ByteRegexBuilder::new(r"^(?P<hyphens>(?:-+){3,})(?P<suffix>[^-\r\n][^\r\n]*)?\r?\n")
+        .multi_line(true)
+        .build()
+        .unwrap()
+});
+
+static COMMENT_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?m)^\s*;.*$").unwrap());
+
+static WHITESPACE_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\s+").unwrap());
+
+static SEXP_FIELD_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r" \w+: \(").unwrap());
+
+static POINT_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\s*\[\s*\d+\s*,\s*\d+\s*\]\s*").unwrap());
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum TestEntry {

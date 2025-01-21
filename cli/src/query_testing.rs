@@ -1,14 +1,11 @@
-use std::{fs, path::Path};
+use std::{fs, path::Path, sync::LazyLock};
 
 use anyhow::{anyhow, Result};
 use bstr::{BStr, ByteSlice};
-use lazy_static::lazy_static;
 use regex::Regex;
 use tree_sitter::{Language, Parser, Point};
 
-lazy_static! {
-    static ref CAPTURE_NAME_REGEX: Regex = Regex::new("[\\w_\\-.]+").unwrap();
-}
+static CAPTURE_NAME_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new("[\\w_\\-.]+").unwrap());
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Utf8Point {

@@ -14,6 +14,7 @@ use std::{
     mem,
     path::{Path, PathBuf},
     process::Command,
+    sync::LazyLock,
     time::SystemTime,
 };
 
@@ -23,7 +24,6 @@ use anyhow::{anyhow, Context, Result};
 use etcetera::BaseStrategy as _;
 use fs4::fs_std::FileExt;
 use indoc::indoc;
-use lazy_static::lazy_static;
 use libloading::{Library, Symbol};
 use once_cell::unsync::OnceCell;
 use path_slash::PathBufExt as _;
@@ -41,9 +41,8 @@ use tree_sitter_highlight::HighlightConfiguration;
 use tree_sitter_tags::{Error as TagsError, TagsConfiguration};
 use url::Url;
 
-lazy_static! {
-    static ref GRAMMAR_NAME_REGEX: Regex = Regex::new(r#""name":\s*"(.*?)""#).unwrap();
-}
+static GRAMMAR_NAME_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r#""name":\s*"(.*?)""#).unwrap());
 
 pub const EMSCRIPTEN_TAG: &str = concat!("docker.io/emscripten/emsdk:", env!("EMSCRIPTEN_VERSION"));
 

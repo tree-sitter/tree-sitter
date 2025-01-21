@@ -3,12 +3,12 @@ use std::{
     io::Write,
     path::{Path, PathBuf},
     process::{Command, Stdio},
+    sync::LazyLock,
 };
 
 use anyhow::Result;
 use build_tables::build_tables;
 use grammars::InputGrammar;
-use lazy_static::lazy_static;
 pub use node_types::VariableInfoError;
 use parse_grammar::parse_grammar;
 pub use parse_grammar::ParseGrammarError;
@@ -34,12 +34,12 @@ pub use build_tables::ParseTableBuilderError;
 use serde::Serialize;
 use thiserror::Error;
 
-lazy_static! {
-    static ref JSON_COMMENT_REGEX: Regex = RegexBuilder::new("^\\s*//.*")
+static JSON_COMMENT_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    RegexBuilder::new("^\\s*//.*")
         .multi_line(true)
         .build()
-        .unwrap();
-}
+        .unwrap()
+});
 
 struct GeneratedParser {
     c_code: String,

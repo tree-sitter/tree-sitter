@@ -1,7 +1,6 @@
-use std::{env, fmt::Write};
+use std::{env, fmt::Write, sync::LazyLock};
 
 use indoc::indoc;
-use lazy_static::lazy_static;
 use rand::{prelude::StdRng, SeedableRng};
 use streaming_iterator::StreamingIterator;
 use tree_sitter::{
@@ -22,9 +21,8 @@ use crate::tests::{
     ITERATION_COUNT,
 };
 
-lazy_static! {
-    static ref EXAMPLE_FILTER: Option<String> = env::var("TREE_SITTER_TEST_EXAMPLE_FILTER").ok();
-}
+static EXAMPLE_FILTER: LazyLock<Option<String>> =
+    LazyLock::new(|| env::var("TREE_SITTER_TEST_EXAMPLE_FILTER").ok());
 
 #[test]
 fn test_query_errors_on_invalid_syntax() {

@@ -5,13 +5,12 @@ use std::{
     io::{self, Write as _},
     path::{self, Path, PathBuf},
     str,
-    sync::{atomic::AtomicUsize, Arc},
+    sync::{atomic::AtomicUsize, Arc, LazyLock},
     time::Instant,
 };
 
 use anstyle::{Ansi256Color, AnsiColor, Color, Effects, RgbColor};
 use anyhow::Result;
-use lazy_static::lazy_static;
 use serde::{ser::SerializeMap, Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{json, Value};
 use tree_sitter_highlight::{HighlightConfiguration, HighlightEvent, Highlighter, HtmlRenderer};
@@ -45,10 +44,8 @@ pub const HTML_FOOTER: &str = "
 </body>
 ";
 
-lazy_static! {
-    static ref CSS_STYLES_BY_COLOR_ID: Vec<String> =
-        serde_json::from_str(include_str!("../vendor/xterm-colors.json")).unwrap();
-}
+static CSS_STYLES_BY_COLOR_ID: LazyLock<Vec<String>> =
+    LazyLock::new(|| serde_json::from_str(include_str!("../vendor/xterm-colors.json")).unwrap());
 
 #[derive(Debug, Default)]
 pub struct Style {

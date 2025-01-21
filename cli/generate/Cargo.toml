@@ -20,7 +20,6 @@ anyhow.workspace = true
 heck.workspace = true
 indexmap.workspace = true
 indoc.workspace = true
-lazy_static.workspace = true
 log.workspace = true
 regex.workspace = true
 regex-syntax.workspace = true

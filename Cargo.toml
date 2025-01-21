@@ -118,7 +118,6 @@ heck = "0.5.0"
 html-escape = "0.2.13"
 indexmap = "2.7.0"
 indoc = "2.0.5"
-lazy_static = "1.5.0"
 libloading = "0.8.6"
 log = { version = "0.4.22", features = ["std"] }
 memchr = "2.7.4"
