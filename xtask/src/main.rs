@@ -305,6 +305,8 @@ macro_rules! watch_wasm {
     ($watch_fn:expr) => {
         if let Err(e) = $watch_fn() {
             eprintln!("{e}");
+        } else {
+            println!("Build succeeded");
         }
 
         let watch_files = [
@@ -335,6 +337,8 @@ macro_rules! watch_wasm {
                         {
                             if let Err(e) = $watch_fn() {
                                 eprintln!("{e}");
+                            } else {
+                                println!("Build succeeded");
                             }
                         }
                     }
