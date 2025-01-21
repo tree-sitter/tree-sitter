@@ -2,9 +2,8 @@ use std::{
     cmp::Ordering,
     fmt,
     hash::{Hash, Hasher},
+    sync::LazyLock,
 };
-
-use lazy_static::lazy_static;
 
 use crate::{
     grammars::{
@@ -14,22 +13,20 @@ use crate::{
     rules::{Associativity, Precedence, Symbol, SymbolType, TokenSet},
 };
 
-lazy_static! {
-    static ref START_PRODUCTION: Production = Production {
-        dynamic_precedence: 0,
-        steps: vec![ProductionStep {
-            symbol: Symbol {
-                index: 0,
-                kind: SymbolType::NonTerminal,
-            },
-            precedence: Precedence::None,
-            associativity: None,
-            alias: None,
-            field_name: None,
-            reserved_word_set_id: NO_RESERVED_WORDS,
-        }],
-    };
-}
+static START_PRODUCTION: LazyLock<Production> = LazyLock::new(|| Production {
+    dynamic_precedence: 0,
+    steps: vec![ProductionStep {
+        symbol: Symbol {
+            index: 0,
+            kind: SymbolType::NonTerminal,
+        },
+        precedence: Precedence::None,
+        associativity: None,
+        alias: None,
+        field_name: None,
+        reserved_word_set_id: NO_RESERVED_WORDS,
+    }],
+});
 
 /// A [`ParseItem`] represents an in-progress match of a single production in a grammar.
 #[derive(Clone, Copy, Debug)]

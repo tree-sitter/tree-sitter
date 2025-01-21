@@ -8,11 +8,13 @@ use std::{
     marker::PhantomData,
     mem::{self, MaybeUninit},
     ops, str,
-    sync::atomic::{AtomicUsize, Ordering},
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        LazyLock,
+    },
 };
 
 pub use c_lib as c;
-use lazy_static::lazy_static;
 use streaming_iterator::StreamingIterator;
 use thiserror::Error;
 use tree_sitter::{
@@ -24,8 +26,8 @@ const CANCELLATION_CHECK_INTERVAL: usize = 100;
 const BUFFER_HTML_RESERVE_CAPACITY: usize = 10 * 1024;
 const BUFFER_LINES_RESERVE_CAPACITY: usize = 1000;
 
-lazy_static! {
-    static ref STANDARD_CAPTURE_NAMES: HashSet<&'static str> = vec![
+static STANDARD_CAPTURE_NAMES: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {
+    vec![
         "attribute",
         "boolean",
         "carriage-return",
@@ -80,8 +82,8 @@ lazy_static! {
         "variable.parameter",
     ]
     .into_iter()
-    .collect();
-}
+    .collect()
+});
 
 /// Indicates which highlight should be applied to a region of source code.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]

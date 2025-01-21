@@ -1,6 +1,5 @@
-use std::fs;
+use std::{fs, sync::LazyLock};
 
-use lazy_static::lazy_static;
 use streaming_iterator::StreamingIterator;
 use tree_sitter::{
     wasmtime::Engine, Parser, Query, QueryCursor, WasmError, WasmErrorKind, WasmStore,
@@ -8,9 +7,7 @@ use tree_sitter::{
 
 use crate::tests::helpers::{allocations, fixtures::WASM_DIR};
 
-lazy_static! {
-    static ref ENGINE: Engine = Engine::default();
-}
+static ENGINE: LazyLock<Engine> = LazyLock::new(Engine::default);
 
 #[test]
 fn test_wasm_stdlib_symbols() {

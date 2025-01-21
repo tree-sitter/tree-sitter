@@ -1,6 +1,5 @@
-use std::{collections::HashMap, env, fs, path::Path};
+use std::{collections::HashMap, env, fs, path::Path, sync::LazyLock};
 
-use lazy_static::lazy_static;
 use rand::Rng;
 use regex::Regex;
 use tree_sitter::{Language, Parser};
@@ -23,16 +22,27 @@ use crate::{
     test::{parse_tests, print_diff, print_diff_key, strip_sexp_fields, TestEntry},
 };
 
-lazy_static! {
-    pub static ref LOG_ENABLED: bool = env::var("TREE_SITTER_LOG").is_ok();
-    pub static ref LOG_GRAPH_ENABLED: bool = env::var("TREE_SITTER_LOG_GRAPHS").is_ok();
-    pub static ref LANGUAGE_FILTER: Option<String> = env::var("TREE_SITTER_LANGUAGE").ok();
-    pub static ref EXAMPLE_INCLUDE: Option<Regex> = regex_env_var("TREE_SITTER_EXAMPLE_INCLUDE");
-    pub static ref EXAMPLE_EXCLUDE: Option<Regex> = regex_env_var("TREE_SITTER_EXAMPLE_EXCLUDE");
-    pub static ref START_SEED: usize = new_seed();
-    pub static ref EDIT_COUNT: usize = int_env_var("TREE_SITTER_EDITS").unwrap_or(3);
-    pub static ref ITERATION_COUNT: usize = int_env_var("TREE_SITTER_ITERATIONS").unwrap_or(10);
-}
+pub static LOG_ENABLED: LazyLock<bool> = LazyLock::new(|| env::var("TREE_SITTER_LOG").is_ok());
+
+pub static LOG_GRAPH_ENABLED: LazyLock<bool> =
+    LazyLock::new(|| env::var("TREE_SITTER_LOG_GRAPHS").is_ok());
+
+pub static LANGUAGE_FILTER: LazyLock<Option<String>> =
+    LazyLock::new(|| env::var("TREE_SITTER_LANGUAGE").ok());
+
+pub static EXAMPLE_INCLUDE: LazyLock<Option<Regex>> =
+    LazyLock::new(|| regex_env_var("TREE_SITTER_EXAMPLE_INCLUDE"));
+
+pub static EXAMPLE_EXCLUDE: LazyLock<Option<Regex>> =
+    LazyLock::new(|| regex_env_var("TREE_SITTER_EXAMPLE_EXCLUDE"));
+
+pub static START_SEED: LazyLock<usize> = LazyLock::new(new_seed);
+
+pub static EDIT_COUNT: LazyLock<usize> =
+    LazyLock::new(|| int_env_var("TREE_SITTER_EDITS").unwrap_or(3));
+
+pub static ITERATION_COUNT: LazyLock<usize> =
+    LazyLock::new(|| int_env_var("TREE_SITTER_ITERATIONS").unwrap_or(10));
 
 fn int_env_var(name: &'static str) -> Option<usize> {
     env::var(name).ok().and_then(|e| e.parse().ok())
