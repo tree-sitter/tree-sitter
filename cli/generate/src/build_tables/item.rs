@@ -192,7 +192,7 @@ impl fmt::Display for ParseItemDisplay<'_> {
             write!(
                 f,
                 "{} →",
-                &self.1.variables[self.0.variable_index as usize].name
+                self.1.variables[self.0.variable_index as usize].name
             )?;
         }
 
@@ -220,14 +220,14 @@ impl fmt::Display for ParseItemDisplay<'_> {
             write!(f, " ")?;
             if step.symbol.is_terminal() {
                 if let Some(variable) = self.2.variables.get(step.symbol.index) {
-                    write!(f, "{}", &variable.name)?;
+                    write!(f, "{}", variable.name)?;
                 } else {
                     write!(f, "terminal-{}", step.symbol.index)?;
                 }
             } else if step.symbol.is_external() {
-                write!(f, "{}", &self.1.external_tokens[step.symbol.index].name)?;
+                write!(f, "{}", self.1.external_tokens[step.symbol.index].name)?;
             } else {
-                write!(f, "{}", &self.1.variables[step.symbol.index].name)?;
+                write!(f, "{}", self.1.variables[step.symbol.index].name)?;
             }
 
             if let Some(alias) = &step.alias {
@@ -295,9 +295,9 @@ impl fmt::Display for TokenSetDisplay<'_> {
                     write!(f, "terminal-{}", symbol.index)?;
                 }
             } else if symbol.is_external() {
-                write!(f, "{}", &self.1.external_tokens[symbol.index].name)?;
+                write!(f, "{}", self.1.external_tokens[symbol.index].name)?;
             } else {
-                write!(f, "{}", &self.1.variables[symbol.index].name)?;
+                write!(f, "{}", self.1.variables[symbol.index].name)?;
             }
         }
         write!(f, "]")?;
