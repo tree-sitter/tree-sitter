@@ -97,7 +97,7 @@ pub fn test_tags_indented(
                 })?;
             let tags_config = language_config
                 .tags_config(language)?
-                .ok_or_else(|| anyhow!("No tags config found for {:?}", test_file_path))?;
+                .ok_or_else(|| anyhow!("No tags config found for {test_file_path:?}"))?;
             match test_tag(
                 tags_context,
                 tags_config,

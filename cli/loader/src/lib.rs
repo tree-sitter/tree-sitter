@@ -1343,7 +1343,7 @@ impl Loader {
             .with_context(|| {
                 format!(
                     "Failed to load language for file name {}",
-                    &path.file_name().unwrap().to_string_lossy()
+                    path.file_name().unwrap().to_string_lossy()
                 )
             })?
         {

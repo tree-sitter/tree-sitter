@@ -387,7 +387,7 @@ impl Generator {
             self.parse_table.symbols.len()
         );
         add_line!(self, "#define ALIAS_COUNT {}", self.unique_aliases.len());
-        add_line!(self, "#define TOKEN_COUNT {}", token_count);
+        add_line!(self, "#define TOKEN_COUNT {token_count}");
         add_line!(
             self,
             "#define EXTERNAL_TOKEN_COUNT {}",
@@ -991,7 +991,7 @@ impl Generator {
                 add!(
                     self,
                     "set_contains({}, {}, lookahead)",
-                    &char_set_info.constant_name,
+                    char_set_info.constant_name,
                     large_set.range_count(),
                 );
                 if check_eof {
@@ -1150,7 +1150,7 @@ impl Generator {
         indent!(self);
         for (i, state) in self.parse_table.states.iter().enumerate() {
             add_whitespace!(self);
-            add!(self, "[{}] = {{", i);
+            add!(self, "[{i}] = {{");
             if state.is_end_of_non_terminal_extra() {
                 add!(self, "(TSStateId)(-1),");
             } else {
@@ -1190,7 +1190,7 @@ impl Generator {
             if id == 0 {
                 continue;
             }
-            add_line!(self, "[{}] = {{", id);
+            add_line!(self, "[{id}] = {{");
             indent!(self);
             for token in set.iter() {
                 add_line!(self, "{},", self.symbol_ids[&token]);
@@ -1250,7 +1250,7 @@ impl Generator {
         indent!(self);
         for i in 0..self.parse_table.external_lex_states.len() {
             if !self.parse_table.external_lex_states[i].is_empty() {
-                add_line!(self, "[{}] = {{", i);
+                add_line!(self, "[{i}] = {{");
                 indent!(self);
                 for token in self.parse_table.external_lex_states[i].iter() {
                     add_line!(
