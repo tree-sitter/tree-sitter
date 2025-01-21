@@ -89,6 +89,9 @@ struct BuildWasm {
     /// requires `tsc` to be available.
     #[arg(long, short)]
     emit_tsd: bool,
+    /// Generate `CommonJS` modules instead of ES modules.
+    #[arg(long, short, env = "CJS")]
+    cjs: bool,
 }
 
 #[derive(Args)]

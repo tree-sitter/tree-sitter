@@ -134,7 +134,19 @@ pub fn run_wasm(args: &BuildWasm) -> Result<()> {
         EXPORTED_RUNTIME_METHODS.join(",")
     );
 
-    std::env::set_var("EMCC_DEBUG_SAVE", "1");
+    // Clean up old files from prior runs
+    for file in [
+        "tree-sitter.mjs",
+        "tree-sitter.cjs",
+        "tree-sitter.wasm",
+        "tree-sitter.wasm.map",
+    ] {
+        fs::remove_file(PathBuf::from("lib/binding_web/lib").join(file)).ok();
+    }
+
+    if !args.cjs {
+        emscripten_flags.extend(["-s", "EXPORT_ES6=1"]);
+    }
 
     #[rustfmt::skip]
     emscripten_flags.extend([
@@ -143,7 +155,6 @@ pub fn run_wasm(args: &BuildWasm) -> Result<()> {
         "-fno-exceptions",
         "-std=c11",
         "-s", "WASM=1",
-        "-s", "EXPORT_ES6=1",
         "-s", "MODULARIZE=1",
         "-s", "INITIAL_MEMORY=33554432",
         "-s", "ALLOW_MEMORY_GROWTH=1",
@@ -162,7 +173,7 @@ pub fn run_wasm(args: &BuildWasm) -> Result<()> {
         "-I", "lib/include",
         "--js-library", "lib/binding_web/lib/imports.js",
         "--pre-js",     "lib/binding_web/lib/prefix.js",
-        "-o",           "lib/binding_web/lib/tree-sitter.js",
+        "-o",           if args.cjs { "lib/binding_web/lib/tree-sitter.cjs" } else { "lib/binding_web/lib/tree-sitter.mjs" },
         "lib/src/lib.c",
         "lib/binding_web/lib/tree-sitter.c",
     ]);
