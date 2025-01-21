@@ -359,7 +359,8 @@ fn test_feature_corpus_files() {
         }
         let error_message_path = test_path.join("expected_error.txt");
         let grammar_json = tree_sitter_generate::load_grammar_file(&grammar_path, None).unwrap();
-        let generate_result = tree_sitter_generate::generate_parser_for_grammar(&grammar_json);
+        let generate_result =
+            tree_sitter_generate::generate_parser_for_grammar(&grammar_json, Some((0, 0, 0)));
 
         if error_message_path.exists() {
             if EXAMPLE_INCLUDE.is_some() || EXAMPLE_EXCLUDE.is_some() {

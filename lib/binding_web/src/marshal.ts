@@ -5,6 +5,7 @@ import { Tree } from "./tree";
 import { Query, QueryCapture, type QueryMatch } from "./query";
 import { TreeCursor } from "./tree_cursor";
 import { TRANSFER_BUFFER } from "./parser";
+import { LanguageMetadata } from "./language";
 
 /**
  * @internal
@@ -160,4 +161,17 @@ export function marshalEdit(edit: Edit, address = TRANSFER_BUFFER) {
   C.setValue(address, edit.startIndex, 'i32'); address += SIZE_OF_INT;
   C.setValue(address, edit.oldEndIndex, 'i32'); address += SIZE_OF_INT;
   C.setValue(address, edit.newEndIndex, 'i32'); address += SIZE_OF_INT;
+}
+
+/**
+ * @internal
+ *
+ * Unmarshals a {@link LanguageMetadata} from the transfer buffer.
+ */
+export function unmarshalLanguageMetadata(address: number): LanguageMetadata {
+  const result = {} as LanguageMetadata;
+  result.major_version = C.getValue(address, 'i32'); address += SIZE_OF_INT;
+  result.minor_version = C.getValue(address, 'i32'); address += SIZE_OF_INT;
+  result.field_count = C.getValue(address, 'i32');
+  return result;
 }

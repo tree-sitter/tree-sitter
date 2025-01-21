@@ -110,6 +110,17 @@ static TSInputEdit unmarshal_edit() {
   return edit;
 }
 
+static void marshal_language_metadata(const TSLanguageMetadata *metadata) {
+  if (metadata == NULL) {
+    TRANSFER_BUFFER[0] = 0;
+    return;
+  }
+  TRANSFER_BUFFER[0] = (const void*)3;
+  TRANSFER_BUFFER[1] = (const void*)(uint32_t)metadata->major_version;
+  TRANSFER_BUFFER[2] = (const void*)(uint32_t)metadata->minor_version;
+  TRANSFER_BUFFER[3] = (const void*)(uint32_t)metadata->patch_version;
+}
+
 /********************/
 /* Section - Parser */
 /********************/
@@ -240,6 +251,11 @@ int ts_language_type_is_named_wasm(const TSLanguage *self, TSSymbol typeId) {
 int ts_language_type_is_visible_wasm(const TSLanguage *self, TSSymbol typeId) {
   const TSSymbolType symbolType = ts_language_symbol_type(self, typeId);
   return symbolType <= TSSymbolTypeAnonymous;
+}
+
+void ts_language_metadata_wasm(const TSLanguage *self) {
+  const TSLanguageMetadata *metadata = ts_language_metadata(self);
+  marshal_language_metadata(metadata);
 }
 
 void ts_language_supertypes_wasm(const TSLanguage *self) {

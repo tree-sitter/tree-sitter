@@ -1977,8 +1977,8 @@ bool ts_parser_set_language(TSParser *self, const TSLanguage *language) {
 
   if (language) {
     if (
-      language->version > TREE_SITTER_LANGUAGE_VERSION ||
-      language->version < TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION
+      language->abi_version > TREE_SITTER_LANGUAGE_VERSION ||
+      language->abi_version < TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION
     ) return false;
 
     if (ts_language_is_wasm(language)) {

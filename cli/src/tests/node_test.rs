@@ -1,12 +1,12 @@
 use tree_sitter::{Node, Parser, Point, Tree};
-use tree_sitter_generate::{generate_parser_for_grammar, load_grammar_file};
+use tree_sitter_generate::load_grammar_file;
 
 use super::{
     get_random_edit,
     helpers::fixtures::{fixtures_dir, get_language, get_test_language},
     Rand,
 };
-use crate::parse::perform_edit;
+use crate::{parse::perform_edit, tests::generate_parser};
 
 const JSON_EXAMPLE: &str = r#"
 
@@ -317,7 +317,7 @@ fn test_next_sibling_of_zero_width_node() {
     )
     .unwrap();
 
-    let (parser_name, parser_code) = generate_parser_for_grammar(&grammar_json).unwrap();
+    let (parser_name, parser_code) = generate_parser(&grammar_json).unwrap();
 
     let mut parser = Parser::new();
     let language = get_test_language(&parser_name, &parser_code, None);
@@ -563,8 +563,7 @@ fn test_node_named_child() {
 
 #[test]
 fn test_node_named_child_with_aliases_and_extras() {
-    let (parser_name, parser_code) =
-        generate_parser_for_grammar(GRAMMAR_WITH_ALIASES_AND_EXTRAS).unwrap();
+    let (parser_name, parser_code) = generate_parser(GRAMMAR_WITH_ALIASES_AND_EXTRAS).unwrap();
 
     let mut parser = Parser::new();
     parser
@@ -871,7 +870,7 @@ fn test_node_sexp() {
 
 #[test]
 fn test_node_field_names() {
-    let (parser_name, parser_code) = generate_parser_for_grammar(
+    let (parser_name, parser_code) = generate_parser(
         r#"
         {
             "name": "test_grammar_with_fields",
@@ -981,7 +980,7 @@ fn test_node_field_names() {
 
 #[test]
 fn test_node_field_calls_in_language_without_fields() {
-    let (parser_name, parser_code) = generate_parser_for_grammar(
+    let (parser_name, parser_code) = generate_parser(
         r#"
         {
             "name": "test_grammar_with_no_fields",
@@ -1039,7 +1038,7 @@ fn test_node_is_named_but_aliased_as_anonymous() {
     )
     .unwrap();
 
-    let (parser_name, parser_code) = generate_parser_for_grammar(&grammar_json).unwrap();
+    let (parser_name, parser_code) = generate_parser(&grammar_json).unwrap();
 
     let mut parser = Parser::new();
     let language = get_test_language(&parser_name, &parser_code, None);

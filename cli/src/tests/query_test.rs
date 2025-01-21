@@ -8,7 +8,6 @@ use tree_sitter::{
     QueryCursorOptions, QueryError, QueryErrorKind, QueryPredicate, QueryPredicateArg,
     QueryProperty, Range,
 };
-use tree_sitter_generate::generate_parser_for_grammar;
 use unindent::Unindent;
 
 use super::helpers::{
@@ -17,6 +16,7 @@ use super::helpers::{
     query_helpers::{assert_query_matches, Match, Pattern},
 };
 use crate::tests::{
+    generate_parser,
     helpers::query_helpers::{collect_captures, collect_matches},
     ITERATION_COUNT,
 };
@@ -532,7 +532,7 @@ fn test_query_errors_on_impossible_patterns() {
             }
         );
 
-        if js_lang.version() >= 15 {
+        if js_lang.abi_version() >= 15 {
             assert_eq!(
                 Query::new(&js_lang, "(statement/identifier)").unwrap_err(),
                 QueryError {
@@ -5216,7 +5216,7 @@ fn test_grammar_with_aliased_literal_query() {
     //     expansion: $ => seq('}'),
     //   },
     // });
-    let (parser_name, parser_code) = generate_parser_for_grammar(
+    let (parser_name, parser_code) = generate_parser(
         r#"
         {
             "name": "test",

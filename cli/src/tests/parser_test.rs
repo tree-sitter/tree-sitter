@@ -6,7 +6,7 @@ use std::{
 use tree_sitter::{
     Decode, IncludedRangesError, InputEdit, LogType, ParseOptions, ParseState, Parser, Point, Range,
 };
-use tree_sitter_generate::{generate_parser_for_grammar, load_grammar_file};
+use tree_sitter_generate::load_grammar_file;
 use tree_sitter_proc_macro::retry;
 
 use super::helpers::{
@@ -17,7 +17,7 @@ use super::helpers::{
 use crate::{
     fuzz::edits::Edit,
     parse::perform_edit,
-    tests::{helpers::fixtures::fixtures_dir, invert_edit},
+    tests::{generate_parser, helpers::fixtures::fixtures_dir, invert_edit},
 };
 
 #[test]
@@ -486,7 +486,7 @@ fn test_parsing_after_editing_tree_that_depends_on_column_values() {
         .join("test_grammars")
         .join("uses_current_column");
     let grammar_json = load_grammar_file(&dir.join("grammar.js"), None).unwrap();
-    let (grammar_name, parser_code) = generate_parser_for_grammar(&grammar_json).unwrap();
+    let (grammar_name, parser_code) = generate_parser(&grammar_json).unwrap();
 
     let mut parser = Parser::new();
     parser
@@ -564,7 +564,7 @@ fn test_parsing_after_editing_tree_that_depends_on_column_position() {
         .join("depends_on_column");
 
     let grammar_json = load_grammar_file(&dir.join("grammar.js"), None).unwrap();
-    let (grammar_name, parser_code) = generate_parser_for_grammar(grammar_json.as_str()).unwrap();
+    let (grammar_name, parser_code) = generate_parser(grammar_json.as_str()).unwrap();
 
     let mut parser = Parser::new();
     parser
@@ -1475,7 +1475,7 @@ fn test_parsing_with_a_newly_included_range() {
 
 #[test]
 fn test_parsing_with_included_ranges_and_missing_tokens() {
-    let (parser_name, parser_code) = generate_parser_for_grammar(
+    let (parser_name, parser_code) = generate_parser(
         r#"{
             "name": "test_leading_missing_token",
             "rules": {
@@ -1536,7 +1536,7 @@ fn test_parsing_with_included_ranges_and_missing_tokens() {
 
 #[test]
 fn test_grammars_that_can_hang_on_eof() {
-    let (parser_name, parser_code) = generate_parser_for_grammar(
+    let (parser_name, parser_code) = generate_parser(
         r#"
         {
             "name": "test_single_null_char_regex",
@@ -1562,7 +1562,7 @@ fn test_grammars_that_can_hang_on_eof() {
         .unwrap();
     parser.parse("\"", None).unwrap();
 
-    let (parser_name, parser_code) = generate_parser_for_grammar(
+    let (parser_name, parser_code) = generate_parser(
         r#"
         {
             "name": "test_null_char_with_next_char_regex",
@@ -1587,7 +1587,7 @@ fn test_grammars_that_can_hang_on_eof() {
         .unwrap();
     parser.parse("\"", None).unwrap();
 
-    let (parser_name, parser_code) = generate_parser_for_grammar(
+    let (parser_name, parser_code) = generate_parser(
         r#"
         {
             "name": "test_null_char_with_range_regex",
@@ -1650,7 +1650,7 @@ if foo && bar || baz {}
 fn test_parsing_with_scanner_logging() {
     let dir = fixtures_dir().join("test_grammars").join("external_tokens");
     let grammar_json = load_grammar_file(&dir.join("grammar.js"), None).unwrap();
-    let (grammar_name, parser_code) = generate_parser_for_grammar(&grammar_json).unwrap();
+    let (grammar_name, parser_code) = generate_parser(&grammar_json).unwrap();
 
     let mut parser = Parser::new();
     parser
@@ -1674,7 +1674,7 @@ fn test_parsing_with_scanner_logging() {
 fn test_parsing_get_column_at_eof() {
     let dir = fixtures_dir().join("test_grammars").join("get_col_eof");
     let grammar_json = load_grammar_file(&dir.join("grammar.js"), None).unwrap();
-    let (grammar_name, parser_code) = generate_parser_for_grammar(&grammar_json).unwrap();
+    let (grammar_name, parser_code) = generate_parser(&grammar_json).unwrap();
 
     let mut parser = Parser::new();
     parser
@@ -1884,7 +1884,7 @@ fn test_decode_utf24le() {
 
 #[test]
 fn test_grammars_that_should_not_compile() {
-    assert!(generate_parser_for_grammar(
+    assert!(generate_parser(
         r#"
         {
             "name": "issue_1111",
@@ -1896,7 +1896,7 @@ fn test_grammars_that_should_not_compile() {
     )
     .is_err());
 
-    assert!(generate_parser_for_grammar(
+    assert!(generate_parser(
         r#"
         {
             "name": "issue_1271",
@@ -1911,11 +1911,11 @@ fn test_grammars_that_should_not_compile() {
                 }
             },
         }
-        "#,
+        "#
     )
     .is_err());
 
-    assert!(generate_parser_for_grammar(
+    assert!(generate_parser(
         r#"
         {
             "name": "issue_1156_expl_1",
@@ -1929,11 +1929,11 @@ fn test_grammars_that_should_not_compile() {
                 }
             },
         }
-    "#
+        "#
     )
     .is_err());
 
-    assert!(generate_parser_for_grammar(
+    assert!(generate_parser(
         r#"
         {
             "name": "issue_1156_expl_2",
@@ -1950,11 +1950,11 @@ fn test_grammars_that_should_not_compile() {
                 }
             },
         }
-    "#
+        "#
     )
     .is_err());
 
-    assert!(generate_parser_for_grammar(
+    assert!(generate_parser(
         r#"
         {
             "name": "issue_1156_expl_3",
@@ -1968,11 +1968,11 @@ fn test_grammars_that_should_not_compile() {
                 }
             },
         }
-    "#
+        "#
     )
     .is_err());
 
-    assert!(generate_parser_for_grammar(
+    assert!(generate_parser(
         r#"
         {
             "name": "issue_1156_expl_4",
@@ -1989,7 +1989,7 @@ fn test_grammars_that_should_not_compile() {
                 }
             },
         }
-    "#
+        "#
     )
     .is_err());
 }
