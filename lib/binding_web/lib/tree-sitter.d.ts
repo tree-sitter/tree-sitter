@@ -72,6 +72,8 @@ interface WasmModule {
   _ts_language_symbol_count(_0: number): number;
   _ts_language_state_count(_0: number): number;
   _ts_language_version(_0: number): number;
+  _ts_language_abi_version(_0: number): number;
+  _ts_language_metadata(_0: number): number;
   _ts_language_name(_0: number): number;
   _ts_language_field_count(_0: number): number;
   _ts_language_next_state(_0: number, _1: number, _2: number): number;

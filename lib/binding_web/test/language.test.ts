@@ -12,7 +12,7 @@ describe('Language', () => {
   describe('.name, .version', () => {
     it('returns the name and version of the language', () => {
       expect(JavaScript.name).toBe('javascript');
-      expect(JavaScript.version).toBe(15);
+      expect(JavaScript.abiVersion).toBe(15);
     });
   });
 

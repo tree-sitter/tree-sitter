@@ -7,16 +7,10 @@ use std::{
 };
 
 use anyhow::Result;
-use build_tables::build_tables;
-use grammars::InputGrammar;
-pub use node_types::VariableInfoError;
-use parse_grammar::parse_grammar;
-pub use parse_grammar::ParseGrammarError;
-use prepare_grammar::prepare_grammar;
-pub use prepare_grammar::PrepareGrammarError;
 use regex::{Regex, RegexBuilder};
-use render::render_c_code;
 use semver::Version;
+use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 mod build_tables;
 mod dedup;
@@ -30,9 +24,15 @@ mod render;
 mod rules;
 mod tables;
 
+use build_tables::build_tables;
 pub use build_tables::ParseTableBuilderError;
-use serde::Serialize;
-use thiserror::Error;
+use grammars::InputGrammar;
+pub use node_types::VariableInfoError;
+use parse_grammar::parse_grammar;
+pub use parse_grammar::ParseGrammarError;
+use prepare_grammar::prepare_grammar;
+pub use prepare_grammar::PrepareGrammarError;
+use render::render_c_code;
 
 static JSON_COMMENT_REGEX: LazyLock<Regex> = LazyLock::new(|| {
     RegexBuilder::new("^\\s*//.*")
@@ -67,6 +67,8 @@ pub enum GenerateError {
     VariableInfo(#[from] VariableInfoError),
     #[error(transparent)]
     BuildTables(#[from] ParseTableBuilderError),
+    #[error(transparent)]
+    ParseVersion(#[from] ParseVersionError),
 }
 
 impl From<std::io::Error> for GenerateError {
@@ -93,6 +95,16 @@ impl From<std::io::Error> for LoadGrammarError {
     fn from(value: std::io::Error) -> Self {
         Self::IO(value.to_string())
     }
+}
+
+#[derive(Debug, Error, Serialize)]
+pub enum ParseVersionError {
+    #[error("{0}")]
+    Version(String),
+    #[error("{0}")]
+    JSON(String),
+    #[error("{0}")]
+    IO(String),
 }
 
 pub type JSResult<T> = Result<T, JSError>;
@@ -178,11 +190,18 @@ pub fn generate_parser_in_directory(
     // Parse and preprocess the grammar.
     let input_grammar = parse_grammar(&grammar_json)?;
 
+    let semantic_version = read_grammar_version(&repo_path)?;
+
     // Generate the parser and related files.
     let GeneratedParser {
         c_code,
         node_types_json,
-    } = generate_parser_for_grammar_with_opts(&input_grammar, abi_version, report_symbol_name)?;
+    } = generate_parser_for_grammar_with_opts(
+        &input_grammar,
+        abi_version,
+        semantic_version.map(|v| (v.major as u8, v.minor as u8, v.patch as u8)),
+        report_symbol_name,
+    )?;
 
     write_file(&src_path.join("parser.c"), c_code)?;
     write_file(&src_path.join("node-types.json"), node_types_json)?;
@@ -193,17 +212,25 @@ pub fn generate_parser_in_directory(
     Ok(())
 }
 
-pub fn generate_parser_for_grammar(grammar_json: &str) -> GenerateResult<(String, String)> {
+pub fn generate_parser_for_grammar(
+    grammar_json: &str,
+    semantic_version: Option<(u8, u8, u8)>,
+) -> GenerateResult<(String, String)> {
     let grammar_json = JSON_COMMENT_REGEX.replace_all(grammar_json, "\n");
     let input_grammar = parse_grammar(&grammar_json)?;
-    let parser =
-        generate_parser_for_grammar_with_opts(&input_grammar, tree_sitter::LANGUAGE_VERSION, None)?;
+    let parser = generate_parser_for_grammar_with_opts(
+        &input_grammar,
+        tree_sitter::LANGUAGE_VERSION,
+        semantic_version,
+        None,
+    )?;
     Ok((input_grammar.name, parser.c_code))
 }
 
 fn generate_parser_for_grammar_with_opts(
     input_grammar: &InputGrammar,
     abi_version: usize,
+    semantic_version: Option<(u8, u8, u8)>,
     report_symbol_name: Option<&str>,
 ) -> GenerateResult<GeneratedParser> {
     let (syntax_grammar, lexical_grammar, inlines, simple_aliases) =
@@ -233,12 +260,62 @@ fn generate_parser_for_grammar_with_opts(
         lexical_grammar,
         simple_aliases,
         abi_version,
+        semantic_version,
         supertype_symbol_map,
     );
     Ok(GeneratedParser {
         c_code,
         node_types_json: serde_json::to_string_pretty(&node_types_json).unwrap(),
     })
+}
+
+/// This will read the `tree-sitter.json` config file and attempt to extract the version.
+///
+/// If the file is not found in the current directory or any of its parent directories, this will
+/// return `None` to maintain backwards compatibility. If the file is found but the version cannot
+/// be parsed as semver, this will return an error.
+fn read_grammar_version(repo_path: &Path) -> Result<Option<Version>, ParseVersionError> {
+    #[derive(Deserialize)]
+    struct TreeSitterJson {
+        metadata: Metadata,
+    }
+
+    #[derive(Deserialize)]
+    struct Metadata {
+        version: String,
+    }
+
+    let filename = "tree-sitter.json";
+    let mut path = repo_path.join(filename);
+
+    loop {
+        let json = path
+            .exists()
+            .then(|| {
+                let contents = fs::read_to_string(path.as_path()).map_err(|e| {
+                    ParseVersionError::IO(format!("Failed to read `{}` -- {e}", path.display()))
+                })?;
+                serde_json::from_str::<TreeSitterJson>(&contents).map_err(|e| {
+                    ParseVersionError::JSON(format!("Failed to parse `{}` -- {e}", path.display()))
+                })
+            })
+            .transpose()?;
+        if let Some(json) = json {
+            return Version::parse(&json.metadata.version)
+                .map_err(|e| {
+                    ParseVersionError::Version(format!(
+                        "Failed to parse `{}` version as semver -- {e}",
+                        path.display()
+                    ))
+                })
+                .map(Some);
+        }
+        path.pop(); // filename
+        if !path.pop() {
+            return Ok(None);
+        }
+        path.push(filename);
+    }
 }
 
 pub fn load_grammar_file(

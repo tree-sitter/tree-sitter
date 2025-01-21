@@ -7,8 +7,9 @@ use std::{
 };
 
 use tree_sitter::Parser;
-use tree_sitter_generate::{generate_parser_for_grammar, load_grammar_file};
+use tree_sitter_generate::load_grammar_file;
 
+use super::generate_parser;
 use crate::tests::helpers::fixtures::{fixtures_dir, get_test_language};
 
 // The `sanitizing` cfg is required to don't run tests under specific sunitizer
@@ -90,7 +91,7 @@ fn hang_test() {
         .join("get_col_should_hang_not_crash");
 
     let grammar_json = load_grammar_file(&test_grammar_dir.join("grammar.js"), None).unwrap();
-    let (parser_name, parser_code) = generate_parser_for_grammar(grammar_json.as_str()).unwrap();
+    let (parser_name, parser_code) = generate_parser(grammar_json.as_str()).unwrap();
 
     let language = get_test_language(&parser_name, &parser_code, Some(test_grammar_dir.as_path()));
 

@@ -5,6 +5,8 @@ use std::{
     mem::swap,
 };
 
+use indoc::indoc;
+
 use super::{
     build_tables::Tables,
     grammars::{ExternalToken, LexicalGrammar, SyntaxGrammar, VariableType},
@@ -83,14 +85,19 @@ struct Generator {
     field_names: Vec<String>,
     supertype_symbol_map: BTreeMap<Symbol, Vec<ChildType>>,
     supertype_map: BTreeMap<String, Vec<ChildType>>,
-
-    #[allow(unused)]
     abi_version: usize,
+    metadata: Option<Metadata>,
 }
 
 struct LargeCharacterSetInfo {
     constant_name: String,
     is_used: bool,
+}
+
+struct Metadata {
+    major_version: u8,
+    minor_version: u8,
+    patch_version: u8,
 }
 
 impl Generator {
@@ -1539,7 +1546,7 @@ impl Generator {
         indent!(self);
         add_line!(self, "static const TSLanguage language = {{");
         indent!(self);
-        add_line!(self, ".version = LANGUAGE_VERSION,");
+        add_line!(self, ".abi_version = LANGUAGE_VERSION,");
 
         // Quantities
         add_line!(self, ".symbol_count = SYMBOL_COUNT,");
@@ -1629,6 +1636,24 @@ impl Generator {
                     .max()
                     .unwrap()
             );
+
+            let Some(metadata) = &self.metadata else {
+                panic!(
+                    indoc! {"
+                        Metadata is required to generate ABI version {}.
+                        This means that your grammar doesn't have a tree-sitter.json config file with an appropriate version field in the metadata table.
+                    "},
+                    self.abi_version
+                );
+            };
+
+            add_line!(self, ".metadata = {{");
+            indent!(self);
+            add_line!(self, ".major_version = {},", metadata.major_version);
+            add_line!(self, ".minor_version = {},", metadata.minor_version);
+            add_line!(self, ".patch_version = {},", metadata.patch_version);
+            dedent!(self);
+            add_line!(self, "}},");
         }
 
         dedent!(self);
@@ -1914,6 +1939,7 @@ pub fn render_c_code(
     lexical_grammar: LexicalGrammar,
     default_aliases: AliasMap,
     abi_version: usize,
+    semantic_version: Option<(u8, u8, u8)>,
     supertype_symbol_map: BTreeMap<Symbol, Vec<ChildType>>,
 ) -> String {
     assert!(
@@ -1932,6 +1958,11 @@ pub fn render_c_code(
         lexical_grammar,
         default_aliases,
         abi_version,
+        metadata: semantic_version.map(|(major_version, minor_version, patch_version)| Metadata {
+            major_version,
+            minor_version,
+            patch_version,
+        }),
         supertype_symbol_map,
         ..Default::default()
     }

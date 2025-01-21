@@ -101,7 +101,7 @@ fn test_supertypes() {
     let language = get_language("rust");
     let supertypes = language.supertypes();
 
-    if language.version() < 15 {
+    if language.abi_version() < 15 {
         return;
     }
 

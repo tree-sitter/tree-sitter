@@ -183,7 +183,7 @@ static inline bool ts_language_state_is_primary(
   const TSLanguage *self,
   TSStateId state
 ) {
-  if (self->version >= LANGUAGE_VERSION_WITH_PRIMARY_STATES) {
+  if (self->abi_version >= LANGUAGE_VERSION_WITH_PRIMARY_STATES) {
     return state == self->primary_state_ids[state];
   } else {
     return true;
