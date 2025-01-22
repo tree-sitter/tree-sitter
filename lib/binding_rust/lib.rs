@@ -2203,7 +2203,7 @@ impl<'cursor> TreeCursor<'cursor> {
     pub fn goto_first_child_for_byte(&mut self, index: usize) -> Option<usize> {
         let result =
             unsafe { ffi::ts_tree_cursor_goto_first_child_for_byte(&mut self.0, index as u32) };
-        (result >= 0).then_some(result as usize)
+        result.try_into().ok()
     }
 
     /// Move this cursor to the first child of its current node that contains or
@@ -2215,7 +2215,7 @@ impl<'cursor> TreeCursor<'cursor> {
     pub fn goto_first_child_for_point(&mut self, point: Point) -> Option<usize> {
         let result =
             unsafe { ffi::ts_tree_cursor_goto_first_child_for_point(&mut self.0, point.into()) };
-        (result >= 0).then_some(result as usize)
+        result.try_into().ok()
     }
 
     /// Re-initialize this tree cursor to start at the original node that the

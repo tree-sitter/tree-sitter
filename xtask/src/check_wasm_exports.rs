@@ -120,7 +120,7 @@ fn check_wasm_exports() -> Result<()> {
     let mut missing = exports
         .iter()
         .filter(|&symbol| !wasm_exports.contains(symbol))
-        .map(|symbol| symbol.as_str())
+        .map(String::as_str)
         .collect::<Vec<_>>();
     missing.sort_unstable();
 
