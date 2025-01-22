@@ -104,18 +104,6 @@ export interface QueryCapture {
   refutedProperties?: QueryProperties;
 }
 
-/** A quantifier for captures */
-export const CaptureQuantifier = {
-  Zero: 0,
-  ZeroOrOne: 1,
-  ZeroOrMore: 2,
-  One: 3,
-  OneOrMore: 4
-} as const;
-
-/** A quantifier for captures */
-export type CaptureQuantifier = typeof CaptureQuantifier[keyof typeof CaptureQuantifier];
-
 /** A match of a {@link Query} to a particular set of {@link Node}s. */
 export interface QueryMatch {
   /** The index of the pattern that matched. */
@@ -133,6 +121,18 @@ export interface QueryMatch {
   /** The properties for predicates declared with the operator `is-not?`. */
   refutedProperties?: QueryProperties;
 }
+
+/** A quantifier for captures */
+export const CaptureQuantifier = {
+  Zero: 0,
+  ZeroOrOne: 1,
+  ZeroOrMore: 2,
+  One: 3,
+  OneOrMore: 4
+} as const;
+
+/** A quantifier for captures */
+export type CaptureQuantifier = typeof CaptureQuantifier[keyof typeof CaptureQuantifier];
 
 /**
  * Predicates are represented as a single array of steps. There are two
