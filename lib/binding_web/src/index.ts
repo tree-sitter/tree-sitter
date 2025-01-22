@@ -1,9 +1,31 @@
-export * from './constants';
-export * from './marshal';
-export * from './parser';
-export * from './language';
-export * from './tree';
-export * from './node';
-export * from './tree_cursor';
-export * from './query';
-export * from './lookahead_iterator';
+export {
+  Point,
+  Range,
+  Edit,
+  ParseCallback,
+  ProgressCallback,
+  LogCallback,
+} from './constants';
+export {
+  ParseOptions,
+  ParseState,
+  LANGUAGE_VERSION,
+  MIN_COMPATIBLE_VERSION,
+  Parser,
+} from './parser';
+export { Language } from './language';
+export { Tree } from './tree';
+export { Node } from './node';
+export { TreeCursor } from './tree_cursor';
+export {
+  QueryOptions,
+  QueryState,
+  QueryProperties,
+  QueryPredicate,
+  QueryCapture,
+  QueryMatch,
+  CaptureQuantifier,
+  PredicateStep,
+  Query,
+}  from './query';
+export { LookaheadIterator } from './lookahead_iterator';
