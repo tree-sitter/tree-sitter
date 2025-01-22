@@ -90,10 +90,11 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/clusterize.js/0.19.0/clusterize.min.js"></script>
 
   <script>LANGUAGE_BASE_URL = "";</script>
-  <script type="module" src=playground.js></script>
+  <script type="module" src="playground.js"></script>
   <script type="module">
-    import {initializePlayground} from './playground.js';
-    setTimeout(() => initializePlayground({local: true}), 1)
+    import * as TreeSitter from './tree-sitter.js';
+    window.TreeSitter = TreeSitter;
+    setTimeout(() => window.initializePlayground({local: true}), 1)
   </script>
 
   <style>

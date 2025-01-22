@@ -1,5 +1,3 @@
-import { Parser, Language } from './tree-sitter.js';
-
 function initializeLocalTheme() {
   const themeToggle = document.getElementById('theme-toggle');
   if (!themeToggle) return;
@@ -62,7 +60,9 @@ function initializeCustomSelect({ initialValue = null, addListeners = false }) {
   }
 }
 
-export async function initializePlayground(opts) {
+window.initializePlayground = async (opts) => {
+  const { Parser, Language } = window.TreeSitter;
+
   const { local } = opts;
   if (local) {
     initializeLocalTheme();
