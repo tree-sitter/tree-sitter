@@ -205,7 +205,7 @@ fn update_cmake(next_version: &Version) -> Result<()> {
                 let end_quote = line.rfind('"').unwrap();
                 format!(
                     "{}{next_version}{}",
-                    &line[..start_quote + 1],
+                    &line[..=start_quote],
                     &line[end_quote..]
                 )
             } else {
