@@ -813,16 +813,6 @@ declare module 'web-tree-sitter' {
 		/** The properties for predicates declared with the operator `is-not?`. */
 		refutedProperties?: QueryProperties;
 	}
-	/** A quantifier for captures */
-	export const CaptureQuantifier: {
-		readonly Zero: 0;
-		readonly ZeroOrOne: 1;
-		readonly ZeroOrMore: 2;
-		readonly One: 3;
-		readonly OneOrMore: 4;
-	};
-	/** A quantifier for captures */
-	export type CaptureQuantifier = typeof CaptureQuantifier[keyof typeof CaptureQuantifier];
 	/** A match of a {@link Query} to a particular set of {@link Node}s. */
 	export interface QueryMatch {
 		/** The index of the pattern that matched. */
@@ -836,6 +826,16 @@ declare module 'web-tree-sitter' {
 		/** The properties for predicates declared with the operator `is-not?`. */
 		refutedProperties?: QueryProperties;
 	}
+	/** A quantifier for captures */
+	export const CaptureQuantifier: {
+		readonly Zero: 0;
+		readonly ZeroOrOne: 1;
+		readonly ZeroOrMore: 2;
+		readonly One: 3;
+		readonly OneOrMore: 4;
+	};
+	/** A quantifier for captures */
+	export type CaptureQuantifier = typeof CaptureQuantifier[keyof typeof CaptureQuantifier];
 	/**
 	 * Predicates are represented as a single array of steps. There are two
 	 * types of steps, which correspond to the two legal values for
