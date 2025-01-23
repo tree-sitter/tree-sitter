@@ -3,6 +3,7 @@
   "version": "PARSER_VERSION",
   "description": "PARSER_DESCRIPTION",
   "repository": "PARSER_URL",
+  "funding": "FUNDING_URL",
   "license": "PARSER_LICENSE",
   "author": {
     "name": "PARSER_AUTHOR_NAME",

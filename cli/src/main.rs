@@ -560,6 +560,24 @@ impl Init {
                     .interact_text()
             };
 
+            let funding = || {
+                Input::<String>::with_theme(&ColorfulTheme::default())
+                    .with_prompt("Funding URL")
+                    .allow_empty(true)
+                    .validate_with(|input: &String| {
+                        if input.trim().is_empty()
+                            || Url::parse(input)
+                                .is_ok_and(|u| u.scheme() == "http" || u.scheme() == "https")
+                        {
+                            Ok(())
+                        } else {
+                            Err("The URL must start with 'http://' or 'https://'")
+                        }
+                    })
+                    .interact_text()
+                    .map(|e| (!e.trim().is_empty()).then(|| Url::parse(&e).unwrap()))
+            };
+
             let scope = |name: &str| {
                 Input::<String>::with_theme(&ColorfulTheme::default())
                     .with_prompt("TextMate scope")
@@ -640,6 +658,7 @@ impl Init {
                 "camelcase",
                 "description",
                 "repository",
+                "funding",
                 "scope",
                 "file_types",
                 "version",
@@ -657,6 +676,7 @@ impl Init {
                         "camelcase" => opts.camelcase = camelcase_name(&opts.name)?,
                         "description" => opts.description = description(&opts.name)?,
                         "repository" => opts.repository = Some(repository(&opts.name)?),
+                        "funding" => opts.funding = funding()?,
                         "scope" => opts.scope = scope(&opts.name)?,
                         "file_types" => opts.file_types = file_types(&opts.name)?,
                         "version" => opts.version = initial_version()?,

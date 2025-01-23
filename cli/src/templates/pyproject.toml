@@ -20,6 +20,7 @@ readme = "README.md"
 
 [project.urls]
 Homepage = "PARSER_URL"
+Funding = "FUNDING_URL"
 
 [project.optional-dependencies]
 core = ["tree-sitter~=0.24"]
