@@ -174,9 +174,11 @@ export interface CapturePredicateStep { type: 'capture', name: string }
  */
 export interface StringPredicateStep { type: 'string', value: string }
 
-const isStringStep = (step: PredicateStep): step is StringPredicateStep => {
-  return step.type === 'string';
-}
+const isCaptureStep = (step: PredicateStep): step is Extract<PredicateStep, { type: 'capture' }> =>
+  step.type === 'capture';
+
+const isStringStep = (step: PredicateStep): step is Extract<PredicateStep, { type: 'string' }> =>
+  step.type === 'string';
 
 /**
  * @internal
@@ -186,6 +188,56 @@ const isStringStep = (step: PredicateStep): step is StringPredicateStep => {
  * predicates.
  */
 export type TextPredicate = (captures: QueryCapture[]) => boolean;
+
+/** Error codes returned from tree-sitter query parsing */
+export const QueryErrorKind = {
+  Syntax: 1,
+  NodeName: 2,
+  FieldName: 3,
+  CaptureName: 4,
+  PatternStructure: 5,
+} as const;
+
+/** An error that occurred while parsing a query string. */
+export type QueryErrorKind = typeof QueryErrorKind[keyof typeof QueryErrorKind];
+
+/** Information about a {@link QueryError}. */
+export interface QueryErrorInfo {
+  [QueryErrorKind.NodeName]: { word: string };
+  [QueryErrorKind.FieldName]: { word: string };
+  [QueryErrorKind.CaptureName]: { word: string };
+  [QueryErrorKind.PatternStructure]: { suffix: string };
+  [QueryErrorKind.Syntax]: { suffix: string };
+}
+
+/** Error thrown when parsing a tree-sitter query fails */
+export class QueryError extends Error {
+  constructor(
+    public kind: QueryErrorKind,
+    public info: QueryErrorInfo[typeof kind],
+    public index: number,
+    public length: number
+  ) {
+    super(QueryError.formatMessage(kind, info));
+    this.name = 'QueryError';
+  }
+
+  /** Formats an error message based on the error kind and info */
+  private static formatMessage(kind: QueryErrorKind, info: QueryErrorInfo[QueryErrorKind]): string {
+    switch (kind) {
+      case QueryErrorKind.NodeName:
+        return `Bad node name '${(info as QueryErrorInfo[2]).word}'`;
+      case QueryErrorKind.FieldName:
+        return `Bad field name '${(info as QueryErrorInfo[3]).word}'`;
+      case QueryErrorKind.CaptureName:
+        return `Bad capture name @${(info as QueryErrorInfo[4]).word}`;
+      case QueryErrorKind.PatternStructure:
+        return `Bad pattern structure at offset ${(info as QueryErrorInfo[5]).suffix}`;
+      case QueryErrorKind.Syntax:
+        return `Bad syntax at offset ${(info as QueryErrorInfo[1]).suffix}`;
+    }
+  }
+}
 
 export class Query {
   /** @internal */
@@ -250,39 +302,25 @@ export class Query {
     );
 
     if (!address) {
-      const errorId = C.getValue(TRANSFER_BUFFER + SIZE_OF_INT, 'i32');
+      const errorId = C.getValue(TRANSFER_BUFFER + SIZE_OF_INT, 'i32') as QueryErrorKind;
       const errorByte = C.getValue(TRANSFER_BUFFER, 'i32');
       const errorIndex = C.UTF8ToString(sourceAddress, errorByte).length;
       const suffix = source.slice(errorIndex, errorIndex + 100).split('\n')[0];
-      let word = suffix.match(QUERY_WORD_REGEX)?.[0] ?? '';
-      let error: Error;
+      const word = suffix.match(QUERY_WORD_REGEX)?.[0] ?? '';
+      C._free(sourceAddress);
 
       switch (errorId) {
-        case 2:
-          error = new RangeError(`Bad node name '${word}'`);
-          break;
-        case 3:
-          error = new RangeError(`Bad field name '${word}'`);
-          break;
-        case 4:
-          error = new RangeError(`Bad capture name @${word}`);
-          break;
-        case 5:
-          error = new TypeError(`Bad pattern structure at offset ${errorIndex}: '${suffix}'...`);
-          word = '';
-          break;
-        default:
-          error = new SyntaxError(`Bad syntax at offset ${errorIndex}: '${suffix}'...`);
-          word = '';
-          break;
+        case QueryErrorKind.Syntax:
+          throw new QueryError(QueryErrorKind.Syntax, { suffix: `${errorIndex}: '${suffix}'...` }, errorIndex, 0);
+        case QueryErrorKind.NodeName:
+          throw new QueryError(errorId, { word }, errorIndex, word.length);
+        case QueryErrorKind.FieldName:
+          throw new QueryError(errorId, { word }, errorIndex, word.length);
+        case QueryErrorKind.CaptureName:
+          throw new QueryError(errorId, { word }, errorIndex, word.length);
+        case QueryErrorKind.PatternStructure:
+          throw new QueryError(errorId, { suffix: `${errorIndex}: '${suffix}'...` }, errorIndex, 0);
       }
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
-      (error as any).index = errorIndex;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
-      (error as any).length = word.length;
-      C._free(sourceAddress);
-      throw error;
     }
 
     const stringCount = C._ts_query_string_count(address);
