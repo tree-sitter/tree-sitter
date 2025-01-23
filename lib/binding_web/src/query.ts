@@ -239,6 +239,264 @@ export class QueryError extends Error {
   }
 }
 
+/**
+ * Parses the `eq?` and `not-eq?` predicates in a query, and updates the text predicates.
+ */
+function parseAnyPredicate(
+  steps: PredicateStep[],
+  index: number,
+  operator: string,
+  textPredicates: TextPredicate[][],
+) {
+  if (steps.length !== 3) {
+    throw new Error(
+      `Wrong number of arguments to \`#${operator}\` predicate. Expected 2, got ${steps.length - 1}`
+    );
+  }
+
+  if (!isCaptureStep(steps[1])) {
+    throw new Error(
+      `First argument of \`#${operator}\` predicate must be a capture. Got "${steps[1].value}"`
+    );
+  }
+
+  const isPositive = operator === 'eq?' || operator === 'any-eq?';
+  const matchAll = !operator.startsWith('any-');
+
+  if (isCaptureStep(steps[2])) {
+    const captureName1 = steps[1].name;
+    const captureName2 = steps[2].name;
+    textPredicates[index].push((captures) => {
+      const nodes1: Node[] = [];
+      const nodes2: Node[] = [];
+      for (const c of captures) {
+        if (c.name === captureName1) nodes1.push(c.node);
+        if (c.name === captureName2) nodes2.push(c.node);
+      }
+      const compare = (n1: { text: string }, n2: { text: string }, positive: boolean) => {
+        return positive ? n1.text === n2.text : n1.text !== n2.text;
+      };
+      return matchAll
+        ? nodes1.every((n1) => nodes2.some((n2) => compare(n1, n2, isPositive)))
+        : nodes1.some((n1) => nodes2.some((n2) => compare(n1, n2, isPositive)));
+    });
+  } else {
+    const captureName = steps[1].name;
+    const stringValue = steps[2].value;
+    const matches = (n: Node) => n.text === stringValue;
+    const doesNotMatch = (n: Node) => n.text !== stringValue;
+    textPredicates[index].push((captures) => {
+      const nodes = [];
+      for (const c of captures) {
+        if (c.name === captureName) nodes.push(c.node);
+      }
+      const test = isPositive ? matches : doesNotMatch;
+      return matchAll ? nodes.every(test) : nodes.some(test);
+    });
+  }
+}
+
+/**
+ * Parses the `match?` and `not-match?` predicates in a query, and updates the text predicates.
+ */
+function parseMatchPredicate(
+  steps: PredicateStep[],
+  index: number,
+  operator: string,
+  textPredicates: TextPredicate[][],
+) {
+  if (steps.length !== 3) {
+    throw new Error(
+      `Wrong number of arguments to \`#${operator}\` predicate. Expected 2, got ${steps.length - 1}.`,
+    );
+  }
+
+  if (steps[1].type !== 'capture') {
+    throw new Error(
+      `First argument of \`#${operator}\` predicate must be a capture. Got "${steps[1].value}".`,
+    );
+  }
+
+  if (steps[2].type !== 'string') {
+    throw new Error(
+      `Second argument of \`#${operator}\` predicate must be a string. Got @${steps[2].name}.`,
+    );
+  }
+
+  const isPositive = operator === 'match?' || operator === 'any-match?';
+  const matchAll = !operator.startsWith('any-');
+  const captureName = steps[1].name;
+  const regex = new RegExp(steps[2].value);
+  textPredicates[index].push((captures) => {
+    const nodes = [];
+    for (const c of captures) {
+      if (c.name === captureName) nodes.push(c.node.text);
+    }
+    const test = (text: string, positive: boolean) => {
+      return positive ?
+        regex.test(text) :
+        !regex.test(text);
+    };
+    if (nodes.length === 0) return !isPositive;
+    return matchAll ?
+      nodes.every((text) => test(text, isPositive)) :
+      nodes.some((text) => test(text, isPositive));
+  });
+}
+
+/**
+ * Parses the `any-of?` and `not-any-of?` predicates in a query, and updates the text predicates.
+ */
+function parseAnyOfPredicate(
+  steps: PredicateStep[],
+  index: number,
+  operator: string,
+  textPredicates: TextPredicate[][],
+) {
+  if (steps.length < 2) {
+    throw new Error(
+      `Wrong number of arguments to \`#${operator}\` predicate. Expected at least 1. Got ${steps.length - 1}.`,
+    );
+  }
+
+  if (steps[1].type !== 'capture') {
+    throw new Error(
+      `First argument of \`#${operator}\` predicate must be a capture. Got "${steps[1].value}".`,
+    );
+  }
+
+  const isPositive = operator === 'any-of?';
+  const captureName = steps[1].name;
+
+  const stringSteps = steps.slice(2);
+  if (!stringSteps.every(isStringStep)) {
+    throw new Error(
+      `Arguments to \`#${operator}\` predicate must be strings.".`,
+    );
+  }
+  const values = stringSteps.map((s) => s.value);
+
+  textPredicates[index].push((captures) => {
+    const nodes = [];
+    for (const c of captures) {
+      if (c.name === captureName) nodes.push(c.node.text);
+    }
+    if (nodes.length === 0) return !isPositive;
+    return nodes.every((text) => values.includes(text)) === isPositive;
+  });
+}
+
+/**
+ * Parses the `is?` and `is-not?` predicates in a query, and updates the asserted or refuted properties,
+ * depending on if the operator is positive or negative.
+ */
+function parseIsPredicate(
+  steps: PredicateStep[],
+  index: number,
+  operator: string,
+  assertedProperties: QueryProperties[],
+  refutedProperties: QueryProperties[],
+) {
+  if (steps.length < 2 || steps.length > 3) {
+    throw new Error(
+      `Wrong number of arguments to \`#${operator}\` predicate. Expected 1 or 2. Got ${steps.length - 1}.`,
+    );
+  }
+
+  if (!steps.every(isStringStep)) {
+    throw new Error(
+      `Arguments to \`#${operator}\` predicate must be strings.".`,
+    );
+  }
+
+  const properties = operator === 'is?' ? assertedProperties : refutedProperties;
+  if (!properties[index]) properties[index] = {};
+  properties[index][steps[1].value] = steps[2]?.value ?? null;
+}
+
+/**
+ * Parses the `set!` directive in a query, and updates the set properties.
+ */
+function parseSetDirective(
+  steps: PredicateStep[],
+  index: number,
+  setProperties: QueryProperties[],
+) {
+  if (steps.length < 2 || steps.length > 3) {
+    throw new Error(`Wrong number of arguments to \`#set!\` predicate. Expected 1 or 2. Got ${steps.length - 1}.`);
+  }
+  if (!steps.every(isStringStep)) {
+    throw new Error(`Arguments to \`#set!\` predicate must be strings.".`);
+  }
+  if (!setProperties[index]) setProperties[index] = {};
+  setProperties[index][steps[1].value] = steps[2]?.value ?? null;
+}
+
+/**
+ * Parses the predicate at a given step in a pattern, and updates the appropriate
+ * predicates or properties.
+ */
+function parsePattern(
+  index: number,
+  stepType: number,
+  stepValueId: number,
+  captureNames: string[],
+  stringValues: string[],
+  steps: PredicateStep[],
+  textPredicates: TextPredicate[][],
+  predicates: QueryPredicate[][],
+  setProperties: QueryProperties[],
+  assertedProperties: QueryProperties[],
+  refutedProperties: QueryProperties[],
+) {
+  if (stepType === PREDICATE_STEP_TYPE_CAPTURE) {
+    const name = captureNames[stepValueId];
+    steps.push({ type: 'capture', name });
+  } else if (stepType === PREDICATE_STEP_TYPE_STRING) {
+    steps.push({ type: 'string', value: stringValues[stepValueId] });
+  } else if (steps.length > 0) {
+    if (steps[0].type !== 'string') {
+      throw new Error('Predicates must begin with a literal value');
+    }
+
+    const operator = steps[0].value;
+    switch (operator) {
+      case 'any-not-eq?':
+      case 'not-eq?':
+      case 'any-eq?':
+      case 'eq?':
+        parseAnyPredicate(steps, index, operator, textPredicates);
+        break;
+
+      case 'any-not-match?':
+      case 'not-match?':
+      case 'any-match?':
+      case 'match?':
+        parseMatchPredicate(steps, index, operator, textPredicates);
+        break;
+
+      case 'not-any-of?':
+      case 'any-of?':
+        parseAnyOfPredicate(steps, index, operator, textPredicates);
+        break;
+
+      case 'is?':
+      case 'is-not?':
+        parseIsPredicate(steps, index, operator, assertedProperties, refutedProperties);
+        break;
+
+      case 'set!':
+        parseSetDirective(steps, index, setProperties);
+        break;
+
+      default:
+        predicates[index].push({ operator, operands: steps.slice(1) });
+    }
+
+    steps.length = 0;
+  }
+}
+
 export class Query {
   /** @internal */
   private [0] = 0; // Internal handle for WASM
@@ -330,6 +588,7 @@ export class Query {
     const captureQuantifiers = new Array<CaptureQuantifier[]>(patternCount);
     const stringValues = new Array<string>(stringCount);
 
+    // Fill in the capture names
     for (let i = 0; i < captureCount; i++) {
       const nameAddress = C._ts_query_capture_name_for_id(
         address,
@@ -340,6 +599,7 @@ export class Query {
       captureNames[i] = C.UTF8ToString(nameAddress, nameLength);
     }
 
+    // Fill in the capture quantifiers
     for (let i = 0; i < patternCount; i++) {
       const captureQuantifiersArray = new Array<CaptureQuantifier>(captureCount);
       for (let j = 0; j < captureCount; j++) {
@@ -349,6 +609,7 @@ export class Query {
       captureQuantifiers[i] = captureQuantifiersArray;
     }
 
+    // Fill in the string values
     for (let i = 0; i < stringCount; i++) {
       const valueAddress = C._ts_query_string_value_for_id(
         address,
@@ -365,12 +626,9 @@ export class Query {
     const predicates = new Array<QueryPredicate[]>(patternCount);
     const textPredicates = new Array<TextPredicate[]>(patternCount);
 
+    // Parse the predicates, and add the appropriate predicates or properties
     for (let i = 0; i < patternCount; i++) {
-      const predicatesAddress = C._ts_query_predicates_for_pattern(
-        address,
-        i,
-        TRANSFER_BUFFER
-      );
+      const predicatesAddress = C._ts_query_predicates_for_pattern(address, i, TRANSFER_BUFFER);
       const stepCount = C.getValue(TRANSFER_BUFFER, 'i32');
 
       predicates[i] = [];
@@ -382,192 +640,23 @@ export class Query {
       for (let j = 0; j < stepCount; j++) {
         const stepType = C.getValue(stepAddress, 'i32');
         stepAddress += SIZE_OF_INT;
-        const stepValueId: number = C.getValue(stepAddress, 'i32');
+
+        const stepValueId = C.getValue(stepAddress, 'i32');
         stepAddress += SIZE_OF_INT;
 
-        if (stepType === PREDICATE_STEP_TYPE_CAPTURE) {
-          const name = captureNames[stepValueId];
-          steps.push({ type: 'capture', name });
-        } else if (stepType === PREDICATE_STEP_TYPE_STRING) {
-          steps.push({ type: 'string', value: stringValues[stepValueId] });
-        } else if (steps.length > 0) {
-          if (steps[0].type !== 'string') {
-            throw new Error('Predicates must begin with a literal value');
-          }
-
-          const operator = steps[0].value;
-          let isPositive = true;
-          let matchAll = true;
-          let captureName: string | undefined;
-
-          switch (operator) {
-            case 'any-not-eq?':
-            case 'not-eq?':
-              isPositive = false;
-            case 'any-eq?':
-            case 'eq?': {
-              if (steps.length !== 3) {
-                throw new Error(
-                  `Wrong number of arguments to \`#${operator}\` predicate. Expected 2, got ${steps.length - 1}`
-                );
-              }
-              if (steps[1].type !== 'capture') {
-                throw new Error(
-                  `First argument of \`#${operator}\` predicate must be a capture. Got "${steps[1].value}"`
-                );
-              }
-              matchAll = !operator.startsWith('any-');
-              if (steps[2].type === 'capture') {
-                const captureName1 = steps[1].name;
-                const captureName2 = steps[2].name;
-                textPredicates[i].push((captures) => {
-                  const nodes1: Node[] = [];
-                  const nodes2: Node[] = [];
-                  for (const c of captures) {
-                    if (c.name === captureName1) nodes1.push(c.node);
-                    if (c.name === captureName2) nodes2.push(c.node);
-                  }
-                  const compare = (n1: { text: string }, n2: { text: string }, positive: boolean) => {
-                    return positive ? n1.text === n2.text : n1.text !== n2.text;
-                  };
-                  return matchAll
-                    ? nodes1.every((n1) => nodes2.some((n2) => compare(n1, n2, isPositive)))
-                    : nodes1.some((n1) => nodes2.some((n2) => compare(n1, n2, isPositive)));
-                });
-              } else {
-                captureName = steps[1].name;
-                const stringValue = steps[2].value;
-                const matches = (n: Node) => n.text === stringValue;
-                const doesNotMatch = (n: Node) => n.text !== stringValue;
-                textPredicates[i].push((captures) => {
-                  const nodes = [];
-                  for (const c of captures) {
-                    if (c.name === captureName) nodes.push(c.node);
-                  }
-                  const test = isPositive ? matches : doesNotMatch;
-                  return matchAll ?
-                    nodes.every(test) :
-                    nodes.some(test);
-                });
-              }
-              break;
-            }
-
-            case 'any-not-match?':
-            case 'not-match?':
-              isPositive = false;
-            case 'any-match?':
-            case 'match?': {
-              if (steps.length !== 3) {
-                throw new Error(
-                  `Wrong number of arguments to \`#${operator}\` predicate. Expected 2, got ${steps.length - 1}.`,
-                );
-              }
-              if (steps[1].type !== 'capture') {
-                throw new Error(
-                  `First argument of \`#${operator}\` predicate must be a capture. Got "${steps[1].value}".`,
-                );
-              }
-              if (steps[2].type !== 'string') {
-                throw new Error(
-                  `Second argument of \`#${operator}\` predicate must be a string. Got @${steps[2].name}.`,
-                );
-              }
-              captureName = steps[1].name;
-              const regex = new RegExp(steps[2].value);
-              matchAll = !operator.startsWith('any-');
-              textPredicates[i].push((captures) => {
-                const nodes = [];
-                for (const c of captures) {
-                  if (c.name === captureName) nodes.push(c.node.text);
-                }
-                const test = (text: string, positive: boolean) => {
-                  return positive ?
-                    regex.test(text) :
-                    !regex.test(text);
-                };
-                if (nodes.length === 0) return !isPositive;
-                return matchAll ?
-                  nodes.every((text) => test(text, isPositive)) :
-                  nodes.some((text) => test(text, isPositive));
-              });
-              break;
-            }
-
-            case 'set!': {
-              if (steps.length < 2 || steps.length > 3) {
-                throw new Error(
-                  `Wrong number of arguments to \`#set!\` predicate. Expected 1 or 2. Got ${steps.length - 1}.`,
-                );
-              }
-              if (!steps.every(isStringStep)) {
-                throw new Error(
-                  `Arguments to \`#set!\` predicate must be strings.".`,
-                );
-              }
-              if (!setProperties[i]) setProperties[i] = {};
-              setProperties[i][steps[1].value] = steps[2]?.value ?? null;
-              break;
-            }
-
-            case 'is?':
-            case 'is-not?': {
-              if (steps.length < 2 || steps.length > 3) {
-                throw new Error(
-                  `Wrong number of arguments to \`#${operator}\` predicate. Expected 1 or 2. Got ${steps.length - 1}.`,
-                );
-              }
-              if (!steps.every(isStringStep)) {
-                throw new Error(
-                  `Arguments to \`#${operator}\` predicate must be strings.".`,
-                );
-              }
-              const properties = operator === 'is?' ? assertedProperties : refutedProperties;
-              if (!properties[i]) properties[i] = {};
-              properties[i][steps[1].value] = steps[2]?.value ?? null;
-              break;
-            }
-
-            case 'not-any-of?':
-              isPositive = false;
-            case 'any-of?': {
-              if (steps.length < 2) {
-                throw new Error(
-                  `Wrong number of arguments to \`#${operator}\` predicate. Expected at least 1. Got ${steps.length - 1}.`,
-                );
-              }
-              if (steps[1].type !== 'capture') {
-                throw new Error(
-                  `First argument of \`#${operator}\` predicate must be a capture. Got "${steps[1].value}".`,
-                );
-              }
-              captureName = steps[1].name;
-
-              const stringSteps = steps.slice(2);
-              if (!stringSteps.every(isStringStep)) {
-                throw new Error(
-                  `Arguments to \`#${operator}\` predicate must be strings.".`,
-                );
-              }
-              const values = stringSteps.map((s) => s.value);
-
-              textPredicates[i].push((captures) => {
-                const nodes = [];
-                for (const c of captures) {
-                  if (c.name === captureName) nodes.push(c.node.text);
-                }
-                if (nodes.length === 0) return !isPositive;
-                return nodes.every((text) => values.includes(text)) === isPositive;
-              });
-              break;
-            }
-
-            default:
-              predicates[i].push({ operator, operands: steps.slice(1) });
-          }
-
-          steps.length = 0;
-        }
+        parsePattern(
+          i,
+          stepType,
+          stepValueId,
+          captureNames,
+          stringValues,
+          steps,
+          textPredicates,
+          predicates,
+          setProperties,
+          assertedProperties,
+          refutedProperties,
+        );
       }
 
       Object.freeze(textPredicates[i]);
