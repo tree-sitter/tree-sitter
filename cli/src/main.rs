@@ -577,7 +577,7 @@ impl Init {
             let file_types = |name: &str| {
                 Input::<String>::with_theme(&ColorfulTheme::default())
                     .with_prompt("File types (space-separated)")
-                    .default(format!(".{name}"))
+                    .default(name.to_string())
                     .interact_text()
                     .map(|ft| {
                         let mut set = HashSet::new();
