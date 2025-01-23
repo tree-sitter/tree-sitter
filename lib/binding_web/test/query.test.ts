@@ -28,37 +28,37 @@ describe('Query', () => {
   describe('construction', () => {
     it('throws an error on invalid patterns', () => {
       expect(() => {
-        JavaScript.query('(function_declaration wat)');
+        new Query(JavaScript, '(function_declaration wat)');
       }).toThrow('Bad syntax at offset 22: \'wat)\'...');
 
       expect(() => {
-        JavaScript.query('(non_existent)');
+        new Query(JavaScript, '(non_existent)');
       }).toThrow('Bad node name \'non_existent\'');
 
       expect(() => {
-        JavaScript.query('(a)');
+        new Query(JavaScript, '(a)');
       }).toThrow('Bad node name \'a\'');
 
       expect(() => {
-        JavaScript.query('(function_declaration non_existent:(identifier))');
+        new Query(JavaScript, '(function_declaration non_existent:(identifier))');
       }).toThrow('Bad field name \'non_existent\'');
 
       expect(() => {
-        JavaScript.query('(function_declaration name:(statement_block))');
+        new Query(JavaScript, '(function_declaration name:(statement_block))');
       }).toThrow('Bad pattern structure at offset 22: \'name:(statement_block))\'');
     });
 
     it('throws an error on invalid predicates', () => {
       expect(() => {
-        JavaScript.query('((identifier) @abc (#eq? @ab hi))');
+        new Query(JavaScript, '((identifier) @abc (#eq? @ab hi))');
       }).toThrow('Bad capture name @ab');
 
       expect(() => {
-        JavaScript.query('((identifier) @abc (#eq?))');
+        new Query(JavaScript, '((identifier) @abc (#eq?))');
       }).toThrow('Wrong number of arguments to `#eq?` predicate. Expected 2, got 0');
 
       expect(() => {
-        JavaScript.query('((identifier) @a (#eq? @a @a @a))');
+        new Query(JavaScript, '((identifier) @a (#eq? @a @a @a))');
       }).toThrow('Wrong number of arguments to `#eq?` predicate. Expected 2, got 3');
     });
   });
@@ -66,21 +66,21 @@ describe('Query', () => {
   describe('.matches', () => {
     it('returns all of the matches for the given query', () => {
       tree = parser.parse('function one() { two(); function three() {} }')!;
-      query = JavaScript.query(`
+      query = new Query(JavaScript, `
         (function_declaration name: (identifier) @fn-def)
         (call_expression function: (identifier) @fn-ref)
       `);
       const matches = query.matches(tree.rootNode);
       expect(formatMatches(matches)).toEqual([
-        { pattern: 0, captures: [{ name: 'fn-def', text: 'one' }] },
-        { pattern: 1, captures: [{ name: 'fn-ref', text: 'two' }] },
-        { pattern: 0, captures: [{ name: 'fn-def', text: 'three' }] },
+        { patternIndex: 0, captures: [{ patternIndex: 0, name: 'fn-def', text: 'one' }] },
+        { patternIndex: 1, captures: [{ patternIndex: 1, name: 'fn-ref', text: 'two' }] },
+        { patternIndex: 0, captures: [{ patternIndex: 0, name: 'fn-def', text: 'three' }] },
       ]);
     });
 
     it('can search in specified ranges', () => {
       tree = parser.parse('[a, b,\nc, d,\ne, f,\ng, h]')!;
-      query = JavaScript.query('(identifier) @element');
+      query = new Query(JavaScript, '(identifier) @element');
       const matches = query.matches(
         tree.rootNode,
         {
@@ -89,10 +89,10 @@ describe('Query', () => {
         }
       );
       expect(formatMatches(matches)).toEqual([
-        { pattern: 0, captures: [{ name: 'element', text: 'd' }] },
-        { pattern: 0, captures: [{ name: 'element', text: 'e' }] },
-        { pattern: 0, captures: [{ name: 'element', text: 'f' }] },
-        { pattern: 0, captures: [{ name: 'element', text: 'g' }] },
+        { patternIndex: 0, captures: [{ patternIndex: 0, name: 'element', text: 'd' }] },
+        { patternIndex: 0, captures: [{ patternIndex: 0, name: 'element', text: 'e' }] },
+        { patternIndex: 0, captures: [{ patternIndex: 0, name: 'element', text: 'f' }] },
+        { patternIndex: 0, captures: [{ patternIndex: 0, name: 'element', text: 'g' }] },
       ]);
     });
 
@@ -108,7 +108,7 @@ describe('Query', () => {
 
       // Find all calls to functions beginning with 'g', where one argument
       // is an array literal.
-      query = JavaScript.query(`
+      query = new Query(JavaScript, `
         (call_expression
           function: (identifier) @name
           arguments: (arguments (array))
@@ -117,8 +117,8 @@ describe('Query', () => {
 
       const matches = query.matches(tree.rootNode);
       expect(formatMatches(matches)).toEqual([
-        { pattern: 0, captures: [{ name: 'name', text: 'giraffe' }] },
-        { pattern: 0, captures: [{ name: 'name', text: 'gross' }] },
+        { patternIndex: 0, captures: [{ patternIndex: 0, name: 'name', text: 'giraffe' }] },
+        { patternIndex: 0, captures: [{ patternIndex: 0, name: 'name', text: 'gross' }] },
       ]);
     });
 
@@ -127,7 +127,7 @@ describe('Query', () => {
         const a = window.b;
       `)!;
 
-      query = JavaScript.query(`
+      query = new Query(JavaScript, `
         ((identifier) @variable.builtin
           (#match? @variable.builtin "^(arguments|module|console|window|document)$")
           (#is-not? local))
@@ -135,7 +135,7 @@ describe('Query', () => {
 
       const matches = query.matches(tree.rootNode);
       expect(formatMatches(matches)).toEqual([
-        { pattern: 0, captures: [{ name: 'variable.builtin', text: 'window' }] },
+        { patternIndex: 0, captures: [{ patternIndex: 0, name: 'variable.builtin', text: 'window' }] },
       ]);
     });
   });
@@ -152,7 +152,7 @@ describe('Query', () => {
           },
         });
       `)!;
-      query = JavaScript.query(`
+      query = new Query(JavaScript, `
         (pair
           key: _ @method.def
           (function_expression
@@ -169,18 +169,18 @@ describe('Query', () => {
 
       const captures = query.captures(tree.rootNode);
       expect(formatCaptures(captures)).toEqual([
-        { name: 'method.def', text: 'bc' },
-        { name: 'delimiter', text: ':' },
-        { name: 'method.alias', text: 'de' },
-        { name: 'function.def', text: 'fg' },
-        { name: 'operator', text: '=' },
-        { name: 'function.alias', text: 'hi' },
-        { name: 'method.def', text: 'jk' },
-        { name: 'delimiter', text: ':' },
-        { name: 'method.alias', text: 'lm' },
-        { name: 'function.def', text: 'no' },
-        { name: 'operator', text: '=' },
-        { name: 'function.alias', text: 'pq' },
+        { patternIndex: 0, name: 'method.def', text: 'bc' },
+        { patternIndex: 2, name: 'delimiter', text: ':' },
+        { patternIndex: 0, name: 'method.alias', text: 'de' },
+        { patternIndex: 1, name: 'function.def', text: 'fg' },
+        { patternIndex: 3, name: 'operator', text: '=' },
+        { patternIndex: 1, name: 'function.alias', text: 'hi' },
+        { patternIndex: 0, name: 'method.def', text: 'jk' },
+        { patternIndex: 2, name: 'delimiter', text: ':' },
+        { patternIndex: 0, name: 'method.alias', text: 'lm' },
+        { patternIndex: 1, name: 'function.def', text: 'no' },
+        { patternIndex: 3, name: 'operator', text: '=' },
+        { patternIndex: 1, name: 'function.alias', text: 'pq' },
       ]);
     });
 
@@ -194,7 +194,7 @@ describe('Query', () => {
         new Cd(EF);
       `)!;
 
-      query = JavaScript.query(`
+      query = new Query(JavaScript, `
         ((identifier) @variable
          (#not-match? @variable "^(lambda|load)$"))
 
@@ -210,16 +210,16 @@ describe('Query', () => {
 
       const captures = query.captures(tree.rootNode);
       expect(formatCaptures(captures)).toEqual([
-        { name: 'variable', text: 'panda' },
-        { name: 'variable', text: 'toad' },
-        { name: 'variable', text: 'ab' },
-        { name: 'variable', text: 'require' },
-        { name: 'function.builtin', text: 'require' },
-        { name: 'variable', text: 'Cd' },
-        { name: 'constructor', text: 'Cd' },
-        { name: 'variable', text: 'EF' },
-        { name: 'constructor', text: 'EF' },
-        { name: 'constant', text: 'EF' },
+        { patternIndex: 0, name: 'variable', text: 'panda' },
+        { patternIndex: 0, name: 'variable', text: 'toad' },
+        { patternIndex: 0, name: 'variable', text: 'ab' },
+        { patternIndex: 0, name: 'variable', text: 'require' },
+        { patternIndex: 1, name: 'function.builtin', text: 'require' },
+        { patternIndex: 0, name: 'variable', text: 'Cd' },
+        { patternIndex: 2, name: 'constructor', text: 'Cd' },
+        { patternIndex: 0, name: 'variable', text: 'EF' },
+        { patternIndex: 2, name: 'constructor', text: 'EF' },
+        { patternIndex: 3, name: 'constant', text: 'EF' },
       ]);
     });
 
@@ -230,7 +230,7 @@ describe('Query', () => {
         ghi = ghi + 1;
       `)!;
 
-      query = JavaScript.query(`
+      query = new Query(JavaScript, `
         (
           (assignment_expression
             left: (identifier) @id1
@@ -242,14 +242,14 @@ describe('Query', () => {
 
       const captures = query.captures(tree.rootNode);
       expect(formatCaptures(captures)).toEqual([
-        { name: 'id1', text: 'ghi' },
-        { name: 'id2', text: 'ghi' },
+        { patternIndex: 0, name: 'id1', text: 'ghi' },
+        { patternIndex: 0, name: 'id2', text: 'ghi' },
       ]);
     });
 
     it('handles patterns with properties', () => {
       tree = parser.parse(`a(b.c);`)!;
-      query = JavaScript.query(`
+      query = new Query(JavaScript, `
         ((call_expression (identifier) @func)
          (#set! foo)
          (#set! bar baz))
@@ -262,11 +262,13 @@ describe('Query', () => {
       const captures = query.captures(tree.rootNode);
       expect(formatCaptures(captures)).toEqual([
         {
+          patternIndex: 0,
           name: 'func',
           text: 'a',
           setProperties: { foo: null, bar: 'baz' }
         },
         {
+          patternIndex: 1,
           name: 'prop',
           text: 'c',
           assertedProperties: { foo: null },
@@ -287,9 +289,7 @@ describe('Query', () => {
         ];
       `)!;
 
-      query = JavaScript.query(`
-        (array (identifier) @pre (identifier) @post)
-      `);
+      query = new Query(JavaScript, `(array (identifier) @pre (identifier) @post)`);
 
       query.captures(tree.rootNode, { matchLimit: 32 });
       expect(query.didExceedMatchLimit()).toBe(true);
@@ -303,7 +303,7 @@ describe('Query', () => {
       `)!;
 
       const expectCount = (tree: Tree, queryText: string, expectedCount: number) => {
-        query = JavaScript.query(queryText);
+        query = new Query(JavaScript, queryText);
         const captures = query.captures(tree.rootNode);
         expect(captures).toHaveLength(expectedCount);
       };
@@ -372,7 +372,7 @@ describe('Query', () => {
 
   describe('.predicatesForPattern(index)', () => {
     it('returns all of the predicates as objects', () => {
-      query = JavaScript.query(`
+      query = new Query(JavaScript, `
         (
           (binary_expression
             left: (identifier) @a
@@ -420,7 +420,7 @@ describe('Query', () => {
 
   describe('.disableCapture', () => {
     it('disables a capture', () => {
-      query = JavaScript.query(`
+      query = new Query(JavaScript, `
         (function_declaration
           (identifier) @name1 @name2 @name3
           (statement_block) @body1 @body2)
@@ -432,13 +432,13 @@ describe('Query', () => {
       let matches = query.matches(tree.rootNode);
       expect(formatMatches(matches)).toEqual([
         {
-          pattern: 0,
+          patternIndex: 0,
           captures: [
-            { name: 'name1', text: 'foo' },
-            { name: 'name2', text: 'foo' },
-            { name: 'name3', text: 'foo' },
-            { name: 'body1', text: '{ return 1; }' },
-            { name: 'body2', text: '{ return 1; }' },
+            { patternIndex: 0, name: 'name1', text: 'foo' },
+            { patternIndex: 0, name: 'name2', text: 'foo' },
+            { patternIndex: 0, name: 'name3', text: 'foo' },
+            { patternIndex: 0, name: 'body1', text: '{ return 1; }' },
+            { patternIndex: 0, name: 'body2', text: '{ return 1; }' },
           ],
         },
       ]);
@@ -449,12 +449,12 @@ describe('Query', () => {
       matches = query.matches(tree.rootNode);
       expect(formatMatches(matches)).toEqual([
         {
-          pattern: 0,
+          patternIndex: 0,
           captures: [
-            { name: 'name1', text: 'foo' },
-            { name: 'name3', text: 'foo' },
-            { name: 'body1', text: '{ return 1; }' },
-            { name: 'body2', text: '{ return 1; }' },
+            { patternIndex: 0, name: 'name1', text: 'foo' },
+            { patternIndex: 0, name: 'name3', text: 'foo' },
+            { patternIndex: 0, name: 'body1', text: '{ return 1; }' },
+            { patternIndex: 0, name: 'body2', text: '{ return 1; }' },
           ],
         },
       ]);
@@ -464,9 +464,7 @@ describe('Query', () => {
   describe('Set a timeout', () => {
     it('returns less than the expected matches', () => {
       tree = parser.parse('function foo() while (true) { } }\n'.repeat(1000))!;
-      query = JavaScript.query(
-        '(function_declaration name: (identifier) @function)'
-      );
+      query = new Query(JavaScript, '(function_declaration name: (identifier) @function)');
       const matches = query.matches(tree.rootNode, { timeoutMicros: 1000 });
       expect(matches.length).toBeLessThan(1000);
       const matches2 = query.matches(tree.rootNode, { timeoutMicros: 0 });
@@ -497,7 +495,7 @@ describe('Query', () => {
 
       const source = patterns1 + patterns2 + patterns3;
 
-      const query = JavaScript.query(source);
+      const query = new Query(JavaScript, source);
 
       expect(query.startIndexForPattern(0)).toBe(0);
       expect(query.endIndexForPattern(0)).toBe('"+" @operator\n'.length);
@@ -516,7 +514,7 @@ describe('Query', () => {
 
   describe('Disable pattern', () => {
     it('Disables patterns in the query', () => {
-      const query = JavaScript.query(`
+      const query = new Query(JavaScript, `
         (function_declaration name: (identifier) @name)
         (function_declaration body: (statement_block) @body)
         (class_declaration name: (identifier) @name)
@@ -532,10 +530,10 @@ describe('Query', () => {
       const matches = query.matches(tree.rootNode);
       expect(formatMatches(matches)).toEqual([
         {
-          pattern: 3,
-          captures: [{ name: 'body', text: '{ constructor() {} }' }],
+          patternIndex: 3,
+          captures: [{ patternIndex: 3, name: 'body', text: '{ constructor() {} }' }],
         },
-        { pattern: 1, captures: [{ name: 'body', text: '{ return 1; }' }] },
+        { patternIndex: 1, captures: [{ patternIndex: 1, name: 'body', text: '{ return 1; }' }] },
       ]);
     });
   });
@@ -543,9 +541,7 @@ describe('Query', () => {
   describe('Executes with a timeout', () => {
     it('Returns less than the expected matches', () => {
       tree = parser.parse('function foo() while (true) { } }\n'.repeat(1000))!;
-      query = JavaScript.query(
-        '(function_declaration) @function'
-      );
+      query = new Query(JavaScript, '(function_declaration) @function');
 
       const startTime = performance.now();
 
@@ -569,9 +565,9 @@ describe('Query', () => {
 });
 
 // Helper functions
-function formatMatches(matches: QueryMatch[]): QueryMatch[] {
-  return matches.map(({ pattern, captures }) => ({
-    pattern,
+function formatMatches(matches: QueryMatch[]): Omit<QueryMatch, 'pattern'>[] {
+  return matches.map(({ patternIndex, captures }) => ({
+    patternIndex,
     captures: formatCaptures(captures),
   }));
 }
