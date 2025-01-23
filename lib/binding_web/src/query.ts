@@ -152,15 +152,31 @@ export type CaptureQuantifier = typeof CaptureQuantifier[keyof typeof CaptureQua
  * types of steps, which correspond to the two legal values for
  * the `type` field:
  *
- * - `capture` - Steps with this type represent names
- *    of captures. The `name` field is the name of the capture.
+ * - `CapturePredicateStep` - Steps with this type represent names
+ *    of captures.
  *
- * - `string` - Steps with this type represent literal
- *    strings. The `value` field is the string value.
+ * - `StringPredicateStep` - Steps with this type represent literal
+ *    strings.
  */
-export type PredicateStep =
-  | { type: 'capture', name: string }
-  | { type: 'string', value: string };
+export type PredicateStep = CapturePredicateStep | StringPredicateStep;
+
+/**
+ * A step in a predicate that refers to a capture.
+ *
+ * The `name` field is the name of the capture.
+ */
+export interface CapturePredicateStep { type: 'capture', name: string }
+
+/**
+ * A step in a predicate that refers to a string.
+ *
+ * The `value` field is the string value.
+ */
+export interface StringPredicateStep { type: 'string', value: string }
+
+const isStringStep = (step: PredicateStep): step is StringPredicateStep => {
+  return step.type === 'string';
+}
 
 /**
  * @internal
@@ -323,9 +339,6 @@ export class Query {
       textPredicates[i] = [];
 
       const steps = new Array<PredicateStep>();
-      const isStringStep = (step: PredicateStep): step is { type: 'string', value: string } => {
-        return step.type === 'string';
-      }
 
       let stepAddress = predicatesAddress;
       for (let j = 0; j < stepCount; j++) {
@@ -519,6 +532,8 @@ export class Query {
         }
       }
 
+      Object.freeze(textPredicates[i]);
+      Object.freeze(predicates[i]);
       Object.freeze(setProperties[i]);
       Object.freeze(assertedProperties[i]);
       Object.freeze(refutedProperties[i]);
