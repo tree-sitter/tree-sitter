@@ -52,6 +52,8 @@ const AUTHOR_BLOCK_GRAMMAR: &str = "\n * @author ";
 const AUTHOR_NAME_PLACEHOLDER_GRAMMAR: &str = "PARSER_AUTHOR_NAME";
 const AUTHOR_EMAIL_PLACEHOLDER_GRAMMAR: &str = " PARSER_AUTHOR_EMAIL";
 
+const FUNDING_URL_PLACEHOLDER: &str = "FUNDING_URL";
+
 const GRAMMAR_JS_TEMPLATE: &str = include_str!("./templates/grammar.js");
 const PACKAGE_JSON_TEMPLATE: &str = include_str!("./templates/package.json");
 const GITIGNORE_TEMPLATE: &str = include_str!("./templates/gitignore");
@@ -118,6 +120,8 @@ pub struct JsonConfigOpts {
     pub description: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub repository: Option<Url>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub funding: Option<Url>,
     pub scope: String,
     pub file_types: Vec<String>,
     pub version: Version,
@@ -166,6 +170,7 @@ impl JsonConfigOpts {
                         ))
                         .expect("Failed to parse default repository URL")
                     }),
+                    funding: self.funding,
                     homepage: None,
                 }),
                 namespace: None,
@@ -182,6 +187,7 @@ impl Default for JsonConfigOpts {
             camelcase: String::new(),
             description: String::new(),
             repository: None,
+            funding: None,
             scope: String::new(),
             file_types: vec![],
             version: Version::from_str("0.1.0").unwrap(),
@@ -200,6 +206,7 @@ struct GenerateOpts<'a> {
     license: Option<&'a str>,
     description: Option<&'a str>,
     repository: Option<&'a str>,
+    funding: Option<&'a str>,
     version: &'a Version,
     camel_parser_name: &'a str,
 }
@@ -261,6 +268,11 @@ pub fn generate_grammar_files(
             .links
             .as_ref()
             .map(|l| l.repository.as_str()),
+        funding: tree_sitter_config
+            .metadata
+            .links
+            .as_ref()
+            .and_then(|l| l.funding.as_ref().map(|f| f.as_str())),
         version: &tree_sitter_config.metadata.version,
         camel_parser_name: &camel_name,
     };
@@ -845,6 +857,25 @@ fn generate_file(
                         language_name.to_lowercase()
                     ),
                 );
+        }
+    }
+
+    if let Some(funding_url) = generate_opts.funding {
+        match filename {
+            "pyproject.toml" | "package.json" => {
+                replacement = replacement.replace(FUNDING_URL_PLACEHOLDER, funding_url);
+            }
+            _ => {}
+        }
+    } else {
+        match filename {
+            "package.json" => {
+                replacement = replacement.replace("  \"funding\": \"FUNDING_URL\",\n", "");
+            }
+            "pyproject.toml" => {
+                replacement = replacement.replace("Funding = \"FUNDING_URL\"\n", "");
+            }
+            _ => {}
         }
     }
 

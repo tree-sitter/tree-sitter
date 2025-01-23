@@ -172,6 +172,11 @@
               "format": "uri",
               "description": "The project's repository."
             },
+            "funding": {
+              "type": "string",
+              "format": "uri",
+              "description": "The project's funding link."
+            },
             "homepage": {
               "type": "string",
               "format": "uri",

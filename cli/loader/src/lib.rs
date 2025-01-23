@@ -217,6 +217,8 @@ pub struct Author {
 pub struct Links {
     pub repository: Url,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub funding: Option<Url>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub homepage: Option<String>,
 }
 
