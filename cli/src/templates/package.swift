@@ -9,16 +9,16 @@ if FileManager.default.fileExists(atPath: "src/scanner.c") {
 }
 
 let package = Package(
-    name: "TreeSitterCAMEL_PARSER_NAME",
+    name: "PARSER_CLASS_NAME",
     products: [
-        .library(name: "TreeSitterCAMEL_PARSER_NAME", targets: ["TreeSitterCAMEL_PARSER_NAME"]),
+        .library(name: "PARSER_CLASS_NAME", targets: ["PARSER_CLASS_NAME"]),
     ],
     dependencies: [
         .package(url: "https://github.com/ChimeHQ/SwiftTreeSitter", from: "0.8.0"),
     ],
     targets: [
         .target(
-            name: "TreeSitterCAMEL_PARSER_NAME",
+            name: "PARSER_CLASS_NAME",
             dependencies: [],
             path: ".",
             sources: sources,
@@ -29,12 +29,12 @@ let package = Package(
             cSettings: [.headerSearchPath("src")]
         ),
         .testTarget(
-            name: "TreeSitterCAMEL_PARSER_NAMETests",
+            name: "PARSER_CLASS_NAMETests",
             dependencies: [
                 "SwiftTreeSitter",
-                "TreeSitterCAMEL_PARSER_NAME",
+                "PARSER_CLASS_NAME",
             ],
-            path: "bindings/swift/TreeSitterCAMEL_PARSER_NAMETests"
+            path: "bindings/swift/PARSER_CLASS_NAMETests"
         )
     ],
     cLanguageStandard: .c11

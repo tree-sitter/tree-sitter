@@ -187,6 +187,8 @@ pub struct Grammar {
     pub first_line_regex: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub content_regex: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub class_name: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]

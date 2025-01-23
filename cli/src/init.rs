@@ -24,6 +24,7 @@ const PARSER_NAME_PLACEHOLDER: &str = "PARSER_NAME";
 const CAMEL_PARSER_NAME_PLACEHOLDER: &str = "CAMEL_PARSER_NAME";
 const UPPER_PARSER_NAME_PLACEHOLDER: &str = "UPPER_PARSER_NAME";
 const LOWER_PARSER_NAME_PLACEHOLDER: &str = "LOWER_PARSER_NAME";
+const PARSER_CLASS_NAME_PLACEHOLDER: &str = "PARSER_CLASS_NAME";
 
 const PARSER_DESCRIPTION_PLACEHOLDER: &str = "PARSER_DESCRIPTION";
 const PARSER_LICENSE_PLACEHOLDER: &str = "PARSER_LICENSE";
@@ -152,6 +153,7 @@ impl JsonConfigOpts {
                 injection_regex: Some(format!("^{}$", self.name)),
                 first_line_regex: None,
                 content_regex: None,
+                class_name: Some(format!("TreeSitter{}", self.name.to_upper_camel_case())),
             }],
             metadata: Metadata {
                 version: self.version,
@@ -209,6 +211,7 @@ struct GenerateOpts<'a> {
     funding: Option<&'a str>,
     version: &'a Version,
     camel_parser_name: &'a str,
+    class_name: &'a str,
 }
 
 pub fn generate_grammar_files(
@@ -250,6 +253,10 @@ pub fn generate_grammar_files(
         .camelcase
         .clone()
         .unwrap_or_else(|| language_name.to_upper_camel_case());
+    let class_name = tree_sitter_config.grammars[0]
+        .class_name
+        .clone()
+        .unwrap_or_else(|| format!("TreeSitter{}", language_name.to_upper_camel_case()));
 
     let generate_opts = GenerateOpts {
         author_name: authors
@@ -275,6 +282,7 @@ pub fn generate_grammar_files(
             .and_then(|l| l.funding.as_ref().map(|f| f.as_str())),
         version: &tree_sitter_config.metadata.version,
         camel_parser_name: &camel_name,
+        class_name: &class_name,
     };
 
     // Create package.json
@@ -708,7 +716,8 @@ fn generate_file(
         .replace(
             PARSER_VERSION_PLACEHOLDER,
             &generate_opts.version.to_string(),
-        );
+        )
+        .replace(PARSER_CLASS_NAME_PLACEHOLDER, generate_opts.class_name);
 
     if let Some(name) = generate_opts.author_name {
         replacement = replacement.replace(AUTHOR_NAME_PLACEHOLDER, name);
