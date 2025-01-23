@@ -28,7 +28,7 @@
           "scope": {
             "type": "string",
             "description": "The TextMate scope that represents this language.",
-            "pattern": "^(source|text)(\\.\\w+)+$",
+            "pattern": "^(source|text)(\\.[\\w\\-]+)+$",
             "examples": [
               "source.rust",
               "text.html"
