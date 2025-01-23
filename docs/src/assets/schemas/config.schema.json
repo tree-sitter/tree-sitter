@@ -133,6 +133,11 @@
             "type": "string",
             "format": "regex",
             "description": "A regex pattern that will be tested against the contents of the file in order to break ties in cases where multiple grammars matched the file."
+          },
+          "class-name": {
+            "type": "string",
+            "pattern": "^TreeSitter\\w+$",
+            "description": "The class name for the Swift, Java & Kotlin bindings"
           }
         },
         "additionalProperties": false,
