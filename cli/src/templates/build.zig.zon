@@ -1,0 +1,14 @@
+.{
+    .name = "tree_sitter_PARSER_NAME",
+    .version = "PARSER_VERSION",
+    .dependencies = .{},
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "bindings/c",
+        "src",
+        "queries",
+        "LICENSE",
+        "README.md",
+    },
+}

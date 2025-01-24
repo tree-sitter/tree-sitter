@@ -239,6 +239,7 @@ pub struct Bindings {
     pub python: bool,
     pub rust: bool,
     pub swift: bool,
+    pub zig: bool,
 }
 
 impl Default for Bindings {
@@ -252,6 +253,7 @@ impl Default for Bindings {
             python: true,
             rust: true,
             swift: true,
+            zig: false,
         }
     }
 }
