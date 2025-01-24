@@ -262,6 +262,10 @@
         "swift": {
           "type": "boolean",
           "default": true
+        },
+        "zig": {
+          "type": "boolean",
+          "default": false
         }
       },
       "additionalProperties": false

@@ -90,6 +90,9 @@ const TEST_BINDING_PY_TEMPLATE: &str = include_str!("./templates/test_binding.py
 const PACKAGE_SWIFT_TEMPLATE: &str = include_str!("./templates/package.swift");
 const TESTS_SWIFT_TEMPLATE: &str = include_str!("./templates/tests.swift");
 
+const BUILD_ZIG_TEMPLATE: &str = include_str!("./templates/build.zig");
+const BUILD_ZIG_ZON_TEMPLATE: &str = include_str!("./templates/build.zig.zon");
+
 const TREE_SITTER_JSON_SCHEMA: &str =
     "https://tree-sitter.github.io/tree-sitter/assets/schemas/config.schema.json";
 
@@ -283,9 +286,19 @@ pub fn generate_grammar_files(
     }
 
     // Write .gitignore file
-    missing_path(repo_path.join(".gitignore"), |path| {
-        generate_file(path, GITIGNORE_TEMPLATE, language_name, &generate_opts)
-    })?;
+    missing_path_else(
+        repo_path.join(".gitignore"),
+        allow_update,
+        |path| generate_file(path, GITIGNORE_TEMPLATE, language_name, &generate_opts),
+        |path| {
+            let contents = fs::read_to_string(path)?;
+            if !contents.contains("Zig artifacts") {
+                eprintln!("Replacing .gitignore");
+                generate_file(path, GITIGNORE_TEMPLATE, language_name, &generate_opts)?;
+            }
+            Ok(())
+        },
+    )?;
 
     // Write .gitattributes file
     missing_path_else(
@@ -293,8 +306,17 @@ pub fn generate_grammar_files(
         allow_update,
         |path| generate_file(path, GITATTRIBUTES_TEMPLATE, language_name, &generate_opts),
         |path| {
-            let contents = fs::read_to_string(path)?;
-            write_file(path, contents.replace("bindings/c/* ", "bindings/c/** "))?;
+            let mut contents = fs::read_to_string(path)?;
+            contents = contents.replace("bindings/c/* ", "bindings/c/** ");
+            if !contents.contains("Zig bindings") {
+                contents.push('\n');
+                contents.push_str(indoc! {"
+                # Zig bindings
+                build.zig linguist-generated
+                build.zig.zon linguist-generated
+                "});
+            }
+            write_file(path, contents)?;
             Ok(())
         },
     )?;
@@ -624,6 +646,17 @@ pub fn generate_grammar_files(
             })?;
 
             Ok(())
+        })?;
+    }
+
+    // Generate Zig bindings
+    if tree_sitter_config.bindings.zig {
+        missing_path(repo_path.join("build.zig"), |path| {
+            generate_file(path, BUILD_ZIG_TEMPLATE, language_name, &generate_opts)
+        })?;
+
+        missing_path(repo_path.join("build.zig.zon"), |path| {
+            generate_file(path, BUILD_ZIG_ZON_TEMPLATE, language_name, &generate_opts)
         })?;
     }
 
