@@ -24,6 +24,7 @@ const PARSER_NAME_PLACEHOLDER: &str = "PARSER_NAME";
 const CAMEL_PARSER_NAME_PLACEHOLDER: &str = "CAMEL_PARSER_NAME";
 const UPPER_PARSER_NAME_PLACEHOLDER: &str = "UPPER_PARSER_NAME";
 const LOWER_PARSER_NAME_PLACEHOLDER: &str = "LOWER_PARSER_NAME";
+const KEBAB_PARSER_NAME_PLACEHOLDER: &str = "KEBAB_PARSER_NAME";
 const PARSER_CLASS_NAME_PLACEHOLDER: &str = "PARSER_CLASS_NAME";
 
 const PARSER_DESCRIPTION_PLACEHOLDER: &str = "PARSER_DESCRIPTION";
@@ -403,13 +404,13 @@ pub fn generate_grammar_files(
     // Generate C bindings
     if tree_sitter_config.bindings.c {
         missing_path(bindings_dir.join("c"), create_dir)?.apply(|path| {
-            let old_file = &path.join(format!("tree-sitter-{language_name}.h"));
+            let old_file = &path.join(format!("tree-sitter-{}.h", language_name.to_kebab_case()));
             if allow_update && fs::exists(old_file).unwrap_or(false) {
                 fs::remove_file(old_file)?;
             }
             missing_path(path.join("tree_sitter"), create_dir)?.apply(|include_path| {
                 missing_path(
-                    include_path.join(format!("tree-sitter-{language_name}.h")),
+                    include_path.join(format!("tree-sitter-{}.h", language_name.to_kebab_case())),
                     |path| {
                         generate_file(path, PARSER_NAME_H_TEMPLATE, language_name, &generate_opts)
                     },
@@ -418,7 +419,7 @@ pub fn generate_grammar_files(
             })?;
 
             missing_path(
-                path.join(format!("tree-sitter-{language_name}.pc.in")),
+                path.join(format!("tree-sitter-{}.pc.in", language_name.to_kebab_case())),
                 |path| {
                     generate_file(
                         path,
@@ -708,6 +709,10 @@ fn generate_file(
         .replace(
             LOWER_PARSER_NAME_PLACEHOLDER,
             &language_name.to_snake_case(),
+        )
+        .replace(
+            KEBAB_PARSER_NAME_PLACEHOLDER,
+            &language_name.to_kebab_case(),
         )
         .replace(PARSER_NAME_PLACEHOLDER, language_name)
         .replace(CLI_VERSION_PLACEHOLDER, CLI_VERSION)

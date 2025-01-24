@@ -17,5 +17,5 @@ fn main() {
         println!("cargo:rerun-if-changed={}", scanner_path.to_str().unwrap());
     }
 
-    c_config.compile("tree-sitter-PARSER_NAME");
+    c_config.compile("tree-sitter-KEBAB_PARSER_NAME");
 }
