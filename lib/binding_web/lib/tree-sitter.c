@@ -139,7 +139,8 @@ extern void tree_sitter_log_callback(
 );
 
 extern bool tree_sitter_progress_callback(
-  uint32_t current_offset
+  uint32_t current_offset,
+  bool has_error
 );
 
 extern bool tree_sitter_query_progress_callback(
@@ -178,7 +179,7 @@ static void call_log_callback(
 static bool progress_callback(
   TSParseState *state
 ) {
-  return tree_sitter_progress_callback(state->current_byte_offset);
+  return tree_sitter_progress_callback(state->current_byte_offset, state->has_error);
 }
 
 static bool query_progress_callback(

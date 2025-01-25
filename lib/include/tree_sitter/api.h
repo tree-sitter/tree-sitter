@@ -94,6 +94,7 @@ typedef struct TSInput {
 typedef struct TSParseState {
   void *payload;
   uint32_t current_byte_offset;
+  bool has_error;
 } TSParseState;
 
 typedef struct TSParseOptions {

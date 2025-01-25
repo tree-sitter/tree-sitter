@@ -1029,6 +1029,35 @@ fn test_parsing_with_timeout_during_balancing() {
     });
 }
 
+#[test]
+fn test_parsing_with_timeout_when_error_detected() {
+    let mut parser = Parser::new();
+    parser.set_language(&get_language("json")).unwrap();
+
+    // Parse an infinitely-long array, but insert an error after 1000 characters.
+    let mut offset = 0;
+    let erroneous_code = "!,";
+    let tree = parser.parse_with_options(
+        &mut |i, _| match i {
+            0 => "[",
+            1..=1000 => "0,",
+            _ => erroneous_code,
+        },
+        None,
+        Some(ParseOptions::new().progress_callback(&mut |state| {
+            offset = state.current_byte_offset();
+            state.has_error()
+        })),
+    );
+
+    // The callback is called at the end of parsing, however, what we're asserting here is that
+    // parsing ends immediately as the error is detected. This is verified by checking the offset
+    // of the last byte processed is the length of the erroneous code we inserted, aka, 1002, or
+    // 1000 + the length of the erroneous code.
+    assert_eq!(offset, 1000 + erroneous_code.len());
+    assert!(tree.is_none());
+}
+
 // Included Ranges
 
 #[test]
