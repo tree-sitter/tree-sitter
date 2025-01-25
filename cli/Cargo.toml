@@ -28,6 +28,7 @@ harness = false
 wasm = ["tree-sitter/wasm", "tree-sitter-loader/wasm"]
 
 [dependencies]
+ansi_colours.workspace = true
 anstyle.workspace = true
 anyhow.workspace = true
 bstr.workspace = true
