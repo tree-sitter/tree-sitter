@@ -5,10 +5,11 @@ use std::{
     io::{self, Write as _},
     path::{self, Path, PathBuf},
     str,
-    sync::{atomic::AtomicUsize, Arc, LazyLock},
+    sync::{atomic::AtomicUsize, Arc},
     time::Instant,
 };
 
+use ansi_colours::{ansi256_from_rgb, rgb_from_ansi256};
 use anstyle::{Ansi256Color, AnsiColor, Color, Effects, RgbColor};
 use anyhow::Result;
 use serde::{ser::SerializeMap, Deserialize, Deserializer, Serialize, Serializer};
@@ -43,9 +44,6 @@ pub const HTML_BODY_HEADER: &str = "
 pub const HTML_FOOTER: &str = "
 </body>
 ";
-
-static CSS_STYLES_BY_COLOR_ID: LazyLock<Vec<String>> =
-    LazyLock::new(|| serde_json::from_str(include_str!("../vendor/xterm-colors.json")).unwrap());
 
 #[derive(Debug, Default)]
 pub struct Style {
@@ -224,9 +222,8 @@ fn parse_style(style: &mut Style, json: Value) {
 
     if let Some(Color::Rgb(RgbColor(red, green, blue))) = style.ansi.get_fg_color() {
         if !terminal_supports_truecolor() {
-            style.ansi = style
-                .ansi
-                .fg_color(Some(closest_xterm_color(red, green, blue)));
+            let ansi256 = Color::Ansi256(Ansi256Color(ansi256_from_rgb((red, green, blue))));
+            style.ansi = style.ansi.fg_color(Some(ansi256));
         }
     }
 }
@@ -303,7 +300,8 @@ fn write_color(buffer: &mut String, color: Color) {
             _ => unreachable!(),
         },
         Color::Ansi256(Ansi256Color(n)) => {
-            write!(buffer, "color: {}", CSS_STYLES_BY_COLOR_ID[n as usize]).unwrap();
+            let (r, g, b) = rgb_from_ansi256(n);
+            write!(buffer, "color: #{r:02x}{g:02x}{b:02x}").unwrap();
         }
         Color::Rgb(RgbColor(r, g, b)) => write!(buffer, "color: #{r:02x}{g:02x}{b:02x}").unwrap(),
     }
@@ -312,30 +310,6 @@ fn write_color(buffer: &mut String, color: Color) {
 fn terminal_supports_truecolor() -> bool {
     std::env::var("COLORTERM")
         .is_ok_and(|truecolor| truecolor == "truecolor" || truecolor == "24bit")
-}
-
-fn closest_xterm_color(red: u8, green: u8, blue: u8) -> Color {
-    use std::cmp::{max, min};
-
-    let colors = CSS_STYLES_BY_COLOR_ID
-        .iter()
-        .enumerate()
-        .map(|(color_id, hex)| (color_id as u8, hex_string_to_rgb(hex).unwrap()));
-
-    // Get the xterm color with the minimum Euclidean distance to the target color
-    // i.e.  distance = √ (r2 - r1)² + (g2 - g1)² + (b2 - b1)²
-    let distances = colors.map(|(color_id, (r, g, b))| {
-        let r_delta = (max(r, red) - min(r, red)) as u32;
-        let g_delta = (max(g, green) - min(g, green)) as u32;
-        let b_delta = (max(b, blue) - min(b, blue)) as u32;
-        let distance = r_delta.pow(2) + g_delta.pow(2) + b_delta.pow(2);
-        // don't need to actually take the square root for the sake of comparison
-        (color_id, distance)
-    });
-
-    Color::Ansi256(Ansi256Color(
-        distances.min_by(|(_, d1), (_, d2)| d1.cmp(d2)).unwrap().0,
-    ))
 }
 
 pub struct HighlightOptions {
@@ -518,12 +492,12 @@ mod tests {
         );
         assert_eq!(style.css, Some("color: #26a69a".to_string()));
 
-        // junglegreen gets approximated as darkcyan when the terminal does not support it
+        // junglegreen gets approximated as cadetblue when the terminal does not support it
         env::set_var("COLORTERM", "");
         parse_style(&mut style, Value::String(JUNGLE_GREEN.to_string()));
         assert_eq!(
             style.ansi.get_fg_color(),
-            Some(Color::Ansi256(Ansi256Color(36)))
+            Some(Color::Ansi256(Ansi256Color(72)))
         );
         assert_eq!(style.css, Some("color: #26a69a".to_string()));
 
