@@ -501,6 +501,7 @@ pub fn parse_file_at_path(
                 .unwrap_or(1);
             let mut indent_level = 1;
             let mut did_visit_children = false;
+            let mut in_error = false;
             loop {
                 if did_visit_children {
                     if cursor.goto_next_sibling() {
@@ -508,6 +509,9 @@ pub fn parse_file_at_path(
                     } else if cursor.goto_parent() {
                         did_visit_children = true;
                         indent_level -= 1;
+                        if !cursor.node().has_error() {
+                            in_error = false;
+                        }
                     } else {
                         break;
                     }
@@ -519,10 +523,14 @@ pub fn parse_file_at_path(
                         &mut stdout,
                         total_width,
                         indent_level,
+                        in_error,
                     )?;
                     if cursor.goto_first_child() {
                         did_visit_children = false;
                         indent_level += 1;
+                        if cursor.node().has_error() {
+                            in_error = true;
+                        }
                     } else {
                         did_visit_children = true;
                     }
@@ -771,6 +779,7 @@ fn write_node_text(
             paint(quote_color, &String::from(quote)),
         )?;
     } else {
+        let multiline = source.contains('\n');
         for (i, line) in source.split_inclusive('\n').enumerate() {
             if line.is_empty() {
                 break;
@@ -790,9 +799,18 @@ fn write_node_text(
             if !opts.no_ranges {
                 write!(
                     stdout,
-                    "\n{}{}{}{}{}",
-                    render_node_range(opts, cursor, is_named, true, total_width, node_range),
-                    "  ".repeat(indent_level + 1),
+                    "{}{}{}{}{}{}",
+                    if multiline { "\n" } else { "" },
+                    if multiline {
+                        render_node_range(opts, cursor, is_named, true, total_width, node_range)
+                    } else {
+                        String::new()
+                    },
+                    if multiline {
+                        "  ".repeat(indent_level + 1)
+                    } else {
+                        String::new()
+                    },
                     paint(quote_color, &String::from(quote)),
                     &paint(color, &render_node_text(&formatted_line)),
                     paint(quote_color, &String::from(quote)),
@@ -865,6 +883,7 @@ fn cst_render_node(
     stdout: &mut StdoutLock<'static>,
     total_width: usize,
     indent_level: usize,
+    in_error: bool,
 ) -> Result<()> {
     let node = cursor.node();
     let is_named = node.is_named();
@@ -875,7 +894,16 @@ fn cst_render_node(
             render_node_range(opts, cursor, is_named, false, total_width, node.range())
         )?;
     }
-    write!(stdout, "{}", "  ".repeat(indent_level))?;
+    write!(
+        stdout,
+        "{}{}",
+        "  ".repeat(indent_level),
+        if in_error && !node.has_error() {
+            " "
+        } else {
+            ""
+        }
+    )?;
     if is_named {
         if let Some(field_name) = cursor.field_name() {
             write!(
@@ -885,10 +913,13 @@ fn cst_render_node(
             )?;
         }
 
-        let kind_color = if node.has_error() {
+        if node.has_error() || node.is_error() {
             write!(stdout, "{}", paint(opts.parse_theme.error, "•"))?;
+        }
+
+        let kind_color = if node.is_error() {
             opts.parse_theme.error
-        } else if node.is_extra() || node.parent().is_some_and(|p| p.is_extra()) {
+        } else if node.is_extra() || node.parent().is_some_and(|p| p.is_extra() && !p.is_error()) {
             opts.parse_theme.extra
         } else {
             opts.parse_theme.node_kind
