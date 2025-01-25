@@ -53,6 +53,9 @@ export interface ParseOptions {
 export interface ParseState {
   /** The byte offset in the document that the parser is at. */
   currentOffset: number;
+
+  /** Indicates whether the parser has encountered an error during parsing. */
+  hasError: boolean;
 }
 
 /**

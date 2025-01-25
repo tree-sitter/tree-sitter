@@ -147,6 +147,11 @@ impl ParseState {
     pub const fn current_byte_offset(&self) -> usize {
         unsafe { self.0.as_ref() }.current_byte_offset as usize
     }
+
+    #[must_use]
+    pub const fn has_error(&self) -> bool {
+        unsafe { self.0.as_ref() }.has_error
+    }
 }
 
 /// A stateful object that is passed into a [`QueryProgressCallback`]

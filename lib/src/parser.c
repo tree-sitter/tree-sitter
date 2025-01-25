@@ -116,6 +116,7 @@ struct TSParser {
   unsigned included_range_difference_index;
   bool has_scanner_error;
   bool canceled_balancing;
+  bool has_error;
 };
 
 typedef struct {
@@ -1419,6 +1420,16 @@ static void ts_parser__recover(
       self->stack, version, ts_subtree_last_external_token(lookahead)
     );
   }
+
+  bool has_error = true;
+  for (unsigned i = 0; i < ts_stack_version_count(self->stack); i++) {
+    ErrorStatus status = ts_parser__version_status(self, i);
+    if (!status.is_in_error) {
+      has_error = false;
+      break;
+    }
+  }
+  self->has_error = has_error;
 }
 
 static void ts_parser__handle_error(
@@ -1525,6 +1536,7 @@ static bool ts_parser__check_progress(TSParser *self, Subtree *lookahead, const 
   }
   if (self->parse_options.progress_callback && position != NULL) {
     self->parse_state.current_byte_offset = *position;
+    self->parse_state.has_error = self->has_error;
   }
   if (
     self->operation_count == 0 &&
@@ -1929,6 +1941,7 @@ TSParser *ts_parser_new(void) {
   self->timeout_duration = 0;
   self->language = NULL;
   self->has_scanner_error = false;
+  self->has_error = false;
   self->canceled_balancing = false;
   self->external_scanner_payload = NULL;
   self->end_clock = clock_null();
@@ -2066,6 +2079,7 @@ void ts_parser_reset(TSParser *self) {
   }
   self->accept_count = 0;
   self->has_scanner_error = false;
+  self->has_error = false;
   self->parse_options = (TSParseOptions) {0};
   self->parse_state = (TSParseState) {0};
 }
