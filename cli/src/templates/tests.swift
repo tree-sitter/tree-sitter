@@ -7,6 +7,6 @@ final class PARSER_CLASS_NAMETests: XCTestCase {
         let parser = Parser()
         let language = Language(language: tree_sitter_LOWER_PARSER_NAME())
         XCTAssertNoThrow(try parser.setLanguage(language),
-                         "Error loading CAMEL_PARSER_NAME grammar")
+                         "Error loading TITLE_PARSER_NAME grammar")
     }
 }
