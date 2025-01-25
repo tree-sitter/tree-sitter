@@ -22,6 +22,7 @@ const ABI_VERSION_MAX_PLACEHOLDER: &str = "ABI_VERSION_MAX";
 
 const PARSER_NAME_PLACEHOLDER: &str = "PARSER_NAME";
 const CAMEL_PARSER_NAME_PLACEHOLDER: &str = "CAMEL_PARSER_NAME";
+const TITLE_PARSER_NAME_PLACEHOLDER: &str = "TITLE_PARSER_NAME";
 const UPPER_PARSER_NAME_PLACEHOLDER: &str = "UPPER_PARSER_NAME";
 const LOWER_PARSER_NAME_PLACEHOLDER: &str = "LOWER_PARSER_NAME";
 const KEBAB_PARSER_NAME_PLACEHOLDER: &str = "KEBAB_PARSER_NAME";
@@ -119,6 +120,7 @@ pub fn path_in_ignore(repo_path: &Path) -> bool {
 pub struct JsonConfigOpts {
     pub name: String,
     pub camelcase: String,
+    pub title: String,
     pub description: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub repository: Option<Url>,
@@ -143,6 +145,7 @@ impl JsonConfigOpts {
             grammars: vec![Grammar {
                 name: self.name.clone(),
                 camelcase: Some(self.camelcase),
+                title: Some(self.title),
                 scope: self.scope,
                 path: None,
                 external_files: PathsJSON::Empty,
@@ -188,6 +191,7 @@ impl Default for JsonConfigOpts {
         Self {
             name: String::new(),
             camelcase: String::new(),
+            title: String::new(),
             description: String::new(),
             repository: None,
             funding: None,
@@ -212,6 +216,7 @@ struct GenerateOpts<'a> {
     funding: Option<&'a str>,
     version: &'a Version,
     camel_parser_name: &'a str,
+    title_parser_name: &'a str,
     class_name: &'a str,
 }
 
@@ -254,6 +259,10 @@ pub fn generate_grammar_files(
         .camelcase
         .clone()
         .unwrap_or_else(|| language_name.to_upper_camel_case());
+    let title_name = tree_sitter_config.grammars[0]
+        .title
+        .clone()
+        .unwrap_or_else(|| language_name.to_upper_camel_case());
     let class_name = tree_sitter_config.grammars[0]
         .class_name
         .clone()
@@ -283,6 +292,7 @@ pub fn generate_grammar_files(
             .and_then(|l| l.funding.as_ref().map(|f| f.as_str())),
         version: &tree_sitter_config.metadata.version,
         camel_parser_name: &camel_name,
+        title_parser_name: &title_name,
         class_name: &class_name,
     };
 
@@ -701,6 +711,10 @@ fn generate_file(
         .replace(
             CAMEL_PARSER_NAME_PLACEHOLDER,
             generate_opts.camel_parser_name,
+        )
+        .replace(
+            TITLE_PARSER_NAME_PLACEHOLDER,
+            generate_opts.title_parser_name,
         )
         .replace(
             UPPER_PARSER_NAME_PLACEHOLDER,

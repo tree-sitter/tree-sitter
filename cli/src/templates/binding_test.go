@@ -10,6 +10,6 @@ import (
 func TestCanLoadGrammar(t *testing.T) {
 	language := tree_sitter.NewLanguage(tree_sitter_LOWER_PARSER_NAME.Language())
 	if language == nil {
-		t.Errorf("Error loading CAMEL_PARSER_NAME grammar")
+		t.Errorf("Error loading TITLE_PARSER_NAME grammar")
 	}
 }

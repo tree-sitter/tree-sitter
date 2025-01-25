@@ -534,6 +534,13 @@ impl Init {
                     .interact_text()
             };
 
+            let title = |name: &str| {
+                Input::<String>::with_theme(&ColorfulTheme::default())
+                    .with_prompt("Title (human-readable name)")
+                    .default(name.to_upper_camel_case())
+                    .interact_text()
+            };
+
             let description = |name: &str| {
                 Input::<String>::with_theme(&ColorfulTheme::default())
                     .with_prompt("Description")
@@ -656,6 +663,7 @@ impl Init {
             let choices = [
                 "name",
                 "camelcase",
+                "title",
                 "description",
                 "repository",
                 "funding",
@@ -674,6 +682,7 @@ impl Init {
                     match $choice {
                         "name" => opts.name = name()?,
                         "camelcase" => opts.camelcase = camelcase_name(&opts.name)?,
+                        "title" => opts.title = title(&opts.name)?,
                         "description" => opts.description = description(&opts.name)?,
                         "repository" => opts.repository = Some(repository(&opts.name)?),
                         "funding" => opts.funding = funding()?,

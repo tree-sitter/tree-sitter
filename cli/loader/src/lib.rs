@@ -167,6 +167,8 @@ pub struct Grammar {
     pub name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub camelcase: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
     pub scope: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub path: Option<PathBuf>,
