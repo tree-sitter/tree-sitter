@@ -95,7 +95,7 @@ codegen-units = 256
 [workspace.dependencies]
 ansi_colours = "1.2.3"
 anstyle = "1.0.10"
-anyhow = "1.0.94"
+anyhow = "1.0.95"
 bstr = "1.11.3"
 cc = "1.2.10"
 clap = { version = "4.5.27", features = [
@@ -105,7 +105,7 @@ clap = { version = "4.5.27", features = [
   "help",
   "unstable-styles",
 ] }
-clap_complete = "4.5.39"
+clap_complete = "4.5.42"
 clap_complete_nushell = "4.5.5"
 ctor = "0.2.9"
 ctrlc = { version = "3.4.5", features = ["termination"] }
@@ -113,7 +113,7 @@ dialoguer = { version = "0.11.0", features = ["fuzzy-select"] }
 etcetera = "0.8.0"
 filetime = "0.2.25"
 fs4 = "0.12.0"
-git2 = "0.19.0"
+git2 = "0.20.0"
 glob = "0.3.2"
 heck = "0.5.0"
 html-escape = "0.2.13"
@@ -131,19 +131,19 @@ regex-syntax = "0.8.5"
 rustc-hash = "2.1.0"
 semver = { version = "1.0.25", features = ["serde"] }
 serde = { version = "1.0.217", features = ["derive"] }
-serde_derive = "1.0.216"
+serde_derive = "1.0.217"
 serde_json = { version = "1.0.137", features = ["preserve_order"] }
 similar = "2.7.0"
 smallbitvec = "2.5.3"
 streaming-iterator = "0.1.9"
 tempfile = "3.15.0"
-thiserror = "2.0.7"
+thiserror = "2.0.11"
 tiny_http = "0.12.0"
 toml = "0.8.19"
 unindent = "0.2.3"
 url = { version = "2.5.4", features = ["serde"] }
 walkdir = "2.5.0"
-wasmparser = "0.221.2"
+wasmparser = "0.224.0"
 webbrowser = "1.0.3"
 
 tree-sitter = { version = "0.25.0", path = "./lib" }
