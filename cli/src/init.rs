@@ -652,7 +652,7 @@ pub fn generate_grammar_files(
     // Generate Swift bindings
     if tree_sitter_config.bindings.swift {
         missing_path(bindings_dir.join("swift"), create_dir)?.apply(|path| {
-            let lang_path = path.join(format!("TreeSitter{camel_name}",));
+            let lang_path = path.join(format!("TreeSitter{camel_name}"));
             missing_path(&lang_path, create_dir)?;
 
             missing_path(lang_path.join(format!("{language_name}.h")), |path| {
@@ -660,7 +660,7 @@ pub fn generate_grammar_files(
             })?;
 
             missing_path(
-                path.join(format!("TreeSitter{camel_name}Tests",)),
+                path.join(format!("TreeSitter{camel_name}Tests")),
                 create_dir,
             )?
             .apply(|path| {
@@ -672,9 +672,20 @@ pub fn generate_grammar_files(
                 Ok(())
             })?;
 
-            missing_path(repo_path.join("Package.swift"), |path| {
-                generate_file(path, PACKAGE_SWIFT_TEMPLATE, language_name, &generate_opts)
-            })?;
+            missing_path_else(
+                repo_path.join("Package.swift"),
+                allow_update,
+                |path| generate_file(path, PACKAGE_SWIFT_TEMPLATE, language_name, &generate_opts),
+                |path| {
+                    let mut contents = fs::read_to_string(path)?;
+                    contents = contents.replace(
+                        "https://github.com/ChimeHQ/SwiftTreeSitter",
+                        "https://github.com/tree-sitter/swift-tree-sitter",
+                    );
+                    write_file(path, contents)?;
+                    Ok(())
+                },
+            )?;
 
             Ok(())
         })?;
