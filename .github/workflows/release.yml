@@ -119,6 +119,8 @@ jobs:
       - name: Build wasm
         if: matrix.directory == 'lib/binding_web'
         run: |
+          cd ${{ matrix.directory }}
+          npm ci
           npm run build
           npm run build:debug
           CJS=true npm run build
