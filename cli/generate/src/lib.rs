@@ -33,6 +33,7 @@ pub use parse_grammar::ParseGrammarError;
 use prepare_grammar::prepare_grammar;
 pub use prepare_grammar::PrepareGrammarError;
 use render::render_c_code;
+pub use render::{ABI_VERSION_MAX, ABI_VERSION_MIN};
 
 static JSON_COMMENT_REGEX: LazyLock<Regex> = LazyLock::new(|| {
     RegexBuilder::new("^\\s*//.*")
@@ -147,7 +148,7 @@ pub fn generate_parser_in_directory(
     repo_path: &Path,
     out_path: Option<&str>,
     grammar_path: Option<&str>,
-    abi_version: usize,
+    mut abi_version: usize,
     report_symbol_name: Option<&str>,
     js_runtime: Option<&str>,
 ) -> GenerateResult<()> {
@@ -191,6 +192,12 @@ pub fn generate_parser_in_directory(
     let input_grammar = parse_grammar(&grammar_json)?;
 
     let semantic_version = read_grammar_version(&repo_path)?;
+
+    if semantic_version.is_none() && abi_version > ABI_VERSION_MIN {
+        println!("Warning: No `tree-sitter.json` file found in your grammar, this file is required to generate with ABI {abi_version}. Using ABI version {ABI_VERSION_MIN} instead.");
+        println!("This file can be set up with `tree-sitter init`. For more information, see https://tree-sitter.github.io/tree-sitter/cli/init.");
+        abi_version = ABI_VERSION_MIN;
+    }
 
     // Generate the parser and related files.
     let GeneratedParser {
