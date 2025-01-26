@@ -634,14 +634,39 @@ pub fn parse_file_at_path(
         }
 
         let mut first_error = None;
-        loop {
+        let mut earliest_node_with_error = None;
+        'outer: loop {
             let node = cursor.node();
             if node.has_error() {
+                if earliest_node_with_error.is_none() {
+                    earliest_node_with_error = Some(node);
+                }
                 if node.is_error() || node.is_missing() {
                     first_error = Some(node);
                     break;
                 }
+
+                // If there's no more children, even though some outer node has an error,
+                // then that means that the first error is hidden, but the later error could be
+                // visible. So, we walk back up to the child of the first node with an error,
+                // and then check its siblings for errors.
                 if !cursor.goto_first_child() {
+                    let earliest = earliest_node_with_error.unwrap();
+                    while cursor.goto_parent() {
+                        if cursor.node().parent().is_some_and(|p| p == earliest) {
+                            while cursor.goto_next_sibling() {
+                                let sibling = cursor.node();
+                                if sibling.is_error() || sibling.is_missing() {
+                                    first_error = Some(sibling);
+                                    break 'outer;
+                                }
+                                if sibling.has_error() && cursor.goto_first_child() {
+                                    continue 'outer;
+                                }
+                            }
+                            break;
+                        }
+                    }
                     break;
                 }
             } else if !cursor.goto_next_sibling() {
