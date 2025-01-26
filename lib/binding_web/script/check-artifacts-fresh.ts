@@ -16,7 +16,6 @@ const inputFiles = [
   '../src/query.ts',
   '../src/tree.ts',
   '../src/tree_cursor.ts',
-  '../dist/tree-sitter.js',
   '../lib/exports.txt',
   '../lib/imports.js',
   '../lib/prefix.js',
