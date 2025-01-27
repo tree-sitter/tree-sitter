@@ -22,7 +22,6 @@ workspace = true
 crate-type = ["lib", "staticlib"]
 
 [dependencies]
-lazy_static.workspace = true
 regex.workspace = true
 thiserror.workspace = true
 streaming-iterator.workspace = true

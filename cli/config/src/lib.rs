@@ -93,9 +93,9 @@ impl Config {
         };
 
         let content = fs::read_to_string(&location)
-            .with_context(|| format!("Failed to read {}", &location.to_string_lossy()))?;
+            .with_context(|| format!("Failed to read {}", location.to_string_lossy()))?;
         let config = serde_json::from_str(&content)
-            .with_context(|| format!("Bad JSON config {}", &location.to_string_lossy()))?;
+            .with_context(|| format!("Bad JSON config {}", location.to_string_lossy()))?;
         Ok(Self { location, config })
     }
 

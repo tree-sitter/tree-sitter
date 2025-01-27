@@ -36,16 +36,16 @@ jobs:
           # When adding a new `target`:
           # 1. Define a new platform alias above
           # 2. Add a new record to the matrix map in `cli/npm/install.js`
-          - { platform: linux-arm64       , target: aarch64-unknown-linux-gnu   , os: ubuntu-latest  , use-cross: true }
-          - { platform: linux-arm         , target: arm-unknown-linux-gnueabi   , os: ubuntu-latest  , use-cross: true }
-          - { platform: linux-x64         , target: x86_64-unknown-linux-gnu    , os: ubuntu-20.04   , features: wasm  } # See #2272
-          - { platform: linux-x86         , target: i686-unknown-linux-gnu      , os: ubuntu-latest  , use-cross: true }
-          - { platform: linux-powerpc64   , target: powerpc64-unknown-linux-gnu , os: ubuntu-latest  , use-cross: true }
-          - { platform: windows-arm64     , target: aarch64-pc-windows-msvc     , os: windows-latest                   }
-          - { platform: windows-x64       , target: x86_64-pc-windows-msvc      , os: windows-latest , features: wasm  }
-          - { platform: windows-x86       , target: i686-pc-windows-msvc        , os: windows-latest                   }
-          - { platform: macos-arm64       , target: aarch64-apple-darwin        , os: macos-14       , features: wasm  }
-          - { platform: macos-x64         , target: x86_64-apple-darwin         , os: macos-13       , features: wasm  }
+          - { platform: linux-arm64       , target: aarch64-unknown-linux-gnu   , os: ubuntu-latest    , use-cross: true }
+          - { platform: linux-arm         , target: arm-unknown-linux-gnueabi   , os: ubuntu-latest    , use-cross: true }
+          - { platform: linux-x64         , target: x86_64-unknown-linux-gnu    , os: ubuntu-latest    , features: wasm  }
+          - { platform: linux-x86         , target: i686-unknown-linux-gnu      , os: ubuntu-latest    , use-cross: true }
+          - { platform: linux-powerpc64   , target: powerpc64-unknown-linux-gnu , os: ubuntu-latest    , use-cross: true }
+          - { platform: windows-arm64     , target: aarch64-pc-windows-msvc     , os: windows-latest                     }
+          - { platform: windows-x64       , target: x86_64-pc-windows-msvc      , os: windows-latest   , features: wasm  }
+          - { platform: windows-x86       , target: i686-pc-windows-msvc        , os: windows-latest                     }
+          - { platform: macos-arm64       , target: aarch64-apple-darwin        , os: macos-latest     , features: wasm  }
+          - { platform: macos-x64         , target: x86_64-apple-darwin         , os: macos-13         , features: wasm  }
 
           # Cross compilers for C library
           - { platform: linux-arm64       , cc: aarch64-linux-gnu-gcc           , ar: aarch64-linux-gnu-ar   }
@@ -186,7 +186,14 @@ jobs:
     - name: Build wasm library
       # No reason to build on the same Github runner hosts many times
       if: ${{ !matrix.no-run && !matrix.use-cross }}
-      run: $BUILD_CMD run -p xtask -- build-wasm
+      shell: bash
+      run: |
+        cd lib/binding_web
+        npm ci
+        CJS=true npm run build
+        CJS=true npm run build:debug
+        npm run build
+        npm run build:debug
 
     - name: Build target
       run: $BUILD_CMD build --release --target=${{ matrix.target }} --features=${{ matrix.features }}
@@ -236,6 +243,16 @@ jobs:
         name: tree-sitter.wasm
         path: |
           lib/binding_web/tree-sitter.js
+          lib/binding_web/tree-sitter.js.map
+          lib/binding_web/tree-sitter.cjs
+          lib/binding_web/tree-sitter.cjs.map
           lib/binding_web/tree-sitter.wasm
+          lib/binding_web/tree-sitter.wasm.map
+          lib/binding_web/debug/tree-sitter.cjs
+          lib/binding_web/debug/tree-sitter.cjs.map
+          lib/binding_web/debug/tree-sitter.js
+          lib/binding_web/debug/tree-sitter.js.map
+          lib/binding_web/debug/tree-sitter.wasm
+          lib/binding_web/debug/tree-sitter.wasm.map
         if-no-files-found: error
         retention-days: 7

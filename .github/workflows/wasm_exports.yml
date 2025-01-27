@@ -32,5 +32,9 @@ jobs:
         env:
           CFLAGS: -g -Werror -Wall -Wextra -Wshadow -Wpedantic -Werror=incompatible-pointer-types
 
+      - name: Build WASM Library
+        working-directory: lib/binding_web
+        run: npm ci && npm run build:debug
+
       - name: Check WASM exports
         run: cargo xtask check-wasm-exports

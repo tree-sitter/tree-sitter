@@ -3,31 +3,40 @@ use std::{
     fs,
     os::raw::c_char,
     ptr, slice, str,
-    sync::atomic::{AtomicUsize, Ordering},
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        LazyLock,
+    },
 };
 
-use lazy_static::lazy_static;
 use tree_sitter_highlight::{
     c, Error, Highlight, HighlightConfiguration, HighlightEvent, Highlighter, HtmlRenderer,
 };
 
 use super::helpers::fixtures::{get_highlight_config, get_language, get_language_queries_path};
 
-lazy_static! {
-    static ref JS_HIGHLIGHT: HighlightConfiguration =
-        get_highlight_config("javascript", Some("injections.scm"), &HIGHLIGHT_NAMES);
-    static ref JSDOC_HIGHLIGHT: HighlightConfiguration =
-        get_highlight_config("jsdoc", None, &HIGHLIGHT_NAMES);
-    static ref HTML_HIGHLIGHT: HighlightConfiguration =
-        get_highlight_config("html", Some("injections.scm"), &HIGHLIGHT_NAMES);
-    static ref EJS_HIGHLIGHT: HighlightConfiguration = get_highlight_config(
+static JS_HIGHLIGHT: LazyLock<HighlightConfiguration> =
+    LazyLock::new(|| get_highlight_config("javascript", Some("injections.scm"), &HIGHLIGHT_NAMES));
+
+static JSDOC_HIGHLIGHT: LazyLock<HighlightConfiguration> =
+    LazyLock::new(|| get_highlight_config("jsdoc", None, &HIGHLIGHT_NAMES));
+
+static HTML_HIGHLIGHT: LazyLock<HighlightConfiguration> =
+    LazyLock::new(|| get_highlight_config("html", Some("injections.scm"), &HIGHLIGHT_NAMES));
+
+static EJS_HIGHLIGHT: LazyLock<HighlightConfiguration> = LazyLock::new(|| {
+    get_highlight_config(
         "embedded-template",
         Some("injections-ejs.scm"),
-        &HIGHLIGHT_NAMES
-    );
-    static ref RUST_HIGHLIGHT: HighlightConfiguration =
-        get_highlight_config("rust", Some("injections.scm"), &HIGHLIGHT_NAMES);
-    static ref HIGHLIGHT_NAMES: Vec<String> = [
+        &HIGHLIGHT_NAMES,
+    )
+});
+
+static RUST_HIGHLIGHT: LazyLock<HighlightConfiguration> =
+    LazyLock::new(|| get_highlight_config("rust", Some("injections.scm"), &HIGHLIGHT_NAMES));
+
+static HIGHLIGHT_NAMES: LazyLock<Vec<String>> = LazyLock::new(|| {
+    [
         "attribute",
         "boolean",
         "carriage-return",
@@ -60,12 +69,15 @@ lazy_static! {
     .iter()
     .copied()
     .map(String::from)
-    .collect();
-    static ref HTML_ATTRS: Vec<String> = HIGHLIGHT_NAMES
+    .collect()
+});
+
+static HTML_ATTRS: LazyLock<Vec<String>> = LazyLock::new(|| {
+    HIGHLIGHT_NAMES
         .iter()
         .map(|s| format!("class={s}"))
-        .collect();
-}
+        .collect()
+});
 
 #[test]
 fn test_highlighting_javascript() {

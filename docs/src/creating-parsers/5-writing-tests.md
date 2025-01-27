@@ -31,7 +31,7 @@ func x() int {
 * Then the **input source code** is written, followed by a line containing three or more `-` (dash) characters.
 
 * Then, the **expected output syntax tree** is written as an [S-expression][s-exp]. The exact placement of whitespace in
-the S-expression doesn't matter, but ideally the syntax tree should be legible. 
+the S-expression doesn't matter, but ideally the syntax tree should be legible.
 
 ```admonish tip
 The S-expression does not show syntax nodes like `func`, `(` and `;`, which are expressed as strings and regexes in the grammar.
@@ -163,6 +163,5 @@ file is changed.
 
 [constants]: https://doc.rust-lang.org/std/env/consts/constant.OS.html
 [external-scanners]: ./4-external-scanners.md
-[named-vs-anonymous-nodes]: ../using-parsers/2-basic-parsing.md#named-vs-anonymous-nodes
 [node-field-names]: ../using-parsers/2-basic-parsing.md#node-field-names
 [s-exp]: https://en.wikipedia.org/wiki/S-expression

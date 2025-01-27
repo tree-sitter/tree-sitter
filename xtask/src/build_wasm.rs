@@ -24,6 +24,17 @@ enum EmccSource {
     Podman,
 }
 
+const EXPORTED_RUNTIME_METHODS: [&str; 8] = [
+    "AsciiToString",
+    "stringToUTF8",
+    "UTF8ToString",
+    "lengthBytesUTF8",
+    "stringToUTF16",
+    "loadWebAssemblyModule",
+    "getValue",
+    "setValue",
+];
+
 pub fn run_wasm(args: &BuildWasm) -> Result<()> {
     let mut emscripten_flags = vec!["-O3", "--minify", "0"];
 
@@ -106,7 +117,7 @@ pub fn run_wasm(args: &BuildWasm) -> Result<()> {
     let exported_functions = format!(
         "{}{}",
         fs::read_to_string("lib/src/wasm/stdlib-symbols.txt")?,
-        fs::read_to_string("lib/binding_web/exports.txt")?
+        fs::read_to_string("lib/binding_web/lib/exports.txt")?
     )
     .replace('"', "")
     .lines()
@@ -118,56 +129,58 @@ pub fn run_wasm(args: &BuildWasm) -> Result<()> {
     .to_string();
 
     let exported_functions = format!("EXPORTED_FUNCTIONS={exported_functions}");
-    let exported_runtime_methods = "EXPORTED_RUNTIME_METHODS=stringToUTF16,AsciiToString";
+    let exported_runtime_methods = format!(
+        "EXPORTED_RUNTIME_METHODS={}",
+        EXPORTED_RUNTIME_METHODS.join(",")
+    );
 
+    // Clean up old files from prior runs
+    for file in [
+        "tree-sitter.mjs",
+        "tree-sitter.cjs",
+        "tree-sitter.wasm",
+        "tree-sitter.wasm.map",
+    ] {
+        fs::remove_file(PathBuf::from("lib/binding_web/lib").join(file)).ok();
+    }
+
+    if !args.cjs {
+        emscripten_flags.extend(["-s", "EXPORT_ES6=1"]);
+    }
+
+    #[rustfmt::skip]
     emscripten_flags.extend([
-        "-s",
-        "WASM=1",
-        "-s",
-        "INITIAL_MEMORY=33554432",
-        "-s",
-        "ALLOW_MEMORY_GROWTH=1",
-        "-s",
-        "SUPPORT_BIG_ENDIAN=1",
-        "-s",
-        "MAIN_MODULE=2",
-        "-s",
-        "FILESYSTEM=0",
-        "-s",
-        "NODEJS_CATCH_EXIT=0",
-        "-s",
-        "NODEJS_CATCH_REJECTION=0",
-        "-s",
-        &exported_functions,
-        "-s",
-        exported_runtime_methods,
+        "-gsource-map",
+        "--source-map-base", ".",
         "-fno-exceptions",
         "-std=c11",
-        "-D",
-        "fprintf(...)=",
-        "-D",
-        "NDEBUG=",
-        "-D",
-        "_POSIX_C_SOURCE=200112L",
-        "-D",
-        "_DEFAULT_SOURCE=",
-        "-I",
-        "lib/src",
-        "-I",
-        "lib/include",
-        "--js-library",
-        "lib/binding_web/imports.js",
-        "--pre-js",
-        "lib/binding_web/prefix.js",
-        "--post-js",
-        "lib/binding_web/binding.js",
-        "--post-js",
-        "lib/binding_web/suffix.js",
+        "-s", "WASM=1",
+        "-s", "MODULARIZE=1",
+        "-s", "INITIAL_MEMORY=33554432",
+        "-s", "ALLOW_MEMORY_GROWTH=1",
+        "-s", "SUPPORT_BIG_ENDIAN=1",
+        "-s", "MAIN_MODULE=2",
+        "-s", "FILESYSTEM=0",
+        "-s", "NODEJS_CATCH_EXIT=0",
+        "-s", "NODEJS_CATCH_REJECTION=0",
+        "-s", &exported_functions,
+        "-s", &exported_runtime_methods,
+        "-D", "fprintf(...)=",
+        "-D", "NDEBUG=",
+        "-D", "_POSIX_C_SOURCE=200112L",
+        "-D", "_DEFAULT_SOURCE=",
+        "-I", "lib/src",
+        "-I", "lib/include",
+        "--js-library", "lib/binding_web/lib/imports.js",
+        "--pre-js",     "lib/binding_web/lib/prefix.js",
+        "-o",           if args.cjs { "lib/binding_web/lib/tree-sitter.cjs" } else { "lib/binding_web/lib/tree-sitter.mjs" },
         "lib/src/lib.c",
-        "lib/binding_web/binding.c",
-        "-o",
-        "target/scratch/tree-sitter.js",
+        "lib/binding_web/lib/tree-sitter.c",
     ]);
+    if args.emit_tsd {
+        emscripten_flags.extend(["--emit-tsd", "tree-sitter.d.ts"]);
+    }
+
     let command = command.args(&emscripten_flags);
 
     if args.watch {
@@ -183,16 +196,6 @@ fn build_wasm(cmd: &mut Command) -> Result<()> {
     bail_on_err(
         &cmd.spawn()?.wait_with_output()?,
         "Failed to compile the Tree-sitter WASM library",
-    )?;
-
-    fs::rename(
-        "target/scratch/tree-sitter.js",
-        "lib/binding_web/tree-sitter.js",
-    )?;
-
-    fs::rename(
-        "target/scratch/tree-sitter.wasm",
-        "lib/binding_web/tree-sitter.wasm",
     )?;
 
     Ok(())

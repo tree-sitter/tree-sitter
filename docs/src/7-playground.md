@@ -89,7 +89,7 @@ Logging (if enabled) can be viewed in the browser's console.
 <p>The syntax tree should update as you type in the code. As you move around the
 code, the current node should be highlighted in the tree; you can also click any
 node in the tree to select the corresponding part of the code.</p>
-<p>You can enter one or more <a href="/using-parsers/queries/index.html">patterns</a>
+<p>You can enter one or more <a href="/tree-sitter/using-parsers/queries/index.html">patterns</a>
 into the Query panel. If the query is valid, its captures will be
 highlighted both in the Code and in the Query panels. Otherwise
 the problematic parts of the query will be underlined, and detailed
@@ -101,11 +101,10 @@ you must use at least one capture, like <code>(node_name) @capture-name</code></
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/codemirror.min.js"></script>
 
 <script>LANGUAGE_BASE_URL = "https://tree-sitter.github.io";</script>
-<script src="https://tree-sitter.github.io/tree-sitter.js"></script>
+<script type="module">
+import * as TreeSitter from 'https://tree-sitter.github.io/tree-sitter.js';
+window.TreeSitter = TreeSitter;
+setTimeout(() => window.initializePlayground({local: false}), 1);
+</script>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/clusterize.js/0.19.0/clusterize.min.js"></script>
-<script>
-setTimeout(() => {
-window.initializePlayground({local: false})
-}, 1)
-</script>

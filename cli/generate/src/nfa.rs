@@ -949,20 +949,19 @@ mod tests {
             assert_eq!(
                 left.remove_intersection(&mut right),
                 row.intersection,
-                "row {}a: {:?} && {:?}",
-                i,
+                "row {i}a: {:?} && {:?}",
                 row.left,
                 row.right
             );
             assert_eq!(
                 left, row.left_only,
-                "row {}a: {:?} - {:?}",
-                i, row.left, row.right
+                "row {i}a: {:?} - {:?}",
+                row.left, row.right
             );
             assert_eq!(
                 right, row.right_only,
-                "row {}a: {:?} - {:?}",
-                i, row.right, row.left
+                "row {i}a: {:?} - {:?}",
+                row.right, row.left
             );
 
             let mut left = row.left.clone();
@@ -970,27 +969,25 @@ mod tests {
             assert_eq!(
                 right.remove_intersection(&mut left),
                 row.intersection,
-                "row {}b: {:?} && {:?}",
-                i,
+                "row {i}b: {:?} && {:?}",
                 row.left,
                 row.right
             );
             assert_eq!(
                 left, row.left_only,
-                "row {}b: {:?} - {:?}",
-                i, row.left, row.right
+                "row {i}b: {:?} - {:?}",
+                row.left, row.right
             );
             assert_eq!(
                 right, row.right_only,
-                "row {}b: {:?} - {:?}",
-                i, row.right, row.left
+                "row {i}b: {:?} - {:?}",
+                row.right, row.left
             );
 
             assert_eq!(
                 row.left.clone().difference(row.right.clone()),
                 row.left_only,
-                "row {}b: {:?} -- {:?}",
-                i,
+                "row {i}b: {:?} -- {:?}",
                 row.left,
                 row.right
             );

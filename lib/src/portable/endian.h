@@ -4,8 +4,10 @@
 // be "dual licensed" under the BSD, MIT and Apache licenses, if you want to. This code is trivial anyway. Consider it
 // an example on how to get the endian conversion functions on different platforms.
 
-#ifndef PORTABLE_ENDIAN_H__
-#define PORTABLE_ENDIAN_H__
+// updates from https://github.com/mikepb/endian.h/issues/4
+
+#ifndef ENDIAN_H
+#define ENDIAN_H
 
 #if (defined(_WIN16) || defined(_WIN32) || defined(_WIN64)) && !defined(__WINDOWS__)
 
@@ -13,9 +15,22 @@
 
 #endif
 
-#if defined(__linux__) || defined(__CYGWIN__) || defined(__GNU__) || defined(__EMSCRIPTEN__)
+#if defined(HAVE_ENDIAN_H) || \
+    defined(__linux__) || \
+    defined(__GNU__) || \
+    defined(__OpenBSD__) || \
+    defined(__CYGWIN__) || \
+    defined(__MSYS__) || \
+    defined(__EMSCRIPTEN__)
 
-#    include <endian.h>
+# include <endian.h>
+
+#elif defined(HAVE_SYS_ENDIAN_H) || \
+    defined(__FreeBSD__) || \
+    defined(__NetBSD__) || \
+    defined(__DragonFly__)
+
+# include <sys/endian.h>
 
 #elif defined(__APPLE__)
 #    define __BYTE_ORDER    BYTE_ORDER
@@ -75,30 +90,8 @@
 #            error byte order not supported
 #        endif
 #    endif
-#elif defined(__OpenBSD__)
-
-#    include <endian.h>
-
-#    define __BYTE_ORDER    BYTE_ORDER
-#    define __BIG_ENDIAN    BIG_ENDIAN
-#    define __LITTLE_ENDIAN LITTLE_ENDIAN
-#    define __PDP_ENDIAN    PDP_ENDIAN
-
-#elif defined(__NetBSD__) || defined(__FreeBSD__) || defined(__DragonFly__)
-
-#    include <sys/endian.h>
-
-#    define be16toh(x) betoh16(x)
-#    define le16toh(x) letoh16(x)
-
-#    define be32toh(x) betoh32(x)
-#    define le32toh(x) letoh32(x)
-
-#    define be64toh(x) betoh64(x)
-#    define le64toh(x) letoh64(x)
 
 #elif defined(__WINDOWS__)
-
 
 #    if defined(_MSC_VER) && !defined(__clang__)
 #        include <stdlib.h>

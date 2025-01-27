@@ -6,7 +6,7 @@ use std::{
 use tree_sitter::{
     Decode, IncludedRangesError, InputEdit, LogType, ParseOptions, ParseState, Parser, Point, Range,
 };
-use tree_sitter_generate::{generate_parser_for_grammar, load_grammar_file};
+use tree_sitter_generate::load_grammar_file;
 use tree_sitter_proc_macro::retry;
 
 use super::helpers::{
@@ -17,7 +17,7 @@ use super::helpers::{
 use crate::{
     fuzz::edits::Edit,
     parse::perform_edit,
-    tests::{helpers::fixtures::fixtures_dir, invert_edit},
+    tests::{generate_parser, helpers::fixtures::fixtures_dir, invert_edit},
 };
 
 #[test]
@@ -486,7 +486,7 @@ fn test_parsing_after_editing_tree_that_depends_on_column_values() {
         .join("test_grammars")
         .join("uses_current_column");
     let grammar_json = load_grammar_file(&dir.join("grammar.js"), None).unwrap();
-    let (grammar_name, parser_code) = generate_parser_for_grammar(&grammar_json).unwrap();
+    let (grammar_name, parser_code) = generate_parser(&grammar_json).unwrap();
 
     let mut parser = Parser::new();
     parser
@@ -564,7 +564,7 @@ fn test_parsing_after_editing_tree_that_depends_on_column_position() {
         .join("depends_on_column");
 
     let grammar_json = load_grammar_file(&dir.join("grammar.js"), None).unwrap();
-    let (grammar_name, parser_code) = generate_parser_for_grammar(grammar_json.as_str()).unwrap();
+    let (grammar_name, parser_code) = generate_parser(grammar_json.as_str()).unwrap();
 
     let mut parser = Parser::new();
     parser
@@ -960,6 +960,102 @@ fn test_parsing_with_timeout_and_no_completion() {
 
         // drop the parser when it has an unfinished parse
     });
+}
+
+#[test]
+fn test_parsing_with_timeout_during_balancing() {
+    allocations::record(|| {
+        let mut parser = Parser::new();
+        parser.set_language(&get_language("javascript")).unwrap();
+
+        let function_count = 100;
+
+        let code = "function() {}\n".repeat(function_count);
+        let mut current_byte_offset = 0;
+        let mut in_balancing = false;
+        let tree = parser.parse_with_options(
+            &mut |offset, _| {
+                if offset >= code.len() {
+                    &[]
+                } else {
+                    &code.as_bytes()[offset..]
+                }
+            },
+            None,
+            Some(ParseOptions::new().progress_callback(&mut |state| {
+                // The parser will call the progress_callback during parsing, and at the very end
+                // during tree-balancing. For very large trees, this balancing act can take quite
+                // some time, so we want to verify that timing out during this operation is
+                // possible.
+                //
+                // We verify this by checking the current byte offset, as this number will *not* be
+                // updated during tree balancing. If we see the same offset twice, we know that we
+                // are in the balancing phase.
+                if state.current_byte_offset() != current_byte_offset {
+                    current_byte_offset = state.current_byte_offset();
+                    false
+                } else {
+                    in_balancing = true;
+                    true
+                }
+            })),
+        );
+
+        assert!(tree.is_none());
+        assert!(in_balancing);
+
+        // If we resume parsing (implying we didn't call `parser.reset()`), we should be able to
+        // finish parsing the tree, continuing from where we left off.
+        let tree = parser
+            .parse_with_options(
+                &mut |offset, _| {
+                    if offset >= code.len() {
+                        &[]
+                    } else {
+                        &code.as_bytes()[offset..]
+                    }
+                },
+                None,
+                Some(ParseOptions::new().progress_callback(&mut |state| {
+                    // Because we've already finished parsing, we should only be resuming the
+                    // balancing phase.
+                    assert!(state.current_byte_offset() == current_byte_offset);
+                    false
+                })),
+            )
+            .unwrap();
+        assert!(!tree.root_node().has_error());
+        assert_eq!(tree.root_node().child_count(), function_count);
+    });
+}
+
+#[test]
+fn test_parsing_with_timeout_when_error_detected() {
+    let mut parser = Parser::new();
+    parser.set_language(&get_language("json")).unwrap();
+
+    // Parse an infinitely-long array, but insert an error after 1000 characters.
+    let mut offset = 0;
+    let erroneous_code = "!,";
+    let tree = parser.parse_with_options(
+        &mut |i, _| match i {
+            0 => "[",
+            1..=1000 => "0,",
+            _ => erroneous_code,
+        },
+        None,
+        Some(ParseOptions::new().progress_callback(&mut |state| {
+            offset = state.current_byte_offset();
+            state.has_error()
+        })),
+    );
+
+    // The callback is called at the end of parsing, however, what we're asserting here is that
+    // parsing ends immediately as the error is detected. This is verified by checking the offset
+    // of the last byte processed is the length of the erroneous code we inserted, aka, 1002, or
+    // 1000 + the length of the erroneous code.
+    assert_eq!(offset, 1000 + erroneous_code.len());
+    assert!(tree.is_none());
 }
 
 // Included Ranges
@@ -1408,7 +1504,7 @@ fn test_parsing_with_a_newly_included_range() {
 
 #[test]
 fn test_parsing_with_included_ranges_and_missing_tokens() {
-    let (parser_name, parser_code) = generate_parser_for_grammar(
+    let (parser_name, parser_code) = generate_parser(
         r#"{
             "name": "test_leading_missing_token",
             "rules": {
@@ -1469,7 +1565,7 @@ fn test_parsing_with_included_ranges_and_missing_tokens() {
 
 #[test]
 fn test_grammars_that_can_hang_on_eof() {
-    let (parser_name, parser_code) = generate_parser_for_grammar(
+    let (parser_name, parser_code) = generate_parser(
         r#"
         {
             "name": "test_single_null_char_regex",
@@ -1495,7 +1591,7 @@ fn test_grammars_that_can_hang_on_eof() {
         .unwrap();
     parser.parse("\"", None).unwrap();
 
-    let (parser_name, parser_code) = generate_parser_for_grammar(
+    let (parser_name, parser_code) = generate_parser(
         r#"
         {
             "name": "test_null_char_with_next_char_regex",
@@ -1520,7 +1616,7 @@ fn test_grammars_that_can_hang_on_eof() {
         .unwrap();
     parser.parse("\"", None).unwrap();
 
-    let (parser_name, parser_code) = generate_parser_for_grammar(
+    let (parser_name, parser_code) = generate_parser(
         r#"
         {
             "name": "test_null_char_with_range_regex",
@@ -1583,7 +1679,7 @@ if foo && bar || baz {}
 fn test_parsing_with_scanner_logging() {
     let dir = fixtures_dir().join("test_grammars").join("external_tokens");
     let grammar_json = load_grammar_file(&dir.join("grammar.js"), None).unwrap();
-    let (grammar_name, parser_code) = generate_parser_for_grammar(&grammar_json).unwrap();
+    let (grammar_name, parser_code) = generate_parser(&grammar_json).unwrap();
 
     let mut parser = Parser::new();
     parser
@@ -1607,7 +1703,7 @@ fn test_parsing_with_scanner_logging() {
 fn test_parsing_get_column_at_eof() {
     let dir = fixtures_dir().join("test_grammars").join("get_col_eof");
     let grammar_json = load_grammar_file(&dir.join("grammar.js"), None).unwrap();
-    let (grammar_name, parser_code) = generate_parser_for_grammar(&grammar_json).unwrap();
+    let (grammar_name, parser_code) = generate_parser(&grammar_json).unwrap();
 
     let mut parser = Parser::new();
     parser
@@ -1817,7 +1913,7 @@ fn test_decode_utf24le() {
 
 #[test]
 fn test_grammars_that_should_not_compile() {
-    assert!(generate_parser_for_grammar(
+    assert!(generate_parser(
         r#"
         {
             "name": "issue_1111",
@@ -1829,7 +1925,7 @@ fn test_grammars_that_should_not_compile() {
     )
     .is_err());
 
-    assert!(generate_parser_for_grammar(
+    assert!(generate_parser(
         r#"
         {
             "name": "issue_1271",
@@ -1844,11 +1940,11 @@ fn test_grammars_that_should_not_compile() {
                 }
             },
         }
-        "#,
+        "#
     )
     .is_err());
 
-    assert!(generate_parser_for_grammar(
+    assert!(generate_parser(
         r#"
         {
             "name": "issue_1156_expl_1",
@@ -1862,11 +1958,11 @@ fn test_grammars_that_should_not_compile() {
                 }
             },
         }
-    "#
+        "#
     )
     .is_err());
 
-    assert!(generate_parser_for_grammar(
+    assert!(generate_parser(
         r#"
         {
             "name": "issue_1156_expl_2",
@@ -1883,11 +1979,11 @@ fn test_grammars_that_should_not_compile() {
                 }
             },
         }
-    "#
+        "#
     )
     .is_err());
 
-    assert!(generate_parser_for_grammar(
+    assert!(generate_parser(
         r#"
         {
             "name": "issue_1156_expl_3",
@@ -1901,11 +1997,11 @@ fn test_grammars_that_should_not_compile() {
                 }
             },
         }
-    "#
+        "#
     )
     .is_err());
 
-    assert!(generate_parser_for_grammar(
+    assert!(generate_parser(
         r#"
         {
             "name": "issue_1156_expl_4",
@@ -1922,7 +2018,7 @@ fn test_grammars_that_should_not_compile() {
                 }
             },
         }
-    "#
+        "#
     )
     .is_err());
 }

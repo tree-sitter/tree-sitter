@@ -43,6 +43,9 @@ pub struct TagsConfiguration {
     pattern_info: Vec<PatternInfo>,
 }
 
+unsafe impl Send for TagsConfiguration {}
+unsafe impl Sync for TagsConfiguration {}
+
 #[derive(Debug)]
 pub struct NamedCapture {
     pub syntax_type_id: u32,

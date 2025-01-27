@@ -5,7 +5,7 @@ use std::{
     mem::swap,
 };
 
-use crate::LANGUAGE_VERSION;
+use indoc::indoc;
 
 use super::{
     build_tables::Tables,
@@ -18,10 +18,11 @@ use super::{
         ParseTableEntry,
     },
 };
+use crate::LANGUAGE_VERSION;
 
 const SMALL_STATE_THRESHOLD: usize = 64;
-const ABI_VERSION_MIN: usize = 14;
-const ABI_VERSION_MAX: usize = LANGUAGE_VERSION;
+pub const ABI_VERSION_MIN: usize = 14;
+pub const ABI_VERSION_MAX: usize = LANGUAGE_VERSION;
 const ABI_VERSION_WITH_RESERVED_WORDS: usize = 15;
 const BUILD_VERSION: &str = env!("CARGO_PKG_VERSION");
 const BUILD_SHA: Option<&'static str> = option_env!("BUILD_SHA");
@@ -85,14 +86,19 @@ struct Generator {
     field_names: Vec<String>,
     supertype_symbol_map: BTreeMap<Symbol, Vec<ChildType>>,
     supertype_map: BTreeMap<String, Vec<ChildType>>,
-
-    #[allow(unused)]
     abi_version: usize,
+    metadata: Option<Metadata>,
 }
 
 struct LargeCharacterSetInfo {
     constant_name: String,
     is_used: bool,
+}
+
+struct Metadata {
+    major_version: u8,
+    minor_version: u8,
+    patch_version: u8,
 }
 
 impl Generator {
@@ -389,7 +395,7 @@ impl Generator {
             self.parse_table.symbols.len()
         );
         add_line!(self, "#define ALIAS_COUNT {}", self.unique_aliases.len());
-        add_line!(self, "#define TOKEN_COUNT {}", token_count);
+        add_line!(self, "#define TOKEN_COUNT {token_count}");
         add_line!(
             self,
             "#define EXTERNAL_TOKEN_COUNT {}",
@@ -875,7 +881,7 @@ impl Generator {
                 && chars.ranges().all(|r| {
                     let start = *r.start() as u32;
                     let end = *r.end() as u32;
-                    end <= start + 1 && end <= u16::MAX as u32
+                    end <= start + 1 && u16::try_from(end).is_ok()
                 })
             {
                 leading_simple_transition_count += 1;
@@ -993,7 +999,7 @@ impl Generator {
                 add!(
                     self,
                     "set_contains({}, {}, lookahead)",
-                    &char_set_info.constant_name,
+                    char_set_info.constant_name,
                     large_set.range_count(),
                 );
                 if check_eof {
@@ -1152,7 +1158,7 @@ impl Generator {
         indent!(self);
         for (i, state) in self.parse_table.states.iter().enumerate() {
             add_whitespace!(self);
-            add!(self, "[{}] = {{", i);
+            add!(self, "[{i}] = {{");
             if state.is_end_of_non_terminal_extra() {
                 add!(self, "(TSStateId)(-1),");
             } else {
@@ -1192,7 +1198,7 @@ impl Generator {
             if id == 0 {
                 continue;
             }
-            add_line!(self, "[{}] = {{", id);
+            add_line!(self, "[{id}] = {{");
             indent!(self);
             for token in set.iter() {
                 add_line!(self, "{},", self.symbol_ids[&token]);
@@ -1252,7 +1258,7 @@ impl Generator {
         indent!(self);
         for i in 0..self.parse_table.external_lex_states.len() {
             if !self.parse_table.external_lex_states[i].is_empty() {
-                add_line!(self, "[{}] = {{", i);
+                add_line!(self, "[{i}] = {{");
                 indent!(self);
                 for token in self.parse_table.external_lex_states[i].iter() {
                     add_line!(
@@ -1541,7 +1547,7 @@ impl Generator {
         indent!(self);
         add_line!(self, "static const TSLanguage language = {{");
         indent!(self);
-        add_line!(self, ".version = LANGUAGE_VERSION,");
+        add_line!(self, ".abi_version = LANGUAGE_VERSION,");
 
         // Quantities
         add_line!(self, ".symbol_count = SYMBOL_COUNT,");
@@ -1631,6 +1637,24 @@ impl Generator {
                     .max()
                     .unwrap()
             );
+
+            let Some(metadata) = &self.metadata else {
+                panic!(
+                    indoc! {"
+                        Metadata is required to generate ABI version {}.
+                        This means that your grammar doesn't have a tree-sitter.json config file with an appropriate version field in the metadata table.
+                    "},
+                    self.abi_version
+                );
+            };
+
+            add_line!(self, ".metadata = {{");
+            indent!(self);
+            add_line!(self, ".major_version = {},", metadata.major_version);
+            add_line!(self, ".minor_version = {},", metadata.minor_version);
+            add_line!(self, ".patch_version = {},", metadata.patch_version);
+            dedent!(self);
+            add_line!(self, "}},");
         }
 
         dedent!(self);
@@ -1916,6 +1940,7 @@ pub fn render_c_code(
     lexical_grammar: LexicalGrammar,
     default_aliases: AliasMap,
     abi_version: usize,
+    semantic_version: Option<(u8, u8, u8)>,
     supertype_symbol_map: BTreeMap<Symbol, Vec<ChildType>>,
 ) -> String {
     assert!(
@@ -1934,6 +1959,11 @@ pub fn render_c_code(
         lexical_grammar,
         default_aliases,
         abi_version,
+        metadata: semantic_version.map(|(major_version, minor_version, patch_version)| Metadata {
+            major_version,
+            minor_version,
+            patch_version,
+        }),
         supertype_symbol_map,
         ..Default::default()
     }

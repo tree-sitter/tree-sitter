@@ -42,6 +42,7 @@ typedef uint16_t TSStateId;
 typedef uint16_t TSSymbol;
 typedef uint16_t TSFieldId;
 typedef struct TSLanguage TSLanguage;
+typedef struct TSLanguageMetadata TSLanguageMetadata;
 typedef struct TSParser TSParser;
 typedef struct TSTree TSTree;
 typedef struct TSQuery TSQuery;
@@ -93,6 +94,7 @@ typedef struct TSInput {
 typedef struct TSParseState {
   void *payload;
   uint32_t current_byte_offset;
+  bool has_error;
 } TSParseState;
 
 typedef struct TSParseOptions {
@@ -182,6 +184,20 @@ typedef struct TSQueryCursorOptions {
   bool (*progress_callback)(TSQueryCursorState *state);
 } TSQueryCursorOptions;
 
+/**
+ * The metadata associated with a language.
+ *
+ * Currently, this metadata can be used to check the [Semantic Version](https://semver.org/)
+ * of the language. This version information should be used to signal if a given parser might
+ * be incompatible with existing queries when upgrading between major versions, or minor versions
+ * if it's in zerover.
+ */
+typedef struct TSLanguageMetadata {
+  uint8_t major_version;
+  uint8_t minor_version;
+  uint8_t patch_version;
+} TSLanguageMetadata;
+
 /********************/
 /* Section - Parser */
 /********************/
@@ -207,7 +223,7 @@ const TSLanguage *ts_parser_language(const TSParser *self);
  * Returns a boolean indicating whether or not the language was successfully
  * assigned. True means assignment succeeded. False means there was a version
  * mismatch: the language was generated with an incompatible version of the
- * Tree-sitter CLI. Check the language's version using [`ts_language_version`]
+ * Tree-sitter CLI. Check the language's ABI version using [`ts_language_abi_version`]
  * and compare it to this library's [`TREE_SITTER_LANGUAGE_VERSION`] and
  * [`TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION`] constants.
  */
@@ -477,6 +493,13 @@ void ts_tree_edit(TSTree *self, const TSInputEdit *edit);
  * You need to pass the old tree that was passed to parse, as well as the new
  * tree that was returned from that function.
  *
+ * The returned ranges indicate areas where the hierarchical structure of syntax
+ * nodes (from root to leaf) has changed between the old and new trees. Characters
+ * outside these ranges have identical ancestor nodes in both trees.
+ *
+ * Note that the returned ranges may be slightly larger than the exact changed areas,
+ * but Tree-sitter attempts to make them as small as possible.
+ *
  * The returned array is allocated using `malloc` and the caller is responsible
  * for freeing it using `free`. The length of the array will be written to the
  * given `length` pointer.
@@ -605,25 +628,15 @@ TSStateId ts_node_next_parse_state(TSNode self);
 
 /**
  * Get the node's immediate parent.
- * Prefer [`ts_node_child_containing_descendant`] for
+ * Prefer [`ts_node_child_with_descendant`] for
  * iterating over the node's ancestors.
  */
 TSNode ts_node_parent(TSNode self);
 
 /**
- * @deprecated use [`ts_node_contains_descendant`] instead, this will be removed in 0.25
- *
- * Get the node's child containing `descendant`. This will not return
- * the descendant if it is a direct child of `self`, for that use
- * `ts_node_contains_descendant`.
- */
-TSNode ts_node_child_containing_descendant(TSNode self, TSNode descendant);
-
-/**
  * Get the node that contains `descendant`.
  *
- * Note that this can return `descendant` itself, unlike the deprecated function
- * [`ts_node_child_containing_descendant`].
+ * Note that this can return `descendant` itself.
  */
 TSNode ts_node_child_with_descendant(TSNode self, TSNode descendant);
 
@@ -1102,6 +1115,15 @@ uint64_t ts_query_cursor_timeout_micros(const TSQueryCursor *self);
 /**
  * Set the range of bytes in which the query will be executed.
  *
+ * The query cursor will return matches that intersect with the given point range.
+ * This means that a match may be returned even if some of its captures fall
+ * outside the specified range, as long as at least part of the match
+ * overlaps with the range.
+ *
+ * For example, if a query pattern matches a node that spans a larger area
+ * than the specified range, but part of that node intersects with the range,
+ * the entire match will be returned.
+ *
  * This will return `false` if the start byte is greater than the end byte, otherwise
  * it will return `true`.
  */
@@ -1109,6 +1131,15 @@ bool ts_query_cursor_set_byte_range(TSQueryCursor *self, uint32_t start_byte, ui
 
 /**
  * Set the range of (row, column) positions in which the query will be executed.
+ *
+ * The query cursor will return matches that intersect with the given point range.
+ * This means that a match may be returned even if some of its captures fall
+ * outside the specified range, as long as at least part of the match
+ * overlaps with the range.
+ *
+ * For example, if a query pattern matches a node that spans a larger area
+ * than the specified range, but part of that node intersects with the range,
+ * the entire match will be returned.
  *
  * This will return `false` if the start point is greater than the end point, otherwise
  * it will return `true`.
@@ -1232,6 +1263,8 @@ const char *ts_language_symbol_name(const TSLanguage *self, TSSymbol symbol);
 TSSymbolType ts_language_symbol_type(const TSLanguage *self, TSSymbol symbol);
 
 /**
+ * @deprecated use [`ts_language_abi_version`] instead, this will be removed in 0.26.
+ *
  * Get the ABI version number for this language. This version number is used
  * to ensure that languages were generated by a compatible version of
  * Tree-sitter.
@@ -1239,6 +1272,24 @@ TSSymbolType ts_language_symbol_type(const TSLanguage *self, TSSymbol symbol);
  * See also [`ts_parser_set_language`].
  */
 uint32_t ts_language_version(const TSLanguage *self);
+
+/**
+ * Get the ABI version number for this language. This version number is used
+ * to ensure that languages were generated by a compatible version of
+ * Tree-sitter.
+ *
+ * See also [`ts_parser_set_language`].
+ */
+uint32_t ts_language_abi_version(const TSLanguage *self);
+
+/**
+ * Get the metadata for this language. This information is generated by the
+ * CLI, and relies on the language author providing the correct metadata in
+ * the language's `tree-sitter.json` file.
+ *
+ * See also [`TSMetadata`].
+ */
+const TSLanguageMetadata *ts_language_metadata(const TSLanguage *self);
 
 /**
  * Get the next parse state. Combine this with lookahead iterators to generate

@@ -26,6 +26,9 @@ pub struct wasm_engine_t {
 
 pub struct WasmStore(*mut ffi::TSWasmStore);
 
+unsafe impl Send for WasmStore {}
+unsafe impl Sync for WasmStore {}
+
 #[derive(Debug, PartialEq, Eq)]
 pub struct WasmError {
     pub kind: WasmErrorKind,

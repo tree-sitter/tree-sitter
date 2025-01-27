@@ -109,6 +109,10 @@ lint:
 	cargo +nightly fmt --all --check
 	cargo +nightly clippy --workspace --all-targets -- -D warnings
 
+lint-web:
+	npm --prefix lib/binding_web ci
+	npm --prefix lib/binding_web run lint
+
 format:
 	cargo +nightly fmt --all
 

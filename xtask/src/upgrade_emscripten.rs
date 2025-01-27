@@ -9,7 +9,8 @@ use crate::create_commit;
 pub fn run() -> Result<()> {
     let response = ureq::get("https://api.github.com/repos/emscripten-core/emsdk/tags")
         .call()?
-        .into_string()?;
+        .body_mut()
+        .read_to_string()?;
 
     let json = serde_json::from_str::<Value>(&response)?;
     let version = json

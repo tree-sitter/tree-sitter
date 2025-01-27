@@ -177,8 +177,7 @@ impl<'a> LexTableBuilder<'a> {
 
         if is_new {
             info!(
-                "entry point state: {}, tokens: {:?}",
-                state_id,
+                "entry point state: {state_id}, tokens: {:?}",
                 tokens
                     .iter()
                     .map(|t| &self.lexical_grammar.variables[t.index].name)

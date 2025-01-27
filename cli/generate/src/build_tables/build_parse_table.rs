@@ -1113,7 +1113,7 @@ impl<'a> ParseTableBuilder<'a> {
                 if variable.kind == VariableType::Named {
                     variable.name.clone()
                 } else {
-                    format!("'{}'", &variable.name)
+                    format!("'{}'", variable.name)
                 }
             }
         }

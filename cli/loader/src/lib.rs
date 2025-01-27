@@ -14,6 +14,7 @@ use std::{
     mem,
     path::{Path, PathBuf},
     process::Command,
+    sync::LazyLock,
     time::SystemTime,
 };
 
@@ -23,7 +24,6 @@ use anyhow::{anyhow, Context, Result};
 use etcetera::BaseStrategy as _;
 use fs4::fs_std::FileExt;
 use indoc::indoc;
-use lazy_static::lazy_static;
 use libloading::{Library, Symbol};
 use once_cell::unsync::OnceCell;
 use path_slash::PathBufExt as _;
@@ -41,9 +41,8 @@ use tree_sitter_highlight::HighlightConfiguration;
 use tree_sitter_tags::{Error as TagsError, TagsConfiguration};
 use url::Url;
 
-lazy_static! {
-    static ref GRAMMAR_NAME_REGEX: Regex = Regex::new(r#""name":\s*"(.*?)""#).unwrap();
-}
+static GRAMMAR_NAME_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r#""name":\s*"(.*?)""#).unwrap());
 
 pub const EMSCRIPTEN_TAG: &str = concat!("docker.io/emscripten/emsdk:", env!("EMSCRIPTEN_VERSION"));
 
@@ -168,6 +167,8 @@ pub struct Grammar {
     pub name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub camelcase: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
     pub scope: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub path: Option<PathBuf>,
@@ -188,6 +189,8 @@ pub struct Grammar {
     pub first_line_regex: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub content_regex: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub class_name: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -218,6 +221,8 @@ pub struct Author {
 pub struct Links {
     pub repository: Url,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub funding: Option<Url>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub homepage: Option<String>,
 }
 
@@ -234,6 +239,7 @@ pub struct Bindings {
     pub python: bool,
     pub rust: bool,
     pub swift: bool,
+    pub zig: bool,
 }
 
 impl Default for Bindings {
@@ -247,6 +253,7 @@ impl Default for Bindings {
             python: true,
             rust: true,
             swift: true,
+            zig: false,
         }
     }
 }
@@ -1343,7 +1350,7 @@ impl Loader {
             .with_context(|| {
                 format!(
                     "Failed to load language for file name {}",
-                    &path.file_name().unwrap().to_string_lossy()
+                    path.file_name().unwrap().to_string_lossy()
                 )
             })?
         {

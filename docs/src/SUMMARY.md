@@ -21,6 +21,7 @@
   - [Writing the Grammar](./creating-parsers/3-writing-the-grammar.md)
   - [External Scanners](./creating-parsers/4-external-scanners.md)
   - [Writing Tests](./creating-parsers/5-writing-tests.md)
+  - [Publishing Parsers](./creating-parsers/6-publishing.md)
 - [Syntax Highlighting](./3-syntax-highlighting.md)
 - [Code Navigation](./4-code-navigation.md)
 - [Implementation](./5-implementation.md)

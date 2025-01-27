@@ -85,6 +85,13 @@ struct BuildWasm {
     /// Rebuild when relevant files are changed.
     #[arg(long, short)]
     watch: bool,
+    /// Emit TypeScript type definitions for the generated bindings,
+    /// requires `tsc` to be available.
+    #[arg(long, short)]
+    emit_tsd: bool,
+    /// Generate `CommonJS` modules instead of ES modules.
+    #[arg(long, short, env = "CJS")]
+    cjs: bool,
 }
 
 #[derive(Args)]
@@ -305,15 +312,15 @@ macro_rules! watch_wasm {
     ($watch_fn:expr) => {
         if let Err(e) = $watch_fn() {
             eprintln!("{e}");
+        } else {
+            println!("Build succeeded");
         }
 
         let watch_files = [
-            "binding.c",
-            "binding.js",
-            "exports.txt",
-            "imports.js",
-            "prefix.js",
-            "suffix.js",
+            "lib/tree-sitter.c",
+            "lib/exports.txt",
+            "lib/imports.js",
+            "lib/prefix.js",
         ]
         .iter()
         .map(PathBuf::from)
@@ -335,6 +342,8 @@ macro_rules! watch_wasm {
                         {
                             if let Err(e) = $watch_fn() {
                                 eprintln!("{e}");
+                            } else {
+                                println!("Build succeeded");
                             }
                         }
                     }

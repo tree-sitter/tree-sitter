@@ -8,6 +8,13 @@ static PyObject* _binding_language(PyObject *Py_UNUSED(self), PyObject *Py_UNUSE
     return PyCapsule_New(tree_sitter_LOWER_PARSER_NAME(), "tree_sitter.Language", NULL);
 }
 
+static struct PyModuleDef_Slot slots[] = {
+#ifdef Py_GIL_DISABLED
+    {Py_mod_gil, Py_MOD_GIL_NOT_USED},
+#endif
+    {0, NULL}
+};
+
 static PyMethodDef methods[] = {
     {"language", _binding_language, METH_NOARGS,
      "Get the tree-sitter language for this grammar."},
@@ -18,10 +25,11 @@ static struct PyModuleDef module = {
     .m_base = PyModuleDef_HEAD_INIT,
     .m_name = "_binding",
     .m_doc = NULL,
-    .m_size = -1,
-    .m_methods = methods
+    .m_size = 0,
+    .m_methods = methods,
+    .m_slots = slots,
 };
 
 PyMODINIT_FUNC PyInit__binding(void) {
-    return PyModule_Create(&module);
+    return PyModuleDef_Init(&module);
 }

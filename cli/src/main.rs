@@ -19,10 +19,10 @@ use tree_sitter_cli::{
         LOG_GRAPH_ENABLED, START_SEED,
     },
     highlight::{self, HighlightOptions},
-    init::{generate_grammar_files, get_root_path, migrate_package_json, JsonConfigOpts},
+    init::{generate_grammar_files, get_root_path, JsonConfigOpts},
     input::{get_input, get_tmp_source_file, CliInput},
     logger,
-    parse::{self, ParseFileOptions, ParseOutput, ParseTheme},
+    parse::{self, ParseDebugType, ParseFileOptions, ParseOutput, ParseTheme},
     playground, query,
     tags::{self, TagsOptions},
     test::{self, TestOptions, TestStats},
@@ -171,8 +171,9 @@ struct Parse {
     #[arg(long)]
     pub scope: Option<String>,
     /// Show parsing debug log
-    #[arg(long, short = 'd')]
-    pub debug: bool,
+    #[arg(long, short = 'd')] // TODO: Rework once clap adds `default_missing_value_t`
+    #[allow(clippy::option_option)]
+    pub debug: Option<Option<ParseDebugType>>,
     /// Compile a parser in debug mode
     #[arg(long, short = '0')]
     pub debug_build: bool,
@@ -497,9 +498,8 @@ impl InitConfig {
 }
 
 impl Init {
-    fn run(self, current_dir: &Path, migrated: bool) -> Result<()> {
-        let configure_json = !current_dir.join("tree-sitter.json").exists()
-            && (!current_dir.join("package.json").exists() || !migrated);
+    fn run(self, current_dir: &Path) -> Result<()> {
+        let configure_json = !current_dir.join("tree-sitter.json").exists();
 
         let (language_name, json_config_opts) = if configure_json {
             let mut opts = JsonConfigOpts::default();
@@ -534,6 +534,13 @@ impl Init {
                     .interact_text()
             };
 
+            let title = |name: &str| {
+                Input::<String>::with_theme(&ColorfulTheme::default())
+                    .with_prompt("Title (human-readable name)")
+                    .default(name.to_upper_camel_case())
+                    .interact_text()
+            };
+
             let description = |name: &str| {
                 Input::<String>::with_theme(&ColorfulTheme::default())
                     .with_prompt("Description")
@@ -560,6 +567,24 @@ impl Init {
                     .interact_text()
             };
 
+            let funding = || {
+                Input::<String>::with_theme(&ColorfulTheme::default())
+                    .with_prompt("Funding URL")
+                    .allow_empty(true)
+                    .validate_with(|input: &String| {
+                        if input.trim().is_empty()
+                            || Url::parse(input)
+                                .is_ok_and(|u| u.scheme() == "http" || u.scheme() == "https")
+                        {
+                            Ok(())
+                        } else {
+                            Err("The URL must start with 'http://' or 'https://'")
+                        }
+                    })
+                    .interact_text()
+                    .map(|e| (!e.trim().is_empty()).then(|| Url::parse(&e).unwrap()))
+            };
+
             let scope = |name: &str| {
                 Input::<String>::with_theme(&ColorfulTheme::default())
                     .with_prompt("TextMate scope")
@@ -577,7 +602,7 @@ impl Init {
             let file_types = |name: &str| {
                 Input::<String>::with_theme(&ColorfulTheme::default())
                     .with_prompt("File types (space-separated)")
-                    .default(format!(".{name}"))
+                    .default(name.to_string())
                     .interact_text()
                     .map(|ft| {
                         let mut set = HashSet::new();
@@ -638,8 +663,10 @@ impl Init {
             let choices = [
                 "name",
                 "camelcase",
+                "title",
                 "description",
                 "repository",
+                "funding",
                 "scope",
                 "file_types",
                 "version",
@@ -655,8 +682,10 @@ impl Init {
                     match $choice {
                         "name" => opts.name = name()?,
                         "camelcase" => opts.camelcase = camelcase_name(&opts.name)?,
+                        "title" => opts.title = title(&opts.name)?,
                         "description" => opts.description = description(&opts.name)?,
                         "repository" => opts.repository = Some(repository(&opts.name)?),
+                        "funding" => opts.funding = funding()?,
                         "scope" => opts.scope = scope(&opts.name)?,
                         "file_types" => opts.file_types = file_types(&opts.name)?,
                         "version" => opts.version = initial_version()?,
@@ -878,6 +907,11 @@ impl Parse {
 
         let should_track_stats = self.stat;
         let mut stats = parse::ParseStats::default();
+        let debug: ParseDebugType = match self.debug {
+            None => ParseDebugType::Quiet,
+            Some(None) => ParseDebugType::Normal,
+            Some(Some(specifier)) => specifier,
+        };
 
         let mut options = ParseFileOptions {
             edits: &edits
@@ -888,7 +922,7 @@ impl Parse {
             print_time: time,
             timeout,
             stats: &mut stats,
-            debug: self.debug,
+            debug,
             debug_graph: self.debug_graph,
             cancellation_flag: Some(&cancellation_flag),
             encoding,
@@ -1676,17 +1710,9 @@ fn run() -> Result<()> {
     let current_dir = env::current_dir().unwrap();
     let loader = loader::Loader::new()?;
 
-    let migrated = if !current_dir.join("tree-sitter.json").exists()
-        && current_dir.join("package.json").exists()
-    {
-        migrate_package_json(&current_dir).unwrap_or(false)
-    } else {
-        false
-    };
-
     match command {
         Commands::InitConfig(_) => InitConfig::run()?,
-        Commands::Init(init_options) => init_options.run(&current_dir, migrated)?,
+        Commands::Init(init_options) => init_options.run(&current_dir)?,
         Commands::Generate(generate_options) => generate_options.run(loader, &current_dir)?,
         Commands::Build(build_options) => build_options.run(loader, &current_dir)?,
         Commands::Parse(parse_options) => parse_options.run(loader, &current_dir)?,

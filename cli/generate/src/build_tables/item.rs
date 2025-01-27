@@ -2,9 +2,8 @@ use std::{
     cmp::Ordering,
     fmt,
     hash::{Hash, Hasher},
+    sync::LazyLock,
 };
-
-use lazy_static::lazy_static;
 
 use crate::{
     grammars::{
@@ -14,22 +13,20 @@ use crate::{
     rules::{Associativity, Precedence, Symbol, SymbolType, TokenSet},
 };
 
-lazy_static! {
-    static ref START_PRODUCTION: Production = Production {
-        dynamic_precedence: 0,
-        steps: vec![ProductionStep {
-            symbol: Symbol {
-                index: 0,
-                kind: SymbolType::NonTerminal,
-            },
-            precedence: Precedence::None,
-            associativity: None,
-            alias: None,
-            field_name: None,
-            reserved_word_set_id: NO_RESERVED_WORDS,
-        }],
-    };
-}
+static START_PRODUCTION: LazyLock<Production> = LazyLock::new(|| Production {
+    dynamic_precedence: 0,
+    steps: vec![ProductionStep {
+        symbol: Symbol {
+            index: 0,
+            kind: SymbolType::NonTerminal,
+        },
+        precedence: Precedence::None,
+        associativity: None,
+        alias: None,
+        field_name: None,
+        reserved_word_set_id: NO_RESERVED_WORDS,
+    }],
+});
 
 /// A [`ParseItem`] represents an in-progress match of a single production in a grammar.
 #[derive(Clone, Copy, Debug)]
@@ -195,7 +192,7 @@ impl fmt::Display for ParseItemDisplay<'_> {
             write!(
                 f,
                 "{} →",
-                &self.1.variables[self.0.variable_index as usize].name
+                self.1.variables[self.0.variable_index as usize].name
             )?;
         }
 
@@ -223,14 +220,14 @@ impl fmt::Display for ParseItemDisplay<'_> {
             write!(f, " ")?;
             if step.symbol.is_terminal() {
                 if let Some(variable) = self.2.variables.get(step.symbol.index) {
-                    write!(f, "{}", &variable.name)?;
+                    write!(f, "{}", variable.name)?;
                 } else {
                     write!(f, "terminal-{}", step.symbol.index)?;
                 }
             } else if step.symbol.is_external() {
-                write!(f, "{}", &self.1.external_tokens[step.symbol.index].name)?;
+                write!(f, "{}", self.1.external_tokens[step.symbol.index].name)?;
             } else {
-                write!(f, "{}", &self.1.variables[step.symbol.index].name)?;
+                write!(f, "{}", self.1.variables[step.symbol.index].name)?;
             }
 
             if let Some(alias) = &step.alias {
@@ -298,9 +295,9 @@ impl fmt::Display for TokenSetDisplay<'_> {
                     write!(f, "terminal-{}", symbol.index)?;
                 }
             } else if symbol.is_external() {
-                write!(f, "{}", &self.1.external_tokens[symbol.index].name)?;
+                write!(f, "{}", self.1.external_tokens[symbol.index].name)?;
             } else {
-                write!(f, "{}", &self.1.variables[symbol.index].name)?;
+                write!(f, "{}", self.1.variables[symbol.index].name)?;
             }
         }
         write!(f, "]")?;

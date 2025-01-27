@@ -525,7 +525,7 @@ fn report_state_info<'a>(
             }
             eprintln!(
                 "\nitems:\n{}",
-                self::item::ParseItemSetDisplay(item_set, syntax_grammar, lexical_grammar,),
+                item::ParseItemSetDisplay(item_set, syntax_grammar, lexical_grammar),
             );
         }
     }

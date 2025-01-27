@@ -28,7 +28,7 @@
           "scope": {
             "type": "string",
             "description": "The TextMate scope that represents this language.",
-            "pattern": "^(source|text)(\\.\\w+)+$",
+            "pattern": "^(source|text)(\\.[\\w\\-]+)+$",
             "examples": [
               "source.rust",
               "text.html"
@@ -133,6 +133,11 @@
             "type": "string",
             "format": "regex",
             "description": "A regex pattern that will be tested against the contents of the file in order to break ties in cases where multiple grammars matched the file."
+          },
+          "class-name": {
+            "type": "string",
+            "pattern": "^TreeSitter\\w+$",
+            "description": "The class name for the Swift, Java & Kotlin bindings"
           }
         },
         "additionalProperties": false,
@@ -171,6 +176,11 @@
               "type": "string",
               "format": "uri",
               "description": "The project's repository."
+            },
+            "funding": {
+              "type": "string",
+              "format": "uri",
+              "description": "The project's funding link."
             },
             "homepage": {
               "type": "string",
@@ -262,6 +272,10 @@
         "swift": {
           "type": "boolean",
           "default": true
+        },
+        "zig": {
+          "type": "boolean",
+          "default": false
         }
       },
       "additionalProperties": false

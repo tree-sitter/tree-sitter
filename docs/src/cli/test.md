@@ -18,7 +18,7 @@ Skip tests whose names match this regex.
 
 ### `-u/--update`
 
-Update the expected output of tests. 
+Update the expected output of tests.
 
 ```admonish info
 Tests containing `ERROR` nodes or `MISSING` nodes will not be updated.

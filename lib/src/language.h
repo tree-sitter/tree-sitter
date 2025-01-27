@@ -41,10 +41,6 @@ bool ts_language_is_reserved_word(const TSLanguage *self, TSStateId state, TSSym
 TSSymbolMetadata ts_language_symbol_metadata(const TSLanguage *self, TSSymbol symbol);
 TSSymbol ts_language_public_symbol(const TSLanguage *self, TSSymbol symbol);
 
-static inline bool ts_language_is_symbol_external(const TSLanguage *self, TSSymbol symbol) {
-  return 0 < symbol && symbol < self->external_token_count + 1;
-}
-
 static inline const TSParseAction *ts_language_actions(
   const TSLanguage *self,
   TSStateId state,
@@ -187,7 +183,7 @@ static inline bool ts_language_state_is_primary(
   const TSLanguage *self,
   TSStateId state
 ) {
-  if (self->version >= LANGUAGE_VERSION_WITH_PRIMARY_STATES) {
+  if (self->abi_version >= LANGUAGE_VERSION_WITH_PRIMARY_STATES) {
     return state == self->primary_state_ids[state];
   } else {
     return true;

@@ -95,10 +95,10 @@ let highlights = highlighter.highlight(
 for event in highlights {
     match event.unwrap() {
         HighlightEvent::Source {start, end} => {
-            eprintln!("source: {}-{}", start, end);
+            eprintln!("source: {start}-{end}");
         },
         HighlightEvent::HighlightStart(s) => {
-            eprintln!("highlight style started: {:?}", s);
+            eprintln!("highlight style started: {s:?}");
         },
         HighlightEvent::HighlightEnd => {
             eprintln!("highlight style ended");

@@ -1,7 +1,6 @@
-use std::{env, fmt::Write};
+use std::{env, fmt::Write, sync::LazyLock};
 
 use indoc::indoc;
-use lazy_static::lazy_static;
 use rand::{prelude::StdRng, SeedableRng};
 use streaming_iterator::StreamingIterator;
 use tree_sitter::{
@@ -9,7 +8,6 @@ use tree_sitter::{
     QueryCursorOptions, QueryError, QueryErrorKind, QueryPredicate, QueryPredicateArg,
     QueryProperty, Range,
 };
-use tree_sitter_generate::generate_parser_for_grammar;
 use unindent::Unindent;
 
 use super::helpers::{
@@ -18,13 +16,13 @@ use super::helpers::{
     query_helpers::{assert_query_matches, Match, Pattern},
 };
 use crate::tests::{
+    generate_parser,
     helpers::query_helpers::{collect_captures, collect_matches},
     ITERATION_COUNT,
 };
 
-lazy_static! {
-    static ref EXAMPLE_FILTER: Option<String> = env::var("TREE_SITTER_TEST_EXAMPLE_FILTER").ok();
-}
+static EXAMPLE_FILTER: LazyLock<Option<String>> =
+    LazyLock::new(|| env::var("TREE_SITTER_TEST_EXAMPLE_FILTER").ok());
 
 #[test]
 fn test_query_errors_on_invalid_syntax() {
@@ -519,6 +517,51 @@ fn test_query_errors_on_impossible_patterns() {
                 .join("\n")
             })
         );
+        assert_eq!(
+            Query::new(&js_lang, "(identifier/identifier)").unwrap_err(),
+            QueryError {
+                row: 0,
+                offset: 0,
+                column: 0,
+                kind: QueryErrorKind::Structure,
+                message: [
+                    "(identifier/identifier)", //
+                    "^"
+                ]
+                .join("\n")
+            }
+        );
+
+        if js_lang.abi_version() >= 15 {
+            assert_eq!(
+                Query::new(&js_lang, "(statement/identifier)").unwrap_err(),
+                QueryError {
+                    row: 0,
+                    offset: 0,
+                    column: 0,
+                    kind: QueryErrorKind::Structure,
+                    message: [
+                        "(statement/identifier)", //
+                        "^"
+                    ]
+                    .join("\n")
+                }
+            );
+            assert_eq!(
+                Query::new(&js_lang, "(statement/pattern)").unwrap_err(),
+                QueryError {
+                    row: 0,
+                    offset: 0,
+                    column: 0,
+                    kind: QueryErrorKind::Structure,
+                    message: [
+                        "(statement/pattern)", //
+                        "^"
+                    ]
+                    .join("\n")
+                }
+            );
+        }
     });
 }
 
@@ -5173,7 +5216,7 @@ fn test_grammar_with_aliased_literal_query() {
     //     expansion: $ => seq('}'),
     //   },
     // });
-    let (parser_name, parser_code) = generate_parser_for_grammar(
+    let (parser_name, parser_code) = generate_parser(
         r#"
         {
             "name": "test",

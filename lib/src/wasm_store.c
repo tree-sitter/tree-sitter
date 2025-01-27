@@ -117,7 +117,7 @@ typedef Array(char) StringData;
 // LanguageInWasmMemory - The memory layout of a `TSLanguage` when compiled to
 // wasm32. This is used to copy static language data out of the wasm memory.
 typedef struct {
-  uint32_t version;
+  uint32_t abi_version;
   uint32_t symbol_count;
   uint32_t alias_count;
   uint32_t token_count;
@@ -160,6 +160,7 @@ typedef struct {
   int32_t supertype_symbols;
   int32_t supertype_map_slices;
   int32_t supertype_map_entries;
+  TSLanguageMetadata metadata;
 } LanguageInWasmMemory;
 
 // LexerInWasmMemory - The memory layout of a `TSLexer` when compiled to wasm32.
@@ -1258,7 +1259,7 @@ const TSLanguage *ts_wasm_store_load_language(
   StringData field_name_buffer = array_new();
 
   *language = (TSLanguage) {
-    .version = wasm_language.version,
+    .abi_version = wasm_language.abi_version,
     .symbol_count = wasm_language.symbol_count,
     .alias_count = wasm_language.alias_count,
     .token_count = wasm_language.token_count,
@@ -1270,6 +1271,7 @@ const TSLanguage *ts_wasm_store_load_language(
     .supertype_count = wasm_language.supertype_count,
     .max_alias_sequence_length = wasm_language.max_alias_sequence_length,
     .keyword_capture_token = wasm_language.keyword_capture_token,
+    .metadata = wasm_language.metadata,
     .parse_table = copy(
       &memory[wasm_language.parse_table],
       wasm_language.large_state_count * wasm_language.symbol_count * sizeof(uint16_t)
@@ -1396,14 +1398,14 @@ const TSLanguage *ts_wasm_store_load_language(
     );
   }
 
-  if (language->version >= LANGUAGE_VERSION_WITH_PRIMARY_STATES) {
+  if (language->abi_version >= LANGUAGE_VERSION_WITH_PRIMARY_STATES) {
     language->primary_state_ids = copy(
       &memory[wasm_language.primary_state_ids],
       wasm_language.state_count * sizeof(TSStateId)
     );
   }
 
-  if (language->version >= LANGUAGE_VERSION_WITH_RESERVED_WORDS) {
+  if (language->abi_version >= LANGUAGE_VERSION_WITH_RESERVED_WORDS) {
     language->name = copy_string(memory, wasm_language.name);
     language->reserved_words = copy(
         &memory[wasm_language.reserved_words],
