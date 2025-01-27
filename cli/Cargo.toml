@@ -11,6 +11,7 @@ repository.workspace = true
 license.workspace = true
 keywords.workspace = true
 categories.workspace = true
+include = ["build.rs", "README.md", "benches/*", "src/**"]
 
 [lints]
 workspace = true
