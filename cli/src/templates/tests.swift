@@ -1,5 +1,5 @@
 import XCTest
-import TreeSitter
+import SwiftTreeSitter
 import PARSER_CLASS_NAME
 
 final class PARSER_CLASS_NAMETests: XCTestCase {

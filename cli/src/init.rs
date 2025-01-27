@@ -664,16 +664,9 @@ pub fn generate_grammar_files(
                 create_dir,
             )?
             .apply(|path| {
-                missing_path_else(
+                missing_path(
                     path.join(format!("TreeSitter{camel_name}Tests.swift")),
-                    allow_update,
                     |path| generate_file(path, TESTS_SWIFT_TEMPLATE, language_name, &generate_opts),
-                    |path| {
-                        let mut contents = fs::read_to_string(path)?;
-                        contents = contents.replace("import SwiftTreeSitter", "import TreeSitter");
-                        write_file(path, contents)?;
-                        Ok(())
-                    },
                 )?;
 
                 Ok(())
@@ -685,12 +678,10 @@ pub fn generate_grammar_files(
                 |path| generate_file(path, PACKAGE_SWIFT_TEMPLATE, language_name, &generate_opts),
                 |path| {
                     let mut contents = fs::read_to_string(path)?;
-                    contents = contents
-                        .replace("\"SwiftTreeSitter\"", "\"TreeSitter\"")
-                        .replace(
-                            r#"url: "https://github.com/ChimeHQ/SwiftTreeSitter", from: "0.8.0""#,
-                            r#"url: "https://github.com/tree-sitter/swift-tree-sitter", from: "0.25.0""#
-                        );
+                    contents = contents.replace(
+                        "https://github.com/ChimeHQ/SwiftTreeSitter",
+                        "https://github.com/tree-sitter/swift-tree-sitter",
+                    );
                     write_file(path, contents)?;
                     Ok(())
                 },
