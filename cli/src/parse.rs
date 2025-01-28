@@ -719,7 +719,7 @@ pub fn parse_file_at_path(
 
         opts.stats.parse_summaries.push(ParseSummary {
             file: path.to_path_buf(),
-            successful: true,
+            successful: first_error.is_none(),
             start: Some(tree.root_node().start_position().into()),
             end: Some(tree.root_node().end_position().into()),
             duration: Some(parse_duration),
