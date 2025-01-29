@@ -38,7 +38,7 @@ export interface ParseOptions {
   /**
    * A function that is called periodically during parsing to check
    * whether parsing should be cancelled. If the progress callback returns
-   * `false`, then parsing will be cancelled. You can also use this to instrument
+   * `true`, then parsing will be cancelled. You can also use this to instrument
    * parsing and check where the parser is at in the document. The progress callback
    * takes a single argument, which is a {@link ParseState} representing the current
    * state of the parser.
