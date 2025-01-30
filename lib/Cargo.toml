@@ -21,6 +21,7 @@ build = "binding_rust/build.rs"
 links = "tree-sitter"
 
 include = [
+  "LICENSE",
   "/binding_rust/*",
   "/Cargo.toml",
   "/src/*.h",
