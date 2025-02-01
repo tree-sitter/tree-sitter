@@ -97,6 +97,7 @@ struct Generate {
     #[arg(
         long = "abi",
         value_name = "VERSION",
+        env = "TREE_SITTER_ABI_VERSION",
         help = format!(concat!(
                     "Select the language ABI version to generate (default {}).\n",
                     "Use --abi=latest to generate the newest supported version ({}).",
