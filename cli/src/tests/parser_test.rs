@@ -2033,5 +2033,5 @@ const fn simple_range(start: usize, end: usize) -> Range {
 }
 
 fn chunked_input<'a>(text: &'a str, size: usize) -> impl FnMut(usize, Point) -> &'a [u8] {
-    move |offset, _| text[offset..text.len().min(offset + size)].as_bytes()
+    move |offset, _| &text.as_bytes()[offset..text.len().min(offset + size)]
 }
