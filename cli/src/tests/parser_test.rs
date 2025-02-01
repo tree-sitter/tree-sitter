@@ -1004,6 +1004,31 @@ fn test_parsing_with_timeout_during_balancing() {
         assert!(tree.is_none());
         assert!(in_balancing);
 
+        // This should not cause an assertion failure.
+        parser.reset();
+        let tree = parser.parse_with_options(
+            &mut |offset, _| {
+                if offset >= code.len() {
+                    &[]
+                } else {
+                    &code.as_bytes()[offset..]
+                }
+            },
+            None,
+            Some(ParseOptions::new().progress_callback(&mut |state| {
+                if state.current_byte_offset() != current_byte_offset {
+                    current_byte_offset = state.current_byte_offset();
+                    false
+                } else {
+                    in_balancing = true;
+                    true
+                }
+            })),
+        );
+
+        assert!(tree.is_none());
+        assert!(in_balancing);
+
         // If we resume parsing (implying we didn't call `parser.reset()`), we should be able to
         // finish parsing the tree, continuing from where we left off.
         let tree = parser
