@@ -2080,6 +2080,7 @@ void ts_parser_reset(TSParser *self) {
   self->accept_count = 0;
   self->has_scanner_error = false;
   self->has_error = false;
+  self->canceled_balancing = false;
   self->parse_options = (TSParseOptions) {0};
   self->parse_state = (TSParseState) {0};
 }
