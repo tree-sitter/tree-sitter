@@ -39,20 +39,38 @@ pub fn build(b: *std.Build) !void {
     }
 
     lib.addIncludePath(b.path("src"));
-    lib.installHeadersDirectory(b.path("bindings/c"), ".", .{});
 
     b.installArtifact(lib);
     b.installFile("src/node-types.json", "node-types.json");
-    b.installDirectory(.{
-        .source_dir = b.path("queries"),
-        .install_dir = .prefix,
-        .install_subdir = "queries",
-        .include_extensions = &.{"scm"}
-    });
+    b.installDirectory(.{ .source_dir = b.path("queries"), .install_dir = .prefix, .install_subdir = "queries", .include_extensions = &.{"scm"} });
 
-    const test_cmd = b.addSystemCommand(&.{"tree-sitter", "test"});
-    const test_step = b.step("test", "Run parser tests");
-    test_step.dependOn(&test_cmd.step);
+    const module = b.addModule("tree-sitter-PARSER_NAME", .{
+        .root_source_file = b.path("bindings/zig/root.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    module.linkLibrary(lib);
+
+    const ts_dep = b.dependency("tree-sitter", .{});
+    const ts_mod = ts_dep.module("tree-sitter");
+    module.addImport("tree-sitter", ts_mod);
+
+    // ╭─────────────────╮
+    // │      Tests      │
+    // ╰─────────────────╯
+
+    const tests = b.addTest(.{
+        .root_source_file = b.path("bindings/zig/root.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    tests.linkLibrary(lib);
+    tests.root_module.addImport("tree-sitter", ts_mod);
+
+    const run_tests = b.addRunArtifact(tests);
+
+    const test_step = b.step("test", "Run unit tests");
+    test_step.dependOn(&run_tests.step);
 }
 
 inline fn hasScanner(dir: std.fs.Dir) bool {
