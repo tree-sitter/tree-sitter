@@ -14,7 +14,10 @@ resolver = "2"
 
 [workspace.package]
 version = "0.25.0"
-authors = ["Max Brunsfeld <maxbrunsfeld@gmail.com>"]
+authors = [
+  "Max Brunsfeld <maxbrunsfeld@gmail.com>",
+  "Amaan Qureshi <amaanq12@gmail.com>",
+]
 edition = "2021"
 rust-version = "1.82"
 homepage = "https://tree-sitter.github.io/tree-sitter"

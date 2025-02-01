@@ -1,7 +1,16 @@
 {
   "name": "tree-sitter-cli",
   "version": "0.25.0",
-  "author": "Max Brunsfeld",
+  "author": {
+    "name": "Max Brunsfeld",
+    "email": "maxbrunsfeld@gmail.com"
+  },
+  "maintainers": [
+    {
+      "name": "Amaan Qureshi",
+      "email": "amaanq12@gmail.com"
+    }
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
