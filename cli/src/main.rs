@@ -1340,7 +1340,7 @@ impl Highlight {
             if let Some((lang, lang_config)) = loader.language_configuration_for_scope(scope)? {
                 language = Some(lang);
                 language_configuration = Some(lang_config);
-            };
+            }
             if language.is_none() {
                 return Err(anyhow!("Unknown scope '{scope}'"));
             }
@@ -1494,7 +1494,7 @@ impl Tags {
             if let Some((lang, lang_config)) = loader.language_configuration_for_scope(scope)? {
                 language = Some(lang);
                 language_configuration = Some(lang_config);
-            };
+            }
             if language.is_none() {
                 return Err(anyhow!("Unknown scope '{scope}'"));
             }

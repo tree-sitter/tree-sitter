@@ -279,7 +279,7 @@ pub fn parse_file_at_path(
             if opts.debug == ParseDebugType::Normal {
                 if log_type == LogType::Lex {
                     write!(&mut io::stderr(), "  ").unwrap();
-                };
+                }
                 writeln!(&mut io::stderr(), "{message}").unwrap();
             } else {
                 let colors = &[
@@ -1069,7 +1069,7 @@ pub fn offset_for_position(input: &[u8], position: Point) -> Result<usize> {
     if let Some(pos) = iter.next() {
         if (pos - offset < position.column) || (input[offset] == b'\n' && position.column > 0) {
             return Err(anyhow!("Failed to address a column: {}", position.column));
-        };
+        }
     } else if input.len() - offset < position.column {
         return Err(anyhow!("Failed to address a column over the end"));
     }

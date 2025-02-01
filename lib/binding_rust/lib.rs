@@ -2478,7 +2478,7 @@ impl Query {
                         _ => QueryErrorKind::Syntax,
                     };
                 }
-            };
+            }
 
             return Err(QueryError {
                 row,
