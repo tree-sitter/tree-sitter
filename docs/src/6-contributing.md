@@ -29,7 +29,9 @@ Optionally, build the WASM library. If you skip this step, then the `tree-sitter
 connection. If you have Emscripten installed, this will use your `emcc` compiler. Otherwise, it will use Docker or Podman:
 
 ```sh
-cargo xtask build-wasm
+cd lib/binding_web
+npm install # or your JS package manager of choice
+npm run build
 ```
 
 Build the Rust libraries and the CLI:
