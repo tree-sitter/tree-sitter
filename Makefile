@@ -1,5 +1,7 @@
 ifeq ($(OS),Windows_NT)
 $(error Windows is not supported)
+else
+	detected_OS := $(shell uname -s)
 endif
 
 VERSION := 0.25.1
@@ -27,7 +29,10 @@ OBJ := $(SRC:.c=.o)
 ARFLAGS := rcs
 CFLAGS ?= -O3 -Wall -Wextra -Wshadow -Wpedantic -Werror=incompatible-pointer-types
 override CFLAGS += -std=c11 -fPIC -fvisibility=hidden
-override CFLAGS += -D_POSIX_C_SOURCE=200112L -D_DEFAULT_SOURCE
+ifneq ($(detected_OS),NetBSD)
+override CFLAGS += -D_POSIX_C_SOURCE=200112L
+endif
+override CFLAGS += -D_DEFAULT_SOURCE
 override CFLAGS += -Ilib/src -Ilib/src/wasm -Ilib/include
 
 # ABI versioning
