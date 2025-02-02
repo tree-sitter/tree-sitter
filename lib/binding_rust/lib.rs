@@ -489,7 +489,7 @@ impl Language {
         }
     }
 
-    /// Get a list of all subtype symbol names for a given supertype symbol.
+    /// Get a list of all subtype symbols for a given supertype symbol.
     #[doc(alias = "ts_language_supertype_map")]
     #[must_use]
     pub fn subtypes_for_supertype(&self, supertype: u16) -> &[u16] {
@@ -553,7 +553,7 @@ impl Language {
         unsafe { ffi::ts_language_field_count(self.0) as usize }
     }
 
-    /// Get the field names for the given numerical id.
+    /// Get the field name for the given numerical id.
     #[doc(alias = "ts_language_field_name_for_id")]
     #[must_use]
     pub fn field_name_for_id(&self, field_id: u16) -> Option<&'static str> {
@@ -599,7 +599,7 @@ impl Language {
     /// symbol from [`LookaheadIterator::current_symbol`].
     ///
     /// Lookahead iterators can be useful to generate suggestions and improve
-    /// syntax error diagnostics. To get symbols valid in an ERROR node, use the
+    /// syntax error diagnostics. To get symbols valid in an `ERROR` node, use the
     /// lookahead iterator on its first leaf node state. For `MISSING` nodes, a
     /// lookahead iterator created on the previous non-extra leaf node may be
     /// appropriate.
@@ -691,7 +691,7 @@ impl Parser {
         unsafe { logger.payload.cast::<Logger>().as_ref() }
     }
 
-    /// Set the logging callback that a parser should use during parsing.
+    /// Set the logging callback that the parser should use during parsing.
     #[doc(alias = "ts_parser_set_logger")]
     pub fn set_logger(&mut self, logger: Option<Logger>) {
         let prev_logger = unsafe { ffi::ts_parser_logger(self.0.as_ptr()) };
@@ -1643,7 +1643,7 @@ impl<'tree> Node<'tree> {
 
     /// Check if this node is *extra*.
     ///
-    /// Extra nodes represent things like comments, which are not required the
+    /// Extra nodes represent things like comments, which are not required by the
     /// grammar, but can appear anywhere.
     #[doc(alias = "ts_node_is_extra")]
     #[must_use]
@@ -1700,14 +1700,14 @@ impl<'tree> Node<'tree> {
         unsafe { ffi::ts_node_is_missing(self.0) }
     }
 
-    /// Get the byte offsets where this node starts.
+    /// Get the byte offset where this node starts.
     #[doc(alias = "ts_node_start_byte")]
     #[must_use]
     pub fn start_byte(&self) -> usize {
         unsafe { ffi::ts_node_start_byte(self.0) as usize }
     }
 
-    /// Get the byte offsets where this node end.
+    /// Get the byte offset where this node ends.
     #[doc(alias = "ts_node_end_byte")]
     #[must_use]
     pub fn end_byte(&self) -> usize {
@@ -1982,14 +1982,14 @@ impl<'tree> Node<'tree> {
         Self::new(unsafe { ffi::ts_node_prev_named_sibling(self.0) })
     }
 
-    /// Get the node's first child that contains or starts after the given byte offset.
+    /// Get this node's first child that contains or starts after the given byte offset.
     #[doc(alias = "ts_node_first_child_for_byte")]
     #[must_use]
     pub fn first_child_for_byte(&self, byte: usize) -> Option<Self> {
         Self::new(unsafe { ffi::ts_node_first_child_for_byte(self.0, byte as u32) })
     }
 
-    /// Get the node's first named child that contains or starts after the given byte offset.
+    /// Get this node's first named child that contains or starts after the given byte offset.
     #[doc(alias = "ts_node_first_named_child_for_point")]
     #[must_use]
     pub fn first_named_child_for_byte(&self, byte: usize) -> Option<Self> {
@@ -2003,7 +2003,7 @@ impl<'tree> Node<'tree> {
         unsafe { ffi::ts_node_descendant_count(self.0) as usize }
     }
 
-    /// Get the smallest node within this node that spans the given range.
+    /// Get the smallest node within this node that spans the given byte range.
     #[doc(alias = "ts_node_descendant_for_byte_range")]
     #[must_use]
     pub fn descendant_for_byte_range(&self, start: usize, end: usize) -> Option<Self> {
@@ -2012,7 +2012,7 @@ impl<'tree> Node<'tree> {
         })
     }
 
-    /// Get the smallest named node within this node that spans the given range.
+    /// Get the smallest named node within this node that spans the given byte range.
     #[doc(alias = "ts_node_named_descendant_for_byte_range")]
     #[must_use]
     pub fn named_descendant_for_byte_range(&self, start: usize, end: usize) -> Option<Self> {
@@ -2021,7 +2021,7 @@ impl<'tree> Node<'tree> {
         })
     }
 
-    /// Get the smallest node within this node that spans the given range.
+    /// Get the smallest node within this node that spans the given point range.
     #[doc(alias = "ts_node_descendant_for_point_range")]
     #[must_use]
     pub fn descendant_for_point_range(&self, start: Point, end: Point) -> Option<Self> {
@@ -2030,7 +2030,7 @@ impl<'tree> Node<'tree> {
         })
     }
 
-    /// Get the smallest named node within this node that spans the given range.
+    /// Get the smallest named node within this node that spans the given point range.
     #[doc(alias = "ts_node_named_descendant_for_point_range")]
     #[must_use]
     pub fn named_descendant_for_point_range(&self, start: Point, end: Point) -> Option<Self> {
@@ -2039,6 +2039,7 @@ impl<'tree> Node<'tree> {
         })
     }
 
+    /// Get an S-expression representing the node.
     #[doc(alias = "ts_node_string")]
     #[must_use]
     pub fn to_sexp(&self) -> String {
