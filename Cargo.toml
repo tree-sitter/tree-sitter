@@ -3,6 +3,7 @@ default-members = ["cli"]
 members = [
   "cli",
   "cli/config",
+  "cli/generate",
   "cli/loader",
   "lib",
   "lib/language",
