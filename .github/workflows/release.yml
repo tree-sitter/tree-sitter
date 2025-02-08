@@ -33,26 +33,13 @@ jobs:
 
       - name: Prepare release artifacts
         run: |
-          mkdir -p target
-          mv artifacts/tree-sitter.wasm/* target/
+          mkdir -p target web
+          mv artifacts/tree-sitter.wasm/* web/
 
-          # Rename files
-          mv target/tree-sitter.js        target/web-tree-sitter.js
-          mv target/tree-sitter.js.map    target/web-tree-sitter.js.map
-          mv target/tree-sitter.cjs       target/web-tree-sitter.cjs
-          mv target/tree-sitter.cjs.map   target/web-tree-sitter.cjs.map
-          mv target/tree-sitter.wasm      target/web-tree-sitter.wasm
-          mv target/tree-sitter.wasm.map  target/web-tree-sitter.wasm.map
-
-          mv target/debug/tree-sitter.js        target/web-tree-sitter-debug.js
-          mv target/debug/tree-sitter.js.map    target/web-tree-sitter-debug.js.map
-          mv target/debug/tree-sitter.cjs       target/web-tree-sitter-debug.cjs
-          mv target/debug/tree-sitter.cjs.map   target/web-tree-sitter-debug.cjs.map
-          mv target/debug/tree-sitter.wasm      target/web-tree-sitter-debug.wasm
-          mv target/debug/tree-sitter.wasm.map  target/web-tree-sitter-debug.wasm.map
-          rm -rf target/debug
+          tar -czf target/web-tree-sitter.tar.gz -C web .
 
           rm -r artifacts/tree-sitter.wasm
+
           for platform in $(cd artifacts; ls | sed 's/^tree-sitter\.//'); do
             exe=$(ls artifacts/tree-sitter.$platform/tree-sitter*)
             gzip --stdout --name $exe > target/tree-sitter-$platform.gz
@@ -64,18 +51,7 @@ jobs:
         run: |-
           gh release create ${{ github.ref_name }} \
             target/tree-sitter-*.gz \
-            target/web-tree-sitter.js \
-            target/web-tree-sitter.js.map \
-            target/web-tree-sitter.cjs \
-            target/web-tree-sitter.cjs.map \
-            target/web-tree-sitter.wasm \
-            target/web-tree-sitter.wasm.map \
-            target/web-tree-sitter-debug.js \
-            target/web-tree-sitter-debug.js.map \
-            target/web-tree-sitter-debug.cjs \
-            target/web-tree-sitter-debug.cjs.map \
-            target/web-tree-sitter-debug.wasm \
-            target/web-tree-sitter-debug.wasm.map
+            target/web-tree-sitter.tar.gz
         env:
           GH_TOKEN: ${{ github.token }}
 
