@@ -223,11 +223,6 @@ jobs:
       if: ${{ !matrix.no-run && !matrix.use-cross && inputs.run-test }}
       run: $BUILD_CMD run -p xtask -- test-wasm
 
-    - name: Run benchmarks
-      # Cross-compiled benchmarks are pointless
-      if: ${{ !matrix.no-run && !matrix.use-cross && inputs.run-test }}
-      run: $BUILD_CMD bench benchmark -p tree-sitter-cli --target=${{ matrix.target }}
-
     - name: Upload CLI artifact
       uses: actions/upload-artifact@v4
       with:
