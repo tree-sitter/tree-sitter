@@ -1847,11 +1847,11 @@ impl Generator {
                         '\u{007F}' => "DEL",
                         '\u{FEFF}' => "BOM",
                         '\u{0080}'..='\u{FFFF}' => {
-                            result.push_str(&format!("u{:04x}", c as u32));
+                            write!(result, "u{:04x}", c as u32).unwrap();
                             break 'special_chars;
                         }
                         '\u{10000}'..='\u{10FFFF}' => {
-                            result.push_str(&format!("U{:08x}", c as u32));
+                            write!(result, "U{:08x}", c as u32).unwrap();
                             break 'special_chars;
                         }
                         '0'..='9' | 'a'..='z' | 'A'..='Z' | '_' => unreachable!(),
@@ -1882,11 +1882,9 @@ impl Generator {
                 '\r' => result += "\\r",
                 '\t' => result += "\\t",
                 '\0' => result += "\\0",
-                '\u{0001}'..='\u{001f}' => result += &format!("\\x{:02x}", c as u32),
-                '\u{007F}'..='\u{FFFF}' => result += &format!("\\u{:04x}", c as u32),
-                '\u{10000}'..='\u{10FFFF}' => {
-                    result.push_str(&format!("\\U{:08x}", c as u32));
-                }
+                '\u{0001}'..='\u{001f}' => write!(result, "\\x{:02x}", c as u32).unwrap(),
+                '\u{007F}'..='\u{FFFF}' => write!(result, "\\u{:04x}", c as u32).unwrap(),
+                '\u{10000}'..='\u{10FFFF}' => write!(result, "\\U{:08x}", c as u32).unwrap(),
                 _ => result.push(c),
             }
         }
