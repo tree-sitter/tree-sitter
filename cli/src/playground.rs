@@ -34,8 +34,8 @@ macro_rules! optional_resource {
 }
 
 optional_resource!(get_playground_js, "docs/src/assets/js/playground.js");
-optional_resource!(get_lib_js, "lib/binding_web/tree-sitter.js");
-optional_resource!(get_lib_wasm, "lib/binding_web/tree-sitter.wasm");
+optional_resource!(get_lib_js, "lib/binding_web/web-tree-sitter.js");
+optional_resource!(get_lib_wasm, "lib/binding_web/web-tree-sitter.wasm");
 
 fn get_main_html(tree_sitter_dir: Option<&Path>) -> Cow<'static, [u8]> {
     tree_sitter_dir.map_or(
@@ -79,16 +79,16 @@ pub fn serve(grammar_path: &Path, open_in_browser: bool) -> Result<()> {
                     response(&playground_js, &js_header)
                 }
             }
-            "/tree-sitter.js" => {
+            "/web-tree-sitter.js" => {
                 if lib_js.is_empty() {
-                    redirect("https://tree-sitter.github.io/tree-sitter.js")
+                    redirect("https://tree-sitter.github.io/web-tree-sitter.js")
                 } else {
                     response(&lib_js, &js_header)
                 }
             }
-            "/tree-sitter.wasm" => {
+            "/web-tree-sitter.wasm" => {
                 if lib_wasm.is_empty() {
-                    redirect("https://tree-sitter.github.io/tree-sitter.wasm")
+                    redirect("https://tree-sitter.github.io/web-tree-sitter.wasm")
                 } else {
                     response(&lib_wasm, &wasm_header)
                 }

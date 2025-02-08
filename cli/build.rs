@@ -53,8 +53,8 @@ fn main() {
 fn web_playground_files_present() -> bool {
     let paths = [
         "../docs/src/assets/js/playground.js",
-        "../lib/binding_web/tree-sitter.js",
-        "../lib/binding_web/tree-sitter.wasm",
+        "../lib/binding_web/web-tree-sitter.js",
+        "../lib/binding_web/web-tree-sitter.wasm",
     ];
 
     paths.iter().all(|p| Path::new(p).exists())
