@@ -1268,7 +1268,6 @@ const TSLanguage *ts_wasm_store_load_language(
     .large_state_count = wasm_language.large_state_count,
     .production_id_count = wasm_language.production_id_count,
     .field_count = wasm_language.field_count,
-    .supertype_count = wasm_language.supertype_count,
     .max_alias_sequence_length = wasm_language.max_alias_sequence_length,
     .keyword_capture_token = wasm_language.keyword_capture_token,
     .metadata = wasm_language.metadata,
@@ -1331,37 +1330,6 @@ const TSLanguage *ts_wasm_store_load_language(
     );
   }
 
-  if (language->supertype_count > 0) {
-    language->supertype_symbols = copy(
-      &memory[wasm_language.supertype_symbols],
-      wasm_language.supertype_count * sizeof(TSSymbol)
-    );
-
-    // Determine the number of supertype map slices by finding the greatest
-    // supertype ID.
-    int largest_supertype = 0;
-    for (unsigned i = 0; i < language->supertype_count; i++) {
-      TSSymbol supertype = language->supertype_symbols[i];
-      if (supertype > largest_supertype) {
-        largest_supertype = supertype;
-      }
-    }
-
-    language->supertype_map_slices = copy(
-      &memory[wasm_language.supertype_map_slices],
-      (largest_supertype + 1) * sizeof(TSMapSlice)
-    );
-
-    TSSymbol last_supertype = language->supertype_symbols[language->supertype_count - 1];
-    TSMapSlice last_slice = language->supertype_map_slices[last_supertype];
-    uint32_t supertype_map_entry_count = last_slice.index + last_slice.length;
-
-    language->supertype_map_entries = copy(
-      &memory[wasm_language.supertype_map_entries],
-      supertype_map_entry_count * sizeof(char *)
-    );
-  }
-
   if (language->max_alias_sequence_length > 0 && language->production_id_count > 0) {
     // The alias map contains symbols, alias counts, and aliases, terminated by a null symbol.
     int32_t alias_map_size = 0;
@@ -1412,6 +1380,38 @@ const TSLanguage *ts_wasm_store_load_language(
         wasm_language.max_reserved_word_set_size * sizeof(TSSymbol)
     );
     language->max_reserved_word_set_size = wasm_language.max_reserved_word_set_size;
+
+    language->supertype_count = wasm_language.supertype_count;
+    if (language->supertype_count > 0) {
+      language->supertype_symbols = copy(
+        &memory[wasm_language.supertype_symbols],
+        wasm_language.supertype_count * sizeof(TSSymbol)
+      );
+
+      // Determine the number of supertype map slices by finding the greatest
+      // supertype ID.
+      int largest_supertype = 0;
+      for (unsigned i = 0; i < language->supertype_count; i++) {
+        TSSymbol supertype = language->supertype_symbols[i];
+        if (supertype > largest_supertype) {
+          largest_supertype = supertype;
+        }
+      }
+
+      language->supertype_map_slices = copy(
+        &memory[wasm_language.supertype_map_slices],
+        (largest_supertype + 1) * sizeof(TSMapSlice)
+      );
+
+      TSSymbol last_supertype = language->supertype_symbols[language->supertype_count - 1];
+      TSMapSlice last_slice = language->supertype_map_slices[last_supertype];
+      uint32_t supertype_map_entry_count = last_slice.index + last_slice.length;
+
+      language->supertype_map_entries = copy(
+        &memory[wasm_language.supertype_map_entries],
+        supertype_map_entry_count * sizeof(char *)
+      );
+    }
   }
 
   if (language->external_token_count > 0) {
