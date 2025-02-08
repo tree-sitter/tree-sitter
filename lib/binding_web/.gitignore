@@ -1,6 +1,8 @@
 debug/
 dist/
-tree-sitter*
+web-tree-sitter*
+!web-tree-sitter.d.ts
+!web-tree-sitter.d.ts.map
 lib/tree-sitter*
 lib/*.c
 lib/*.h

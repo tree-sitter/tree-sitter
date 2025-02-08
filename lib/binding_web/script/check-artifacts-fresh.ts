@@ -23,7 +23,7 @@ const inputFiles = [
   ...listFiles('../../src'),
 ];
 
-const outputFiles = ['../tree-sitter.js', '../tree-sitter.wasm'];
+const outputFiles = ['../web-tree-sitter.js', '../web-tree-sitter.wasm'];
 const outputMtime = Math.min(...outputFiles.map(getMtime));
 
 for (const inputFile of inputFiles) {

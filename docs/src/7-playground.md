@@ -102,7 +102,7 @@ you must use at least one capture, like <code>(node_name) @capture-name</code></
 
 <script>LANGUAGE_BASE_URL = "https://tree-sitter.github.io";</script>
 <script type="module">
-import * as TreeSitter from 'https://tree-sitter.github.io/tree-sitter.js';
+import * as TreeSitter from 'https://tree-sitter.github.io/web-tree-sitter.js';
 window.TreeSitter = TreeSitter;
 setTimeout(() => window.initializePlayground({local: false}), 1);
 </script>

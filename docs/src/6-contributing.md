@@ -197,7 +197,7 @@ and the tree-sitter module is fetched from [here][js url]. This, along with the 
 [go package]: https://pkg.go.dev/github.com/tree-sitter/go-tree-sitter
 [go ts]: https://github.com/tree-sitter/go-tree-sitter
 [highlight crate]: https://crates.io/crates/tree-sitter-highlight
-[js url]: https://tree-sitter.github.io/tree-sitter.js
+[js url]: https://tree-sitter.github.io/web-tree-sitter.js
 [lib crate]: https://crates.io/crates/tree-sitter
 [mdBook]: https://rust-lang.github.io/mdBook
 [mdbook cli]: https://rust-lang.github.io/mdBook/guide/installation.html

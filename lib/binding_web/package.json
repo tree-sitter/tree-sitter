@@ -18,13 +18,13 @@
   "type": "module",
   "exports": {
     ".": {
-      "import": "./tree-sitter.js",
-      "require": "./tree-sitter.cjs",
+      "import": "./web-tree-sitter.js",
+      "require": "./web-tree-sitter.cjs",
       "types": "./web-tree-sitter.d.ts"
     },
     "./debug": {
-      "import": "./debug/tree-sitter.js",
-      "require": "./debug/tree-sitter.cjs",
+      "import": "./debug/web-tree-sitter.js",
+      "require": "./debug/web-tree-sitter.cjs",
       "types": "./web-tree-sitter.d.ts"
     }
   },
@@ -37,18 +37,18 @@
   ],
   "files": [
     "README.md",
-    "tree-sitter.cjs",
-    "tree-sitter.cjs.map",
-    "tree-sitter.js",
-    "tree-sitter.js.map",
-    "tree-sitter.wasm",
-    "tree-sitter.wasm.map",
-    "debug/tree-sitter.cjs",
-    "debug/tree-sitter.cjs.map",
-    "debug/tree-sitter.js",
-    "debug/tree-sitter.js.map",
-    "debug/tree-sitter.wasm",
-    "debug/tree-sitter.wasm.map",
+    "web-tree-sitter.cjs",
+    "web-tree-sitter.cjs.map",
+    "web-tree-sitter.js",
+    "web-tree-sitter.js.map",
+    "web-tree-sitter.wasm",
+    "web-tree-sitter.wasm.map",
+    "debug/web-tree-sitter.cjs",
+    "debug/web-tree-sitter.cjs.map",
+    "debug/web-tree-sitter.js",
+    "debug/web-tree-sitter.js.map",
+    "debug/web-tree-sitter.wasm",
+    "debug/web-tree-sitter.wasm.map",
     "web-tree-sitter.d.ts",
     "web-tree-sitter.d.ts.map",
     "src/**/*.ts",
@@ -56,18 +56,18 @@
     "lib/*.h"
   ],
   "devDependencies": {
-    "@eslint/js": "^9.19.0",
+    "@eslint/js": "^9.20.0",
     "@types/emscripten": "^1.40.0",
-    "@types/node": "^22.12.0",
-    "@vitest/coverage-v8": "^3.0.4",
+    "@types/node": "^22.13.1",
+    "@vitest/coverage-v8": "^3.0.5",
     "dts-buddy": "^0.5.4",
-    "esbuild": "^0.24.2",
-    "eslint": "^9.19.0",
+    "esbuild": "^0.25.0",
+    "eslint": "^9.20.0",
     "source-map": "^0.7.4",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3",
-    "typescript-eslint": "^8.22.0",
-    "vitest": "^3.0.4"
+    "typescript-eslint": "^8.23.0",
+    "vitest": "^3.0.5"
   },
   "scripts": {
     "build:ts": "node script/build.js",

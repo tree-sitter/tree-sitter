@@ -120,7 +120,7 @@ npm test
 ### Debugging
 
 You might have noticed that when you ran `npm build`, the build process generated a couple of [sourcemaps][sourcemap]:
-`tree-sitter.js.map` and `tree-sitter.wasm.map`. These sourcemaps can be used to debug the library in the browser, and are
+`web-tree-sitter.js.map` and `web-tree-sitter.wasm.map`. These sourcemaps can be used to debug the library in the browser, and are
 shipped with the library on both NPM and the GitHub releases.
 
 #### Tweaking the Emscripten build
