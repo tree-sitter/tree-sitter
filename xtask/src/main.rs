@@ -23,7 +23,7 @@ enum Commands {
     /// Runs `cargo benchmark` with some optional environment variables set.
     Benchmark(Benchmark),
     /// Compile the Tree-sitter WASM library. This will create two files in the
-    /// `lib/binding_web` directory: `tree-sitter.js` and `tree-sitter.wasm`.
+    /// `lib/binding_web` directory: `web-tree-sitter.js` and `web-tree-sitter.wasm`.
     BuildWasm(BuildWasm),
     /// Compile the Tree-sitter WASM standard library.
     BuildWasmStdlib,

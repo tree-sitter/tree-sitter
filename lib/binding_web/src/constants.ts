@@ -1,4 +1,4 @@
-import { type MainModule } from '../lib/tree-sitter';
+import { type MainModule } from '../lib/web-tree-sitter';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { ParseState, type Parser } from './parser';
 

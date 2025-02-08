@@ -71,7 +71,7 @@ fn check_wasm_exports() -> Result<()> {
     let wasm_objdump = Command::new("wasm-objdump")
         .args([
             "--details",
-            "lib/binding_web/debug/tree-sitter.wasm",
+            "lib/binding_web/debug/web-tree-sitter.wasm",
             "--section",
             "Name",
         ])

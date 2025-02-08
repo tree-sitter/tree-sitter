@@ -136,10 +136,10 @@ pub fn run_wasm(args: &BuildWasm) -> Result<()> {
 
     // Clean up old files from prior runs
     for file in [
-        "tree-sitter.mjs",
-        "tree-sitter.cjs",
-        "tree-sitter.wasm",
-        "tree-sitter.wasm.map",
+        "web-tree-sitter.mjs",
+        "web-tree-sitter.cjs",
+        "web-tree-sitter.wasm",
+        "web-tree-sitter.wasm.map",
     ] {
         fs::remove_file(PathBuf::from("lib/binding_web/lib").join(file)).ok();
     }
@@ -173,12 +173,12 @@ pub fn run_wasm(args: &BuildWasm) -> Result<()> {
         "-I", "lib/include",
         "--js-library", "lib/binding_web/lib/imports.js",
         "--pre-js",     "lib/binding_web/lib/prefix.js",
-        "-o",           if args.cjs { "lib/binding_web/lib/tree-sitter.cjs" } else { "lib/binding_web/lib/tree-sitter.mjs" },
+        "-o",           if args.cjs { "lib/binding_web/lib/web-tree-sitter.cjs" } else { "lib/binding_web/lib/web-tree-sitter.mjs" },
         "lib/src/lib.c",
         "lib/binding_web/lib/tree-sitter.c",
     ]);
     if args.emit_tsd {
-        emscripten_flags.extend(["--emit-tsd", "tree-sitter.d.ts"]);
+        emscripten_flags.extend(["--emit-tsd", "web-tree-sitter.d.ts"]);
     }
 
     let command = command.args(&emscripten_flags);
