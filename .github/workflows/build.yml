@@ -163,6 +163,14 @@ jobs:
       env:
         CFLAGS: -g -Werror -Wall -Wextra -Wshadow -Wpedantic -Werror=incompatible-pointer-types
 
+    - name: Build C library on Windows (make)
+      if: ${{ runner.os == 'Windows' }}
+      run: make.sh -j CC="$CC" CFLAGS="$CFLAGS" AR="$AR"
+      env:
+        CC: x86_64-w64-mingw32-gcc
+        AR: x86_64-w64-mingw32-ar
+        CFLAGS: -g -Werror -Wall -Wextra -Wshadow -Wpedantic -Werror=incompatible-pointer-types
+
     - name: Build C library (CMake)
       if: ${{ !matrix.use-cross }}
       run: |
