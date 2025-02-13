@@ -100,6 +100,7 @@ uninstall:
 		'$(DESTDIR)$(LIBDIR)'/libtree-sitter.$(SOEXT) \
 		'$(DESTDIR)$(INCLUDEDIR)'/tree_sitter/api.h \
 		'$(DESTDIR)$(PCLIBDIR)'/tree-sitter.pc
+	rmdir '$(DESTDIR)$(INCLUDEDIR)'/tree_sitter
 
 .PHONY: all install uninstall clean
 
