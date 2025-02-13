@@ -1,7 +1,3 @@
-ifeq ($(OS),Windows_NT)
-$(error Windows is not supported)
-endif
-
 LANGUAGE_NAME := tree-sitter-KEBAB_PARSER_NAME
 HOMEPAGE_URL := PARSER_URL
 VERSION := PARSER_VERSION
@@ -37,6 +33,10 @@ ifeq ($(shell uname),Darwin)
 	SOEXTVER_MAJOR = $(SONAME_MAJOR).$(SOEXT)
 	SOEXTVER = $(SONAME_MAJOR).$(SONAME_MINOR).$(SOEXT)
 	LINKSHARED = -dynamiclib -Wl,-install_name,$(LIBDIR)/lib$(LANGUAGE_NAME).$(SOEXTVER),-rpath,@executable_path/../Frameworks
+else ifneq ($(findstring mingw32,$(shell $(CC) -dumpmachine)),)
+	SOEXT = dll
+	LINKSHARED += -s -shared -Wl,--out-implib,$(@:dll=lib)
+lib$(LANGUAGE_NAME).lib: lib$(LANGUAGE_NAME).$(SOEXT)
 else
 	SOEXT = so
 	SOEXTVER_MAJOR = $(SOEXT).$(SONAME_MAJOR)
@@ -89,7 +89,7 @@ uninstall:
 	$(RM) -r '$(DESTDIR)$(DATADIR)'/tree-sitter/queries/KEBAB_PARSER_NAME
 
 clean:
-	$(RM) $(OBJS) $(LANGUAGE_NAME).pc lib$(LANGUAGE_NAME).a lib$(LANGUAGE_NAME).$(SOEXT)
+	$(RM) $(OBJS) $(LANGUAGE_NAME).pc lib$(LANGUAGE_NAME).a lib$(LANGUAGE_NAME).$(SOEXT) lib$(LANGUAGE_NAME).lib
 
 test:
 	$(TS) test

@@ -1,7 +1,3 @@
-ifeq ($(OS),Windows_NT)
-$(error Windows is not supported)
-endif
-
 VERSION := 0.25.1
 DESCRIPTION := An incremental parsing system for programming tools
 HOMEPAGE_URL := https://tree-sitter.github.io/tree-sitter/
@@ -40,6 +36,10 @@ ifneq ($(findstring darwin,$(shell $(CC) -dumpmachine)),)
 	SOEXTVER_MAJOR = $(SONAME_MAJOR).$(SOEXT)
 	SOEXTVER = $(SONAME_MAJOR).$(SONAME_MINOR).$(SOEXT)
 	LINKSHARED += -dynamiclib -Wl,-install_name,$(LIBDIR)/libtree-sitter.$(SOEXTVER)
+else ifneq ($(findstring mingw32,$(shell $(CC) -dumpmachine)),)
+	SOEXT = dll
+	LINKSHARED += -s -shared -Wl,--out-implib,$(@:dll=lib)
+libtree-sitter.lib: libtree-sitter.$(SOEXT)
 else
 	SOEXT = so
 	SOEXTVER_MAJOR = $(SOEXT).$(SONAME_MAJOR)
@@ -70,7 +70,7 @@ tree-sitter.pc: lib/tree-sitter.pc.in
 		-e 's|@CMAKE_INSTALL_PREFIX@|$(PREFIX)|' $< > $@
 
 clean:
-	$(RM) $(OBJ) tree-sitter.pc libtree-sitter.a libtree-sitter.$(SOEXT)
+	$(RM) $(OBJ) tree-sitter.pc libtree-sitter.a libtree-sitter.$(SOEXT) libtree-stitter.lib
 
 install: all
 	install -d '$(DESTDIR)$(INCLUDEDIR)'/tree_sitter '$(DESTDIR)$(PCLIBDIR)' '$(DESTDIR)$(LIBDIR)'
