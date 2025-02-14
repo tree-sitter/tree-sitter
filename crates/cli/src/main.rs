@@ -53,7 +53,7 @@ enum Commands {
     Parse(Parse),
     /// Run a parser's tests
     Test(Test),
-    /// Increment the version of a grammar
+    /// Print or increment the version of a grammar
     Version(Version),
     /// Fuzz a parser
     Fuzz(Fuzz),
@@ -298,14 +298,28 @@ struct Test {
 
 #[derive(Args)]
 #[command(alias = "publish")]
-/// Increment the version of a grammar
+/// Print or increment the version of a grammar
 struct Version {
-    #[arg(num_args = 1)]
     /// The version to bump to
+    #[arg(
+        default_value = "0.0.0",
+        long_help = "When present, the version to bump to\n\
+                     When absent with no flags present, prints the current version\n\
+                     When absent with flags present, bumps the current version"
+    )]
     pub version: SemverVersion,
     /// The path to the tree-sitter grammar directory
     #[arg(long, short = 'p')]
     pub grammar_path: Option<PathBuf>,
+    /// Bump the patch version
+    #[arg(long)]
+    pub bump: bool,
+    /// Bump the minor version
+    #[arg(long)]
+    pub bump_minor: bool,
+    /// Bump the major version
+    #[arg(long)]
+    pub bump_major: bool,
 }
 
 #[derive(Args)]
@@ -1220,7 +1234,14 @@ impl Test {
 
 impl Version {
     fn run(self, current_dir: PathBuf) -> Result<()> {
-        version::Version::new(self.version.to_string(), current_dir).run()
+        let bump_level = if self.bump_major {
+            3
+        } else if self.bump_minor {
+            2
+        } else {
+            i32::from(self.bump)
+        };
+        version::Version::new(self.version.to_string(), current_dir, bump_level).run()
     }
 }
 
