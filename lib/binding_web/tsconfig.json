@@ -25,6 +25,7 @@
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
     "composite": true,
+    "isolatedModules": true,
   },
   "include": [
     "src/**/*",
