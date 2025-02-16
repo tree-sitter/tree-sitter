@@ -31,6 +31,7 @@
     "src/**/*",
     "script/**/*",
     "test/**/*",
+    "lib/**/*.ts"
   ],
   "exclude": [
     "node_modules",
