@@ -556,27 +556,29 @@ static Subtree ts_parser__lex(
           external_scanner_state_len
         );
 
-        // When recovering from an error, ignore any zero-length external tokens
-        // unless they have changed the external scanner's state. This helps to
-        // avoid infinite loops which could otherwise occur, because the lexer is
-        // looking for any possible token, instead of looking for the specific set of
-        // tokens that are valid in some parse state.
+        // Avoid infinite loops caused by the external scanner returning empty tokens.
+        // Empty tokens are needed in some circumstances, e.g. indent/dedent tokens
+        // in Python. Ignore the following classes of empty tokens:
         //
-        // Note that it's possible that the token end position may be *before* the
-        // original position of the lexer because of the way that tokens are positioned
-        // at included range boundaries: when a token is terminated at the start of
-        // an included range, it is marked as ending at the *end* of the preceding
-        // included range.
+        // * Tokens produced during error recovery. When recovering from an error,
+        //   all tokens are allowed, so it's easy to accidentally return unwanted
+        //   empty tokens.
+        // * Tokens that are marked as 'extra' in the grammar. These don't change
+        //   the parse state, so they would definitely cause an infinite loop.
         if (
           self->lexer.token_end_position.bytes <= current_position.bytes &&
-          (error_mode || !ts_stack_has_advanced_since_error(self->stack, version)) &&
           !external_scanner_state_changed
         ) {
-          LOG(
-            "ignore_empty_external_token symbol:%s",
-            SYM_NAME(self->language->external_scanner.symbol_map[self->lexer.data.result_symbol])
-          )
-          found_token = false;
+          TSSymbol symbol = self->language->external_scanner.symbol_map[self->lexer.data.result_symbol];
+          TSStateId next_parse_state = ts_language_next_state(self->language, parse_state, symbol);
+          bool token_is_extra = (next_parse_state == parse_state);
+          if (error_mode || !ts_stack_has_advanced_since_error(self->stack, version) || token_is_extra) {
+            LOG(
+              "ignore_empty_external_token symbol:%s",
+              SYM_NAME(self->language->external_scanner.symbol_map[self->lexer.data.result_symbol])
+            );
+            found_token = false;
+          }
         }
       }
 
