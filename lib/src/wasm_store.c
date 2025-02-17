@@ -1220,6 +1220,10 @@ const TSLanguage *ts_wasm_store_load_language(
   const uint8_t *memory = wasmtime_memory_data(context, &self->memory);
   memcpy(&wasm_language, &memory[language_address], sizeof(LanguageInWasmMemory));
 
+  bool has_supertypes =
+    wasm_language.abi_version > LANGUAGE_VERSION_WITH_RESERVED_WORDS &&
+    wasm_language.supertype_count > 0;
+
   int32_t addresses[] = {
     wasm_language.parse_table,
     wasm_language.small_parse_table,
@@ -1239,9 +1243,9 @@ const TSLanguage *ts_wasm_store_load_language(
     wasm_language.primary_state_ids,
     wasm_language.name,
     wasm_language.reserved_words,
-    wasm_language.supertype_symbols,
-    wasm_language.supertype_map_entries,
-    wasm_language.supertype_map_slices,
+    has_supertypes ? wasm_language.supertype_symbols : 0,
+    has_supertypes ? wasm_language.supertype_map_entries : 0,
+    has_supertypes ? wasm_language.supertype_map_slices : 0,
     wasm_language.external_token_count > 0 ? wasm_language.external_scanner.states : 0,
     wasm_language.external_token_count > 0 ? wasm_language.external_scanner.symbol_map : 0,
     wasm_language.external_token_count > 0 ? wasm_language.external_scanner.create : 0,
@@ -1331,7 +1335,7 @@ const TSLanguage *ts_wasm_store_load_language(
     );
   }
 
-  if (language->supertype_count > 0) {
+  if (has_supertypes) {
     language->supertype_symbols = copy(
       &memory[wasm_language.supertype_symbols],
       wasm_language.supertype_count * sizeof(TSSymbol)
