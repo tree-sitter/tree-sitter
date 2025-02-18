@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.13)
 
 project(tree-sitter
-        VERSION "0.25.1"
+        VERSION "0.25.2"
         DESCRIPTION "An incremental parsing system for programming tools"
         HOMEPAGE_URL "https://tree-sitter.github.io/tree-sitter/"
         LANGUAGES C)
