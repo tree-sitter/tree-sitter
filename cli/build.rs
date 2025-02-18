@@ -60,12 +60,12 @@ fn web_playground_files_present() -> bool {
     paths.iter().all(|p| Path::new(p).exists())
 }
 
-// When updating this function, don't forget to also update generate/build.rs which has a
-// near-identical function.
+// When updating this function, don't forget to also update generate/build.rs which has an
+// identical function.
 fn read_git_sha() -> Option<String> {
-    let crate_path = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
+    let crate_path = PathBuf::from(env!("CARGO_WORKSPACE_DIR"));
 
-    if !crate_path.parent().is_some_and(|p| p.join(".git").exists()) {
+    if !crate_path.join(".git").exists() {
         return None;
     }
 
