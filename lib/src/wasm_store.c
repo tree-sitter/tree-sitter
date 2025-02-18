@@ -1551,13 +1551,22 @@ static void ts_wasm_store__call(
   }
 }
 
+// The data fields of TSLexer, without the function pointers.
+//
+// This portion of the struct needs to be copied in and out
+// of wasm memory before and after calling a scan function.
+typedef struct {
+  int32_t lookahead;
+  TSSymbol result_symbol;
+} TSLexerDataPrefix;
+
 static bool ts_wasm_store__call_lex_function(TSWasmStore *self, unsigned function_index, TSStateId state) {
   wasmtime_context_t *context = wasmtime_store_context(self->store);
   uint8_t *memory_data = wasmtime_memory_data(context, &self->memory);
   memcpy(
     &memory_data[self->lexer_address],
-    &self->current_lexer->lookahead,
-    sizeof(self->current_lexer->lookahead)
+    self->current_lexer,
+    sizeof(TSLexerDataPrefix)
   );
 
   wasmtime_val_raw_t args[2] = {
@@ -1569,9 +1578,9 @@ static bool ts_wasm_store__call_lex_function(TSWasmStore *self, unsigned functio
   bool result = args[0].i32;
 
   memcpy(
-    &self->current_lexer->lookahead,
+    self->current_lexer,
     &memory_data[self->lexer_address],
-    sizeof(self->current_lexer->lookahead) + sizeof(self->current_lexer->result_symbol)
+    sizeof(TSLexerDataPrefix)
   );
   return result;
 }
@@ -1616,8 +1625,8 @@ bool ts_wasm_store_call_scanner_scan(
 
   memcpy(
     &memory_data[self->lexer_address],
-    &self->current_lexer->lookahead,
-    sizeof(self->current_lexer->lookahead)
+    self->current_lexer,
+    sizeof(TSLexerDataPrefix)
   );
 
   uint32_t valid_tokens_address =
@@ -1632,9 +1641,9 @@ bool ts_wasm_store_call_scanner_scan(
   if (self->has_error) return false;
 
   memcpy(
-    &self->current_lexer->lookahead,
+    self->current_lexer,
     &memory_data[self->lexer_address],
-    sizeof(self->current_lexer->lookahead) + sizeof(self->current_lexer->result_symbol)
+    sizeof(TSLexerDataPrefix)
   );
   return args[0].i32;
 }
