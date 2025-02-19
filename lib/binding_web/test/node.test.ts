@@ -63,7 +63,7 @@ describe('Node', () => {
       tree = parser.parse('x10 + 1000')!;
       expect(tree.rootNode.children).toHaveLength(1);
       const sumNode = tree.rootNode.firstChild!.firstChild!;
-      expect(sumNode.children.map(child => child!.type)).toEqual(['identifier', '+', 'number' ]);
+      expect(sumNode.children.map(child => child!.type)).toEqual(['identifier', '+', 'number']);
     });
   });
 
@@ -446,6 +446,24 @@ describe('Node', () => {
       quotientNode.children.forEach((node) => {
         expect(node!.nextParseState).toBe(JavaScript.nextState(node!.parseState, node!.grammarId));
       });
+    });
+  });
+
+  describe('.descendantsOfType("ERROR")', () => {
+    it('finds all of the descendants of an ERROR node', () => {
+      tree = parser.parse(
+        `if ({a: 'b'} {c: 'd'}) {
+          // ^ ERROR
+          x = function(a) { b; } function(c) { d; }
+        }`
+      )!;
+      const errorNode = tree.rootNode;
+      const descendants = errorNode.descendantsOfType('ERROR');
+      expect(
+        descendants.map((node) => node!.startIndex)
+      ).toEqual(
+        [4]
+      );
     });
   });
 
