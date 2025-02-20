@@ -3,6 +3,8 @@ dist/
 web-tree-sitter*
 !web-tree-sitter.d.ts
 !web-tree-sitter.d.ts.map
+!web-tree-sitter.d.cts
+!web-tree-sitter.d.cts.map
 lib/tree-sitter*
 lib/*.c
 lib/*.h
