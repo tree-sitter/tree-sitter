@@ -7,22 +7,53 @@ use tree_sitter_loader::TreeSitterJSON;
 pub struct Version {
     pub version: String,
     pub current_dir: PathBuf,
+    pub bump_level: i32,
 }
 
 impl Version {
     #[must_use]
-    pub const fn new(version: String, current_dir: PathBuf) -> Self {
+    pub const fn new(version: String, current_dir: PathBuf, bump_level: i32) -> Self {
         Self {
             version,
             current_dir,
+            bump_level,
         }
     }
 
-    pub fn run(self) -> Result<()> {
+    pub fn run(mut self) -> Result<()> {
         let tree_sitter_json = self.current_dir.join("tree-sitter.json");
 
         let tree_sitter_json =
             serde_json::from_str::<TreeSitterJSON>(&fs::read_to_string(tree_sitter_json)?)?;
+
+        let current_version = tree_sitter_json.metadata.version.to_string();
+
+        if self.version == "0.0.0" {
+            // No argument given
+            let mut parts = current_version.split('.');
+            let mut major = parts.next().unwrap().parse::<i32>().unwrap();
+            let mut minor = parts.next().unwrap().parse::<i32>().unwrap();
+            let mut patch = parts.next().unwrap().parse::<i32>().unwrap();
+
+            match self.bump_level {
+                1 => patch += 1,
+                2 => {
+                    minor += 1;
+                    patch = 0;
+                }
+                3 => {
+                    major += 1;
+                    minor = 0;
+                    patch = 0;
+                }
+                _ => {
+                    println!("Current version: {current_version}");
+                    return Ok(());
+                }
+            }
+            self.version = format!("{major}.{minor}.{patch}");
+        }
+        println!("Bumping version {current_version} to {0}", self.version);
 
         let is_multigrammar = tree_sitter_json.grammars.len() > 1;
 
