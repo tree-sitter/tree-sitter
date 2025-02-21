@@ -1,15 +1,19 @@
+use std::sync::LazyLock;
+#[cfg(feature = "load")]
 use std::{
     env, fs,
     io::Write,
     path::{Path, PathBuf},
     process::{Command, Stdio},
-    sync::LazyLock,
 };
 
 use anyhow::Result;
 use regex::{Regex, RegexBuilder};
+#[cfg(feature = "load")]
 use semver::Version;
-use serde::{Deserialize, Serialize};
+#[cfg(feature = "load")]
+use serde::Deserialize;
+use serde::Serialize;
 use thiserror::Error;
 
 mod build_tables;
@@ -44,6 +48,7 @@ static JSON_COMMENT_REGEX: LazyLock<Regex> = LazyLock::new(|| {
 
 struct GeneratedParser {
     c_code: String,
+    #[cfg(feature = "load")]
     node_types_json: String,
 }
 
@@ -58,6 +63,7 @@ pub enum GenerateError {
     GrammarPath(String),
     #[error("{0}")]
     IO(String),
+    #[cfg(feature = "load")]
     #[error(transparent)]
     LoadGrammarFile(#[from] LoadGrammarError),
     #[error(transparent)]
@@ -78,8 +84,10 @@ impl From<std::io::Error> for GenerateError {
     }
 }
 
+#[cfg(feature = "load")]
 pub type LoadGrammarFileResult<T> = Result<T, LoadGrammarError>;
 
+#[cfg(feature = "load")]
 #[derive(Debug, Error, Serialize)]
 pub enum LoadGrammarError {
     #[error("Path to a grammar file with `.js` or `.json` extension is required")]
@@ -92,6 +100,7 @@ pub enum LoadGrammarError {
     FileExtension(PathBuf),
 }
 
+#[cfg(feature = "load")]
 impl From<std::io::Error> for LoadGrammarError {
     fn from(value: std::io::Error) -> Self {
         Self::IO(value.to_string())
@@ -138,12 +147,14 @@ impl From<serde_json::Error> for JSError {
     }
 }
 
+#[cfg(feature = "load")]
 impl From<semver::Error> for JSError {
     fn from(value: semver::Error) -> Self {
         Self::Semver(value.to_string())
     }
 }
 
+#[cfg(feature = "load")]
 pub fn generate_parser_in_directory(
     repo_path: &Path,
     out_path: Option<&str>,
@@ -245,6 +256,8 @@ fn generate_parser_for_grammar_with_opts(
         prepare_grammar(input_grammar)?;
     let variable_info =
         node_types::get_variable_info(&syntax_grammar, &lexical_grammar, &simple_aliases)?;
+
+    #[cfg(feature = "load")]
     let node_types_json = node_types::generate_node_types_json(
         &syntax_grammar,
         &lexical_grammar,
@@ -273,10 +286,12 @@ fn generate_parser_for_grammar_with_opts(
     );
     Ok(GeneratedParser {
         c_code,
+        #[cfg(feature = "load")]
         node_types_json: serde_json::to_string_pretty(&node_types_json).unwrap(),
     })
 }
 
+#[cfg(feature = "load")]
 /// This will read the `tree-sitter.json` config file and attempt to extract the version.
 ///
 /// If the file is not found in the current directory or any of its parent directories, this will
@@ -326,6 +341,7 @@ fn read_grammar_version(repo_path: &Path) -> Result<Option<Version>, ParseVersio
     }
 }
 
+#[cfg(feature = "load")]
 pub fn load_grammar_file(
     grammar_path: &Path,
     js_runtime: Option<&str>,
@@ -340,6 +356,7 @@ pub fn load_grammar_file(
     }
 }
 
+#[cfg(feature = "load")]
 fn load_js_grammar_file(grammar_path: &Path, js_runtime: Option<&str>) -> JSResult<String> {
     let grammar_path = fs::canonicalize(grammar_path)?;
 
@@ -434,6 +451,7 @@ fn load_js_grammar_file(grammar_path: &Path, js_runtime: Option<&str>) -> JSResu
     }
 }
 
+#[cfg(feature = "load")]
 pub fn write_file(path: &Path, body: impl AsRef<[u8]>) -> GenerateResult<()> {
     fs::write(path, body)
         .map_err(|e| GenerateError::IO(format!("Failed to write {:?} -- {e}", path.file_name())))
