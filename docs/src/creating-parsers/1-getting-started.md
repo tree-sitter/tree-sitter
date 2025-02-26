@@ -24,7 +24,7 @@ on any platform. See [the contributing docs](../6-contributing.md#developing-tre
 running the following command: `cargo install tree-sitter-cli --locked`
 
 - Install the `tree-sitter-cli` [Node.js module][node-module] using [`npm`][npm], the Node package manager. This approach
-is fast, but is only works on certain platforms, because it relies on pre-built binaries.
+is fast, but it only works on certain platforms, because it relies on pre-built binaries.
 
 - Download a binary for your platform from [the latest GitHub release][releases], and put it into a directory on your `PATH`.
 
