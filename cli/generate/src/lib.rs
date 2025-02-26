@@ -47,8 +47,11 @@ struct GeneratedParser {
     node_types_json: String,
 }
 
+const LANGUAGE_VERSION: usize = 15;
+
 pub const ALLOC_HEADER: &str = include_str!("templates/alloc.h");
 pub const ARRAY_HEADER: &str = include_str!("templates/array.h");
+pub const PARSER_HEADER: &str = include_str!(concat!(env!("OUT_DIR"), "/parser.h"));
 
 pub type GenerateResult<T> = Result<T, GenerateError>;
 
@@ -214,7 +217,7 @@ pub fn generate_parser_in_directory(
     write_file(&src_path.join("node-types.json"), node_types_json)?;
     write_file(&header_path.join("alloc.h"), ALLOC_HEADER)?;
     write_file(&header_path.join("array.h"), ARRAY_HEADER)?;
-    write_file(&header_path.join("parser.h"), tree_sitter::PARSER_HEADER)?;
+    write_file(&header_path.join("parser.h"), PARSER_HEADER)?;
 
     Ok(())
 }
@@ -227,7 +230,7 @@ pub fn generate_parser_for_grammar(
     let input_grammar = parse_grammar(&grammar_json)?;
     let parser = generate_parser_for_grammar_with_opts(
         &input_grammar,
-        tree_sitter::LANGUAGE_VERSION,
+        LANGUAGE_VERSION,
         semantic_version,
         None,
     )?;
