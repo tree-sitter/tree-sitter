@@ -19,11 +19,13 @@
   "exports": {
     ".": {
       "import": "./tree-sitter.js",
-      "require": "./tree-sitter.cjs"
+      "require": "./tree-sitter.cjs",
+      "types": "./web-tree-sitter.d.ts"
     },
     "./debug": {
       "import": "./debug/tree-sitter.js",
-      "require": "./debug/tree-sitter.cjs"
+      "require": "./debug/tree-sitter.cjs",
+      "types": "./web-tree-sitter.d.ts"
     }
   },
   "types": "web-tree-sitter.d.ts",
