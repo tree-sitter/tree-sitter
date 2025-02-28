@@ -238,7 +238,7 @@ async fn yield_now() {
     SimpleYieldNow { yielded: false }.await;
 }
 
-pub fn noop_waker() -> Waker {
+pub const fn noop_waker() -> Waker {
     const VTABLE: RawWakerVTable = RawWakerVTable::new(
         // Cloning just returns a new no-op raw waker
         |_| RAW,
