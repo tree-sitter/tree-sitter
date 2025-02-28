@@ -152,6 +152,7 @@ fn test_supertypes() {
                         "_literal_pattern",
                         "captured_pattern",
                         "const_block",
+                        "generic_pattern",
                         "identifier",
                         "macro_invocation",
                         "mut_pattern",
