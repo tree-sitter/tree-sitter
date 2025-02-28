@@ -306,7 +306,6 @@ impl Symbol {
 }
 
 impl From<Symbol> for Rule {
-    #[must_use]
     fn from(symbol: Symbol) -> Self {
         Self::Symbol(symbol)
     }
