@@ -32,6 +32,7 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: stable
+          components: clippy, rustfmt
 
       - name: Set up nightly Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -43,6 +44,11 @@ jobs:
         run: |
           make lint
           make lint-web
+
+      - name: Lint files (Rust nightly)
+        continue-on-error: true
+        run: |
+          make lint-nightly
 
   sanitize:
     uses: ./.github/workflows/sanitize.yml

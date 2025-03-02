@@ -107,6 +107,12 @@ lint:
 	cargo update --workspace --locked --quiet
 	cargo check --workspace --all-targets
 	cargo +nightly fmt --all --check
+	cargo +stable clippy --workspace --all-targets -- -D warnings
+
+lint-nightly:
+	cargo update --workspace --locked --quiet
+	cargo check --workspace --all-targets
+	cargo +nightly fmt --all --check
 	cargo +nightly clippy --workspace --all-targets -- -D warnings
 
 lint-web:
