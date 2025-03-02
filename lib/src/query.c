@@ -1,3 +1,12 @@
+/*
+ * On NetBSD, defining standard requirements like this removes symbols
+ * from the namespace; however, we need non-standard symbols for
+ * endian.h.
+ */
+#if defined(__NetBSD__) && defined(_POSIX_C_SOURCE)
+#undef _POSIX_C_SOURCE
+#endif
+
 #include "tree_sitter/api.h"
 #include "./alloc.h"
 #include "./array.h"
