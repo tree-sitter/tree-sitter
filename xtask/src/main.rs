@@ -144,7 +144,7 @@ struct Test {
     iterations: Option<u32>,
     /// Set the seed used to control random behavior.
     #[arg(long, short)]
-    seed: Option<u32>,
+    seed: Option<usize>,
     /// Print parsing log to stderr.
     #[arg(long, short)]
     debug: bool,
