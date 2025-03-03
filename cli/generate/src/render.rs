@@ -18,10 +18,11 @@ use super::{
         ParseTableEntry,
     },
 };
+use crate::LANGUAGE_VERSION;
 
 const SMALL_STATE_THRESHOLD: usize = 64;
 pub const ABI_VERSION_MIN: usize = 14;
-pub const ABI_VERSION_MAX: usize = tree_sitter::LANGUAGE_VERSION;
+pub const ABI_VERSION_MAX: usize = LANGUAGE_VERSION;
 const ABI_VERSION_WITH_RESERVED_WORDS: usize = 15;
 const BUILD_VERSION: &str = env!("CARGO_PKG_VERSION");
 const BUILD_SHA: Option<&'static str> = option_env!("BUILD_SHA");
