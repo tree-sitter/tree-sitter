@@ -183,7 +183,8 @@ pub fn generate_parser_in_directory(
     if grammar_path.file_name().unwrap() != "grammar.json" {
         fs::write(src_path.join("grammar.json"), &grammar_json).map_err(|e| {
             GenerateError::IO(format!(
-                "Failed to write grammar.json to {src_path:?} -- {e}"
+                "Failed to write grammar.json to {} -- {e}",
+                src_path.display()
             ))
         })?;
     }
