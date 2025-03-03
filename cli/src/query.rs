@@ -34,7 +34,7 @@ pub fn query_file_at_path(
     let mut stdout = stdout.lock();
 
     let query_source = fs::read_to_string(query_path)
-        .with_context(|| format!("Error reading query file {query_path:?}"))?;
+        .with_context(|| format!("Error reading query file {}", query_path.display()))?;
     let query = Query::new(language, &query_source).with_context(|| "Query compilation failed")?;
 
     let mut query_cursor = QueryCursor::new();
@@ -55,7 +55,7 @@ pub fn query_file_at_path(
     }
 
     let source_code =
-        fs::read(path).with_context(|| format!("Error reading source file {path:?}"))?;
+        fs::read(path).with_context(|| format!("Error reading source file {}", path.display()))?;
     let tree = parser.parse(&source_code, None).unwrap();
 
     let start = Instant::now();
