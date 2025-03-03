@@ -23,10 +23,18 @@ pub fn load_language_wasm_file(language_dir: &Path) -> Result<(String, Vec<u8>)>
 pub fn get_grammar_name(language_dir: &Path) -> Result<String> {
     let src_dir = language_dir.join("src");
     let grammar_json_path = src_dir.join("grammar.json");
-    let grammar_json = fs::read_to_string(&grammar_json_path)
-        .with_context(|| format!("Failed to read grammar file {grammar_json_path:?}"))?;
-    let grammar: GrammarJSON = serde_json::from_str(&grammar_json)
-        .with_context(|| format!("Failed to parse grammar file {grammar_json_path:?}"))?;
+    let grammar_json = fs::read_to_string(&grammar_json_path).with_context(|| {
+        format!(
+            "Failed to read grammar file {}",
+            grammar_json_path.display()
+        )
+    })?;
+    let grammar: GrammarJSON = serde_json::from_str(&grammar_json).with_context(|| {
+        format!(
+            "Failed to parse grammar file {}",
+            grammar_json_path.display()
+        )
+    })?;
     Ok(grammar.name)
 }
 
