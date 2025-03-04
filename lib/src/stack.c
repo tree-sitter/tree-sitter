@@ -460,6 +460,17 @@ uint32_t ts_stack_version_count(const Stack *self) {
   return self->heads.size;
 }
 
+uint32_t ts_stack_halted_version_count(Stack *self) {
+  uint32_t count = 0;
+  for (uint32_t i = 0; i < self->heads.size; i++) {
+    StackHead *head = array_get(&self->heads, i);
+    if (head->status == StackStatusHalted) {
+      count++;
+    }
+  }
+  return count;
+}
+
 TSStateId ts_stack_state(const Stack *self, StackVersion version) {
   return array_get(&self->heads, version)->node->state;
 }
@@ -523,6 +534,7 @@ forceinline StackAction pop_count_callback(void *payload, const StackIterator *i
 StackSliceArray ts_stack_pop_count(Stack *self, StackVersion version, uint32_t count) {
   return stack__iter(self, version, pop_count_callback, &count, (int)count);
 }
+
 
 forceinline StackAction pop_pending_callback(void *payload, const StackIterator *iterator) {
   (void)payload;

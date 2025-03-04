@@ -949,6 +949,7 @@ static StackVersion ts_parser__reduce(
   // children.
   StackSliceArray pop = ts_stack_pop_count(self->stack, version, count);
   uint32_t removed_version_count = 0;
+  uint32_t halted_version_count = ts_stack_halted_version_count(self->stack);
   for (uint32_t i = 0; i < pop.size; i++) {
     StackSlice slice = pop.contents[i];
     StackVersion slice_version = slice.version - removed_version_count;
@@ -957,11 +958,12 @@ static StackVersion ts_parser__reduce(
     // will all be sorted and truncated at the end of the outer parsing loop.
     // Allow the maximum version count to be temporarily exceeded, but only
     // by a limited threshold.
-    if (slice_version > MAX_VERSION_COUNT + MAX_VERSION_COUNT_OVERFLOW) {
+    if (slice_version > MAX_VERSION_COUNT + MAX_VERSION_COUNT_OVERFLOW + halted_version_count) {
       ts_stack_remove_version(self->stack, slice_version);
       ts_subtree_array_delete(&self->tree_pool, &slice.subtrees);
       removed_version_count++;
       while (i + 1 < pop.size) {
+        LOG("aborting reduce with too many versions")
         StackSlice next_slice = pop.contents[i + 1];
         if (next_slice.version != slice.version) break;
         ts_subtree_array_delete(&self->tree_pool, &next_slice.subtrees);
@@ -1318,8 +1320,21 @@ static void ts_parser__recover(
   // and subsequently halted. Remove those versions.
   for (unsigned i = previous_version_count; i < ts_stack_version_count(self->stack); i++) {
     if (!ts_stack_is_active(self->stack, i)) {
+      LOG("removed paused version:%u", i);
       ts_stack_remove_version(self->stack, i--);
+      LOG_STACK();
     }
+  }
+
+  // If the parser is still in the error state at the end of the file, just wrap everything
+  // in an ERROR node and terminate.
+  if (ts_subtree_is_eof(lookahead)) {
+    LOG("recover_eof");
+    SubtreeArray children = array_new();
+    Subtree parent = ts_subtree_new_error_node(&children, false, self->language);
+    ts_stack_push(self->stack, version, parent, false, 1);
+    ts_parser__accept(self, version, lookahead);
+    return;
   }
 
   // If strategy 1 succeeded, a new stack version will have been created which is able to handle
@@ -1339,17 +1354,6 @@ static void ts_parser__recover(
   ) {
     ts_stack_halt(self->stack, version);
     ts_subtree_release(&self->tree_pool, lookahead);
-    return;
-  }
-
-  // If the parser is still in the error state at the end of the file, just wrap everything
-  // in an ERROR node and terminate.
-  if (ts_subtree_is_eof(lookahead)) {
-    LOG("recover_eof");
-    SubtreeArray children = array_new();
-    Subtree parent = ts_subtree_new_error_node(&children, false, self->language);
-    ts_stack_push(self->stack, version, parent, false, 1);
-    ts_parser__accept(self, version, lookahead);
     return;
   }
 
@@ -1618,6 +1622,7 @@ static bool ts_parser__advance(
     // an ambiguous state. REDUCE actions always create a new stack
     // version, whereas SHIFT actions update the existing stack version
     // and terminate this loop.
+    bool did_reduce = false;
     StackVersion last_reduction_version = STACK_VERSION_NONE;
     for (uint32_t i = 0; i < table_entry.action_count; i++) {
       TSParseAction action = table_entry.actions[i];
@@ -1653,6 +1658,7 @@ static bool ts_parser__advance(
             action.reduce.dynamic_precedence, action.reduce.production_id,
             is_fragile, end_of_non_terminal_extra
           );
+          did_reduce = true;
           if (reduction_version != STACK_VERSION_NONE) {
             last_reduction_version = reduction_version;
           }
@@ -1704,9 +1710,12 @@ static bool ts_parser__advance(
       continue;
     }
 
-    // A non-terminal extra rule was reduced and merged into an existing
-    // stack version. This version can be discarded.
-    if (!lookahead.ptr) {
+    // A reduction was performed, but was merged into an existing stack version.
+    // This version can be discarded.
+    if (did_reduce) {
+      if (lookahead.ptr) {
+        ts_subtree_release(&self->tree_pool, lookahead);
+      }
       ts_stack_halt(self->stack, version);
       return true;
     }
@@ -1755,7 +1764,7 @@ static bool ts_parser__advance(
     // versions that exist. If some other version advances successfully, then
     // this version can simply be removed. But if all versions end up paused,
     // then error recovery is needed.
-    LOG("detect_error");
+    LOG("detect_error lookahead:%s", TREE_NAME(lookahead));
     ts_stack_pause(self->stack, version, lookahead);
     return true;
   }
@@ -1844,6 +1853,7 @@ static unsigned ts_parser__condense_stack(TSParser *self) {
           has_unpaused_version = true;
         } else {
           ts_stack_remove_version(self->stack, i);
+          made_changes = true;
           i--;
           n--;
         }
