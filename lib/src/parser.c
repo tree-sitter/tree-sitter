@@ -1713,6 +1713,9 @@ static bool ts_parser__advance(
     // A reduction was performed, but was merged into an existing stack version.
     // This version can be discarded.
     if (did_reduce) {
+      if (lookahead.ptr) {
+        ts_subtree_release(&self->tree_pool, lookahead);
+      }
       ts_stack_halt(self->stack, version);
       return true;
     }
