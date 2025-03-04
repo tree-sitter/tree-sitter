@@ -112,7 +112,7 @@ fn main() {
 
             parse(path, max_path_length, |source| {
                 Query::new(&language, str::from_utf8(source).unwrap())
-                    .with_context(|| format!("Query file path: {path:?}"))
+                    .with_context(|| format!("Query file path: {}", path.display()))
                     .expect("Failed to parse query");
             });
         }
@@ -201,7 +201,7 @@ fn parse(path: &Path, max_path_length: usize, mut action: impl FnMut(&[u8])) -> 
     );
 
     let source_code = fs::read(path)
-        .with_context(|| format!("Failed to read {path:?}"))
+        .with_context(|| format!("Failed to read {}", path.display()))
         .unwrap();
     let time = Instant::now();
     for _ in 0..*REPETITION_COUNT {
@@ -221,6 +221,6 @@ fn get_language(path: &Path) -> Language {
     let src_path = GRAMMARS_DIR.join(path).join("src");
     TEST_LOADER
         .load_language_at_path(CompileConfig::new(&src_path, None, None))
-        .with_context(|| format!("Failed to load language at path {src_path:?}"))
+        .with_context(|| format!("Failed to load language at path {}", src_path.display()))
         .unwrap()
 }

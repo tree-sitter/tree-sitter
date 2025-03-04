@@ -89,8 +89,8 @@ pub fn get_input(
                 let Some(path_str) = path.to_str() else {
                     bail!("Invalid path: {}", path.display());
                 };
-                let paths =
-                    glob(path_str).with_context(|| format!("Invalid glob pattern {path:?}"))?;
+                let paths = glob(path_str)
+                    .with_context(|| format!("Invalid glob pattern {}", path.display()))?;
                 for path in paths {
                     incorporate_path(path?, positive);
                 }
