@@ -1,7 +1,6 @@
-use std::{
-    cmp::Ordering,
-    collections::{BTreeMap, HashMap, HashSet},
-};
+#[cfg(feature = "load")]
+use std::cmp::Ordering;
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use anyhow::Result;
 use serde::Serialize;
@@ -444,6 +443,7 @@ pub fn get_supertype_symbol_map(
     supertype_symbol_map
 }
 
+#[cfg(feature = "load")]
 pub fn generate_node_types_json(
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
@@ -746,6 +746,7 @@ pub fn generate_node_types_json(
     result
 }
 
+#[cfg(feature = "load")]
 fn process_supertypes(info: &mut FieldInfoJSON, subtype_map: &[(NodeTypeJSON, Vec<NodeTypeJSON>)]) {
     for (supertype, subtypes) in subtype_map {
         if info.types.contains(supertype) {
