@@ -36,6 +36,9 @@ void ts_stack_delete(Stack *self);
 // Get the stack's current number of versions.
 uint32_t ts_stack_version_count(const Stack *self);
 
+// Get the stack's current number of halted versions.
+uint32_t ts_stack_halted_version_count(Stack *self);
+
 // Get the state at the top of the given version of the stack. If the stack is
 // empty, this returns the initial state, 0.
 TSStateId ts_stack_state(const Stack *self, StackVersion version);

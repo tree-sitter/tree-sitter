@@ -56,7 +56,9 @@ fn regex_env_var(name: &'static str) -> Option<Regex> {
 pub fn new_seed() -> usize {
     int_env_var("TREE_SITTER_SEED").unwrap_or_else(|| {
         let mut rng = rand::thread_rng();
-        rng.gen::<usize>()
+        let seed = rng.gen::<usize>();
+        eprintln!("Seed: {seed}");
+        seed
     })
 }
 
