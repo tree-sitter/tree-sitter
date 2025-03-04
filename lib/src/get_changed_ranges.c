@@ -108,6 +108,7 @@ typedef struct {
   const TSLanguage *language;
   unsigned visible_depth;
   bool in_padding;
+  Subtree prev_external_token;
 } Iterator;
 
 static Iterator iterator_new(
@@ -127,6 +128,7 @@ static Iterator iterator_new(
     .language = language,
     .visible_depth = 1,
     .in_padding = false,
+    .prev_external_token = NULL_SUBTREE,
   };
 }
 
@@ -244,6 +246,10 @@ static bool iterator_descend(Iterator *self, uint32_t goal_position) {
 
       position = child_right;
       if (!ts_subtree_extra(*child)) structural_child_index++;
+      Subtree last_external_token = ts_subtree_last_external_token(*child);
+      if (last_external_token.ptr) {
+        self->prev_external_token = last_external_token;
+      }
     }
   } while (did_descend);
 
@@ -268,6 +274,10 @@ static void iterator_advance(Iterator *self) {
 
     const Subtree *parent = array_back(&self->cursor.stack)->subtree;
     uint32_t child_index = entry.child_index + 1;
+    Subtree last_external_token = ts_subtree_last_external_token(*entry.subtree);
+    if (last_external_token.ptr) {
+      self->prev_external_token = last_external_token;
+    }
     if (ts_subtree_child_count(*parent) > child_index) {
       Length position = length_add(entry.position, ts_subtree_total_size(*entry.subtree));
       uint32_t structural_child_index = entry.structural_child_index;
@@ -313,29 +323,41 @@ static IteratorComparison iterator_compare(
   TSSymbol new_alias_symbol = 0;
   iterator_get_visible_state(old_iter, &old_tree, &old_alias_symbol, &old_start);
   iterator_get_visible_state(new_iter, &new_tree, &new_alias_symbol, &new_start);
+  TSSymbol old_symbol = ts_subtree_symbol(old_tree);
+  TSSymbol new_symbol = ts_subtree_symbol(new_tree);
 
   if (!old_tree.ptr && !new_tree.ptr) return IteratorMatches;
   if (!old_tree.ptr || !new_tree.ptr) return IteratorDiffers;
+  if (old_alias_symbol != new_alias_symbol || old_symbol != new_symbol) return IteratorDiffers;
+
+  uint32_t old_size = ts_subtree_size(old_tree).bytes;
+  uint32_t new_size = ts_subtree_size(new_tree).bytes;
+  TSStateId old_state = ts_subtree_parse_state(old_tree);
+  TSStateId new_state = ts_subtree_parse_state(new_tree);
+  bool old_has_external_tokens = ts_subtree_has_external_tokens(old_tree);
+  bool new_has_external_tokens = ts_subtree_has_external_tokens(new_tree);
+  uint32_t old_error_cost = ts_subtree_error_cost(old_tree);
+  uint32_t new_error_cost = ts_subtree_error_cost(new_tree);
 
   if (
-    old_alias_symbol == new_alias_symbol &&
-    ts_subtree_symbol(old_tree) == ts_subtree_symbol(new_tree)
+    old_start != new_start ||
+    old_symbol == ts_builtin_sym_error ||
+    old_size != new_size ||
+    old_state == TS_TREE_STATE_NONE ||
+    new_state == TS_TREE_STATE_NONE ||
+    ((old_state == ERROR_STATE) != (new_state == ERROR_STATE)) ||
+    old_error_cost != new_error_cost ||
+    old_has_external_tokens != new_has_external_tokens ||
+    ts_subtree_has_changes(old_tree) ||
+    (
+      old_has_external_tokens &&
+      !ts_subtree_external_scanner_state_eq(old_iter->prev_external_token, new_iter->prev_external_token)
+    )
   ) {
-    if (old_start == new_start &&
-        !ts_subtree_has_changes(old_tree) &&
-        ts_subtree_symbol(old_tree) != ts_builtin_sym_error &&
-        ts_subtree_size(old_tree).bytes == ts_subtree_size(new_tree).bytes &&
-        ts_subtree_parse_state(old_tree) != TS_TREE_STATE_NONE &&
-        ts_subtree_parse_state(new_tree) != TS_TREE_STATE_NONE &&
-        (ts_subtree_parse_state(old_tree) == ERROR_STATE) ==
-        (ts_subtree_parse_state(new_tree) == ERROR_STATE)) {
-      return IteratorMatches;
-    } else {
-      return IteratorMayDiffer;
-    }
+    return IteratorMayDiffer;
   }
 
-  return IteratorDiffers;
+  return IteratorMatches;
 }
 
 #ifdef DEBUG_GET_CHANGED_RANGES
@@ -348,8 +370,8 @@ static inline void iterator_print_state(Iterator *self) {
     "(%-25s %s\t depth:%u [%u, %u] - [%u, %u])",
     name, self->in_padding ? "(p)" : "   ",
     self->visible_depth,
-    start.row + 1, start.column,
-    end.row + 1, end.column
+    start.row, start.column,
+    end.row, end.column
   );
 }
 #endif
@@ -380,7 +402,7 @@ unsigned ts_subtree_get_changed_ranges(
 
   do {
     #ifdef DEBUG_GET_CHANGED_RANGES
-    printf("At [%-2u, %-2u] Compare ", position.extent.row + 1, position.extent.column);
+    printf("At [%-2u, %-2u] Compare ", position.extent.row, position.extent.column);
     iterator_print_state(&old_iter);
     printf("\tvs\t");
     iterator_print_state(&new_iter);
