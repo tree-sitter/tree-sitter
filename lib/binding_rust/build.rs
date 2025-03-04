@@ -112,7 +112,10 @@ fn generate_bindings(out_dir: &std::path::Path) {
         .expect("Failed to generate bindings");
 
     let bindings_rs = out_dir.join("bindings.rs");
-    bindings
-        .write_to_file(&bindings_rs)
-        .unwrap_or_else(|_| panic!("Failed to write bindings into path: {bindings_rs:?}"));
+    bindings.write_to_file(&bindings_rs).unwrap_or_else(|_| {
+        panic!(
+            "Failed to write bindings into path: {}",
+            bindings_rs.display()
+        )
+    });
 }
