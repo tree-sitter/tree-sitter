@@ -77,10 +77,10 @@ These tests are important. They serve as the parser's API documentation, and the
 to verify that everything still parses correctly.
 
 By default, the `tree-sitter test` command runs all the tests in your `test/corpus/` folder. To run a particular test, you
-can use the `-f` flag:
+can use the `-i` flag:
 
 ```sh
-tree-sitter test -f 'Return statements'
+tree-sitter test -i 'Return statements'
 ```
 
 The recommendation is to be comprehensive in adding tests. If it's a visible node, add it to a test file in your `test/corpus`
