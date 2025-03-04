@@ -304,8 +304,9 @@ int64_t ts_tree_cursor_goto_first_child_for_point(TSTreeCursor *self, TSPoint go
 }
 
 TreeCursorStep ts_tree_cursor_goto_sibling_internal(
-    TSTreeCursor *_self,
-    bool (*advance)(CursorChildIterator *, TreeCursorEntry *, bool *)) {
+  TSTreeCursor *_self,
+  bool (*advance)(CursorChildIterator *, TreeCursorEntry *, bool *)
+) {
   TreeCursor *self = (TreeCursor *)_self;
   uint32_t initial_size = self->stack.size;
 
