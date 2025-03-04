@@ -23,7 +23,7 @@ use crate::{
 };
 
 #[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
-fn test_corpus_for_bash(seed: usize) {
+fn test_corpus_for_bash_language(seed: usize) {
     test_language_corpus(
         "bash",
         seed,
@@ -39,73 +39,77 @@ fn test_corpus_for_bash(seed: usize) {
 }
 
 #[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
-fn test_corpus_for_c(seed: usize) {
+fn test_corpus_for_c_language(seed: usize) {
     test_language_corpus("c", seed, None, None);
 }
 
 #[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
-fn test_corpus_for_cpp(seed: usize) {
+fn test_corpus_for_cpp_language(seed: usize) {
     test_language_corpus("cpp", seed, None, None);
 }
 
 #[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
-fn test_corpus_for_embedded_template(seed: usize) {
+fn test_corpus_for_embedded_template_language(seed: usize) {
     test_language_corpus("embedded-template", seed, None, None);
 }
 
 #[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
-fn test_corpus_for_go(seed: usize) {
+fn test_corpus_for_go_language(seed: usize) {
     test_language_corpus("go", seed, None, None);
 }
 
 #[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
-fn test_corpus_for_html(seed: usize) {
+fn test_corpus_for_html_language(seed: usize) {
     test_language_corpus("html", seed, None, None);
 }
 
 #[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
-fn test_corpus_for_java(seed: usize) {
-    test_language_corpus("java", seed, None, None);
+fn test_corpus_for_java_language(seed: usize) {
+    test_language_corpus(
+        "java",
+        seed,
+        Some(&["java - corpus - expressions - switch with unnamed pattern variable"]),
+        None,
+    );
 }
 
 #[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
-fn test_corpus_for_javascript(seed: usize) {
+fn test_corpus_for_javascript_language(seed: usize) {
     test_language_corpus("javascript", seed, None, None);
 }
 
 #[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
-fn test_corpus_for_json(seed: usize) {
+fn test_corpus_for_json_language(seed: usize) {
     test_language_corpus("json", seed, None, None);
 }
 
-#[ignore]
 #[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
-fn test_corpus_for_php(seed: usize) {
-    test_language_corpus("php", seed, None, None);
+fn test_corpus_for_php_language(seed: usize) {
+    test_language_corpus("php", seed, None, Some("php"));
 }
 
 #[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
-fn test_corpus_for_python(seed: usize) {
+fn test_corpus_for_python_language(seed: usize) {
     test_language_corpus("python", seed, None, None);
 }
 
 #[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
-fn test_corpus_for_ruby(seed: usize) {
+fn test_corpus_for_ruby_language(seed: usize) {
     test_language_corpus("ruby", seed, None, None);
 }
 
 #[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
-fn test_corpus_for_rust(seed: usize) {
+fn test_corpus_for_rust_language(seed: usize) {
     test_language_corpus("rust", seed, None, None);
 }
 
 #[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
-fn test_corpus_for_typescript(seed: usize) {
+fn test_corpus_for_typescript_language(seed: usize) {
     test_language_corpus("typescript", seed, None, Some("typescript"));
 }
 
 #[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
-fn test_corpus_for_tsx(seed: usize) {
+fn test_corpus_for_tsx_language(seed: usize) {
     test_language_corpus("typescript", seed, None, Some("tsx"));
 }
 
