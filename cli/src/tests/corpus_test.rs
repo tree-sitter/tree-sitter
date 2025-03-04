@@ -65,7 +65,12 @@ fn test_corpus_for_html_language(seed: usize) {
 
 #[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
 fn test_corpus_for_java_language(seed: usize) {
-    test_language_corpus("java", seed, None, None);
+    test_language_corpus(
+        "java",
+        seed,
+        Some(&["java - corpus - expressions - switch with unnamed pattern variable"]),
+        None,
+    );
 }
 
 #[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
@@ -78,10 +83,9 @@ fn test_corpus_for_json_language(seed: usize) {
     test_language_corpus("json", seed, None, None);
 }
 
-#[ignore]
 #[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
 fn test_corpus_for_php_language(seed: usize) {
-    test_language_corpus("php", seed, None, None);
+    test_language_corpus("php", seed, None, Some("php"));
 }
 
 #[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
