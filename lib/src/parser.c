@@ -1326,6 +1326,17 @@ static void ts_parser__recover(
     }
   }
 
+  // If the parser is still in the error state at the end of the file, just wrap everything
+  // in an ERROR node and terminate.
+  if (ts_subtree_is_eof(lookahead)) {
+    LOG("recover_eof");
+    SubtreeArray children = array_new();
+    Subtree parent = ts_subtree_new_error_node(&children, false, self->language);
+    ts_stack_push(self->stack, version, parent, false, 1);
+    ts_parser__accept(self, version, lookahead);
+    return;
+  }
+
   // If strategy 1 succeeded, a new stack version will have been created which is able to handle
   // the current lookahead token. Now, in addition, try strategy 2 described above: skip the
   // current lookahead token by wrapping it in an ERROR node.
@@ -1343,17 +1354,6 @@ static void ts_parser__recover(
   ) {
     ts_stack_halt(self->stack, version);
     ts_subtree_release(&self->tree_pool, lookahead);
-    return;
-  }
-
-  // If the parser is still in the error state at the end of the file, just wrap everything
-  // in an ERROR node and terminate.
-  if (ts_subtree_is_eof(lookahead)) {
-    LOG("recover_eof");
-    SubtreeArray children = array_new();
-    Subtree parent = ts_subtree_new_error_node(&children, false, self->language);
-    ts_stack_push(self->stack, version, parent, false, 1);
-    ts_parser__accept(self, version, lookahead);
     return;
   }
 
