@@ -42,7 +42,6 @@ typedef uint16_t TSStateId;
 typedef uint16_t TSSymbol;
 typedef uint16_t TSFieldId;
 typedef struct TSLanguage TSLanguage;
-typedef struct TSLanguageMetadata TSLanguageMetadata;
 typedef struct TSParser TSParser;
 typedef struct TSTree TSTree;
 typedef struct TSQuery TSQuery;
