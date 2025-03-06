@@ -74,6 +74,7 @@ pub enum GenerateError {
     VariableInfo(#[from] VariableInfoError),
     #[error(transparent)]
     BuildTables(#[from] ParseTableBuilderError),
+    #[cfg(feature = "load")]
     #[error(transparent)]
     ParseVersion(#[from] ParseVersionError),
 }
@@ -107,6 +108,7 @@ impl From<std::io::Error> for LoadGrammarError {
     }
 }
 
+#[cfg(feature = "load")]
 #[derive(Debug, Error, Serialize)]
 pub enum ParseVersionError {
     #[error("{0}")]
@@ -117,8 +119,10 @@ pub enum ParseVersionError {
     IO(String),
 }
 
+#[cfg(feature = "load")]
 pub type JSResult<T> = Result<T, JSError>;
 
+#[cfg(feature = "load")]
 #[derive(Debug, Error, Serialize)]
 pub enum JSError {
     #[error("Failed to run `{runtime}` -- {error}")]
@@ -135,12 +139,14 @@ pub enum JSError {
     Serialzation(String),
 }
 
+#[cfg(feature = "load")]
 impl From<std::io::Error> for JSError {
     fn from(value: std::io::Error) -> Self {
         Self::IO(value.to_string())
     }
 }
 
+#[cfg(feature = "load")]
 impl From<serde_json::Error> for JSError {
     fn from(value: serde_json::Error) -> Self {
         Self::Serialzation(value.to_string())
