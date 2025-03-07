@@ -80,7 +80,7 @@ By default, the `tree-sitter test` command runs all the tests in your `test/corp
 can use the `-f` flag:
 
 ```sh
-tree-sitter test -f 'Return statements'
+tree-sitter test -i 'Return statements'
 ```
 
 The recommendation is to be comprehensive in adding tests. If it's a visible node, add it to a test file in your `test/corpus`
