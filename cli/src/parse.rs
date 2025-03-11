@@ -686,19 +686,23 @@ pub fn parse_file_at_path(
             if let Some(node) = first_error {
                 let start = node.start_position();
                 let end = node.end_position();
+                let mut node_text = String::new();
+                for c in node.kind().chars() {
+                    if let Some(escaped) = escape_invisible(c) {
+                        node_text += escaped;
+                    } else {
+                        node_text.push(c);
+                    }
+                }
                 write!(&mut stdout, "\t(")?;
                 if node.is_missing() {
                     if node.is_named() {
-                        write!(&mut stdout, "MISSING {}", node.kind())?;
+                        write!(&mut stdout, "MISSING {node_text}")?;
                     } else {
-                        write!(
-                            &mut stdout,
-                            "MISSING \"{}\"",
-                            node.kind().replace('\n', "\\n")
-                        )?;
+                        write!(&mut stdout, "MISSING \"{node_text}\"")?;
                     }
                 } else {
-                    write!(&mut stdout, "{}", node.kind())?;
+                    write!(&mut stdout, "{node_text}")?;
                 }
                 write!(
                     &mut stdout,
