@@ -2459,7 +2459,7 @@ impl Query {
                             }
                         })
                         .unwrap_or(suffix.len());
-                    message = suffix.split_at(end_offset).0.to_string();
+                    message = format!("\"{}\"", suffix.split_at(end_offset).0);
                     kind = match error_type {
                         ffi::TSQueryErrorNodeType => QueryErrorKind::NodeType,
                         ffi::TSQueryErrorField => QueryErrorKind::Field,
