@@ -147,6 +147,7 @@ tempfile = "3.20.0"
 thiserror = "2.0.12"
 tiny_http = "0.12.0"
 toml = "0.8.22"
+topological-sort = "0.2.2"
 unindent = "0.2.4"
 url = { version = "2.5.4", features = ["serde"] }
 walkdir = "2.5.0"
