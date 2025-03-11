@@ -237,7 +237,7 @@ fn test_query_errors_on_invalid_symbols() {
                 offset: 1,
                 column: 1,
                 kind: QueryErrorKind::NodeType,
-                message: ">>>>".to_string()
+                message: "\">>>>\"".to_string()
             }
         );
         assert_eq!(
@@ -247,7 +247,7 @@ fn test_query_errors_on_invalid_symbols() {
                 offset: 1,
                 column: 1,
                 kind: QueryErrorKind::NodeType,
-                message: "te\\\"st".to_string()
+                message: "\"te\\\"st\"".to_string()
             }
         );
         assert_eq!(
@@ -257,7 +257,7 @@ fn test_query_errors_on_invalid_symbols() {
                 offset: 1,
                 column: 1,
                 kind: QueryErrorKind::NodeType,
-                message: "\\\\".to_string()
+                message: "\"\\\\\"".to_string()
             }
         );
         assert_eq!(
@@ -267,7 +267,7 @@ fn test_query_errors_on_invalid_symbols() {
                 offset: 1,
                 column: 1,
                 kind: QueryErrorKind::NodeType,
-                message: "clas".to_string()
+                message: "\"clas\"".to_string()
             }
         );
         assert_eq!(
@@ -277,7 +277,7 @@ fn test_query_errors_on_invalid_symbols() {
                 offset: 15,
                 column: 15,
                 kind: QueryErrorKind::NodeType,
-                message: "arrayyyyy".to_string()
+                message: "\"arrayyyyy\"".to_string()
             },
         );
         assert_eq!(
@@ -287,7 +287,7 @@ fn test_query_errors_on_invalid_symbols() {
                 offset: 26,
                 column: 26,
                 kind: QueryErrorKind::NodeType,
-                message: "non_existent3".to_string()
+                message: "\"non_existent3\"".to_string()
             },
         );
         assert_eq!(
@@ -297,7 +297,7 @@ fn test_query_errors_on_invalid_symbols() {
                 offset: 14,
                 column: 14,
                 kind: QueryErrorKind::Field,
-                message: "condit".to_string()
+                message: "\"condit\"".to_string()
             },
         );
         assert_eq!(
@@ -307,7 +307,7 @@ fn test_query_errors_on_invalid_symbols() {
                 offset: 14,
                 column: 14,
                 kind: QueryErrorKind::Field,
-                message: "conditioning".to_string()
+                message: "\"conditioning\"".to_string()
             }
         );
         assert_eq!(
@@ -317,7 +317,7 @@ fn test_query_errors_on_invalid_symbols() {
                 offset: 15,
                 column: 15,
                 kind: QueryErrorKind::Field,
-                message: "alternativ".to_string()
+                message: "\"alternativ\"".to_string()
             }
         );
         assert_eq!(
@@ -327,7 +327,7 @@ fn test_query_errors_on_invalid_symbols() {
                 offset: 15,
                 column: 15,
                 kind: QueryErrorKind::Field,
-                message: "alternatives".to_string()
+                message: "\"alternatives\"".to_string()
             }
         );
     });
@@ -370,7 +370,7 @@ fn test_query_errors_on_invalid_predicates() {
                 row: 0,
                 column: 29,
                 offset: 29,
-                message: "ok".to_string(),
+                message: "\"ok\"".to_string(),
             }
         );
     });
@@ -5080,7 +5080,7 @@ fn test_query_error_does_not_oob() {
             offset: 1,
             column: 1,
             kind: QueryErrorKind::NodeType,
-            message: "clas".to_string()
+            message: "\"clas\"".to_string()
         }
     );
 }
