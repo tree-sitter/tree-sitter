@@ -12,10 +12,10 @@ export class Node {
   private [0] = 0; // Internal handle for WASM
 
   /** @internal */
-  private _children?: (Node | null)[];
+  private _children?: Node[];
 
   /** @internal */
-  private _namedChildren?: (Node | null)[];
+  private _namedChildren?: Node[];
 
   /** @internal */
   constructor(
@@ -258,7 +258,7 @@ export class Node {
    *
    * See also {@link Node#children}.
    */
-  childrenForFieldName(fieldName: string): (Node | null)[] {
+  childrenForFieldName(fieldName: string): Node[] {
     const fieldId = this.tree.language.fields.indexOf(fieldName);
     if (fieldId !== -1 && fieldId !== 0) return this.childrenForFieldId(fieldId);
     return [];
@@ -269,17 +269,17 @@ export class Node {
     *
     * See also {@link Node#childrenForFieldName}.
     */
-  childrenForFieldId(fieldId: number): (Node | null)[] {
+  childrenForFieldId(fieldId: number): Node[] {
     marshalNode(this);
     C._ts_node_children_by_field_id_wasm(this.tree[0], fieldId);
     const count = C.getValue(TRANSFER_BUFFER, 'i32');
     const buffer = C.getValue(TRANSFER_BUFFER + SIZE_OF_INT, 'i32');
-    const result = new Array<Node | null>(count);
+    const result = new Array<Node>(count);
 
     if (count > 0) {
       let address = buffer;
       for (let i = 0; i < count; i++) {
-        result[i] = unmarshalNode(this.tree, address);
+        result[i] = unmarshalNode(this.tree, address)!;
         address += SIZE_OF_NODE;
       }
       C._free(buffer);
@@ -356,7 +356,7 @@ export class Node {
    * If you're walking the tree recursively, you may want to use the
    * {@link TreeCursor} APIs directly instead.
    */
-  get children(): (Node | null)[] {
+  get children(): Node[] {
     if (!this._children) {
       marshalNode(this);
       C._ts_node_children_wasm(this.tree[0]);
@@ -366,7 +366,7 @@ export class Node {
       if (count > 0) {
         let address = buffer;
         for (let i = 0; i < count; i++) {
-          this._children[i] = unmarshalNode(this.tree, address);
+          this._children[i] = unmarshalNode(this.tree, address)!;
           address += SIZE_OF_NODE;
         }
         C._free(buffer);
@@ -380,7 +380,7 @@ export class Node {
    *
    * See also {@link Node#children}.
    */
-  get namedChildren(): (Node | null)[] {
+  get namedChildren(): Node[] {
     if (!this._namedChildren) {
       marshalNode(this);
       C._ts_node_named_children_wasm(this.tree[0]);
@@ -390,7 +390,7 @@ export class Node {
       if (count > 0) {
         let address = buffer;
         for (let i = 0; i < count; i++) {
-          this._namedChildren[i] = unmarshalNode(this.tree, address);
+          this._namedChildren[i] = unmarshalNode(this.tree, address)!;
           address += SIZE_OF_NODE;
         }
         C._free(buffer);
@@ -410,7 +410,7 @@ export class Node {
     types: string | string[],
     startPosition: Point = ZERO_POINT,
     endPosition: Point = ZERO_POINT
-  ): (Node | null)[] {
+  ): Node[] {
     if (!Array.isArray(types)) types = [types];
 
     // Convert the type strings to numeric type symbols
@@ -448,11 +448,11 @@ export class Node {
     // Instantiate the nodes based on the data returned
     const descendantCount = C.getValue(TRANSFER_BUFFER, 'i32');
     const descendantAddress = C.getValue(TRANSFER_BUFFER + SIZE_OF_INT, 'i32');
-    const result = new Array<Node | null>(descendantCount);
+    const result = new Array<Node>(descendantCount);
     if (descendantCount > 0) {
       let address = descendantAddress;
       for (let i = 0; i < descendantCount; i++) {
-        result[i] = unmarshalNode(this.tree, address);
+        result[i] = unmarshalNode(this.tree, address)!;
         address += SIZE_OF_NODE;
       }
     }
