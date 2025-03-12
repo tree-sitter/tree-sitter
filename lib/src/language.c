@@ -24,6 +24,10 @@ uint32_t ts_language_state_count(const TSLanguage *self) {
   return self->state_count;
 }
 
+uint32_t ts_language_large_state_count(const TSLanguage *self) {
+  return self->large_state_count;
+}
+
 const TSSymbol *ts_language_supertypes(const TSLanguage *self, uint32_t *length) {
   if (self->abi_version >= LANGUAGE_VERSION_WITH_RESERVED_WORDS) {
     *length = self->supertype_count;

@@ -474,6 +474,13 @@ impl Language {
         unsafe { ffi::ts_language_state_count(self.0) as usize }
     }
 
+    /// Get the number of large states in this language.
+    #[doc(alias = "ts_language_large_state_count")]
+    #[must_use]
+    pub fn parse_large_state_count(&self) -> usize {
+        unsafe { ffi::ts_language_large_state_count(self.0) as usize }
+    }
+
     /// Get a list of all supertype symbols for the language.
     #[doc(alias = "ts_language_supertypes")]
     #[must_use]

@@ -106,6 +106,13 @@ export class Language {
   }
 
   /**
+   * Gets the number of large states in the language.
+   */
+  get largeStateCount(): number {
+    return C._ts_language_large_state_count(this[0]);
+  }
+
+  /**
    * Get the field id for a field name.
    */
   fieldIdForName(fieldName: string): number | null {
