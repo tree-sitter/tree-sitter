@@ -127,6 +127,11 @@ pub fn run(args: BumpVersion) -> Result<()> {
         }
         next_version
     };
+    if next_version <= current_version {
+        return Err(anyhow!(format!(
+            "Next version {next_version} must be greater than current version {current_version}"
+        )));
+    }
 
     println!("Bumping from {current_version} to {next_version}");
     update_crates(&current_version, &next_version)?;
