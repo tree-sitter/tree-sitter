@@ -1,6 +1,14 @@
-use std::{env, path::PathBuf, process::Command};
+use std::{env, fs, path::PathBuf, process::Command};
 
 fn main() {
+    // This will always be ran in CI before publishing.
+    // We don't use a symlink for windows compatibility.
+    fs::copy(
+        concat!(env!("CARGO_WORKSPACE_DIR"), "lib/src/parser.h"),
+        PathBuf::from(env::var("OUT_DIR").unwrap_or_default()).join("parser.h"),
+    )
+    .expect("failed to copy parser.h template");
+
     if let Some(git_sha) = read_git_sha() {
         println!("cargo:rustc-env=BUILD_SHA={git_sha}");
     }
@@ -9,13 +17,9 @@ fn main() {
 // This is copied from the build.rs in parent directory. This should be updated if the
 // parent build.rs gets fixes.
 fn read_git_sha() -> Option<String> {
-    let crate_path = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
+    let crate_path = PathBuf::from(env!("CARGO_WORKSPACE_DIR"));
 
-    if !crate_path
-        .parent()?
-        .parent()
-        .is_some_and(|p| p.join(".git").exists())
-    {
+    if !crate_path.join(".git").exists() {
         return None;
     }
 
