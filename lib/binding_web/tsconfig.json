@@ -18,18 +18,20 @@
     "strictPropertyInitialization": true,
     "noImplicitThis": true,
     "alwaysStrict": true,
-    "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noImplicitReturns": true,
     "moduleResolution": "node",
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
+    "composite": true,
+    "isolatedModules": true,
   },
   "include": [
     "src/**/*",
     "script/**/*",
     "test/**/*",
+    "lib/**/*.ts"
   ],
   "exclude": [
     "node_modules",
