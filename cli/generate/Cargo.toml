@@ -15,6 +15,10 @@ categories.workspace = true
 [lints]
 workspace = true
 
+[features]
+default = [ "load" ]
+load = [ "dep:semver", "dep:url" ]
+
 [dependencies]
 anyhow.workspace = true
 heck.workspace = true
@@ -24,11 +28,13 @@ log.workspace = true
 regex.workspace = true
 regex-syntax.workspace = true
 rustc-hash.workspace = true
-semver.workspace = true
+semver = { workspace = true, optional = true }
 serde.workspace = true
 serde_json.workspace = true
 smallbitvec.workspace = true
 thiserror.workspace = true
-url.workspace = true
 
 tree-sitter.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+url = { workspace = true, optional = true }
