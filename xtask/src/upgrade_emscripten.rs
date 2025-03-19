@@ -7,10 +7,9 @@ use serde_json::Value;
 use crate::create_commit;
 
 pub fn run() -> Result<()> {
-    let response = ureq::get("https://api.github.com/repos/emscripten-core/emsdk/tags")
-        .call()?
-        .body_mut()
-        .read_to_string()?;
+    let response =
+        reqwest::blocking::get("https://api.github.com/repos/emscripten-core/emsdk/tags")?
+            .text()?;
 
     let json = serde_json::from_str::<Value>(&response)?;
     let version = json
