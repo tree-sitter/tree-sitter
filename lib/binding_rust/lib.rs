@@ -1222,7 +1222,7 @@ impl Parser {
             len: u32,
             code_point: *mut i32,
         ) -> u32 {
-            let (c, len) = D::decode(std::slice::from_raw_parts(data, len as usize));
+            let (c, len) = D::decode(core::slice::from_raw_parts(data, len as usize));
             if let Some(code_point) = code_point.as_mut() {
                 *code_point = c;
             }
@@ -1422,7 +1422,7 @@ impl Parser {
         if let Some(flag) = flag {
             ffi::ts_parser_set_cancellation_flag(
                 self.0.as_ptr(),
-                std::ptr::from_ref::<AtomicUsize>(flag).cast::<usize>(),
+                core::ptr::from_ref::<AtomicUsize>(flag).cast::<usize>(),
             );
         } else {
             ffi::ts_parser_set_cancellation_flag(self.0.as_ptr(), ptr::null());
