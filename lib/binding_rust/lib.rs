@@ -1432,7 +1432,10 @@ impl Parser {
 
 impl Drop for Parser {
     fn drop(&mut self) {
-        self.stop_printing_dot_graphs();
+        #[cfg(feature = "std")]
+        {
+            self.stop_printing_dot_graphs();
+        }
         self.set_logger(None);
         unsafe { ffi::ts_parser_delete(self.0.as_ptr()) }
     }
