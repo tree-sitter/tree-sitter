@@ -2087,7 +2087,7 @@ impl<'tree> Node<'tree> {
 
 impl PartialEq for Node<'_> {
     fn eq(&self, other: &Self) -> bool {
-        self.0.id == other.0.id
+        core::ptr::eq(self.0.id, other.0.id)
     }
 }
 
