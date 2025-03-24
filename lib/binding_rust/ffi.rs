@@ -16,6 +16,7 @@ extern "C" {
 }
 
 #[cfg(windows)]
+#[cfg(feature = "std")]
 extern "C" {
     pub(crate) fn _ts_dup(handle: *mut std::os::raw::c_void) -> std::os::raw::c_int;
 }
