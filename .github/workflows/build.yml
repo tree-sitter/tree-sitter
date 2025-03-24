@@ -203,6 +203,13 @@ jobs:
         npm run build
         npm run build:debug
 
+    - name: Check no_std builds
+      if: ${{ !matrix.no-run && inputs.run-test }}
+      shell: bash
+      run: |
+        cd lib
+        $BUILD_CMD check --no-default-features
+
     - name: Build target
       run: $BUILD_CMD build --release --target=${{ matrix.target }} --features=${{ matrix.features }}
 
@@ -230,6 +237,7 @@ jobs:
     - name: Run wasm tests
       if: ${{ !matrix.no-run && !matrix.use-cross && inputs.run-test }}
       run: $BUILD_CMD run -p xtask -- test-wasm
+
 
     - name: Upload CLI artifact
       uses: actions/upload-artifact@v4
