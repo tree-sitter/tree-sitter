@@ -238,7 +238,6 @@ jobs:
       if: ${{ !matrix.no-run && !matrix.use-cross && inputs.run-test }}
       run: $BUILD_CMD run -p xtask -- test-wasm
 
-
     - name: Upload CLI artifact
       uses: actions/upload-artifact@v4
       with:
