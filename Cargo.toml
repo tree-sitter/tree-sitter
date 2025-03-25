@@ -101,7 +101,7 @@ ansi_colours = "1.2.3"
 anstyle = "1.0.10"
 anyhow = "1.0.97"
 bstr = "1.11.3"
-cc = "1.2.16"
+cc = "1.2.17"
 clap = { version = "4.5.32", features = [
   "cargo",
   "derive",
@@ -109,7 +109,7 @@ clap = { version = "4.5.32", features = [
   "help",
   "unstable-styles",
 ] }
-clap_complete = "4.5.46"
+clap_complete = "4.5.47"
 clap_complete_nushell = "4.5.5"
 ctor = "0.2.9"
 ctrlc = { version = "3.4.5", features = ["termination"] }
@@ -117,16 +117,16 @@ dialoguer = { version = "0.11.0", features = ["fuzzy-select"] }
 etcetera = "0.8.0"
 filetime = "0.2.25"
 fs4 = "0.12.0"
-git2 = "0.20.0"
+git2 = "0.20.1"
 glob = "0.3.2"
 heck = "0.5.0"
 html-escape = "0.2.13"
 indexmap = "2.8.0"
 indoc = "2.0.6"
 libloading = "0.8.6"
-log = { version = "0.4.26", features = ["std"] }
+log = { version = "0.4.27", features = ["std"] }
 memchr = "2.7.4"
-once_cell = "1.21.0"
+once_cell = "1.21.1"
 path-slash = "0.2.1"
 pretty_assertions = "1.4.1"
 rand = "0.8.5"
@@ -140,7 +140,7 @@ serde_json = { version = "1.0.140", features = ["preserve_order"] }
 similar = "2.7.0"
 smallbitvec = "2.6.0"
 streaming-iterator = "0.1.9"
-tempfile = "3.18.0"
+tempfile = "3.19.1"
 thiserror = "2.0.12"
 tiny_http = "0.12.0"
 toml = "0.8.20"
