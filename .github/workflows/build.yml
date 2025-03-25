@@ -203,6 +203,13 @@ jobs:
         npm run build
         npm run build:debug
 
+    - name: Check no_std builds
+      if: ${{ !matrix.no-run && inputs.run-test }}
+      shell: bash
+      run: |
+        cd lib
+        $BUILD_CMD check --no-default-features
+
     - name: Build target
       run: $BUILD_CMD build --release --target=${{ matrix.target }} --features=${{ matrix.features }}
 
