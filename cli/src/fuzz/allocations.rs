@@ -109,7 +109,7 @@ unsafe extern "C" fn ts_record_realloc(ptr: *mut c_void, size: usize) -> *mut c_
     let result = realloc(ptr, size);
     if ptr.is_null() {
         record_alloc(result);
-    } else if ptr != result {
+    } else if !core::ptr::eq(ptr, result) {
         record_dealloc(ptr);
         record_alloc(result);
     }
