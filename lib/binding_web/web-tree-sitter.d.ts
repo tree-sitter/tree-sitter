@@ -250,6 +250,10 @@ declare module 'web-tree-sitter' {
 		 */
 		get stateCount(): number;
 		/**
+		 * Gets the number of large states in the language.
+		 */
+		get largeStateCount(): number;
+		/**
 		 * Get the field id for a field name.
 		 */
 		fieldIdForName(fieldName: string): number | null;
