@@ -28,8 +28,8 @@ unless they are used only as the grammar's start rule.
     NonSymbolExternalToken,
     #[error("Non-terminal symbol '{0}' cannot be used as the word token, because its rule is duplicated in '{1}'")]
     NonTerminalWordToken(String, String),
-    #[error("Reserved words must be tokens")]
-    NonTokenReservedWord,
+    #[error("Reserved word '{0}' must be a token")]
+    NonTokenReservedWord(String),
 }
 
 pub(super) fn extract_tokens(
@@ -188,7 +188,12 @@ pub(super) fn extract_tokens(
             {
                 reserved_words.push(Symbol::terminal(index));
             } else {
-                Err(ExtractTokensError::NonTokenReservedWord)?;
+                let token_name = match &reserved_rule {
+                    Rule::String(s) => s.clone(),
+                    Rule::Pattern(p, _) => p.clone(),
+                    _ => "unknown".to_string(),
+                };
+                Err(ExtractTokensError::NonTokenReservedWord(token_name))?;
             }
         }
         reserved_word_contexts.push(ReservedWordContext {
