@@ -88,6 +88,27 @@ The below table describes a standard vocabulary for kinds and roles during the t
 | Class reference          | `@reference.class`          |
 | Interface implementation | `@reference.implementation` |
 
+GitHub code navigation [extends this further](https://github.com/github/code-navigation/blob/main/README.md#tags-query):
+
+| Category       | Tag                          |
+|----------------|------------------------------|
+| Class          | `@definition.class`          |
+| Constant       | `@definition.constant`       |
+| Enum           | `@definition.enum`           |
+| Enum variant   | `@definition.enum_variant`   |
+| Field          | `@definition.field`          |
+| Function       | `@definition.function`       |
+| Implementation | `@definition.implementation` |
+| Interface      | `@definition.interface`      |
+| Macro          | `@definition.macro`          |
+| Method         | `@definition.method`         |
+| Module         | `@definition.module`         |
+| Struct         | `@definition.struct`         |
+| Trait          | `@definition.trait`          |
+| Type           | `@definition.type`           |
+| Union          | `@definition.union`          |
+
+
 ## Command-line invocation
 
 You can use the `tree-sitter tags` command to test out a tags query file, passing as arguments one or more files to tag.
