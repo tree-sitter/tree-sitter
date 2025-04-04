@@ -165,3 +165,4 @@ file is changed.
 [external-scanners]: ./4-external-scanners.md
 [node-field-names]: ../using-parsers/2-basic-parsing.md#node-field-names
 [s-exp]: https://en.wikipedia.org/wiki/S-expression
+[named-vs-anonymous-nodes]: ../using-parsers/2-basic-parsing.md#named-vs-anonymous-nodes
