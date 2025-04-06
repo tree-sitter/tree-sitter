@@ -29,18 +29,28 @@ pub struct Stats {
 impl fmt::Display for Stats {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let duration_us = self.total_duration.as_micros();
+        let success_rate = if self.total_parses > 0 {
+            format!(
+                "{:.2}%",
+                ((self.successful_parses as f64) / (self.total_parses as f64)) * 100.0,
+            )
+        } else {
+            "N/A".to_string()
+        };
+        let duration_str = match (self.total_parses, duration_us) {
+            (0, _) => "N/A".to_string(),
+            (_, 0) => "0 bytes/ms".to_string(),
+            (_, _) => format!(
+                "{} bytes/ms",
+                ((self.total_bytes as u128) * 1_000) / duration_us
+            ),
+        };
         writeln!(
             f,
-            "Total parses: {}; successful parses: {}; failed parses: {}; success percentage: {:.2}%; average speed: {} bytes/ms",
+            "Total parses: {}; successful parses: {}; failed parses: {}; success percentage: {success_rate}; average speed: {duration_str}",
             self.total_parses,
             self.successful_parses,
             self.total_parses - self.successful_parses,
-            ((self.successful_parses as f64) / (self.total_parses as f64)) * 100.0,
-            if duration_us != 0 {
-                ((self.total_bytes as u128) * 1_000) / duration_us
-            } else {
-                0
-            }
         )
     }
 }
