@@ -1433,6 +1433,7 @@ impl Parser {
 impl Drop for Parser {
     fn drop(&mut self) {
         #[cfg(feature = "std")]
+        #[cfg(not(target_os = "wasi"))]
         {
             self.stop_printing_dot_graphs();
         }
