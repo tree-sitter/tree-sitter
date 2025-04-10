@@ -364,10 +364,13 @@ pub struct QueryCapture<'tree> {
 }
 
 /// An error that occurred when trying to assign an incompatible [`Language`] to
-/// a [`Parser`].
+/// a [`Parser`]. If the `wasm` feature is enabled, this can also indicate a failure
+/// to load the wasm store.
 #[derive(Debug, PartialEq, Eq)]
-pub struct LanguageError {
-    version: usize,
+pub enum LanguageError {
+    Version(usize),
+    #[cfg(feature = "wasm")]
+    Wasm,
 }
 
 /// An error that occurred in [`Parser::set_included_ranges`].
@@ -666,12 +669,15 @@ impl Parser {
     pub fn set_language(&mut self, language: &Language) -> Result<(), LanguageError> {
         let version = language.abi_version();
         if (MIN_COMPATIBLE_LANGUAGE_VERSION..=LANGUAGE_VERSION).contains(&version) {
-            unsafe {
-                ffi::ts_parser_set_language(self.0.as_ptr(), language.0);
+            #[allow(unused_variables)]
+            let success = unsafe { ffi::ts_parser_set_language(self.0.as_ptr(), language.0) };
+            #[cfg(feature = "wasm")]
+            if !success {
+                return Err(LanguageError::Wasm);
             }
             Ok(())
         } else {
-            Err(LanguageError { version })
+            Err(LanguageError::Version(version))
         }
     }
 
@@ -2415,10 +2421,7 @@ impl Query {
                     row: 0,
                     column: 0,
                     offset: 0,
-                    message: LanguageError {
-                        version: language.abi_version(),
-                    }
-                    .to_string(),
+                    message: LanguageError::Version(language.abi_version()).to_string(),
                     kind: QueryErrorKind::Language,
                 });
             }
@@ -3726,11 +3729,18 @@ impl fmt::Display for IncludedRangesError {
 
 impl fmt::Display for LanguageError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "Incompatible language version {}. Expected minimum {}, maximum {}",
-            self.version, MIN_COMPATIBLE_LANGUAGE_VERSION, LANGUAGE_VERSION,
-        )
+        match self {
+            Self::Version(version) => {
+                write!(
+                    f,
+                    "Incompatible language version {version}. Expected minimum {MIN_COMPATIBLE_LANGUAGE_VERSION}, maximum {LANGUAGE_VERSION}",
+                )
+            }
+            #[cfg(feature = "wasm")]
+            Self::Wasm => {
+                write!(f, "Failed to load the wasm store.")
+            }
+        }
     }
 }
 
