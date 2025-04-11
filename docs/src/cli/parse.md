@@ -66,7 +66,7 @@ Suppress main output.
 
 ### `--edits <EDITS>...`
 
-Apply edits after parsing the file. Edits are in the form of `row, col delcount insert_text` where row and col are 0-indexed.
+Apply edits after parsing the file. Edits are in the form of `row,col|position delcount insert_text` where row and col, or position are 0-indexed.
 
 ### `--encoding <ENCODING>`
 
