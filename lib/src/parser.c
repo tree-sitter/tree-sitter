@@ -1540,7 +1540,7 @@ static bool ts_parser__check_progress(TSParser *self, Subtree *lookahead, const 
   if (self->operation_count >= OP_COUNT_PER_PARSER_TIMEOUT_CHECK) {
     self->operation_count = 0;
   }
-  if (self->parse_options.progress_callback && position != NULL) {
+  if (position != NULL) {
     self->parse_state.current_byte_offset = *position;
     self->parse_state.has_error = self->has_error;
   }
@@ -2238,6 +2238,8 @@ TSTree *ts_parser_parse_with_options(
   self->parse_options = parse_options;
   self->parse_state.payload = parse_options.payload;
   TSTree *result = ts_parser_parse(self, old_tree, input);
+  // Reset parser options before further parse calls.
+  self->parse_options = (TSParseOptions) {0};
   return result;
 }
 
