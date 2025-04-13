@@ -273,6 +273,9 @@ struct Test {
     /// The path to an alternative config.json file
     #[arg(long)]
     pub config_path: Option<PathBuf>,
+    /// The path to the tree-sitter grammar directory
+    #[arg(long, short = 'p')]
+    pub grammar_path: Option<PathBuf>,
     /// Force showing fields in test diffs
     #[arg(long)]
     pub show_fields: bool,
@@ -1040,6 +1043,11 @@ impl Test {
         let config = Config::load(self.config_path)?;
         let color = env::var("NO_COLOR").map_or(true, |v| v != "1");
         let stat = self.stat.unwrap_or_default();
+        let current_dir = if let Some(p) = &self.grammar_path {
+            p.as_path()
+        } else {
+            current_dir
+        };
 
         loader.debug_build(self.debug_build);
         loader.force_rebuild(self.rebuild);
