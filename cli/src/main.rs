@@ -361,6 +361,8 @@ struct Query {
     /// Order by captures instead of matches
     #[arg(long, short)]
     pub captures: bool,
+    #[arg(long, short = 'p')]
+    pub grammar_path: Option<PathBuf>,
     /// Whether to run query tests or not
     #[arg(long)]
     pub test: bool,
@@ -1226,6 +1228,11 @@ impl Query {
         let loader_config = config.get()?;
         loader.find_all_languages(&loader_config)?;
         let query_path = Path::new(&self.query_path);
+        let current_dir = if let Some(p) = &self.grammar_path {
+            p.as_path()
+        } else {
+            current_dir
+        };
 
         let byte_range = self.byte_range.as_ref().and_then(|range| {
             let mut parts = range.split(':');
