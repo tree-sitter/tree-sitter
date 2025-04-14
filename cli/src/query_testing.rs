@@ -237,8 +237,8 @@ pub fn assert_expected_captures(
                 return Err(anyhow!(
                     "Assertion failed: at {}, found {}, expected {}",
                     found.start,
+                    found.name,
                     assertion.expected_capture_name,
-                    found.name
                 ));
             }
         } else {
