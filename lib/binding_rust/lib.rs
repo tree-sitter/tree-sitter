@@ -291,21 +291,21 @@ pub struct QueryCursor {
 }
 
 /// A key-value pair associated with a particular pattern in a [`Query`].
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct QueryProperty {
     pub key: Box<str>,
     pub value: Option<Box<str>>,
     pub capture_id: Option<usize>,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum QueryPredicateArg {
     Capture(u32),
     String(Box<str>),
 }
 
 /// A key-value pair associated with a particular pattern in a [`Query`].
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct QueryPredicate {
     pub operator: Box<str>,
     pub args: Box<[QueryPredicateArg]>,
@@ -398,7 +398,7 @@ pub enum QueryErrorKind {
     Language,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 /// The first item is the capture index
 /// The next is capture specific, depending on what item is expected
 /// The first bool is if the capture is positive
@@ -2972,6 +2972,21 @@ impl Query {
                 row,
                 format!("Invalid arguments to {function_name} predicate. Missing key argument",),
             ))
+        }
+    }
+}
+
+impl Clone for Query {
+    fn clone(&self) -> Self {
+        let ptr = unsafe { NonNull::new_unchecked(ffi::ts_query_copy(self.ptr.as_ptr())) };
+        Self {
+            ptr,
+            capture_names: self.capture_names.clone(),
+            capture_quantifiers: self.capture_quantifiers.to_vec().into_boxed_slice(),
+            text_predicates: self.text_predicates.to_vec().into_boxed_slice(),
+            property_settings: self.property_settings.to_vec().into_boxed_slice(),
+            property_predicates: self.property_predicates.to_vec().into_boxed_slice(),
+            general_predicates: self.general_predicates.to_vec().into_boxed_slice(),
         }
     }
 }
