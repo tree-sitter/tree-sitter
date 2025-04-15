@@ -2931,6 +2931,46 @@ void ts_query_delete(TSQuery *self) {
   }
 }
 
+TSQuery *ts_query_copy(const TSQuery *self) {
+  TSQuery *dup = ts_malloc(sizeof(TSQuery));
+  *dup = (TSQuery){
+    .captures = {.characters = array_new(), .slices = array_new()},
+    .predicate_values = {.characters = array_new(), .slices = array_new()},
+    .capture_quantifiers = array_new(),
+    .steps = array_new(),
+    .pattern_map = array_new(),
+    .predicate_steps = array_new(),
+    .patterns = array_new(),
+    .step_offsets = array_new(),
+    .negated_fields = array_new(),
+    .string_buffer = array_new(),
+    .repeat_symbols_with_rootless_patterns = array_new(),
+    .language = ts_language_copy(self->language),
+    .wildcard_root_pattern_count = self->wildcard_root_pattern_count,
+  };
+  array_assign(&dup->captures.characters, &self->captures.characters);
+  array_assign(&dup->captures.slices, &self->captures.slices);
+  array_assign(&dup->predicate_values.characters, &self->predicate_values.characters);
+  array_assign(&dup->predicate_values.slices, &self->predicate_values.slices);
+  {
+    array_reserve(&dup->capture_quantifiers, self->capture_quantifiers.size);
+    for (uint32_t i = 0; i < self->capture_quantifiers.size; i++) {
+      CaptureQuantifiers caps = array_new();
+      array_assign(&caps, (CaptureQuantifiers *)&(self->capture_quantifiers.contents[i]));
+      array_push(&dup->capture_quantifiers, caps);
+    }
+  }
+  array_assign(&dup->steps, &self->steps);
+  array_assign(&dup->pattern_map, &self->pattern_map);
+  array_assign(&dup->predicate_steps, &self->predicate_steps);
+  array_assign(&dup->patterns, &self->patterns);
+  array_assign(&dup->step_offsets, &self->step_offsets);
+  array_assign(&dup->negated_fields, &self->negated_fields);
+  array_assign(&dup->string_buffer, &self->string_buffer);
+  array_assign(&dup->repeat_symbols_with_rootless_patterns, &self->repeat_symbols_with_rootless_patterns);
+  return dup;
+}
+
 uint32_t ts_query_pattern_count(const TSQuery *self) {
   return self->patterns.size;
 }
