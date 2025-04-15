@@ -44,15 +44,20 @@ static inline void marshal_node(const void **buffer, TSNode node) {
   buffer[4] = (const void *)node.context[3];
 }
 
-static inline TSNode unmarshal_node(const TSTree *tree) {
+static inline TSNode unmarshal_node_at(const TSTree *tree, uint32_t index) {
   TSNode node;
-  node.id = TRANSFER_BUFFER[0];
-  node.context[0] = code_unit_to_byte((uint32_t)TRANSFER_BUFFER[1]);
-  node.context[1] = (uint32_t)TRANSFER_BUFFER[2];
-  node.context[2] = code_unit_to_byte((uint32_t)TRANSFER_BUFFER[3]);
-  node.context[3] = (uint32_t)TRANSFER_BUFFER[4];
+  const void **buffer = TRANSFER_BUFFER + index * SIZE_OF_NODE;
+  node.id = buffer[0];
+  node.context[0] = code_unit_to_byte((uint32_t)buffer[1]);
+  node.context[1] = (uint32_t)buffer[2];
+  node.context[2] = code_unit_to_byte((uint32_t)buffer[3]);
+  node.context[3] = (uint32_t)buffer[4];
   node.tree = tree;
   return node;
+}
+
+static inline TSNode unmarshal_node(const TSTree *tree) {
+  return unmarshal_node_at(tree, 0);
 }
 
 static inline void marshal_cursor(const TSTreeCursor *cursor) {
@@ -616,7 +621,7 @@ void ts_node_parent_wasm(const TSTree *tree) {
 
 void ts_node_child_with_descendant_wasm(const TSTree *tree) {
   TSNode node = unmarshal_node(tree);
-  TSNode descendant = unmarshal_node(tree);
+  TSNode descendant = unmarshal_node_at(tree, 1);
   marshal_node(TRANSFER_BUFFER, ts_node_child_with_descendant(node, descendant));
 }
 

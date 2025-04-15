@@ -522,7 +522,7 @@ export class Node {
    */
   childWithDescendant(descendant: Node): Node | null {
     marshalNode(this);
-    marshalNode(descendant);
+    marshalNode(descendant, 1);
     C._ts_node_child_with_descendant_wasm(this.tree[0]);
     return unmarshalNode(this.tree);
   }
