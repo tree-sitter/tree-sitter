@@ -16,8 +16,8 @@ categories.workspace = true
 workspace = true
 
 [features]
-default = [ "load" ]
-load = [ "dep:semver", "dep:url" ]
+default = ["load"]
+load = ["dep:semver", "dep:url"]
 
 [dependencies]
 anyhow.workspace = true
