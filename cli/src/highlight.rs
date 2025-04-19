@@ -1,5 +1,5 @@
 use std::{
-    collections::HashSet,
+    collections::{BTreeMap, HashSet},
     fmt::Write,
     fs,
     io::{self, Write as _},
@@ -12,7 +12,6 @@ use std::{
 use ansi_colours::{ansi256_from_rgb, rgb_from_ansi256};
 use anstyle::{Ansi256Color, AnsiColor, Color, Effects, RgbColor};
 use anyhow::Result;
-use indexmap::IndexMap;
 use serde::{ser::SerializeMap, Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{json, Value};
 use tree_sitter_highlight::{HighlightConfiguration, HighlightEvent, Highlighter, HtmlRenderer};
@@ -83,7 +82,7 @@ impl<'de> Deserialize<'de> for Theme {
     {
         let mut styles = Vec::new();
         let mut highlight_names = Vec::new();
-        if let Ok(colors) = IndexMap::<String, Value>::deserialize(deserializer) {
+        if let Ok(colors) = BTreeMap::<String, Value>::deserialize(deserializer) {
             highlight_names.reserve(colors.len());
             styles.reserve(colors.len());
             for (name, style_value) in colors {
@@ -128,7 +127,7 @@ impl Serialize for Theme {
                 || effects.contains(Effects::ITALIC)
                 || effects.contains(Effects::UNDERLINE)
             {
-                let mut style_json = IndexMap::new();
+                let mut style_json = BTreeMap::new();
                 if let Some(color) = color {
                     style_json.insert("color", color);
                 }
