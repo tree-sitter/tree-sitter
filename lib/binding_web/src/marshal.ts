@@ -168,10 +168,13 @@ export function marshalEdit(edit: Edit, address = TRANSFER_BUFFER) {
  *
  * Unmarshals a {@link LanguageMetadata} from the transfer buffer.
  */
-export function unmarshalLanguageMetadata(address: number): LanguageMetadata {
-  const result = {} as LanguageMetadata;
-  result.major_version = C.getValue(address, 'i32'); address += SIZE_OF_INT;
-  result.minor_version = C.getValue(address, 'i32'); address += SIZE_OF_INT;
-  result.field_count = C.getValue(address, 'i32');
-  return result;
+export function unmarshalLanguageMetadata(address: number): LanguageMetadata {  
+  const major_version = C.getValue(address, 'i32'); address += SIZE_OF_INT;
+  const minor_version = C.getValue(address, 'i32'); address += SIZE_OF_INT;
+  const patch_version = C.getValue(address, 'i32');
+  return {
+    major_version,
+    minor_version,
+    patch_version,
+  };
 }
