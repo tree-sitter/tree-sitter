@@ -203,7 +203,8 @@ struct Parse {
     #[arg(long, short)]
     pub quiet: bool,
     #[allow(clippy::doc_markdown)]
-    /// Apply edits in the format: \"row,col|position delcount insert_text\", can be supplied multiple times
+    /// Apply edits in the format: \"row,col|position delcount insert_text\", can be supplied
+    /// multiple times
     #[arg(
         long,
         num_args = 1..,
