@@ -20,9 +20,9 @@ This will update the version in several files, if they exist:
 Alternative forms can use the version in `tree-sitter.json` to bump automatically:
 
 ```bash
-tree-sitter version --bump       # patch bump
-tree-sitter version --bump-minor # minor bump
-tree-sitter version --bump-major # major bump
+tree-sitter version --bump patch # patch bump
+tree-sitter version --bump minor # minor bump
+tree-sitter version --bump major # major bump
 ```
 
 As a grammar author, you should keep the version of your grammar in sync across
