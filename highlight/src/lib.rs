@@ -1223,6 +1223,9 @@ impl HtmlRenderer {
                 self.html.push(c);
             }
         }
+        if last_char_was_cr {
+            self.add_carriage_return(attribute_callback);
+        }
     }
 }
 
