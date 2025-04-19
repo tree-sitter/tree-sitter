@@ -143,6 +143,8 @@ pub struct HtmlRenderer {
     pub html: Vec<u8>,
     pub line_offsets: Vec<u32>,
     carriage_return_highlight: Option<Highlight>,
+    // The offset in `self.html` of the last carriage return.
+    last_carriage_return: Option<usize>,
 }
 
 #[derive(Debug)]
@@ -1090,6 +1092,7 @@ impl HtmlRenderer {
             html: Vec::with_capacity(BUFFER_HTML_RESERVE_CAPACITY),
             line_offsets: Vec::with_capacity(BUFFER_LINES_RESERVE_CAPACITY),
             carriage_return_highlight: None,
+            last_carriage_return: None,
         };
         result.line_offsets.push(0);
         result
@@ -1131,6 +1134,9 @@ impl HtmlRenderer {
                 Err(a) => return Err(a),
             }
         }
+        if let Some(offset) = self.last_carriage_return.take() {
+            self.add_carriage_return(offset, attribute_callback);
+        }
         if self.html.last() != Some(&b'\n') {
             self.html.push(b'\n');
         }
@@ -1155,14 +1161,21 @@ impl HtmlRenderer {
             })
     }
 
-    fn add_carriage_return<F>(&mut self, attribute_callback: &F)
+    fn add_carriage_return<F>(&mut self, offset: usize, attribute_callback: &F)
     where
         F: Fn(Highlight, &mut Vec<u8>),
     {
         if let Some(highlight) = self.carriage_return_highlight {
+            // If a CR is the last character in a `HighlightEvent::Source`
+            // region, then we don't know until the next `Source` event or EOF
+            // whether it is part of CRLF or on its own. To avoid unbounded
+            // lookahead, save the offset of the CR and insert there now that we
+            // know.
+            let rest = self.html.split_off(offset);
             self.html.extend(b"<span ");
             (attribute_callback)(highlight, &mut self.html);
             self.html.extend(b"></span>");
+            self.html.extend(rest);
         }
     }
 
@@ -1194,19 +1207,17 @@ impl HtmlRenderer {
             }
         }
 
-        let mut last_char_was_cr = false;
         for c in LossyUtf8::new(src).flat_map(|p| p.bytes()) {
             // Don't render carriage return characters, but allow lone carriage returns (not
             // followed by line feeds) to be styled via the attribute callback.
             if c == b'\r' {
-                last_char_was_cr = true;
+                self.last_carriage_return = Some(self.html.len());
                 continue;
             }
-            if last_char_was_cr {
+            if let Some(offset) = self.last_carriage_return.take() {
                 if c != b'\n' {
-                    self.add_carriage_return(attribute_callback);
+                    self.add_carriage_return(offset, attribute_callback);
                 }
-                last_char_was_cr = false;
             }
 
             // At line boundaries, close and re-open all of the open tags.
@@ -1222,9 +1233,6 @@ impl HtmlRenderer {
             } else {
                 self.html.push(c);
             }
-        }
-        if last_char_was_cr {
-            self.add_carriage_return(attribute_callback);
         }
     }
 }
