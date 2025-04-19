@@ -259,23 +259,16 @@ export class Language {
     if (input instanceof Uint8Array) {
       bytes = Promise.resolve(input);
     } else {
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-      if (globalThis.process?.versions.node) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-require-imports
-        const fs: typeof import('fs/promises') = require('fs/promises');
-        bytes = fs.readFile(input);
-      } else {
-        bytes = fetch(input)
-          .then((response) => response.arrayBuffer()
-            .then((buffer) => {
-              if (response.ok) {
-                return new Uint8Array(buffer);
-              } else {
-                const body = new TextDecoder('utf-8').decode(buffer);
-                throw new Error(`Language.load failed with status ${response.status}.\n\n${body}`);
-              }
-            }));
-      }
+      bytes = fetch(input)
+        .then((response) => response.arrayBuffer()
+          .then((buffer) => {
+            if (response.ok) {
+              return new Uint8Array(buffer);
+            } else {
+              const body = new TextDecoder('utf-8').decode(buffer);
+              throw new Error(`Language.load failed with status ${response.status}.\n\n${body}`);
+            }
+          }));
     }
 
     const mod = await C.loadWebAssemblyModule(await bytes, { loadAsync: true });
