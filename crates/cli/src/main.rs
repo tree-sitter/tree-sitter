@@ -26,7 +26,9 @@ use tree_sitter_cli::{
     playground, query,
     tags::{self, TagsOptions},
     test::{self, TestOptions, TestStats},
-    test_highlight, test_tags, util, version, wasm,
+    test_highlight, test_tags, util, version,
+    version::BumpLevel,
+    wasm,
 };
 use tree_sitter_config::Config;
 use tree_sitter_highlight::Highlighter;
@@ -53,7 +55,7 @@ enum Commands {
     Parse(Parse),
     /// Run a parser's tests
     Test(Test),
-    /// Print or increment the version of a grammar
+    /// Display or increment the version of a grammar
     Version(Version),
     /// Fuzz a parser
     Fuzz(Fuzz),
@@ -298,28 +300,23 @@ struct Test {
 
 #[derive(Args)]
 #[command(alias = "publish")]
-/// Print or increment the version of a grammar
+/// Display or increment the version of a grammar
 struct Version {
     /// The version to bump to
-    #[arg(
-        default_value = "0.0.0",
-        long_help = "When present, the version to bump to\n\
-                     When absent with no flags present, prints the current version\n\
-                     When absent with flags present, bumps the current version"
-    )]
-    pub version: SemverVersion,
+    #[arg(long_help = "\
+        The version to bump to\n\
+        \n\
+        Examples:\n    \
+            tree-sitter version: display the current version\n    \
+            tree-sitter version <version>: bump to specified version\n    \
+            tree-sitter version --bump <level>: automatic bump")]
+    pub version: Option<SemverVersion>,
     /// The path to the tree-sitter grammar directory
     #[arg(long, short = 'p')]
     pub grammar_path: Option<PathBuf>,
-    /// Bump the patch version
-    #[arg(long)]
-    pub bump: bool,
-    /// Bump the minor version
-    #[arg(long)]
-    pub bump_minor: bool,
-    /// Bump the major version
-    #[arg(long)]
-    pub bump_major: bool,
+    /// Automatically bump from the current version
+    #[arg(long, value_enum)]
+    pub bump: Option<BumpLevel>,
 }
 
 #[derive(Args)]
@@ -1234,14 +1231,7 @@ impl Test {
 
 impl Version {
     fn run(self, current_dir: PathBuf) -> Result<()> {
-        let bump_level = if self.bump_major {
-            3
-        } else if self.bump_minor {
-            2
-        } else {
-            i32::from(self.bump)
-        };
-        version::Version::new(self.version.to_string(), current_dir, bump_level).run()
+        version::Version::new(self.version, current_dir, self.bump).run()
     }
 }
 
