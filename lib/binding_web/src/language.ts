@@ -261,8 +261,7 @@ export class Language {
     } else {
       // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       if (globalThis.process?.versions.node) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-require-imports
-        const fs: typeof import('fs/promises') = require('fs/promises');
+        const fs: typeof import('fs/promises') = await import('fs/promises');
         bytes = fs.readFile(input);
       } else {
         bytes = fetch(input)
