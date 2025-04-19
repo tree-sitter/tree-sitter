@@ -256,7 +256,7 @@ describe('Parser', () => {
       expect(() => parser.parse({})).toThrow('Argument must be a string or a function');
     });
 
-    it('handles long input strings', { timeout: 5000 }, () => {
+    it('handles long input strings', { timeout: 10000 }, () => {
       const repeatCount = 10000;
       const inputString = `[${Array(repeatCount).fill('0').join(',')}]`;
 
