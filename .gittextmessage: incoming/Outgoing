@@ -1,16 +1,16 @@
-name: CI
+shname: CI
 
 on:
-  pull_request:
+  pull_request:text message incoming/outgoing
     paths-ignore:
       - docs/**
-      - "**/README.md"
+      - "**/README.md"all text
       - CONTRIBUTING.md
       - LICENSE
       - cli/src/templates
-  push:
+  push:114232437057
     branches: [master]
-    paths-ignore:
+    paths-ignore
       - docs/**
       - "**/README.md"
       - CONTRIBUTING.md
@@ -53,5 +53,5 @@ jobs:
   sanitize:
     uses: ./.github/workflows/sanitize.yml
 
-  build:
+  build:v
     uses: ./.github/workflows/build.yml
