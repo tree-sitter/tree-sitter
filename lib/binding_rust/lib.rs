@@ -2343,6 +2343,16 @@ impl Query {
     /// on syntax nodes parsed with that language. References to Queries can be
     /// shared between multiple threads.
     pub fn new(language: &Language, source: &str) -> Result<Self, QueryError> {
+        let ptr = Self::new_raw(language, source)?;
+        unsafe { Self::from_raw_parts(ptr, source) }
+    }
+
+    /// Constructs a raw [`TSQuery`](ffi::TSQuery) pointer without performing extra checks specific to the rust
+    /// bindings, such as predicate validation. A [`Query`] object can be constructed from the
+    /// returned pointer using [`from_raw_parts`](Query::from_raw_parts). The caller is
+    /// responsible for ensuring that the returned pointer is eventually freed by calling
+    /// [`ts_query_delete`](ffi::ts_query_delete).
+    pub fn new_raw(language: &Language, source: &str) -> Result<*mut ffi::TSQuery, QueryError> {
         let mut error_offset = 0u32;
         let mut error_type: ffi::TSQueryError = 0;
         let bytes = source.as_bytes();
@@ -2358,90 +2368,90 @@ impl Query {
             )
         };
 
+        if !ptr.is_null() {
+            return Ok(ptr);
+        }
+
         // On failure, build an error based on the error code and offset.
-        if ptr.is_null() {
-            if error_type == ffi::TSQueryErrorLanguage {
-                return Err(QueryError {
-                    row: 0,
-                    column: 0,
-                    offset: 0,
-                    message: LanguageError::Version(language.abi_version()).to_string(),
-                    kind: QueryErrorKind::Language,
-                });
-            }
-
-            let offset = error_offset as usize;
-            let mut line_start = 0;
-            let mut row = 0;
-            let mut line_containing_error = None;
-            for line in source.lines() {
-                let line_end = line_start + line.len() + 1;
-                if line_end > offset {
-                    line_containing_error = Some(line);
-                    break;
-                }
-                line_start = line_end;
-                row += 1;
-            }
-            let column = offset - line_start;
-
-            let kind;
-            let message;
-            match error_type {
-                // Error types that report names
-                ffi::TSQueryErrorNodeType | ffi::TSQueryErrorField | ffi::TSQueryErrorCapture => {
-                    let suffix = source.split_at(offset).1;
-                    let in_quotes = offset > 0 && source.as_bytes()[offset - 1] == b'"';
-                    let mut backslashes = 0;
-                    let end_offset = suffix
-                        .find(|c| {
-                            if in_quotes {
-                                if c == '"' && backslashes % 2 == 0 {
-                                    true
-                                } else if c == '\\' {
-                                    backslashes += 1;
-                                    false
-                                } else {
-                                    backslashes = 0;
-                                    false
-                                }
-                            } else {
-                                !char::is_alphanumeric(c) && c != '_' && c != '-'
-                            }
-                        })
-                        .unwrap_or(suffix.len());
-                    message = format!("\"{}\"", suffix.split_at(end_offset).0);
-                    kind = match error_type {
-                        ffi::TSQueryErrorNodeType => QueryErrorKind::NodeType,
-                        ffi::TSQueryErrorField => QueryErrorKind::Field,
-                        ffi::TSQueryErrorCapture => QueryErrorKind::Capture,
-                        _ => unreachable!(),
-                    };
-                }
-
-                // Error types that report positions
-                _ => {
-                    message = line_containing_error.map_or_else(
-                        || "Unexpected EOF".to_string(),
-                        |line| line.to_string() + "\n" + &" ".repeat(offset - line_start) + "^",
-                    );
-                    kind = match error_type {
-                        ffi::TSQueryErrorStructure => QueryErrorKind::Structure,
-                        _ => QueryErrorKind::Syntax,
-                    };
-                }
-            }
-
+        if error_type == ffi::TSQueryErrorLanguage {
             return Err(QueryError {
-                row,
-                column,
-                offset,
-                message,
-                kind,
+                row: 0,
+                column: 0,
+                offset: 0,
+                message: LanguageError::Version(language.abi_version()).to_string(),
+                kind: QueryErrorKind::Language,
             });
         }
 
-        unsafe { Self::from_raw_parts(ptr, source) }
+        let offset = error_offset as usize;
+        let mut line_start = 0;
+        let mut row = 0;
+        let mut line_containing_error = None;
+        for line in source.lines() {
+            let line_end = line_start + line.len() + 1;
+            if line_end > offset {
+                line_containing_error = Some(line);
+                break;
+            }
+            line_start = line_end;
+            row += 1;
+        }
+        let column = offset - line_start;
+
+        let kind;
+        let message;
+        match error_type {
+            // Error types that report names
+            ffi::TSQueryErrorNodeType | ffi::TSQueryErrorField | ffi::TSQueryErrorCapture => {
+                let suffix = source.split_at(offset).1;
+                let in_quotes = offset > 0 && source.as_bytes()[offset - 1] == b'"';
+                let mut backslashes = 0;
+                let end_offset = suffix
+                    .find(|c| {
+                        if in_quotes {
+                            if c == '"' && backslashes % 2 == 0 {
+                                true
+                            } else if c == '\\' {
+                                backslashes += 1;
+                                false
+                            } else {
+                                backslashes = 0;
+                                false
+                            }
+                        } else {
+                            !char::is_alphanumeric(c) && c != '_' && c != '-'
+                        }
+                    })
+                    .unwrap_or(suffix.len());
+                message = format!("\"{}\"", suffix.split_at(end_offset).0);
+                kind = match error_type {
+                    ffi::TSQueryErrorNodeType => QueryErrorKind::NodeType,
+                    ffi::TSQueryErrorField => QueryErrorKind::Field,
+                    ffi::TSQueryErrorCapture => QueryErrorKind::Capture,
+                    _ => unreachable!(),
+                };
+            }
+
+            // Error types that report positions
+            _ => {
+                message = line_containing_error.map_or_else(
+                    || "Unexpected EOF".to_string(),
+                    |line| line.to_string() + "\n" + &" ".repeat(offset - line_start) + "^",
+                );
+                kind = match error_type {
+                    ffi::TSQueryErrorStructure => QueryErrorKind::Structure,
+                    _ => QueryErrorKind::Syntax,
+                };
+            }
+        }
+
+        Err(QueryError {
+            row,
+            column,
+            offset,
+            message,
+            kind,
+        })
     }
 
     #[doc(hidden)]
