@@ -55,9 +55,11 @@
     "lib/*.c",
     "lib/*.h"
   ],
+  "peerDependencies": {
+    "@types/emscripten": "^1.40.0"
+  },
   "devDependencies": {
     "@eslint/js": "^9.20.0",
-    "@types/emscripten": "^1.40.0",
     "@types/node": "^22.13.1",
     "@vitest/coverage-v8": "^3.0.5",
     "dts-buddy": "^0.5.4",
