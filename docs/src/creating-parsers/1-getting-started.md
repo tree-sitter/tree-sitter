@@ -38,7 +38,7 @@ cd tree-sitter-${LOWER_PARSER_NAME}
 ```
 
 ```admonish note
-The `LOWER-` prefix here means the "lowercase" name of the language.
+The `LOWER_` prefix here means the "lowercase" name of the language.
 ```
 
 ### Init
