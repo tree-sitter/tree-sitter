@@ -730,7 +730,6 @@ impl Loader {
                         .as_ref()
                         .and_then(|p| p.strip_prefix(config.src_path).ok()),
                     &output_path,
-                    false,
                 )?;
             }
 
@@ -972,7 +971,6 @@ impl Loader {
         src_path: &Path,
         scanner_filename: Option<&Path>,
         output_path: &Path,
-        _force_docker: bool,
     ) -> Result<(), Error> {
         let clang_executable = self.ensure_wasi_sdk_exists()?;
 
