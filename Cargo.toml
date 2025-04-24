@@ -116,7 +116,7 @@ clap_complete_nushell = "4.5.8"
 ctor = "0.2.9"
 ctrlc = { version = "3.4.7", features = ["termination"] }
 dialoguer = { version = "0.11.0", features = ["fuzzy-select"] }
-etcetera = "0.8.0"
+etcetera = "0.10.0"
 filetime = "0.2.25"
 flate2 = "1.1.2"
 fs4 = "0.12.0"
