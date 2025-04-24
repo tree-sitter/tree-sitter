@@ -2082,6 +2082,7 @@ dependencies = [
  "tree-sitter",
  "tree-sitter-highlight",
  "tree-sitter-tags",
+ "ureq",
  "url",
 ]
 
