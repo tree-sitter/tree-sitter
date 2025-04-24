@@ -44,7 +44,6 @@ pub fn compile_language_to_wasm(
     language_dir: &Path,
     output_dir: &Path,
     output_file: Option<PathBuf>,
-    force_docker: bool,
 ) -> Result<()> {
     let grammar_name = get_grammar_name(language_dir)?;
     let output_filename =
@@ -59,7 +58,6 @@ pub fn compile_language_to_wasm(
             .as_ref()
             .and_then(|p| Some(Path::new(p.file_name()?))),
         &output_filename,
-        force_docker,
     )?;
 
     // Exit with an error if the external scanner uses symbols from the
