@@ -121,6 +121,7 @@ git2 = "0.20.1"
 glob = "0.3.2"
 heck = "0.5.0"
 html-escape = "0.2.13"
+http_req = { version = "0.13.3", features = ["native-tls"] }
 indexmap = "2.9.0"
 indoc = "2.0.6"
 libloading = "0.8.6"

@@ -2,16 +2,25 @@ use std::{fs, path::Path};
 
 use anyhow::{anyhow, Result};
 use git2::Repository;
+use http_req::uri::Uri;
 use serde_json::Value;
 
 use crate::create_commit;
 
 pub fn run() -> Result<()> {
-    let response = ureq::get("https://api.github.com/repos/emscripten-core/emsdk/tags")
-        .call()?
-        .body_mut()
-        .read_to_string()?;
+    let uri = Uri::try_from("https://api.github.com/repos/emscripten-core/emsdk/tags")?;
 
+    let mut body = Vec::new();
+    let response = http_req::request::Request::new(&uri)
+        .method(http_req::request::Method::GET)
+        .header("User-Agent", "tree-sitter")
+        .send(&mut body)?;
+
+    if !response.status_code().is_success() {
+        return Err(anyhow!("Failed to fetch emscripten tags"));
+    }
+
+    let response = String::from_utf8(body)?;
     let json = serde_json::from_str::<Value>(&response)?;
     let version = json
         .as_array()

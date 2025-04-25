@@ -38,7 +38,7 @@ serde.workspace = true
 serde_json.workspace = true
 tempfile.workspace = true
 url.workspace = true
-ureq = "3.0.11"
+http_req.workspace = true
 
 tree-sitter = { workspace = true }
 tree-sitter-highlight = { workspace = true, optional = true }

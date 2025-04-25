@@ -37,6 +37,7 @@ use tree_sitter_highlight::HighlightConfiguration;
 #[cfg(feature = "tree-sitter-tags")]
 use tree_sitter_tags::{Error as TagsError, TagsConfiguration};
 use url::Url;
+use http_req::uri::Uri;
 
 static GRAMMAR_NAME_REGEX: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r#""name":\s*"(.*?)""#).unwrap());
@@ -1061,17 +1062,23 @@ impl Loader {
             )
         })?;
 
-        let response = ureq::get(&sdk_url)
-            .call()
+        let uri = Uri::try_from(sdk_url.as_str())
+            .with_context(|| format!("Invalid URL: {}", sdk_url))?;
+            
+        let mut body = Vec::new();
+        let response = http_req::request::Request::new(&uri)
+            .method(http_req::request::Method::GET)
+            .send(&mut body)
             .with_context(|| format!("Failed to download wasi-sdk from {}", sdk_url))?;
-        if !response.status().is_success() {
+            
+        if !response.status_code().is_success() {
             return Err(anyhow::anyhow!(
                 "Failed to download wasi-sdk from {}",
                 sdk_url
             ));
         }
 
-        std::io::copy(&mut response.into_body().into_reader(), &mut temp_file)
+        temp_file.write_all(&body)
             .context("Failed to write to temporary file")?;
         temp_file
             .flush()
