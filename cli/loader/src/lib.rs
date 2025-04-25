@@ -8,7 +8,7 @@ use std::sync::Mutex;
 use std::{
     collections::HashMap,
     env, fs,
-    io::{BufRead, BufReader, Write},
+    io::{BufRead, BufReader},
     mem,
     path::{Path, PathBuf},
     process::Command,
@@ -20,6 +20,7 @@ use std::{
 use anyhow::Error;
 use anyhow::{anyhow, Context, Result};
 use etcetera::BaseStrategy as _;
+use flate2::read::GzDecoder;
 use fs4::fs_std::FileExt;
 use indoc::indoc;
 use libloading::{Library, Symbol};
@@ -37,7 +38,6 @@ use tree_sitter_highlight::HighlightConfiguration;
 #[cfg(feature = "tree-sitter-tags")]
 use tree_sitter_tags::{Error as TagsError, TagsConfiguration};
 use url::Url;
-use http_req::uri::Uri;
 
 static GRAMMAR_NAME_REGEX: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r#""name":\s*"(.*?)""#).unwrap());
@@ -1010,13 +1010,43 @@ impl Loader {
         Ok(())
     }
 
+    /// Extracts a tar.gz archive, stripping the first path component.
+    ///
+    /// Similar to `tar -xzf <archive> --strip-components=1`
+    fn extract_tar_gz_with_strip(
+        &self,
+        archive_path: &Path,
+        destination: &Path,
+    ) -> Result<(), Error> {
+        let archive_file = fs::File::open(archive_path).context("Failed to open archive")?;
+        let mut archive = tar::Archive::new(GzDecoder::new(archive_file));
+        for entry in archive
+            .entries()
+            .with_context(|| "Failed to read archive entries")?
+        {
+            let mut entry = entry?;
+            let path = entry.path()?;
+            let Some(first_component) = path.components().next() else {
+                continue;
+            };
+            let dest_path = destination.join(&path.strip_prefix(first_component).unwrap());
+            if let Some(parent) = dest_path.parent() {
+                fs::create_dir_all(parent).with_context(|| {
+                    format!("Failed to create directory at {}", parent.display())
+                })?;
+            }
+            entry
+                .unpack(&dest_path)
+                .with_context(|| format!("Failed to extract file to {}", dest_path.display()))?;
+        }
+        Ok(())
+    }
+
     fn ensure_wasi_sdk_exists(&self) -> Result<PathBuf, Error> {
         let cache_dir = etcetera::choose_base_strategy()?
             .cache_dir()
             .join("tree-sitter");
-        if !cache_dir.exists() {
-            fs::create_dir_all(&cache_dir)?;
-        }
+        fs::create_dir_all(&cache_dir)?;
 
         let wasi_sdk_dir = cache_dir.join("wasi-sdk");
         let clang_exe = if cfg!(windows) {
@@ -1024,110 +1054,57 @@ impl Loader {
         } else {
             wasi_sdk_dir.join("bin").join("clang")
         };
+
         if clang_exe.exists() {
             return Ok(clang_exe);
         }
 
-        if !wasi_sdk_dir.exists() {
-            fs::create_dir_all(&wasi_sdk_dir)?;
-        }
+        fs::create_dir_all(&wasi_sdk_dir)?;
 
-        let sdk_filename = if cfg!(target_os = "macos") {
+        let arch_os = if cfg!(target_os = "macos") {
             if cfg!(target_arch = "aarch64") {
-                "wasi-sdk-25.0-arm64-macos.tar.gz"
+                "arm64-macos"
             } else {
-                "wasi-sdk-25.0-x86_64-macos.tar.gz"
+                "x86_64-macos"
             }
         } else if cfg!(target_os = "windows") {
-            "wasi-sdk-25.0-x86_64-windows.tar.gz"
+            "x86_64-windows"
         } else if cfg!(target_os = "linux") {
             if cfg!(target_arch = "aarch64") {
-                "wasi-sdk-25.0-arm64-linux.tar.gz"
+                "arm64-linux"
             } else {
-                "wasi-sdk-25.0-x86_64-linux.tar.gz"
+                "x86_64-linux"
             }
         } else {
             return Err(anyhow!("Unsupported platform for wasi-sdk"));
         };
 
-        let base_url = "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-25";
-        let sdk_url = format!("{}/{}", base_url, sdk_filename);
-        eprintln!("Downloading wasi-sdk from {}...", sdk_url);
+        let sdk_filename = format!("wasi-sdk-25.0-{}.tar.gz", arch_os);
+        let sdk_url = format!(
+            "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-25/{}",
+            sdk_filename
+        );
 
+        eprintln!("Downloading wasi-sdk from {}...", sdk_url);
         let temp_tar_path = cache_dir.join(sdk_filename);
-        let mut temp_file = fs::File::create(&temp_tar_path).with_context(|| {
+        let mut response_body = Vec::new();
+        http_req::request::get(&sdk_url, &mut response_body)
+            .context("Failed to download wasi-sdk")?;
+        fs::write(&temp_tar_path, &response_body).with_context(|| {
             format!(
-                "Failed to create temporary file at {}",
+                "Failed to write downloaded archive to {}",
                 temp_tar_path.display()
             )
         })?;
 
-        let uri = Uri::try_from(sdk_url.as_str())
-            .with_context(|| format!("Invalid URL: {}", sdk_url))?;
-            
-        let mut body = Vec::new();
-        let response = http_req::request::Request::new(&uri)
-            .method(http_req::request::Method::GET)
-            .send(&mut body)
-            .with_context(|| format!("Failed to download wasi-sdk from {}", sdk_url))?;
-            
-        if !response.status_code().is_success() {
-            return Err(anyhow::anyhow!(
-                "Failed to download wasi-sdk from {}",
-                sdk_url
-            ));
-        }
-
-        temp_file.write_all(&body)
-            .context("Failed to write to temporary file")?;
-        temp_file
-            .flush()
-            .context("Failed to flush downloaded file")?;
         eprintln!("Extracting wasi-sdk to {}...", wasi_sdk_dir.display());
-
-        #[cfg(unix)]
-        {
-            let status = Command::new("tar")
-                .args([
-                    "-xzf",
-                    temp_tar_path.to_str().unwrap(),
-                    "-C",
-                    wasi_sdk_dir.to_str().unwrap(),
-                    "--strip-components=1",
-                ])
-                .status()
-                .context("Failed to extract wasi-sdk archive with tar")?;
-
-            if !status.success() {
-                return Err(anyhow!("Failed to extract wasi-sdk archive with tar"));
-            }
-        }
-
-        #[cfg(windows)]
-        {
-            // On Windows, use PowerShell to extract the tar.gz file directly
-            let ps_command = format!(
-                "cd '{}'; tar -xzf '{}' --strip-components=1",
-                wasi_sdk_dir.to_str().unwrap(),
-                temp_tar_path.to_str().unwrap()
-            );
-
-            let status = Command::new("powershell")
-                .args(["-Command", &ps_command])
-                .status()
-                .context("Failed to extract wasi-sdk archive with PowerShell")?;
-
-            if !status.success() {
-                return Err(anyhow!(
-                    "Failed to extract wasi-sdk archive with PowerShell"
-                ));
-            }
-        }
+        self.extract_tar_gz_with_strip(&temp_tar_path, &wasi_sdk_dir)
+            .context("Failed to extract wasi-sdk archive")?;
 
         fs::remove_file(temp_tar_path).ok();
         if !clang_exe.exists() {
             return Err(anyhow!(
-                "Failed to extract wasi-sdk correctly. Clang executable not found at {}",
+                "Failed to extract wasi-sdk correctly. Clang executable not found at expected location: {}",
                 clang_exe.display()
             ));
         }

@@ -116,6 +116,7 @@ ctrlc = { version = "3.4.6", features = ["termination"] }
 dialoguer = { version = "0.11.0", features = ["fuzzy-select"] }
 etcetera = "0.8.0"
 filetime = "0.2.25"
+flate2 = "1.0.28"
 fs4 = "0.12.0"
 git2 = "0.20.1"
 glob = "0.3.2"
@@ -141,6 +142,7 @@ serde_json = { version = "1.0.140", features = ["preserve_order"] }
 similar = "2.7.0"
 smallbitvec = "2.6.0"
 streaming-iterator = "0.1.9"
+tar = "0.4.40"
 tempfile = "3.19.1"
 thiserror = "2.0.12"
 tiny_http = "0.12.0"
