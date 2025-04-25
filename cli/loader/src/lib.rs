@@ -997,7 +997,7 @@ impl Loader {
         command.arg("parser.c");
         let output = command
             .output()
-            .with_context(|| format!("Failed to run wasi-sdk clang command: {:?}", command))?;
+            .with_context(|| format!("Failed to run wasi-sdk clang command: {command:?}"))?;
 
         if !output.status.success() {
             return Err(anyhow!("wasi-sdk clang command failed"));
@@ -1050,8 +1050,8 @@ impl Loader {
         };
 
         let base_url = "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-25";
-        let sdk_url = format!("{}/{}", base_url, sdk_filename);
-        eprintln!("Downloading wasi-sdk from {}...", sdk_url);
+        let sdk_url = format!("{base_url}/{sdk_filename}");
+        eprintln!("Downloading wasi-sdk from {sdk_url}...");
 
         let temp_tar_path = cache_dir.join(sdk_filename);
         let mut temp_file = fs::File::create(&temp_tar_path).with_context(|| {
@@ -1063,7 +1063,7 @@ impl Loader {
 
         let response = ureq::get(&sdk_url)
             .call()
-            .with_context(|| format!("Failed to download wasi-sdk from {}", sdk_url))?;
+            .with_context(|| format!("Failed to download wasi-sdk from {sdk_url}"))?;
         if !response.status().is_success() {
             return Err(anyhow::anyhow!(
                 "Failed to download wasi-sdk from {}",
