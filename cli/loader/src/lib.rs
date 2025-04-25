@@ -1098,22 +1098,19 @@ impl Loader {
 
         #[cfg(windows)]
         {
-            // On Windows, use PowerShell to extract the tar.gz file directly
-            let ps_command = format!(
-                "cd '{}'; tar -xzf '{}' --strip-components=1",
-                wasi_sdk_dir.to_str().unwrap(),
-                temp_tar_path.to_str().unwrap()
-            );
-
-            let status = Command::new("powershell")
-                .args(["-Command", &ps_command])
+            let status = Command::new("tar")
+                .args([
+                    "-xzf",
+                    temp_tar_path.to_str().unwrap(),
+                    "-C",
+                    wasi_sdk_dir.to_str().unwrap(),
+                    "--strip-components=1",
+                ])
                 .status()
-                .context("Failed to extract wasi-sdk archive with PowerShell")?;
+                .context("Failed to extract wasi-sdk archive")?;
 
             if !status.success() {
-                return Err(anyhow!(
-                    "Failed to extract wasi-sdk archive with PowerShell"
-                ));
+                return Err(anyhow!("Failed to extract wasi-sdk archive"));
             }
         }
 
