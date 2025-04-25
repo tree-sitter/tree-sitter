@@ -42,9 +42,6 @@ pub fn run_fixtures(args: &GenerateFixtures) -> Result<()> {
                 &format!("target/release/tree-sitter-{grammar_name}.wasm"),
                 grammar_dir.to_str().unwrap(),
             ]);
-            if args.docker {
-                cmd.arg("--docker");
-            }
             bail_on_err(
                 &cmd.spawn()?.wait_with_output()?,
                 &format!("Failed to regenerate {grammar_name} parser to wasm"),

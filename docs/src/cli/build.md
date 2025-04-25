@@ -20,11 +20,6 @@ will attempt to build the parser in the current working directory.
 
 Compile the parser as a WASM module.
 
-### `-d/--docker`
-
-Use Docker or Podman to supply Emscripten. This removes the need to install Emscripten on your machine locally.
-Note that this flag is only available when compiling to WASM.
-
 ### `-o/--output`
 
 Specify where to output the shared object file (native or WASM). This flag accepts either an absolute path or a relative
