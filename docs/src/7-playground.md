@@ -98,6 +98,9 @@ you must use at least one capture, like <code>(node_name) @capture-name</code></
 
 </div>
 
+<script src="https://code.jquery.com/jquery-3.3.1.min.js" crossorigin="anonymous">
+</script>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/codemirror.min.js"></script>
 
 <script>LANGUAGE_BASE_URL = "https://tree-sitter.github.io";</script>
