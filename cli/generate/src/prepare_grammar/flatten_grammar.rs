@@ -533,7 +533,7 @@ mod tests {
 
         assert_eq!(
             result.unwrap_err().to_string(),
-            "Rule `test` cannot be inlined because it contains a reference to itself.",
+            "Rule `test` cannot be inlined because it contains a reference to itself",
         );
     }
 }
