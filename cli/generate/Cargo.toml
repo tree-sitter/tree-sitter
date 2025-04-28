@@ -29,6 +29,8 @@ serde.workspace = true
 serde_json.workspace = true
 smallbitvec.workspace = true
 thiserror.workspace = true
-url.workspace = true
 
 tree-sitter.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+url = { version = "2.5.4", default-features = false }
