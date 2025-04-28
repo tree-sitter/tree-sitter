@@ -123,9 +123,6 @@ struct GenerateFixtures {
     /// Generates the parser to WASM
     #[arg(long, short)]
     wasm: bool,
-    /// Run emscripten via docker even if it is installed locally.
-    #[arg(long, short, requires = "wasm")]
-    docker: bool,
 }
 
 #[derive(Args)]
