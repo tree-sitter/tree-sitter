@@ -235,7 +235,7 @@ pub struct ParseStats {
     pub cumulative_stats: Stats,
 }
 
-#[derive(Serialize, ValueEnum, Debug, Clone, Default, Eq, PartialEq)]
+#[derive(Serialize, ValueEnum, Debug, Copy, Clone, Default, Eq, PartialEq)]
 pub enum ParseDebugType {
     #[default]
     Quiet,
@@ -283,10 +283,11 @@ pub fn parse_file_at_path(
     }
     // Log to stderr if `--debug` was passed
     else if opts.debug != ParseDebugType::Quiet {
-        let mut curr_version: usize = 0usize;
+        let mut curr_version: usize = 0;
         let use_color = std::env::var("NO_COLOR").map_or(true, |v| v != "1");
-        parser.set_logger(Some(Box::new(|log_type, message| {
-            if opts.debug == ParseDebugType::Normal {
+        let debug = opts.debug;
+        parser.set_logger(Some(Box::new(move |log_type, message| {
+            if debug == ParseDebugType::Normal {
                 if log_type == LogType::Lex {
                     write!(&mut io::stderr(), "  ").unwrap();
                 }
