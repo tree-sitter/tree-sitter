@@ -407,7 +407,11 @@ void ts_subtree_summarize_children(
     self.ptr->dynamic_precedence += ts_subtree_dynamic_precedence(child);
     self.ptr->visible_descendant_count += ts_subtree_visible_descendant_count(child);
 
-    if (alias_sequence && alias_sequence[structural_index] != 0 && !ts_subtree_extra(child)) {
+    if (alias_sequence &&
+        structural_index < language->max_alias_sequence_length &&
+        alias_sequence[structural_index] != 0 &&
+        !ts_subtree_extra(child)
+    ) {
       self.ptr->visible_descendant_count++;
       self.ptr->visible_child_count++;
       if (ts_language_symbol_metadata(language, alias_sequence[structural_index]).named) {
