@@ -998,9 +998,7 @@ impl Loader {
             command.arg(scanner_filename);
         }
 
-        let output = command
-            .output()
-            .with_context(|| format!("Failed to run wasi-sdk clang command: {:?}", command))?;
+        let output = command.output().context("Failed to run wasi-sdk clang")?;
 
         if !output.status.success() {
             return Err(anyhow!(
@@ -1034,7 +1032,7 @@ impl Loader {
             let Some(first_component) = path.components().next() else {
                 continue;
             };
-            let dest_path = destination.join(&path.strip_prefix(first_component).unwrap());
+            let dest_path = destination.join(path.strip_prefix(first_component).unwrap());
             if let Some(parent) = dest_path.parent() {
                 fs::create_dir_all(parent).with_context(|| {
                     format!("Failed to create directory at {}", parent.display())
@@ -1084,13 +1082,12 @@ impl Loader {
             return Err(anyhow!("Unsupported platform for wasi-sdk"));
         };
 
-        let sdk_filename = format!("wasi-sdk-25.0-{}.tar.gz", arch_os);
+        let sdk_filename = format!("wasi-sdk-25.0-{arch_os}.tar.gz");
         let sdk_url = format!(
-            "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-25/{}",
-            sdk_filename
+            "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-25/{sdk_filename}",
         );
 
-        eprintln!("Downloading wasi-sdk from {}...", sdk_url);
+        eprintln!("Downloading wasi-sdk from {sdk_url}...");
         let temp_tar_path = cache_dir.join(sdk_filename);
         let mut temp_file = fs::File::create(&temp_tar_path).with_context(|| {
             format!(
@@ -1101,7 +1098,7 @@ impl Loader {
 
         let response = ureq::get(&sdk_url)
             .call()
-            .with_context(|| format!("Failed to download wasi-sdk from {}", sdk_url))?;
+            .with_context(|| format!("Failed to download wasi-sdk from {sdk_url}"))?;
         if !response.status().is_success() {
             return Err(anyhow::anyhow!(
                 "Failed to download wasi-sdk from {}",
