@@ -98,13 +98,13 @@ jobs:
       if: ${{ matrix.use-cross }}
       run: |
         printf '%s\n' > Cross.toml \
-          '[target.${{ matrix.target }}]'                                   \
-          'image = "ghcr.io/cross-rs/${{ matrix.target }}:edge"'            \
-          '[build]'                                                         \
-          'pre-build = ['                                                   \
-          '  "dpkg --add-architecture $CROSS_DEB_ARCH",'                    \
-          '  "curl -fsSL https://deb.nodesource.com/setup_22.x | bash -",'  \
-          '  "apt-get update && apt-get -y install libssl-dev nodejs"'      \
+          '[target.${{ matrix.target }}]'                                         \
+          'image = "ghcr.io/cross-rs/${{ matrix.target }}:edge"'                  \
+          '[build]'                                                               \
+          'pre-build = ['                                                         \
+          '  "dpkg --add-architecture $CROSS_DEB_ARCH",'                          \
+          '  "curl -fsSL https://deb.nodesource.com/setup_22.x | bash -",'        \
+          '  "apt-get update && apt-get -y install pkg-config libssl-dev nodejs"' \
           ']'
         cat - Cross.toml <<< 'Cross.toml:'
         printf '%s\n' >> $GITHUB_ENV \
