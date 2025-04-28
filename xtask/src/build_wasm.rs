@@ -107,7 +107,7 @@ pub fn run_wasm(args: &BuildWasm) -> Result<()> {
             };
 
             // Run `emcc` in a container using the `emscripten-slim` image
-            command.args([EMSCRIPTEN_TAG.trim(), "emcc"]);
+            command.args([EMSCRIPTEN_TAG, "emcc"]);
             command
         }
     };
