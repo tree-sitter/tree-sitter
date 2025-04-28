@@ -986,7 +986,7 @@ impl Loader {
             format!("-Wl,--export=tree_sitter_{language_name}").as_str(),
             "-Wl,--allow-undefined",
             "-Wl,--no-entry",
-            "--nostdlib",
+            "-nostdlib",
             "-fno-exceptions",
             "-fvisibility=hidden",
             "-I",
