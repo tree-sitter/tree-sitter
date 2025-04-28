@@ -147,6 +147,7 @@ thiserror = "2.0.12"
 tiny_http = "0.12.0"
 toml = "0.8.20"
 unindent = "0.2.4"
+ureq = { version = "3.0.11", features = ["native-tls"] }
 url = { version = "2.5.4", features = ["serde"] }
 walkdir = "2.5.0"
 wasmparser = "0.224.1"

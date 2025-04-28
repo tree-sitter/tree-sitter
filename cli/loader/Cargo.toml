@@ -39,8 +39,8 @@ serde.workspace = true
 serde_json.workspace = true
 tar.workspace = true
 tempfile.workspace = true
+ureq.workspace = true
 url.workspace = true
-ureq = "3.0.11"
 
 tree-sitter = { workspace = true }
 tree-sitter-highlight = { workspace = true, optional = true }
