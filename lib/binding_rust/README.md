@@ -17,13 +17,6 @@ use tree_sitter::{InputEdit, Language, Parser, Point};
 let mut parser = Parser::new();
 ```
 
-Add the `cc` crate to your `Cargo.toml` under `[build-dependencies]`:
-
-```toml
-[build-dependencies]
-cc="*"
-```
-
 Then, add a language as a dependency:
 
 ```toml
@@ -32,7 +25,7 @@ tree-sitter = "0.24"
 tree-sitter-rust = "0.23"
 ```
 
-To then use a language, you assign them to the parser.
+To use a language, you assign them to the parser.
 
 ```rust
 parser.set_language(&tree_sitter_rust::LANGUAGE.into()).expect("Error loading Rust grammar");
