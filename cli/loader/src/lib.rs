@@ -977,31 +977,36 @@ impl Loader {
 
         let output_name = "output.wasm";
         let mut command = Command::new(&clang_executable);
-        command.current_dir(src_path);
-        command.args([
+        command.current_dir(src_path).args([
             "-o",
             output_name,
             "-fPIC",
             "-shared",
             "-Os",
             format!("-Wl,--export=tree_sitter_{language_name}").as_str(),
+            "-Wl,--allow-undefined",
+            "-Wl,--no-entry",
+            "--nostdlib",
             "-fno-exceptions",
             "-fvisibility=hidden",
             "-I",
             ".",
+            "parser.c",
         ]);
 
         if let Some(scanner_filename) = scanner_filename {
             command.arg(scanner_filename);
         }
 
-        command.arg("parser.c");
         let output = command
             .output()
             .with_context(|| format!("Failed to run wasi-sdk clang command: {:?}", command))?;
 
         if !output.status.success() {
-            return Err(anyhow!("wasi-sdk clang command failed"));
+            return Err(anyhow!(
+                "wasi-sdk clang command failed: {}",
+                String::from_utf8_lossy(&output.stderr)
+            ));
         }
 
         fs::rename(src_path.join(output_name), output_path)
