@@ -5621,3 +5621,14 @@ const foo = [
     assert_eq!(matches.len(), 1);
     assert_eq!(matches[0].1, captures);
 }
+
+#[test]
+fn test_query_with_predicate_causing_oob_access() {
+    let language = get_language("rust");
+
+    let query = "(call_expression
+     function: (scoped_identifier
+       path: (scoped_identifier (identifier) @_regex (#any-of? @_regex \"Regex\" \"RegexBuilder\") .))
+     (#set! injection.language \"regex\"))";
+    Query::new(&language, query).unwrap();
+}
