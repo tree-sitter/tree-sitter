@@ -401,8 +401,11 @@ fn test_tags_via_c_api() {
 
         let syntax_types = unsafe {
             let mut len = 0;
-            let ptr =
-                c::ts_tagger_syntax_kinds_for_scope_name(tagger, c_scope_name.as_ptr(), &mut len);
+            let ptr = c::ts_tagger_syntax_kinds_for_scope_name(
+                tagger,
+                c_scope_name.as_ptr(),
+                &raw mut len,
+            );
             slice::from_raw_parts(ptr, len as usize)
                 .iter()
                 .map(|i| CStr::from_ptr(*i).to_str().unwrap())
