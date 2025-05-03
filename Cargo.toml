@@ -75,6 +75,7 @@ too_many_lines = "allow"
 unnecessary_wraps = "allow"
 unused_self = "allow"
 used_underscore_items = "allow"
+obfuscated_if_else = "allow"
 
 [profile.optimize]
 inherits = "release"
