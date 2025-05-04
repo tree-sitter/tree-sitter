@@ -73,14 +73,14 @@ void ts_subtree_array_copy(SubtreeArray self, SubtreeArray *dest) {
     dest->contents = ts_calloc(self.capacity, sizeof(Subtree));
     memcpy(dest->contents, self.contents, self.size * sizeof(Subtree));
     for (uint32_t i = 0; i < self.size; i++) {
-      ts_subtree_retain(dest->contents[i]);
+      ts_subtree_retain(*array_get(dest, i));
     }
   }
 }
 
 void ts_subtree_array_clear(SubtreePool *pool, SubtreeArray *self) {
   for (uint32_t i = 0; i < self->size; i++) {
-    ts_subtree_release(pool, self->contents[i]);
+    ts_subtree_release(pool, *array_get(self, i));
   }
   array_clear(self);
 }
@@ -96,7 +96,7 @@ void ts_subtree_array_remove_trailing_extras(
 ) {
   array_clear(destination);
   while (self->size > 0) {
-    Subtree last = self->contents[self->size - 1];
+    Subtree last = *array_get(self, self->size - 1);
     if (ts_subtree_extra(last)) {
       self->size--;
       array_push(destination, last);
@@ -110,9 +110,9 @@ void ts_subtree_array_remove_trailing_extras(
 void ts_subtree_array_reverse(SubtreeArray *self) {
   for (uint32_t i = 0, limit = self->size / 2; i < limit; i++) {
     size_t reverse_index = self->size - 1 - i;
-    Subtree swap = self->contents[i];
-    self->contents[i] = self->contents[reverse_index];
-    self->contents[reverse_index] = swap;
+    Subtree swap = *array_get(self, i);
+    *array_get(self, i) = *array_get(self, reverse_index);
+    *array_get(self, reverse_index) = swap;
   }
 }
 
@@ -127,7 +127,7 @@ SubtreePool ts_subtree_pool_new(uint32_t capacity) {
 void ts_subtree_pool_delete(SubtreePool *self) {
   if (self->free_trees.contents) {
     for (unsigned i = 0; i < self->free_trees.size; i++) {
-      ts_free(self->free_trees.contents[i].ptr);
+      ts_free(array_get(&self->free_trees, i)->ptr);
     }
     array_delete(&self->free_trees);
   }
