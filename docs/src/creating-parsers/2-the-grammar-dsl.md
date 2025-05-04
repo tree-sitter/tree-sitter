@@ -12,18 +12,18 @@ it generates its own regex-matching logic based on the Rust regex syntax as part
 used as a convenient way of writing regular expressions in your grammar. You can use Rust regular expressions in your grammar
 DSL through the `RustRegex` class. Simply pass your regex pattern as a string:
 
-```js
-new RustRegex('(?i)[a-z_][a-z0-9_]*') // matches a simple identifier
-```
+  ```js
+  new RustRegex('(?i)[a-z_][a-z0-9_]*') // matches a simple identifier
+  ```
 
-Unlike JavaScript's builtin `RegExp` class, which takes a pattern and flags as separate arguments, `RustRegex` only
-accepts a single pattern string. While it doesn't support separate flags, you can use inline flags within the pattern itself.
-For more details about Rust's regex syntax and capabilities, check out the [Rust regex documentation][rust regex].
+  Unlike JavaScript's builtin `RegExp` class, which takes a pattern and flags as separate arguments, `RustRegex` only
+  accepts a single pattern string. While it doesn't support separate flags, you can use inline flags within the pattern itself.
+  For more details about Rust's regex syntax and capabilities, check out the [Rust regex documentation][rust regex].
 
-- **Regex Limitations** — Only a subset of the Regex engine is actually
-supported. This is due to certain features like lookahead and lookaround assertions
-not feasible to use in an LR(1) grammar, as well as certain flags being unnecessary
-for tree-sitter. However, plenty of features are supported by default:
+  ```admonish note 
+  Only a subset of the Regex engine is actually supported. This is due to certain features like lookahead and lookaround
+  assertions not feasible to use in an LR(1) grammar, as well as certain flags being unnecessary for tree-sitter. However,
+  plenty of features are supported by default:
 
   - Character classes
   - Character ranges
@@ -33,6 +33,7 @@ for tree-sitter. However, plenty of features are supported by default:
   - Grouping
   - Unicode character escapes
   - Unicode property escapes
+  ```
 
 - **Sequences : `seq(rule1, rule2, ...)`** — This function creates a rule that matches any number of other rules, one after
 another. It is analogous to simply writing multiple symbols next to each other in [EBNF notation][ebnf].
