@@ -102,7 +102,7 @@ ansi_colours = "1.2.3"
 anstyle = "1.0.10"
 anyhow = "1.0.98"
 bstr = "1.12.0"
-cc = "1.2.20"
+cc = "1.2.21"
 clap = { version = "4.5.37", features = [
   "cargo",
   "derive",
@@ -119,7 +119,7 @@ etcetera = "0.8.0"
 filetime = "0.2.25"
 flate2 = "1.0.28"
 fs4 = "0.12.0"
-git2 = "0.20.1"
+git2 = "0.20.2"
 glob = "0.3.2"
 heck = "0.5.0"
 html-escape = "0.2.13"
