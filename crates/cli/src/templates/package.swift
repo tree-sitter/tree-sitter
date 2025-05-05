@@ -14,7 +14,7 @@ let package = Package(
         .library(name: "PARSER_CLASS_NAME", targets: ["PARSER_CLASS_NAME"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/tree-sitter/swift-tree-sitter", from: "0.8.0"),
+        .package(name: "SwiftTreeSitter", url: "https://github.com/tree-sitter/swift-tree-sitter", from: "0.9.0"),
     ],
     targets: [
         .target(
