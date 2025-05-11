@@ -1,3 +1,4 @@
+-|
 mod benchmark;
 mod build_wasm;
 mod bump;
