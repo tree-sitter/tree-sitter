@@ -5,6 +5,7 @@ on:
     paths:
       - lib/include/tree_sitter/api.h
       - lib/binding_web/**
+      - xtask/src/**
   push:
     branches: [master]
     paths:

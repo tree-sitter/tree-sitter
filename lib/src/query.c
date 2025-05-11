@@ -2523,6 +2523,9 @@ static TSQueryError ts_query__parse_pattern(
           child_is_immediate,
           &child_capture_quantifiers
         );
+        // In the event we only parsed a predicate, meaning no new steps were added,
+        // then subtract one so we're not indexing past the end of the array
+        if (step_index == self->steps.size) step_index--;
         if (e == PARENT_DONE) {
           if (stream->next == ')') {
             if (child_is_immediate) {
@@ -2531,7 +2534,7 @@ static TSQueryError ts_query__parse_pattern(
                 return TSQueryErrorSyntax;
               }
               // Mark this step *and* its alternatives as the last child of the parent.
-              QueryStep *last_child_step = &self->steps.contents[last_child_step_index];
+              QueryStep *last_child_step = array_get(&self->steps, last_child_step_index);
               last_child_step->is_last_child = true;
               if (
                 last_child_step->alternative_index != NONE &&

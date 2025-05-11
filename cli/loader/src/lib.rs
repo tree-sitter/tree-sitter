@@ -7,10 +7,8 @@ use std::ops::Range;
 use std::sync::Mutex;
 use std::{
     collections::HashMap,
-    env,
-    ffi::{OsStr, OsString},
-    fs,
-    io::{BufRead, BufReader},
+    env, fs,
+    io::{BufRead, BufReader, Write as _},
     mem,
     path::{Path, PathBuf},
     process::Command,
@@ -22,11 +20,11 @@ use std::{
 use anyhow::Error;
 use anyhow::{anyhow, Context, Result};
 use etcetera::BaseStrategy as _;
+use flate2::read::GzDecoder;
 use fs4::fs_std::FileExt;
 use indoc::indoc;
 use libloading::{Library, Symbol};
 use once_cell::unsync::OnceCell;
-use path_slash::PathBufExt as _;
 use regex::{Regex, RegexBuilder};
 use semver::Version;
 use serde::{Deserialize, Deserializer, Serialize};
@@ -43,8 +41,6 @@ use url::Url;
 
 static GRAMMAR_NAME_REGEX: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r#""name":\s*"(.*?)""#).unwrap());
-
-pub const EMSCRIPTEN_TAG: &str = concat!("docker.io/emscripten/emsdk:", env!("EMSCRIPTEN_VERSION"));
 
 #[derive(Default, Deserialize, Serialize)]
 pub struct Config {
@@ -735,7 +731,6 @@ impl Loader {
                         .as_ref()
                         .and_then(|p| p.strip_prefix(config.src_path).ok()),
                     &output_path,
-                    false,
                 )?;
             }
 
@@ -973,140 +968,162 @@ impl Loader {
     pub fn compile_parser_to_wasm(
         &self,
         language_name: &str,
-        root_path: Option<&Path>,
+        _root_path: Option<&Path>,
         src_path: &Path,
         scanner_filename: Option<&Path>,
         output_path: &Path,
-        force_docker: bool,
     ) -> Result<(), Error> {
-        #[derive(PartialEq, Eq)]
-        enum EmccSource {
-            Native,
-            Docker,
-            Podman,
-        }
-
-        let root_path = root_path.unwrap_or(src_path);
-        let emcc_name = if cfg!(windows) { "emcc.bat" } else { "emcc" };
-
-        // Order of preference: emscripten > docker > podman > error
-        let source = if !force_docker && Command::new(emcc_name).output().is_ok() {
-            EmccSource::Native
-        } else if Command::new("docker")
-            .output()
-            .is_ok_and(|out| out.status.success())
-        {
-            EmccSource::Docker
-        } else if Command::new("podman")
-            .arg("--version")
-            .output()
-            .is_ok_and(|out| out.status.success())
-        {
-            EmccSource::Podman
-        } else {
-            return Err(anyhow!(
-                "You must have either emcc, docker, or podman on your PATH to run this command"
-            ));
-        };
-
-        let mut command = match source {
-            EmccSource::Native => {
-                let mut command = Command::new(emcc_name);
-                command.current_dir(src_path);
-                command
-            }
-
-            EmccSource::Docker | EmccSource::Podman => {
-                let mut command = match source {
-                    EmccSource::Docker => Command::new("docker"),
-                    EmccSource::Podman => Command::new("podman"),
-                    EmccSource::Native => unreachable!(),
-                };
-                command.args(["run", "--rm"]);
-
-                // The working directory is the directory containing the parser itself
-                let workdir = if root_path == src_path {
-                    PathBuf::from("/src")
-                } else {
-                    let mut path = PathBuf::from("/src");
-                    path.push(src_path.strip_prefix(root_path).unwrap());
-                    path
-                };
-                command.args(["--workdir", &workdir.to_slash_lossy()]);
-
-                // Mount the root directory as a volume, which is the repo root
-                let mut volume_string = OsString::from(&root_path);
-                volume_string.push(":/src:Z");
-                command.args([OsStr::new("--volume"), &volume_string]);
-
-                // In case `docker` is an alias to `podman`, ensure that podman
-                // mounts the current directory as writable by the container
-                // user which has the same uid as the host user. Setting the
-                // podman-specific variable is more reliable than attempting to
-                // detect whether `docker` is an alias for `podman`.
-                // see https://docs.podman.io/en/latest/markdown/podman-run.1.html#userns-mode
-                command.env("PODMAN_USERNS", "keep-id");
-
-                // Get the current user id so that files created in the docker container will have
-                // the same owner.
-                #[cfg(unix)]
-                {
-                    #[link(name = "c")]
-                    extern "C" {
-                        fn getuid() -> u32;
-                    }
-                    // don't need to set user for podman since PODMAN_USERNS=keep-id is already set
-                    if source == EmccSource::Docker {
-                        let user_id = unsafe { getuid() };
-                        command.args(["--user", &user_id.to_string()]);
-                    }
-                };
-
-                // Run `emcc` in a container using the `emscripten-slim` image
-                command.args([EMSCRIPTEN_TAG, "emcc"]);
-                command
-            }
-        };
+        let clang_executable = self.ensure_wasi_sdk_exists()?;
 
         let output_name = "output.wasm";
-
-        command.args([
+        let mut command = Command::new(&clang_executable);
+        command.current_dir(src_path).args([
             "-o",
             output_name,
+            "-fPIC",
+            "-shared",
             "-Os",
-            "-s",
-            "WASM=1",
-            "-s",
-            "SIDE_MODULE=2",
-            "-s",
-            "TOTAL_MEMORY=33554432",
-            "-s",
-            "NODEJS_CATCH_EXIT=0",
-            "-s",
-            &format!("EXPORTED_FUNCTIONS=[\"_tree_sitter_{language_name}\"]"),
+            format!("-Wl,--export=tree_sitter_{language_name}").as_str(),
+            "-Wl,--allow-undefined",
+            "-Wl,--no-entry",
+            "-nostdlib",
             "-fno-exceptions",
             "-fvisibility=hidden",
             "-I",
             ".",
+            "parser.c",
         ]);
 
         if let Some(scanner_filename) = scanner_filename {
             command.arg(scanner_filename);
         }
 
-        command.arg("parser.c");
-        let status = command
-            .spawn()
-            .with_context(|| "Failed to run emcc command")?
-            .wait()?;
-        if !status.success() {
-            return Err(anyhow!("emcc command failed"));
+        let output = command.output().context("Failed to run wasi-sdk clang")?;
+
+        if !output.status.success() {
+            return Err(anyhow!(
+                "wasi-sdk clang command failed: {}",
+                String::from_utf8_lossy(&output.stderr)
+            ));
         }
 
         fs::rename(src_path.join(output_name), output_path)
             .context("failed to rename wasm output file")?;
 
         Ok(())
+    }
+
+    /// Extracts a tar.gz archive, stripping the first path component.
+    ///
+    /// Similar to `tar -xzf <archive> --strip-components=1`
+    fn extract_tar_gz_with_strip(
+        &self,
+        archive_path: &Path,
+        destination: &Path,
+    ) -> Result<(), Error> {
+        let archive_file = fs::File::open(archive_path).context("Failed to open archive")?;
+        let mut archive = tar::Archive::new(GzDecoder::new(archive_file));
+        for entry in archive
+            .entries()
+            .with_context(|| "Failed to read archive entries")?
+        {
+            let mut entry = entry?;
+            let path = entry.path()?;
+            let Some(first_component) = path.components().next() else {
+                continue;
+            };
+            let dest_path = destination.join(path.strip_prefix(first_component).unwrap());
+            if let Some(parent) = dest_path.parent() {
+                fs::create_dir_all(parent).with_context(|| {
+                    format!("Failed to create directory at {}", parent.display())
+                })?;
+            }
+            entry
+                .unpack(&dest_path)
+                .with_context(|| format!("Failed to extract file to {}", dest_path.display()))?;
+        }
+        Ok(())
+    }
+
+    fn ensure_wasi_sdk_exists(&self) -> Result<PathBuf, Error> {
+        let cache_dir = etcetera::choose_base_strategy()?
+            .cache_dir()
+            .join("tree-sitter");
+        fs::create_dir_all(&cache_dir)?;
+
+        let wasi_sdk_dir = cache_dir.join("wasi-sdk");
+        let clang_exe = if cfg!(windows) {
+            wasi_sdk_dir.join("bin").join("clang.exe")
+        } else {
+            wasi_sdk_dir.join("bin").join("clang")
+        };
+
+        if clang_exe.exists() {
+            return Ok(clang_exe);
+        }
+
+        fs::create_dir_all(&wasi_sdk_dir)?;
+
+        let arch_os = if cfg!(target_os = "macos") {
+            if cfg!(target_arch = "aarch64") {
+                "arm64-macos"
+            } else {
+                "x86_64-macos"
+            }
+        } else if cfg!(target_os = "windows") {
+            "x86_64-windows"
+        } else if cfg!(target_os = "linux") {
+            if cfg!(target_arch = "aarch64") {
+                "arm64-linux"
+            } else {
+                "x86_64-linux"
+            }
+        } else {
+            return Err(anyhow!("Unsupported platform for wasi-sdk"));
+        };
+
+        let sdk_filename = format!("wasi-sdk-25.0-{arch_os}.tar.gz");
+        let sdk_url = format!(
+            "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-25/{sdk_filename}",
+        );
+
+        eprintln!("Downloading wasi-sdk from {sdk_url}...");
+        let temp_tar_path = cache_dir.join(sdk_filename);
+        let mut temp_file = fs::File::create(&temp_tar_path).with_context(|| {
+            format!(
+                "Failed to create temporary file at {}",
+                temp_tar_path.display()
+            )
+        })?;
+
+        let response = ureq::get(&sdk_url)
+            .call()
+            .with_context(|| format!("Failed to download wasi-sdk from {sdk_url}"))?;
+        if !response.status().is_success() {
+            return Err(anyhow::anyhow!(
+                "Failed to download wasi-sdk from {}",
+                sdk_url
+            ));
+        }
+
+        std::io::copy(&mut response.into_body().into_reader(), &mut temp_file)
+            .context("Failed to write to temporary file")?;
+        temp_file
+            .flush()
+            .context("Failed to flush downloaded file")?;
+        eprintln!("Extracting wasi-sdk to {}...", wasi_sdk_dir.display());
+        self.extract_tar_gz_with_strip(&temp_tar_path, &wasi_sdk_dir)
+            .context("Failed to extract wasi-sdk archive")?;
+
+        fs::remove_file(temp_tar_path).ok();
+        if !clang_exe.exists() {
+            return Err(anyhow!(
+                "Failed to extract wasi-sdk correctly. Clang executable not found at expected location: {}",
+                clang_exe.display()
+            ));
+        }
+
+        Ok(clang_exe)
     }
 
     #[must_use]

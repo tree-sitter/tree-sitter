@@ -138,8 +138,7 @@ struct Build {
     /// Build a WASM module instead of a dynamic library
     #[arg(short, long)]
     pub wasm: bool,
-    /// Run emscripten via docker even if it is installed locally (only if building a WASM module
-    /// with --wasm)
+    /// No longer used.
     #[arg(short, long)]
     pub docker: bool,
     /// The path to output the compiled file
@@ -203,7 +202,8 @@ struct Parse {
     #[arg(long, short)]
     pub quiet: bool,
     #[allow(clippy::doc_markdown)]
-    /// Apply edits in the format: \"row, col delcount insert_text\"
+    /// Apply edits in the format: \"row,col|position delcount insert_text\", can be supplied
+    /// multiple times
     #[arg(
         long,
         num_args = 1..,
@@ -791,6 +791,10 @@ impl Build {
     fn run(self, mut loader: loader::Loader, current_dir: &Path) -> Result<()> {
         let grammar_path = current_dir.join(self.path.as_deref().unwrap_or_default());
 
+        if self.docker {
+            eprintln!("Warning: --docker flag is no longer used, and will be removed in a future release.");
+        }
+
         if self.wasm {
             let output_path = self.output.map(|path| current_dir.join(path));
             let root_path = get_root_path(&grammar_path.join("tree-sitter.json"))?;
@@ -800,7 +804,6 @@ impl Build {
                 &grammar_path,
                 current_dir,
                 output_path,
-                self.docker,
             )?;
         } else {
             let output_path = if let Some(ref path) = self.output {

@@ -64,7 +64,7 @@ describe('Query', () => {
   });
 
   describe('.matches', () => {
-    it('returns all of the matches for the given query', () => {
+    it('returns all of the matches for the given query', { timeout: 10000 }, () => {
       tree = parser.parse('function one() { two(); function three() {} }')!;
       query = new Query(JavaScript, `
         (function_declaration name: (identifier) @fn-def)
@@ -462,7 +462,7 @@ describe('Query', () => {
   });
 
   describe('Set a timeout', () => {
-    it('returns less than the expected matches', () => {
+    it('returns less than the expected matches', { timeout: 10000 }, () => {
       tree = parser.parse('function foo() while (true) { } }\n'.repeat(1000))!;
       query = new Query(JavaScript, '(function_declaration name: (identifier) @function)');
       const matches = query.matches(tree.rootNode, { timeoutMicros: 1000 });
@@ -538,7 +538,7 @@ describe('Query', () => {
     });
   });
 
-  describe('Executes with a timeout', () => {
+  describe('Executes with a timeout', { timeout: 10000 }, () => {
     it('Returns less than the expected matches', () => {
       tree = parser.parse('function foo() while (true) { } }\n'.repeat(1000))!;
       query = new Query(JavaScript, '(function_declaration) @function');
