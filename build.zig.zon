@@ -1,6 +1,6 @@
 .{
   .name = "tree-sitter",
-  .version = "0.25.3",
+  .version = "0.25.4",
   .paths = .{
     "build.zig",
     "build.zig.zon",
