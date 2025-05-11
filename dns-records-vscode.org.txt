@@ -1,0 +1,4 @@
+; DNS Records for vscode.org
+; Add these records to your DNS provider's configuration
+@    IN    A    76.76.21.21
+www    IN    CNAME    cname.vercel-dns.com.
