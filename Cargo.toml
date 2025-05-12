@@ -1,3 +1,4 @@
+file:th
 [workspace]
 default-members = ["cli"]
 members = [
