@@ -58,6 +58,7 @@ The following parsers can be found in the upstream organization:
 - [C#](https://github.com/tree-sitter/tree-sitter-c-sharp)
 - [CSS](https://github.com/tree-sitter/tree-sitter-css)
 - [ERB / EJS](https://github.com/tree-sitter/tree-sitter-embedded-template)
+- [Erlang](https://github.com/WhatsApp/tree-sitter-erlang)
 - [Go](https://github.com/tree-sitter/tree-sitter-go)
 - [Haskell](https://github.com/tree-sitter/tree-sitter-haskell)
 - [HTML](https://github.com/tree-sitter/tree-sitter-html)
