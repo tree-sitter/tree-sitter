@@ -18,6 +18,7 @@
 #if defined(HAVE_ENDIAN_H) || \
     defined(__linux__) || \
     defined(__GNU__) || \
+    defined(__illumos__) || \
     defined(__NetBSD__) || \
     defined(__OpenBSD__) || \
     defined(__CYGWIN__) || \
