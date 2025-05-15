@@ -232,7 +232,7 @@ jobs:
 
     - name: Run main tests
       if: ${{ !matrix.no-run && inputs.run-test }}
-      run: $BUILD_CMD test --target=${{ matrix.target }} --features=${{ matrix.features }}
+      run: $BUILD_CMD run -p xtask -- test ${{ contains(matrix.features, 'wasm') && '--wasm' || '' }}
 
     - name: Run wasm tests
       if: ${{ !matrix.no-run && !matrix.use-cross && inputs.run-test }}
