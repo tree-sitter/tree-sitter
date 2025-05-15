@@ -12,8 +12,8 @@ to parse, to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-tree-sitter-highlight = "0.22.0"
-tree-sitter-javascript = "0.21.3"
+tree-sitter-highlight = "0.25.4"
+tree-sitter-javascript = "0.23.1"
 ```
 
 Define the list of highlight names that you will recognize:
@@ -63,7 +63,7 @@ Load some highlighting queries from the `queries` directory of the language repo
 ```rust
 use tree_sitter_highlight::HighlightConfiguration;
 
-let javascript_language = tree_sitter_javascript::language();
+let javascript_language = tree_sitter_javascript::LANGUAGE.into();
 
 let mut javascript_config = HighlightConfiguration::new(
     javascript_language,
