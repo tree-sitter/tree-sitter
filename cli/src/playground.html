@@ -77,13 +77,28 @@
       </div>
 
       <div id="output-container-scroll">
-        <div class="panel-header">Tree</div>
+        <div class="panel-header">
+          <button type="button" onclick="copyToClipboard('#output-container')" class="theme-toggle">📋</button>
+          <pre>Tree</pre>
+        </div>
         <pre id="output-container" class="highlight"></pre>
       </div>
     </main>
   </div>
 
-  <script src="https://code.jquery.com/jquery-3.3.1.min.js" crossorigin="anonymous">
+  <script>
+    function copyToClipboard(container) {
+      const node = document.querySelector(container);
+      const selection = window.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      selection.removeAllRanges();
+      selection.addRange(range);
+      navigator.clipboard.writeText(selection.toString().trimLeft());
+      selection.removeRange(range);
+    }
+  </script>
+  <script src="https://code.jquery.com/jquery-3.3.1.min.js" crossorigin="anonymous"></script>
   </script>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/codemirror.min.js"></script>
@@ -241,6 +256,11 @@
       font-size: 14px;
       border-bottom: 1px solid var(--border-color);
       background-color: var(--panel-bg);
+
+      display: flex;
+      flex-direction: row;
+      justify-content: flex-start;
+      gap: 1em;
     }
 
     .CodeMirror {
