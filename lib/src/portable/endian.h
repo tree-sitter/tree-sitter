@@ -23,7 +23,8 @@
     defined(__OpenBSD__) || \
     defined(__CYGWIN__) || \
     defined(__MSYS__) || \
-    defined(__EMSCRIPTEN__)
+    defined(__EMSCRIPTEN__) || \
+    defined(__wasi__)
 
 #if defined(__NetBSD__)
 #define _NETBSD_SOURCE 1
