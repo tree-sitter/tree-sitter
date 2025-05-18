@@ -39,6 +39,17 @@ prefixed by a `!` within the parent pattern. For example, this pattern would mat
   !type_parameters)
 ```
 
+## Positive Fields
+
+You can also constrain a pattern so that it only matches nodes that _contain_ a certain field. To do this, add a field name
+prefixed by a `&` within the parent pattern. For example, this pattern would match a class declaration with type parameters:
+
+```query
+(class_declaration
+  name: (identifier) @class_name
+  &type_parameters)
+```
+
 ## Anonymous Nodes
 
 The parenthesized syntax for writing nodes only applies to [named nodes][named-vs-anonymous-nodes]. To match specific anonymous

@@ -22,6 +22,7 @@
 
 #define MAX_STEP_CAPTURE_COUNT 3
 #define MAX_NEGATED_FIELD_COUNT 8
+#define MAX_POSITIVE_FIELD_COUNT 8
 #define MAX_STATE_PREDECESSOR_COUNT 256
 #define MAX_ANALYSIS_STATE_DEPTH 8
 #define MAX_ANALYSIS_ITERATION_COUNT 256
@@ -53,6 +54,8 @@ typedef struct {
  *    of the pattern has depth zero.
  * - `negated_field_list_id` - An id representing a set of fields that must
  *    not be present on a node matching this step.
+ * - `positive_field_list_id` - An id representing a set of fields that must
+ *    be present on a node matching this step.
  *
  * Steps have some additional fields in order to handle the `.` (or "anchor") operator,
  * which forbids additional child nodes:
@@ -100,6 +103,7 @@ typedef struct {
   uint16_t depth;
   uint16_t alternative_index;
   uint16_t negated_field_list_id;
+  uint16_t positive_field_list_id;
   bool is_named: 1;
   bool is_immediate: 1;
   bool is_last_child: 1;
@@ -302,6 +306,7 @@ struct TSQuery {
   Array(QueryPattern) patterns;
   Array(StepOffset) step_offsets;
   Array(TSFieldId) negated_fields;
+  Array(TSFieldId) positive_fields;
   Array(char) string_buffer;
   Array(TSSymbol) repeat_symbols_with_rootless_patterns;
   const TSLanguage *language;
@@ -826,6 +831,7 @@ static QueryStep query_step__new(
     .field = 0,
     .alternative_index = NONE,
     .negated_field_list_id = 0,
+    .positive_field_list_id = 0,
     .contains_captures = false,
     .is_last_child = false,
     .is_named = false,
@@ -2025,6 +2031,58 @@ static void ts_query__add_negated_fields(
   array_push(&self->negated_fields, 0);
 }
 
+static void ts_query__add_positive_fields(
+  TSQuery *self,
+  uint16_t step_index,
+  TSFieldId *field_ids,
+  uint16_t field_count
+) {
+  QueryStep *step = &self->steps.contents[step_index];
+
+  // The positive field array stores a list of field lists, separated by zeros.
+  // Try to find the start index of an existing list that matches this new list.
+  bool failed_match = false;
+  unsigned match_count = 0;
+  unsigned start_i = 0;
+  for (unsigned i = 0; i < self->positive_fields.size; i++) {
+    TSFieldId existing_field_id = self->positive_fields.contents[i];
+
+    // At each zero value, terminate the match attempt. If we've exactly
+    // matched the new field list, then reuse this index. Otherwise,
+    // start over the matching process.
+    if (existing_field_id == 0) {
+      if (match_count == field_count) {
+        step->positive_field_list_id = start_i;
+        return;
+      } else {
+        start_i = i + 1;
+        match_count = 0;
+        failed_match = false;
+      }
+    }
+
+    // If the existing list matches our new list so far, then advance
+    // to the next element of the new list.
+    else if (
+      match_count < field_count &&
+      existing_field_id == field_ids[match_count] &&
+      !failed_match
+    ) {
+      match_count++;
+    }
+
+    // Otherwise, this existing list has failed to match.
+    else {
+      match_count = 0;
+      failed_match = true;
+    }
+  }
+
+  step->positive_field_list_id = self->positive_fields.size;
+  array_extend(&self->positive_fields, field_count, field_ids);
+  array_push(&self->positive_fields, 0);
+}
+
 static TSQueryError ts_query__parse_string_literal(
   TSQuery *self,
   Stream *stream
@@ -2472,7 +2530,9 @@ static TSQueryError ts_query__parse_pattern(
       bool child_is_immediate = false;
       uint16_t last_child_step_index = 0;
       uint16_t negated_field_count = 0;
+      uint16_t positive_field_count = 0;
       TSFieldId negated_field_ids[MAX_NEGATED_FIELD_COUNT];
+      TSFieldId positive_field_ids[MAX_POSITIVE_FIELD_COUNT];
       CaptureQuantifiers child_capture_quantifiers = capture_quantifiers_new();
       for (;;) {
         // Parse a negated field assertion
@@ -2503,6 +2563,39 @@ static TSQueryError ts_query__parse_pattern(
           if (negated_field_count < MAX_NEGATED_FIELD_COUNT) {
             negated_field_ids[negated_field_count] = field_id;
             negated_field_count++;
+          }
+
+          continue;
+        }
+
+        // Parse a positive field assertion
+        if (stream->next == '&') {
+          stream_advance(stream);
+          stream_skip_whitespace(stream);
+          if (!stream_is_ident_start(stream)) {
+            capture_quantifiers_delete(&child_capture_quantifiers);
+            return TSQueryErrorSyntax;
+          }
+          const char *field_name = stream->input;
+          stream_scan_identifier(stream);
+          uint32_t length = (uint32_t)(stream->input - field_name);
+          stream_skip_whitespace(stream);
+
+          TSFieldId field_id = ts_language_field_id_for_name(
+            self->language,
+            field_name,
+            length
+          );
+          if (!field_id) {
+            stream->input = field_name;
+            capture_quantifiers_delete(&child_capture_quantifiers);
+            return TSQueryErrorField;
+          }
+
+          // Keep the field ids sorted.
+          if (positive_field_count < MAX_POSITIVE_FIELD_COUNT) {
+            positive_field_ids[positive_field_count] = field_id;
+            positive_field_count++;
           }
 
           continue;
@@ -2558,6 +2651,15 @@ static TSQueryError ts_query__parse_pattern(
                 starting_step_index,
                 negated_field_ids,
                 negated_field_count
+              );
+            }
+
+            if (positive_field_count) {
+              ts_query__add_positive_fields(
+                self,
+                starting_step_index,
+                positive_field_ids,
+                positive_field_count
               );
             }
 
@@ -2805,12 +2907,14 @@ TSQuery *ts_query_new(
     .step_offsets = array_new(),
     .string_buffer = array_new(),
     .negated_fields = array_new(),
+    .positive_fields = array_new(),
     .repeat_symbols_with_rootless_patterns = array_new(),
     .wildcard_root_pattern_count = 0,
     .language = ts_language_copy(language),
   };
 
   array_push(&self->negated_fields, 0);
+  array_push(&self->positive_fields, 0);
 
   // Parse all of the S-expressions in the given string.
   Stream stream = stream_new(source, source_len);
@@ -2921,6 +3025,7 @@ void ts_query_delete(TSQuery *self) {
     array_delete(&self->step_offsets);
     array_delete(&self->string_buffer);
     array_delete(&self->negated_fields);
+    array_delete(&self->positive_fields);
     array_delete(&self->repeat_symbols_with_rootless_patterns);
     ts_language_delete(self->language);
     symbol_table_delete(&self->captures);
@@ -3890,6 +3995,22 @@ static inline bool ts_query_cursor__advance(
               if (negated_field_id) {
                 negated_field_ids++;
                 if (ts_node_child_by_field_id(node, negated_field_id).id) {
+                  node_does_match = false;
+                  break;
+                }
+              } else {
+                break;
+              }
+            }
+          }
+
+          if (step->positive_field_list_id) {
+            TSFieldId *positive_field_ids = &self->query->positive_fields.contents[step->positive_field_list_id];
+            for (;;) {
+              TSFieldId positive_field_id = *positive_field_ids;
+              if (positive_field_id) {
+                positive_field_ids++;
+                if (!ts_node_child_by_field_id(node, positive_field_id).id) {
                   node_does_match = false;
                   break;
                 }

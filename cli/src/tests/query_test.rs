@@ -164,6 +164,18 @@ fn test_query_errors_on_invalid_syntax() {
             .join("\n")
         );
 
+        // Need a field name after a positive field operator
+        assert_eq!(
+            Query::new(&language, r"(statement_block & (if_statement))")
+                .unwrap_err()
+                .message,
+            [
+                r"(statement_block & (if_statement))",
+                r"                   ^"
+            ]
+            .join("\n")
+        );
+
         // Unclosed alternation within a tree
         // tree-sitter/tree-sitter/issues/968
         assert_eq!(
