@@ -1,5 +1,4 @@
-from os import path
-from platform import system
+from os import name, path
 from sysconfig import get_config_var
 
 from setuptools import Extension, find_packages, setup
@@ -21,7 +20,7 @@ macros: list[tuple[str, str | None]] = [
 if limited_api := not get_config_var("Py_GIL_DISABLED"):
     macros.append(("Py_LIMITED_API", "0x030A0000"))
 
-if system() != "Windows":
+if name != "nt":
     cflags = ["-std=c11", "-fvisibility=hidden"]
 else:
     cflags = ["/std:c11", "/utf-8"]
