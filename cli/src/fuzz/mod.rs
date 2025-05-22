@@ -1,4 +1,9 @@
-use std::{collections::HashMap, env, fs, path::Path, sync::LazyLock};
+use std::{
+    collections::HashMap,
+    env, fs,
+    path::{Path, PathBuf},
+    sync::LazyLock,
+};
 
 use rand::Rng;
 use regex::Regex;
@@ -64,7 +69,7 @@ pub fn new_seed() -> usize {
 
 pub struct FuzzOptions {
     pub skipped: Option<Vec<String>>,
-    pub subdir: Option<String>,
+    pub subdir: Option<PathBuf>,
     pub edits: usize,
     pub iterations: usize,
     pub include: Option<Regex>,

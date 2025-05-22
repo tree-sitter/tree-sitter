@@ -90,7 +90,7 @@ struct Init {
 struct Generate {
     /// The path to the grammar file
     #[arg(index = 1)]
-    pub grammar_path: Option<String>,
+    pub grammar_path: Option<PathBuf>,
     /// Show debug log during generation
     #[arg(long, short)]
     pub log: bool,
@@ -115,10 +115,10 @@ struct Generate {
     pub debug_build: bool,
     /// The path to the directory containing the parser library
     #[arg(long, value_name = "PATH")]
-    pub libdir: Option<String>,
+    pub libdir: Option<PathBuf>,
     /// The path to output the generated source files
     #[arg(long, short, value_name = "DIRECTORY")]
-    pub output: Option<String>,
+    pub output: Option<PathBuf>,
     /// Produce a report of the states for the given rule, use `-` to report every rule
     #[arg(long)]
     pub report_states_for_rule: Option<String>,
@@ -146,7 +146,7 @@ struct Build {
     pub docker: bool,
     /// The path to output the compiled file
     #[arg(short, long)]
-    pub output: Option<String>,
+    pub output: Option<PathBuf>,
     /// The path to the grammar directory
     #[arg(index = 1, num_args = 1)]
     pub path: Option<PathBuf>,
@@ -316,7 +316,7 @@ struct Fuzz {
     pub skip: Option<Vec<String>>,
     /// Subdirectory to the language
     #[arg(long)]
-    pub subdir: Option<String>,
+    pub subdir: Option<PathBuf>,
     /// The path to the tree-sitter grammar directory
     #[arg(long, short = 'p')]
     pub grammar_path: Option<PathBuf>,
@@ -802,7 +802,7 @@ impl Generate {
         }
         if self.build {
             if let Some(path) = self.libdir {
-                loader = loader::Loader::with_parser_lib_path(PathBuf::from(path));
+                loader = loader::Loader::with_parser_lib_path(path);
             }
             loader.debug_build(self.debug_build);
             loader.languages_at_path(current_dir)?;
