@@ -144,36 +144,42 @@ impl From<semver::Error> for JSError {
     }
 }
 
-pub fn generate_parser_in_directory(
-    repo_path: &Path,
-    out_path: Option<&str>,
-    grammar_path: Option<&str>,
+pub fn generate_parser_in_directory<T, U, V>(
+    repo_path: T,
+    out_path: Option<U>,
+    grammar_path: Option<V>,
     mut abi_version: usize,
     report_symbol_name: Option<&str>,
     js_runtime: Option<&str>,
-) -> GenerateResult<()> {
-    let mut repo_path = repo_path.to_owned();
-    let mut grammar_path = grammar_path;
+) -> GenerateResult<()>
+where
+    T: Into<PathBuf>,
+    U: Into<PathBuf>,
+    V: Into<PathBuf>,
+{
+    let mut repo_path: PathBuf = repo_path.into();
 
     // Populate a new empty grammar directory.
-    if let Some(path) = grammar_path {
-        let path = PathBuf::from(path);
-        if !path
+    let grammar_path = if let Some(path) = grammar_path {
+        let path_buf: PathBuf = path.into();
+        if !path_buf
             .try_exists()
             .map_err(|e| GenerateError::GrammarPath(e.to_string()))?
         {
-            fs::create_dir_all(&path)?;
-            grammar_path = None;
-            repo_path = path;
+            fs::create_dir_all(&path_buf)?;
+            repo_path = path_buf;
+            repo_path.join("grammar.js")
+        } else {
+            path_buf
         }
-    }
-
-    let grammar_path = grammar_path.map_or_else(|| repo_path.join("grammar.js"), PathBuf::from);
+    } else {
+        repo_path.join("grammar.js")
+    };
 
     // Read the grammar file.
     let grammar_json = load_grammar_file(&grammar_path, js_runtime)?;
 
-    let src_path = out_path.map_or_else(|| repo_path.join("src"), PathBuf::from);
+    let src_path = out_path.map_or_else(|| repo_path.join("src"), |p| p.into());
     let header_path = src_path.join("tree_sitter");
 
     // Ensure that the output directories exist.
