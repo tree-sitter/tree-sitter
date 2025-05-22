@@ -1241,6 +1241,66 @@ fn test_query_matches_with_negated_fields() {
 }
 
 #[test]
+fn test_query_matches_with_positive_fields() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+        let query = Query::new(
+            &language,
+            ";scm
+            (import_specifier
+                &alias
+                name: (identifier) @import_named)
+
+            (export_specifier
+                &alias
+                name: (identifier) @export_named)
+
+            (export_statement
+                &value
+                (_) @default_export_child)
+
+            ; This positive field list is an extension of a previous
+            ; positive field list. The order of the children and positive
+            ; fields doesn't matter.
+            (export_statement
+                &value
+                . (_) @export_decorated
+                &decorator)
+
+            (export_statement
+                &source
+                . (_) @export_clause)
+            ",
+        )
+        .unwrap();
+        assert_query_matches(
+            &language,
+            &query,
+            "
+            import {a as b, c} from 'p1';
+            export {g, h as i} from 'p2';
+
+            @foo
+            export default 1;
+
+            export var j = 1;
+
+            export default k;
+            ",
+            &[
+                (0, vec![("import_named", "a")]),
+                (4, vec![("export_clause", "{g, h as i}")]),
+                (1, vec![("export_named", "h")]),
+                (2, vec![("default_export_child", "@foo")]),
+                (3, vec![("export_decorated", "@foo")]),
+                (2, vec![("default_export_child", "1")]),
+                (2, vec![("default_export_child", "k")]),
+            ],
+        );
+    });
+}
+
+#[test]
 fn test_query_matches_with_field_at_root() {
     allocations::record(|| {
         let language = get_language("javascript");
