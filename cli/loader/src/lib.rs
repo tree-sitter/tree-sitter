@@ -1096,13 +1096,21 @@ impl Loader {
             )
         })?;
 
-        let response = ureq::get(&sdk_url)
+        let config = ureq::config::Config::builder()
+            .tls_config(
+                ureq::tls::TlsConfig::builder()
+                    .provider(ureq::tls::TlsProvider::NativeTls)
+                    .build(),
+            )
+            .build();
+        let response = config
+            .new_agent()
+            .get(&sdk_url)
             .call()
             .with_context(|| format!("Failed to download wasi-sdk from {sdk_url}"))?;
         if !response.status().is_success() {
             return Err(anyhow::anyhow!(
-                "Failed to download wasi-sdk from {}",
-                sdk_url
+                "Failed to download wasi-sdk from {sdk_url}",
             ));
         }
 
