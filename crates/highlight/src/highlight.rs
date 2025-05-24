@@ -275,7 +275,7 @@ impl Highlighter {
         }
     }
 
-    pub fn parser(&mut self) -> &mut Parser {
+    pub const fn parser(&mut self) -> &mut Parser {
         &mut self.parser
     }
 
@@ -1098,7 +1098,7 @@ impl HtmlRenderer {
         result
     }
 
-    pub fn set_carriage_return_highlight(&mut self, highlight: Option<Highlight>) {
+    pub const fn set_carriage_return_highlight(&mut self, highlight: Option<Highlight>) {
         self.carriage_return_highlight = highlight;
     }
 

@@ -1446,15 +1446,15 @@ impl Loader {
         }
     }
 
-    pub fn debug_build(&mut self, flag: bool) {
+    pub const fn debug_build(&mut self, flag: bool) {
         self.debug_build = flag;
     }
 
-    pub fn sanitize_build(&mut self, flag: bool) {
+    pub const fn sanitize_build(&mut self, flag: bool) {
         self.sanitize_build = flag;
     }
 
-    pub fn force_rebuild(&mut self, rebuild: bool) {
+    pub const fn force_rebuild(&mut self, rebuild: bool) {
         self.force_rebuild = rebuild;
     }
 

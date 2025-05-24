@@ -274,7 +274,7 @@ impl TagsContext {
         }
     }
 
-    pub fn parser(&mut self) -> &mut Parser {
+    pub const fn parser(&mut self) -> &mut Parser {
         &mut self.parser
     }
 
