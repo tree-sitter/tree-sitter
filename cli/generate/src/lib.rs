@@ -146,8 +146,8 @@ impl From<semver::Error> for JSError {
 
 pub fn generate_parser_in_directory(
     repo_path: &Path,
-    out_path: Option<&str>,
-    grammar_path: Option<&str>,
+    out_path: Option<&Path>,
+    grammar_path: Option<&Path>,
     mut abi_version: usize,
     report_symbol_name: Option<&str>,
     js_runtime: Option<&str>,
