@@ -67,6 +67,7 @@ pub fn run(args: &Test) -> Result<()> {
     if args.g {
         let cargo_cmd = Command::new("cargo")
             .arg("test")
+            .arg("--all")
             .arg(test_flags)
             .arg("--no-run")
             .arg("--message-format=json")
@@ -89,7 +90,7 @@ pub fn run(args: &Test) -> Result<()> {
         )?;
     } else {
         let mut cargo_cmd = Command::new("cargo");
-        cargo_cmd.arg("test");
+        cargo_cmd.arg("test").arg("--all");
         if args.wasm {
             cargo_cmd.arg("--features").arg("wasm");
         }
