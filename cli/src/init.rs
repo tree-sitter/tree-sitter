@@ -613,10 +613,15 @@ pub fn generate_grammar_files(
                 allow_update,
                 |path| generate_file(path, SETUP_PY_TEMPLATE, language_name, &generate_opts),
                 |path| {
-                    let contents = fs::read_to_string(path)?;
+                    let mut contents = fs::read_to_string(path)?;
                     if !contents.contains("egg_info") || !contents.contains("Py_GIL_DISABLED") {
                         eprintln!("Replacing setup.py");
                         generate_file(path, SETUP_PY_TEMPLATE, language_name, &generate_opts)?;
+                    } else {
+                        contents = contents
+                            .replace("path\nfrom platform import system", "name, path")
+                            .replace("system() != \"Windows\"", "name != \"nt\"");
+                        write_file(path, contents)?;
                     }
                     Ok(())
                 },
@@ -679,10 +684,13 @@ pub fn generate_grammar_files(
                 |path| generate_file(path, PACKAGE_SWIFT_TEMPLATE, language_name, &generate_opts),
                 |path| {
                     let mut contents = fs::read_to_string(path)?;
-                    contents = contents.replace(
-                        "https://github.com/ChimeHQ/SwiftTreeSitter",
-                        "https://github.com/tree-sitter/swift-tree-sitter",
-                    );
+                    contents = contents
+                        .replace(
+                            "https://github.com/ChimeHQ/SwiftTreeSitter",
+                            "https://github.com/tree-sitter/swift-tree-sitter",
+                        )
+                        .replace("version: \"0.8.0\")", "version: \"0.9.0\")")
+                        .replace("(url:", "(name: \"SwiftTreeSitter\", url:");
                     write_file(path, contents)?;
                     Ok(())
                 },
