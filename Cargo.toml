@@ -102,7 +102,7 @@ ansi_colours = "1.2.3"
 anstyle = "1.0.10"
 anyhow = "1.0.98"
 bstr = "1.12.0"
-cc = "1.2.23"
+cc = "1.2.24"
 clap = { version = "4.5.38", features = [
   "cargo",
   "derive",
