@@ -4,9 +4,10 @@ use std::{
     sync::LazyLock,
 };
 
+use crate::tests::generate_parser;
 use anyhow::Context;
 use tree_sitter::Language;
-use tree_sitter_generate::{ALLOC_HEADER, ARRAY_HEADER};
+use tree_sitter_generate::{load_grammar_file, ALLOC_HEADER, ARRAY_HEADER};
 use tree_sitter_highlight::HighlightConfiguration;
 use tree_sitter_loader::{CompileConfig, Loader};
 use tree_sitter_tags::TagsConfiguration;
@@ -38,6 +39,13 @@ pub fn get_language(name: &str) -> Language {
     let mut config = CompileConfig::new(&src_dir, None, None);
     config.header_paths.push(&HEADER_DIR);
     TEST_LOADER.load_language_at_path(config).unwrap()
+}
+
+pub fn get_test_fixture_language(name: &str) -> Language {
+    let grammar_dir_path = fixtures_dir().join("test_grammars").join(name);
+    let grammar_json = load_grammar_file(&grammar_dir_path.join("grammar.js"), None).unwrap();
+    let (parser_name, parser_code) = generate_parser(&grammar_json).unwrap();
+    get_test_language(&parser_name, &parser_code, Some(&grammar_dir_path))
 }
 
 pub fn get_language_queries_path(language_name: &str) -> PathBuf {
