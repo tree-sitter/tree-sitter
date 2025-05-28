@@ -6,7 +6,8 @@ const http = require('http');
 const https = require('https');
 const packageJSON = require('./package.json');
 
-// Look to a results table in https://github.com/tree-sitter/tree-sitter/issues/2196
+https.globalAgent.keepAlive = false;
+
 const matrix = {
   platform: {
     'darwin': {
