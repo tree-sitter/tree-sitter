@@ -15,6 +15,8 @@ if(NOT ${TREE_SITTER_ABI_VERSION} MATCHES "^[0-9]+$")
     message(FATAL_ERROR "TREE_SITTER_ABI_VERSION must be an integer")
 endif()
 
+include(GNUInstallDirs)
+
 find_program(TREE_SITTER_CLI tree-sitter DOC "Tree-sitter CLI")
 
 add_custom_command(OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/src/parser.c"
@@ -46,8 +48,6 @@ set_target_properties(tree-sitter-KEBAB_PARSER_NAME
 
 configure_file(bindings/c/tree-sitter-KEBAB_PARSER_NAME.pc.in
                "${CMAKE_CURRENT_BINARY_DIR}/tree-sitter-KEBAB_PARSER_NAME.pc" @ONLY)
-
-include(GNUInstallDirs)
 
 install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/bindings/c/tree_sitter"
         DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
