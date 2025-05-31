@@ -22,8 +22,15 @@
             "examples": [
               "Rust",
               "HTML"
-            ],
-            "$comment": "This is used in the description and the class names."
+            ]
+          },
+          "title": {
+            "type": "string",
+            "description": "The title of the language.",
+            "examples": [
+              "Rust",
+              "HTML"
+            ]
           },
           "scope": {
             "type": "string",
