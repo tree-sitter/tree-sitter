@@ -33,4 +33,4 @@ thiserror.workspace = true
 tree-sitter.workspace = true
 
 [target.'cfg(windows)'.dependencies]
-url = { version = "2.5.4", default-features = false }
+url.workspace = true
