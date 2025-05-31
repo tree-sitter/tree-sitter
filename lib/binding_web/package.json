@@ -18,15 +18,25 @@
   "type": "module",
   "exports": {
     ".": {
-      "import": "./web-tree-sitter.js",
-      "require": "./web-tree-sitter.cjs",
-      "types": "./web-tree-sitter.d.ts"
+      "import": {
+        "types": "./web-tree-sitter.d.ts",
+        "default": "./web-tree-sitter.js"
+      },
+      "require": {
+        "types": "./web-tree-sitter.d.cts",
+        "default": "./web-tree-sitter.cjs"
+      }
     },
     "./web-tree-sitter.wasm": "./web-tree-sitter.wasm",
     "./debug": {
-      "import": "./debug/web-tree-sitter.js",
-      "require": "./debug/web-tree-sitter.cjs",
-      "types": "./web-tree-sitter.d.ts"
+      "import": {
+        "types": "./web-tree-sitter.d.ts",
+        "default": "./debug/web-tree-sitter.js"
+      },
+      "require": {
+        "types": "./web-tree-sitter.d.cts",
+        "default": "./debug/web-tree-sitter.cjs"
+      }
     },
     "./debug/web-tree-sitter.wasm": "./debug/web-tree-sitter.wasm"
   },
@@ -53,6 +63,8 @@
     "debug/web-tree-sitter.wasm.map",
     "web-tree-sitter.d.ts",
     "web-tree-sitter.d.ts.map",
+    "web-tree-sitter.d.cts",
+    "web-tree-sitter.d.cts.map",
     "src/**/*.ts",
     "lib/*.c",
     "lib/*.h"
