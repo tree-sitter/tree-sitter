@@ -79,7 +79,7 @@
 <h2 id="about">About </h2>
 <p>You can try out tree-sitter with a few pre-selected grammars on this page.
 You can also run playground locally (with your own grammar) using the
-<a href="/cli/playground.html">CLI</a>'s <code>tree-sitter playground</code> subcommand.
+<a href="/tree-sitter/cli/playground.html">CLI</a>'s <code>tree-sitter playground</code> subcommand.
 </p>
 
 ```admonish info
