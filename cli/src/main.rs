@@ -80,6 +80,9 @@ struct Init {
     /// Update outdated files
     #[arg(long, short)]
     pub update: bool,
+    /// The path to the tree-sitter grammar directory
+    #[arg(long, short = 'p')]
+    pub grammar_path: Option<PathBuf>,
 }
 
 #[derive(Args)]
@@ -87,7 +90,7 @@ struct Init {
 struct Generate {
     /// The path to the grammar file
     #[arg(index = 1)]
-    pub grammar_path: Option<String>,
+    pub grammar_path: Option<PathBuf>,
     /// Show debug log during generation
     #[arg(long, short)]
     pub log: bool,
@@ -112,10 +115,10 @@ struct Generate {
     pub debug_build: bool,
     /// The path to the directory containing the parser library
     #[arg(long, value_name = "PATH")]
-    pub libdir: Option<String>,
+    pub libdir: Option<PathBuf>,
     /// The path to output the generated source files
     #[arg(long, short, value_name = "DIRECTORY")]
-    pub output: Option<String>,
+    pub output: Option<PathBuf>,
     /// Produce a report of the states for the given rule, use `-` to report every rule
     #[arg(long)]
     pub report_states_for_rule: Option<String>,
@@ -143,10 +146,10 @@ struct Build {
     pub docker: bool,
     /// The path to output the compiled file
     #[arg(short, long)]
-    pub output: Option<String>,
+    pub output: Option<PathBuf>,
     /// The path to the grammar directory
     #[arg(index = 1, num_args = 1)]
-    pub path: Option<String>,
+    pub path: Option<PathBuf>,
     /// Make the parser reuse the same allocator as the library
     #[arg(long)]
     pub reuse_allocator: bool,
@@ -164,6 +167,9 @@ struct Parse {
     /// The source file(s) to use
     #[arg(num_args=1..)]
     pub paths: Option<Vec<PathBuf>>,
+    /// The path to the tree-sitter grammar directory
+    #[arg(long, short = 'p')]
+    pub grammar_path: Option<PathBuf>,
     /// Select a language by the scope instead of a file extension
     #[arg(long)]
     pub scope: Option<String>,
@@ -252,6 +258,9 @@ struct Test {
     /// Only run corpus test cases from from a given filename
     #[arg(long)]
     pub file_name: Option<String>,
+    /// The path to the tree-sitter grammar directory
+    #[arg(long, short = 'p')]
+    pub grammar_path: Option<PathBuf>,
     /// Update all syntax trees in corpus files with current parser output
     #[arg(long, short)]
     pub update: bool,
@@ -294,6 +303,9 @@ struct Version {
     #[arg(num_args = 1)]
     /// The version to bump to
     pub version: SemverVersion,
+    /// The path to the tree-sitter grammar directory
+    #[arg(long, short = 'p')]
+    pub grammar_path: Option<PathBuf>,
 }
 
 #[derive(Args)]
@@ -304,7 +316,10 @@ struct Fuzz {
     pub skip: Option<Vec<String>>,
     /// Subdirectory to the language
     #[arg(long)]
-    pub subdir: Option<String>,
+    pub subdir: Option<PathBuf>,
+    /// The path to the tree-sitter grammar directory
+    #[arg(long, short = 'p')]
+    pub grammar_path: Option<PathBuf>,
     /// Maximum number of edits to perform per fuzz test
     #[arg(long)]
     pub edits: Option<usize>,
@@ -334,6 +349,9 @@ struct Query {
     /// Path to a file with queries
     #[arg(index = 1, required = true)]
     query_path: PathBuf,
+    /// The path to the tree-sitter grammar directory
+    #[arg(long, short = 'p')]
+    pub grammar_path: Option<PathBuf>,
     /// Measure execution time
     #[arg(long, short)]
     pub time: bool,
@@ -403,6 +421,9 @@ struct Highlight {
     /// The source file(s) to use
     #[arg(num_args = 1..)]
     pub paths: Option<Vec<PathBuf>>,
+    /// The path to the tree-sitter grammar directory
+    #[arg(long, short = 'p')]
+    pub grammar_path: Option<PathBuf>,
     /// The path to an alternative config.json file
     #[arg(long)]
     pub config_path: Option<PathBuf>,
@@ -429,6 +450,9 @@ struct Tags {
     /// The source file(s) to use
     #[arg(num_args = 1..)]
     pub paths: Option<Vec<PathBuf>>,
+    /// The path to the tree-sitter grammar directory
+    #[arg(long, short = 'p')]
+    pub grammar_path: Option<PathBuf>,
     /// The path to an alternative config.json file
     #[arg(long)]
     pub config_path: Option<PathBuf>,
@@ -446,7 +470,7 @@ struct Playground {
     pub quiet: bool,
     /// Path to the directory containing the grammar and wasm files
     #[arg(long)]
-    pub grammar_path: Option<String>,
+    pub grammar_path: Option<PathBuf>,
 }
 
 #[derive(Args)]
@@ -778,7 +802,7 @@ impl Generate {
         }
         if self.build {
             if let Some(path) = self.libdir {
-                loader = loader::Loader::with_parser_lib_path(PathBuf::from(path));
+                loader = loader::Loader::with_parser_lib_path(path);
             }
             loader.debug_build(self.debug_build);
             loader.languages_at_path(current_dir)?;
@@ -789,7 +813,7 @@ impl Generate {
 
 impl Build {
     fn run(self, mut loader: loader::Loader, current_dir: &Path) -> Result<()> {
-        let grammar_path = current_dir.join(self.path.as_deref().unwrap_or_default());
+        let grammar_path = current_dir.join(self.path.unwrap_or_default());
 
         if self.docker {
             eprintln!("Warning: --docker flag is no longer used, and will be removed in a future release.");
@@ -1705,7 +1729,25 @@ fn run() -> Result<()> {
 
     let command = Commands::from_arg_matches(&cli.clone().get_matches())?;
 
-    let current_dir = env::current_dir().unwrap();
+    let current_dir = match &command {
+        Commands::Init(Init { grammar_path, .. })
+        | Commands::Parse(Parse { grammar_path, .. })
+        | Commands::Test(Test { grammar_path, .. })
+        | Commands::Version(Version { grammar_path, .. })
+        | Commands::Fuzz(Fuzz { grammar_path, .. })
+        | Commands::Query(Query { grammar_path, .. })
+        | Commands::Highlight(Highlight { grammar_path, .. })
+        | Commands::Tags(Tags { grammar_path, .. })
+        | Commands::Playground(Playground { grammar_path, .. }) => grammar_path,
+        Commands::Build(_)
+        | Commands::Generate(_)
+        | Commands::InitConfig(_)
+        | Commands::DumpLanguages(_)
+        | Commands::Complete(_) => &None,
+    }
+    .as_ref()
+    .map_or_else(|| env::current_dir().unwrap(), |p| p.clone());
+
     let loader = loader::Loader::new()?;
 
     match command {
