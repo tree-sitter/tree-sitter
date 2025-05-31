@@ -1208,6 +1208,15 @@ uint32_t ts_language_symbol_count(const TSLanguage *self);
 uint32_t ts_language_state_count(const TSLanguage *self);
 
 /**
+ * Get the number of large states in this language.
+ *
+ * ("Large states" are states with a number of terminal states above a certain
+ * threshold, which don't allow an optimized representation. Thus this number
+ * correlates with parser complexity and performance.)
+ */
+uint32_t ts_language_large_state_count(const TSLanguage *self);
+
+/**
  * Get the numerical id for the given node type string.
  */
 TSSymbol ts_language_symbol_for_name(
