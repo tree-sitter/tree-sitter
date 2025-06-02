@@ -6,7 +6,10 @@ use super::{
     helpers::fixtures::{fixtures_dir, get_language, get_test_language},
     Rand,
 };
-use crate::{parse::perform_edit, tests::generate_parser};
+use crate::{
+    parse::perform_edit,
+    tests::{generate_parser, helpers::fixtures::get_test_fixture_language},
+};
 
 const JSON_EXAMPLE: &str = r#"
 
@@ -308,19 +311,8 @@ fn test_parent_of_zero_width_node() {
 
 #[test]
 fn test_next_sibling_of_zero_width_node() {
-    let grammar_json = load_grammar_file(
-        &fixtures_dir()
-            .join("test_grammars")
-            .join("next_sibling_from_zwt")
-            .join("grammar.js"),
-        None,
-    )
-    .unwrap();
-
-    let (parser_name, parser_code) = generate_parser(&grammar_json).unwrap();
-
     let mut parser = Parser::new();
-    let language = get_test_language(&parser_name, &parser_code, None);
+    let language = get_test_fixture_language("next_sibling_from_zwt");
     parser.set_language(&language).unwrap();
 
     let tree = parser.parse("abdef", None).unwrap();

@@ -129,13 +129,17 @@ static inline bool ts_tree_cursor_child_iterator_previous(
   };
   *visible = ts_subtree_visible(*child);
   bool extra = ts_subtree_extra(*child);
-  if (!extra && self->alias_sequence) {
-    *visible |= self->alias_sequence[self->structural_child_index];
-    self->structural_child_index--;
-  }
 
   self->position = length_backtrack(self->position, ts_subtree_padding(*child));
   self->child_index--;
+
+  if (!extra && self->alias_sequence) {
+    *visible |= self->alias_sequence[self->structural_child_index];
+    if (self->child_index > 0) {
+      self->structural_child_index--;
+    }
+  }
+
 
   // unsigned can underflow so compare it to child_count
   if (self->child_index < self->parent.ptr->child_count) {

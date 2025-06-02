@@ -3,7 +3,11 @@ use std::str;
 use tree_sitter::{InputEdit, Parser, Point, Range, Tree};
 
 use super::helpers::fixtures::get_language;
-use crate::{fuzz::edits::Edit, parse::perform_edit, tests::invert_edit};
+use crate::{
+    fuzz::edits::Edit,
+    parse::perform_edit,
+    tests::{helpers::fixtures::get_test_fixture_language, invert_edit},
+};
 
 #[test]
 fn test_tree_edit() {
@@ -375,6 +379,31 @@ fn test_tree_cursor() {
 
     assert!(copy.goto_parent());
     assert_eq!(copy.node().kind(), "struct_item");
+}
+
+#[test]
+fn test_tree_cursor_previous_sibling_with_aliases() {
+    let mut parser = Parser::new();
+    parser
+        .set_language(&get_test_fixture_language("aliases_in_root"))
+        .unwrap();
+
+    let text = "# comment\nfoo foo";
+    let tree = parser.parse(text, None).unwrap();
+    let mut cursor = tree.walk();
+    assert_eq!(cursor.node().kind(), "document");
+
+    cursor.goto_first_child();
+    assert_eq!(cursor.node().kind(), "comment");
+
+    assert!(cursor.goto_next_sibling());
+    assert_eq!(cursor.node().kind(), "bar");
+
+    assert!(cursor.goto_previous_sibling());
+    assert_eq!(cursor.node().kind(), "comment");
+
+    assert!(cursor.goto_next_sibling());
+    assert_eq!(cursor.node().kind(), "bar");
 }
 
 #[test]
