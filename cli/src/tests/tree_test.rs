@@ -388,7 +388,7 @@ fn test_tree_cursor_previous_sibling_with_aliases() {
         .set_language(&get_test_fixture_language("aliases_in_root"))
         .unwrap();
 
-    let text = "# comment\nfoo foo";
+    let text = "# comment\n# \nfoo foo";
     let tree = parser.parse(text, None).unwrap();
     let mut cursor = tree.walk();
     assert_eq!(cursor.node().kind(), "document");
@@ -397,9 +397,18 @@ fn test_tree_cursor_previous_sibling_with_aliases() {
     assert_eq!(cursor.node().kind(), "comment");
 
     assert!(cursor.goto_next_sibling());
+    assert_eq!(cursor.node().kind(), "comment");
+
+    assert!(cursor.goto_next_sibling());
     assert_eq!(cursor.node().kind(), "bar");
 
     assert!(cursor.goto_previous_sibling());
+    assert_eq!(cursor.node().kind(), "comment");
+
+    assert!(cursor.goto_previous_sibling());
+    assert_eq!(cursor.node().kind(), "comment");
+
+    assert!(cursor.goto_next_sibling());
     assert_eq!(cursor.node().kind(), "comment");
 
     assert!(cursor.goto_next_sibling());
