@@ -135,11 +135,10 @@ static inline bool ts_tree_cursor_child_iterator_previous(
 
   if (!extra && self->alias_sequence) {
     *visible |= self->alias_sequence[self->structural_child_index];
-    if (self->child_index > 0) {
+    if (self->structural_child_index > 0) {
       self->structural_child_index--;
     }
   }
-
 
   // unsigned can underflow so compare it to child_count
   if (self->child_index < self->parent.ptr->child_count) {
