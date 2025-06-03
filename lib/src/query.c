@@ -411,9 +411,7 @@ static void stream_scan_identifier(Stream *stream) {
     iswalnum(stream->next) ||
     stream->next == '_' ||
     stream->next == '-' ||
-    stream->next == '.' ||
-    stream->next == '?' ||
-    stream->next == '!'
+    stream->next == '.'
   );
 }
 
@@ -2092,6 +2090,10 @@ static TSQueryError ts_query__parse_predicate(
   if (!stream_is_ident_start(stream)) return TSQueryErrorSyntax;
   const char *predicate_name = stream->input;
   stream_scan_identifier(stream);
+  if (stream->next != '?' && stream->next != '!') {
+    return TSQueryErrorSyntax;
+  }
+  stream_advance(stream);
   uint32_t length = (uint32_t)(stream->input - predicate_name);
   uint16_t id = symbol_table_insert_name(
     &self->predicate_values,

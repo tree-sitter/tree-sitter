@@ -117,12 +117,24 @@ fn test_query_errors_on_invalid_syntax() {
 
         // Unclosed sibling expression with predicate
         assert_eq!(
-            Query::new(&language, r"((identifier) (#a)")
+            Query::new(&language, r"((identifier) (#a?)")
                 .unwrap_err()
                 .message,
             [
-                "((identifier) (#a)", //
-                "                  ^",
+                "((identifier) (#a?)", //
+                "                   ^",
+            ]
+            .join("\n")
+        );
+
+        // Predicate not ending in `?` or `!`
+        assert_eq!(
+            Query::new(&language, r"((identifier) (#a))")
+                .unwrap_err()
+                .message,
+            [
+                "((identifier) (#a))", //
+                "                 ^",
             ]
             .join("\n")
         );
