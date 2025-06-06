@@ -22,7 +22,9 @@ pub fn run() -> Result<()> {
     let version_file = Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .unwrap()
-        .join("cli")
+        .parent()
+        .unwrap()
+        .join("crates")
         .join("loader")
         .join("emscripten-version");
 
@@ -34,7 +36,7 @@ pub fn run() -> Result<()> {
     create_commit(
         &repo,
         &format!("build(deps): bump emscripten to {version}"),
-        &["cli/loader/emscripten-version"],
+        &["crates/loader/emscripten-version"],
     )?;
 
     Ok(())
