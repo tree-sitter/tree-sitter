@@ -613,15 +613,33 @@ pub fn generate_grammar_files(
                 allow_update,
                 |path| generate_file(path, SETUP_PY_TEMPLATE, language_name, &generate_opts),
                 |path| {
-                    let mut contents = fs::read_to_string(path)?;
+                    let contents = fs::read_to_string(path)?;
                     if !contents.contains("egg_info") || !contents.contains("Py_GIL_DISABLED") {
                         eprintln!("Replacing setup.py");
                         generate_file(path, SETUP_PY_TEMPLATE, language_name, &generate_opts)?;
                     } else {
-                        contents = contents
+                        let new_contents = contents
                             .replace("path\nfrom platform import system", "name, path")
-                            .replace("system() != \"Windows\"", "name != \"nt\"");
-                        write_file(path, contents)?;
+                            .replace("system() != \"Windows\"", "name != \"nt\"")
+                            .replace(
+                                "\nfrom setuptools.command.build import build\n",
+                                indoc! {"
+                                \ntry:
+                                    from setuptools.command.build import build
+                                except ImportError:
+                                    from distutils.command.build import build
+                                "},
+                            )
+                            .replace(
+                                "\nfrom wheel.bdist_wheel import bdist_wheel\n",
+                                indoc! {"
+                                \ntry:
+                                    from setuptools.command.bdist_wheel import bdist_wheel
+                                except ImportError:
+                                    from wheel.bdist_wheel import bdist_wheel
+                                "},
+                            );
+                        write_file(path, new_contents)?;
                     }
                     Ok(())
                 },

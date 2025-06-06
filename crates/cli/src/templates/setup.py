@@ -2,9 +2,15 @@ from os import name, path
 from sysconfig import get_config_var
 
 from setuptools import Extension, find_packages, setup
-from setuptools.command.build import build
+try:
+    from setuptools.command.build import build
+except ImportError:
+    from distutils.command.build import build
 from setuptools.command.egg_info import egg_info
-from wheel.bdist_wheel import bdist_wheel
+try:
+    from setuptools.command.bdist_wheel import bdist_wheel
+except ImportError:
+    from wheel.bdist_wheel import bdist_wheel
 
 sources = [
     "bindings/python/tree_sitter_LOWER_PARSER_NAME/binding.c",
