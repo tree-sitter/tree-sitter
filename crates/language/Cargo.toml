@@ -16,4 +16,4 @@ categories = ["api-bindings", "development-tools::ffi", "parsing"]
 workspace = true
 
 [lib]
-path = "language.rs"
+path = "src/language.rs"

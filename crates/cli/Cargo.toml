@@ -16,6 +16,9 @@ include = ["build.rs", "README.md", "benches/*", "src/**"]
 [lints]
 workspace = true
 
+[lib]
+path = "src/tree_sitter_cli.rs"
+
 [[bin]]
 name = "tree-sitter"
 path = "src/main.rs"

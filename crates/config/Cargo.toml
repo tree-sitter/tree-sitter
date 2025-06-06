@@ -12,6 +12,9 @@ license.workspace = true
 keywords.workspace = true
 categories.workspace = true
 
+[lib]
+path = "src/tree_sitter_config.rs"
+
 [lints]
 workspace = true
 

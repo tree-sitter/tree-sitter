@@ -12,6 +12,9 @@ license.workspace = true
 keywords.workspace = true
 categories.workspace = true
 
+[lib]
+path = "src/generate.rs"
+
 [lints]
 workspace = true
 

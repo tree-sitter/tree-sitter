@@ -16,6 +16,9 @@ categories.workspace = true
 all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
+[lib]
+path = "src/loader.rs"
+
 [lints]
 workspace = true
 

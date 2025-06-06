@@ -19,6 +19,7 @@ categories = ["parsing", "text-editors"]
 workspace = true
 
 [lib]
+path = "src/tags.rs"
 crate-type = ["lib", "staticlib"]
 
 [dependencies]
