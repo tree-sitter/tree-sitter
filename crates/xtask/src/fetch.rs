@@ -1,16 +1,9 @@
-use std::{path::Path, process::Command};
-
+use crate::{bail_on_err, root_dir, EMSCRIPTEN_VERSION};
 use anyhow::Result;
-
-use crate::{bail_on_err, EMSCRIPTEN_VERSION};
+use std::process::Command;
 
 pub fn run_fixtures() -> Result<()> {
-    let grammars_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .unwrap()
-        .join("test")
-        .join("fixtures")
-        .join("grammars");
+    let grammars_dir = root_dir().join("test").join("fixtures").join("grammars");
 
     [
         ("bash", "master"),
@@ -72,12 +65,7 @@ pub fn run_fixtures() -> Result<()> {
 }
 
 pub fn run_emscripten() -> Result<()> {
-    let emscripten_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .unwrap()
-        .join("target")
-        .join("emsdk");
-
+    let emscripten_dir = root_dir().join("target").join("emsdk");
     if emscripten_dir.exists() {
         println!("Emscripten SDK already exists");
         return Ok(());

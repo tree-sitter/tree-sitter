@@ -1,10 +1,9 @@
-use std::{fs, path::Path};
-
 use anyhow::{anyhow, Result};
 use git2::Repository;
 use serde_json::Value;
+use std::fs;
 
-use crate::create_commit;
+use crate::{create_commit, root_dir};
 
 pub fn run() -> Result<()> {
     let response = ureq::get("https://api.github.com/repos/emscripten-core/emsdk/tags")
@@ -19,11 +18,7 @@ pub fn run() -> Result<()> {
         .and_then(|tag| tag["name"].as_str())
         .ok_or(anyhow!("No tags found"))?;
 
-    let version_file = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .unwrap()
-        .parent()
-        .unwrap()
+    let version_file = root_dir()
         .join("crates")
         .join("loader")
         .join("emscripten-version");
