@@ -106,21 +106,15 @@ test-wasm:
 lint:
 	cargo update --workspace --locked --quiet
 	cargo check --workspace --all-targets
-	cargo +nightly fmt --all --check
-	cargo +stable clippy --workspace --all-targets -- -D warnings
-
-lint-nightly:
-	cargo update --workspace --locked --quiet
-	cargo check --workspace --all-targets
-	cargo +nightly fmt --all --check
-	cargo +nightly clippy --workspace --all-targets -- -D warnings
+	cargo fmt --all --check
+	cargo clippy --workspace --all-targets -- -D warnings
 
 lint-web:
 	npm --prefix lib/binding_web ci
 	npm --prefix lib/binding_web run lint
 
 format:
-	cargo +nightly fmt --all
+	cargo fmt --all
 
 changelog:
 	@git-cliff --config .github/cliff.toml --prepend CHANGELOG.md --latest --github-token $(shell gh auth token)
