@@ -34,12 +34,6 @@ jobs:
           toolchain: stable
           components: clippy, rustfmt
 
-      - name: Set up nightly Rust toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          toolchain: nightly
-          components: clippy, rustfmt
-
       - name: Lint files
         run: |
           make lint
