@@ -170,10 +170,10 @@ struct UpgradeWasmtime {
 
 const BUILD_VERSION: &str = env!("CARGO_PKG_VERSION");
 const BUILD_SHA: Option<&str> = option_env!("BUILD_SHA");
-const EMSCRIPTEN_VERSION: &str = include_str!("../../cli/loader/emscripten-version").trim_ascii();
+const EMSCRIPTEN_VERSION: &str = include_str!("../../loader/emscripten-version").trim_ascii();
 const EMSCRIPTEN_TAG: &str = concat!(
     "docker.io/emscripten/emsdk:",
-    include_str!("../../cli/loader/emscripten-version")
+    include_str!("../../loader/emscripten-version")
 )
 .trim_ascii();
 

@@ -1,15 +1,15 @@
 [workspace]
-default-members = ["cli"]
+default-members = ["crates/cli"]
 members = [
-  "cli",
-  "cli/config",
-  "cli/generate",
-  "cli/loader",
+  "crates/cli",
+  "crates/config",
+  "crates/generate",
+  "crates/highlight",
+  "crates/loader",
+  "crates/tags",
+  "crates/xtask",
+  "crates/language",
   "lib",
-  "lib/language",
-  "tags",
-  "highlight",
-  "xtask",
 ]
 resolver = "2"
 
@@ -154,8 +154,9 @@ wasmparser = "0.224.1"
 webbrowser = "1.0.4"
 
 tree-sitter = { version = "0.26.0", path = "./lib" }
-tree-sitter-generate = { version = "0.26.0", path = "./cli/generate" }
-tree-sitter-loader = { version = "0.26.0", path = "./cli/loader" }
-tree-sitter-config = { version = "0.26.0", path = "./cli/config" }
-tree-sitter-highlight = { version = "0.26.0", path = "./highlight" }
-tree-sitter-tags = { version = "0.26.0", path = "./tags" }
+tree-sitter-generate = { version = "0.26.0", path = "./crates/generate" }
+tree-sitter-language = { path = "./crates/language" }
+tree-sitter-loader = { version = "0.26.0", path = "./crates/loader" }
+tree-sitter-config = { version = "0.26.0", path = "./crates/config" }
+tree-sitter-highlight = { version = "0.26.0", path = "./crates/highlight" }
+tree-sitter-tags = { version = "0.26.0", path = "./crates/tags" }

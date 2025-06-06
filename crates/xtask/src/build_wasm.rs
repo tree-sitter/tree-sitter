@@ -202,7 +202,7 @@ fn build_wasm(cmd: &mut Command) -> Result<()> {
 }
 
 pub fn run_wasm_stdlib() -> Result<()> {
-    let export_flags = include_str!("../../lib/src/wasm/stdlib-symbols.txt")
+    let export_flags = include_str!("../../../lib/src/wasm/stdlib-symbols.txt")
         .lines()
         .map(|line| format!("-Wl,--export={}", &line[1..line.len() - 2]))
         .collect::<Vec<String>>();

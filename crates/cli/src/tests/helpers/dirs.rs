@@ -2,6 +2,8 @@ pub static ROOT_DIR: LazyLock<PathBuf> = LazyLock::new(|| {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .unwrap()
+        .parent()
+        .unwrap()
         .to_owned()
 });
 

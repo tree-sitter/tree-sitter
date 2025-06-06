@@ -229,7 +229,7 @@ fn tree_sitter_dir(tree_sitter_json: &str, name: &str) -> tempfile::TempDir {
     .unwrap();
     fs::write(
         temp_dir.path().join("src/tree_sitter/parser.h"),
-        include_str!("../../../lib/src/parser.h"),
+        include_str!("../../../../lib/src/parser.h"),
     )
     .unwrap();
     temp_dir
