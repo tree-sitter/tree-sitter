@@ -1222,12 +1222,14 @@ impl HtmlRenderer {
 
             // At line boundaries, close and re-open all of the open tags.
             if c == b'\n' {
-                highlights.iter().for_each(|_| self.end_highlight());
+                for _ in highlights {
+                    self.end_highlight();
+                }
                 self.html.push(c);
                 self.line_offsets.push(self.html.len() as u32);
-                highlights
-                    .iter()
-                    .for_each(|scope| self.start_highlight(*scope, attribute_callback));
+                for scope in highlights {
+                    self.start_highlight(*scope, attribute_callback);
+                }
             } else if let Some(escape) = html_escape(c) {
                 self.html.extend_from_slice(escape);
             } else {
