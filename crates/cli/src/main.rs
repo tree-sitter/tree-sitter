@@ -170,6 +170,14 @@ struct Parse {
     /// The path to the tree-sitter grammar directory
     #[arg(long, short = 'p')]
     pub grammar_path: Option<PathBuf>,
+    /// Don't force rebuild the parser when `--grammar_path` is specified
+    #[arg(
+        long,
+        requires = "grammar_path",
+        conflicts_with = "rebuild",
+        default_value_t = false
+    )]
+    pub no_rebuild: bool,
     /// Select a language by the scope instead of a file extension
     #[arg(long)]
     pub scope: Option<String>,
@@ -261,6 +269,14 @@ struct Test {
     /// The path to the tree-sitter grammar directory
     #[arg(long, short = 'p')]
     pub grammar_path: Option<PathBuf>,
+    /// Don't force rebuild the parser when `--grammar_path` is specified
+    #[arg(
+        long,
+        requires = "grammar_path",
+        conflicts_with = "rebuild",
+        default_value_t = false
+    )]
+    pub no_rebuild: bool,
     /// Update all syntax trees in corpus files with current parser output
     #[arg(long, short)]
     pub update: bool,
@@ -320,6 +336,14 @@ struct Fuzz {
     /// The path to the tree-sitter grammar directory
     #[arg(long, short = 'p')]
     pub grammar_path: Option<PathBuf>,
+    /// Don't force rebuild the parser when `--grammar_path` is specified
+    #[arg(
+        long,
+        requires = "grammar_path",
+        conflicts_with = "rebuild",
+        default_value_t = false
+    )]
+    pub no_rebuild: bool,
     /// Maximum number of edits to perform per fuzz test
     #[arg(long)]
     pub edits: Option<usize>,
@@ -352,6 +376,14 @@ struct Query {
     /// The path to the tree-sitter grammar directory
     #[arg(long, short = 'p')]
     pub grammar_path: Option<PathBuf>,
+    /// Don't force rebuild the parser when `--grammar_path` is specified
+    #[arg(
+        long,
+        requires = "grammar_path",
+        conflicts_with = "rebuild",
+        default_value_t = false
+    )]
+    pub no_rebuild: bool,
     /// Measure execution time
     #[arg(long, short)]
     pub time: bool,
@@ -910,7 +942,7 @@ impl Parse {
         let mut parser = Parser::new();
 
         loader.debug_build(self.debug_build);
-        loader.force_rebuild(self.rebuild);
+        loader.force_rebuild(self.rebuild || !self.no_rebuild);
 
         #[cfg(feature = "wasm")]
         if self.wasm {
@@ -1069,7 +1101,7 @@ impl Test {
         let stat = self.stat.unwrap_or_default();
 
         loader.debug_build(self.debug_build);
-        loader.force_rebuild(self.rebuild);
+        loader.force_rebuild(self.rebuild || !self.no_rebuild);
 
         let mut parser = Parser::new();
 
@@ -1210,7 +1242,7 @@ impl Version {
 impl Fuzz {
     fn run(self, mut loader: loader::Loader, current_dir: &Path) -> Result<()> {
         loader.sanitize_build(true);
-        loader.force_rebuild(self.rebuild);
+        loader.force_rebuild(self.rebuild || !self.no_rebuild);
 
         let languages = loader.languages_at_path(current_dir)?;
         let (language, language_name) = &languages
@@ -1243,6 +1275,7 @@ impl Query {
     fn run(self, mut loader: loader::Loader, current_dir: &Path) -> Result<()> {
         let config = Config::load(self.config_path)?;
         let loader_config = config.get()?;
+        loader.force_rebuild(self.rebuild || !self.no_rebuild);
         loader.find_all_languages(&loader_config)?;
         let query_path = Path::new(&self.query_path);
 
