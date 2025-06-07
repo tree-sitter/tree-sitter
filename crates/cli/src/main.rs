@@ -386,6 +386,9 @@ struct Query {
     #[arg(long, short = 'n')]
     #[clap(conflicts_with = "paths", conflicts_with = "paths_file")]
     pub test_number: Option<u32>,
+    /// Force rebuild the parser
+    #[arg(short, long)]
+    pub rebuild: bool,
 }
 
 #[derive(Args)]
@@ -431,6 +434,9 @@ struct Highlight {
     #[arg(long, short = 'n')]
     #[clap(conflicts_with = "paths", conflicts_with = "paths_file")]
     pub test_number: Option<u32>,
+    /// Force rebuild the parser
+    #[arg(short, long)]
+    pub rebuild: bool,
 }
 
 #[derive(Args)]
@@ -460,6 +466,9 @@ struct Tags {
     #[arg(long, short = 'n')]
     #[clap(conflicts_with = "paths", conflicts_with = "paths_file")]
     pub test_number: Option<u32>,
+    /// Force rebuild the parser
+    #[arg(short, long)]
+    pub rebuild: bool,
 }
 
 #[derive(Args)]
@@ -1354,6 +1363,7 @@ impl Highlight {
         loader.configure_highlights(&theme_config.theme.highlight_names);
         let loader_config = config.get()?;
         loader.find_all_languages(&loader_config)?;
+        loader.force_rebuild(self.rebuild);
 
         let cancellation_flag = util::cancel_on_signal();
 
@@ -1508,6 +1518,7 @@ impl Tags {
         let config = Config::load(self.config_path)?;
         let loader_config = config.get()?;
         loader.find_all_languages(&loader_config)?;
+        loader.force_rebuild(self.rebuild);
 
         let cancellation_flag = util::cancel_on_signal();
 
