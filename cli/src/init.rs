@@ -679,10 +679,13 @@ pub fn generate_grammar_files(
                 |path| generate_file(path, PACKAGE_SWIFT_TEMPLATE, language_name, &generate_opts),
                 |path| {
                     let mut contents = fs::read_to_string(path)?;
-                    contents = contents.replace(
-                        "https://github.com/ChimeHQ/SwiftTreeSitter",
-                        "https://github.com/tree-sitter/swift-tree-sitter",
-                    );
+                    contents = contents
+                        .replace(
+                            "https://github.com/ChimeHQ/SwiftTreeSitter",
+                            "https://github.com/tree-sitter/swift-tree-sitter",
+                        )
+                        .replace("version: \"0.8.0\")", "version: \"0.9.0\")")
+                        .replace("(url:", "(name: \"SwiftTreeSitter\", url:");
                     write_file(path, contents)?;
                     Ok(())
                 },
