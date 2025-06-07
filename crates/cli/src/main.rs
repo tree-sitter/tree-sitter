@@ -418,6 +418,9 @@ struct Query {
     #[arg(long, short = 'n')]
     #[clap(conflicts_with = "paths", conflicts_with = "paths_file")]
     pub test_number: Option<u32>,
+    /// Force rebuild the parser
+    #[arg(short, long)]
+    pub rebuild: bool,
 }
 
 #[derive(Args)]
