@@ -167,8 +167,8 @@ struct Parse {
     /// The source file(s) to use
     #[arg(num_args=1..)]
     pub paths: Option<Vec<PathBuf>>,
-    /// The path to the tree-sitter grammar directory
-    #[arg(long, short = 'p')]
+    /// The path to the tree-sitter grammar directory, implies --rebuild
+    #[arg(long, short = 'p', conflicts_with = "rebuild")]
     pub grammar_path: Option<PathBuf>,
     /// Select a language by the scope instead of a file extension
     #[arg(long)]
@@ -258,8 +258,8 @@ struct Test {
     /// Only run corpus test cases from from a given filename
     #[arg(long)]
     pub file_name: Option<String>,
-    /// The path to the tree-sitter grammar directory
-    #[arg(long, short = 'p')]
+    /// The path to the tree-sitter grammar directory, implies --rebuild
+    #[arg(long, short = 'p', conflicts_with = "rebuild")]
     pub grammar_path: Option<PathBuf>,
     /// Update all syntax trees in corpus files with current parser output
     #[arg(long, short)]
@@ -317,8 +317,8 @@ struct Fuzz {
     /// Subdirectory to the language
     #[arg(long)]
     pub subdir: Option<PathBuf>,
-    /// The path to the tree-sitter grammar directory
-    #[arg(long, short = 'p')]
+    /// The path to the tree-sitter grammar directory, implies --rebuild
+    #[arg(long, short = 'p', conflicts_with = "rebuild")]
     pub grammar_path: Option<PathBuf>,
     /// Maximum number of edits to perform per fuzz test
     #[arg(long)]
@@ -349,8 +349,8 @@ struct Query {
     /// Path to a file with queries
     #[arg(index = 1, required = true)]
     query_path: PathBuf,
-    /// The path to the tree-sitter grammar directory
-    #[arg(long, short = 'p')]
+    /// The path to the tree-sitter grammar directory, implies --rebuild
+    #[arg(long, short = 'p', conflicts_with = "rebuild")]
     pub grammar_path: Option<PathBuf>,
     /// Measure execution time
     #[arg(long, short)]
@@ -424,8 +424,8 @@ struct Highlight {
     /// The source file(s) to use
     #[arg(num_args = 1..)]
     pub paths: Option<Vec<PathBuf>>,
-    /// The path to the tree-sitter grammar directory
-    #[arg(long, short = 'p')]
+    /// The path to the tree-sitter grammar directory, implies --rebuild
+    #[arg(long, short = 'p', conflicts_with = "rebuild")]
     pub grammar_path: Option<PathBuf>,
     /// The path to an alternative config.json file
     #[arg(long)]
@@ -456,8 +456,8 @@ struct Tags {
     /// The source file(s) to use
     #[arg(num_args = 1..)]
     pub paths: Option<Vec<PathBuf>>,
-    /// The path to the tree-sitter grammar directory
-    #[arg(long, short = 'p')]
+    /// The path to the tree-sitter grammar directory, implies --rebuild
+    #[arg(long, short = 'p', conflicts_with = "rebuild")]
     pub grammar_path: Option<PathBuf>,
     /// The path to an alternative config.json file
     #[arg(long)]
@@ -919,7 +919,7 @@ impl Parse {
         let mut parser = Parser::new();
 
         loader.debug_build(self.debug_build);
-        loader.force_rebuild(self.rebuild);
+        loader.force_rebuild(self.rebuild || self.grammar_path.is_some());
 
         #[cfg(feature = "wasm")]
         if self.wasm {
@@ -1078,7 +1078,7 @@ impl Test {
         let stat = self.stat.unwrap_or_default();
 
         loader.debug_build(self.debug_build);
-        loader.force_rebuild(self.rebuild);
+        loader.force_rebuild(self.rebuild || self.grammar_path.is_some());
 
         let mut parser = Parser::new();
 
@@ -1219,7 +1219,7 @@ impl Version {
 impl Fuzz {
     fn run(self, mut loader: loader::Loader, current_dir: &Path) -> Result<()> {
         loader.sanitize_build(true);
-        loader.force_rebuild(self.rebuild);
+        loader.force_rebuild(self.rebuild || self.grammar_path.is_some());
 
         let languages = loader.languages_at_path(current_dir)?;
         let (language, language_name) = &languages
@@ -1252,6 +1252,7 @@ impl Query {
     fn run(self, mut loader: loader::Loader, current_dir: &Path) -> Result<()> {
         let config = Config::load(self.config_path)?;
         let loader_config = config.get()?;
+        loader.force_rebuild(self.rebuild || self.grammar_path.is_some());
         loader.find_all_languages(&loader_config)?;
         let query_path = Path::new(&self.query_path);
 
@@ -1363,7 +1364,7 @@ impl Highlight {
         loader.configure_highlights(&theme_config.theme.highlight_names);
         let loader_config = config.get()?;
         loader.find_all_languages(&loader_config)?;
-        loader.force_rebuild(self.rebuild);
+        loader.force_rebuild(self.rebuild || self.grammar_path.is_some());
 
         let cancellation_flag = util::cancel_on_signal();
 
@@ -1518,7 +1519,7 @@ impl Tags {
         let config = Config::load(self.config_path)?;
         let loader_config = config.get()?;
         loader.find_all_languages(&loader_config)?;
-        loader.force_rebuild(self.rebuild);
+        loader.force_rebuild(self.rebuild || self.grammar_path.is_some());
 
         let cancellation_flag = util::cancel_on_signal();
 
