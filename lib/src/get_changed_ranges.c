@@ -34,7 +34,7 @@ bool ts_range_array_intersects(
   uint32_t end_byte
 ) {
   for (unsigned i = start_index; i < self->size; i++) {
-    TSRange *range = &self->contents[i];
+    TSRange *range = array_get(self, i);
     if (range->end_byte > start_byte) {
       if (range->start_byte >= end_byte) break;
       return true;
@@ -159,7 +159,7 @@ static bool iterator_tree_is_visible(const Iterator *self) {
   TreeCursorEntry entry = *array_back(&self->cursor.stack);
   if (ts_subtree_visible(*entry.subtree)) return true;
   if (self->cursor.stack.size > 1) {
-    Subtree parent = *self->cursor.stack.contents[self->cursor.stack.size - 2].subtree;
+    Subtree parent = *array_get(&self->cursor.stack, self->cursor.stack.size - 2)->subtree;
     return ts_language_alias_at(
       self->language,
       parent.ptr->production_id,
@@ -183,10 +183,10 @@ static void iterator_get_visible_state(
   }
 
   for (; i + 1 > 0; i--) {
-    TreeCursorEntry entry = self->cursor.stack.contents[i];
+    TreeCursorEntry entry = *array_get(&self->cursor.stack, i);
 
     if (i > 0) {
-      const Subtree *parent = self->cursor.stack.contents[i - 1].subtree;
+      const Subtree *parent = array_get(&self->cursor.stack, i - 1)->subtree;
       *alias_symbol = ts_language_alias_at(
         self->language,
         parent->ptr->production_id,
@@ -497,9 +497,9 @@ unsigned ts_subtree_get_changed_ranges(
     // Keep track of the current position in the included range differences
     // array in order to avoid scanning the entire array on each iteration.
     while (included_range_difference_index < included_range_differences->size) {
-      const TSRange *range = &included_range_differences->contents[
+      const TSRange *range = array_get(included_range_differences,
         included_range_difference_index
-      ];
+      );
       if (range->end_byte <= position.bytes) {
         included_range_difference_index++;
       } else {

@@ -30,7 +30,8 @@ on your filesystem. You can control this using the `"parser-directories"` key in
 {
   "parser-directories": [
     "/Users/my-name/code",
-    "/Users/my-name/other-code"
+    "~/other-code",
+    "$HOME/another-code"
   ]
 }
 ```

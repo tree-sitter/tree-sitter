@@ -1,15 +1,15 @@
 [workspace]
-default-members = ["cli"]
+default-members = ["crates/cli"]
 members = [
-  "cli",
-  "cli/config",
-  "cli/generate",
-  "cli/loader",
+  "crates/cli",
+  "crates/config",
+  "crates/generate",
+  "crates/highlight",
+  "crates/loader",
+  "crates/tags",
+  "crates/xtask",
+  "crates/language",
   "lib",
-  "lib/language",
-  "tags",
-  "highlight",
-  "xtask",
 ]
 resolver = "2"
 
@@ -102,16 +102,16 @@ ansi_colours = "1.2.3"
 anstyle = "1.0.10"
 anyhow = "1.0.98"
 bstr = "1.12.0"
-cc = "1.2.22"
-clap = { version = "4.5.38", features = [
+cc = "1.2.25"
+clap = { version = "4.5.39", features = [
   "cargo",
   "derive",
   "env",
   "help",
   "unstable-styles",
 ] }
-clap_complete = "4.5.50"
-clap_complete_nushell = "4.5.5"
+clap_complete = "4.5.52"
+clap_complete_nushell = "4.5.6"
 ctor = "0.2.9"
 ctrlc = { version = "3.4.7", features = ["termination"] }
 dialoguer = { version = "0.11.0", features = ["fuzzy-select"] }
@@ -125,7 +125,7 @@ heck = "0.5.0"
 html-escape = "0.2.13"
 indexmap = "2.9.0"
 indoc = "2.0.6"
-libloading = "0.8.7"
+libloading = "0.8.8"
 log = { version = "0.4.27", features = ["std"] }
 memchr = "2.7.4"
 once_cell = "1.21.3"
@@ -154,8 +154,9 @@ wasmparser = "0.224.1"
 webbrowser = "1.0.4"
 
 tree-sitter = { version = "0.26.0", path = "./lib" }
-tree-sitter-generate = { version = "0.26.0", path = "./cli/generate" }
-tree-sitter-loader = { version = "0.26.0", path = "./cli/loader" }
-tree-sitter-config = { version = "0.26.0", path = "./cli/config" }
-tree-sitter-highlight = { version = "0.26.0", path = "./highlight" }
-tree-sitter-tags = { version = "0.26.0", path = "./tags" }
+tree-sitter-generate = { version = "0.26.0", path = "./crates/generate" }
+tree-sitter-language = { path = "./crates/language" }
+tree-sitter-loader = { version = "0.26.0", path = "./crates/loader" }
+tree-sitter-config = { version = "0.26.0", path = "./crates/config" }
+tree-sitter-highlight = { version = "0.26.0", path = "./crates/highlight" }
+tree-sitter-tags = { version = "0.26.0", path = "./crates/tags" }

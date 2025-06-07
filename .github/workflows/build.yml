@@ -73,7 +73,7 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Read Emscripten version
-      run: printf 'EMSCRIPTEN_VERSION=%s\n' "$(<cli/loader/emscripten-version)" >> $GITHUB_ENV
+      run: printf 'EMSCRIPTEN_VERSION=%s\n' "$(<crates/loader/emscripten-version)" >> $GITHUB_ENV
 
     - name: Install Emscripten
       if: ${{ !matrix.no-run && !matrix.use-cross }}
