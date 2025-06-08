@@ -8,7 +8,7 @@ use anstyle::{AnsiColor, Color, Style};
 use anyhow::{anyhow, Context, Result};
 use clap::{crate_authors, Args, Command, FromArgMatches as _, Subcommand, ValueEnum};
 use clap_complete::generate;
-use dialoguer::{theme::ColorfulTheme, Confirm, FuzzySelect, Input};
+use dialoguer::{theme::ColorfulTheme, Confirm, FuzzySelect, Input, MultiSelect};
 use heck::ToUpperCamelCase;
 use regex::Regex;
 use semver::Version as SemverVersion;
@@ -30,7 +30,7 @@ use tree_sitter_cli::{
 };
 use tree_sitter_config::Config;
 use tree_sitter_highlight::Highlighter;
-use tree_sitter_loader::{self as loader, TreeSitterJSON};
+use tree_sitter_loader::{self as loader, Bindings, TreeSitterJSON};
 use tree_sitter_tags::TagsContext;
 use url::Url;
 
@@ -682,6 +682,21 @@ impl Init {
                     .map(|e| (!e.trim().is_empty()).then(|| Url::parse(&e).unwrap()))
             };
 
+            let bindings = || {
+                let languages = Bindings::default().languages();
+
+                let enabled = MultiSelect::new()
+                    .with_prompt("Bindings")
+                    .items_checked(&languages)
+                    .interact()?
+                    .into_iter()
+                    .map(|i| languages[i].0);
+
+                let out = Bindings::with_enabled_languages(enabled)
+                    .expect("unexpected unsupported language");
+                anyhow::Ok(out)
+            };
+
             let choices = [
                 "name",
                 "camelcase",
@@ -696,6 +711,7 @@ impl Init {
                 "author",
                 "email",
                 "url",
+                "bindings",
                 "exit",
             ];
 
@@ -715,6 +731,7 @@ impl Init {
                         "author" => opts.author = author()?,
                         "email" => opts.email = email()?,
                         "url" => opts.url = url()?,
+                        "bindings" => opts.bindings = bindings()?,
                         "exit" => break,
                         _ => unreachable!(),
                     }
