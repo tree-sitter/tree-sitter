@@ -65,13 +65,17 @@ pub fn run(args: &Test) -> Result<()> {
     }
 
     if args.g {
-        let cargo_cmd = Command::new("cargo")
+        let mut cargo_cmd = Command::new("cargo");
+        cargo_cmd
             .arg("test")
             .arg(test_flags)
             .arg("--no-run")
-            .arg("--message-format=json")
-            .stdout(Stdio::piped())
-            .spawn()?;
+            .arg("--message-format=json");
+
+        #[cfg(target_os = "windows")]
+        cargo_cmd.arg("--").arg("--test-threads=1");
+
+        let cargo_cmd = cargo_cmd.stdout(Stdio::piped()).spawn()?;
 
         let jq_cmd = Command::new("jq")
             .arg("-rs")
@@ -97,8 +101,15 @@ pub fn run(args: &Test) -> Result<()> {
             cargo_cmd.arg(test_flags);
         }
         cargo_cmd.args(&args.args);
+
+        #[cfg(target_os = "windows")]
+        cargo_cmd.arg("--").arg("--test-threads=1");
+
         if args.nocapture {
-            cargo_cmd.arg("--").arg("--nocapture");
+            #[cfg(not(target_os = "windows"))]
+            cargo_cmd.arg("--");
+
+            cargo_cmd.arg("--nocapture");
         }
         bail_on_err(
             &cargo_cmd.spawn()?.wait_with_output()?,
