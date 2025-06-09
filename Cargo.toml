@@ -99,25 +99,25 @@ codegen-units = 256
 
 [workspace.dependencies]
 ansi_colours = "1.2.3"
-anstyle = "1.0.10"
+anstyle = "1.0.11"
 anyhow = "1.0.98"
 bstr = "1.12.0"
-cc = "1.2.25"
-clap = { version = "4.5.39", features = [
+cc = "1.2.26"
+clap = { version = "4.5.40", features = [
   "cargo",
   "derive",
   "env",
   "help",
   "unstable-styles",
 ] }
-clap_complete = "4.5.52"
-clap_complete_nushell = "4.5.6"
+clap_complete = "4.5.54"
+clap_complete_nushell = "4.5.7"
 ctor = "0.2.9"
 ctrlc = { version = "3.4.7", features = ["termination"] }
 dialoguer = { version = "0.11.0", features = ["fuzzy-select"] }
 etcetera = "0.8.0"
 filetime = "0.2.25"
-flate2 = "1.0.28"
+flate2 = "1.1.2"
 fs4 = "0.12.0"
 git2 = "0.20.2"
 glob = "0.3.2"
@@ -146,7 +146,7 @@ tar = "0.4.40"
 tempfile = "3.20.0"
 thiserror = "2.0.12"
 tiny_http = "0.12.0"
-toml = "0.8.22"
+toml = "0.8.23"
 unindent = "0.2.4"
 url = { version = "2.5.4", features = ["serde"] }
 walkdir = "2.5.0"
