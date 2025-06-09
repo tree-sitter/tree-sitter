@@ -9,6 +9,7 @@ use std::{
     collections::HashMap,
     env, fs,
     io::{BufRead, BufReader, Write as _},
+    marker::PhantomData,
     mem,
     path::{Path, PathBuf},
     process::Command,
@@ -16,7 +17,6 @@ use std::{
     time::SystemTime,
 };
 
-#[cfg(any(feature = "tree-sitter-highlight", feature = "tree-sitter-tags"))]
 use anyhow::Error;
 use anyhow::{anyhow, Context, Result};
 use etcetera::BaseStrategy as _;
@@ -323,6 +323,7 @@ pub struct LanguageConfiguration<'a> {
     highlight_names: &'a Mutex<Vec<String>>,
     #[cfg(feature = "tree-sitter-highlight")]
     use_all_highlight_names: bool,
+    _phantom: PhantomData<&'a ()>,
 }
 
 pub struct Loader {
@@ -1231,6 +1232,7 @@ impl Loader {
                     highlight_names: &self.highlight_names,
                     #[cfg(feature = "tree-sitter-highlight")]
                     use_all_highlight_names: self.use_all_highlight_names,
+                    _phantom: PhantomData,
                 };
 
                 for file_type in &configuration.file_types {
@@ -1300,6 +1302,7 @@ impl Loader {
                 highlight_names: &self.highlight_names,
                 #[cfg(feature = "tree-sitter-highlight")]
                 use_all_highlight_names: self.use_all_highlight_names,
+                _phantom: PhantomData,
             };
             self.language_configurations.push(unsafe {
                 mem::transmute::<LanguageConfiguration<'_>, LanguageConfiguration<'static>>(
