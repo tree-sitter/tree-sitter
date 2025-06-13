@@ -56,29 +56,6 @@ fn generate_bindings(out_dir: &std::path::Path) {
 
     use bindgen::RustTarget;
 
-    let output = Command::new("cargo")
-        .args(["metadata", "--format-version", "1"])
-        .output()
-        .unwrap();
-
-    let metadata = serde_json::from_slice::<serde_json::Value>(&output.stdout).unwrap();
-
-    let Some(rust_version) = metadata
-        .get("packages")
-        .and_then(|packages| packages.as_array())
-        .and_then(|packages| {
-            packages.iter().find_map(|package| {
-                if package["name"] == "tree-sitter" {
-                    package.get("rust_version").and_then(|v| v.as_str())
-                } else {
-                    None
-                }
-            })
-        })
-    else {
-        panic!("Failed to find tree-sitter package in cargo metadata");
-    };
-
     const HEADER_PATH: &str = "include/tree_sitter/api.h";
 
     println!("cargo:rerun-if-changed={HEADER_PATH}");
@@ -96,6 +73,8 @@ fn generate_bindings(out_dir: &std::path::Path) {
         "TSQueryMatch",
         "TSQueryPredicateStep",
     ];
+
+    let rust_version = env!("CARGO_PKG_RUST_VERSION");
 
     let bindings = bindgen::Builder::default()
         .header(HEADER_PATH)
