@@ -5,18 +5,18 @@
 extern "C" {
 #endif
 
-#include <limits.h>
-#include <stdbool.h>
-#include <stdio.h>
-#include "./length.h"
 #include "./array.h"
 #include "./error_costs.h"
 #include "./host.h"
-#include "tree_sitter/api.h"
+#include "./length.h"
 #include "./parser.h"
+#include "tree_sitter/api.h"
+#include <limits.h>
+#include <stdbool.h>
+#include <stdio.h>
 
 #define TS_TREE_STATE_NONE USHRT_MAX
-#define NULL_SUBTREE ((Subtree) {.ptr = NULL})
+#define NULL_SUBTREE       ((Subtree){ .ptr = NULL })
 
 // The serialized state of an external scanner.
 //
@@ -49,23 +49,23 @@ typedef struct {
 // the pointer or the inline struct.
 typedef struct SubtreeInlineData SubtreeInlineData;
 
-#define SUBTREE_BITS    \
-  bool visible : 1;     \
-  bool named : 1;       \
-  bool extra : 1;       \
+#define SUBTREE_BITS \
+  bool visible : 1; \
+  bool named : 1; \
+  bool extra : 1; \
   bool has_changes : 1; \
-  bool is_missing : 1;  \
+  bool is_missing : 1; \
   bool is_keyword : 1;
 
-#define SUBTREE_SIZE           \
-  uint8_t padding_columns;     \
-  uint8_t padding_rows : 4;    \
+#define SUBTREE_SIZE \
+  uint8_t padding_columns; \
+  uint8_t padding_rows : 4; \
   uint8_t lookahead_bytes : 4; \
-  uint8_t padding_bytes;       \
+  uint8_t padding_bytes; \
   uint8_t size_bytes;
 
 #if TS_BIG_ENDIAN
-#if TS_PTR_SIZE == 32
+# if TS_PTR_SIZE == 32
 
 struct SubtreeInlineData {
   uint16_t parse_state;
@@ -76,7 +76,7 @@ struct SubtreeInlineData {
   SUBTREE_SIZE
 };
 
-#else
+# else
 
 struct SubtreeInlineData {
   SUBTREE_SIZE
@@ -87,7 +87,7 @@ struct SubtreeInlineData {
   bool is_inline : 1;
 };
 
-#endif
+# endif
 #else
 
 struct SubtreeInlineData {
@@ -126,7 +126,7 @@ typedef struct {
   bool has_changes : 1;
   bool has_external_tokens : 1;
   bool has_external_scanner_state_change : 1;
-  bool depends_on_column: 1;
+  bool depends_on_column : 1;
   bool is_missing : 1;
   bool is_keyword : 1;
 
@@ -175,7 +175,11 @@ typedef struct {
 
 void ts_external_scanner_state_init(ExternalScannerState *self, const char *data, unsigned length);
 const char *ts_external_scanner_state_data(const ExternalScannerState *self);
-bool ts_external_scanner_state_eq(const ExternalScannerState *self, const char *buffer, unsigned length);
+bool ts_external_scanner_state_eq(
+  const ExternalScannerState *self,
+  const char *buffer,
+  unsigned length
+);
 void ts_external_scanner_state_delete(ExternalScannerState *self);
 
 void ts_subtree_array_copy(SubtreeArray self, SubtreeArray *dest);
@@ -188,14 +192,25 @@ SubtreePool ts_subtree_pool_new(uint32_t capacity);
 void ts_subtree_pool_delete(SubtreePool *self);
 
 Subtree ts_subtree_new_leaf(
-  SubtreePool *pool, TSSymbol symbol, Length padding, Length size,
-  uint32_t lookahead_bytes, TSStateId parse_state,
-  bool has_external_tokens, bool depends_on_column,
-  bool is_keyword, const TSLanguage *language
+  SubtreePool *pool,
+  TSSymbol symbol,
+  Length padding,
+  Length size,
+  uint32_t lookahead_bytes,
+  TSStateId parse_state,
+  bool has_external_tokens,
+  bool depends_on_column,
+  bool is_keyword,
+  const TSLanguage *language
 );
 Subtree ts_subtree_new_error(
-  SubtreePool *pool, int32_t lookahead_char, Length padding, Length size,
-  uint32_t bytes_scanned, TSStateId parse_state, const TSLanguage *language
+  SubtreePool *pool,
+  int32_t lookahead_char,
+  Length padding,
+  Length size,
+  uint32_t bytes_scanned,
+  TSStateId parse_state,
+  const TSLanguage *language
 );
 MutableSubtree ts_subtree_new_node(
   TSSymbol symbol,
@@ -203,11 +218,7 @@ MutableSubtree ts_subtree_new_node(
   unsigned production_id,
   const TSLanguage *language
 );
-Subtree ts_subtree_new_error_node(
-  SubtreeArray *children,
-  bool extra,
-  const TSLanguage * language
-);
+Subtree ts_subtree_new_error_node(SubtreeArray *children, bool extra, const TSLanguage *language);
 Subtree ts_subtree_new_missing_leaf(
   SubtreePool *pool,
   TSSymbol symbol,
@@ -220,10 +231,21 @@ void ts_subtree_retain(Subtree self);
 void ts_subtree_release(SubtreePool *pool, Subtree self);
 int ts_subtree_compare(Subtree left, Subtree right, SubtreePool *pool);
 void ts_subtree_set_symbol(MutableSubtree *self, TSSymbol symbol, const TSLanguage *language);
-void ts_subtree_compress(MutableSubtree self, unsigned count, const TSLanguage *language, MutableSubtreeArray *stack);
+void ts_subtree_compress(
+  MutableSubtree self,
+  unsigned count,
+  const TSLanguage *language,
+  MutableSubtreeArray *stack
+);
 void ts_subtree_summarize_children(MutableSubtree self, const TSLanguage *language);
 Subtree ts_subtree_edit(Subtree self, const TSInputEdit *edit, SubtreePool *pool);
-char *ts_subtree_string(Subtree self, TSSymbol alias_symbol, bool alias_is_named, const TSLanguage *language, bool include_all);
+char *ts_subtree_string(
+  Subtree self,
+  TSSymbol alias_symbol,
+  bool alias_is_named,
+  const TSLanguage *language,
+  bool include_all
+);
 void ts_subtree_print_dot_graph(Subtree self, const TSLanguage *language, FILE *f);
 Subtree ts_subtree_last_external_token(Subtree tree);
 const ExternalScannerState *ts_subtree_external_scanner_state(Subtree self);
@@ -231,15 +253,33 @@ bool ts_subtree_external_scanner_state_eq(Subtree self, Subtree other);
 
 #define SUBTREE_GET(self, name) ((self).data.is_inline ? (self).data.name : (self).ptr->name)
 
-static inline TSSymbol ts_subtree_symbol(Subtree self) { return SUBTREE_GET(self, symbol); }
-static inline bool ts_subtree_visible(Subtree self) { return SUBTREE_GET(self, visible); }
-static inline bool ts_subtree_named(Subtree self) { return SUBTREE_GET(self, named); }
-static inline bool ts_subtree_extra(Subtree self) { return SUBTREE_GET(self, extra); }
-static inline bool ts_subtree_has_changes(Subtree self) { return SUBTREE_GET(self, has_changes); }
-static inline bool ts_subtree_missing(Subtree self) { return SUBTREE_GET(self, is_missing); }
-static inline bool ts_subtree_is_keyword(Subtree self) { return SUBTREE_GET(self, is_keyword); }
-static inline TSStateId ts_subtree_parse_state(Subtree self) { return SUBTREE_GET(self, parse_state); }
-static inline uint32_t ts_subtree_lookahead_bytes(Subtree self) { return SUBTREE_GET(self, lookahead_bytes); }
+static inline TSSymbol ts_subtree_symbol(Subtree self) {
+  return SUBTREE_GET(self, symbol);
+}
+static inline bool ts_subtree_visible(Subtree self) {
+  return SUBTREE_GET(self, visible);
+}
+static inline bool ts_subtree_named(Subtree self) {
+  return SUBTREE_GET(self, named);
+}
+static inline bool ts_subtree_extra(Subtree self) {
+  return SUBTREE_GET(self, extra);
+}
+static inline bool ts_subtree_has_changes(Subtree self) {
+  return SUBTREE_GET(self, has_changes);
+}
+static inline bool ts_subtree_missing(Subtree self) {
+  return SUBTREE_GET(self, is_missing);
+}
+static inline bool ts_subtree_is_keyword(Subtree self) {
+  return SUBTREE_GET(self, is_keyword);
+}
+static inline TSStateId ts_subtree_parse_state(Subtree self) {
+  return SUBTREE_GET(self, parse_state);
+}
+static inline uint32_t ts_subtree_lookahead_bytes(Subtree self) {
+  return SUBTREE_GET(self, lookahead_bytes);
+}
 
 #undef SUBTREE_GET
 
@@ -263,20 +303,25 @@ static inline void ts_subtree_set_extra(MutableSubtree *self, bool is_extra) {
 }
 
 static inline TSSymbol ts_subtree_leaf_symbol(Subtree self) {
-  if (self.data.is_inline) return self.data.symbol;
-  if (self.ptr->child_count == 0) return self.ptr->symbol;
+  if (self.data.is_inline)
+    return self.data.symbol;
+  if (self.ptr->child_count == 0)
+    return self.ptr->symbol;
   return self.ptr->first_leaf.symbol;
 }
 
 static inline TSStateId ts_subtree_leaf_parse_state(Subtree self) {
-  if (self.data.is_inline) return self.data.parse_state;
-  if (self.ptr->child_count == 0) return self.ptr->parse_state;
+  if (self.data.is_inline)
+    return self.data.parse_state;
+  if (self.ptr->child_count == 0)
+    return self.ptr->parse_state;
   return self.ptr->first_leaf.parse_state;
 }
 
 static inline Length ts_subtree_padding(Subtree self) {
   if (self.data.is_inline) {
-    Length result = {self.data.padding_bytes, {self.data.padding_rows, self.data.padding_columns}};
+    Length result
+      = { self.data.padding_bytes, { self.data.padding_rows, self.data.padding_columns } };
     return result;
   } else {
     return self.ptr->padding;
@@ -285,7 +330,7 @@ static inline Length ts_subtree_padding(Subtree self) {
 
 static inline Length ts_subtree_size(Subtree self) {
   if (self.data.is_inline) {
-    Length result = {self.data.size_bytes, {0, self.data.size_bytes}};
+    Length result = { self.data.size_bytes, { 0, self.data.size_bytes } };
     return result;
   } else {
     return self.ptr->size;
@@ -309,15 +354,13 @@ static inline uint32_t ts_subtree_repeat_depth(Subtree self) {
 }
 
 static inline uint32_t ts_subtree_is_repetition(Subtree self) {
-  return self.data.is_inline
-    ? 0
-    : !self.ptr->named && !self.ptr->visible && self.ptr->child_count != 0;
+  return self.data.is_inline ? 0
+                             : !self.ptr->named && !self.ptr->visible && self.ptr->child_count != 0;
 }
 
 static inline uint32_t ts_subtree_visible_descendant_count(Subtree self) {
-  return (self.data.is_inline || self.ptr->child_count == 0)
-    ? 0
-    : self.ptr->visible_descendant_count;
+  return (self.data.is_inline || self.ptr->child_count == 0) ? 0
+                                                             : self.ptr->visible_descendant_count;
 }
 
 static inline uint32_t ts_subtree_visible_child_count(Subtree self) {

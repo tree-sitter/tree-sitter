@@ -12,7 +12,7 @@ extern "C" {
 typedef struct Stack Stack;
 
 typedef unsigned StackVersion;
-#define STACK_VERSION_NONE ((StackVersion)-1)
+#define STACK_VERSION_NONE ((StackVersion) - 1)
 
 typedef struct {
   SubtreeArray subtrees;
@@ -57,7 +57,13 @@ Length ts_stack_position(const Stack *, StackVersion);
 // This transfers ownership of the tree to the Stack. Callers that
 // need to retain ownership of the tree for their own purposes should
 // first retain the tree.
-void ts_stack_push(Stack *self, StackVersion version, Subtree subtree, bool pending, TSStateId state);
+void ts_stack_push(
+  Stack *self,
+  StackVersion version,
+  Subtree subtree,
+  bool pending,
+  TSStateId state
+);
 
 // Pop the given number of entries from the given version of the stack. This
 // operation can increase the number of stack versions by revealing multiple

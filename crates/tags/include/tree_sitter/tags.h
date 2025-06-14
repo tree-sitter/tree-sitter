@@ -5,8 +5,8 @@
 extern "C" {
 #endif
 
-#include <stdint.h>
 #include "tree_sitter/api.h"
+#include <stdint.h>
 
 typedef enum {
   TSTagsOk,
@@ -86,10 +86,11 @@ const char *ts_tags_buffer_docs(const TSTagsBuffer *);
 uint32_t ts_tags_buffer_docs_len(const TSTagsBuffer *);
 
 // Get the syntax kinds for a scope.
-const char **ts_tagger_syntax_kinds_for_scope_name(const TSTagger *, const char *scope_name, uint32_t *len);
+const char **
+ts_tagger_syntax_kinds_for_scope_name(const TSTagger *, const char *scope_name, uint32_t *len);
 
 // Determine whether a parse error was encountered while tagging.
-bool ts_tags_buffer_found_parse_error(const TSTagsBuffer*);
+bool ts_tags_buffer_found_parse_error(const TSTagsBuffer *);
 
 #ifdef __cplusplus
 }

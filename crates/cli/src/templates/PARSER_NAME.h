@@ -13,4 +13,4 @@ const TSLanguage *tree_sitter_PARSER_NAME(void);
 }
 #endif
 
-#endif // TREE_SITTER_UPPER_PARSER_NAME_H_
+#endif  // TREE_SITTER_UPPER_PARSER_NAME_H_

@@ -1,18 +1,18 @@
 #ifndef TREE_SITTER_LENGTH_H_
 #define TREE_SITTER_LENGTH_H_
 
-#include <stdlib.h>
-#include <stdbool.h>
 #include "./point.h"
 #include "tree_sitter/api.h"
+#include <stdbool.h>
+#include <stdlib.h>
 
 typedef struct {
   uint32_t bytes;
   TSPoint extent;
 } Length;
 
-static const Length LENGTH_UNDEFINED = {0, {0, 1}};
-static const Length LENGTH_MAX = {UINT32_MAX, {UINT32_MAX, UINT32_MAX}};
+static const Length LENGTH_UNDEFINED = { 0, { 0, 1 } };
+static const Length LENGTH_MAX = { UINT32_MAX, { UINT32_MAX, UINT32_MAX } };
 
 static inline bool length_is_undefined(Length length) {
   return length.bytes == 0 && length.extent.column != 0;
@@ -37,7 +37,7 @@ static inline Length length_sub(Length len1, Length len2) {
 }
 
 static inline Length length_zero(void) {
-  Length result = {0, {0, 0}};
+  Length result = { 0, { 0, 0 } };
   return result;
 }
 

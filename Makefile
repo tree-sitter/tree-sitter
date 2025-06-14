@@ -103,20 +103,32 @@ test-wasm:
 	cargo xtask generate-fixtures --wasm
 	cargo xtask test-wasm
 
-lint:
+C_FILES := $(shell find lib -name '*.c' -o -name '*.h')
+
+lintrust:
 	cargo update --workspace --locked --quiet
 	cargo check --workspace --all-targets
 	cargo fmt --all --check
 	cargo clippy --workspace --all-targets -- -D warnings
 
+lintc:
+	clang-format --dry-run -Werror $(C_FILES)
+
+lint: lintc lintrust
+
 lint-web:
 	npm --prefix lib/binding_web ci
 	npm --prefix lib/binding_web run lint
 
-format:
+formatrust:
 	cargo fmt --all
+
+formatc:
+	clang-format -i $(C_FILES)
+
+format: formatc formatrust
 
 changelog:
 	@git-cliff --config .github/cliff.toml --prepend CHANGELOG.md --latest --github-token $(shell gh auth token)
 
-.PHONY: test test-wasm lint format changelog
+.PHONY: test test-wasm lint lintc lintrust lint-web format changelog

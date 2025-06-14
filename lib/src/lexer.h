@@ -6,9 +6,9 @@ extern "C" {
 #endif
 
 #include "./length.h"
+#include "./parser.h"
 #include "./subtree.h"
 #include "tree_sitter/api.h"
-#include "./parser.h"
 
 typedef struct {
   uint32_t value;
