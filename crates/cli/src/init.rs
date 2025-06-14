@@ -139,6 +139,7 @@ pub struct JsonConfigOpts {
     pub email: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub url: Option<Url>,
+    pub bindings: Bindings,
 }
 
 impl JsonConfigOpts {
@@ -185,7 +186,7 @@ impl JsonConfigOpts {
                 }),
                 namespace: None,
             },
-            bindings: Bindings::default(),
+            bindings: self.bindings,
         }
     }
 }
@@ -206,6 +207,7 @@ impl Default for JsonConfigOpts {
             author: String::new(),
             email: None,
             url: None,
+            bindings: Bindings::default(),
         }
     }
 }
