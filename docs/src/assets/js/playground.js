@@ -486,12 +486,12 @@ window.initializePlayground = async (opts) => {
       const containerHeight = outputContainerScroll.clientHeight;
       const offset = treeRowHighlightedIndex * lineHeight;
       if (scrollTop > offset - 20) {
-        $(outputContainerScroll).animate({ scrollTop: offset - 20 }, 150);
+        outputContainerScroll.scrollTo({ top: offset - 20, behavior: 'smooth' });
       } else if (scrollTop < offset + lineHeight + 40 - containerHeight) {
-        $(outputContainerScroll).animate(
-          { scrollTop: offset - containerHeight + 40 },
-          150,
-        );
+        outputContainerScroll.scrollTo({
+          top: offset - containerHeight + 40,
+          behavior: 'smooth'
+        });
       }
     }
   }
