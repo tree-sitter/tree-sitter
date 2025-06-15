@@ -52,7 +52,7 @@ fn main() {
 
 #[cfg(feature = "bindgen")]
 fn generate_bindings(out_dir: &std::path::Path) {
-    use std::{process::Command, str::FromStr};
+    use std::str::FromStr;
 
     use bindgen::RustTarget;
 
