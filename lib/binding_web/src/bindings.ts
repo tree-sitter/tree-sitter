@@ -9,7 +9,7 @@ export let Module: MainModule | null = null;
  *
  * Initialize the Tree-sitter WASM module. This should only be called by the {@link Parser} class via {@link Parser.init}.
  */
-export async function initializeBinding(moduleOptions?: EmscriptenModule): Promise<MainModule> {
+export async function initializeBinding(moduleOptions?: Partial<EmscriptenModule>): Promise<MainModule> {
   if (!Module) {
     Module = await createModule(moduleOptions);
   }

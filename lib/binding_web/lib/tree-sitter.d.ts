@@ -217,4 +217,4 @@ interface WasmModule {
 }
 
 export type MainModule = WasmModule & typeof RuntimeExports;
-export default function MainModuleFactory (options?: EmscriptenModule): Promise<MainModule>;
+export default function MainModuleFactory(options?: Partial<EmscriptenModule>): Promise<MainModule>;
