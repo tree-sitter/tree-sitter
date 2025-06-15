@@ -26,10 +26,34 @@ unless they are used only as the grammar's start rule.
     ExternalTokenNonTerminal(String),
     #[error("Non-symbol rules cannot be used as external tokens")]
     NonSymbolExternalToken,
-    #[error("Non-terminal symbol '{0}' cannot be used as the word token, because its rule is duplicated in '{1}'")]
-    NonTerminalWordToken(String, String),
+    #[error(transparent)]
+    WordToken(NonTerminalWordTokenError),
     #[error("Reserved word '{0}' must be a token")]
     NonTokenReservedWord(String),
+}
+
+#[derive(Debug, Error, Serialize)]
+pub struct NonTerminalWordTokenError {
+    pub symbol_name: String,
+    pub conflicting_symbol_name: Option<String>,
+}
+
+impl std::fmt::Display for NonTerminalWordTokenError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Non-terminal symbol '{}' cannot be used as the word token",
+            self.symbol_name
+        )?;
+        if let Some(conflicting_name) = &self.conflicting_symbol_name {
+            writeln!(
+                f,
+                ", because its rule is duplicated in '{conflicting_name}'",
+            )
+        } else {
+            writeln!(f)
+        }
+    }
 }
 
 pub(super) fn extract_tokens(
@@ -162,16 +186,16 @@ pub(super) fn extract_tokens(
         let token = symbol_replacer.replace_symbol(token);
         if token.is_non_terminal() {
             let word_token_variable = &variables[token.index];
-            let conflicting_variable = variables
+            let conflicting_symbol_name = variables
                 .iter()
                 .enumerate()
                 .find(|(i, v)| *i != token.index && v.rule == word_token_variable.rule)
-                .expect("Failed to find a variable with the same rule as the word token");
+                .map(|(_, v)| v.name.clone());
 
-            Err(ExtractTokensError::NonTerminalWordToken(
-                word_token_variable.name.clone(),
-                conflicting_variable.1.name.clone(),
-            ))?;
+            Err(ExtractTokensError::WordToken(NonTerminalWordTokenError {
+                symbol_name: word_token_variable.name.clone(),
+                conflicting_symbol_name,
+            }))?;
         }
         word_token = Some(token);
     }
