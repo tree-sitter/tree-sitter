@@ -12,6 +12,7 @@ PREFIX ?= /usr/local
 DATADIR ?= $(PREFIX)/share
 INCLUDEDIR ?= $(PREFIX)/include
 LIBDIR ?= $(PREFIX)/lib
+BINDIR ?= $(PREFIX)/bin
 PCLIBDIR ?= $(LIBDIR)/pkgconfig
 
 # source/object files
@@ -28,23 +29,24 @@ SONAME_MAJOR = $(shell sed -n 's/\#define LANGUAGE_VERSION //p' $(PARSER))
 SONAME_MINOR = $(word 1,$(subst ., ,$(VERSION)))
 
 # OS-specific bits
-ifeq ($(shell uname),Darwin)
+MACHINE := $(shell $(CC) -dumpmachine)
+
+ifneq ($(findstring darwin,$(MACHINE)),)
 	SOEXT = dylib
 	SOEXTVER_MAJOR = $(SONAME_MAJOR).$(SOEXT)
 	SOEXTVER = $(SONAME_MAJOR).$(SONAME_MINOR).$(SOEXT)
 	LINKSHARED = -dynamiclib -Wl,-install_name,$(LIBDIR)/lib$(LANGUAGE_NAME).$(SOEXTVER),-rpath,@executable_path/../Frameworks
-else ifneq ($(findstring mingw32,$(shell $(CC) -dumpmachine)),)
+else ifneq ($(findstring mingw32,$(MACHINE)),)
 	SOEXT = dll
-	LINKSHARED += -s -shared -Wl,--out-implib,$(@:dll=lib)
-lib$(LANGUAGE_NAME).lib: lib$(LANGUAGE_NAME).$(SOEXT)
+	LINKSHARED += -s -shared -Wl,--out-implib,lib$(LANGUAGE_NAME).dll.a
 else
 	SOEXT = so
 	SOEXTVER_MAJOR = $(SOEXT).$(SONAME_MAJOR)
 	SOEXTVER = $(SOEXT).$(SONAME_MAJOR).$(SONAME_MINOR)
 	LINKSHARED = -shared -Wl,-soname,lib$(LANGUAGE_NAME).$(SOEXTVER)
-endif
 ifneq ($(filter $(shell uname),FreeBSD NetBSD DragonFly),)
 	PCLIBDIR := $(PREFIX)/libdata/pkgconfig
+endif
 endif
 
 all: lib$(LANGUAGE_NAME).a lib$(LANGUAGE_NAME).$(SOEXT) $(LANGUAGE_NAME).pc
@@ -56,6 +58,10 @@ lib$(LANGUAGE_NAME).$(SOEXT): $(OBJS)
 	$(CC) $(LDFLAGS) $(LINKSHARED) $^ $(LDLIBS) -o $@
 ifneq ($(STRIP),)
 	$(STRIP) $@
+endif
+
+ifneq ($(findstring mingw32,$(MACHINE)),)
+lib$(LANGUAGE_NAME).dll.a: lib$(LANGUAGE_NAME).$(SOEXT)
 endif
 
 $(LANGUAGE_NAME).pc: bindings/c/$(LANGUAGE_NAME).pc.in
@@ -75,8 +81,15 @@ install: all
 	install -m644 $(LANGUAGE_NAME).pc '$(DESTDIR)$(PCLIBDIR)'/$(LANGUAGE_NAME).pc
 	install -m644 lib$(LANGUAGE_NAME).a '$(DESTDIR)$(LIBDIR)'/lib$(LANGUAGE_NAME).a
 	install -m755 lib$(LANGUAGE_NAME).$(SOEXT) '$(DESTDIR)$(LIBDIR)'/lib$(LANGUAGE_NAME).$(SOEXTVER)
-	ln -sf lib$(LANGUAGE_NAME).$(SOEXTVER) '$(DESTDIR)$(LIBDIR)'/lib$(LANGUAGE_NAME).$(SOEXTVER_MAJOR)
-	ln -sf lib$(LANGUAGE_NAME).$(SOEXTVER_MAJOR) '$(DESTDIR)$(LIBDIR)'/lib$(LANGUAGE_NAME).$(SOEXT)
+ifneq ($(findstring mingw32,$(MACHINE)),)
+	install -d '$(DESTDIR)$(BINDIR)'
+	install -m755 lib$(LANGUAGE_NAME).dll '$(DESTDIR)$(BINDIR)'/lib$(LANGUAGE_NAME).dll
+	install -m755 lib$(LANGUAGE_NAME).dll.a '$(DESTDIR)$(LIBDIR)'/lib$(LANGUAGE_NAME).dll.a
+else
+	install -m755 lib$(LANGUAGE_NAME).$(SOEXT) '$(DESTDIR)$(LIBDIR)'/lib$(LANGUAGE_NAME).$(SOEXTVER)
+	cd '$(DESTDIR)$(LIBDIR)' && ln -sf lib$(LANGUAGE_NAME).$(SOEXTVER) lib$(LANGUAGE_NAME).$(SOEXTVER_MAJOR)
+	cd '$(DESTDIR)$(LIBDIR)' && ln -sf lib$(LANGUAGE_NAME).$(SOEXTVER_MAJOR) lib$(LANGUAGE_NAME).$(SOEXT)
+endif
 ifneq ($(wildcard queries/*.scm),)
 	install -m644 queries/*.scm '$(DESTDIR)$(DATADIR)'/tree-sitter/queries/KEBAB_PARSER_NAME
 endif
