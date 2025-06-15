@@ -472,11 +472,11 @@ pub fn generate_grammar_files(
                     generate_file(path, MAKEFILE_TEMPLATE, language_name, &generate_opts)
                 },
                 |path| {
-                    let contents = fs::read_to_string(path)?.replace(
-                        "-m644 bindings/c/$(LANGUAGE_NAME).h",
-                        "-m644 bindings/c/tree_sitter/$(LANGUAGE_NAME).h"
-                    );
-                    write_file(path, contents)?;
+                    let contents = fs::read_to_string(path)?;
+                    if !contents.contains("cd '$(DESTDIR)$(LIBDIR)' && ln -sf") {
+                        eprintln!("Replacing Makefile");
+                        generate_file(path, MAKEFILE_TEMPLATE, language_name, &generate_opts)?;
+                    }
                     Ok(())
                 },
             )?;
