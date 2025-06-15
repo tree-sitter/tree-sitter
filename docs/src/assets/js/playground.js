@@ -292,10 +292,10 @@ window.initializePlayground = async (opts) => {
 
           const nodeClass =
             displayName === 'ERROR' || displayName.startsWith('MISSING')
-              ? 'node-link error'
+              ? 'node-link error plain'
               : cursor.nodeIsNamed
-                ? 'node-link named'
-                : 'node-link anonymous';
+                ? 'node-link named plain'
+                : 'node-link anonymous plain';
 
           row = `<div class="tree-row">${"  ".repeat(indentLevel)}${fieldName}` +
             `<a class='${nodeClass}' href="#" data-id=${id} ` +
