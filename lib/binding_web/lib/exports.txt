@@ -5,6 +5,7 @@
 "ts_language_type_is_visible_wasm",
 "ts_language_symbol_count",
 "ts_language_state_count",
+"ts_language_large_state_count",
 "ts_language_supertypes_wasm",
 "ts_language_subtypes_wasm",
 "ts_language_symbol_for_name",
