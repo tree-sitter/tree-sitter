@@ -16,7 +16,7 @@ use core::{
     marker::PhantomData,
     mem::MaybeUninit,
     num::NonZeroU16,
-    ops::{self, Deref},
+    ops::{self, ControlFlow, Deref},
     ptr::{self, NonNull},
     slice, str,
     sync::atomic::AtomicUsize,
@@ -177,7 +177,10 @@ impl<'a> ParseOptions<'a> {
     }
 
     #[must_use]
-    pub fn progress_callback<F: FnMut(&ParseState) -> bool>(mut self, callback: &'a mut F) -> Self {
+    pub fn progress_callback<F: FnMut(&ParseState) -> ControlFlow<()>>(
+        mut self,
+        callback: &'a mut F,
+    ) -> Self {
         self.progress_callback = Some(callback);
         self
     }
@@ -195,7 +198,7 @@ impl<'a> QueryCursorOptions<'a> {
     }
 
     #[must_use]
-    pub fn progress_callback<F: FnMut(&QueryCursorState) -> bool>(
+    pub fn progress_callback<F: FnMut(&QueryCursorState) -> ControlFlow<()>>(
         mut self,
         callback: &'a mut F,
     ) -> Self {
@@ -232,10 +235,10 @@ type FieldId = NonZeroU16;
 type Logger<'a> = Box<dyn FnMut(LogType, &str) + 'a>;
 
 /// A callback that receives the parse state during parsing.
-type ParseProgressCallback<'a> = &'a mut dyn FnMut(&ParseState) -> bool;
+type ParseProgressCallback<'a> = &'a mut dyn FnMut(&ParseState) -> ControlFlow<()>;
 
 /// A callback that receives the query state during query execution.
-type QueryProgressCallback<'a> = &'a mut dyn FnMut(&QueryCursorState) -> bool;
+type QueryProgressCallback<'a> = &'a mut dyn FnMut(&QueryCursorState) -> ControlFlow<()>;
 
 pub trait Decode {
     /// A callback that decodes the next code point from the input slice. It should return the code
@@ -869,7 +872,10 @@ impl Parser {
                 .cast::<ParseProgressCallback>()
                 .as_mut()
                 .unwrap();
-            callback(&ParseState::from_raw(state))
+            match callback(&ParseState::from_raw(state)) {
+                ControlFlow::Continue(()) => false,
+                ControlFlow::Break(()) => true,
+            }
         }
 
         // This C function is passed to Tree-sitter as the input callback.
@@ -1001,7 +1007,10 @@ impl Parser {
                 .cast::<ParseProgressCallback>()
                 .as_mut()
                 .unwrap();
-            callback(&ParseState::from_raw(state))
+            match callback(&ParseState::from_raw(state)) {
+                ControlFlow::Continue(()) => false,
+                ControlFlow::Break(()) => true,
+            }
         }
 
         // This C function is passed to Tree-sitter as the input callback.
@@ -1118,7 +1127,10 @@ impl Parser {
                 .cast::<ParseProgressCallback>()
                 .as_mut()
                 .unwrap();
-            callback(&ParseState::from_raw(state))
+            match callback(&ParseState::from_raw(state)) {
+                ControlFlow::Continue(()) => false,
+                ControlFlow::Break(()) => true,
+            }
         }
 
         // This C function is passed to Tree-sitter as the input callback.
@@ -1218,7 +1230,10 @@ impl Parser {
                 .cast::<ParseProgressCallback>()
                 .as_mut()
                 .unwrap();
-            callback(&ParseState::from_raw(state))
+            match callback(&ParseState::from_raw(state)) {
+                ControlFlow::Continue(()) => false,
+                ControlFlow::Break(()) => true,
+            }
         }
 
         // At compile time, create a C-compatible callback that calls the custom `decode` method.
@@ -3103,7 +3118,10 @@ impl QueryCursor {
                 .cast::<QueryProgressCallback>()
                 .as_mut()
                 .unwrap();
-            (callback)(&QueryCursorState::from_raw(state))
+            match callback(&QueryCursorState::from_raw(state)) {
+                ControlFlow::Continue(()) => false,
+                ControlFlow::Break(()) => true,
+            }
         }
 
         let query_options = options.progress_callback.map(|cb| {
@@ -3189,7 +3207,10 @@ impl QueryCursor {
                 .cast::<QueryProgressCallback>()
                 .as_mut()
                 .unwrap();
-            (callback)(&QueryCursorState::from_raw(state))
+            match callback(&QueryCursorState::from_raw(state)) {
+                ControlFlow::Continue(()) => false,
+                ControlFlow::Break(()) => true,
+            }
         }
 
         let query_options = options.progress_callback.map(|cb| {

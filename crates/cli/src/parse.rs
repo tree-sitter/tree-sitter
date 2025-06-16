@@ -1,6 +1,7 @@
 use std::{
     fmt, fs,
     io::{self, Write},
+    ops::ControlFlow,
     path::{Path, PathBuf},
     sync::atomic::{AtomicUsize, Ordering},
     time::{Duration, Instant},
@@ -357,15 +358,15 @@ pub fn parse_file_at_path(
     let progress_callback = &mut |_: &ParseState| {
         if let Some(cancellation_flag) = opts.cancellation_flag {
             if cancellation_flag.load(Ordering::SeqCst) != 0 {
-                return true;
+                return ControlFlow::Break(());
             }
         }
 
         if opts.timeout > 0 && start_time.elapsed().as_micros() > opts.timeout as u128 {
-            return true;
+            return ControlFlow::Break(());
         }
 
-        false
+        ControlFlow::Continue(())
     };
 
     let parse_opts = ParseOptions::new().progress_callback(progress_callback);

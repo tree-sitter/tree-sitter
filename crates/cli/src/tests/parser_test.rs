@@ -1,4 +1,5 @@
 use std::{
+    ops::ControlFlow,
     sync::atomic::{AtomicUsize, Ordering},
     thread, time,
 };
@@ -699,7 +700,13 @@ fn test_parsing_on_multiple_threads() {
 fn test_parsing_cancelled_by_another_thread() {
     let cancellation_flag = std::sync::Arc::new(AtomicUsize::new(0));
     let flag = cancellation_flag.clone();
-    let callback = &mut |_: &ParseState| cancellation_flag.load(Ordering::SeqCst) != 0;
+    let callback = &mut |_: &ParseState| {
+        if cancellation_flag.load(Ordering::SeqCst) != 0 {
+            ControlFlow::Break(())
+        } else {
+            ControlFlow::Continue(())
+        }
+    };
 
     let mut parser = Parser::new();
     parser.set_language(&get_language("javascript")).unwrap();
@@ -764,9 +771,13 @@ fn test_parsing_with_a_timeout() {
             }
         },
         None,
-        Some(
-            ParseOptions::new().progress_callback(&mut |_| start_time.elapsed().as_micros() > 1000),
-        ),
+        Some(ParseOptions::new().progress_callback(&mut |_| {
+            if start_time.elapsed().as_micros() > 1000 {
+                ControlFlow::Break(())
+            } else {
+                ControlFlow::Continue(())
+            }
+        })),
     );
     assert!(tree.is_none());
     assert!(start_time.elapsed().as_micros() < 2000);
@@ -782,9 +793,13 @@ fn test_parsing_with_a_timeout() {
             }
         },
         None,
-        Some(
-            ParseOptions::new().progress_callback(&mut |_| start_time.elapsed().as_micros() > 5000),
-        ),
+        Some(ParseOptions::new().progress_callback(&mut |_| {
+            if start_time.elapsed().as_micros() > 5000 {
+                ControlFlow::Break(())
+            } else {
+                ControlFlow::Continue(())
+            }
+        })),
     );
     assert!(tree.is_none());
     assert!(start_time.elapsed().as_micros() > 100);
@@ -822,7 +837,13 @@ fn test_parsing_with_a_timeout_and_a_reset() {
             }
         },
         None,
-        Some(ParseOptions::new().progress_callback(&mut |_| start_time.elapsed().as_micros() > 5)),
+        Some(ParseOptions::new().progress_callback(&mut |_| {
+            if start_time.elapsed().as_micros() > 5 {
+                ControlFlow::Break(())
+            } else {
+                ControlFlow::Continue(())
+            }
+        })),
     );
     assert!(tree.is_none());
 
@@ -853,7 +874,13 @@ fn test_parsing_with_a_timeout_and_a_reset() {
             }
         },
         None,
-        Some(ParseOptions::new().progress_callback(&mut |_| start_time.elapsed().as_micros() > 5)),
+        Some(ParseOptions::new().progress_callback(&mut |_| {
+            if start_time.elapsed().as_micros() > 5 {
+                ControlFlow::Break(())
+            } else {
+                ControlFlow::Continue(())
+            }
+        })),
     );
     assert!(tree.is_none());
 
@@ -893,10 +920,13 @@ fn test_parsing_with_a_timeout_and_implicit_reset() {
                 }
             },
             None,
-            Some(
-                ParseOptions::new()
-                    .progress_callback(&mut |_| start_time.elapsed().as_micros() > 5),
-            ),
+            Some(ParseOptions::new().progress_callback(&mut |_| {
+                if start_time.elapsed().as_micros() > 5 {
+                    ControlFlow::Break(())
+                } else {
+                    ControlFlow::Continue(())
+                }
+            })),
         );
         assert!(tree.is_none());
 
@@ -937,10 +967,13 @@ fn test_parsing_with_timeout_and_no_completion() {
                 }
             },
             None,
-            Some(
-                ParseOptions::new()
-                    .progress_callback(&mut |_| start_time.elapsed().as_micros() > 5),
-            ),
+            Some(ParseOptions::new().progress_callback(&mut |_| {
+                if start_time.elapsed().as_micros() > 5 {
+                    ControlFlow::Break(())
+                } else {
+                    ControlFlow::Continue(())
+                }
+            })),
         );
         assert!(tree.is_none());
 
@@ -979,10 +1012,10 @@ fn test_parsing_with_timeout_during_balancing() {
                 // are in the balancing phase.
                 if state.current_byte_offset() != current_byte_offset {
                     current_byte_offset = state.current_byte_offset();
-                    false
+                    ControlFlow::Continue(())
                 } else {
                     in_balancing = true;
-                    true
+                    ControlFlow::Break(())
                 }
             })),
         );
@@ -1004,10 +1037,10 @@ fn test_parsing_with_timeout_during_balancing() {
             Some(ParseOptions::new().progress_callback(&mut |state| {
                 if state.current_byte_offset() != current_byte_offset {
                     current_byte_offset = state.current_byte_offset();
-                    false
+                    ControlFlow::Continue(())
                 } else {
                     in_balancing = true;
-                    true
+                    ControlFlow::Break(())
                 }
             })),
         );
@@ -1031,7 +1064,7 @@ fn test_parsing_with_timeout_during_balancing() {
                     // Because we've already finished parsing, we should only be resuming the
                     // balancing phase.
                     assert!(state.current_byte_offset() == current_byte_offset);
-                    false
+                    ControlFlow::Continue(())
                 })),
             )
             .unwrap();
@@ -1057,7 +1090,11 @@ fn test_parsing_with_timeout_when_error_detected() {
         None,
         Some(ParseOptions::new().progress_callback(&mut |state| {
             offset = state.current_byte_offset();
-            state.has_error()
+            if state.has_error() {
+                ControlFlow::Break(())
+            } else {
+                ControlFlow::Continue(())
+            }
         })),
     );
 
@@ -1737,7 +1774,7 @@ fn test_parsing_by_halting_at_offset() {
             None,
             Some(ParseOptions::new().progress_callback(&mut |p| {
                 seen_byte_offsets.push(p.current_byte_offset());
-                false
+                ControlFlow::Continue(())
             })),
         )
         .unwrap();

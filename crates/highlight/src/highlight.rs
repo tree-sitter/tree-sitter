@@ -7,7 +7,8 @@ use std::{
     iter,
     marker::PhantomData,
     mem::{self, MaybeUninit},
-    ops, str,
+    ops::{self, ControlFlow},
+    str,
     sync::{
         atomic::{AtomicUsize, Ordering},
         LazyLock,
@@ -538,9 +539,13 @@ impl<'a> HighlightIterLayer<'a> {
                         None,
                         Some(ParseOptions::new().progress_callback(&mut |_| {
                             if let Some(cancellation_flag) = cancellation_flag {
-                                cancellation_flag.load(Ordering::SeqCst) != 0
+                                if cancellation_flag.load(Ordering::SeqCst) != 0 {
+                                    ControlFlow::Break(())
+                                } else {
+                                    ControlFlow::Continue(())
+                                }
                             } else {
-                                false
+                                ControlFlow::Continue(())
                             }
                         })),
                     )
