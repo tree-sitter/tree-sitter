@@ -1,4 +1,4 @@
-use std::{env, fmt::Write, sync::LazyLock};
+use std::{env, fmt::Write, ops::ControlFlow, sync::LazyLock};
 
 use indoc::indoc;
 use rand::{prelude::StdRng, SeedableRng};
@@ -5446,8 +5446,13 @@ fn test_query_execution_with_timeout() {
             &query,
             tree.root_node(),
             source_code.as_bytes(),
-            QueryCursorOptions::new()
-                .progress_callback(&mut |_| start_time.elapsed().as_micros() > 1000),
+            QueryCursorOptions::new().progress_callback(&mut |_| {
+                if start_time.elapsed().as_micros() > 1000 {
+                    ControlFlow::Break(())
+                } else {
+                    ControlFlow::Continue(())
+                }
+            }),
         )
         .count();
     assert!(matches < 1000);
