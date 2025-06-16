@@ -102,7 +102,7 @@ ansi_colours = "1.2.3"
 anstyle = "1.0.11"
 anyhow = "1.0.98"
 bstr = "1.12.0"
-cc = "1.2.26"
+cc = "1.2.27"
 clap = { version = "4.5.40", features = [
   "cargo",
   "derive",
@@ -127,7 +127,7 @@ indexmap = "2.9.0"
 indoc = "2.0.6"
 libloading = "0.8.8"
 log = { version = "0.4.27", features = ["std"] }
-memchr = "2.7.4"
+memchr = "2.7.5"
 once_cell = "1.21.3"
 path-slash = "0.2.1"
 pretty_assertions = "1.4.1"
@@ -151,7 +151,7 @@ unindent = "0.2.4"
 url = { version = "2.5.4", features = ["serde"] }
 walkdir = "2.5.0"
 wasmparser = "0.224.1"
-webbrowser = "1.0.4"
+webbrowser = "1.0.5"
 
 tree-sitter = { version = "0.26.0", path = "./lib" }
 tree-sitter-generate = { version = "0.26.0", path = "./crates/generate" }
