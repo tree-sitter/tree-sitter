@@ -1,0 +1,43 @@
+AlignAfterOpenBracket: BlockIndent
+AlignConsecutiveMacros: AcrossEmptyLines
+AlignEscapedNewlines: DontAlign
+AlignEscapedNewlinesLeft: false
+AlignTrailingComments: true
+AllowAllParametersOfDeclarationOnNextLine: false
+AllowShortFunctionsOnASingleLine: false
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+AlwaysBreakAfterDefinitionReturnType: None
+AlwaysBreakAfterReturnType: None
+AlwaysBreakBeforeMultilineStrings: No
+AlwaysBreakTemplateDeclarations: No
+BinPackArguments: true
+BinPackParameters: false
+BraceWrapping:
+  AfterClass:      false
+  AfterControlStatement: false
+  AfterEnum:       false
+  AfterFunction:   false
+  AfterObjCDeclaration: false
+  AfterStruct:     false
+  AfterUnion:      false
+  BeforeCatch:     false
+  BeforeElse:      false
+  IndentBraces:    false
+BreakBeforeBinaryOperators: true
+BreakBeforeBraces: Custom
+BreakBeforeTernaryOperators: true
+ColumnLimit: 100
+ContinuationIndentWidth: 2
+Cpp11BracedListStyle: false
+IndentCaseLabels: false
+IndentPPDirectives: AfterHash
+IndentWidth: 2
+PPIndentWidth: 1
+PenaltyReturnTypeOnItsOwnLine: 200
+PointerAlignment: Right
+SortIncludes: true
+SpaceBeforeParens: ControlStatementsExceptControlMacros
+SpacesBeforeTrailingComments: 2
+TabWidth: 8
+UseTab: Never

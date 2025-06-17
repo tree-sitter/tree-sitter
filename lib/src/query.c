@@ -4,10 +4,9 @@
  * endian.h.
  */
 #if defined(__NetBSD__) && defined(_POSIX_C_SOURCE)
-#undef _POSIX_C_SOURCE
+# undef _POSIX_C_SOURCE
 #endif
 
-#include "tree_sitter/api.h"
 #include "./alloc.h"
 #include "./array.h"
 #include "./clock.h"
@@ -15,15 +14,16 @@
 #include "./point.h"
 #include "./tree_cursor.h"
 #include "./unicode.h"
+#include "tree_sitter/api.h"
 #include <wctype.h>
 
 // #define DEBUG_ANALYZE_QUERY
 // #define DEBUG_EXECUTE_QUERY
 
-#define MAX_STEP_CAPTURE_COUNT 3
-#define MAX_NEGATED_FIELD_COUNT 8
-#define MAX_STATE_PREDECESSOR_COUNT 256
-#define MAX_ANALYSIS_STATE_DEPTH 8
+#define MAX_STEP_CAPTURE_COUNT       3
+#define MAX_NEGATED_FIELD_COUNT      8
+#define MAX_STATE_PREDECESSOR_COUNT  256
+#define MAX_ANALYSIS_STATE_DEPTH     8
 #define MAX_ANALYSIS_ITERATION_COUNT 256
 
 /*
@@ -100,16 +100,16 @@ typedef struct {
   uint16_t depth;
   uint16_t alternative_index;
   uint16_t negated_field_list_id;
-  bool is_named: 1;
-  bool is_immediate: 1;
-  bool is_last_child: 1;
-  bool is_pass_through: 1;
-  bool is_dead_end: 1;
-  bool alternative_is_immediate: 1;
-  bool contains_captures: 1;
-  bool root_pattern_guaranteed: 1;
-  bool parent_pattern_guaranteed: 1;
-  bool is_missing: 1;
+  bool is_named : 1;
+  bool is_immediate : 1;
+  bool is_last_child : 1;
+  bool is_pass_through : 1;
+  bool is_dead_end : 1;
+  bool alternative_is_immediate : 1;
+  bool contains_captures : 1;
+  bool root_pattern_guaranteed : 1;
+  bool parent_pattern_guaranteed : 1;
+  bool is_missing : 1;
 } QueryStep;
 
 /*
@@ -197,11 +197,11 @@ typedef struct {
   uint16_t start_depth;
   uint16_t step_index;
   uint16_t pattern_index;
-  uint16_t consumed_capture_count: 12;
-  bool seeking_immediate_match: 1;
-  bool has_in_progress_alternatives: 1;
-  bool dead: 1;
-  bool needs_parent: 1;
+  uint16_t consumed_capture_count : 12;
+  bool seeking_immediate_match : 1;
+  bool has_in_progress_alternatives : 1;
+  bool dead : 1;
+  bool needs_parent : 1;
 } QueryState;
 
 typedef Array(TSQueryCapture) CaptureList;
@@ -234,8 +234,8 @@ typedef struct {
   TSStateId parse_state;
   TSSymbol parent_symbol;
   uint16_t child_index;
-  TSFieldId field_id: 15;
-  bool done: 1;
+  TSFieldId field_id : 15;
+  bool done : 1;
 } AnalysisStateEntry;
 
 typedef struct {
@@ -266,8 +266,8 @@ typedef struct {
 typedef struct {
   TSStateId state;
   uint16_t production_id;
-  uint8_t child_index: 7;
-  bool done: 1;
+  uint8_t child_index : 7;
+  bool done : 1;
 } AnalysisSubgraphNode;
 
 typedef struct {
@@ -350,9 +350,7 @@ static bool stream_advance(Stream *self) {
   self->input += self->next_size;
   if (self->input < self->end) {
     uint32_t size = ts_decode_utf8(
-      (const uint8_t *)self->input,
-      (uint32_t)(self->end - self->input),
-      &self->next
+      (const uint8_t *)self->input, (uint32_t)(self->end - self->input), &self->next
     );
     if (size > 0) {
       self->next_size = size;
@@ -392,7 +390,8 @@ static void stream_skip_whitespace(Stream *self) {
       // skip over comments
       stream_advance(self);
       while (self->next && self->next != '\n') {
-        if (!stream_advance(self)) break;
+        if (!stream_advance(self))
+          break;
       }
     } else {
       break;
@@ -407,12 +406,8 @@ static bool stream_is_ident_start(Stream *self) {
 static void stream_scan_identifier(Stream *stream) {
   do {
     stream_advance(stream);
-  } while (
-    iswalnum(stream->next) ||
-    stream->next == '_' ||
-    stream->next == '-' ||
-    stream->next == '.'
-  );
+  } while (iswalnum(stream->next) || stream->next == '_' || stream->next == '-'
+           || stream->next == '.');
 }
 
 static uint32_t stream_offset(Stream *self) {
@@ -424,7 +419,7 @@ static uint32_t stream_offset(Stream *self) {
  ******************/
 
 static CaptureListPool capture_list_pool_new(void) {
-  return (CaptureListPool) {
+  return (CaptureListPool){
     .list = array_new(),
     .empty_list = array_new(),
     .max_capture_list_count = UINT32_MAX,
@@ -448,7 +443,8 @@ static void capture_list_pool_delete(CaptureListPool *self) {
 }
 
 static const CaptureList *capture_list_pool_get(const CaptureListPool *self, uint16_t id) {
-  if (id >= self->list.size) return &self->empty_list;
+  if (id >= self->list.size)
+    return &self->empty_list;
   return array_get(&self->list, id);
 }
 
@@ -488,7 +484,8 @@ static uint16_t capture_list_pool_acquire(CaptureListPool *self) {
 }
 
 static void capture_list_pool_release(CaptureListPool *self, uint16_t id) {
-  if (id >= self->list.size) return;
+  if (id >= self->list.size)
+    return;
   array_get(&self->list, id)->size = UINT32_MAX;
   self->free_capture_list_count++;
 }
@@ -497,256 +494,225 @@ static void capture_list_pool_release(CaptureListPool *self, uint16_t id) {
  * Quantifiers
  **************/
 
-static TSQuantifier quantifier_mul(
-  TSQuantifier left,
-  TSQuantifier right
-) {
-  switch (left)
-  {
+static TSQuantifier quantifier_mul(TSQuantifier left, TSQuantifier right) {
+  switch (left) {
+  case TSQuantifierZero:
+    return TSQuantifierZero;
+  case TSQuantifierZeroOrOne:
+    switch (right) {
     case TSQuantifierZero:
       return TSQuantifierZero;
     case TSQuantifierZeroOrOne:
-      switch (right) {
-        case TSQuantifierZero:
-          return TSQuantifierZero;
-        case TSQuantifierZeroOrOne:
-        case TSQuantifierOne:
-          return TSQuantifierZeroOrOne;
-        case TSQuantifierZeroOrMore:
-        case TSQuantifierOneOrMore:
-          return TSQuantifierZeroOrMore;
-      };
-      break;
-    case TSQuantifierZeroOrMore:
-      switch (right) {
-        case TSQuantifierZero:
-          return TSQuantifierZero;
-        case TSQuantifierZeroOrOne:
-        case TSQuantifierZeroOrMore:
-        case TSQuantifierOne:
-        case TSQuantifierOneOrMore:
-          return TSQuantifierZeroOrMore;
-      };
-      break;
     case TSQuantifierOne:
-      return right;
+      return TSQuantifierZeroOrOne;
+    case TSQuantifierZeroOrMore:
     case TSQuantifierOneOrMore:
-      switch (right) {
-        case TSQuantifierZero:
-          return TSQuantifierZero;
-        case TSQuantifierZeroOrOne:
-        case TSQuantifierZeroOrMore:
-          return TSQuantifierZeroOrMore;
-        case TSQuantifierOne:
-        case TSQuantifierOneOrMore:
-          return TSQuantifierOneOrMore;
-      };
-      break;
-  }
-  return TSQuantifierZero; // to make compiler happy, but all cases should be covered above!
-}
-
-static TSQuantifier quantifier_join(
-  TSQuantifier left,
-  TSQuantifier right
-) {
-  switch (left)
-  {
+      return TSQuantifierZeroOrMore;
+    };
+    break;
+  case TSQuantifierZeroOrMore:
+    switch (right) {
     case TSQuantifierZero:
-      switch (right) {
-        case TSQuantifierZero:
-          return TSQuantifierZero;
-        case TSQuantifierZeroOrOne:
-        case TSQuantifierOne:
-          return TSQuantifierZeroOrOne;
-        case TSQuantifierZeroOrMore:
-        case TSQuantifierOneOrMore:
-          return TSQuantifierZeroOrMore;
-      };
-      break;
+      return TSQuantifierZero;
     case TSQuantifierZeroOrOne:
-      switch (right) {
-        case TSQuantifierZero:
-        case TSQuantifierZeroOrOne:
-        case TSQuantifierOne:
-          return TSQuantifierZeroOrOne;
-          break;
-        case TSQuantifierZeroOrMore:
-        case TSQuantifierOneOrMore:
-          return TSQuantifierZeroOrMore;
-          break;
-      };
-      break;
+    case TSQuantifierZeroOrMore:
+    case TSQuantifierOne:
+    case TSQuantifierOneOrMore:
+      return TSQuantifierZeroOrMore;
+    };
+    break;
+  case TSQuantifierOne:
+    return right;
+  case TSQuantifierOneOrMore:
+    switch (right) {
+    case TSQuantifierZero:
+      return TSQuantifierZero;
+    case TSQuantifierZeroOrOne:
     case TSQuantifierZeroOrMore:
       return TSQuantifierZeroOrMore;
     case TSQuantifierOne:
-      switch (right) {
-        case TSQuantifierZero:
-        case TSQuantifierZeroOrOne:
-          return TSQuantifierZeroOrOne;
-        case TSQuantifierZeroOrMore:
-          return TSQuantifierZeroOrMore;
-        case TSQuantifierOne:
-          return TSQuantifierOne;
-        case TSQuantifierOneOrMore:
-          return TSQuantifierOneOrMore;
-      };
-      break;
-    case TSQuantifierOneOrMore:
-      switch (right) {
-        case TSQuantifierZero:
-        case TSQuantifierZeroOrOne:
-        case TSQuantifierZeroOrMore:
-          return TSQuantifierZeroOrMore;
-        case TSQuantifierOne:
-        case TSQuantifierOneOrMore:
-          return TSQuantifierOneOrMore;
-      };
-      break;
-  }
-  return TSQuantifierZero; // to make compiler happy, but all cases should be covered above!
-}
-
-static TSQuantifier quantifier_add(
-  TSQuantifier left,
-  TSQuantifier right
-) {
-  switch (left)
-  {
-    case TSQuantifierZero:
-      return right;
-    case TSQuantifierZeroOrOne:
-      switch (right) {
-        case TSQuantifierZero:
-          return TSQuantifierZeroOrOne;
-        case TSQuantifierZeroOrOne:
-        case TSQuantifierZeroOrMore:
-          return TSQuantifierZeroOrMore;
-        case TSQuantifierOne:
-        case TSQuantifierOneOrMore:
-          return TSQuantifierOneOrMore;
-      };
-      break;
-    case TSQuantifierZeroOrMore:
-      switch (right) {
-        case TSQuantifierZero:
-          return TSQuantifierZeroOrMore;
-        case TSQuantifierZeroOrOne:
-        case TSQuantifierZeroOrMore:
-          return TSQuantifierZeroOrMore;
-        case TSQuantifierOne:
-        case TSQuantifierOneOrMore:
-          return TSQuantifierOneOrMore;
-      };
-      break;
-    case TSQuantifierOne:
-      switch (right) {
-        case TSQuantifierZero:
-          return TSQuantifierOne;
-        case TSQuantifierZeroOrOne:
-        case TSQuantifierZeroOrMore:
-        case TSQuantifierOne:
-        case TSQuantifierOneOrMore:
-          return TSQuantifierOneOrMore;
-      };
-      break;
     case TSQuantifierOneOrMore:
       return TSQuantifierOneOrMore;
+    };
+    break;
   }
-  return TSQuantifierZero; // to make compiler happy, but all cases should be covered above!
+  return TSQuantifierZero;  // to make compiler happy, but all cases should be covered above!
+}
+
+static TSQuantifier quantifier_join(TSQuantifier left, TSQuantifier right) {
+  switch (left) {
+  case TSQuantifierZero:
+    switch (right) {
+    case TSQuantifierZero:
+      return TSQuantifierZero;
+    case TSQuantifierZeroOrOne:
+    case TSQuantifierOne:
+      return TSQuantifierZeroOrOne;
+    case TSQuantifierZeroOrMore:
+    case TSQuantifierOneOrMore:
+      return TSQuantifierZeroOrMore;
+    };
+    break;
+  case TSQuantifierZeroOrOne:
+    switch (right) {
+    case TSQuantifierZero:
+    case TSQuantifierZeroOrOne:
+    case TSQuantifierOne:
+      return TSQuantifierZeroOrOne;
+      break;
+    case TSQuantifierZeroOrMore:
+    case TSQuantifierOneOrMore:
+      return TSQuantifierZeroOrMore;
+      break;
+    };
+    break;
+  case TSQuantifierZeroOrMore:
+    return TSQuantifierZeroOrMore;
+  case TSQuantifierOne:
+    switch (right) {
+    case TSQuantifierZero:
+    case TSQuantifierZeroOrOne:
+      return TSQuantifierZeroOrOne;
+    case TSQuantifierZeroOrMore:
+      return TSQuantifierZeroOrMore;
+    case TSQuantifierOne:
+      return TSQuantifierOne;
+    case TSQuantifierOneOrMore:
+      return TSQuantifierOneOrMore;
+    };
+    break;
+  case TSQuantifierOneOrMore:
+    switch (right) {
+    case TSQuantifierZero:
+    case TSQuantifierZeroOrOne:
+    case TSQuantifierZeroOrMore:
+      return TSQuantifierZeroOrMore;
+    case TSQuantifierOne:
+    case TSQuantifierOneOrMore:
+      return TSQuantifierOneOrMore;
+    };
+    break;
+  }
+  return TSQuantifierZero;  // to make compiler happy, but all cases should be covered above!
+}
+
+static TSQuantifier quantifier_add(TSQuantifier left, TSQuantifier right) {
+  switch (left) {
+  case TSQuantifierZero:
+    return right;
+  case TSQuantifierZeroOrOne:
+    switch (right) {
+    case TSQuantifierZero:
+      return TSQuantifierZeroOrOne;
+    case TSQuantifierZeroOrOne:
+    case TSQuantifierZeroOrMore:
+      return TSQuantifierZeroOrMore;
+    case TSQuantifierOne:
+    case TSQuantifierOneOrMore:
+      return TSQuantifierOneOrMore;
+    };
+    break;
+  case TSQuantifierZeroOrMore:
+    switch (right) {
+    case TSQuantifierZero:
+      return TSQuantifierZeroOrMore;
+    case TSQuantifierZeroOrOne:
+    case TSQuantifierZeroOrMore:
+      return TSQuantifierZeroOrMore;
+    case TSQuantifierOne:
+    case TSQuantifierOneOrMore:
+      return TSQuantifierOneOrMore;
+    };
+    break;
+  case TSQuantifierOne:
+    switch (right) {
+    case TSQuantifierZero:
+      return TSQuantifierOne;
+    case TSQuantifierZeroOrOne:
+    case TSQuantifierZeroOrMore:
+    case TSQuantifierOne:
+    case TSQuantifierOneOrMore:
+      return TSQuantifierOneOrMore;
+    };
+    break;
+  case TSQuantifierOneOrMore:
+    return TSQuantifierOneOrMore;
+  }
+  return TSQuantifierZero;  // to make compiler happy, but all cases should be covered above!
 }
 
 // Create new capture quantifiers structure
 static CaptureQuantifiers capture_quantifiers_new(void) {
-  return (CaptureQuantifiers) array_new();
+  return (CaptureQuantifiers)array_new();
 }
 
 // Delete capture quantifiers structure
-static void capture_quantifiers_delete(
-  CaptureQuantifiers *self
-) {
+static void capture_quantifiers_delete(CaptureQuantifiers *self) {
   array_delete(self);
 }
 
 // Clear capture quantifiers structure
-static void capture_quantifiers_clear(
-  CaptureQuantifiers *self
-) {
+static void capture_quantifiers_clear(CaptureQuantifiers *self) {
   array_clear(self);
 }
 
 // Replace capture quantifiers with the given quantifiers
-static void capture_quantifiers_replace(
-  CaptureQuantifiers *self,
-  CaptureQuantifiers *quantifiers
-) {
+static void capture_quantifiers_replace(CaptureQuantifiers *self, CaptureQuantifiers *quantifiers) {
   array_clear(self);
   array_push_all(self, quantifiers);
 }
 
 // Return capture quantifier for the given capture id
-static TSQuantifier capture_quantifier_for_id(
-  const CaptureQuantifiers *self,
-  uint16_t id
-) {
-  return (self->size <= id) ? TSQuantifierZero : (TSQuantifier) *array_get(self, id);
+static TSQuantifier capture_quantifier_for_id(const CaptureQuantifiers *self, uint16_t id) {
+  return (self->size <= id) ? TSQuantifierZero : (TSQuantifier)*array_get(self, id);
 }
 
 // Add the given quantifier to the current value for id
-static void capture_quantifiers_add_for_id(
-  CaptureQuantifiers *self,
-  uint16_t id,
-  TSQuantifier quantifier
-) {
+static void
+capture_quantifiers_add_for_id(CaptureQuantifiers *self, uint16_t id, TSQuantifier quantifier) {
   if (self->size <= id) {
     array_grow_by(self, id + 1 - self->size);
   }
   uint8_t *own_quantifier = array_get(self, id);
-  *own_quantifier = (uint8_t) quantifier_add((TSQuantifier) *own_quantifier, quantifier);
+  *own_quantifier = (uint8_t)quantifier_add((TSQuantifier)*own_quantifier, quantifier);
 }
 
 // Point-wise add the given quantifiers to the current values
-static void capture_quantifiers_add_all(
-  CaptureQuantifiers *self,
-  CaptureQuantifiers *quantifiers
-) {
+static void capture_quantifiers_add_all(CaptureQuantifiers *self, CaptureQuantifiers *quantifiers) {
   if (self->size < quantifiers->size) {
     array_grow_by(self, quantifiers->size - self->size);
   }
   for (uint16_t id = 0; id < (uint16_t)quantifiers->size; id++) {
     uint8_t *quantifier = array_get(quantifiers, id);
     uint8_t *own_quantifier = array_get(self, id);
-    *own_quantifier = (uint8_t) quantifier_add((TSQuantifier) *own_quantifier, (TSQuantifier) *quantifier);
+    *own_quantifier
+      = (uint8_t)quantifier_add((TSQuantifier)*own_quantifier, (TSQuantifier)*quantifier);
   }
 }
 
 // Join the given quantifier with the current values
-static void capture_quantifiers_mul(
-  CaptureQuantifiers *self,
-  TSQuantifier quantifier
-) {
+static void capture_quantifiers_mul(CaptureQuantifiers *self, TSQuantifier quantifier) {
   for (uint16_t id = 0; id < (uint16_t)self->size; id++) {
     uint8_t *own_quantifier = array_get(self, id);
-    *own_quantifier = (uint8_t) quantifier_mul((TSQuantifier) *own_quantifier, quantifier);
+    *own_quantifier = (uint8_t)quantifier_mul((TSQuantifier)*own_quantifier, quantifier);
   }
 }
 
 // Point-wise join the quantifiers from a list of alternatives with the current values
-static void capture_quantifiers_join_all(
-  CaptureQuantifiers *self,
-  CaptureQuantifiers *quantifiers
-) {
+static void
+capture_quantifiers_join_all(CaptureQuantifiers *self, CaptureQuantifiers *quantifiers) {
   if (self->size < quantifiers->size) {
     array_grow_by(self, quantifiers->size - self->size);
   }
   for (uint32_t id = 0; id < quantifiers->size; id++) {
     uint8_t *quantifier = array_get(quantifiers, id);
     uint8_t *own_quantifier = array_get(self, id);
-    *own_quantifier = (uint8_t) quantifier_join((TSQuantifier) *own_quantifier, (TSQuantifier) *quantifier);
+    *own_quantifier
+      = (uint8_t)quantifier_join((TSQuantifier)*own_quantifier, (TSQuantifier)*quantifier);
   }
   for (uint32_t id = quantifiers->size; id < self->size; id++) {
     uint8_t *own_quantifier = array_get(self, id);
-    *own_quantifier = (uint8_t) quantifier_join((TSQuantifier) *own_quantifier, TSQuantifierZero);
+    *own_quantifier = (uint8_t)quantifier_join((TSQuantifier)*own_quantifier, TSQuantifierZero);
   }
 }
 
@@ -755,7 +721,7 @@ static void capture_quantifiers_join_all(
  **************/
 
 static SymbolTable symbol_table_new(void) {
-  return (SymbolTable) {
+  return (SymbolTable){
     .characters = array_new(),
     .slices = array_new(),
   };
@@ -766,38 +732,27 @@ static void symbol_table_delete(SymbolTable *self) {
   array_delete(&self->slices);
 }
 
-static int symbol_table_id_for_name(
-  const SymbolTable *self,
-  const char *name,
-  uint32_t length
-) {
+static int symbol_table_id_for_name(const SymbolTable *self, const char *name, uint32_t length) {
   for (unsigned i = 0; i < self->slices.size; i++) {
     Slice slice = *array_get(&self->slices, i);
-    if (
-      slice.length == length &&
-      !strncmp(array_get(&self->characters, slice.offset), name, length)
-    ) return i;
+    if (slice.length == length
+        && !strncmp(array_get(&self->characters, slice.offset), name, length))
+      return i;
   }
   return -1;
 }
 
-static const char *symbol_table_name_for_id(
-  const SymbolTable *self,
-  uint16_t id,
-  uint32_t *length
-) {
-  Slice slice = *(array_get(&self->slices,id));
+static const char *
+symbol_table_name_for_id(const SymbolTable *self, uint16_t id, uint32_t *length) {
+  Slice slice = *(array_get(&self->slices, id));
   *length = slice.length;
   return array_get(&self->characters, slice.offset);
 }
 
-static uint16_t symbol_table_insert_name(
-  SymbolTable *self,
-  const char *name,
-  uint32_t length
-) {
+static uint16_t symbol_table_insert_name(SymbolTable *self, const char *name, uint32_t length) {
   int id = symbol_table_id_for_name(self, name, length);
-  if (id >= 0) return (uint16_t)id;
+  if (id >= 0)
+    return (uint16_t)id;
   Slice slice = {
     .offset = self->characters.size,
     .length = length,
@@ -813,11 +768,7 @@ static uint16_t symbol_table_insert_name(
  * QueryStep
  ************/
 
-static QueryStep query_step__new(
-  TSSymbol symbol,
-  uint16_t depth,
-  bool is_immediate
-) {
+static QueryStep query_step__new(TSSymbol symbol, uint16_t depth, bool is_immediate) {
   QueryStep step = {
     .symbol = symbol,
     .depth = depth,
@@ -853,7 +804,8 @@ static void query_step__remove_capture(QueryStep *self, uint16_t capture_id) {
     if (self->capture_ids[i] == capture_id) {
       self->capture_ids[i] = NONE;
       while (i + 1 < MAX_STEP_CAPTURE_COUNT) {
-        if (self->capture_ids[i + 1] == NONE) break;
+        if (self->capture_ids[i + 1] == NONE)
+          break;
         self->capture_ids[i] = self->capture_ids[i + 1];
         self->capture_ids[i + 1] = NONE;
         i++;
@@ -867,13 +819,10 @@ static void query_step__remove_capture(QueryStep *self, uint16_t capture_id) {
  * StatePredecessorMap
  **********************/
 
-static inline StatePredecessorMap state_predecessor_map_new(
-  const TSLanguage *language
-) {
-  return (StatePredecessorMap) {
+static inline StatePredecessorMap state_predecessor_map_new(const TSLanguage *language) {
+  return (StatePredecessorMap){
     .contents = ts_calloc(
-      (size_t)language->state_count * (MAX_STATE_PREDECESSOR_COUNT + 1),
-      sizeof(TSStateId)
+      (size_t)language->state_count * (MAX_STATE_PREDECESSOR_COUNT + 1), sizeof(TSStateId)
     ),
   };
 }
@@ -882,27 +831,19 @@ static inline void state_predecessor_map_delete(StatePredecessorMap *self) {
   ts_free(self->contents);
 }
 
-static inline void state_predecessor_map_add(
-  StatePredecessorMap *self,
-  TSStateId state,
-  TSStateId predecessor
-) {
+static inline void
+state_predecessor_map_add(StatePredecessorMap *self, TSStateId state, TSStateId predecessor) {
   size_t index = (size_t)state * (MAX_STATE_PREDECESSOR_COUNT + 1);
   TSStateId *count = &self->contents[index];
-  if (
-    *count == 0 ||
-    (*count < MAX_STATE_PREDECESSOR_COUNT && self->contents[index + *count] != predecessor)
-  ) {
+  if (*count == 0
+      || (*count < MAX_STATE_PREDECESSOR_COUNT && self->contents[index + *count] != predecessor)) {
     (*count)++;
     self->contents[index + *count] = predecessor;
   }
 }
 
-static inline const TSStateId *state_predecessor_map_get(
-  const StatePredecessorMap *self,
-  TSStateId state,
-  unsigned *count
-) {
+static inline const TSStateId *
+state_predecessor_map_get(const StatePredecessorMap *self, TSStateId state, unsigned *count) {
   size_t index = (size_t)state * (MAX_STATE_PREDECESSOR_COUNT + 1);
   *count = self->contents[index];
   return &self->contents[index + 1];
@@ -926,34 +867,42 @@ static unsigned analysis_state__recursion_depth(const AnalysisState *self) {
   return result;
 }
 
-static inline int analysis_state__compare_position(
-  AnalysisState *const *self,
-  AnalysisState *const *other
-) {
+static inline int
+analysis_state__compare_position(AnalysisState *const *self, AnalysisState *const *other) {
   for (unsigned i = 0; i < (*self)->depth; i++) {
-    if (i >= (*other)->depth) return -1;
-    if ((*self)->stack[i].child_index < (*other)->stack[i].child_index) return -1;
-    if ((*self)->stack[i].child_index > (*other)->stack[i].child_index) return 1;
+    if (i >= (*other)->depth)
+      return -1;
+    if ((*self)->stack[i].child_index < (*other)->stack[i].child_index)
+      return -1;
+    if ((*self)->stack[i].child_index > (*other)->stack[i].child_index)
+      return 1;
   }
-  if ((*self)->depth < (*other)->depth) return 1;
-  if ((*self)->step_index < (*other)->step_index) return -1;
-  if ((*self)->step_index > (*other)->step_index) return 1;
+  if ((*self)->depth < (*other)->depth)
+    return 1;
+  if ((*self)->step_index < (*other)->step_index)
+    return -1;
+  if ((*self)->step_index > (*other)->step_index)
+    return 1;
   return 0;
 }
 
-static inline int analysis_state__compare(
-  AnalysisState *const *self,
-  AnalysisState *const *other
-) {
+static inline int analysis_state__compare(AnalysisState *const *self, AnalysisState *const *other) {
   int result = analysis_state__compare_position(self, other);
-  if (result != 0) return result;
+  if (result != 0)
+    return result;
   for (unsigned i = 0; i < (*self)->depth; i++) {
-    if ((*self)->stack[i].parent_symbol < (*other)->stack[i].parent_symbol) return -1;
-    if ((*self)->stack[i].parent_symbol > (*other)->stack[i].parent_symbol) return 1;
-    if ((*self)->stack[i].parse_state < (*other)->stack[i].parse_state) return -1;
-    if ((*self)->stack[i].parse_state > (*other)->stack[i].parse_state) return 1;
-    if ((*self)->stack[i].field_id < (*other)->stack[i].field_id) return -1;
-    if ((*self)->stack[i].field_id > (*other)->stack[i].field_id) return 1;
+    if ((*self)->stack[i].parent_symbol < (*other)->stack[i].parent_symbol)
+      return -1;
+    if ((*self)->stack[i].parent_symbol > (*other)->stack[i].parent_symbol)
+      return 1;
+    if ((*self)->stack[i].parse_state < (*other)->stack[i].parse_state)
+      return -1;
+    if ((*self)->stack[i].parse_state > (*other)->stack[i].parse_state)
+      return 1;
+    if ((*self)->stack[i].field_id < (*other)->stack[i].field_id)
+      return -1;
+    if ((*self)->stack[i].field_id > (*other)->stack[i].field_id)
+      return 1;
   }
   return 0;
 }
@@ -967,7 +916,8 @@ static inline AnalysisStateEntry *analysis_state__top(AnalysisState *self) {
 
 static inline bool analysis_state__has_supertype(AnalysisState *self, TSSymbol symbol) {
   for (unsigned i = 0; i < self->depth; i++) {
-    if (self->stack[i].parent_symbol == symbol) return true;
+    if (self->stack[i].parent_symbol == symbol)
+      return true;
   }
   return false;
 }
@@ -978,10 +928,8 @@ static inline bool analysis_state__has_supertype(AnalysisState *self, TSSymbol s
 
 // Obtains an `AnalysisState` instance, either by consuming one from this set's object pool, or by
 // cloning one from scratch.
-static inline AnalysisState *analysis_state_pool__clone_or_reuse(
-  AnalysisStateSet *self,
-  AnalysisState *borrowed_item
-) {
+static inline AnalysisState *
+analysis_state_pool__clone_or_reuse(AnalysisStateSet *self, AnalysisState *borrowed_item) {
   AnalysisState *new_item;
   if (self->size) {
     new_item = array_pop(self);
@@ -1048,7 +996,7 @@ static inline void analysis_state_set__delete(AnalysisStateSet *self) {
  ****************/
 
 static inline QueryAnalysis query_analysis__new(void) {
-  return (QueryAnalysis) {
+  return (QueryAnalysis){
     .states = array_new(),
     .next_states = array_new(),
     .deeper_states = array_new(),
@@ -1072,15 +1020,26 @@ static inline void query_analysis__delete(QueryAnalysis *self) {
  * AnalysisSubgraphNode
  ***********************/
 
-static inline int analysis_subgraph_node__compare(const AnalysisSubgraphNode *self, const AnalysisSubgraphNode *other) {
-  if (self->state < other->state) return -1;
-  if (self->state > other->state) return 1;
-  if (self->child_index < other->child_index) return -1;
-  if (self->child_index > other->child_index) return 1;
-  if (self->done < other->done) return -1;
-  if (self->done > other->done) return 1;
-  if (self->production_id < other->production_id) return -1;
-  if (self->production_id > other->production_id) return 1;
+static inline int analysis_subgraph_node__compare(
+  const AnalysisSubgraphNode *self,
+  const AnalysisSubgraphNode *other
+) {
+  if (self->state < other->state)
+    return -1;
+  if (self->state > other->state)
+    return 1;
+  if (self->child_index < other->child_index)
+    return -1;
+  if (self->child_index > other->child_index)
+    return 1;
+  if (self->done < other->done)
+    return -1;
+  if (self->done > other->done)
+    return 1;
+  if (self->production_id < other->production_id)
+    return -1;
+  if (self->production_id > other->production_id)
+    return 1;
   return 0;
 }
 
@@ -1102,11 +1061,8 @@ static inline int analysis_subgraph_node__compare(const AnalysisSubgraphNode *se
 // This returns `true` if the symbol is present and `false` otherwise.
 // If the symbol is not present `*result` is set to the index where the
 // symbol should be inserted.
-static inline bool ts_query__pattern_map_search(
-  const TSQuery *self,
-  TSSymbol needle,
-  uint32_t *result
-) {
+static inline bool
+ts_query__pattern_map_search(const TSQuery *self, TSSymbol needle, uint32_t *result) {
   uint32_t base_index = self->wildcard_root_pattern_count;
   uint32_t size = self->pattern_map.size - base_index;
   if (size == 0) {
@@ -1116,23 +1072,21 @@ static inline bool ts_query__pattern_map_search(
   while (size > 1) {
     uint32_t half_size = size / 2;
     uint32_t mid_index = base_index + half_size;
-    TSSymbol mid_symbol = array_get(&self->steps,
-      array_get(&self->pattern_map, mid_index)->step_index
-    )->symbol;
-    if (needle > mid_symbol) base_index = mid_index;
+    TSSymbol mid_symbol
+      = array_get(&self->steps, array_get(&self->pattern_map, mid_index)->step_index)->symbol;
+    if (needle > mid_symbol)
+      base_index = mid_index;
     size -= half_size;
   }
 
-  TSSymbol symbol = array_get(&self->steps,
-    array_get(&self->pattern_map, base_index)->step_index
-  )->symbol;
+  TSSymbol symbol
+    = array_get(&self->steps, array_get(&self->pattern_map, base_index)->step_index)->symbol;
 
   if (needle > symbol) {
     base_index++;
     if (base_index < self->pattern_map.size) {
-      symbol = array_get(&self->steps,
-        array_get(&self->pattern_map, base_index)->step_index
-      )->symbol;
+      symbol
+        = array_get(&self->steps, array_get(&self->pattern_map, base_index)->step_index)->symbol;
     }
   }
 
@@ -1142,11 +1096,8 @@ static inline bool ts_query__pattern_map_search(
 
 // Insert a new pattern's start index into the pattern map, maintaining
 // the pattern map's ordering invariant.
-static inline void ts_query__pattern_map_insert(
-  TSQuery *self,
-  TSSymbol symbol,
-  PatternEntry new_entry
-) {
+static inline void
+ts_query__pattern_map_insert(TSQuery *self, TSSymbol symbol, PatternEntry new_entry) {
   uint32_t index;
   ts_query__pattern_map_search(self, symbol, &index);
 
@@ -1156,10 +1107,8 @@ static inline void ts_query__pattern_map_insert(
   // to be maintained more efficiently.
   while (index < self->pattern_map.size) {
     PatternEntry *entry = array_get(&self->pattern_map, index);
-    if (
-      array_get(&self->steps, entry->step_index)->symbol == symbol &&
-      entry->pattern_index < new_entry.pattern_index
-    ) {
+    if (array_get(&self->steps, entry->step_index)->symbol == symbol
+        && entry->pattern_index < new_entry.pattern_index) {
       index++;
     } else {
       break;
@@ -1187,42 +1136,41 @@ static void ts_query__perform_analysis(
       break;
     }
 
-    #ifdef DEBUG_ANALYZE_QUERY
-      printf("Iteration: %u. Final step indices:", iteration);
-      for (unsigned j = 0; j < analysis->final_step_indices.size; j++) {
-        printf(" %4u", *array_get(&analysis->final_step_indices, j));
+#ifdef DEBUG_ANALYZE_QUERY
+    printf("Iteration: %u. Final step indices:", iteration);
+    for (unsigned j = 0; j < analysis->final_step_indices.size; j++) {
+      printf(" %4u", *array_get(&analysis->final_step_indices, j));
+    }
+    printf("\n");
+    for (unsigned j = 0; j < analysis->states.size; j++) {
+      AnalysisState *state = *array_get(&analysis->states, j);
+      printf("  %3u: step: %u, stack: [", j, state->step_index);
+      for (unsigned k = 0; k < state->depth; k++) {
+        printf(
+          " {%s, child: %u, state: %4u",
+          self->language->symbol_names[state->stack[k].parent_symbol], state->stack[k].child_index,
+          state->stack[k].parse_state
+        );
+        if (state->stack[k].field_id)
+          printf(", field: %s", self->language->field_names[state->stack[k].field_id]);
+        if (state->stack[k].done)
+          printf(", DONE");
+        printf("}");
       }
-      printf("\n");
-      for (unsigned j = 0; j < analysis->states.size; j++) {
-        AnalysisState *state = *array_get(&analysis->states, j);
-        printf("  %3u: step: %u, stack: [", j, state->step_index);
-        for (unsigned k = 0; k < state->depth; k++) {
-          printf(
-            " {%s, child: %u, state: %4u",
-            self->language->symbol_names[state->stack[k].parent_symbol],
-            state->stack[k].child_index,
-            state->stack[k].parse_state
-          );
-          if (state->stack[k].field_id) printf(", field: %s", self->language->field_names[state->stack[k].field_id]);
-          if (state->stack[k].done) printf(", DONE");
-          printf("}");
-        }
-        printf(" ]\n");
-      }
-    #endif
+      printf(" ]\n");
+    }
+#endif
 
     // If no further progress can be made within the current recursion depth limit, then
     // bump the depth limit by one, and continue to process the states the exceeded the
     // limit. But only allow this if progress has been made since the last time the depth
     // limit was increased.
     if (analysis->states.size == 0) {
-      if (
-        analysis->deeper_states.size > 0 &&
-        analysis->final_step_indices.size > prev_final_step_count
-      ) {
-        #ifdef DEBUG_ANALYZE_QUERY
-          printf("Increase recursion depth limit to %u\n", recursion_depth_limit + 1);
-        #endif
+      if (analysis->deeper_states.size > 0
+          && analysis->final_step_indices.size > prev_final_step_count) {
+#ifdef DEBUG_ANALYZE_QUERY
+        printf("Increase recursion depth limit to %u\n", recursion_depth_limit + 1);
+#endif
 
         prev_final_step_count = analysis->final_step_indices.size;
         recursion_depth_limit++;
@@ -1237,7 +1185,7 @@ static void ts_query__perform_analysis(
 
     analysis_state_set__clear(&analysis->next_states, &analysis->state_pool);
     for (unsigned j = 0; j < analysis->states.size; j++) {
-      AnalysisState * const state = *array_get(&analysis->states, j);
+      AnalysisState *const state = *array_get(&analysis->states, j);
 
       // For efficiency, it's important to avoid processing the same analysis state more
       // than once. To achieve this, keep the states in order of ascending position within
@@ -1245,22 +1193,18 @@ static void ts_query__perform_analysis(
       // the states that have made the least progress. Avoid advancing states that have already
       // made more progress.
       if (analysis->next_states.size > 0) {
-        int comparison = analysis_state__compare_position(
-          &state,
-          array_back(&analysis->next_states)
-        );
+        int comparison
+          = analysis_state__compare_position(&state, array_back(&analysis->next_states));
         if (comparison == 0) {
           analysis_state_set__insert_sorted(&analysis->next_states, &analysis->state_pool, state);
           continue;
         } else if (comparison > 0) {
-          #ifdef DEBUG_ANALYZE_QUERY
-            printf("Terminate iteration at state %u\n", j);
-          #endif
+#ifdef DEBUG_ANALYZE_QUERY
+          printf("Terminate iteration at state %u\n", j);
+#endif
           while (j < analysis->states.size) {
             analysis_state_set__push(
-              &analysis->next_states,
-              &analysis->state_pool,
-              *array_get(&analysis->states, j)
+              &analysis->next_states, &analysis->state_pool, *array_get(&analysis->states, j)
             );
             j++;
           }
@@ -1272,11 +1216,12 @@ static void ts_query__perform_analysis(
       const TSSymbol parent_symbol = analysis_state__top(state)->parent_symbol;
       const TSFieldId parent_field_id = analysis_state__top(state)->field_id;
       const unsigned child_index = analysis_state__top(state)->child_index;
-      const QueryStep * const step = array_get(&self->steps, state->step_index);
+      const QueryStep *const step = array_get(&self->steps, state->step_index);
 
       unsigned subgraph_index, exists;
       array_search_sorted_by(subgraphs, .symbol, parent_symbol, &subgraph_index, &exists);
-      if (!exists) continue;
+      if (!exists)
+        continue;
       const AnalysisSubgraph *subgraph = array_get(subgraphs, subgraph_index);
 
       // Follow every possible path in the parse table, but only visit states that
@@ -1290,7 +1235,8 @@ static void ts_query__perform_analysis(
           .child_index = child_index,
         };
         if (lookahead_iterator.action_count) {
-          const TSParseAction *action = &lookahead_iterator.actions[lookahead_iterator.action_count - 1];
+          const TSParseAction *action
+            = &lookahead_iterator.actions[lookahead_iterator.action_count - 1];
           if (action->type == TSParseActionTypeShift) {
             if (!action->shift.extra) {
               successor.state = action->shift.state;
@@ -1308,23 +1254,21 @@ static void ts_query__perform_analysis(
 
         unsigned node_index;
         array_search_sorted_with(
-          &subgraph->nodes,
-          analysis_subgraph_node__compare, &successor,
-          &node_index, &exists
+          &subgraph->nodes, analysis_subgraph_node__compare, &successor, &node_index, &exists
         );
         while (node_index < subgraph->nodes.size) {
           AnalysisSubgraphNode *node = array_get(&subgraph->nodes, node_index);
           node_index++;
-          if (node->state != successor.state || node->child_index != successor.child_index) break;
+          if (node->state != successor.state || node->child_index != successor.child_index)
+            break;
 
           // Use the subgraph to determine what alias and field will eventually be applied
           // to this child node.
           TSSymbol alias = ts_language_alias_at(self->language, node->production_id, child_index);
-          TSSymbol visible_symbol = alias
-            ? alias
-            : self->language->symbol_metadata[sym].visible
-              ? self->language->public_symbol_map[sym]
-              : 0;
+          TSSymbol visible_symbol = alias ? alias
+                                    : self->language->symbol_metadata[sym].visible
+                                      ? self->language->public_symbol_map[sym]
+                                      : 0;
           TSFieldId field_id = parent_field_id;
           if (!field_id) {
             const TSFieldMapEntry *field_map, *field_map_end;
@@ -1342,7 +1286,8 @@ static void ts_query__perform_analysis(
           AnalysisStateEntry *next_state_top = analysis_state__top(&next_state);
           next_state_top->child_index = successor.child_index;
           next_state_top->parse_state = successor.state;
-          if (node->done) next_state_top->done = true;
+          if (node->done)
+            next_state_top->done = true;
 
           // Determine if this hypothetical child node would match the current step
           // of the query pattern.
@@ -1350,20 +1295,17 @@ static void ts_query__perform_analysis(
           if (visible_symbol) {
             does_match = true;
             if (step->symbol == WILDCARD_SYMBOL) {
-              if (
-                step->is_named &&
-                !self->language->symbol_metadata[visible_symbol].named
-              ) does_match = false;
+              if (step->is_named && !self->language->symbol_metadata[visible_symbol].named)
+                does_match = false;
             } else if (step->symbol != visible_symbol) {
               does_match = false;
             }
             if (step->field && step->field != field_id) {
               does_match = false;
             }
-            if (
-              step->supertype_symbol &&
-              !analysis_state__has_supertype(state, step->supertype_symbol)
-            ) does_match = false;
+            if (step->supertype_symbol
+                && !analysis_state__has_supertype(state, step->supertype_symbol))
+              does_match = false;
           }
 
           // If this child is hidden, then descend into it and walk through its children.
@@ -1372,9 +1314,9 @@ static void ts_query__perform_analysis(
           else if (sym >= self->language->token_count) {
             if (!next_state_top->done) {
               if (next_state.depth + 1 >= MAX_ANALYSIS_STATE_DEPTH) {
-                #ifdef DEBUG_ANALYZE_QUERY
-                  printf("Exceeded depth limit for state %u\n", j);
-                #endif
+#ifdef DEBUG_ANALYZE_QUERY
+                printf("Exceeded depth limit for state %u\n", j);
+#endif
 
                 analysis->did_abort = true;
                 continue;
@@ -1384,7 +1326,7 @@ static void ts_query__perform_analysis(
               next_state_top = analysis_state__top(&next_state);
             }
 
-            *next_state_top = (AnalysisStateEntry) {
+            *next_state_top = (AnalysisStateEntry){
               .parse_state = parse_state,
               .parent_symbol = sym,
               .child_index = 0,
@@ -1394,9 +1336,7 @@ static void ts_query__perform_analysis(
 
             if (analysis_state__recursion_depth(&next_state) > recursion_depth_limit) {
               analysis_state_set__insert_sorted(
-                &analysis->deeper_states,
-                &analysis->state_pool,
-                &next_state
+                &analysis->deeper_states, &analysis->state_pool, &next_state
               );
               continue;
             }
@@ -1416,10 +1356,8 @@ static void ts_query__perform_analysis(
             for (;;) {
               next_state.step_index++;
               next_step = array_get(&self->steps, next_state.step_index);
-              if (
-                next_step->depth == PATTERN_DONE_MARKER ||
-                next_step->depth <= step->depth
-              ) break;
+              if (next_step->depth == PATTERN_DONE_MARKER || next_step->depth <= step->depth)
+                break;
             }
           } else if (successor.state == parse_state) {
             continue;
@@ -1439,25 +1377,25 @@ static void ts_query__perform_analysis(
             // record that matching can terminate at this step of the pattern. Otherwise,
             // add this state to the list of states to process on the next iteration.
             if (!next_step->is_dead_end) {
-              bool did_finish_pattern = array_get(&self->steps, next_state.step_index)->depth != step->depth;
+              bool did_finish_pattern
+                = array_get(&self->steps, next_state.step_index)->depth != step->depth;
               if (did_finish_pattern) {
                 array_insert_sorted_by(&analysis->finished_parent_symbols, , state->root_symbol);
               } else if (next_state.depth == 0) {
                 array_insert_sorted_by(&analysis->final_step_indices, , next_state.step_index);
               } else {
-                analysis_state_set__insert_sorted(&analysis->next_states, &analysis->state_pool, &next_state);
+                analysis_state_set__insert_sorted(
+                  &analysis->next_states, &analysis->state_pool, &next_state
+                );
               }
             }
 
             // If the state has advanced to a step with an alternative step, then add another state
-            // at that alternative step. This process is simpler than the process of actually matching a
-            // pattern during query execution, because for the purposes of query analysis, there is no
-            // need to process repetitions.
-            if (
-              does_match &&
-              next_step->alternative_index != NONE &&
-              next_step->alternative_index > next_state.step_index
-            ) {
+            // at that alternative step. This process is simpler than the process of actually
+            // matching a pattern during query execution, because for the purposes of query
+            // analysis, there is no need to process repetitions.
+            if (does_match && next_step->alternative_index != NONE
+                && next_step->alternative_index > next_state.step_index) {
               next_state.step_index = next_step->alternative_index;
               next_step = array_get(&self->steps, next_state.step_index);
             } else {
@@ -1503,10 +1441,8 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
     step->contains_captures = step->capture_ids[0] != NONE;
     for (unsigned j = i + 1; j < self->steps.size; j++) {
       QueryStep *next_step = array_get(&self->steps, j);
-      if (
-        next_step->depth == PATTERN_DONE_MARKER ||
-        next_step->depth <= step->depth
-      ) break;
+      if (next_step->depth == PATTERN_DONE_MARKER || next_step->depth <= step->depth)
+        break;
       if (next_step->capture_ids[0] != NONE) {
         step->contains_captures = true;
       }
@@ -1537,7 +1473,8 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
     AnalysisSubgraph subgraph = { .symbol = parent_symbol };
     array_insert_sorted_by(&subgraphs, .symbol, subgraph);
   }
-  for (TSSymbol sym = (uint16_t)self->language->token_count; sym < (uint16_t)self->language->symbol_count; sym++) {
+  for (TSSymbol sym = (uint16_t)self->language->token_count;
+       sym < (uint16_t)self->language->symbol_count; sym++) {
     if (!ts_language_symbol_metadata(self->language, sym).visible) {
       AnalysisSubgraph subgraph = { .symbol = sym };
       array_insert_sorted_by(&subgraphs, .symbol, subgraph);
@@ -1561,28 +1498,21 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
           if (action->type == TSParseActionTypeReduce) {
             const TSSymbol *aliases, *aliases_end;
             ts_language_aliases_for_symbol(
-              self->language,
-              action->reduce.symbol,
-              &aliases,
-              &aliases_end
+              self->language, action->reduce.symbol, &aliases, &aliases_end
             );
             for (const TSSymbol *symbol = aliases; symbol < aliases_end; symbol++) {
-              array_search_sorted_by(
-                &subgraphs,
-                .symbol,
-                *symbol,
-                &subgraph_index,
-                &exists
-              );
+              array_search_sorted_by(&subgraphs, .symbol, *symbol, &subgraph_index, &exists);
               if (exists) {
                 AnalysisSubgraph *subgraph = array_get(&subgraphs, subgraph_index);
                 if (subgraph->nodes.size == 0 || array_back(&subgraph->nodes)->state != state) {
-                  array_push(&subgraph->nodes, ((AnalysisSubgraphNode) {
-                    .state = state,
-                    .production_id = action->reduce.production_id,
-                    .child_index = action->reduce.child_count,
-                    .done = true,
-                  }));
+                  array_push(
+                    &subgraph->nodes, ((AnalysisSubgraphNode){
+                                        .state = state,
+                                        .production_id = action->reduce.production_id,
+                                        .child_index = action->reduce.child_count,
+                                        .done = true,
+                                      })
+                  );
                 }
               }
             }
@@ -1598,26 +1528,14 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
         if (ts_language_state_is_primary(self->language, state)) {
           const TSSymbol *aliases, *aliases_end;
           ts_language_aliases_for_symbol(
-            self->language,
-            lookahead_iterator.symbol,
-            &aliases,
-            &aliases_end
+            self->language, lookahead_iterator.symbol, &aliases, &aliases_end
           );
           for (const TSSymbol *symbol = aliases; symbol < aliases_end; symbol++) {
-            array_search_sorted_by(
-              &subgraphs,
-              .symbol,
-              *symbol,
-              &subgraph_index,
-              &exists
-            );
+            array_search_sorted_by(&subgraphs, .symbol, *symbol, &subgraph_index, &exists);
             if (exists) {
               AnalysisSubgraph *subgraph = array_get(&subgraphs, subgraph_index);
-              if (
-                subgraph->start_states.size == 0 ||
-                *array_back(&subgraph->start_states) != state
-              )
-              array_push(&subgraph->start_states, state);
+              if (subgraph->start_states.size == 0 || *array_back(&subgraph->start_states) != state)
+                array_push(&subgraph->start_states, state);
             }
           }
         }
@@ -1641,11 +1559,8 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
       AnalysisSubgraphNode node = array_pop(&next_nodes);
       if (node.child_index > 1) {
         unsigned predecessor_count;
-        const TSStateId *predecessors = state_predecessor_map_get(
-          &predecessor_map,
-          node.state,
-          &predecessor_count
-        );
+        const TSStateId *predecessors
+          = state_predecessor_map_get(&predecessor_map, node.state, &predecessor_count);
         for (unsigned j = 0; j < predecessor_count; j++) {
           AnalysisSubgraphNode predecessor_node = {
             .state = predecessors[j],
@@ -1655,8 +1570,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
           };
           unsigned index, exists;
           array_search_sorted_with(
-            &subgraph->nodes, analysis_subgraph_node__compare, &predecessor_node,
-            &index, &exists
+            &subgraph->nodes, analysis_subgraph_node__compare, &predecessor_node, &index, &exists
           );
           if (!exists) {
             array_insert(&subgraph->nodes, index, predecessor_node);
@@ -1667,27 +1581,26 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
     }
   }
 
-  #ifdef DEBUG_ANALYZE_QUERY
-    printf("\nSubgraphs:\n");
-    for (unsigned i = 0; i < subgraphs.size; i++) {
-      AnalysisSubgraph *subgraph = array_get(&subgraphs, i);
-      printf("  %u, %s:\n", subgraph->symbol, ts_language_symbol_name(self->language, subgraph->symbol));
-      for (unsigned j = 0; j < subgraph->start_states.size; j++) {
-        printf(
-          "    {state: %u}\n",
-          *array_get(&subgraph->start_states, j)
-        );
-      }
-      for (unsigned j = 0; j < subgraph->nodes.size; j++) {
-        AnalysisSubgraphNode *node = array_get(&subgraph->nodes, j);
-        printf(
-          "    {state: %u, child_index: %u, production_id: %u, done: %d}\n",
-          node->state, node->child_index, node->production_id, node->done
-        );
-      }
-      printf("\n");
+#ifdef DEBUG_ANALYZE_QUERY
+  printf("\nSubgraphs:\n");
+  for (unsigned i = 0; i < subgraphs.size; i++) {
+    AnalysisSubgraph *subgraph = array_get(&subgraphs, i);
+    printf(
+      "  %u, %s:\n", subgraph->symbol, ts_language_symbol_name(self->language, subgraph->symbol)
+    );
+    for (unsigned j = 0; j < subgraph->start_states.size; j++) {
+      printf("    {state: %u}\n", *array_get(&subgraph->start_states, j));
     }
-  #endif
+    for (unsigned j = 0; j < subgraph->nodes.size; j++) {
+      AnalysisSubgraphNode *node = array_get(&subgraph->nodes, j);
+      printf(
+        "    {state: %u, child_index: %u, production_id: %u, done: %d}\n", node->state,
+        node->child_index, node->production_id, node->done
+      );
+    }
+    printf("\n");
+  }
+#endif
 
   // For each non-terminal pattern, determine if the pattern can successfully match,
   // and identify all of the possible children within the pattern where matching could fail.
@@ -1697,7 +1610,8 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
     uint16_t parent_step_index = *array_get(&parent_step_indices, i);
     uint16_t parent_depth = array_get(&self->steps, parent_step_index)->depth;
     TSSymbol parent_symbol = array_get(&self->steps, parent_step_index)->symbol;
-    if (parent_symbol == ts_builtin_sym_error) continue;
+    if (parent_symbol == ts_builtin_sym_error)
+      continue;
 
     // Find the subgraph that corresponds to this pattern's root symbol. If the pattern's
     // root symbol is a terminal, then return an error.
@@ -1706,7 +1620,9 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
     if (!exists) {
       unsigned first_child_step_index = parent_step_index + 1;
       uint32_t j, child_exists;
-      array_search_sorted_by(&self->step_offsets, .step_index, first_child_step_index, &j, &child_exists);
+      array_search_sorted_by(
+        &self->step_offsets, .step_index, first_child_step_index, &j, &child_exists
+      );
       ts_assert(child_exists);
       *error_offset = array_get(&self->step_offsets, j)->byte_offset;
       all_patterns_are_valid = false;
@@ -1736,12 +1652,14 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
       }));
     }
 
-    #ifdef DEBUG_ANALYZE_QUERY
-      printf(
-        "\nWalk states for %s:\n",
-        ts_language_symbol_name(self->language, (*array_get(&analysis.states, 0))->stack[0].parent_symbol)
-      );
-    #endif
+#ifdef DEBUG_ANALYZE_QUERY
+    printf(
+      "\nWalk states for %s:\n",
+      ts_language_symbol_name(
+        self->language, (*array_get(&analysis.states, 0))->stack[0].parent_symbol
+      )
+    );
+#endif
 
     analysis.did_abort = false;
     ts_query__perform_analysis(self, &subgraphs, &analysis);
@@ -1751,10 +1669,8 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
     if (analysis.did_abort) {
       for (unsigned j = parent_step_index + 1; j < self->steps.size; j++) {
         QueryStep *step = array_get(&self->steps, j);
-        if (
-          step->depth <= parent_depth ||
-          step->depth == PATTERN_DONE_MARKER
-        ) break;
+        if (step->depth <= parent_depth || step->depth == PATTERN_DONE_MARKER)
+          break;
         if (!step->is_dead_end) {
           step->parent_pattern_guaranteed = false;
           step->root_pattern_guaranteed = false;
@@ -1769,8 +1685,11 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
       ts_assert(analysis.final_step_indices.size > 0);
       uint16_t impossible_step_index = *array_back(&analysis.final_step_indices);
       uint32_t j, impossible_exists;
-      array_search_sorted_by(&self->step_offsets, .step_index, impossible_step_index, &j, &impossible_exists);
-      if (j >= self->step_offsets.size) j = self->step_offsets.size - 1;
+      array_search_sorted_by(
+        &self->step_offsets, .step_index, impossible_step_index, &j, &impossible_exists
+      );
+      if (j >= self->step_offsets.size)
+        j = self->step_offsets.size - 1;
       *error_offset = array_get(&self->step_offsets, j)->byte_offset;
       all_patterns_are_valid = false;
       break;
@@ -1781,11 +1700,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
     for (unsigned j = 0; j < analysis.final_step_indices.size; j++) {
       uint32_t final_step_index = *array_get(&analysis.final_step_indices, j);
       QueryStep *step = array_get(&self->steps, final_step_index);
-      if (
-        step->depth != PATTERN_DONE_MARKER &&
-        step->depth > parent_depth &&
-        !step->is_dead_end
-      ) {
+      if (step->depth != PATTERN_DONE_MARKER && step->depth > parent_depth && !step->is_dead_end) {
         step->parent_pattern_guaranteed = false;
         step->root_pattern_guaranteed = false;
       }
@@ -1799,11 +1714,9 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
 
     // Gather all of the captures that are used in predicates for this pattern.
     array_clear(&predicate_capture_ids);
-    for (
-      unsigned start = pattern->predicate_steps.offset,
-      end = start + pattern->predicate_steps.length,
-      j = start; j < end; j++
-    ) {
+    for (unsigned start = pattern->predicate_steps.offset,
+                  end = start + pattern->predicate_steps.length, j = start;
+         j < end; j++) {
       TSQueryPredicateStep *step = array_get(&self->predicate_steps, j);
       if (step->type == TSQueryPredicateStepTypeCapture) {
         uint16_t value_id = step->value_id;
@@ -1812,15 +1725,13 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
     }
 
     // Find all of the steps that have these captures.
-    for (
-      unsigned start = pattern->steps.offset,
-      end = start + pattern->steps.length,
-      j = start; j < end; j++
-    ) {
+    for (unsigned start = pattern->steps.offset, end = start + pattern->steps.length, j = start;
+         j < end; j++) {
       QueryStep *step = array_get(&self->steps, j);
       for (unsigned k = 0; k < MAX_STEP_CAPTURE_COUNT; k++) {
         uint16_t capture_id = step->capture_ids[k];
-        if (capture_id == NONE) break;
+        if (capture_id == NONE)
+          break;
         unsigned index, exists;
         array_search_sorted_by(&predicate_capture_ids, , capture_id, &index, &exists);
         if (exists) {
@@ -1838,7 +1749,8 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
     done = true;
     for (unsigned i = self->steps.size - 1; i > 0; i--) {
       QueryStep *step = array_get(&self->steps, i);
-      if (step->depth == PATTERN_DONE_MARKER) continue;
+      if (step->depth == PATTERN_DONE_MARKER)
+        continue;
 
       // Determine if this step is definite or has definite alternatives.
       bool parent_pattern_guaranteed = false;
@@ -1856,11 +1768,8 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
       // If not, mark its predecessor as indefinite.
       if (!parent_pattern_guaranteed) {
         QueryStep *prev_step = array_get(&self->steps, i - 1);
-        if (
-          !prev_step->is_dead_end &&
-          prev_step->depth != PATTERN_DONE_MARKER &&
-          prev_step->root_pattern_guaranteed
-        ) {
+        if (!prev_step->is_dead_end && prev_step->depth != PATTERN_DONE_MARKER
+            && prev_step->root_pattern_guaranteed) {
           prev_step->root_pattern_guaranteed = false;
           done = false;
         }
@@ -1868,27 +1777,25 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
     }
   }
 
-  #ifdef DEBUG_ANALYZE_QUERY
-    printf("Steps:\n");
-    for (unsigned i = 0; i < self->steps.size; i++) {
-      QueryStep *step = array_get(&self->steps, i);
-      if (step->depth == PATTERN_DONE_MARKER) {
-        printf("  %u: DONE\n", i);
-      } else {
-        printf(
-          "  %u: {symbol: %s, field: %s, depth: %u, parent_pattern_guaranteed: %d, root_pattern_guaranteed: %d}\n",
-          i,
-          (step->symbol == WILDCARD_SYMBOL)
-            ? "ANY"
-            : ts_language_symbol_name(self->language, step->symbol),
-          (step->field ? ts_language_field_name_for_id(self->language, step->field) : "-"),
-          step->depth,
-          step->parent_pattern_guaranteed,
-          step->root_pattern_guaranteed
-        );
-      }
+#ifdef DEBUG_ANALYZE_QUERY
+  printf("Steps:\n");
+  for (unsigned i = 0; i < self->steps.size; i++) {
+    QueryStep *step = array_get(&self->steps, i);
+    if (step->depth == PATTERN_DONE_MARKER) {
+      printf("  %u: DONE\n", i);
+    } else {
+      printf(
+        "  %u: {symbol: %s, field: %s, depth: %u, parent_pattern_guaranteed: %d, "
+        "root_pattern_guaranteed: %d}\n",
+        i,
+        (step->symbol == WILDCARD_SYMBOL) ? "ANY"
+                                          : ts_language_symbol_name(self->language, step->symbol),
+        (step->field ? ts_language_field_name_for_id(self->language, step->field) : "-"),
+        step->depth, step->parent_pattern_guaranteed, step->root_pattern_guaranteed
+      );
     }
-  #endif
+  }
+#endif
 
   // Determine which repetition symbols in this language have the possibility
   // of matching non-rooted patterns in this query. These repetition symbols
@@ -1903,7 +1810,8 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
     for (unsigned j = 0; j < subgraphs.size; j++) {
       AnalysisSubgraph *subgraph = array_get(&subgraphs, j);
       TSSymbolMetadata metadata = ts_language_symbol_metadata(self->language, subgraph->symbol);
-      if (metadata.visible || metadata.named) continue;
+      if (metadata.visible || metadata.named)
+        continue;
 
       for (uint32_t k = 0; k < subgraph->start_states.size; k++) {
         TSStateId parse_state = *array_get(&subgraph->start_states, k);
@@ -1924,15 +1832,11 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
       }
     }
 
-    #ifdef DEBUG_ANALYZE_QUERY
-      printf("\nWalk states for rootless pattern step %u:\n", pattern_entry->step_index);
-    #endif
+#ifdef DEBUG_ANALYZE_QUERY
+    printf("\nWalk states for rootless pattern step %u:\n", pattern_entry->step_index);
+#endif
 
-    ts_query__perform_analysis(
-      self,
-      &subgraphs,
-      &analysis
-    );
+    ts_query__perform_analysis(self, &subgraphs, &analysis);
 
     if (analysis.finished_parent_symbols.size > 0) {
       array_get(&self->patterns, pattern_entry->pattern_index)->is_non_local = true;
@@ -1944,17 +1848,17 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
     }
   }
 
-  #ifdef DEBUG_ANALYZE_QUERY
-    if (self->repeat_symbols_with_rootless_patterns.size > 0) {
-      printf("\nRepetition symbols with rootless patterns:\n");
-      printf("aborted analysis: %d\n", analysis.did_abort);
-      for (unsigned i = 0; i < self->repeat_symbols_with_rootless_patterns.size; i++) {
-        TSSymbol symbol = *array_get(&self->repeat_symbols_with_rootless_patterns, i);
-        printf("  %u, %s\n", symbol, ts_language_symbol_name(self->language, symbol));
-      }
-      printf("\n");
+#ifdef DEBUG_ANALYZE_QUERY
+  if (self->repeat_symbols_with_rootless_patterns.size > 0) {
+    printf("\nRepetition symbols with rootless patterns:\n");
+    printf("aborted analysis: %d\n", analysis.did_abort);
+    for (unsigned i = 0; i < self->repeat_symbols_with_rootless_patterns.size; i++) {
+      TSSymbol symbol = *array_get(&self->repeat_symbols_with_rootless_patterns, i);
+      printf("  %u, %s\n", symbol, ts_language_symbol_name(self->language, symbol));
     }
-  #endif
+    printf("\n");
+  }
+#endif
 
   // Cleanup
   for (unsigned i = 0; i < subgraphs.size; i++) {
@@ -2004,11 +1908,8 @@ static void ts_query__add_negated_fields(
 
     // If the existing list matches our new list so far, then advance
     // to the next element of the new list.
-    else if (
-      match_count < field_count &&
-      existing_field_id == field_ids[match_count] &&
-      !failed_match
-    ) {
+    else if (match_count < field_count && existing_field_id == field_ids[match_count]
+             && !failed_match) {
       match_count++;
     }
 
@@ -2024,12 +1925,10 @@ static void ts_query__add_negated_fields(
   array_push(&self->negated_fields, 0);
 }
 
-static TSQueryError ts_query__parse_string_literal(
-  TSQuery *self,
-  Stream *stream
-) {
+static TSQueryError ts_query__parse_string_literal(TSQuery *self, Stream *stream) {
   const char *string_start = stream->input;
-  if (stream->next != '"') return TSQueryErrorSyntax;
+  if (stream->next != '"')
+    return TSQueryErrorSyntax;
   stream_advance(stream);
   const char *prev_position = stream->input;
 
@@ -2039,30 +1938,34 @@ static TSQueryError ts_query__parse_string_literal(
     if (is_escaped) {
       is_escaped = false;
       switch (stream->next) {
-        case 'n':
-          array_push(&self->string_buffer, '\n');
-          break;
-        case 'r':
-          array_push(&self->string_buffer, '\r');
-          break;
-        case 't':
-          array_push(&self->string_buffer, '\t');
-          break;
-        case '0':
-          array_push(&self->string_buffer, '\0');
-          break;
-        default:
-          array_extend(&self->string_buffer, stream->next_size, stream->input);
-          break;
+      case 'n':
+        array_push(&self->string_buffer, '\n');
+        break;
+      case 'r':
+        array_push(&self->string_buffer, '\r');
+        break;
+      case 't':
+        array_push(&self->string_buffer, '\t');
+        break;
+      case '0':
+        array_push(&self->string_buffer, '\0');
+        break;
+      default:
+        array_extend(&self->string_buffer, stream->next_size, stream->input);
+        break;
       }
       prev_position = stream->input + stream->next_size;
     } else {
       if (stream->next == '\\') {
-        array_extend(&self->string_buffer, (uint32_t)(stream->input - prev_position), prev_position);
+        array_extend(
+          &self->string_buffer, (uint32_t)(stream->input - prev_position), prev_position
+        );
         prev_position = stream->input + 1;
         is_escaped = true;
       } else if (stream->next == '"') {
-        array_extend(&self->string_buffer, (uint32_t)(stream->input - prev_position), prev_position);
+        array_extend(
+          &self->string_buffer, (uint32_t)(stream->input - prev_position), prev_position
+        );
         stream_advance(stream);
         return TSQueryErrorNone;
       } else if (stream->next == '\n') {
@@ -2083,11 +1986,9 @@ static TSQueryError ts_query__parse_string_literal(
 // a higher level of abstraction, such as the Rust/JavaScript bindings. They
 // can contain '@'-prefixed capture names, double-quoted strings, and bare
 // symbols, which also represent strings.
-static TSQueryError ts_query__parse_predicate(
-  TSQuery *self,
-  Stream *stream
-) {
-  if (!stream_is_ident_start(stream)) return TSQueryErrorSyntax;
+static TSQueryError ts_query__parse_predicate(TSQuery *self, Stream *stream) {
+  if (!stream_is_ident_start(stream))
+    return TSQueryErrorSyntax;
   const char *predicate_name = stream->input;
   stream_scan_identifier(stream);
   if (stream->next != '?' && stream->next != '!') {
@@ -2095,25 +1996,25 @@ static TSQueryError ts_query__parse_predicate(
   }
   stream_advance(stream);
   uint32_t length = (uint32_t)(stream->input - predicate_name);
-  uint16_t id = symbol_table_insert_name(
-    &self->predicate_values,
-    predicate_name,
-    length
+  uint16_t id = symbol_table_insert_name(&self->predicate_values, predicate_name, length);
+  array_push(
+    &self->predicate_steps, ((TSQueryPredicateStep){
+                              .type = TSQueryPredicateStepTypeString,
+                              .value_id = id,
+                            })
   );
-  array_push(&self->predicate_steps, ((TSQueryPredicateStep) {
-    .type = TSQueryPredicateStepTypeString,
-    .value_id = id,
-  }));
   stream_skip_whitespace(stream);
 
   for (;;) {
     if (stream->next == ')') {
       stream_advance(stream);
       stream_skip_whitespace(stream);
-      array_push(&self->predicate_steps, ((TSQueryPredicateStep) {
-        .type = TSQueryPredicateStepTypeDone,
-        .value_id = 0,
-      }));
+      array_push(
+        &self->predicate_steps, ((TSQueryPredicateStep){
+                                  .type = TSQueryPredicateStepTypeDone,
+                                  .value_id = 0,
+                                })
+      );
       break;
     }
 
@@ -2122,41 +2023,41 @@ static TSQueryError ts_query__parse_predicate(
       stream_advance(stream);
 
       // Parse the capture name
-      if (!stream_is_ident_start(stream)) return TSQueryErrorSyntax;
+      if (!stream_is_ident_start(stream))
+        return TSQueryErrorSyntax;
       const char *capture_name = stream->input;
       stream_scan_identifier(stream);
       uint32_t capture_length = (uint32_t)(stream->input - capture_name);
 
       // Add the capture id to the first step of the pattern
-      int capture_id = symbol_table_id_for_name(
-        &self->captures,
-        capture_name,
-        capture_length
-      );
+      int capture_id = symbol_table_id_for_name(&self->captures, capture_name, capture_length);
       if (capture_id == -1) {
         stream_reset(stream, capture_name);
         return TSQueryErrorCapture;
       }
 
-      array_push(&self->predicate_steps, ((TSQueryPredicateStep) {
-        .type = TSQueryPredicateStepTypeCapture,
-        .value_id = capture_id,
-      }));
+      array_push(
+        &self->predicate_steps, ((TSQueryPredicateStep){
+                                  .type = TSQueryPredicateStepTypeCapture,
+                                  .value_id = capture_id,
+                                })
+      );
     }
 
     // Parse a string literal
     else if (stream->next == '"') {
       TSQueryError e = ts_query__parse_string_literal(self, stream);
-      if (e) return e;
+      if (e)
+        return e;
       uint16_t query_id = symbol_table_insert_name(
-        &self->predicate_values,
-        self->string_buffer.contents,
-        self->string_buffer.size
+        &self->predicate_values, self->string_buffer.contents, self->string_buffer.size
       );
-      array_push(&self->predicate_steps, ((TSQueryPredicateStep) {
-        .type = TSQueryPredicateStepTypeString,
-        .value_id = query_id,
-      }));
+      array_push(
+        &self->predicate_steps, ((TSQueryPredicateStep){
+                                  .type = TSQueryPredicateStepTypeString,
+                                  .value_id = query_id,
+                                })
+      );
     }
 
     // Parse a bare symbol
@@ -2164,15 +2065,14 @@ static TSQueryError ts_query__parse_predicate(
       const char *symbol_start = stream->input;
       stream_scan_identifier(stream);
       uint32_t symbol_length = (uint32_t)(stream->input - symbol_start);
-      uint16_t query_id = symbol_table_insert_name(
-        &self->predicate_values,
-        symbol_start,
-        symbol_length
+      uint16_t query_id
+        = symbol_table_insert_name(&self->predicate_values, symbol_start, symbol_length);
+      array_push(
+        &self->predicate_steps, ((TSQueryPredicateStep){
+                                  .type = TSQueryPredicateStepTypeString,
+                                  .value_id = query_id,
+                                })
       );
-      array_push(&self->predicate_steps, ((TSQueryPredicateStep) {
-        .type = TSQueryPredicateStepTypeString,
-        .value_id = query_id,
-      }));
     }
 
     else {
@@ -2198,20 +2098,22 @@ static TSQueryError ts_query__parse_pattern(
   bool is_immediate,
   CaptureQuantifiers *capture_quantifiers
 ) {
-  if (stream->next == 0) return TSQueryErrorSyntax;
-  if (stream->next == ')' || stream->next == ']') return PARENT_DONE;
+  if (stream->next == 0)
+    return TSQueryErrorSyntax;
+  if (stream->next == ')' || stream->next == ']')
+    return PARENT_DONE;
 
   const uint32_t starting_step_index = self->steps.size;
 
   // Store the byte offset of each step in the query.
-  if (
-    self->step_offsets.size == 0 ||
-    array_back(&self->step_offsets)->step_index != starting_step_index
-  ) {
-    array_push(&self->step_offsets, ((StepOffset) {
-      .step_index = starting_step_index,
-      .byte_offset = stream_offset(stream),
-    }));
+  if (self->step_offsets.size == 0
+      || array_back(&self->step_offsets)->step_index != starting_step_index) {
+    array_push(
+      &self->step_offsets, ((StepOffset){
+                             .step_index = starting_step_index,
+                             .byte_offset = stream_offset(stream),
+                           })
+    );
   }
 
   // An open bracket is the start of an alternation.
@@ -2224,13 +2126,8 @@ static TSQueryError ts_query__parse_pattern(
     CaptureQuantifiers branch_capture_quantifiers = capture_quantifiers_new();
     for (;;) {
       uint32_t start_index = self->steps.size;
-      TSQueryError e = ts_query__parse_pattern(
-        self,
-        stream,
-        depth,
-        is_immediate,
-        &branch_capture_quantifiers
-      );
+      TSQueryError e
+        = ts_query__parse_pattern(self, stream, depth, is_immediate, &branch_capture_quantifiers);
 
       if (e == PARENT_DONE) {
         if (stream->next == ']' && branch_step_indices.size > 0) {
@@ -2292,11 +2189,7 @@ static TSQueryError ts_query__parse_pattern(
           stream_skip_whitespace(stream);
         }
         TSQueryError e = ts_query__parse_pattern(
-          self,
-          stream,
-          depth,
-          child_is_immediate,
-          &child_capture_quantifiers
+          self, stream, depth, child_is_immediate, &child_capture_quantifiers
         );
         if (e == PARENT_DONE) {
           if (stream->next == ')') {
@@ -2347,10 +2240,7 @@ static TSQueryError ts_query__parse_pattern(
             stream_scan_identifier(stream);
             uint32_t missing_node_length = (uint32_t)(stream->input - missing_node_name);
             symbol = ts_language_symbol_for_name(
-              self->language,
-              missing_node_name,
-              missing_node_length,
-              true
+              self->language, missing_node_name, missing_node_length, true
             );
             if (!symbol) {
               stream_reset(stream, missing_node_name);
@@ -2361,13 +2251,11 @@ static TSQueryError ts_query__parse_pattern(
           else if (stream->next == '"') {
             const char *string_start = stream->input;
             TSQueryError e = ts_query__parse_string_literal(self, stream);
-            if (e) return e;
+            if (e)
+              return e;
 
             symbol = ts_language_symbol_for_name(
-              self->language,
-              self->string_buffer.contents,
-              self->string_buffer.size,
-              false
+              self->language, self->string_buffer.contents, self->string_buffer.size, false
             );
             if (!symbol) {
               stream_reset(stream, string_start + 1);
@@ -2386,12 +2274,7 @@ static TSQueryError ts_query__parse_pattern(
         }
 
         else {
-          symbol = ts_language_symbol_for_name(
-            self->language,
-            node_name,
-            length,
-            true
-          );
+          symbol = ts_language_symbol_for_name(self->language, node_name, length, true);
           if (!symbol) {
             stream_reset(stream, node_name);
             return TSQueryErrorNodeType;
@@ -2419,7 +2302,7 @@ static TSQueryError ts_query__parse_pattern(
 
       if (stream->next == '/') {
         if (!step->supertype_symbol) {
-          stream_reset(stream, node_name - 1); // reset to the start of the node
+          stream_reset(stream, node_name - 1);  // reset to the start of the node
           return TSQueryErrorStructure;
         }
 
@@ -2432,12 +2315,7 @@ static TSQueryError ts_query__parse_pattern(
         stream_scan_identifier(stream);
         uint32_t length = (uint32_t)(stream->input - subtype_node_name);
 
-        step->symbol = ts_language_symbol_for_name(
-          self->language,
-          subtype_node_name,
-          length,
-          true
-        );
+        step->symbol = ts_language_symbol_for_name(self->language, subtype_node_name, length, true);
         if (!step->symbol) {
           stream_reset(stream, subtype_node_name);
           return TSQueryErrorNodeType;
@@ -2447,11 +2325,8 @@ static TSQueryError ts_query__parse_pattern(
         // and check if the given subtype is valid.
         if (self->language->abi_version >= LANGUAGE_VERSION_WITH_RESERVED_WORDS) {
           uint32_t subtype_length;
-          const TSSymbol *subtypes = ts_language_subtypes(
-            self->language,
-            step->supertype_symbol,
-            &subtype_length
-          );
+          const TSSymbol *subtypes
+            = ts_language_subtypes(self->language, step->supertype_symbol, &subtype_length);
 
           bool subtype_is_valid = false;
           for (uint32_t i = 0; i < subtype_length; i++) {
@@ -2463,7 +2338,7 @@ static TSQueryError ts_query__parse_pattern(
 
           // This subtype is not valid for the given supertype.
           if (!subtype_is_valid) {
-            stream_reset(stream, node_name - 1); // reset to the start of the node
+            stream_reset(stream, node_name - 1);  // reset to the start of the node
             return TSQueryErrorStructure;
           }
         }
@@ -2491,11 +2366,7 @@ static TSQueryError ts_query__parse_pattern(
           uint32_t length = (uint32_t)(stream->input - field_name);
           stream_skip_whitespace(stream);
 
-          TSFieldId field_id = ts_language_field_id_for_name(
-            self->language,
-            field_name,
-            length
-          );
+          TSFieldId field_id = ts_language_field_id_for_name(self->language, field_name, length);
           if (!field_id) {
             stream->input = field_name;
             capture_quantifiers_delete(&child_capture_quantifiers);
@@ -2520,15 +2391,12 @@ static TSQueryError ts_query__parse_pattern(
 
         uint16_t step_index = self->steps.size;
         TSQueryError e = ts_query__parse_pattern(
-          self,
-          stream,
-          depth + 1,
-          child_is_immediate,
-          &child_capture_quantifiers
+          self, stream, depth + 1, child_is_immediate, &child_capture_quantifiers
         );
         // In the event we only parsed a predicate, meaning no new steps were added,
         // then subtract one so we're not indexing past the end of the array
-        if (step_index == self->steps.size) step_index--;
+        if (step_index == self->steps.size)
+          step_index--;
         if (e == PARENT_DONE) {
           if (stream->next == ')') {
             if (child_is_immediate) {
@@ -2539,16 +2407,13 @@ static TSQueryError ts_query__parse_pattern(
               // Mark this step *and* its alternatives as the last child of the parent.
               QueryStep *last_child_step = array_get(&self->steps, last_child_step_index);
               last_child_step->is_last_child = true;
-              if (
-                last_child_step->alternative_index != NONE &&
-                last_child_step->alternative_index < self->steps.size
-              ) {
-                QueryStep *alternative_step = array_get(&self->steps, last_child_step->alternative_index);
+              if (last_child_step->alternative_index != NONE
+                  && last_child_step->alternative_index < self->steps.size) {
+                QueryStep *alternative_step
+                  = array_get(&self->steps, last_child_step->alternative_index);
                 alternative_step->is_last_child = true;
-                while (
-                  alternative_step->alternative_index != NONE &&
-                  alternative_step->alternative_index < self->steps.size
-                ) {
+                while (alternative_step->alternative_index != NONE
+                       && alternative_step->alternative_index < self->steps.size) {
                   alternative_step = array_get(&self->steps, alternative_step->alternative_index);
                   alternative_step->is_last_child = true;
                 }
@@ -2557,10 +2422,7 @@ static TSQueryError ts_query__parse_pattern(
 
             if (negated_field_count) {
               ts_query__add_negated_fields(
-                self,
-                starting_step_index,
-                negated_field_ids,
-                negated_field_count
+                self, starting_step_index, negated_field_ids, negated_field_count
               );
             }
 
@@ -2597,14 +2459,12 @@ static TSQueryError ts_query__parse_pattern(
   else if (stream->next == '"') {
     const char *string_start = stream->input;
     TSQueryError e = ts_query__parse_string_literal(self, stream);
-    if (e) return e;
+    if (e)
+      return e;
 
     // Add a step for the node
     TSSymbol symbol = ts_language_symbol_for_name(
-      self->language,
-      self->string_buffer.contents,
-      self->string_buffer.size,
-      false
+      self->language, self->string_buffer.contents, self->string_buffer.size, false
     );
     if (!symbol) {
       stream_reset(stream, string_start + 1);
@@ -2630,25 +2490,17 @@ static TSQueryError ts_query__parse_pattern(
 
     // Parse the pattern
     CaptureQuantifiers field_capture_quantifiers = capture_quantifiers_new();
-    TSQueryError e = ts_query__parse_pattern(
-      self,
-      stream,
-      depth,
-      is_immediate,
-      &field_capture_quantifiers
-    );
+    TSQueryError e
+      = ts_query__parse_pattern(self, stream, depth, is_immediate, &field_capture_quantifiers);
     if (e) {
       capture_quantifiers_delete(&field_capture_quantifiers);
-      if (e == PARENT_DONE) e = TSQueryErrorSyntax;
+      if (e == PARENT_DONE)
+        e = TSQueryErrorSyntax;
       return e;
     }
 
     // Add the field name to the first step of the pattern
-    TSFieldId field_id = ts_language_field_id_for_name(
-      self->language,
-      field_name,
-      length
-    );
+    TSFieldId field_id = ts_language_field_id_for_name(self->language, field_name, length);
     if (!field_id) {
       stream->input = field_name;
       return TSQueryErrorField;
@@ -2658,11 +2510,8 @@ static TSQueryError ts_query__parse_pattern(
     QueryStep *step = array_get(&self->steps, step_index);
     for (;;) {
       step->field = field_id;
-      if (
-        step->alternative_index != NONE &&
-        step->alternative_index > step_index &&
-        step->alternative_index < self->steps.size
-      ) {
+      if (step->alternative_index != NONE && step->alternative_index > step_index
+          && step->alternative_index < self->steps.size) {
         step_index = step->alternative_index;
         step = array_get(&self->steps, step_index);
       } else {
@@ -2737,18 +2586,15 @@ static TSQueryError ts_query__parse_pattern(
     // Parse an '@'-prefixed capture pattern
     else if (stream->next == '@') {
       stream_advance(stream);
-      if (!stream_is_ident_start(stream)) return TSQueryErrorSyntax;
+      if (!stream_is_ident_start(stream))
+        return TSQueryErrorSyntax;
       const char *capture_name = stream->input;
       stream_scan_identifier(stream);
       uint32_t length = (uint32_t)(stream->input - capture_name);
       stream_skip_whitespace(stream);
 
       // Add the capture id to the first step of the pattern
-      uint16_t capture_id = symbol_table_insert_name(
-        &self->captures,
-        capture_name,
-        length
-      );
+      uint16_t capture_id = symbol_table_insert_name(&self->captures, capture_name, length);
 
       // Add the capture quantifier
       capture_quantifiers_add_for_id(capture_quantifiers, capture_id, TSQuantifierOne);
@@ -2757,11 +2603,8 @@ static TSQueryError ts_query__parse_pattern(
       for (;;) {
         QueryStep *step = array_get(&self->steps, step_index);
         query_step__add_capture(step, capture_id);
-        if (
-          step->alternative_index != NONE &&
-          step->alternative_index > step_index &&
-          step->alternative_index < self->steps.size
-        ) {
+        if (step->alternative_index != NONE && step->alternative_index > step_index
+            && step->alternative_index < self->steps.size) {
           step_index = step->alternative_index;
         } else {
           break;
@@ -2787,17 +2630,14 @@ TSQuery *ts_query_new(
   uint32_t *error_offset,
   TSQueryError *error_type
 ) {
-  if (
-    !language ||
-    language->abi_version > TREE_SITTER_LANGUAGE_VERSION ||
-    language->abi_version < TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION
-  ) {
+  if (!language || language->abi_version > TREE_SITTER_LANGUAGE_VERSION
+      || language->abi_version < TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION) {
     *error_type = TSQueryErrorLanguage;
     return NULL;
   }
 
   TSQuery *self = ts_malloc(sizeof(TSQuery));
-  *self = (TSQuery) {
+  *self = (TSQuery){
     .steps = array_new(),
     .pattern_map = array_new(),
     .captures = symbol_table_new(),
@@ -2822,12 +2662,14 @@ TSQuery *ts_query_new(
     uint32_t pattern_index = self->patterns.size;
     uint32_t start_step_index = self->steps.size;
     uint32_t start_predicate_step_index = self->predicate_steps.size;
-    array_push(&self->patterns, ((QueryPattern) {
-      .steps = (Slice) {.offset = start_step_index},
-      .predicate_steps = (Slice) {.offset = start_predicate_step_index},
-      .start_byte = stream_offset(&stream),
-      .is_non_local = false,
-    }));
+    array_push(
+      &self->patterns, ((QueryPattern){
+                         .steps = (Slice){ .offset = start_step_index },
+                         .predicate_steps = (Slice){ .offset = start_predicate_step_index },
+                         .start_byte = stream_offset(&stream),
+                         .is_non_local = false,
+                       })
+    );
     CaptureQuantifiers capture_quantifiers = capture_quantifiers_new();
     *error_type = ts_query__parse_pattern(self, &stream, 0, false, &capture_quantifiers);
     array_push(&self->steps, query_step__new(0, PATTERN_DONE_MARKER, false));
@@ -2840,7 +2682,8 @@ TSQuery *ts_query_new(
     // If any pattern could not be parsed, then report the error information
     // and terminate.
     if (*error_type) {
-      if (*error_type == PARENT_DONE) *error_type = TSQueryErrorSyntax;
+      if (*error_type == PARENT_DONE)
+        *error_type = TSQueryErrorSyntax;
       *error_offset = stream_offset(&stream);
       capture_quantifiers_delete(&capture_quantifiers);
       ts_query_delete(self);
@@ -2861,7 +2704,8 @@ TSQuery *ts_query_new(
       // there is a parent node, and capture it if necessary.
       if (step->symbol == WILDCARD_SYMBOL && step->depth == 0 && !step->field) {
         QueryStep *second_step = array_get(&self->steps, start_step_index + 1);
-        if (second_step->symbol != WILDCARD_SYMBOL && second_step->depth == 1 && !second_step->is_immediate) {
+        if (second_step->symbol != WILDCARD_SYMBOL && second_step->depth == 1
+            && !second_step->is_immediate) {
           wildcard_root_alternative_index = step->alternative_index;
           start_step_index += 1;
           step = second_step;
@@ -2874,20 +2718,22 @@ TSQuery *ts_query_new(
       // error node.
       uint32_t start_depth = step->depth;
       bool is_rooted = start_depth == 0;
-      for (uint32_t step_index = start_step_index + 1; step_index < self->steps.size; step_index++) {
+      for (uint32_t step_index = start_step_index + 1; step_index < self->steps.size;
+           step_index++) {
         QueryStep *child_step = array_get(&self->steps, step_index);
-        if (child_step->is_dead_end) break;
+        if (child_step->is_dead_end)
+          break;
         if (child_step->depth == start_depth) {
           is_rooted = false;
           break;
         }
       }
 
-      ts_query__pattern_map_insert(self, step->symbol, (PatternEntry) {
-        .step_index = start_step_index,
-        .pattern_index = pattern_index,
-        .is_rooted = is_rooted
-      });
+      ts_query__pattern_map_insert(
+        self, step->symbol,
+        (PatternEntry){
+          .step_index = start_step_index, .pattern_index = pattern_index, .is_rooted = is_rooted }
+      );
       if (step->symbol == WILDCARD_SYMBOL) {
         self->wildcard_root_pattern_count++;
       }
@@ -2949,11 +2795,7 @@ uint32_t ts_query_string_count(const TSQuery *self) {
   return self->predicate_values.slices.size;
 }
 
-const char *ts_query_capture_name_for_id(
-  const TSQuery *self,
-  uint32_t index,
-  uint32_t *length
-) {
+const char *ts_query_capture_name_for_id(const TSQuery *self, uint32_t index, uint32_t *length) {
   return symbol_table_name_for_id(&self->captures, index, length);
 }
 
@@ -2966,56 +2808,39 @@ TSQuantifier ts_query_capture_quantifier_for_id(
   return capture_quantifier_for_id(capture_quantifiers, capture_index);
 }
 
-const char *ts_query_string_value_for_id(
-  const TSQuery *self,
-  uint32_t index,
-  uint32_t *length
-) {
+const char *ts_query_string_value_for_id(const TSQuery *self, uint32_t index, uint32_t *length) {
   return symbol_table_name_for_id(&self->predicate_values, index, length);
 }
 
-const TSQueryPredicateStep *ts_query_predicates_for_pattern(
-  const TSQuery *self,
-  uint32_t pattern_index,
-  uint32_t *step_count
-) {
+const TSQueryPredicateStep *
+ts_query_predicates_for_pattern(const TSQuery *self, uint32_t pattern_index, uint32_t *step_count) {
   Slice slice = array_get(&self->patterns, pattern_index)->predicate_steps;
   *step_count = slice.length;
-  if (slice.length == 0) return NULL;
+  if (slice.length == 0)
+    return NULL;
   return array_get(&self->predicate_steps, slice.offset);
 }
 
-uint32_t ts_query_start_byte_for_pattern(
-  const TSQuery *self,
-  uint32_t pattern_index
-) {
+uint32_t ts_query_start_byte_for_pattern(const TSQuery *self, uint32_t pattern_index) {
   return array_get(&self->patterns, pattern_index)->start_byte;
 }
 
-uint32_t ts_query_end_byte_for_pattern(
-  const TSQuery *self,
-  uint32_t pattern_index
-) {
+uint32_t ts_query_end_byte_for_pattern(const TSQuery *self, uint32_t pattern_index) {
   return array_get(&self->patterns, pattern_index)->end_byte;
 }
 
-bool ts_query_is_pattern_rooted(
-  const TSQuery *self,
-  uint32_t pattern_index
-) {
+bool ts_query_is_pattern_rooted(const TSQuery *self, uint32_t pattern_index) {
   for (unsigned i = 0; i < self->pattern_map.size; i++) {
     PatternEntry *entry = array_get(&self->pattern_map, i);
     if (entry->pattern_index == pattern_index) {
-      if (!entry->is_rooted) return false;
+      if (!entry->is_rooted)
+        return false;
     }
   }
   return true;
 }
 
-bool ts_query_is_pattern_non_local(
-  const TSQuery *self,
-  uint32_t pattern_index
-) {
+bool ts_query_is_pattern_non_local(const TSQuery *self, uint32_t pattern_index) {
   if (pattern_index < self->patterns.size) {
     return array_get(&self->patterns, pattern_index)->is_non_local;
   } else {
@@ -3023,14 +2848,12 @@ bool ts_query_is_pattern_non_local(
   }
 }
 
-bool ts_query_is_pattern_guaranteed_at_step(
-  const TSQuery *self,
-  uint32_t byte_offset
-) {
+bool ts_query_is_pattern_guaranteed_at_step(const TSQuery *self, uint32_t byte_offset) {
   uint32_t step_index = UINT32_MAX;
   for (unsigned i = 0; i < self->step_offsets.size; i++) {
     StepOffset *step_offset = array_get(&self->step_offsets, i);
-    if (step_offset->byte_offset > byte_offset) break;
+    if (step_offset->byte_offset > byte_offset)
+      break;
     step_index = step_offset->step_index;
   }
   if (step_index < self->steps.size) {
@@ -3040,25 +2863,17 @@ bool ts_query_is_pattern_guaranteed_at_step(
   }
 }
 
-bool ts_query__step_is_fallible(
-  const TSQuery *self,
-  uint16_t step_index
-) {
+bool ts_query__step_is_fallible(const TSQuery *self, uint16_t step_index) {
   ts_assert((uint32_t)step_index + 1 < self->steps.size);
   QueryStep *step = array_get(&self->steps, step_index);
   QueryStep *next_step = array_get(&self->steps, step_index + 1);
   return (
-    next_step->depth != PATTERN_DONE_MARKER &&
-    next_step->depth > step->depth &&
-    (!next_step->parent_pattern_guaranteed || step->symbol == WILDCARD_SYMBOL)
+    next_step->depth != PATTERN_DONE_MARKER && next_step->depth > step->depth
+    && (!next_step->parent_pattern_guaranteed || step->symbol == WILDCARD_SYMBOL)
   );
 }
 
-void ts_query_disable_capture(
-  TSQuery *self,
-  const char *name,
-  uint32_t length
-) {
+void ts_query_disable_capture(TSQuery *self, const char *name, uint32_t length) {
   // Remove capture information for any pattern step that previously
   // captured with the given name.
   int id = symbol_table_id_for_name(&self->captures, name, length);
@@ -3070,10 +2885,7 @@ void ts_query_disable_capture(
   }
 }
 
-void ts_query_disable_pattern(
-  TSQuery *self,
-  uint32_t pattern_index
-) {
+void ts_query_disable_pattern(TSQuery *self, uint32_t pattern_index) {
   // Remove the given pattern from the pattern map. Its steps will still
   // be in the `steps` array, but they will never be read.
   for (unsigned i = 0; i < self->pattern_map.size; i++) {
@@ -3091,7 +2903,7 @@ void ts_query_disable_pattern(
 
 TSQueryCursor *ts_query_cursor_new(void) {
   TSQueryCursor *self = ts_malloc(sizeof(TSQueryCursor));
-  *self = (TSQueryCursor) {
+  *self = (TSQueryCursor){
     .did_exceed_match_limit = false,
     .ascending = false,
     .halted = false,
@@ -3100,7 +2912,7 @@ TSQueryCursor *ts_query_cursor_new(void) {
     .capture_list_pool = capture_list_pool_new(),
     .start_byte = 0,
     .end_byte = UINT32_MAX,
-    .start_point = {0, 0},
+    .start_point = { 0, 0 },
     .end_point = POINT_MAX,
     .max_start_depth = UINT32_MAX,
     .timeout_duration = 0,
@@ -3141,16 +2953,12 @@ void ts_query_cursor_set_timeout_micros(TSQueryCursor *self, uint64_t timeout_mi
 }
 
 #ifdef DEBUG_EXECUTE_QUERY
-#define LOG(...) fprintf(stderr, __VA_ARGS__)
+# define LOG(...) fprintf(stderr, __VA_ARGS__)
 #else
-#define LOG(...)
+# define LOG(...)
 #endif
 
-void ts_query_cursor_exec(
-  TSQueryCursor *self,
-  const TSQuery *query,
-  TSNode node
-) {
+void ts_query_cursor_exec(TSQueryCursor *self, const TSQuery *query, TSNode node) {
   if (query) {
     LOG("query steps:\n");
     for (unsigned i = 0; i < query->steps.size; i++) {
@@ -3195,7 +3003,7 @@ void ts_query_cursor_exec(
     self->end_clock = clock_null();
   }
   self->query_options = NULL;
-  self->query_state = (TSQueryCursorState) {0};
+  self->query_state = (TSQueryCursorState){ 0 };
 }
 
 void ts_query_cursor_exec_with_options(
@@ -3207,17 +3015,11 @@ void ts_query_cursor_exec_with_options(
   ts_query_cursor_exec(self, query, node);
   if (query_options) {
     self->query_options = query_options;
-    self->query_state = (TSQueryCursorState) {
-      .payload = query_options->payload
-    };
+    self->query_state = (TSQueryCursorState){ .payload = query_options->payload };
   }
 }
 
-bool ts_query_cursor_set_byte_range(
-  TSQueryCursor *self,
-  uint32_t start_byte,
-  uint32_t end_byte
-) {
+bool ts_query_cursor_set_byte_range(TSQueryCursor *self, uint32_t start_byte, uint32_t end_byte) {
   if (end_byte == 0) {
     end_byte = UINT32_MAX;
   }
@@ -3229,11 +3031,7 @@ bool ts_query_cursor_set_byte_range(
   return true;
 }
 
-bool ts_query_cursor_set_point_range(
-  TSQueryCursor *self,
-  TSPoint start_point,
-  TSPoint end_point
-) {
+bool ts_query_cursor_set_point_range(TSQueryCursor *self, TSPoint start_point, TSPoint end_point) {
   if (end_point.row == 0 && end_point.column == 0) {
     end_point = POINT_MAX;
   }
@@ -3260,32 +3058,26 @@ static bool ts_query_cursor__first_in_progress_capture(
   *pattern_index = UINT32_MAX;
   for (unsigned i = 0; i < self->states.size; i++) {
     QueryState *state = array_get(&self->states, i);
-    if (state->dead) continue;
+    if (state->dead)
+      continue;
 
-    const CaptureList *captures = capture_list_pool_get(
-      &self->capture_list_pool,
-      state->capture_list_id
-    );
+    const CaptureList *captures
+      = capture_list_pool_get(&self->capture_list_pool, state->capture_list_id);
     if (state->consumed_capture_count >= captures->size) {
       continue;
     }
 
     TSNode node = array_get(captures, state->consumed_capture_count)->node;
-    if (
-      ts_node_end_byte(node) <= self->start_byte ||
-      point_lte(ts_node_end_point(node), self->start_point)
-    ) {
+    if (ts_node_end_byte(node) <= self->start_byte
+        || point_lte(ts_node_end_point(node), self->start_point)) {
       state->consumed_capture_count++;
       i--;
       continue;
     }
 
     uint32_t node_start_byte = ts_node_start_byte(node);
-    if (
-      !result ||
-      node_start_byte < *byte_offset ||
-      (node_start_byte == *byte_offset && state->pattern_index < *pattern_index)
-    ) {
+    if (!result || node_start_byte < *byte_offset
+        || (node_start_byte == *byte_offset && state->pattern_index < *pattern_index)) {
       QueryStep *step = array_get(&self->query->steps, state->step_index);
       if (is_definite) {
         // We're being a bit conservative here by asserting that the following step
@@ -3310,12 +3102,16 @@ int ts_query_cursor__compare_nodes(TSNode left, TSNode right) {
   if (left.id != right.id) {
     uint32_t left_start = ts_node_start_byte(left);
     uint32_t right_start = ts_node_start_byte(right);
-    if (left_start < right_start) return -1;
-    if (left_start > right_start) return 1;
+    if (left_start < right_start)
+      return -1;
+    if (left_start > right_start)
+      return 1;
     uint32_t left_node_count = ts_node_end_byte(left);
     uint32_t right_node_count = ts_node_end_byte(right);
-    if (left_node_count > right_node_count) return -1;
-    if (left_node_count < right_node_count) return 1;
+    if (left_node_count > right_node_count)
+      return -1;
+    if (left_node_count < right_node_count)
+      return 1;
   }
   return 0;
 }
@@ -3328,14 +3124,10 @@ void ts_query_cursor__compare_captures(
   bool *left_contains_right,
   bool *right_contains_left
 ) {
-  const CaptureList *left_captures = capture_list_pool_get(
-    &self->capture_list_pool,
-    left_state->capture_list_id
-  );
-  const CaptureList *right_captures = capture_list_pool_get(
-    &self->capture_list_pool,
-    right_state->capture_list_id
-  );
+  const CaptureList *left_captures
+    = capture_list_pool_get(&self->capture_list_pool, left_state->capture_list_id);
+  const CaptureList *right_captures
+    = capture_list_pool_get(&self->capture_list_pool, right_state->capture_list_id);
   *left_contains_right = true;
   *right_contains_left = true;
   unsigned i = 0, j = 0;
@@ -3349,20 +3141,20 @@ void ts_query_cursor__compare_captures(
           j++;
         } else {
           switch (ts_query_cursor__compare_nodes(left->node, right->node)) {
-            case -1:
-              *right_contains_left = false;
-              i++;
-              break;
-            case 1:
-              *left_contains_right = false;
-              j++;
-              break;
-            default:
-              *right_contains_left = false;
-              *left_contains_right = false;
-              i++;
-              j++;
-              break;
+          case -1:
+            *right_contains_left = false;
+            i++;
+            break;
+          case 1:
+            *left_contains_right = false;
+            j++;
+            break;
+          default:
+            *right_contains_left = false;
+            *left_contains_right = false;
+            i++;
+            j++;
+            break;
           }
         }
       } else {
@@ -3378,10 +3170,7 @@ void ts_query_cursor__compare_captures(
   }
 }
 
-static void ts_query_cursor__add_state(
-  TSQueryCursor *self,
-  const PatternEntry *pattern
-) {
+static void ts_query_cursor__add_state(TSQueryCursor *self, const PatternEntry *pattern) {
   QueryStep *step = array_get(&self->query->steps, pattern->step_index);
   uint32_t start_depth = self->depth - step->depth;
 
@@ -3407,36 +3196,36 @@ static void ts_query_cursor__add_state(
   uint32_t index = self->states.size;
   while (index > 0) {
     QueryState *prev_state = array_get(&self->states, index - 1);
-    if (prev_state->start_depth < start_depth) break;
+    if (prev_state->start_depth < start_depth)
+      break;
     if (prev_state->start_depth == start_depth) {
       // Avoid inserting an unnecessary duplicate state, which would be
       // immediately pruned by the longest-match criteria.
-      if (
-        prev_state->pattern_index == pattern->pattern_index &&
-        prev_state->step_index == pattern->step_index
-      ) return;
-      if (prev_state->pattern_index <= pattern->pattern_index) break;
+      if (prev_state->pattern_index == pattern->pattern_index
+          && prev_state->step_index == pattern->step_index)
+        return;
+      if (prev_state->pattern_index <= pattern->pattern_index)
+        break;
     }
     index--;
   }
 
-  LOG(
-    "  start state. pattern:%u, step:%u\n",
-    pattern->pattern_index,
-    pattern->step_index
+  LOG("  start state. pattern:%u, step:%u\n", pattern->pattern_index, pattern->step_index);
+  array_insert(
+    &self->states, index,
+    ((QueryState){
+      .id = UINT32_MAX,
+      .capture_list_id = NONE,
+      .step_index = pattern->step_index,
+      .pattern_index = pattern->pattern_index,
+      .start_depth = start_depth,
+      .consumed_capture_count = 0,
+      .seeking_immediate_match = true,
+      .has_in_progress_alternatives = false,
+      .needs_parent = step->depth == 1,
+      .dead = false,
+    })
   );
-  array_insert(&self->states, index, ((QueryState) {
-    .id = UINT32_MAX,
-    .capture_list_id = NONE,
-    .step_index = pattern->step_index,
-    .pattern_index = pattern->pattern_index,
-    .start_depth = start_depth,
-    .consumed_capture_count = 0,
-    .seeking_immediate_match = true,
-    .has_in_progress_alternatives = false,
-    .needs_parent = step->depth == 1,
-    .dead = false,
-  }));
 }
 
 // Acquire a capture list for this state. If there are no capture lists left in the
@@ -3456,28 +3245,20 @@ static CaptureList *ts_query_cursor__prepare_to_capture(
     if (state->capture_list_id == NONE) {
       self->did_exceed_match_limit = true;
       uint32_t state_index, byte_offset, pattern_index;
-      if (
-        ts_query_cursor__first_in_progress_capture(
-          self,
-          &state_index,
-          &byte_offset,
-          &pattern_index,
-          NULL
-        ) &&
-        state_index != state_index_to_preserve
-      ) {
+      if (ts_query_cursor__first_in_progress_capture(
+            self, &state_index, &byte_offset, &pattern_index, NULL
+          )
+          && state_index != state_index_to_preserve) {
         LOG(
-          "  abandon state. index:%u, pattern:%u, offset:%u.\n",
-          state_index, pattern_index, byte_offset
+          "  abandon state. index:%u, pattern:%u, offset:%u.\n", state_index, pattern_index,
+          byte_offset
         );
         QueryState *other_state = array_get(&self->states, state_index);
         state->capture_list_id = other_state->capture_list_id;
         other_state->capture_list_id = NONE;
         other_state->dead = true;
-        CaptureList *list = capture_list_pool_get_mut(
-          &self->capture_list_pool,
-          state->capture_list_id
-        );
+        CaptureList *list
+          = capture_list_pool_get_mut(&self->capture_list_pool, state->capture_list_id);
         array_clear(list);
         return list;
       } else {
@@ -3489,13 +3270,10 @@ static CaptureList *ts_query_cursor__prepare_to_capture(
   return capture_list_pool_get_mut(&self->capture_list_pool, state->capture_list_id);
 }
 
-static void ts_query_cursor__capture(
-  TSQueryCursor *self,
-  QueryState *state,
-  QueryStep *step,
-  TSNode node
-) {
-  if (state->dead) return;
+static void
+ts_query_cursor__capture(TSQueryCursor *self, QueryState *state, QueryStep *step, TSNode node) {
+  if (state->dead)
+    return;
   CaptureList *capture_list = ts_query_cursor__prepare_to_capture(self, state, UINT32_MAX);
   if (!capture_list) {
     state->dead = true;
@@ -3504,14 +3282,12 @@ static void ts_query_cursor__capture(
 
   for (unsigned j = 0; j < MAX_STEP_CAPTURE_COUNT; j++) {
     uint16_t capture_id = step->capture_ids[j];
-    if (step->capture_ids[j] == NONE) break;
-    array_push(capture_list, ((TSQueryCapture) { node, capture_id }));
+    if (step->capture_ids[j] == NONE)
+      break;
+    array_push(capture_list, ((TSQueryCapture){ node, capture_id }));
     LOG(
-      "  capture node. type:%s, pattern:%u, capture_id:%u, capture_count:%u\n",
-      ts_node_type(node),
-      state->pattern_index,
-      capture_id,
-      capture_list->size
+      "  capture node. type:%s, pattern:%u, capture_id:%u, capture_count:%u\n", ts_node_type(node),
+      state->pattern_index, capture_id, capture_list->size
     );
   }
 }
@@ -3519,10 +3295,7 @@ static void ts_query_cursor__capture(
 // Duplicate the given state and insert the newly-created state immediately after
 // the given state in the `states` array. Ensures that the given state reference is
 // still valid, even if the states array is reallocated.
-static QueryState *ts_query_cursor__copy_state(
-  TSQueryCursor *self,
-  QueryState **state_ref
-) {
+static QueryState *ts_query_cursor__copy_state(TSQueryCursor *self, QueryState **state_ref) {
   const QueryState *state = *state_ref;
   uint32_t state_index = (uint32_t)(state - self->states.contents);
   QueryState copy = *state;
@@ -3531,11 +3304,10 @@ static QueryState *ts_query_cursor__copy_state(
   // If the state has captures, copy its capture list.
   if (state->capture_list_id != NONE) {
     CaptureList *new_captures = ts_query_cursor__prepare_to_capture(self, &copy, state_index);
-    if (!new_captures) return NULL;
-    const CaptureList *old_captures = capture_list_pool_get(
-      &self->capture_list_pool,
-      state->capture_list_id
-    );
+    if (!new_captures)
+      return NULL;
+    const CaptureList *old_captures
+      = capture_list_pool_get(&self->capture_list_pool, state->capture_list_id);
     array_push_all(new_captures, old_captures);
   }
 
@@ -3544,10 +3316,8 @@ static QueryState *ts_query_cursor__copy_state(
   return array_get(&self->states, state_index + 1);
 }
 
-static inline bool ts_query_cursor__should_descend(
-  TSQueryCursor *self,
-  bool node_intersects_range
-) {
+static inline bool
+ts_query_cursor__should_descend(TSQueryCursor *self, bool node_intersects_range) {
 
   if (node_intersects_range && self->depth < self->max_start_depth) {
     return true;
@@ -3558,10 +3328,8 @@ static inline bool ts_query_cursor__should_descend(
   for (unsigned i = 0; i < self->states.size; i++) {
     QueryState *state = array_get(&self->states, i);
     QueryStep *next_step = array_get(&self->query->steps, state->step_index);
-    if (
-      next_step->depth != PATTERN_DONE_MARKER &&
-      state->start_depth + next_step->depth > self->depth
-    ) {
+    if (next_step->depth != PATTERN_DONE_MARKER
+        && state->start_depth + next_step->depth > self->depth) {
       return true;
     }
   }
@@ -3584,9 +3352,7 @@ static inline bool ts_query_cursor__should_descend(
       bool exists;
       uint32_t index;
       array_search_sorted_by(
-        &self->query->repeat_symbols_with_rootless_patterns,,
-        ts_subtree_symbol(subtree),
-        &index,
+        &self->query->repeat_symbols_with_rootless_patterns, , ts_subtree_symbol(subtree), &index,
         &exists
       );
       return exists;
@@ -3602,19 +3368,13 @@ static inline bool ts_query_cursor__should_descend(
 // If one or more patterns finish, return `true` and store their states in the
 // `finished_states` array. Multiple patterns can finish on the same node. If
 // there are no more matches, return `false`.
-static inline bool ts_query_cursor__advance(
-  TSQueryCursor *self,
-  bool stop_on_definite_step
-) {
+static inline bool ts_query_cursor__advance(TSQueryCursor *self, bool stop_on_definite_step) {
   bool did_match = false;
   for (;;) {
     if (self->halted) {
       while (self->states.size > 0) {
         QueryState state = array_pop(&self->states);
-        capture_list_pool_release(
-          &self->capture_list_pool,
-          state.capture_list_id
-        );
+        capture_list_pool_release(&self->capture_list_pool, state.capture_list_id);
       }
     }
 
@@ -3623,7 +3383,8 @@ static inline bool ts_query_cursor__advance(
     }
 
     if (self->query_options && self->query_options->progress_callback) {
-      self->query_state.current_byte_offset = ts_node_start_byte(ts_tree_cursor_current_node(&self->cursor));
+      self->query_state.current_byte_offset
+        = ts_node_start_byte(ts_tree_cursor_current_node(&self->cursor));
     }
     if (
       did_match ||
@@ -3643,8 +3404,7 @@ static inline bool ts_query_cursor__advance(
     if (self->ascending) {
       if (self->on_visible_node) {
         LOG(
-          "leave node. depth:%u, type:%s\n",
-          self->depth,
+          "leave node. depth:%u, type:%s\n", self->depth,
           ts_node_type(ts_tree_cursor_current_node(&self->cursor))
         );
 
@@ -3656,10 +3416,8 @@ static inline bool ts_query_cursor__advance(
 
           // If a state completed its pattern inside of this node, but was deferred from finishing
           // in order to search for longer matches, mark it as finished.
-          if (
-            step->depth == PATTERN_DONE_MARKER &&
-            (state->start_depth > self->depth || self->depth == 0)
-          ) {
+          if (step->depth == PATTERN_DONE_MARKER
+              && (state->start_depth > self->depth || self->depth == 0)) {
             LOG("  finish pattern %u\n", state->pattern_index);
             array_push(&self->finished_states, *state);
             did_match = true;
@@ -3668,19 +3426,12 @@ static inline bool ts_query_cursor__advance(
 
           // If a state needed to match something within this node, then remove that state
           // as it has failed to match.
-          else if (
-            step->depth != PATTERN_DONE_MARKER &&
-            (uint32_t)state->start_depth + (uint32_t)step->depth > self->depth
-          ) {
+          else if (step->depth != PATTERN_DONE_MARKER
+                   && (uint32_t)state->start_depth + (uint32_t)step->depth > self->depth) {
             LOG(
-              "  failed to match. pattern:%u, step:%u\n",
-              state->pattern_index,
-              state->step_index
+              "  failed to match. pattern:%u, step:%u\n", state->pattern_index, state->step_index
             );
-            capture_list_pool_release(
-              &self->capture_list_pool,
-              state->capture_list_id
-            );
+            capture_list_pool_release(&self->capture_list_pool, state->capture_list_id);
             deleted_count++;
           }
 
@@ -3693,27 +3444,27 @@ static inline bool ts_query_cursor__advance(
 
       // Leave this node by stepping to its next sibling or to its parent.
       switch (ts_tree_cursor_goto_next_sibling_internal(&self->cursor)) {
-        case TreeCursorStepVisible:
-          if (!self->on_visible_node) {
-            self->depth++;
-            self->on_visible_node = true;
-          }
-          self->ascending = false;
-          break;
-        case TreeCursorStepHidden:
-          if (self->on_visible_node) {
-            self->depth--;
-            self->on_visible_node = false;
-          }
-          self->ascending = false;
-          break;
-        default:
-          if (ts_tree_cursor_goto_parent(&self->cursor)) {
-            self->depth--;
-          } else {
-            LOG("halt at root\n");
-            self->halted = true;
-          }
+      case TreeCursorStepVisible:
+        if (!self->on_visible_node) {
+          self->depth++;
+          self->on_visible_node = true;
+        }
+        self->ascending = false;
+        break;
+      case TreeCursorStepHidden:
+        if (self->on_visible_node) {
+          self->depth--;
+          self->on_visible_node = false;
+        }
+        self->ascending = false;
+        break;
+      default:
+        if (ts_tree_cursor_goto_parent(&self->cursor)) {
+          self->depth--;
+        } else {
+          LOG("halt at root\n");
+          self->halted = true;
+        }
       }
     }
 
@@ -3737,17 +3488,14 @@ static inline bool ts_query_cursor__advance(
         ts_node_start_byte(parent_node) >= self->end_byte ||
         point_gte(ts_node_start_point(parent_node), self->end_point)
       );
-      bool node_precedes_range =
-        parent_precedes_range ||
-        end_byte < self->start_byte ||
-        point_lt(end_point, self->start_point) ||
-        (!is_empty && end_byte == self->start_byte) ||
-        (!is_empty && point_eq(end_point, self->start_point));
+      bool node_precedes_range = parent_precedes_range || end_byte < self->start_byte
+                                 || point_lt(end_point, self->start_point)
+                                 || (!is_empty && end_byte == self->start_byte)
+                                 || (!is_empty && point_eq(end_point, self->start_point));
 
-      bool node_follows_range = parent_follows_range || (
-        start_byte >= self->end_byte ||
-        point_gte(start_point, self->end_point)
-      );
+      bool node_follows_range
+        = parent_follows_range
+          || (start_byte >= self->end_byte || point_gte(start_point, self->end_point));
       bool parent_intersects_range = !parent_precedes_range && !parent_follows_range;
       bool node_intersects_range = !node_precedes_range && !node_follows_range;
 
@@ -3759,31 +3507,23 @@ static inline bool ts_query_cursor__advance(
         bool has_later_named_siblings;
         bool can_have_later_siblings_with_this_field;
         TSFieldId field_id = 0;
-        TSSymbol supertypes[8] = {0};
+        TSSymbol supertypes[8] = { 0 };
         unsigned supertype_count = 8;
         ts_tree_cursor_current_status(
-          &self->cursor,
-          &field_id,
-          &has_later_siblings,
-          &has_later_named_siblings,
-          &can_have_later_siblings_with_this_field,
-          supertypes,
-          &supertype_count
+          &self->cursor, &field_id, &has_later_siblings, &has_later_named_siblings,
+          &can_have_later_siblings_with_this_field, supertypes, &supertype_count
         );
         LOG(
-          "enter node. depth:%u, type:%s, field:%s, row:%u state_count:%u, finished_state_count:%u\n",
-          self->depth,
-          ts_node_type(node),
+          "enter node. depth:%u, type:%s, field:%s, row:%u state_count:%u, "
+          "finished_state_count:%u\n",
+          self->depth, ts_node_type(node),
           ts_language_field_name_for_id(self->query->language, field_id),
-          ts_node_start_point(node).row,
-          self->states.size,
-          self->finished_states.size
+          ts_node_start_point(node).row, self->states.size, self->finished_states.size
         );
 
         bool node_is_error = symbol == ts_builtin_sym_error;
-        bool parent_is_error =
-          !ts_node_is_null(parent_node) &&
-          ts_node_symbol(parent_node) == ts_builtin_sym_error;
+        bool parent_is_error
+          = !ts_node_is_null(parent_node) && ts_node_symbol(parent_node) == ts_builtin_sym_error;
 
         // Add new states for any patterns whose root node is a wildcard.
         if (!node_is_error) {
@@ -3794,14 +3534,11 @@ static inline bool ts_query_cursor__advance(
             // state at the start of this pattern.
             QueryStep *step = array_get(&self->query->steps, pattern->step_index);
             uint32_t start_depth = self->depth - step->depth;
-            if (
-              (pattern->is_rooted ?
-                node_intersects_range :
-                (parent_intersects_range && !parent_is_error)) &&
-              (!step->field || field_id == step->field) &&
-              (!step->supertype_symbol || supertype_count > 0) &&
-              (start_depth <= self->max_start_depth)
-            ) {
+            if ((pattern->is_rooted ? node_intersects_range
+                                    : (parent_intersects_range && !parent_is_error))
+                && (!step->field || field_id == step->field)
+                && (!step->supertype_symbol || supertype_count > 0)
+                && (start_depth <= self->max_start_depth)) {
               ts_query_cursor__add_state(self, pattern);
             }
           }
@@ -3817,19 +3554,17 @@ static inline bool ts_query_cursor__advance(
           do {
             // If this node matches the first step of the pattern, then add a new
             // state at the start of this pattern.
-            if (
-              (pattern->is_rooted ?
-                node_intersects_range :
-                (parent_intersects_range && !parent_is_error)) &&
-              (!step->field || field_id == step->field) &&
-              (start_depth <= self->max_start_depth)
-            ) {
+            if ((pattern->is_rooted ? node_intersects_range
+                                    : (parent_intersects_range && !parent_is_error))
+                && (!step->field || field_id == step->field)
+                && (start_depth <= self->max_start_depth)) {
               ts_query_cursor__add_state(self, pattern);
             }
 
             // Advance to the next pattern whose root node matches this node.
             i++;
-            if (i == self->query->pattern_map.size) break;
+            if (i == self->query->pattern_map.size)
+              break;
             pattern = array_get(&self->query->pattern_map, i);
             step = array_get(&self->query->steps, pattern->step_index);
           } while (step->symbol == symbol);
@@ -3844,7 +3579,8 @@ static inline bool ts_query_cursor__advance(
 
           // Check that the node matches all of the criteria for the next
           // step of the pattern.
-          if ((uint32_t)state->start_depth + (uint32_t)step->depth != self->depth) continue;
+          if ((uint32_t)state->start_depth + (uint32_t)step->depth != self->depth)
+            continue;
 
           // Determine if this node matches this step of the pattern, and also
           // if this node can have later siblings that match this step of the
@@ -3874,7 +3610,8 @@ static inline bool ts_query_cursor__advance(
                 break;
               }
             }
-            if (!has_supertype) node_does_match = false;
+            if (!has_supertype)
+              node_does_match = false;
           }
           if (step->field) {
             if (step->field == field_id) {
@@ -3887,7 +3624,8 @@ static inline bool ts_query_cursor__advance(
           }
 
           if (step->negated_field_list_id) {
-            TSFieldId *negated_field_ids = array_get(&self->query->negated_fields, step->negated_field_list_id);
+            TSFieldId *negated_field_ids
+              = array_get(&self->query->negated_fields, step->negated_field_list_id);
             for (;;) {
               TSFieldId negated_field_id = *negated_field_ids;
               if (negated_field_id) {
@@ -3906,14 +3644,9 @@ static inline bool ts_query_cursor__advance(
           if (!node_does_match) {
             if (!later_sibling_can_match) {
               LOG(
-                "  discard state. pattern:%u, step:%u\n",
-                state->pattern_index,
-                state->step_index
+                "  discard state. pattern:%u, step:%u\n", state->pattern_index, state->step_index
               );
-              capture_list_pool_release(
-                &self->capture_list_pool,
-                state->capture_list_id
-              );
+              capture_list_pool_release(&self->capture_list_pool, state->capture_list_id);
               array_erase(&self->states, j);
               j--;
             }
@@ -3925,14 +3658,11 @@ static inline bool ts_query_cursor__advance(
           // parent, then this query state cannot simply be updated in place. It must be
           // split into two states: one that matches this node, and one which skips over
           // this node, to preserve the possibility of matching later siblings.
-          if (later_sibling_can_match && (
-            step->contains_captures ||
-            ts_query__step_is_fallible(self->query, state->step_index)
-          )) {
+          if (later_sibling_can_match
+              && (step->contains_captures || ts_query__step_is_fallible(self->query, state->step_index))) {
             if (ts_query_cursor__copy_state(self, &state)) {
               LOG(
-                "  split state for capture. pattern:%u, step:%u\n",
-                state->pattern_index,
+                "  split state for capture. pattern:%u, step:%u\n", state->pattern_index,
                 state->step_index
               );
               copy_count++;
@@ -3952,19 +3682,11 @@ static inline bool ts_query_cursor__advance(
               QueryStep *skipped_wildcard_step = step;
               do {
                 skipped_wildcard_step--;
-              } while (
-                skipped_wildcard_step->is_dead_end ||
-                skipped_wildcard_step->is_pass_through ||
-                skipped_wildcard_step->depth > 0
-              );
+              } while (skipped_wildcard_step->is_dead_end || skipped_wildcard_step->is_pass_through
+                       || skipped_wildcard_step->depth > 0);
               if (skipped_wildcard_step->capture_ids[0] != NONE) {
                 LOG("  capture wildcard parent\n");
-                ts_query_cursor__capture(
-                  self,
-                  state,
-                  skipped_wildcard_step,
-                  parent
-                );
+                ts_query_cursor__capture(self, state, skipped_wildcard_step, parent);
               }
             }
           }
@@ -3982,11 +3704,7 @@ static inline bool ts_query_cursor__advance(
 
           // Advance this state to the next step of its pattern.
           state->step_index++;
-          LOG(
-            "  advance state. pattern:%u, step:%u\n",
-            state->pattern_index,
-            state->step_index
-          );
+          LOG("  advance state. pattern:%u, step:%u\n", state->pattern_index, state->step_index);
 
           QueryStep *next_step = array_get(&self->query->steps, state->step_index);
 
@@ -3999,12 +3717,13 @@ static inline bool ts_query_cursor__advance(
           // but we're special casing the wildcard symbol to allow for any immediate matches,
           // regardless of whether they are named or not.
           if (step->symbol == WILDCARD_SYMBOL && !step->is_named && next_step->is_immediate) {
-              state->seeking_immediate_match = true;
+            state->seeking_immediate_match = true;
           } else {
-              state->seeking_immediate_match = false;
+            state->seeking_immediate_match = false;
           }
 
-          if (stop_on_definite_step && next_step->root_pattern_guaranteed) did_match = true;
+          if (stop_on_definite_step && next_step->root_pattern_guaranteed)
+            did_match = true;
 
           // If this state's next step has an alternative step, then copy the state in order
           // to pursue both alternatives. The alternative step itself may have an alternative,
@@ -4034,10 +3753,9 @@ static inline bool ts_query_cursor__advance(
               QueryState *copy = ts_query_cursor__copy_state(self, &child_state);
               if (copy) {
                 LOG(
-                  "  split state for branch. pattern:%u, from_step:%u, to_step:%u, immediate:%d, capture_count: %u\n",
-                  copy->pattern_index,
-                  copy->step_index,
-                  next_step->alternative_index,
+                  "  split state for branch. pattern:%u, from_step:%u, to_step:%u, immediate:%d, "
+                  "capture_count: %u\n",
+                  copy->pattern_index, copy->step_index, next_step->alternative_index,
                   next_step->alternative_is_immediate,
                   capture_list_pool_get(&self->capture_list_pool, copy->capture_list_id)->size
                 );
@@ -4071,24 +3789,18 @@ static inline bool ts_query_cursor__advance(
             // Since the longest-match criteria is only used for deduping matches of the same
             // pattern and root node, we only need to perform pairwise comparisons within a
             // small slice of the states array.
-            if (
-              other_state->start_depth != state->start_depth ||
-              other_state->pattern_index != state->pattern_index
-            ) break;
+            if (other_state->start_depth != state->start_depth
+                || other_state->pattern_index != state->pattern_index)
+              break;
 
             bool left_contains_right, right_contains_left;
             ts_query_cursor__compare_captures(
-              self,
-              state,
-              other_state,
-              &left_contains_right,
-              &right_contains_left
+              self, state, other_state, &left_contains_right, &right_contains_left
             );
             if (left_contains_right) {
               if (state->step_index == other_state->step_index) {
                 LOG(
-                  "  drop shorter state. pattern: %u, step_index: %u\n",
-                  state->pattern_index,
+                  "  drop shorter state. pattern: %u, step_index: %u\n", state->pattern_index,
                   state->step_index
                 );
                 capture_list_pool_release(&self->capture_list_pool, other_state->capture_list_id);
@@ -4101,8 +3813,7 @@ static inline bool ts_query_cursor__advance(
             if (right_contains_left) {
               if (state->step_index == other_state->step_index) {
                 LOG(
-                  "  drop shorter state. pattern: %u, step_index: %u\n",
-                  state->pattern_index,
+                  "  drop shorter state. pattern: %u, step_index: %u\n", state->pattern_index,
                   state->step_index
                 );
                 capture_list_pool_release(&self->capture_list_pool, state->capture_list_id);
@@ -4120,9 +3831,7 @@ static inline bool ts_query_cursor__advance(
           if (!did_remove) {
             LOG(
               "  keep state. pattern: %u, start_depth: %u, step_index: %u, capture_count: %u\n",
-              state->pattern_index,
-              state->start_depth,
-              state->step_index,
+              state->pattern_index, state->start_depth, state->step_index,
               capture_list_pool_get(&self->capture_list_pool, state->capture_list_id)->size
             );
             QueryStep *next_step = array_get(&self->query->steps, state->step_index);
@@ -4143,15 +3852,15 @@ static inline bool ts_query_cursor__advance(
 
       if (ts_query_cursor__should_descend(self, node_intersects_range)) {
         switch (ts_tree_cursor_goto_first_child_internal(&self->cursor)) {
-          case TreeCursorStepVisible:
-            self->depth++;
-            self->on_visible_node = true;
-            continue;
-          case TreeCursorStepHidden:
-            self->on_visible_node = false;
-            continue;
-          default:
-            break;
+        case TreeCursorStepVisible:
+          self->depth++;
+          self->on_visible_node = true;
+          continue;
+        case TreeCursorStepHidden:
+          self->on_visible_node = false;
+          continue;
+        default:
+          break;
         }
       }
 
@@ -4160,10 +3869,7 @@ static inline bool ts_query_cursor__advance(
   }
 }
 
-bool ts_query_cursor_next_match(
-  TSQueryCursor *self,
-  TSQueryMatch *match
-) {
+bool ts_query_cursor_next_match(TSQueryCursor *self, TSQueryMatch *match) {
   if (self->finished_states.size == 0) {
     if (!ts_query_cursor__advance(self, false)) {
       return false;
@@ -4171,13 +3877,12 @@ bool ts_query_cursor_next_match(
   }
 
   QueryState *state = array_get(&self->finished_states, 0);
-  if (state->id == UINT32_MAX) state->id = self->next_state_id++;
+  if (state->id == UINT32_MAX)
+    state->id = self->next_state_id++;
   match->id = state->id;
   match->pattern_index = state->pattern_index;
-  const CaptureList *captures = capture_list_pool_get(
-    &self->capture_list_pool,
-    state->capture_list_id
-  );
+  const CaptureList *captures
+    = capture_list_pool_get(&self->capture_list_pool, state->capture_list_id);
   match->captures = captures->contents;
   match->capture_count = captures->size;
   capture_list_pool_release(&self->capture_list_pool, state->capture_list_id);
@@ -4185,17 +3890,11 @@ bool ts_query_cursor_next_match(
   return true;
 }
 
-void ts_query_cursor_remove_match(
-  TSQueryCursor *self,
-  uint32_t match_id
-) {
+void ts_query_cursor_remove_match(TSQueryCursor *self, uint32_t match_id) {
   for (unsigned i = 0; i < self->finished_states.size; i++) {
     const QueryState *state = array_get(&self->finished_states, i);
     if (state->id == match_id) {
-      capture_list_pool_release(
-        &self->capture_list_pool,
-        state->capture_list_id
-      );
+      capture_list_pool_release(&self->capture_list_pool, state->capture_list_id);
       array_erase(&self->finished_states, i);
       return;
     }
@@ -4206,10 +3905,7 @@ void ts_query_cursor_remove_match(
   for (unsigned i = 0; i < self->states.size; i++) {
     const QueryState *state = array_get(&self->states, i);
     if (state->id == match_id) {
-      capture_list_pool_release(
-        &self->capture_list_pool,
-        state->capture_list_id
-      );
+      capture_list_pool_release(&self->capture_list_pool, state->capture_list_id);
       array_erase(&self->states, i);
       return;
     }
@@ -4231,11 +3927,8 @@ bool ts_query_cursor_next_capture(
     uint32_t first_unfinished_state_index;
     bool first_unfinished_state_is_definite = false;
     bool found_unfinished_state = ts_query_cursor__first_in_progress_capture(
-      self,
-      &first_unfinished_state_index,
-      &first_unfinished_capture_byte,
-      &first_unfinished_pattern_index,
-      &first_unfinished_state_is_definite
+      self, &first_unfinished_state_index, &first_unfinished_capture_byte,
+      &first_unfinished_pattern_index, &first_unfinished_state_is_definite
     );
 
     // Then find the earliest capture in a finished match. It must occur
@@ -4245,31 +3938,22 @@ bool ts_query_cursor_next_capture(
     uint32_t first_finished_pattern_index = first_unfinished_pattern_index;
     for (unsigned i = 0; i < self->finished_states.size;) {
       QueryState *state = array_get(&self->finished_states, i);
-      const CaptureList *captures = capture_list_pool_get(
-        &self->capture_list_pool,
-        state->capture_list_id
-      );
+      const CaptureList *captures
+        = capture_list_pool_get(&self->capture_list_pool, state->capture_list_id);
 
       // Remove states whose captures are all consumed.
       if (state->consumed_capture_count >= captures->size) {
-        capture_list_pool_release(
-          &self->capture_list_pool,
-          state->capture_list_id
-        );
+        capture_list_pool_release(&self->capture_list_pool, state->capture_list_id);
         array_erase(&self->finished_states, i);
         continue;
       }
 
       TSNode node = array_get(captures, state->consumed_capture_count)->node;
 
-      bool node_precedes_range = (
-        ts_node_end_byte(node) <= self->start_byte ||
-        point_lte(ts_node_end_point(node), self->start_point)
-      );
-      bool node_follows_range = (
-        ts_node_start_byte(node) >= self->end_byte ||
-        point_gte(ts_node_start_point(node), self->end_point)
-      );
+      bool node_precedes_range
+        = (ts_node_end_byte(node) <= self->start_byte || point_lte(ts_node_end_point(node), self->start_point));
+      bool node_follows_range
+        = (ts_node_start_byte(node) >= self->end_byte || point_gte(ts_node_start_point(node), self->end_point));
       bool node_outside_of_range = node_precedes_range || node_follows_range;
 
       // Skip captures that are outside of the cursor's range.
@@ -4279,13 +3963,8 @@ bool ts_query_cursor_next_capture(
       }
 
       uint32_t node_start_byte = ts_node_start_byte(node);
-      if (
-        node_start_byte < first_finished_capture_byte ||
-        (
-          node_start_byte == first_finished_capture_byte &&
-          state->pattern_index < first_finished_pattern_index
-        )
-      ) {
+      if (node_start_byte < first_finished_capture_byte
+          || (node_start_byte == first_finished_capture_byte && state->pattern_index < first_finished_pattern_index)) {
         first_finished_state = state;
         first_finished_capture_byte = node_start_byte;
         first_finished_pattern_index = state->pattern_index;
@@ -4306,13 +3985,12 @@ bool ts_query_cursor_next_capture(
     }
 
     if (state) {
-      if (state->id == UINT32_MAX) state->id = self->next_state_id++;
+      if (state->id == UINT32_MAX)
+        state->id = self->next_state_id++;
       match->id = state->id;
       match->pattern_index = state->pattern_index;
-      const CaptureList *captures = capture_list_pool_get(
-        &self->capture_list_pool,
-        state->capture_list_id
-      );
+      const CaptureList *captures
+        = capture_list_pool_get(&self->capture_list_pool, state->capture_list_id);
       match->captures = captures->contents;
       match->capture_count = captures->size;
       *capture_index = state->consumed_capture_count;
@@ -4322,10 +4000,8 @@ bool ts_query_cursor_next_capture(
 
     if (capture_list_pool_is_empty(&self->capture_list_pool) && found_unfinished_state) {
       LOG(
-        "  abandon state. index:%u, pattern:%u, offset:%u.\n",
-        first_unfinished_state_index,
-        first_unfinished_pattern_index,
-        first_unfinished_capture_byte
+        "  abandon state. index:%u, pattern:%u, offset:%u.\n", first_unfinished_state_index,
+        first_unfinished_pattern_index, first_unfinished_capture_byte
       );
       capture_list_pool_release(
         &self->capture_list_pool,
@@ -4336,17 +4012,12 @@ bool ts_query_cursor_next_capture(
 
     // If there are no finished matches that are ready to be returned, then
     // continue finding more matches.
-    if (
-      !ts_query_cursor__advance(self, true) &&
-      self->finished_states.size == 0
-    ) return false;
+    if (!ts_query_cursor__advance(self, true) && self->finished_states.size == 0)
+      return false;
   }
 }
 
-void ts_query_cursor_set_max_start_depth(
-  TSQueryCursor *self,
-  uint32_t max_start_depth
-) {
+void ts_query_cursor_set_max_start_depth(TSQueryCursor *self, uint32_t max_start_depth) {
   self->max_start_depth = max_start_depth;
 }
 

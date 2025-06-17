@@ -5,15 +5,15 @@
 
 #ifdef TREE_SITTER_FEATURE_WASM
 
-#include <stdio.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <string.h>
+# include <stdio.h>
+# include <stdlib.h>
+# include <string.h>
+# include <unistd.h>
 
 extern void tree_sitter_debug_message(const char *, size_t);
 
-#define PAGESIZE 0x10000
-#define MAX_HEAP_SIZE (4 * 1024 * 1024)
+# define PAGESIZE      0x10000
+# define MAX_HEAP_SIZE (4 * 1024 * 1024)
 
 typedef struct {
   size_t size;
@@ -60,7 +60,8 @@ void *malloc(size_t size) {
     if ((char *)region_end - (char *)heap_start > MAX_HEAP_SIZE) {
       return NULL;
     }
-    if (!grow_heap(size)) return NULL;
+    if (!grow_heap(size))
+      return NULL;
     heap_end = get_heap_end();
   }
 
@@ -72,7 +73,8 @@ void *malloc(size_t size) {
 }
 
 void free(void *ptr) {
-  if (ptr == NULL) return;
+  if (ptr == NULL)
+    return;
 
   Region *region = region_for_ptr(ptr);
   Region *region_end = region_after(region, region->size);
