@@ -6,7 +6,7 @@ use crate::{bail_on_err, Clippy};
 
 pub fn run(args: &Clippy) -> Result<()> {
     let mut clippy_command = Command::new("cargo");
-    clippy_command.arg("+nightly").arg("clippy");
+    clippy_command.arg("clippy");
 
     if let Some(package) = args.package.as_ref() {
         clippy_command.args(["--package", package]);
