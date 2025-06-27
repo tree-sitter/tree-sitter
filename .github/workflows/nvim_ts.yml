@@ -3,7 +3,10 @@ name: nvim-treesitter parser tests
 on:
   pull_request:
     paths:
-      - 'cli/**'
+      - 'crates/cli/**'
+      - 'crates/config/**'
+      - 'crates/generate/**'
+      - 'crates/loader/**'
       - '.github/workflows/nvim_ts.yml'
   workflow_dispatch:
 
@@ -13,7 +16,7 @@ concurrency:
 
 jobs:
   check_compilation:
-    timeout-minutes: 20
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -55,7 +58,7 @@ jobs:
 
       - if: matrix.type == 'build'
         name: Compile parsers
-        run: $NVIM -l ./scripts/install-parsers.lua
+        run: $NVIM -l ./scripts/install-parsers.lua --max-jobs=10
         working-directory: ${{ env.NVIM_TS_DIR }}
         shell: bash
 
