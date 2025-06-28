@@ -12,7 +12,7 @@ typedef uint64_t TSDuration;
 // * Represent a time as a performance counter value.
 // * Represent a duration as a number of performance counter ticks.
 
-#include <windows.h>
+# include <windows.h>
 typedef uint64_t TSClock;
 
 static inline TSDuration duration_from_micros(uint64_t micros) {
@@ -58,7 +58,7 @@ static inline bool clock_is_gt(TSClock self, TSClock other) {
 // On these platforms, parse timeouts will correspond accurately to
 // real time, regardless of what other processes are running.
 
-#include <time.h>
+# include <time.h>
 typedef struct timespec TSClock;
 
 static inline TSDuration duration_from_micros(uint64_t micros) {
@@ -76,7 +76,7 @@ static inline TSClock clock_now(void) {
 }
 
 static inline TSClock clock_null(void) {
-  return (TSClock) {0, 0};
+  return (TSClock){ 0, 0 };
 }
 
 static inline TSClock clock_after(TSClock base, TSDuration duration) {
@@ -95,8 +95,10 @@ static inline bool clock_is_null(TSClock self) {
 }
 
 static inline bool clock_is_gt(TSClock self, TSClock other) {
-  if (self.tv_sec > other.tv_sec) return true;
-  if (self.tv_sec < other.tv_sec) return false;
+  if (self.tv_sec > other.tv_sec)
+    return true;
+  if (self.tv_sec < other.tv_sec)
+    return false;
   return self.tv_nsec > other.tv_nsec;
 }
 
@@ -110,7 +112,7 @@ static inline bool clock_is_gt(TSClock self, TSClock other) {
 // which is not ideal, but is better than using a non-monotonic time API
 // like `gettimeofday`.
 
-#include <time.h>
+# include <time.h>
 typedef uint64_t TSClock;
 
 static inline TSDuration duration_from_micros(uint64_t micros) {
