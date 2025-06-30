@@ -21,31 +21,40 @@ There are bindings that allow Tree-sitter to be used from the following language
 - [C#](https://github.com/tree-sitter/csharp-tree-sitter)
 - [Go](https://github.com/tree-sitter/go-tree-sitter)
 - [Haskell](https://github.com/tree-sitter/haskell-tree-sitter)
-- [Java (JDK 22)](https://github.com/tree-sitter/java-tree-sitter)
+- [Java (JDK 22+)](https://github.com/tree-sitter/java-tree-sitter)
 - [JavaScript (Node.js)](https://github.com/tree-sitter/node-tree-sitter)
 - [JavaScript (Wasm)](https://github.com/tree-sitter/tree-sitter/tree/master/lib/binding_web)
 - [Kotlin](https://github.com/tree-sitter/kotlin-tree-sitter)
 - [Python](https://github.com/tree-sitter/py-tree-sitter)
 - [Rust](https://github.com/tree-sitter/tree-sitter/tree/master/lib/binding_rust)
+- [Swift](https://github.com/tree-sitter/swift-tree-sitter)
 - [Zig](https://github.com/tree-sitter/zig-tree-sitter)
 
 ### Third-party
 
+- [C# (.NET)](https://github.com/zabbius/dotnet-tree-sitter)
+- [C++](https://github.com/nsumner/cpp-tree-sitter)
+- [Crystal](https://github.com/crystal-lang-tools/crystal-tree-sitter)
+- [D](https://github.com/aminya/d-tree-sitter)
 - [Delphi](https://github.com/modersohn/delphi-tree-sitter)
 - [ELisp](https://www.gnu.org/software/emacs/manual/html_node/elisp/Parsing-Program-Source.html)
+- [Go](https://github.com/alexaandru/go-tree-sitter-bare)
 - [Guile](https://github.com/Z572/guile-ts)
+- [Janet](https://github.com/sogaiu/janet-tree-sitter)
 - [Java (JDK 8+)](https://github.com/bonede/tree-sitter-ng)
 - [Java (JDK 11+)](https://github.com/seart-group/java-tree-sitter)
 - [Julia](https://github.com/MichaelHatherly/TreeSitter.jl)
 - [Lua](https://github.com/euclidianAce/ltreesitter)
 - [Lua](https://github.com/xcb-xwii/lua-tree-sitter)
-- [OCaml](https://github.com/returntocorp/ocaml-tree-sitter-core)
+- [OCaml](https://github.com/semgrep/ocaml-tree-sitter-core)
 - [Odin](https://github.com/laytan/odin-tree-sitter)
 - [Perl](https://metacpan.org/pod/Text::Treesitter)
+- [Pharo](https://github.com/Evref-BL/Pharo-Tree-Sitter)
+- [PHP](https://github.com/soulseekah/ext-treesitter)
 - [R](https://github.com/DavisVaughan/r-tree-sitter)
 - [Ruby](https://github.com/Faveod/ruby-tree-sitter)
-- [Ruby](https://github.com/calicoday/ruby-tree-sitter-ffi)
-- [Swift](https://github.com/ChimeHQ/SwiftTreeSitter)
+
+_Keep in mind that some of the bindings may be incomplete or out of date._
 
 ## Parsers
 
