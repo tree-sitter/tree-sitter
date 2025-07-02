@@ -2991,6 +2991,61 @@ fn test_query_matches_with_deeply_nested_patterns_with_fields() {
 }
 
 #[test]
+fn test_query_matches_with_alternations_and_predicates() {
+    allocations::record(|| {
+        let language = get_language("java");
+        let query = Query::new(
+            &language,
+            "
+            (block
+                [
+                    (local_variable_declaration
+                        (variable_declarator
+                            (identifier) @def.a
+                            (string_literal) @lit.a
+                        )
+                    )
+                    (local_variable_declaration
+                        (variable_declarator
+                            (identifier) @def.b
+                            (null_literal) @lit.b
+                        )
+                    )
+                ]
+                (expression_statement
+                    (method_invocation [
+                        (argument_list
+                            (identifier) @ref.a
+                            (string_literal)
+                        )
+                        (argument_list
+                            (null_literal)
+                            (identifier) @ref.b
+                        )
+                    ])
+                )
+                (#eq? @def.a @ref.a )
+                (#eq? @def.b @ref.b )
+            )
+            ",
+        )
+        .unwrap();
+
+        assert_query_matches(
+            &language,
+            &query,
+            r#"
+            void test() {
+                int a = "foo";
+                f(null, b);
+            }
+            "#,
+            &[],
+        );
+    });
+}
+
+#[test]
 fn test_query_matches_with_indefinite_step_containing_no_captures() {
     allocations::record(|| {
         // This pattern depends on the field declarations within the
