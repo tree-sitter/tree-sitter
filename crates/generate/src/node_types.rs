@@ -507,6 +507,31 @@ pub fn generate_node_types_json(
 
     let aliases_by_symbol = get_aliases_by_symbol(syntax_grammar, default_aliases);
 
+    let empty = HashSet::new();
+    let extra_names = syntax_grammar
+        .extra_symbols
+        .iter()
+        .flat_map(|symbol| {
+            aliases_by_symbol
+                .get(symbol)
+                .unwrap_or(&empty)
+                .iter()
+                .map(|alias| {
+                    alias.as_ref().map_or(
+                        match symbol.kind {
+                            SymbolType::NonTerminal => &syntax_grammar.variables[symbol.index].name,
+                            SymbolType::Terminal => &lexical_grammar.variables[symbol.index].name,
+                            SymbolType::External => {
+                                &syntax_grammar.external_tokens[symbol.index].name
+                            }
+                            _ => unreachable!(),
+                        },
+                        |alias| &alias.value,
+                    )
+                })
+        })
+        .collect::<HashSet<_>>();
+
     let mut subtype_map = Vec::new();
     for (i, info) in variable_info.iter().enumerate() {
         let symbol = Symbol::non_terminal(i);
@@ -519,7 +544,7 @@ pub fn generate_node_types_json(
                         kind: variable.name.clone(),
                         named: true,
                         root: false,
-                        extra: false,
+                        extra: extra_names.contains(&variable.name),
                         fields: None,
                         children: None,
                         subtypes: None,
@@ -563,7 +588,7 @@ pub fn generate_node_types_json(
                         kind: kind.clone(),
                         named: is_named,
                         root: i == 0,
-                        extra: false,
+                        extra: extra_names.contains(&kind),
                         fields: Some(BTreeMap::new()),
                         children: None,
                         subtypes: None,
@@ -634,7 +659,6 @@ pub fn generate_node_types_json(
 
     let mut anonymous_node_types = Vec::new();
 
-    let empty = HashSet::new();
     let regular_tokens = lexical_grammar
         .variables
         .iter()
@@ -668,29 +692,6 @@ pub fn generate_node_types_json(
                         })
                     })
             });
-    let extra_names = syntax_grammar
-        .extra_symbols
-        .iter()
-        .flat_map(|symbol| {
-            aliases_by_symbol
-                .get(symbol)
-                .unwrap_or(&empty)
-                .iter()
-                .map(|alias| {
-                    alias.as_ref().map_or(
-                        match symbol.kind {
-                            SymbolType::NonTerminal => &syntax_grammar.variables[symbol.index].name,
-                            SymbolType::Terminal => &lexical_grammar.variables[symbol.index].name,
-                            SymbolType::External => {
-                                &syntax_grammar.external_tokens[symbol.index].name
-                            }
-                            _ => unreachable!(),
-                        },
-                        |alias| &alias.value,
-                    )
-                })
-        })
-        .collect::<HashSet<_>>();
 
     for (name, kind) in regular_tokens.chain(external_tokens) {
         match kind {
@@ -918,7 +919,9 @@ mod tests {
                 },
                 // This rule is not reachable from the start symbol, but
                 // it is reachable from the 'extra_symbols' so it
-                // should be present in the node_types
+                // should be present in the node_types.
+                // But because it's only a literal, it will get replaced by
+                // a lexical variable.
                 Variable {
                     name: "v3".to_string(),
                     kind: VariableType::Named,
@@ -1000,6 +1003,117 @@ mod tests {
                 named: true,
                 root: false,
                 extra: true,
+                subtypes: None,
+                children: None,
+                fields: None
+            }
+        );
+    }
+
+    #[test]
+    fn test_node_types_deeper_extras() {
+        let node_types = get_node_types(&InputGrammar {
+            extra_symbols: vec![Rule::named("v3")],
+            variables: vec![
+                Variable {
+                    name: "v1".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::seq(vec![
+                        Rule::field("f1".to_string(), Rule::named("v2")),
+                        Rule::field("f2".to_string(), Rule::string(";")),
+                    ]),
+                },
+                Variable {
+                    name: "v2".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::string("x"),
+                },
+                // This rule is not reachable from the start symbol, but
+                // it is reachable from the 'extra_symbols' so it
+                // should be present in the node_types.
+                // Because it is not just a literal, it won't get replaced
+                // by a lexical variable.
+                Variable {
+                    name: "v3".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::seq(vec![Rule::string("y"), Rule::repeat(Rule::string("z"))]),
+                },
+            ],
+            ..Default::default()
+        });
+
+        assert_eq!(node_types.len(), 6);
+
+        assert_eq!(
+            node_types[0],
+            NodeInfoJSON {
+                kind: "v1".to_string(),
+                named: true,
+                root: true,
+                extra: false,
+                subtypes: None,
+                children: None,
+                fields: Some(
+                    vec![
+                        (
+                            "f1".to_string(),
+                            FieldInfoJSON {
+                                multiple: false,
+                                required: true,
+                                types: vec![NodeTypeJSON {
+                                    kind: "v2".to_string(),
+                                    named: true,
+                                }]
+                            }
+                        ),
+                        (
+                            "f2".to_string(),
+                            FieldInfoJSON {
+                                multiple: false,
+                                required: true,
+                                types: vec![NodeTypeJSON {
+                                    kind: ";".to_string(),
+                                    named: false,
+                                }]
+                            }
+                        ),
+                    ]
+                    .into_iter()
+                    .collect()
+                )
+            }
+        );
+        assert_eq!(
+            node_types[1],
+            NodeInfoJSON {
+                kind: "v3".to_string(),
+                named: true,
+                root: false,
+                extra: true,
+                subtypes: None,
+                children: None,
+                fields: Some(BTreeMap::default())
+            }
+        );
+        assert_eq!(
+            node_types[2],
+            NodeInfoJSON {
+                kind: ";".to_string(),
+                named: false,
+                root: false,
+                extra: false,
+                subtypes: None,
+                children: None,
+                fields: None
+            }
+        );
+        assert_eq!(
+            node_types[3],
+            NodeInfoJSON {
+                kind: "v2".to_string(),
+                named: true,
+                root: false,
+                extra: false,
                 subtypes: None,
                 children: None,
                 fields: None
