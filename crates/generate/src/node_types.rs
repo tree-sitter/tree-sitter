@@ -1,7 +1,4 @@
-use std::{
-    cmp::Ordering,
-    collections::{BTreeMap, HashMap, HashSet},
-};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use anyhow::Result;
 use serde::Serialize;
@@ -444,12 +441,33 @@ pub fn get_supertype_symbol_map(
     supertype_symbol_map
 }
 
+pub type SuperTypeCycleResult<T> = Result<T, SuperTypeCycleError>;
+
+#[derive(Debug, Error, Serialize)]
+pub struct SuperTypeCycleError {
+    items: Vec<String>,
+}
+
+impl std::fmt::Display for SuperTypeCycleError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Dependency cycle detected in node types:")?;
+        for (i, item) in self.items.iter().enumerate() {
+            write!(f, " {item}")?;
+            if i < self.items.len() - 1 {
+                write!(f, ",")?;
+            }
+        }
+
+        Ok(())
+    }
+}
+
 pub fn generate_node_types_json(
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
     default_aliases: &AliasMap,
     variable_info: &[VariableInfo],
-) -> Vec<NodeInfoJSON> {
+) -> SuperTypeCycleResult<Vec<NodeInfoJSON>> {
     let mut node_types_json = BTreeMap::new();
 
     let child_type_to_node_type = |child_type: &ChildType| match child_type {
@@ -602,15 +620,33 @@ pub fn generate_node_types_json(
         }
     }
 
-    // Sort the subtype map so that subtypes are listed before their supertypes.
-    subtype_map.sort_by(|a, b| {
-        if b.1.contains(&a.0) {
-            Ordering::Less
-        } else if a.1.contains(&b.0) {
-            Ordering::Greater
-        } else {
-            Ordering::Equal
+    // Sort the subtype map topologically so that subtypes are listed before their supertypes.
+    let mut sorted_kinds = Vec::with_capacity(subtype_map.len());
+    let mut top_sort = topological_sort::TopologicalSort::<String>::new();
+    for (supertype, subtypes) in &subtype_map {
+        for subtype in subtypes {
+            top_sort.add_dependency(subtype.kind.clone(), supertype.kind.clone());
         }
+    }
+    loop {
+        let mut next_kinds = top_sort.pop_all();
+        match (next_kinds.is_empty(), top_sort.is_empty()) {
+            (true, true) => break,
+            (true, false) => {
+                let mut items = top_sort.collect::<Vec<String>>();
+                items.sort();
+                return Err(SuperTypeCycleError { items });
+            }
+            (false, _) => {
+                next_kinds.sort();
+                sorted_kinds.extend(next_kinds);
+            }
+        }
+    }
+    subtype_map.sort_by(|a, b| {
+        let a_idx = sorted_kinds.iter().position(|n| n.eq(&a.0.kind)).unwrap();
+        let b_idx = sorted_kinds.iter().position(|n| n.eq(&b.0.kind)).unwrap();
+        a_idx.cmp(&b_idx)
     });
 
     for node_type_json in node_types_json.values_mut() {
@@ -743,7 +779,7 @@ pub fn generate_node_types_json(
             .then_with(|| a.kind.cmp(&b.kind))
     });
     result.dedup();
-    result
+    Ok(result)
 }
 
 fn process_supertypes(info: &mut FieldInfoJSON, subtype_map: &[(NodeTypeJSON, Vec<NodeTypeJSON>)]) {
@@ -829,7 +865,8 @@ mod tests {
                 },
             ],
             ..Default::default()
-        });
+        })
+        .unwrap();
 
         assert_eq!(node_types.len(), 3);
 
@@ -926,7 +963,8 @@ mod tests {
                 },
             ],
             ..Default::default()
-        });
+        })
+        .unwrap();
 
         assert_eq!(node_types.len(), 4);
 
@@ -1038,7 +1076,8 @@ mod tests {
                 },
             ],
             ..Default::default()
-        });
+        })
+        .unwrap();
 
         assert_eq!(
             node_types[0],
@@ -1127,7 +1166,8 @@ mod tests {
                 },
             ],
             ..Default::default()
-        });
+        })
+        .unwrap();
 
         assert_eq!(
             node_types[0],
@@ -1212,7 +1252,8 @@ mod tests {
                 },
             ],
             ..Default::default()
-        });
+        })
+        .unwrap();
 
         assert_eq!(
             node_types[0],
@@ -1286,7 +1327,8 @@ mod tests {
                 },
             ],
             ..Default::default()
-        });
+        })
+        .unwrap();
 
         assert_eq!(node_types.iter().find(|t| t.kind == "foo_identifier"), None);
         assert_eq!(
@@ -1342,7 +1384,8 @@ mod tests {
                 },
             ],
             ..Default::default()
-        });
+        })
+        .unwrap();
 
         assert_eq!(
             node_types[0],
@@ -1391,7 +1434,8 @@ mod tests {
                 ]),
             }],
             ..Default::default()
-        });
+        })
+        .unwrap();
 
         assert_eq!(
             node_types,
@@ -1439,7 +1483,8 @@ mod tests {
                 },
             ],
             ..Default::default()
-        });
+        })
+        .unwrap();
 
         assert_eq!(
             &node_types
@@ -1558,7 +1603,8 @@ mod tests {
                 },
             ],
             ..Default::default()
-        });
+        })
+        .unwrap();
 
         assert_eq!(
             node_types.iter().map(|n| &n.kind).collect::<Vec<_>>(),
@@ -1885,7 +1931,7 @@ mod tests {
         );
     }
 
-    fn get_node_types(grammar: &InputGrammar) -> Vec<NodeInfoJSON> {
+    fn get_node_types(grammar: &InputGrammar) -> SuperTypeCycleResult<Vec<NodeInfoJSON>> {
         let (syntax_grammar, lexical_grammar, _, default_aliases) =
             prepare_grammar(grammar).unwrap();
         let variable_info =
