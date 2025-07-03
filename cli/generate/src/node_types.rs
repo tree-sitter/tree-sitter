@@ -507,6 +507,31 @@ pub fn generate_node_types_json(
 
     let aliases_by_symbol = get_aliases_by_symbol(syntax_grammar, default_aliases);
 
+    let empty = HashSet::new();
+    let extra_names = syntax_grammar
+        .extra_symbols
+        .iter()
+        .flat_map(|symbol| {
+            aliases_by_symbol
+                .get(symbol)
+                .unwrap_or(&empty)
+                .iter()
+                .map(|alias| {
+                    alias.as_ref().map_or(
+                        match symbol.kind {
+                            SymbolType::NonTerminal => &syntax_grammar.variables[symbol.index].name,
+                            SymbolType::Terminal => &lexical_grammar.variables[symbol.index].name,
+                            SymbolType::External => {
+                                &syntax_grammar.external_tokens[symbol.index].name
+                            }
+                            _ => unreachable!(),
+                        },
+                        |alias| &alias.value,
+                    )
+                })
+        })
+        .collect::<HashSet<_>>();
+
     let mut subtype_map = Vec::new();
     for (i, info) in variable_info.iter().enumerate() {
         let symbol = Symbol::non_terminal(i);
@@ -519,7 +544,7 @@ pub fn generate_node_types_json(
                         kind: variable.name.clone(),
                         named: true,
                         root: false,
-                        extra: false,
+                        extra: extra_names.contains(&variable.name),
                         fields: None,
                         children: None,
                         subtypes: None,
@@ -563,7 +588,7 @@ pub fn generate_node_types_json(
                         kind: kind.clone(),
                         named: is_named,
                         root: i == 0,
-                        extra: false,
+                        extra: extra_names.contains(&kind),
                         fields: Some(BTreeMap::new()),
                         children: None,
                         subtypes: None,
@@ -634,7 +659,6 @@ pub fn generate_node_types_json(
 
     let mut anonymous_node_types = Vec::new();
 
-    let empty = HashSet::new();
     let regular_tokens = lexical_grammar
         .variables
         .iter()
@@ -668,29 +692,6 @@ pub fn generate_node_types_json(
                         })
                     })
             });
-    let extra_names = syntax_grammar
-        .extra_symbols
-        .iter()
-        .flat_map(|symbol| {
-            aliases_by_symbol
-                .get(symbol)
-                .unwrap_or(&empty)
-                .iter()
-                .map(|alias| {
-                    alias.as_ref().map_or(
-                        match symbol.kind {
-                            SymbolType::NonTerminal => &syntax_grammar.variables[symbol.index].name,
-                            SymbolType::Terminal => &lexical_grammar.variables[symbol.index].name,
-                            SymbolType::External => {
-                                &syntax_grammar.external_tokens[symbol.index].name
-                            }
-                            _ => unreachable!(),
-                        },
-                        |alias| &alias.value,
-                    )
-                })
-        })
-        .collect::<HashSet<_>>();
 
     for (name, kind) in regular_tokens.chain(external_tokens) {
         match kind {
