@@ -263,9 +263,10 @@ pub(super) fn flatten_grammar(
 
     for (i, variable) in variables.iter().enumerate() {
         let symbol = Symbol::non_terminal(i);
+        let used = symbol_is_used(&variables, symbol);
 
         for production in &variable.productions {
-            if production.steps.is_empty() && symbol_is_used(&variables, symbol) {
+            if production.steps.is_empty() && used {
                 Err(FlattenGrammarError::EmptyString(variable.name.clone()))?;
             }
 
