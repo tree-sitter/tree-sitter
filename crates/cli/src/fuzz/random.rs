@@ -20,8 +20,8 @@ impl Rand {
     }
 
     pub fn words(&mut self, max_count: usize) -> Vec<u8> {
-        let mut result = Vec::new();
         let word_count = self.unsigned(max_count);
+        let mut result = Vec::with_capacity(2 * word_count);
         for i in 0..word_count {
             if i > 0 {
                 if self.unsigned(5) == 0 {

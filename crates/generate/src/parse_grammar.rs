@@ -272,12 +272,11 @@ pub(crate) fn parse_grammar(input: &str) -> ParseGrammarResult<InputGrammar> {
         .reserved
         .into_iter()
         .map(|(name, rule_values)| {
-            let mut reserved_words = Vec::new();
-
             let Value::Array(rule_values) = rule_values else {
                 Err(ParseGrammarError::InvalidReservedWordSet)?
             };
 
+            let mut reserved_words = Vec::with_capacity(rule_values.len());
             for value in rule_values {
                 reserved_words.push(parse_rule(serde_json::from_value(value)?, false)?);
             }
