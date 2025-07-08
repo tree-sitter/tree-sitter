@@ -65,7 +65,7 @@ pub(super) fn intern_symbols(grammar: &InputGrammar) -> InternSymbolsResult<Inte
 
     let mut reserved_words = Vec::with_capacity(grammar.reserved_words.len());
     for reserved_word_set in &grammar.reserved_words {
-        let mut interned_set = Vec::new();
+        let mut interned_set = Vec::with_capacity(reserved_word_set.reserved_words.len());
         for rule in &reserved_word_set.reserved_words {
             interned_set.push(interner.intern_rule(rule, None)?);
         }
@@ -75,7 +75,7 @@ pub(super) fn intern_symbols(grammar: &InputGrammar) -> InternSymbolsResult<Inte
         });
     }
 
-    let mut expected_conflicts = Vec::new();
+    let mut expected_conflicts = Vec::with_capacity(grammar.expected_conflicts.len());
     for conflict in &grammar.expected_conflicts {
         let mut interned_conflict = Vec::with_capacity(conflict.len());
         for name in conflict {
