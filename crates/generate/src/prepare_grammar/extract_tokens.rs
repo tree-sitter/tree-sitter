@@ -86,7 +86,7 @@ pub(super) fn extract_tokens(
     // that pointed to that variable will need to be updated to point to the
     // variable in the lexical grammar. Symbols that pointed to later variables
     // will need to have their indices decremented.
-    let mut variables = Vec::new();
+    let mut variables = Vec::with_capacity(grammar.variables.len());
     let mut symbol_replacer = SymbolReplacer {
         replacements: HashMap::new(),
     };
@@ -200,9 +200,9 @@ pub(super) fn extract_tokens(
         word_token = Some(token);
     }
 
-    let mut reserved_word_contexts = Vec::new();
+    let mut reserved_word_contexts = Vec::with_capacity(grammar.reserved_word_sets.len());
     for reserved_word_context in grammar.reserved_word_sets {
-        let mut reserved_words = Vec::new();
+        let mut reserved_words = Vec::with_capacity(reserved_word_contexts.len());
         for reserved_rule in reserved_word_context.reserved_words {
             if let Rule::Symbol(symbol) = reserved_rule {
                 reserved_words.push(symbol_replacer.replace_symbol(symbol));

@@ -680,12 +680,12 @@ impl Generator {
             &mut next_flat_field_map_index,
         );
 
-        let mut field_map_ids = Vec::new();
+        let mut field_map_ids = Vec::with_capacity(self.parse_table.production_infos.len());
         for production_info in &self.parse_table.production_infos {
             if production_info.field_map.is_empty() {
                 field_map_ids.push((0, 0));
             } else {
-                let mut flat_field_map = Vec::new();
+                let mut flat_field_map = Vec::with_capacity(production_info.field_map.len());
                 for (field_name, locations) in &production_info.field_map {
                     for location in locations {
                         flat_field_map.push((field_name.clone(), *location));
@@ -1352,7 +1352,12 @@ impl Generator {
             indent!(self);
 
             let mut next_table_index = 0;
-            let mut small_state_indices = Vec::new();
+            let mut small_state_indices = Vec::with_capacity(
+                self.parse_table
+                    .states
+                    .len()
+                    .saturating_sub(self.large_state_count),
+            );
             let mut symbols_by_value = HashMap::<(usize, SymbolType), Vec<Symbol>>::new();
             for state in self.parse_table.states.iter().skip(self.large_state_count) {
                 small_state_indices.push(next_table_index);

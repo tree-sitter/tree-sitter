@@ -597,7 +597,7 @@ fn test_highlighting_via_c_api() {
     let output_line_offsets =
         unsafe { slice::from_raw_parts(output_line_offsets, output_line_count as usize) };
 
-    let mut lines = Vec::new();
+    let mut lines = Vec::with_capacity(output_line_count as usize);
     for i in 0..(output_line_count as usize) {
         let line_start = output_line_offsets[i] as usize;
         let line_end = output_line_offsets
