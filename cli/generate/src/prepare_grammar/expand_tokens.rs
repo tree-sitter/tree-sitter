@@ -90,7 +90,7 @@ pub fn expand_tokens(mut grammar: ExtractedLexicalGrammar) -> ExpandTokensResult
         Rule::repeat(Rule::choice(grammar.separators))
     };
 
-    let mut variables = Vec::new();
+    let mut variables = Vec::with_capacity(grammar.variables.len());
     for (i, variable) in grammar.variables.into_iter().enumerate() {
         if variable.rule.is_empty() {
             Err(ExpandTokensError::EmptyString(variable.name.clone()))?;
@@ -195,7 +195,7 @@ impl NfaBuilder {
                 Ok(!s.is_empty())
             }
             Rule::Choice(elements) => {
-                let mut alternative_state_ids = Vec::new();
+                let mut alternative_state_ids = Vec::with_capacity(elements.len());
                 for element in elements {
                     if self.expand_rule(element, next_state_id)? {
                         alternative_state_ids.push(self.nfa.last_state_id());
@@ -338,7 +338,7 @@ impl NfaBuilder {
                 Ok(result)
             }
             HirKind::Alternation(alternations) => {
-                let mut alternative_state_ids = Vec::new();
+                let mut alternative_state_ids = Vec::with_capacity(alternations.len());
                 for hir in alternations {
                     if self.expand_regex(hir, next_state_id)? {
                         alternative_state_ids.push(self.nfa.last_state_id());

@@ -908,7 +908,7 @@ impl<'a> ParseTableBuilder<'a> {
 
         let get_rule_names = |items: &[&ParseItem]| -> Vec<String> {
             let mut last_rule_id = None;
-            let mut result = Vec::new();
+            let mut result = Vec::with_capacity(items.len());
             for item in items {
                 if last_rule_id == Some(item.variable_index) {
                     continue;

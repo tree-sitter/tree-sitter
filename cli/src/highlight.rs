@@ -83,8 +83,8 @@ impl<'de> Deserialize<'de> for Theme {
         let mut styles = Vec::new();
         let mut highlight_names = Vec::new();
         if let Ok(colors) = BTreeMap::<String, Value>::deserialize(deserializer) {
-            highlight_names.reserve(colors.len());
             styles.reserve(colors.len());
+            highlight_names.reserve(colors.len());
             for (name, style_value) in colors {
                 let mut style = Style::default();
                 parse_style(&mut style, style_value);
