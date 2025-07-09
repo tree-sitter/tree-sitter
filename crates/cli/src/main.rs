@@ -255,7 +255,7 @@ struct Test {
     /// Only run corpus test cases whose name does not match the given regex
     #[arg(long, short)]
     pub exclude: Option<Regex>,
-    /// Only run corpus test cases from from a given filename
+    /// Only run corpus test cases from a given filename
     #[arg(long)]
     pub file_name: Option<String>,
     /// The path to the tree-sitter grammar directory

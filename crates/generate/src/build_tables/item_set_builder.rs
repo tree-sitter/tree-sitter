@@ -81,7 +81,7 @@ impl<'a> ParseItemSetBuilder<'a> {
                 .insert(symbol, ReservedWordSetId::default());
         }
 
-        // The FIRST set of a non-terminal `i` is the union of the the FIRST sets
+        // The FIRST set of a non-terminal `i` is the union of the FIRST sets
         // of all the symbols that appear at the beginnings of i's productions. Some
         // of these symbols may themselves be non-terminals, so this is a recursive
         // definition.
