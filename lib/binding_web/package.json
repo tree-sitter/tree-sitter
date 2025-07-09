@@ -22,13 +22,13 @@
       "require": "./tree-sitter.cjs",
       "types": "./web-tree-sitter.d.ts"
     },
-    "./web-tree-sitter.wasm": "./web-tree-sitter.wasm",
+    "./tree-sitter.wasm": "./tree-sitter.wasm",
     "./debug": {
       "import": "./debug/tree-sitter.js",
       "require": "./debug/tree-sitter.cjs",
       "types": "./web-tree-sitter.d.ts"
     },
-    "./debug/web-tree-sitter.wasm": "./debug/web-tree-sitter.wasm"
+    "./debug/tree-sitter.wasm": "./debug/tree-sitter.wasm"
   },
   "types": "web-tree-sitter.d.ts",
   "keywords": [
