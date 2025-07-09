@@ -69,6 +69,10 @@ const RUST_BINDING_VERSION_PLACEHOLDER: &str = "RUST_BINDING_VERSION";
 const LIB_RS_TEMPLATE: &str = include_str!("./templates/lib.rs");
 const BUILD_RS_TEMPLATE: &str = include_str!("./templates/build.rs");
 const CARGO_TOML_TEMPLATE: &str = include_str!("./templates/_cargo.toml");
+const SYSROOT_STDINT_TEMPLATE: &str = include_str!("./templates/stdint.h");
+const SYSROOT_STDLIB_TEMPLATE: &str = include_str!("./templates/stdlib.h");
+const SYSROOT_STRING_TEMPLATE: &str = include_str!("./templates/string.h");
+const SYSROOT_WCTYPE_TEMPLATE: &str = include_str!("./templates/wctype.h");
 
 const INDEX_JS_TEMPLATE: &str = include_str!("./templates/index.js");
 const INDEX_D_TS_TEMPLATE: &str = include_str!("./templates/index.d.ts");
@@ -351,9 +355,31 @@ pub fn generate_grammar_files(
                 generate_file(path, LIB_RS_TEMPLATE, language_name, &generate_opts)
             })?;
 
-            missing_path(path.join("build.rs"), |path| {
-                generate_file(path, BUILD_RS_TEMPLATE, language_name, &generate_opts)
-            })?;
+            missing_path_else(path.join("build.rs"),
+                allow_update,
+                |path| {
+                    generate_file(path, BUILD_RS_TEMPLATE, language_name, &generate_opts)
+                },
+                |path| {
+                    let mut contents = fs::read_to_string(path)?;
+                    if !contents.contains("wasm32-unknown-unknown") {
+                        contents = contents
+                            .replace(
+                                "c_config.flag(\"-utf-8\");\n",
+                                indoc!{ r#"
+                                c_config.flag("-utf-8");
+
+                                    if std::env::var("TARGET").unwrap() == "wasm32-unknown-unknown" {
+                                        let sysroot_dir = std::path::Path::new("bindings/rust/wasm-sysroot");
+                                        c_config.include(sysroot_dir);
+                                    }
+                                "#}
+                            );
+                        write_file(path, contents)?;
+                    }
+                    Ok(())
+                },
+            )?;
 
             missing_path_else(
                 repo_path.join("Cargo.toml"),
@@ -374,6 +400,22 @@ pub fn generate_grammar_files(
                     Ok(())
                 },
             )?;
+
+            missing_path(path.join("wasm-sysroot"), create_dir)?.apply(|path| {
+                missing_path(path.join("stdint.h"), |path| {
+                    generate_file(path, SYSROOT_STDINT_TEMPLATE, language_name, &generate_opts)
+                })?;
+                missing_path(path.join("stdlib.h"), |path| {
+                    generate_file(path, SYSROOT_STDLIB_TEMPLATE, language_name, &generate_opts)
+                })?;
+                missing_path(path.join("string.h"), |path| {
+                    generate_file(path, SYSROOT_STRING_TEMPLATE, language_name, &generate_opts)
+                })?;
+                missing_path(path.join("wctype.h"), |path| {
+                    generate_file(path, SYSROOT_WCTYPE_TEMPLATE, language_name, &generate_opts)
+                })?;
+                Ok(())
+            })?;
 
             Ok(())
         })?;
