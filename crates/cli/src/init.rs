@@ -69,6 +69,8 @@ const RUST_BINDING_VERSION_PLACEHOLDER: &str = "RUST_BINDING_VERSION";
 const LIB_RS_TEMPLATE: &str = include_str!("./templates/lib.rs");
 const BUILD_RS_TEMPLATE: &str = include_str!("./templates/build.rs");
 const CARGO_TOML_TEMPLATE: &str = include_str!("./templates/_cargo.toml");
+const SYSROOT_STDINT_TEMPLATE: &str = include_str!("./templates/stdint.h");
+const SYSROOT_STDLIB_TEMPLATE: &str = include_str!("./templates/stdlib.h");
 
 const INDEX_JS_TEMPLATE: &str = include_str!("./templates/index.js");
 const INDEX_D_TS_TEMPLATE: &str = include_str!("./templates/index.d.ts");
@@ -369,9 +371,19 @@ pub fn generate_grammar_files(
                 generate_file(path, LIB_RS_TEMPLATE, language_name, &generate_opts)
             })?;
 
-            missing_path(path.join("build.rs"), |path| {
-                generate_file(path, BUILD_RS_TEMPLATE, language_name, &generate_opts)
-            })?;
+            missing_path_else(path.join("build.rs"),
+                allow_update,
+                |path| {
+                    generate_file(path, BUILD_RS_TEMPLATE, language_name, &generate_opts)
+                },
+                |path| {
+                    let contents = fs::read_to_string(path)?;
+                    if !contents.contains("wasm32-unknown-unknown") {
+                        generate_file(path, BUILD_RS_TEMPLATE, language_name, &generate_opts)?;
+                    }
+                    Ok(())
+                },
+            )?;
 
             missing_path(repo_path.join("Cargo.toml"), |path| {
                 generate_file(
@@ -380,6 +392,16 @@ pub fn generate_grammar_files(
                     dashed_language_name.as_str(),
                     &generate_opts,
                 )
+            })?;
+
+            missing_path(path.join("wasm-sysroot"), create_dir)?.apply(|path| {
+                missing_path(path.join("stdint.h"), |path| {
+                    generate_file(path, SYSROOT_STDINT_TEMPLATE, language_name, &generate_opts)
+                })?;
+                missing_path(path.join("stdlib.h"), |path| {
+                    generate_file(path, SYSROOT_STDLIB_TEMPLATE, language_name, &generate_opts)
+                })?;
+                Ok(())
             })?;
 
             Ok(())
