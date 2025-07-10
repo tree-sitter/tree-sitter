@@ -238,13 +238,14 @@ pub(crate) fn parse_grammar(input: &str) -> ParseGrammarResult<InputGrammar> {
     let mut in_progress = HashSet::new();
 
     for (name, rule) in &rules {
-        if !variable_is_used(
-            &rules,
-            &extra_symbols,
-            &external_tokens,
-            name,
-            &mut in_progress,
-        ) && grammar_json.word.as_ref().is_none_or(|w| w != name)
+        if grammar_json.word.as_ref().is_none_or(|w| w != name)
+            && !variable_is_used(
+                &rules,
+                &extra_symbols,
+                &external_tokens,
+                name,
+                &mut in_progress,
+            )
         {
             grammar_json.conflicts.retain(|r| !r.contains(name));
             grammar_json.supertypes.retain(|r| r != name);
