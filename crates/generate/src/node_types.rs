@@ -1078,7 +1078,8 @@ mod tests {
                 },
             ],
             ..Default::default()
-        });
+        })
+        .unwrap();
 
         assert_eq!(node_types.len(), 6);
 
