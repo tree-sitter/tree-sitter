@@ -14,7 +14,6 @@ use thiserror::Error;
 
 mod build_tables;
 mod dedup;
-mod grammar_files;
 mod grammars;
 mod nfa;
 mod node_types;
