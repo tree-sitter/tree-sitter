@@ -11,6 +11,7 @@ rust-version.workspace = true
 readme = "README.md"
 homepage.workspace = true
 repository.workspace = true
+documentation = "https://docs.rs/tree-sitter-tags"
 license.workspace = true
 keywords = ["incremental", "parsing", "syntax", "tagging"]
 categories = ["parsing", "text-editors"]
