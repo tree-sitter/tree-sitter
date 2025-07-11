@@ -8,6 +8,7 @@ rust-version.workspace = true
 readme = "README.md"
 homepage.workspace = true
 repository.workspace = true
+documentation = "https://docs.rs/tree-sitter-loader"
 license.workspace = true
 keywords.workspace = true
 categories.workspace = true

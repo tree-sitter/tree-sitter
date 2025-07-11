@@ -11,6 +11,7 @@ rust-version.workspace = true
 readme = "README.md"
 homepage.workspace = true
 repository.workspace = true
+documentation = "https://docs.rs/tree-sitter-highlight"
 license.workspace = true
 keywords = ["incremental", "parsing", "syntax", "highlighting"]
 categories = ["parsing", "text-editors"]
