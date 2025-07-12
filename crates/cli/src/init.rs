@@ -373,14 +373,25 @@ pub fn generate_grammar_files(
                 generate_file(path, BUILD_RS_TEMPLATE, language_name, &generate_opts)
             })?;
 
-            missing_path(repo_path.join("Cargo.toml"), |path| {
-                generate_file(
-                    path,
-                    CARGO_TOML_TEMPLATE,
-                    dashed_language_name.as_str(),
-                    &generate_opts,
-                )
-            })?;
+            missing_path_else(
+                repo_path.join("Cargo.toml"),
+                allow_update,
+                |path| {
+                    generate_file(
+                        path,
+                        CARGO_TOML_TEMPLATE,
+                        dashed_language_name.as_str(),
+                        &generate_opts,
+                    )
+                },
+                |path| {
+                    let contents = fs::read_to_string(path)?;
+                    if contents.contains("\"LICENSE\"") {
+                        write_file(path, contents.replace("\"LICENSE\"", "\"/LICENSE\""))?;
+                    }
+                    Ok(())
+                },
+            )?;
 
             Ok(())
         })?;
