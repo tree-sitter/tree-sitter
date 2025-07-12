@@ -4,6 +4,12 @@ fn main() {
     let mut c_config = cc::Build::new();
     c_config.std("c11").include(src_dir);
 
+    // Set a minimal C sysroot if building for wasm32-unknown-unknown.
+    if std::env::var("TARGET").unwrap() == "wasm32-unknown-unknown" {
+        let sysroot_dir = std::path::Path::new("bindings/rust/wasm-sysroot");
+        c_config.include(sysroot_dir);
+    }
+
     #[cfg(target_env = "msvc")]
     c_config.flag("-utf-8");
 
