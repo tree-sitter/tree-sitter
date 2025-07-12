@@ -23,6 +23,7 @@ edition = "2021"
 rust-version = "1.82"
 homepage = "https://tree-sitter.github.io/tree-sitter"
 repository = "https://github.com/tree-sitter/tree-sitter"
+documentation = "https://docs.rs/tree-sitter"
 license = "MIT"
 keywords = ["incremental", "parsing"]
 categories = ["command-line-utilities", "parsing"]
