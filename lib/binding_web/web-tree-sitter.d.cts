@@ -1,60 +1,60 @@
 declare module 'web-tree-sitter' {
-  /**
-   * A position in a multi-line text document, in terms of rows and columns.
-   *
-   * Rows and columns are zero-based.
-   */
-  export interface Point {
-	  /** The zero-based row number. */
-	  row: number;
-	  /** The zero-based column number. */
-	  column: number;
-  }
-  /**
-   *  A range of positions in a multi-line text document, both in terms of bytes
-   *  and of rows and columns.
-   */
-  export interface Range {
-	  /** The start position of the range. */
-	  startPosition: Point;
-	  /** The end position of the range. */
-	  endPosition: Point;
-	  /** The start index of the range. */
-	  startIndex: number;
-	  /** The end index of the range. */
-	  endIndex: number;
-  }
-  /**
-   * A summary of a change to a text document.
-   */
-  export interface Edit {
-	  /** The start position of the change. */
-	  startPosition: Point;
-	  /** The end position of the change before the edit. */
-	  oldEndPosition: Point;
-	  /** The end position of the change after the edit. */
-	  newEndPosition: Point;
-	  /** The start index of the change. */
-	  startIndex: number;
-	  /** The end index of the change before the edit. */
-	  oldEndIndex: number;
-	  /** The end index of the change after the edit. */
-	  newEndIndex: number;
-  }
-  /**
-   * A callback for parsing that takes an index and point, and should return a string.
-   */
-  export type ParseCallback = (index: number, position: Point) => string | undefined;
-  /**
-	* A callback that receives the parse state during parsing.
-	*/
-  export type ProgressCallback = (progress: ParseState) => boolean;
-  /**
-   * A callback for logging messages.
-   *
-   * If `isLex` is `true`, the message is from the lexer, otherwise it's from the parser.
-   */
-  export type LogCallback = (message: string, isLex: boolean) => void;
+	/**
+	 * A position in a multi-line text document, in terms of rows and columns.
+	 *
+	 * Rows and columns are zero-based.
+	 */
+	export interface Point {
+		/** The zero-based row number. */
+		row: number;
+		/** The zero-based column number. */
+		column: number;
+	}
+	/**
+	 *  A range of positions in a multi-line text document, both in terms of bytes
+	 *  and of rows and columns.
+	 */
+	export interface Range {
+		/** The start position of the range. */
+		startPosition: Point;
+		/** The end position of the range. */
+		endPosition: Point;
+		/** The start index of the range. */
+		startIndex: number;
+		/** The end index of the range. */
+		endIndex: number;
+	}
+	/**
+	 * A summary of a change to a text document.
+	 */
+	export interface Edit {
+		/** The start position of the change. */
+		startPosition: Point;
+		/** The end position of the change before the edit. */
+		oldEndPosition: Point;
+		/** The end position of the change after the edit. */
+		newEndPosition: Point;
+		/** The start index of the change. */
+		startIndex: number;
+		/** The end index of the change before the edit. */
+		oldEndIndex: number;
+		/** The end index of the change after the edit. */
+		newEndIndex: number;
+	}
+	/**
+	 * A callback for parsing that takes an index and point, and should return a string.
+	 */
+	export type ParseCallback = (index: number, position: Point) => string | undefined;
+	/**
+	 * A callback that receives the parse state during parsing.
+	 */
+	export type ProgressCallback = (progress: ParseState) => boolean;
+	/**
+	 * A callback for logging messages.
+	 *
+	 * If `isLex` is `true`, the message is from the lexer, otherwise it's from the parser.
+	 */
+	export type LogCallback = (message: string, isLex: boolean) => void;
 	/**
 	 * Options for parsing
 	 *
@@ -133,7 +133,7 @@ declare module 'web-tree-sitter' {
 		 * You can optionally pass in options to configure the WASM module, the most common
 		 * one being `locateFile` to help the module find the `.wasm` file.
 		 */
-		static init(moduleOptions?: EmscriptenModule): Promise<void>;
+		static init(moduleOptions?: Partial<EmscriptenModule>): Promise<void>;
 		/**
 		 * Create a new parser.
 		 */
@@ -490,13 +490,13 @@ declare module 'web-tree-sitter' {
 		 *
 		 * See also {@link Node#children}.
 		 */
-		childrenForFieldName(fieldName: string): (Node | null)[];
+		childrenForFieldName(fieldName: string): Node[];
 		/**
 		  * Get an array of this node's children with a given field id.
 		  *
 		  * See also {@link Node#childrenForFieldName}.
 		  */
-		childrenForFieldId(fieldId: number): (Node | null)[];
+		childrenForFieldId(fieldId: number): Node[];
 		/** Get the node's first child that contains or starts after the given byte offset. */
 		firstChildForIndex(index: number): Node | null;
 		/** Get the node's first named child that contains or starts after the given byte offset. */
@@ -531,13 +531,13 @@ declare module 'web-tree-sitter' {
 		 * If you're walking the tree recursively, you may want to use the
 		 * {@link TreeCursor} APIs directly instead.
 		 */
-		get children(): (Node | null)[];
+		get children(): Node[];
 		/**
 		 * Iterate over this node's named children.
 		 *
 		 * See also {@link Node#children}.
 		 */
-		get namedChildren(): (Node | null)[];
+		get namedChildren(): Node[];
 		/**
 		 * Get the descendants of this node that are the given type, or in the given types array.
 		 *
@@ -545,7 +545,7 @@ declare module 'web-tree-sitter' {
 		 *
 		 * Additionally, a `startPosition` and `endPosition` can be passed in to restrict the search to a byte range.
 		 */
-		descendantsOfType(types: string | string[], startPosition?: Point, endPosition?: Point): (Node | null)[];
+		descendantsOfType(types: string | string[], startPosition?: Point, endPosition?: Point): Node[];
 		/** Get this node's next sibling. */
 		get nextSibling(): Node | null;
 		/** Get this node's previous sibling. */

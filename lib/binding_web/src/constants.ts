@@ -83,8 +83,8 @@ export const ZERO_POINT: Point = { row: 0, column: 0 };
 export type ParseCallback = (index: number, position: Point) => string | undefined;
 
 /**
-  * A callback that receives the parse state during parsing.
-  */
+ * A callback that receives the parse state during parsing.
+ */
 export type ProgressCallback = (progress: ParseState) => boolean;
 
 /**
