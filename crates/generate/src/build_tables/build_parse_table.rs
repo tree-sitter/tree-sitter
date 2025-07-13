@@ -312,6 +312,12 @@ impl<'a> ParseTableBuilder<'a> {
             }
         }
 
+        let non_terminal_sets_len = non_terminal_extra_item_sets_by_first_terminal.len();
+        self.non_terminal_extra_states
+            .reserve(non_terminal_sets_len);
+        self.parse_state_info_by_id.reserve(non_terminal_sets_len);
+        self.parse_table.states.reserve(non_terminal_sets_len);
+        self.parse_state_queue.reserve(non_terminal_sets_len);
         // Add a state for each starting terminal of a non-terminal extra rule.
         for (terminal, item_set) in non_terminal_extra_item_sets_by_first_terminal {
             if terminal.is_non_terminal() {
