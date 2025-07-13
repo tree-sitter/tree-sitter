@@ -266,7 +266,7 @@ pub(super) fn flatten_grammar(
         let used = symbol_is_used(&variables, symbol);
 
         for production in &variable.productions {
-            if production.steps.is_empty() && used {
+            if used && production.steps.is_empty() {
                 Err(FlattenGrammarError::EmptyString(variable.name.clone()))?;
             }
 
