@@ -2,7 +2,10 @@
   "name": "web-tree-sitter",
   "version": "0.26.0",
   "description": "Tree-sitter bindings for the web",
-  "repository": "https://github.com/tree-sitter/tree-sitter",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tree-sitter/tree-sitter.git"
+  },
   "homepage": "https://github.com/tree-sitter/tree-sitter/tree/master/lib/binding_web",
   "license": "MIT",
   "author": {
