@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 
 use anyhow::Result;
+use log::warn;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use thiserror::Error;
@@ -320,7 +321,7 @@ fn parse_rule(json: RuleJSON, is_token: bool) -> ParseGrammarResult<Rule> {
                     } else {
                         // silently ignore unicode flags
                         if c != 'u' && c != 'v' {
-                            eprintln!("Warning: unsupported flag {c}");
+                            warn!("unsupported flag {c}");
                         }
                         false
                     }
