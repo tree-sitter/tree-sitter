@@ -152,6 +152,7 @@ pub fn generate_parser_in_directory<T, U, V>(
     mut abi_version: usize,
     report_symbol_name: Option<&str>,
     js_runtime: Option<&str>,
+    generate_parser: bool,
 ) -> GenerateResult<()>
 where
     T: Into<PathBuf>,
@@ -194,6 +195,11 @@ where
                 src_path.display()
             ))
         })?;
+    }
+
+    // If our job is only to generate `grammar.json` and not `parser.c`, stop here.
+    if !generate_parser {
+        return Ok(());
     }
 
     // Parse and preprocess the grammar.
