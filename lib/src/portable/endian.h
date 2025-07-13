@@ -24,7 +24,8 @@
     defined(__CYGWIN__) || \
     defined(__MSYS__) || \
     defined(__EMSCRIPTEN__) || \
-    defined(__wasi__)
+    defined(__wasi__) || \
+    defined(__wasm32__)
 
 #if defined(__NetBSD__)
 #define _NETBSD_SOURCE 1
