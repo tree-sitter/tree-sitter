@@ -26,5 +26,5 @@ impl Log for Logger {
 
 pub fn init() {
     log::set_boxed_logger(Box::new(Logger { filter: None })).unwrap();
-    log::set_max_level(LevelFilter::Info);
+    log::set_max_level(LevelFilter::Warn);
 }
