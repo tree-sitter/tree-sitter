@@ -257,7 +257,7 @@ fn generate_parser_for_grammar_with_opts(
         &lexical_grammar,
         &simple_aliases,
         &variable_info,
-    );
+    )?;
     let supertype_symbol_map =
         node_types::get_supertype_symbol_map(&syntax_grammar, &simple_aliases, &variable_info);
     let tables = build_tables(
