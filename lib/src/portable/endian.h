@@ -25,7 +25,8 @@
     defined(__MSYS__) || \
     defined(__EMSCRIPTEN__) || \
     defined(__wasi__) || \
-    defined(__wasm32__)
+    defined(__wasm32__) || \
+    defined(__wasm__)
 
 #if defined(__NetBSD__)
 #define _NETBSD_SOURCE 1
