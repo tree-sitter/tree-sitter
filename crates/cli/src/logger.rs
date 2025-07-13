@@ -11,19 +11,17 @@ impl Log for Logger {
     }
 
     fn log(&self, record: &Record) {
-        if record.level() == Level::Error {
-            eprintln!("Error: {}", record.args());
-        } else if record.level() == Level::Warn {
-            eprintln!("Warning: {}", record.args());
-        } else {
-            eprintln!(
+        match record.level() {
+            Level::Error => eprintln!("Error: {}", record.args()),
+            Level::Warn => eprintln!("Warning: {}", record.args()),
+            _ => eprintln!(
                 "[{}] {}",
                 record
                     .module_path()
                     .unwrap_or_default()
                     .trim_start_matches("rust_tree_sitter_cli::"),
                 record.args()
-            );
+            ),
         }
     }
 
