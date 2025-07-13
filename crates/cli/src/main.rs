@@ -133,6 +133,9 @@ struct Generate {
         default_value = "node"
     )]
     pub js_runtime: Option<String>,
+    /// Only generate `grammar.json` by evaluating `grammar.js`, but do not generate `parser.c` and related files afterwards
+    #[arg(long)]
+    pub evaluate_only: bool,
 }
 
 #[derive(Args)]
@@ -807,6 +810,7 @@ impl Generate {
             abi_version,
             self.report_states_for_rule.as_deref(),
             self.js_runtime.as_deref(),
+            self.evaluate_only,
         ) {
             if self.json {
                 eprintln!("{}", serde_json::to_string_pretty(&err)?);
