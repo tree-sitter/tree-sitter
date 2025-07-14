@@ -928,35 +928,26 @@ static unsigned analysis_state__recursion_depth(const AnalysisState *self) {
   return result;
 }
 
-static inline int analysis_state__compare_position(
-  AnalysisState *const *self,
-  AnalysisState *const *other
-) {
-  for (unsigned i = 0; i < (*self)->depth; i++) {
-    if (i >= (*other)->depth) return -1;
-    if ((*self)->stack[i].child_index < (*other)->stack[i].child_index) return -1;
-    if ((*self)->stack[i].child_index > (*other)->stack[i].child_index) return 1;
-  }
-  if ((*self)->depth < (*other)->depth) return 1;
-  if ((*self)->step_index < (*other)->step_index) return -1;
-  if ((*self)->step_index > (*other)->step_index) return 1;
-  return 0;
-}
-
 static inline int analysis_state__compare(
   AnalysisState *const *self,
   AnalysisState *const *other
 ) {
-  int result = analysis_state__compare_position(self, other);
-  if (result != 0) return result;
+  if ((*self)->depth < (*other)->depth) return 1;
   for (unsigned i = 0; i < (*self)->depth; i++) {
-    if ((*self)->stack[i].parent_symbol < (*other)->stack[i].parent_symbol) return -1;
-    if ((*self)->stack[i].parent_symbol > (*other)->stack[i].parent_symbol) return 1;
-    if ((*self)->stack[i].parse_state < (*other)->stack[i].parse_state) return -1;
-    if ((*self)->stack[i].parse_state > (*other)->stack[i].parse_state) return 1;
-    if ((*self)->stack[i].field_id < (*other)->stack[i].field_id) return -1;
-    if ((*self)->stack[i].field_id > (*other)->stack[i].field_id) return 1;
+    if (i >= (*other)->depth) return -1;
+    AnalysisStateEntry s1 = (*self)->stack[i];
+    AnalysisStateEntry s2 = (*other)->stack[i];
+    if (s1.child_index < s2.child_index) return -1;
+    if (s1.child_index > s2.child_index) return 1;
+    if (s1.parent_symbol < s2.parent_symbol) return -1;
+    if (s1.parent_symbol > s2.parent_symbol) return 1;
+    if (s1.parse_state < s2.parse_state) return -1;
+    if (s1.parse_state > s2.parse_state) return 1;
+    if (s1.field_id < s2.field_id) return -1;
+    if (s1.field_id > s2.field_id) return 1;
   }
+  if ((*self)->step_index < (*other)->step_index) return -1;
+  if ((*self)->step_index > (*other)->step_index) return 1;
   return 0;
 }
 
@@ -1247,7 +1238,7 @@ static void ts_query__perform_analysis(
       // the states that have made the least progress. Avoid advancing states that have already
       // made more progress.
       if (analysis->next_states.size > 0) {
-        int comparison = analysis_state__compare_position(
+        int comparison = analysis_state__compare(
           &state,
           array_back(&analysis->next_states)
         );
