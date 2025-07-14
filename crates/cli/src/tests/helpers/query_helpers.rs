@@ -181,7 +181,9 @@ impl Pattern {
         }
 
         matches.sort_unstable();
-        matches.iter_mut().for_each(|m| m.last_node = None);
+        for m in &mut matches {
+            m.last_node = None;
+        }
         matches.dedup();
         matches
     }
