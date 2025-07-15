@@ -8,17 +8,22 @@ pub fn build(b: *std.Build) !void {
   const shared = b.option(bool, "build-shared", "Build a shared library") orelse false;
   const amalgamated = b.option(bool, "amalgamated", "Build using an amalgamated source") orelse false;
 
-  const lib: *std.Build.Step.Compile = if (!shared) b.addStaticLibrary(.{
+  const lib: *std.Build.Step.Compile = if (!shared) b.addLibrary(.{
     .name = "tree-sitter",
-    .target = target,
-    .optimize = optimize,
-    .link_libc = true,
-  }) else b.addSharedLibrary(.{
+    .root_module = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    }),
+  }) else b.addLibrary(.{
     .name = "tree-sitter",
-    .pic = true,
-    .target = target,
-    .optimize = optimize,
-    .link_libc = true,
+    .linkage = .dynamic,
+    .root_module = b.createModule(.{
+        .pic = true,
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    }),
   });
 
   if (amalgamated) {
