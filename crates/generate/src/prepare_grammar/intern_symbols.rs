@@ -95,14 +95,15 @@ pub(super) fn intern_symbols(grammar: &InputGrammar) -> InternSymbolsResult<Inte
         }
     }
 
-    let mut word_token = None;
-    if let Some(name) = grammar.word_token.as_ref() {
-        word_token = Some(
+    let word_token = if let Some(name) = grammar.word_token.as_ref() {
+        Some(
             interner
                 .intern_name(name)
                 .ok_or_else(|| InternSymbolsError::UndefinedWordToken(name.clone()))?,
-        );
-    }
+        )
+    } else {
+        None
+    };
 
     for (i, variable) in variables.iter_mut().enumerate() {
         if supertype_symbols.contains(&Symbol::non_terminal(i)) {
