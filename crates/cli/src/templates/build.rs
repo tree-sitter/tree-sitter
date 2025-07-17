@@ -7,6 +7,11 @@ fn main() {
     #[cfg(target_env = "msvc")]
     c_config.flag("-utf-8");
 
+    if std::env::var("TARGET").unwrap() == "wasm32-unknown-unknown" {
+        let sysroot_dir = std::path::Path::new("bindings/rust/wasm-sysroot");
+        c_config.include(sysroot_dir);
+    }
+
     let parser_path = src_dir.join("parser.c");
     c_config.file(&parser_path);
     println!("cargo:rerun-if-changed={}", parser_path.to_str().unwrap());
