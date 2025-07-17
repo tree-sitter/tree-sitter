@@ -133,7 +133,7 @@ declare module 'web-tree-sitter' {
 		 * You can optionally pass in options to configure the WASM module, the most common
 		 * one being `locateFile` to help the module find the `.wasm` file.
 		 */
-		static init(moduleOptions?: EmscriptenModule): Promise<void>;
+		static init(moduleOptions?: Partial<EmscriptenModule>): Promise<void>;
 		/**
 		 * Create a new parser.
 		 */
