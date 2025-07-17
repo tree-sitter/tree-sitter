@@ -2068,7 +2068,7 @@ impl<'tree> Node<'tree> {
 
     #[must_use]
     pub fn utf16_text<'a>(&self, source: &'a [u16]) -> &'a [u16] {
-        &source[self.start_byte()..self.end_byte()]
+        &source[self.start_byte() / 2..self.end_byte() / 2]
     }
 
     /// Create a new [`TreeCursor`] starting from this node.

@@ -108,6 +108,19 @@ fn test_text_provider_for_arc_of_bytes_slice() {
 }
 
 #[test]
+fn test_text_provider_for_vec_utf16_text() {
+    let source_text = "你好".encode_utf16().collect::<Vec<_>>();
+
+    let language = get_language("c");
+    let mut parser = Parser::new();
+    parser.set_language(&language).unwrap();
+    let tree = parser.parse_utf16_le(&source_text, None).unwrap();
+
+    let tree_text = tree.root_node().utf16_text(&source_text);
+    assert_eq!(source_text, tree_text);
+}
+
+#[test]
 fn test_text_provider_callback_with_str_slice() {
     let text: &str = "// comment";
 
