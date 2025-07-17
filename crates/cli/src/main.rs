@@ -120,6 +120,7 @@ struct Generate {
     pub abi_version: Option<String>,
     /// Which type of artifact to generate from the grammar's source
     #[arg(long)]
+    #[clap(value_enum, default_value_t=GenerateArtifact::Parser)]
     pub artifact: GenerateArtifact,
     /// Deprecated: use --artifact=lib.
     #[arg(long, short = 'b')]
