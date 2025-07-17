@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     env, fs,
     io::Write,
     path::{Path, PathBuf},
@@ -7,7 +8,9 @@ use std::{
 };
 
 use anyhow::Result;
+use node_types::VariableInfo;
 use regex::{Regex, RegexBuilder};
+use rules::{Alias, Symbol};
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -25,7 +28,7 @@ mod tables;
 
 use build_tables::build_tables;
 pub use build_tables::ParseTableBuilderError;
-use grammars::InputGrammar;
+use grammars::{InlinedProductionMap, InputGrammar, LexicalGrammar, SyntaxGrammar};
 pub use node_types::{SuperTypeCycleError, VariableInfoError};
 use parse_grammar::parse_grammar;
 pub use parse_grammar::ParseGrammarError;
@@ -40,6 +43,15 @@ static JSON_COMMENT_REGEX: LazyLock<Regex> = LazyLock::new(|| {
         .build()
         .unwrap()
 });
+
+struct JSONStageOutput {
+    node_types_json: String,
+    syntax_grammar: SyntaxGrammar,
+    lexical_grammar: LexicalGrammar,
+    inlines: InlinedProductionMap,
+    simple_aliases: HashMap<Symbol, Alias>,
+    variable_info: Vec<VariableInfo>,
+}
 
 struct GeneratedParser {
     c_code: String,
@@ -248,12 +260,9 @@ pub fn generate_parser_for_grammar(
     Ok((input_grammar.name, parser.c_code))
 }
 
-fn generate_parser_for_grammar_with_opts(
+fn generate_node_types_from_grammar(
     input_grammar: &InputGrammar,
-    abi_version: usize,
-    semantic_version: Option<(u8, u8, u8)>,
-    report_symbol_name: Option<&str>,
-) -> GenerateResult<GeneratedParser> {
+) -> GenerateResult<JSONStageOutput> {
     let (syntax_grammar, lexical_grammar, inlines, simple_aliases) =
         prepare_grammar(input_grammar)?;
     let variable_info =
@@ -264,6 +273,30 @@ fn generate_parser_for_grammar_with_opts(
         &simple_aliases,
         &variable_info,
     )?;
+    Ok(JSONStageOutput {
+        node_types_json: serde_json::to_string_pretty(&node_types_json).unwrap(),
+        syntax_grammar,
+        lexical_grammar,
+        inlines,
+        simple_aliases,
+        variable_info,
+    })
+}
+
+fn generate_parser_for_grammar_with_opts(
+    input_grammar: &InputGrammar,
+    abi_version: usize,
+    semantic_version: Option<(u8, u8, u8)>,
+    report_symbol_name: Option<&str>,
+) -> GenerateResult<GeneratedParser> {
+    let JSONStageOutput {
+        syntax_grammar,
+        lexical_grammar,
+        inlines,
+        simple_aliases,
+        variable_info,
+        node_types_json,
+    } = generate_node_types_from_grammar(input_grammar)?;
     let supertype_symbol_map =
         node_types::get_supertype_symbol_map(&syntax_grammar, &simple_aliases, &variable_info);
     let tables = build_tables(
@@ -286,7 +319,7 @@ fn generate_parser_for_grammar_with_opts(
     );
     Ok(GeneratedParser {
         c_code,
-        node_types_json: serde_json::to_string_pretty(&node_types_json).unwrap(),
+        node_types_json,
     })
 }
 
