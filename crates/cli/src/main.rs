@@ -85,6 +85,17 @@ struct Init {
     pub grammar_path: Option<PathBuf>,
 }
 
+#[derive(Clone, Debug, Default, ValueEnum, PartialEq, Eq)]
+enum GenerateArtifact {
+    /// Generate `grammar.json` and `node-types.json`
+    Json,
+    /// Generate `parser.c` and related files
+    #[default]
+    Parser,
+    /// Compile to a library
+    Lib,
+}
+
 #[derive(Args)]
 #[command(alias = "gen", alias = "g")]
 struct Generate {
@@ -107,7 +118,10 @@ struct Generate {
                 )
     )]
     pub abi_version: Option<String>,
-    /// Compile all defined languages in the current dir
+    /// Which type of artifact to generate from the grammar's source
+    #[arg(long)]
+    pub artifact: GenerateArtifact,
+    /// Deprecated: use --artifact=lib.
     #[arg(long, short = 'b')]
     pub build: bool,
     /// Compile a parser in debug mode
@@ -133,9 +147,6 @@ struct Generate {
         default_value = "node"
     )]
     pub js_runtime: Option<String>,
-    /// Only generate `grammar.json` by evaluating `grammar.js`, but do not generate `parser.c` and related files afterwards
-    #[arg(long)]
-    pub evaluate_only: bool,
 }
 
 #[derive(Args)]
@@ -803,6 +814,13 @@ impl Generate {
                         version.parse().expect("invalid abi version flag")
                     }
                 });
+        let artifact = if self.build {
+            // TODO: migrate to `warn!` once https://github.com/tree-sitter/tree-sitter/pull/4604 is merged
+            eprintln!("Warning: --build is deprecated, use --artifact=lib instead");
+            GenerateArtifact::Lib
+        } else {
+            self.artifact
+        };
         if let Err(err) = tree_sitter_generate::generate_parser_in_directory(
             current_dir,
             self.output.as_deref(),
@@ -810,7 +828,7 @@ impl Generate {
             abi_version,
             self.report_states_for_rule.as_deref(),
             self.js_runtime.as_deref(),
-            self.evaluate_only,
+            artifact == GenerateArtifact::Json,
         ) {
             if self.json {
                 eprintln!("{}", serde_json::to_string_pretty(&err)?);
@@ -821,7 +839,7 @@ impl Generate {
                 Err(anyhow!(err.to_string())).with_context(|| "Error when generating parser")?;
             }
         }
-        if self.build {
+        if artifact == GenerateArtifact::Lib {
             if let Some(path) = self.libdir {
                 loader = loader::Loader::with_parser_lib_path(path);
             }

@@ -8,7 +8,7 @@ use std::{
 };
 
 use anyhow::Result;
-use node_types::{NodeInfoJSON, VariableInfo};
+use node_types::VariableInfo;
 use regex::{Regex, RegexBuilder};
 use rules::{Alias, Symbol};
 use semver::Version;
@@ -164,7 +164,7 @@ pub fn generate_parser_in_directory<T, U, V>(
     mut abi_version: usize,
     report_symbol_name: Option<&str>,
     js_runtime: Option<&str>,
-    evaluate_only: bool,
+    json_only: bool,
 ) -> GenerateResult<()>
 where
     T: Into<PathBuf>,
@@ -196,9 +196,8 @@ where
     let src_path = out_path.map_or_else(|| repo_path.join("src"), |p| p.into());
     let header_path = src_path.join("tree_sitter");
 
-    // Ensure that the output directories exist.
+    // Ensure that the output directory exists
     fs::create_dir_all(&src_path)?;
-    fs::create_dir_all(&header_path)?;
 
     if grammar_path.file_name().unwrap() != "grammar.json" {
         fs::write(src_path.join("grammar.json"), &grammar_json).map_err(|e| {
@@ -209,13 +208,17 @@ where
         })?;
     }
 
-    // If our job is only to generate `grammar.json` and not `parser.c`, stop here.
-    if evaluate_only {
+    // Parse and preprocess the grammar.
+    let input_grammar = parse_grammar(&grammar_json)?;
+
+    if json_only {
+        let node_types_json = generate_node_types_from_grammar(&input_grammar)?.node_types_json;
+        write_file(&src_path.join("node-types.json"), node_types_json)?;
         return Ok(());
     }
 
-    // Parse and preprocess the grammar.
-    let input_grammar = parse_grammar(&grammar_json)?;
+    // Ensure that the directory for tree-sitter headers exists
+    fs::create_dir_all(&header_path)?;
 
     let semantic_version = read_grammar_version(&repo_path)?;
 
