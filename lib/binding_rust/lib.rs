@@ -705,8 +705,7 @@ impl Parser {
             drop(unsafe { Box::from_raw(prev_logger.payload.cast::<Logger>()) });
         }
 
-        let c_logger;
-        if let Some(logger) = logger {
+        let c_logger = if let Some(logger) = logger {
             let container = Box::new(logger);
 
             unsafe extern "C" fn log(
@@ -727,16 +726,16 @@ impl Parser {
 
             let raw_container = Box::into_raw(container);
 
-            c_logger = ffi::TSLogger {
+            ffi::TSLogger {
                 payload: raw_container.cast::<c_void>(),
                 log: Some(log),
-            };
+            }
         } else {
-            c_logger = ffi::TSLogger {
+            ffi::TSLogger {
                 payload: ptr::null_mut(),
                 log: None,
-            };
-        }
+            }
+        };
 
         unsafe { ffi::ts_parser_set_logger(self.0.as_ptr(), c_logger) };
     }

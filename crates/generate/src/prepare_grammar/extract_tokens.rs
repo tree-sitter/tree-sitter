@@ -181,8 +181,7 @@ pub(super) fn extract_tokens(
         }
     }
 
-    let mut word_token = None;
-    if let Some(token) = grammar.word_token {
+    let word_token = if let Some(token) = grammar.word_token {
         let token = symbol_replacer.replace_symbol(token);
         if token.is_non_terminal() {
             let word_token_variable = &variables[token.index];
@@ -197,8 +196,10 @@ pub(super) fn extract_tokens(
                 conflicting_symbol_name,
             }))?;
         }
-        word_token = Some(token);
-    }
+        Some(token)
+    } else {
+        None
+    };
 
     let mut reserved_word_contexts = Vec::with_capacity(grammar.reserved_word_sets.len());
     for reserved_word_context in grammar.reserved_word_sets {
@@ -280,10 +281,11 @@ impl TokenExtractor {
                     let mut params = params.clone();
                     params.is_token = false;
 
-                    let mut string_value = None;
-                    if let Rule::String(value) = rule.as_ref() {
-                        string_value = Some(value);
-                    }
+                    let string_value = if let Rule::String(value) = rule.as_ref() {
+                        Some(value)
+                    } else {
+                        None
+                    };
 
                     let rule_to_extract = if params == MetadataParams::default() {
                         rule.as_ref()

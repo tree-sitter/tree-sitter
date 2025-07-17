@@ -131,11 +131,12 @@ impl Pattern {
 
         if self.named {
             string.push('(');
-            let mut has_contents = false;
-            if let Some(kind) = &self.kind {
+            let mut has_contents = if let Some(kind) = &self.kind {
                 write!(string, "{kind}").unwrap();
-                has_contents = true;
-            }
+                true
+            } else {
+                false
+            };
             for child in &self.children {
                 let indent = indent + 2;
                 if has_contents {
