@@ -1,4 +1,5 @@
 use anyhow::Result;
+use log::warn;
 use serde::Serialize;
 use thiserror::Error;
 
@@ -185,8 +186,8 @@ impl Interner<'_> {
     // inconsistent behavior with queries can occur. So we should warn the user about it.
     fn check_single(&self, elements: &[Rule], name: Option<&str>) {
         if elements.len() == 1 && matches!(elements[0], Rule::String(_) | Rule::Pattern(_, _)) {
-            eprintln!(
-                "Warning: rule {} contains a `seq` or `choice` rule with a single element. This is unnecessary.",
+            warn!(
+                "rule {} contains a `seq` or `choice` rule with a single element. This is unnecessary.",
                 name.unwrap_or_default()
             );
         }

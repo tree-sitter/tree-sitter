@@ -7,6 +7,7 @@ use std::{
 };
 
 use anyhow::Result;
+use log::warn;
 use regex::{Regex, RegexBuilder};
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -202,8 +203,8 @@ where
     let semantic_version = read_grammar_version(&repo_path)?;
 
     if semantic_version.is_none() && abi_version > ABI_VERSION_MIN {
-        println!("Warning: No `tree-sitter.json` file found in your grammar, this file is required to generate with ABI {abi_version}. Using ABI version {ABI_VERSION_MIN} instead.");
-        println!("This file can be set up with `tree-sitter init`. For more information, see https://tree-sitter.github.io/tree-sitter/cli/init.");
+        warn!("No `tree-sitter.json` file found in your grammar, this file is required to generate with ABI {abi_version}. Using ABI version {ABI_VERSION_MIN} instead.\n\
+               This file can be set up with `tree-sitter init`. For more information, see https://tree-sitter.github.io/tree-sitter/cli/init.");
         abi_version = ABI_VERSION_MIN;
     }
 
