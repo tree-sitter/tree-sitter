@@ -217,9 +217,6 @@ where
         return Ok(());
     }
 
-    // Ensure that the directory for tree-sitter headers exists
-    fs::create_dir_all(&header_path)?;
-
     let semantic_version = read_grammar_version(&repo_path)?;
 
     if semantic_version.is_none() && abi_version > ABI_VERSION_MIN {
@@ -241,6 +238,7 @@ where
 
     write_file(&src_path.join("parser.c"), c_code)?;
     write_file(&src_path.join("node-types.json"), node_types_json)?;
+    fs::create_dir_all(&header_path)?;
     write_file(&header_path.join("alloc.h"), ALLOC_HEADER)?;
     write_file(&header_path.join("array.h"), ARRAY_HEADER)?;
     write_file(&header_path.join("parser.h"), tree_sitter::PARSER_HEADER)?;
