@@ -8,6 +8,7 @@ rust-version = "1.76"
 readme = "README.md"
 homepage.workspace = true
 repository.workspace = true
+documentation = "https://docs.rs/tree-sitter-language"
 license.workspace = true
 keywords.workspace = true
 categories = ["api-bindings", "development-tools::ffi", "parsing"]

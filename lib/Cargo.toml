@@ -8,6 +8,7 @@ rust-version = "1.76"
 readme = "binding_rust/README.md"
 homepage.workspace = true
 repository.workspace = true
+documentation = "https://docs.rs/tree-sitter"
 license.workspace = true
 keywords.workspace = true
 categories = [
