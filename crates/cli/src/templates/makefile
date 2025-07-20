@@ -107,7 +107,7 @@ uninstall:
 	$(RM) -r '$(DESTDIR)$(DATADIR)'/tree-sitter/queries/KEBAB_PARSER_NAME
 
 clean:
-	$(RM) $(OBJS) $(LANGUAGE_NAME).pc lib$(LANGUAGE_NAME).a lib$(LANGUAGE_NAME).$(SOEXT) lib$(LANGUAGE_NAME).lib
+	$(RM) $(OBJS) $(LANGUAGE_NAME).pc lib$(LANGUAGE_NAME).a lib$(LANGUAGE_NAME).$(SOEXT) lib$(LANGUAGE_NAME).dll.a
 
 test:
 	$(TS) test
