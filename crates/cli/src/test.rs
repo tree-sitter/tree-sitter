@@ -23,7 +23,9 @@ use tree_sitter::{format_sexp, Language, LogType, Parser, Query, Tree};
 use walkdir::WalkDir;
 
 use super::util;
-use crate::parse::Stats;
+use crate::parse::{
+    render_cst, ParseDebugType, ParseFileOptions, ParseOutput, ParseStats, ParseTheme, Stats,
+};
 
 static HEADER_REGEX: LazyLock<ByteRegex> = LazyLock::new(|| {
     ByteRegexBuilder::new(
@@ -82,6 +84,7 @@ pub struct TestAttributes {
     pub platform: bool,
     pub fail_fast: bool,
     pub error: bool,
+    pub cst: bool,
     pub languages: Vec<Box<str>>,
 }
 
@@ -102,6 +105,7 @@ impl Default for TestAttributes {
             platform: true,
             fail_fast: false,
             error: false,
+            cst: false,
             languages: vec!["".into()],
         }
     }
@@ -246,22 +250,27 @@ pub fn run_tests_at_path(parser: &mut Parser, opts: &mut TestOptions) -> Result<
                 if opts.color {
                     print_diff_key();
                 }
-                for (i, (name, actual, expected)) in failures.iter().enumerate() {
+                for (i, (name, actual, expected, is_cst)) in failures.iter().enumerate() {
                     if expected == "NO ERROR" {
                         println!("\n  {}. {name}:\n", i + 1);
                         println!("  Expected an ERROR node, but got:");
-                        println!(
-                            "  {}",
-                            paint(
-                                opts.color.then_some(AnsiColor::Red),
-                                &format_sexp(actual, 2)
-                            )
-                        );
+                        let actual = if *is_cst {
+                            actual
+                        } else {
+                            &format_sexp(actual, 2)
+                        };
+                        println!("  {}", paint(opts.color.then_some(AnsiColor::Red), actual));
                     } else {
                         println!("\n  {}. {name}:", i + 1);
-                        let actual = format_sexp(actual, 2);
-                        let expected = format_sexp(expected, 2);
-                        print_diff(&actual, &expected, opts.color);
+                        if *is_cst {
+                            print_diff(actual, expected, opts.color);
+                        } else {
+                            print_diff(
+                                &format_sexp(actual, 2),
+                                &format_sexp(expected, 2),
+                                opts.color,
+                            );
+                        }
                     }
                 }
             }
@@ -348,6 +357,8 @@ pub fn paint(color: Option<impl Into<Color>>, text: &str) -> String {
     format!("{style}{text}{style:#}")
 }
 
+// TODO: Move the ridicululous tuple arguments into structs
+
 /// This will return false if we want to "fail fast". It will bail and not parse any more tests.
 #[allow(clippy::too_many_arguments)]
 fn run_tests(
@@ -355,7 +366,9 @@ fn run_tests(
     test_entry: TestEntry,
     opts: &mut TestOptions,
     mut indent_level: u32,
-    failures: &mut Vec<(String, String, String)>,
+    // (name, actual, expected, is_cst)
+    failures: &mut Vec<(String, String, String, bool)>,
+    // ????
     corrected_entries: &mut Vec<(String, String, String, String, usize, usize)>,
     has_parse_errors: &mut bool,
 ) -> Result<bool> {
@@ -431,7 +444,11 @@ fn run_tests(
                         opts.stats.successful_parses += 1;
                         if opts.update {
                             let input = String::from_utf8(input.clone()).unwrap();
-                            let output = format_sexp(&output, 0);
+                            let output = if attributes.cst {
+                                output.clone()
+                            } else {
+                                format_sexp(&output, 0)
+                            };
                             corrected_entries.push((
                                 name.clone(),
                                 input,
@@ -445,7 +462,11 @@ fn run_tests(
                         if opts.update {
                             let input = String::from_utf8(input.clone()).unwrap();
                             // Keep the original `expected` output if the actual output has no error
-                            let output = format_sexp(&output, 0);
+                            let output = if attributes.cst {
+                                output.clone()
+                            } else {
+                                format_sexp(&output, 0)
+                            };
                             corrected_entries.push((
                                 name.clone(),
                                 input,
@@ -461,10 +482,16 @@ fn run_tests(
                             opts.test_num,
                             paint(opts.color.then_some(AnsiColor::Red), &name),
                         )?;
+                        let actual = if attributes.cst {
+                            render_test_cst(&input, &tree)?
+                        } else {
+                            tree.root_node().to_sexp()
+                        };
                         failures.push((
                             name.clone(),
-                            tree.root_node().to_sexp(),
+                            actual,
                             "NO ERROR".to_string(),
+                            attributes.cst,
                         ));
                     }
 
@@ -472,8 +499,12 @@ fn run_tests(
                         return Ok(false);
                     }
                 } else {
-                    let mut actual = tree.root_node().to_sexp();
-                    if !(opts.show_fields || has_fields) {
+                    let mut actual = if attributes.cst {
+                        render_test_cst(&input, &tree)?
+                    } else {
+                        tree.root_node().to_sexp()
+                    };
+                    if !(attributes.cst || opts.show_fields || has_fields) {
                         actual = strip_sexp_fields(&actual);
                     }
 
@@ -487,7 +518,11 @@ fn run_tests(
                         opts.stats.successful_parses += 1;
                         if opts.update {
                             let input = String::from_utf8(input.clone()).unwrap();
-                            let output = format_sexp(&output, 0);
+                            let output = if attributes.cst {
+                                actual
+                            } else {
+                                format_sexp(&output, 0)
+                            };
                             corrected_entries.push((
                                 name.clone(),
                                 input,
@@ -500,8 +535,11 @@ fn run_tests(
                     } else {
                         if opts.update {
                             let input = String::from_utf8(input.clone()).unwrap();
-                            let expected_output = format_sexp(&output, 0);
-                            let actual_output = format_sexp(&actual, 0);
+                            let (expected_output, actual_output) = if attributes.cst {
+                                (output.clone(), actual.clone())
+                            } else {
+                                (format_sexp(&output, 0), format_sexp(&actual, 0))
+                            };
 
                             // Only bail early before updating if the actual is not the output,
                             // sometimes users want to test cases that
@@ -544,7 +582,7 @@ fn run_tests(
                                 paint(opts.color.then_some(AnsiColor::Red), &name),
                             )?;
                         }
-                        failures.push((name.clone(), actual, output.clone()));
+                        failures.push((name.clone(), actual, output.clone(), attributes.cst));
 
                         if attributes.fail_fast {
                             return Ok(false);
@@ -655,6 +693,28 @@ fn run_tests(
         }
     }
     Ok(true)
+}
+
+/// Convenience wrapper to render a CST for a test entry.
+fn render_test_cst(input: &[u8], tree: &Tree) -> Result<String> {
+    let mut rendered_cst: Vec<u8> = Vec::new();
+    let mut cursor = tree.walk();
+    let opts = ParseFileOptions {
+        edits: &[],
+        output: ParseOutput::Cst,
+        stats: &mut ParseStats::default(),
+        print_time: false,
+        timeout: 0,
+        debug: ParseDebugType::Quiet,
+        debug_graph: false,
+        cancellation_flag: None,
+        encoding: None,
+        open_log: false,
+        no_ranges: false,
+        parse_theme: &ParseTheme::empty(),
+    };
+    render_cst(input, tree, &mut cursor, &opts, &mut rendered_cst)?;
+    Ok(String::from_utf8_lossy(&rendered_cst).trim().to_string())
 }
 
 // Parse time is interpreted in ns before converting to ms to avoid truncation issues
@@ -776,8 +836,8 @@ fn parse_test_content(name: String, content: &str, file_path: Option<PathBuf>) -
             .name("suffix2")
             .map(|m| String::from_utf8_lossy(m.as_bytes()));
 
-        let (mut skip, mut platform, mut fail_fast, mut error, mut languages) =
-            (false, None, false, false, vec![]);
+        let (mut skip, mut platform, mut fail_fast, mut error, mut cst, mut languages) =
+            (false, None, false, false, false, vec![]);
 
         let test_name_and_markers = c
             .name("test_name_and_markers")
@@ -818,6 +878,7 @@ fn parse_test_content(name: String, content: &str, file_path: Option<PathBuf>) -
                         languages.push(lang.into());
                     }
                 }
+                ":cst" => (seen_marker, cst) = (true, true),
                 _ if !seen_marker => {
                     test_name.push_str(line);
                 }
@@ -858,6 +919,7 @@ fn parse_test_content(name: String, content: &str, file_path: Option<PathBuf>) -
                     platform: platform.unwrap_or(true),
                     fail_fast,
                     error,
+                    cst,
                     languages,
                 },
             ))
@@ -910,16 +972,22 @@ fn parse_test_content(name: String, content: &str, file_path: Option<PathBuf>) -
                         input.pop();
                     }
 
-                    // Remove all comments
-                    let output = COMMENT_REGEX.replace_all(output, "").to_string();
+                    let (output, has_fields) = if prev_attributes.cst {
+                        (output.trim().to_string(), false)
+                    } else {
+                        // Remove all comments
+                        let output = COMMENT_REGEX.replace_all(output, "").to_string();
 
-                    // Normalize the whitespace in the expected output.
-                    let output = WHITESPACE_REGEX.replace_all(output.trim(), " ");
-                    let output = output.replace(" )", ")");
+                        // Normalize the whitespace in the expected output.
+                        let output = WHITESPACE_REGEX.replace_all(output.trim(), " ");
+                        let output = output.replace(" )", ")");
 
-                    // Identify if the expected output has fields indicated. If not, then
-                    // fields will not be checked.
-                    let has_fields = SEXP_FIELD_REGEX.is_match(&output);
+                        // Identify if the expected output has fields indicated. If not, then
+                        // fields will not be checked.
+                        let has_fields = SEXP_FIELD_REGEX.is_match(&output);
+
+                        (output, has_fields)
+                    };
 
                     let file_name = if let Some(ref path) = file_path {
                         path.file_name().map(|n| n.to_string_lossy().to_string())
@@ -1493,6 +1561,7 @@ a
                         platform: true,
                         fail_fast: false,
                         error: false,
+                        cst: false,
                         languages: vec!["".into()]
                     },
                     file_name: None,
@@ -1522,6 +1591,16 @@ Test with bad platform marker
 a
 ---
 (b)
+
+====================
+Test with cst marker
+:cst
+====================
+1
+---
+0:0 - 1:0   source_file
+0:0 - 0:1   expression
+0:0 - 0:1     number_literal `1`
 ",
                 std::env::consts::OS,
                 if std::env::consts::OS == "linux" {
@@ -1552,6 +1631,7 @@ a
                             platform: true,
                             fail_fast: true,
                             error: false,
+                            cst: false,
                             languages: vec!["".into()]
                         },
                         file_name: None,
@@ -1573,7 +1653,29 @@ a
                             platform: false,
                             fail_fast: false,
                             error: false,
+                            cst: false,
                             languages: vec!["foo".into()]
+                        },
+                        file_name: None,
+                    },
+                    TestEntry::Example {
+                        name: "Test with cst marker".to_string(),
+                        input: b"1".to_vec(),
+                        output: "0:0 - 1:0   source_file
+0:0 - 0:1   expression
+0:0 - 0:1     number_literal `1`"
+                            .to_string(),
+                        header_delim_len: 20,
+                        divider_delim_len: 3,
+                        has_fields: false,
+                        attributes_str: ":cst".to_string(),
+                        attributes: TestAttributes {
+                            skip: false,
+                            platform: true,
+                            fail_fast: false,
+                            error: false,
+                            cst: true,
+                            languages: vec!["".into()]
                         },
                         file_name: None,
                     }

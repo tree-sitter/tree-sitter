@@ -99,8 +99,8 @@ you can repeat the attribute on a new line.
 
 The following attributes are available:
 
-* `:skip` — This attribute will skip the test when running `tree-sitter test`.
-  This is useful when you want to temporarily disable running a test without deleting it.
+* `:cst` - This attribute specifies that the expected output should be in the form of a CST instead of the normal S-expression. This
+CST matches the format given by `parse --cst`.
 * `:error` — This attribute will assert that the parse tree contains an error. It's useful to just validate that a certain
 input is invalid without displaying the whole parse tree, as such you should omit the parse tree below the `---` line.
 * `:fail-fast` — This attribute will stop the testing additional tests if the test marked with this attribute fails.
@@ -109,6 +109,8 @@ multi-parser repos, such as XML and DTD, or Typescript and TSX. The default pars
 the `grammars` field in the `tree-sitter.json` config file, so having a way to pick a second or even third parser is useful.
 * `:platform(PLATFORM)` — This attribute specifies the platform on which the test should run. It is useful to test platform-specific
 behavior (e.g. Windows newlines are different from Unix). This attribute must match up with Rust's [`std::env::consts::OS`][constants].
+* `:skip` — This attribute will skip the test when running `tree-sitter test`.
+This is useful when you want to temporarily disable running a test without deleting it.
 
 Examples using attributes:
 
