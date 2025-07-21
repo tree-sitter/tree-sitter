@@ -247,6 +247,7 @@ pub(crate) fn parse_grammar(input: &str) -> ParseGrammarResult<InputGrammar> {
                 &mut in_progress,
             )
         {
+            eprintln!("Warning: unused variable {name:?}");
             grammar_json.conflicts.retain(|r| !r.contains(name));
             grammar_json.supertypes.retain(|r| r != name);
             grammar_json.inline.retain(|r| r != name);
