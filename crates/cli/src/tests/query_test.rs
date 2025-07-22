@@ -342,6 +342,16 @@ fn test_query_errors_on_invalid_symbols() {
                 message: "\"alternatives\"".to_string()
             }
         );
+        assert_eq!(
+            Query::new(&language, "fakefield: (identifier)").unwrap_err(),
+            QueryError {
+                row: 0,
+                offset: 0,
+                column: 0,
+                kind: QueryErrorKind::Field,
+                message: "\"fakefield\"".to_string()
+            }
+        );
     });
 }
 
