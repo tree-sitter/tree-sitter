@@ -72,7 +72,7 @@ $(LANGUAGE_NAME).pc: bindings/c/$(LANGUAGE_NAME).pc.in
 		-e 's|@PROJECT_HOMEPAGE_URL@|$(HOMEPAGE_URL)|' \
 		-e 's|@CMAKE_INSTALL_PREFIX@|$(PREFIX)|' $< > $@
 
-$(PARSER): $(SRC_DIR)/grammar.json
+$(PARSER): grammar.js
 	$(TS) generate $^
 
 install: all
