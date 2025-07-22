@@ -2446,7 +2446,7 @@ impl Query {
                 // Error types that report names
                 ffi::TSQueryErrorNodeType | ffi::TSQueryErrorField | ffi::TSQueryErrorCapture => {
                     let suffix = source.split_at(offset).1;
-                    let in_quotes = source.as_bytes()[offset - 1] == b'"';
+                    let in_quotes = offset > 0 && source.as_bytes()[offset - 1] == b'"';
                     let mut backslashes = 0;
                     let end_offset = suffix
                         .find(|c| {
