@@ -98,6 +98,7 @@ const TESTS_SWIFT_TEMPLATE: &str = include_str!("./templates/tests.swift");
 const BUILD_ZIG_TEMPLATE: &str = include_str!("./templates/build.zig");
 const BUILD_ZIG_ZON_TEMPLATE: &str = include_str!("./templates/build.zig.zon");
 const ROOT_ZIG_TEMPLATE: &str = include_str!("./templates/root.zig");
+const TEST_ZIG_TEMPLATE: &str = include_str!("./templates/test.zig");
 
 const TREE_SITTER_JSON_SCHEMA: &str =
     "https://tree-sitter.github.io/tree-sitter/assets/schemas/config.schema.json";
@@ -756,6 +757,14 @@ pub fn generate_grammar_files(
 
         missing_path(repo_path.join("build.zig.zon"), |path| {
             generate_file(path, BUILD_ZIG_ZON_TEMPLATE, language_name, &generate_opts)
+        })?;
+
+        missing_path(bindings_dir.join("zig"), create_dir)?.apply(|path| {
+            missing_path(path.join("test.zig"), |path| {
+                generate_file(path, TEST_ZIG_TEMPLATE, language_name, &generate_opts)
+            })?;
+
+            Ok(())
         })?;
 
         missing_path(bindings_dir.join("zig"), create_dir)?.apply(|path| {
