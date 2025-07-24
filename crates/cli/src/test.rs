@@ -230,7 +230,7 @@ pub fn run_tests_at_path(parser: &mut Parser, opts: &mut TestOptions) -> Result<
                 println!("{} updates:\n", failures.len());
             }
 
-            for (i, (name, ..)) in failures.iter().enumerate() {
+            for (i, TestFailure { name, .. }) in failures.iter().enumerate() {
                 println!("  {}. {name}", i + 1);
             }
 
@@ -250,7 +250,16 @@ pub fn run_tests_at_path(parser: &mut Parser, opts: &mut TestOptions) -> Result<
                 if opts.color {
                     print_diff_key();
                 }
-                for (i, (name, actual, expected, is_cst)) in failures.iter().enumerate() {
+                for (
+                    i,
+                    TestFailure {
+                        name,
+                        actual,
+                        expected,
+                        is_cst,
+                    },
+                ) in failures.iter().enumerate()
+                {
                     if expected == "NO ERROR" {
                         println!("\n  {}. {name}:\n", i + 1);
                         println!("  Expected an ERROR node, but got:");
@@ -357,7 +366,63 @@ pub fn paint(color: Option<impl Into<Color>>, text: &str) -> String {
     format!("{style}{text}{style:#}")
 }
 
-// TODO: Move the ridicululous tuple arguments into structs
+struct TestFailure {
+    name: String,
+    actual: String,
+    expected: String,
+    is_cst: bool,
+}
+
+impl TestFailure {
+    fn new<T, U, V>(name: T, actual: U, expected: V, is_cst: bool) -> Self
+    where
+        T: Into<String>,
+        U: Into<String>,
+        V: Into<String>,
+    {
+        Self {
+            name: name.into(),
+            actual: actual.into(),
+            expected: expected.into(),
+            is_cst,
+        }
+    }
+}
+
+struct TestCorrection {
+    name: String,
+    input: String,
+    output: String,
+    attributes_str: String,
+    header_delim_len: usize,
+    divider_delim_len: usize,
+}
+
+impl TestCorrection {
+    fn new<T, U, V, W>(
+        name: T,
+        input: U,
+        output: V,
+        attributes_str: W,
+        header_delim_len: usize,
+        divider_delim_len: usize,
+    ) -> Self
+    where
+        T: Into<String>,
+        U: Into<String>,
+        V: Into<String>,
+        W: Into<String>,
+    {
+        Self {
+            name: name.into(),
+            input: input.into(),
+            output: output.into(),
+            attributes_str: attributes_str.into(),
+            header_delim_len,
+            divider_delim_len,
+        }
+    }
+}
 
 /// This will return false if we want to "fail fast". It will bail and not parse any more tests.
 #[allow(clippy::too_many_arguments)]
@@ -366,10 +431,8 @@ fn run_tests(
     test_entry: TestEntry,
     opts: &mut TestOptions,
     mut indent_level: u32,
-    // (name, actual, expected, is_cst)
-    failures: &mut Vec<(String, String, String, bool)>,
-    // ????
-    corrected_entries: &mut Vec<(String, String, String, String, usize, usize)>,
+    failures: &mut Vec<TestFailure>,
+    corrected_entries: &mut Vec<TestCorrection>,
     has_parse_errors: &mut bool,
 ) -> Result<bool> {
     match test_entry {
@@ -449,11 +512,11 @@ fn run_tests(
                             } else {
                                 format_sexp(&output, 0)
                             };
-                            corrected_entries.push((
-                                name.clone(),
+                            corrected_entries.push(TestCorrection::new(
+                                &name,
                                 input,
                                 output,
-                                attributes_str.clone(),
+                                &attributes_str,
                                 header_delim_len,
                                 divider_delim_len,
                             ));
@@ -467,11 +530,11 @@ fn run_tests(
                             } else {
                                 format_sexp(&output, 0)
                             };
-                            corrected_entries.push((
-                                name.clone(),
+                            corrected_entries.push(TestCorrection::new(
+                                &name,
                                 input,
                                 output,
-                                attributes_str.clone(),
+                                &attributes_str,
                                 header_delim_len,
                                 divider_delim_len,
                             ));
@@ -487,12 +550,7 @@ fn run_tests(
                         } else {
                             tree.root_node().to_sexp()
                         };
-                        failures.push((
-                            name.clone(),
-                            actual,
-                            "NO ERROR".to_string(),
-                            attributes.cst,
-                        ));
+                        failures.push(TestFailure::new(&name, actual, "NO ERROR", attributes.cst));
                     }
 
                     if attributes.fail_fast {
@@ -523,11 +581,11 @@ fn run_tests(
                             } else {
                                 format_sexp(&output, 0)
                             };
-                            corrected_entries.push((
-                                name.clone(),
+                            corrected_entries.push(TestCorrection::new(
+                                &name,
                                 input,
                                 output,
-                                attributes_str.clone(),
+                                &attributes_str,
                                 header_delim_len,
                                 divider_delim_len,
                             ));
@@ -550,20 +608,20 @@ fn run_tests(
 
                                 // keep the original `expected` output if the actual output has an
                                 // error
-                                corrected_entries.push((
-                                    name.clone(),
+                                corrected_entries.push(TestCorrection::new(
+                                    &name,
                                     input,
                                     expected_output,
-                                    attributes_str.clone(),
+                                    &attributes_str,
                                     header_delim_len,
                                     divider_delim_len,
                                 ));
                             } else {
-                                corrected_entries.push((
-                                    name.clone(),
+                                corrected_entries.push(TestCorrection::new(
+                                    &name,
                                     input,
                                     actual_output,
-                                    attributes_str.clone(),
+                                    &attributes_str,
                                     header_delim_len,
                                     divider_delim_len,
                                 ));
@@ -582,7 +640,7 @@ fn run_tests(
                                 paint(opts.color.then_some(AnsiColor::Red), &name),
                             )?;
                         }
-                        failures.push((name.clone(), actual, output.clone(), attributes.cst));
+                        failures.push(TestFailure::new(&name, actual, &output, attributes.cst));
 
                         if attributes.fail_fast {
                             return Ok(false);
@@ -647,11 +705,11 @@ fn run_tests(
                     if should_skip(&child, opts) {
                         let input = String::from_utf8(input.clone()).unwrap();
                         let output = format_sexp(output, 0);
-                        corrected_entries.push((
-                            name.clone(),
+                        corrected_entries.push(TestCorrection::new(
+                            name,
                             input,
                             output,
-                            attributes_str.clone(),
+                            attributes_str,
                             header_delim_len,
                             divider_delim_len,
                         ));
@@ -729,20 +787,26 @@ pub fn adjusted_parse_rate(tree: &Tree, parse_time: Duration) -> f64 {
     )
 }
 
-fn write_tests(
-    file_path: &Path,
-    corrected_entries: &[(String, String, String, String, usize, usize)],
-) -> Result<()> {
+fn write_tests(file_path: &Path, corrected_entries: &[TestCorrection]) -> Result<()> {
     let mut buffer = fs::File::create(file_path)?;
     write_tests_to_buffer(&mut buffer, corrected_entries)
 }
 
 fn write_tests_to_buffer(
     buffer: &mut impl Write,
-    corrected_entries: &[(String, String, String, String, usize, usize)],
+    corrected_entries: &[TestCorrection],
 ) -> Result<()> {
-    for (i, (name, input, output, attributes_str, header_delim_len, divider_delim_len)) in
-        corrected_entries.iter().enumerate()
+    for (
+        i,
+        TestCorrection {
+            name,
+            input,
+            output,
+            attributes_str,
+            header_delim_len,
+            divider_delim_len,
+        },
+    ) in corrected_entries.iter().enumerate()
     {
         if i > 0 {
             writeln!(buffer)?;
@@ -1204,7 +1268,7 @@ abc
     fn test_write_tests_to_buffer() {
         let mut buffer = Vec::new();
         let corrected_entries = vec![
-            (
+            TestCorrection::new(
                 "title 1".to_string(),
                 "input 1".to_string(),
                 "output 1".to_string(),
@@ -1212,7 +1276,7 @@ abc
                 80,
                 80,
             ),
-            (
+            TestCorrection::new(
                 "title 2".to_string(),
                 "input 2".to_string(),
                 "output 2".to_string(),
