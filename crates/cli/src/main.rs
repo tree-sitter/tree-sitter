@@ -10,6 +10,7 @@ use clap::{crate_authors, Args, Command, FromArgMatches as _, Subcommand, ValueE
 use clap_complete::generate;
 use dialoguer::{theme::ColorfulTheme, Confirm, FuzzySelect, Input, MultiSelect};
 use heck::ToUpperCamelCase;
+use log::LevelFilter;
 use regex::Regex;
 use semver::Version as SemverVersion;
 use tree_sitter::{ffi, Parser, Point};
@@ -788,7 +789,7 @@ impl Init {
 impl Generate {
     fn run(self, mut loader: loader::Loader, current_dir: &Path) -> Result<()> {
         if self.log {
-            logger::init();
+            log::set_max_level(LevelFilter::Info);
         }
         let abi_version =
             self.abi_version
@@ -1705,6 +1706,7 @@ impl Complete {
 }
 
 fn main() {
+    logger::init();
     let result = run();
     if let Err(err) = &result {
         // Ignore BrokenPipe errors
