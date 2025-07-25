@@ -1,4 +1,4 @@
-//! This crate provides CAMEL_PARSER_NAME language support for the [tree-sitter] parsing library.
+//! This crate provides TITLE_PARSER_NAME language support for the [tree-sitter] parsing library.
 //!
 //! Typically, you will use the [`LANGUAGE`] constant to add this language to a
 //! tree-sitter [`Parser`], and then use the parser to parse some code:

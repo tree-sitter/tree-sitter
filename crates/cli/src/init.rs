@@ -373,14 +373,25 @@ pub fn generate_grammar_files(
                 generate_file(path, BUILD_RS_TEMPLATE, language_name, &generate_opts)
             })?;
 
-            missing_path(repo_path.join("Cargo.toml"), |path| {
-                generate_file(
-                    path,
-                    CARGO_TOML_TEMPLATE,
-                    dashed_language_name.as_str(),
-                    &generate_opts,
-                )
-            })?;
+            missing_path_else(
+                repo_path.join("Cargo.toml"),
+                allow_update,
+                |path| {
+                    generate_file(
+                        path,
+                        CARGO_TOML_TEMPLATE,
+                        dashed_language_name.as_str(),
+                        &generate_opts,
+                    )
+                },
+                |path| {
+                    let contents = fs::read_to_string(path)?;
+                    if contents.contains("\"LICENSE\"") {
+                        write_file(path, contents.replace("\"LICENSE\"", "\"/LICENSE\""))?;
+                    }
+                    Ok(())
+                },
+            )?;
 
             Ok(())
         })?;
@@ -599,14 +610,32 @@ pub fn generate_grammar_files(
             })?;
 
             missing_path(path.join("tests"), create_dir)?.apply(|path| {
-                missing_path(path.join("test_binding.py"), |path| {
-                    generate_file(
-                        path,
-                        TEST_BINDING_PY_TEMPLATE,
-                        language_name,
-                        &generate_opts,
-                    )
-                })?;
+                missing_path_else(
+                    path.join("test_binding.py"),
+                    allow_update,
+                    |path| {
+                        generate_file(
+                            path,
+                            TEST_BINDING_PY_TEMPLATE,
+                            language_name,
+                            &generate_opts,
+                        )
+                    },
+                    |path| {
+                        let mut contents = fs::read_to_string(path)?;
+                        if !contents.contains("Parser(Language(") {
+                            contents = contents
+                                .replace("tree_sitter.Language(", "Parser(Language(")
+                                .replace(".language())\n", ".language()))\n")
+                                .replace(
+                                    "import tree_sitter\n",
+                                    "from tree_sitter import Language, Parser\n",
+                                );
+                            write_file(path, contents)?;
+                        }
+                        Ok(())
+                    },
+                )?;
                 Ok(())
             })?;
 
@@ -615,10 +644,15 @@ pub fn generate_grammar_files(
                 allow_update,
                 |path| generate_file(path, SETUP_PY_TEMPLATE, language_name, &generate_opts),
                 |path| {
-                    let contents = fs::read_to_string(path)?;
+                    let mut contents = fs::read_to_string(path)?;
                     if !contents.contains("egg_info") || !contents.contains("Py_GIL_DISABLED") {
                         eprintln!("Replacing setup.py");
                         generate_file(path, SETUP_PY_TEMPLATE, language_name, &generate_opts)?;
+                    } else {
+                        contents = contents
+                            .replace("path\nfrom platform import system", "name as os_name, path")
+                            .replace("system() != \"Windows\"", "os_name != \"nt\"");
+                        write_file(path, contents)?;
                     }
                     Ok(())
                 },
