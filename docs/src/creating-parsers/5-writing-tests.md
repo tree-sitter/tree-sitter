@@ -103,7 +103,7 @@ The following attributes are available:
 CST matches the format given by `parse --cst`.
 * `:error` — This attribute will assert that the parse tree contains an error. It's useful to just validate that a certain
 input is invalid without displaying the whole parse tree, as such you should omit the parse tree below the `---` line.
-* `:fail-fast` — This attribute will stop the testing additional tests if the test marked with this attribute fails.
+* `:fail-fast` — This attribute will stop the testing of additional cases if the test marked with this attribute fails.
 * `:language(LANG)` — This attribute will run the tests using the parser for the specified language. This is useful for
 multi-parser repos, such as XML and DTD, or Typescript and TSX. The default parser used will always be the first entry in
 the `grammars` field in the `tree-sitter.json` config file, so having a way to pick a second or even third parser is useful.
