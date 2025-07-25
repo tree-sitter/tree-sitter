@@ -597,14 +597,32 @@ pub fn generate_grammar_files(
             })?;
 
             missing_path(path.join("tests"), create_dir)?.apply(|path| {
-                missing_path(path.join("test_binding.py"), |path| {
-                    generate_file(
-                        path,
-                        TEST_BINDING_PY_TEMPLATE,
-                        language_name,
-                        &generate_opts,
-                    )
-                })?;
+                missing_path_else(
+                    path.join("test_binding.py"),
+                    allow_update,
+                    |path| {
+                        generate_file(
+                            path,
+                            TEST_BINDING_PY_TEMPLATE,
+                            language_name,
+                            &generate_opts,
+                        )
+                    },
+                    |path| {
+                        let mut contents = fs::read_to_string(path)?;
+                        if !contents.contains("Parser(Language(") {
+                            contents = contents
+                                .replace("tree_sitter.Language(", "Parser(Language(")
+                                .replace(".language())\n", ".language()))\n")
+                                .replace(
+                                    "import tree_sitter\n",
+                                    "from tree_sitter import Language, Parser\n",
+                                );
+                            write_file(path, contents)?;
+                        }
+                        Ok(())
+                    },
+                )?;
                 Ok(())
             })?;
 
