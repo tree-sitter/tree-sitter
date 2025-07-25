@@ -755,21 +755,23 @@ pub fn generate_grammar_files(
             generate_file(path, BUILD_ZIG_TEMPLATE, language_name, &generate_opts)
         })?;
 
-        missing_path(repo_path.join("build.zig.zon"), |path| {
-            generate_file(path, BUILD_ZIG_ZON_TEMPLATE, language_name, &generate_opts)
-        })?;
-
-        missing_path(bindings_dir.join("zig"), create_dir)?.apply(|path| {
-            missing_path(path.join("test.zig"), |path| {
-                generate_file(path, TEST_ZIG_TEMPLATE, language_name, &generate_opts)
-            })?;
-
-            Ok(())
-        })?;
+        missing_path_else(
+            repo_path.join("build.zig.zon"),
+            allow_update,
+            |path| generate_file(path, BUILD_ZIG_ZON_TEMPLATE, language_name, &generate_opts),
+            |path| {
+                eprintln!("Replacing build.zig.zon");
+                generate_file(path, BUILD_ZIG_ZON_TEMPLATE, language_name, &generate_opts)
+            },
+        )?;
 
         missing_path(bindings_dir.join("zig"), create_dir)?.apply(|path| {
             missing_path(path.join("root.zig"), |path| {
                 generate_file(path, ROOT_ZIG_TEMPLATE, language_name, &generate_opts)
+            })?;
+
+            missing_path(path.join("test.zig"), |path| {
+                generate_file(path, TEST_ZIG_TEMPLATE, language_name, &generate_opts)
             })?;
 
             Ok(())
