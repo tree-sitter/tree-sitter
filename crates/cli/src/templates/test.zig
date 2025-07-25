@@ -12,6 +12,6 @@ test "can load grammar" {
     const lang: *const ts.Language = @ptrCast(root.language());
     defer lang.destroy();
 
-    try testing.expectEqual(parser.setLanguage(lang), void{});
-    try testing.expectEqual(parser.getLanguage(), lang);
+    try testing.expectEqual(void{}, parser.setLanguage(lang));
+    try testing.expectEqual(lang, parser.getLanguage());
 }
