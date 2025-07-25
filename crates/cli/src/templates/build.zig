@@ -52,9 +52,6 @@ pub fn build(b: *std.Build) !void {
         });
     }
 
-    const ts_dep = b.dependency("tree_sitter", .{});
-    const ts_mod = ts_dep.module("tree-sitter");
-
     const module = b.addModule(library_name, .{
         .root_source_file = b.path("bindings/zig/root.zig"),
         .target = target,
@@ -69,8 +66,17 @@ pub fn build(b: *std.Build) !void {
             .optimize = optimize,
         }),
     });
-    tests.root_module.addImport("tree-sitter", ts_mod);
     tests.root_module.addImport(library_name, module);
+
+    var args = try std.process.argsWithAllocator(b.allocator);
+    defer args.deinit();
+    while (args.next()) |a| {
+        if (std.mem.eql(u8, a, "test")) {
+            const ts_dep = b.lazyDependency("tree_sitter", .{}) orelse continue;
+            tests.root_module.addImport("tree-sitter", ts_dep.module("tree-sitter"));
+            break;
+        }
+    }
 
     const run_tests = b.addRunArtifact(tests);
     const test_step = b.step("test", "Run unit tests");
