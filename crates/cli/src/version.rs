@@ -1,28 +1,72 @@
 use std::{fs, path::PathBuf, process::Command};
 
 use anyhow::{anyhow, Context, Result};
+use clap::ValueEnum;
 use regex::Regex;
+use semver::Version as SemverVersion;
 use tree_sitter_loader::TreeSitterJSON;
 
+#[derive(Clone, Default, ValueEnum)]
+pub enum BumpLevel {
+    #[default]
+    Patch,
+    Minor,
+    Major,
+}
+
 pub struct Version {
-    pub version: String,
+    pub version: Option<SemverVersion>,
     pub current_dir: PathBuf,
+    pub bump: Option<BumpLevel>,
 }
 
 impl Version {
     #[must_use]
-    pub const fn new(version: String, current_dir: PathBuf) -> Self {
+    pub const fn new(
+        version: Option<SemverVersion>,
+        current_dir: PathBuf,
+        bump: Option<BumpLevel>,
+    ) -> Self {
         Self {
             version,
             current_dir,
+            bump,
         }
     }
 
-    pub fn run(self) -> Result<()> {
+    pub fn run(mut self) -> Result<()> {
         let tree_sitter_json = self.current_dir.join("tree-sitter.json");
 
         let tree_sitter_json =
             serde_json::from_str::<TreeSitterJSON>(&fs::read_to_string(tree_sitter_json)?)?;
+
+        let current_version = tree_sitter_json.metadata.version.to_string();
+
+        if self.version.is_none() {
+            if self.bump.is_none() {
+                println!("Current version: {current_version}");
+                return Ok(());
+            }
+            let mut version = SemverVersion::parse(current_version.as_ref()).unwrap();
+
+            match self.bump.clone().unwrap_or_default() {
+                BumpLevel::Patch => version.patch += 1,
+                BumpLevel::Minor => {
+                    version.minor += 1;
+                    version.patch = 0;
+                }
+                BumpLevel::Major => {
+                    version.major += 1;
+                    version.minor = 0;
+                    version.patch = 0;
+                }
+            }
+            self.version = Some(version);
+        }
+        println!(
+            "Bumping version {current_version} to {0}",
+            self.version.clone().unwrap()
+        );
 
         let is_multigrammar = tree_sitter_json.grammars.len() > 1;
 
@@ -80,7 +124,7 @@ impl Version {
                     format!(
                         "{}{}{}",
                         &line[..start_quote],
-                        self.version,
+                        self.version.clone().unwrap(),
                         &line[end_quote..]
                     )
                 } else {
@@ -107,7 +151,7 @@ impl Version {
             .lines()
             .map(|line| {
                 if line.starts_with("version =") {
-                    format!("version = \"{}\"", self.version)
+                    format!("version = \"{}\"", self.version.clone().unwrap())
                 } else {
                     line.to_string()
                 }
@@ -157,7 +201,7 @@ impl Version {
                     format!(
                         "{}{}{}",
                         &line[..start_quote],
-                        self.version,
+                        self.version.clone().unwrap(),
                         &line[end_quote..]
                     )
                 } else {
@@ -208,7 +252,7 @@ impl Version {
             .lines()
             .map(|line| {
                 if line.starts_with("VERSION") {
-                    format!("VERSION := {}", self.version)
+                    format!("VERSION := {}", self.version.clone().unwrap())
                 } else {
                     line.to_string()
                 }
@@ -230,7 +274,7 @@ impl Version {
         let cmake = fs::read_to_string(self.current_dir.join("CMakeLists.txt"))?;
 
         let re = Regex::new(r#"(\s*VERSION\s+)"[0-9]+\.[0-9]+\.[0-9]+""#)?;
-        let cmake = re.replace(&cmake, format!(r#"$1"{}""#, self.version));
+        let cmake = re.replace(&cmake, format!(r#"$1"{}""#, self.version.clone().unwrap()));
 
         fs::write(self.current_dir.join("CMakeLists.txt"), cmake.as_bytes())?;
 
@@ -248,7 +292,7 @@ impl Version {
             .lines()
             .map(|line| {
                 if line.starts_with("version =") {
-                    format!("version = \"{}\"", self.version)
+                    format!("version = \"{}\"", self.version.clone().unwrap())
                 } else {
                     line.to_string()
                 }
