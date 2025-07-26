@@ -1002,8 +1002,11 @@ impl Parse {
 
                 for path in &paths {
                     let path = Path::new(&path);
-                    let language =
-                        loader.select_language(path, current_dir, self.scope.as_deref())?;
+                    let language = loader
+                        .select_language(path, current_dir, self.scope.as_deref())
+                        .with_context(|| {
+                            anyhow!("Failed to load langauge for path \"{}\"", path.display())
+                        })?;
 
                     parse::parse_file_at_path(
                         &mut parser,
