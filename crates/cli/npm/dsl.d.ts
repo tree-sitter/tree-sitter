@@ -10,6 +10,7 @@ type PrecRightRule = { type: 'PREC_RIGHT'; content: Rule; value: number };
 type PrecRule = { type: 'PREC'; content: Rule; value: number };
 type Repeat1Rule = { type: 'REPEAT1'; content: Rule };
 type RepeatRule = { type: 'REPEAT'; content: Rule };
+type ReservedRule = { type: 'RESERVED'; content: Rule; context_name: string };
 type SeqRule = { type: 'SEQ'; members: Rule[] };
 type StringRule = { type: 'STRING'; value: string };
 type SymbolRule<Name extends string> = { type: 'SYMBOL'; name: Name };
@@ -167,6 +168,17 @@ interface Grammar<
    * @see https://tree-sitter.github.io/tree-sitter/creating-parsers/3-writing-the-grammar#keyword-extraction
    */
   word?: ($: GrammarSymbols<RuleName | BaseGrammarRuleName>) => RuleOrLiteral;
+
+
+  /**
+   * Mapping of names to reserved word sets. The first reserved word set is the
+   * global word set, meaning it applies to every rule in every parse state.
+   * The other word sets can be used with the `reserved` function.
+   */
+  reserved?: Record<
+    string,
+    ($: GrammarSymbols<RuleName | BaseGrammarRuleName>) => RuleOrLiteral[]
+  >;
 }
 
 type GrammarSchema<RuleName extends string> = {
@@ -319,6 +331,15 @@ declare function repeat(rule: RuleOrLiteral): RepeatRule;
  * @param rule rule to repeat, one or more times
  */
 declare function repeat1(rule: RuleOrLiteral): Repeat1Rule;
+
+/**
+ * Overrides the global reserved word set for a given rule. The word set name
+ * should be defined in the `reserved` field in the grammar.
+ *
+ * @param wordset name of the reserved word set
+ * @param rule rule that will use the reserved word set
+ */
+declare function reserved(wordset: string, rule: RuleOrLiteral): ReservedRule;
 
 /**
  * Creates a rule that matches any number of other rules, one after another.
