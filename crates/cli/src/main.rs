@@ -1761,6 +1761,7 @@ impl DumpLanguages {
         for (configuration, language_path) in loader.get_all_language_configurations() {
             println!(
                 concat!(
+                    "name: {}\n",
                     "scope: {}\n",
                     "parser: {:?}\n",
                     "highlights: {:?}\n",
@@ -1768,6 +1769,7 @@ impl DumpLanguages {
                     "content_regex: {:?}\n",
                     "injection_regex: {:?}\n",
                 ),
+                configuration.language_name,
                 configuration.scope.as_ref().unwrap_or(&String::new()),
                 language_path,
                 configuration.highlights_filenames,
