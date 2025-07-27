@@ -30,10 +30,13 @@ what keywords were extracted, what states were split and why, and the entry poin
 
 The ABI to use for parser generation. The default is ABI 15, with ABI 14 being a supported target.
 
-### `-b/--build`
+### `--stage`
 
-Compile all defined languages in the current directory. The cli will automatically compile the parsers after generation,
-and place them in the cache dir.
+What generated files to emit. Possible values:
+
+- `json`: Generate `grammar.json` and `node-types.json`
+- `parser` (default): Generate `parser.c` and related files.
+- `lib`: Compile to a library (equivalent of the deprecated `--build` option)
 
 ### `-0/--debug-build`
 
@@ -56,7 +59,7 @@ Print the overview of states from the given rule. This is useful for debugging a
 item sets for all given states in a given rule. To solely view state count numbers for rules, pass in `-` for the rule argument.
 To view the overview of states for every rule, pass in `*` for the rule argument.
 
-### `json`
+### `--json`
 
 Report conflicts in a JSON format.
 
