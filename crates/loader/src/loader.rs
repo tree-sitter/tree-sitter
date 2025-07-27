@@ -723,10 +723,7 @@ impl Loader {
 
     pub fn load_language_at_path_with_name(&self, mut config: CompileConfig) -> Result<Language> {
         let mut lib_name = config.name.to_string();
-        let language_fn_name = format!(
-            "tree_sitter_{}",
-            replace_dashes_with_underscores(&config.name)
-        );
+        let language_fn_name = format!("tree_sitter_{}", config.name.replace('-', "_"));
         if self.debug_build {
             lib_name.push_str(".debug._");
         }
@@ -1713,16 +1710,4 @@ fn needs_recompile(lib_path: &Path, paths_to_check: &[PathBuf]) -> Result<bool> 
 
 fn mtime(path: &Path) -> Result<SystemTime> {
     Ok(fs::metadata(path)?.modified()?)
-}
-
-fn replace_dashes_with_underscores(name: &str) -> String {
-    let mut result = String::with_capacity(name.len());
-    for c in name.chars() {
-        if c == '-' {
-            result.push('_');
-        } else {
-            result.push(c);
-        }
-    }
-    result
 }
