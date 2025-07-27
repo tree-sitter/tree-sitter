@@ -849,12 +849,21 @@ impl Loader {
             }
         }
 
-        let library = unsafe { Library::new(&output_path) }
-            .with_context(|| format!("Error opening dynamic library {}", output_path.display()))?;
+        Self::load_language(&output_path, &language_fn_name)
+    }
+
+    pub fn load_language(path: &Path, function_name: &str) -> Result<Language> {
+        let library = unsafe { Library::new(path) }
+            .with_context(|| format!("Error opening dynamic library {}", path.display()))?;
         let language = unsafe {
             let language_fn = library
-                .get::<Symbol<unsafe extern "C" fn() -> Language>>(language_fn_name.as_bytes())
-                .with_context(|| format!("Failed to load symbol {language_fn_name}"))?;
+                .get::<Symbol<unsafe extern "C" fn() -> Language>>(function_name.as_bytes())
+                .with_context(|| {
+                    format!(
+                        "Failed to load symbol {function_name} from {}",
+                        path.display()
+                    )
+                })?;
             language_fn()
         };
         mem::forget(library);
@@ -1410,8 +1419,13 @@ impl Loader {
         path: &Path,
         current_dir: &Path,
         scope: Option<&str>,
+        // path to dynamic library, name of language
+        lib_info: Option<(&Path, &str)>,
     ) -> Result<Language> {
-        if let Some(scope) = scope {
+        if let Some((lib_path, language_name)) = lib_info {
+            let language_fn_name = format!("tree_sitter_{}", language_name.replace('-', "_"));
+            Self::load_language(lib_path, &language_fn_name)
+        } else if let Some(scope) = scope {
             if let Some(config) = self
                 .language_configuration_for_scope(scope)
                 .with_context(|| format!("Failed to load language for scope '{scope}'"))?
