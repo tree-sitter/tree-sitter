@@ -45,7 +45,7 @@ This will create the `tree-sitter` CLI executable in the `target/release` folder
 If you want to automatically install the `tree-sitter` CLI in your system, you can run:
 
 ```sh
-cargo install --path cli
+cargo install --path crates/cli
 ```
 
 If you're going to be in a fast iteration cycle and would like the CLI to build faster, you can use the `release-dev` profile:
@@ -53,7 +53,7 @@ If you're going to be in a fast iteration cycle and would like the CLI to build 
 ```sh
 cargo build --release --profile release-dev
 # or
-cargo install --path cli --profile release-dev
+cargo install --path crates/cli --profile release-dev
 ```
 
 ### Testing
