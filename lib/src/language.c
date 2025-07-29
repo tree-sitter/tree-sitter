@@ -129,7 +129,7 @@ TSSymbolMetadata ts_language_symbol_metadata(
   if (symbol == ts_builtin_sym_error)  {
     return (TSSymbolMetadata) {.visible = true, .named = true};
   } else if (symbol == ts_builtin_sym_error_repeat) {
-    return (TSSymbolMetadata) {.visible = false, .named = false};
+    return (TSSymbolMetadata) {.visible = true, .named = false};
   } else {
     return self->symbol_metadata[symbol];
   }
@@ -139,7 +139,7 @@ TSSymbol ts_language_public_symbol(
   const TSLanguage *self,
   TSSymbol symbol
 ) {
-  if (symbol == ts_builtin_sym_error) return symbol;
+  if (symbol == ts_builtin_sym_error || symbol == ts_builtin_sym_error_repeat) return symbol;
   return self->public_symbol_map[symbol];
 }
 
@@ -172,7 +172,7 @@ const char *ts_language_symbol_name(
   if (symbol == ts_builtin_sym_error) {
     return "ERROR";
   } else if (symbol == ts_builtin_sym_error_repeat) {
-    return "_ERROR";
+    return "ERROR_INTERNAL";
   } else if (symbol < ts_language_symbol_count(self)) {
     return self->symbol_names[symbol];
   } else {
@@ -187,6 +187,7 @@ TSSymbol ts_language_symbol_for_name(
   bool is_named
 ) {
   if (!strncmp(string, "ERROR", length)) return ts_builtin_sym_error;
+  if (!strncmp(string, "ERROR_INTERNAL", length)) return ts_builtin_sym_error_repeat;
   uint16_t count = (uint16_t)ts_language_symbol_count(self);
   for (TSSymbol i = 0; i < count; i++) {
     TSSymbolMetadata metadata = ts_language_symbol_metadata(self, i);
