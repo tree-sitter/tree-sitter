@@ -526,13 +526,6 @@ bool ts_node_is_error(TSNode self) {
   return symbol == ts_builtin_sym_error;
 }
 
-uint32_t ts_node_error_child(TSNode self) {
-  if (!ts_node_is_error(self)) {
-    return 0;
-  }
-  return self.context[3];
-}
-
 uint32_t ts_node_descendant_count(TSNode self) {
   return ts_subtree_visible_descendant_count(ts_node__subtree(self)) + 1;
 }
