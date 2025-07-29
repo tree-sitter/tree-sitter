@@ -1746,7 +1746,6 @@ fn run() -> Result<()> {
         || BUILD_VERSION.to_string(),
         |build_sha| format!("{BUILD_VERSION} ({build_sha})"),
     );
-    let version: &'static str = Box::leak(version.into_boxed_str());
 
     let cli = Command::new("tree-sitter")
         .help_template(
