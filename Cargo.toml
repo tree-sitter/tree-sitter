@@ -109,6 +109,7 @@ clap = { version = "4.5.41", features = [
   "derive",
   "env",
   "help",
+  "string",
   "unstable-styles",
 ] }
 clap_complete = "4.5.55"
