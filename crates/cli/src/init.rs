@@ -488,8 +488,6 @@ pub fn generate_grammar_files(
                         eprintln!("Replacing Makefile");
                         generate_file(path, MAKEFILE_TEMPLATE, language_name, &generate_opts)?;
                     } else {
-                        // Migration from https://github.com/tree-sitter/tree-sitter/pull/4646,
-                        // to generate grammar.json from grammar.js
                         let contents = contents
                             .replace(
                                 indoc! {r"
