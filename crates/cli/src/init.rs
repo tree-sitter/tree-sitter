@@ -487,6 +487,24 @@ pub fn generate_grammar_files(
                     if !contents.contains("cd '$(DESTDIR)$(LIBDIR)' && ln -sf") {
                         eprintln!("Replacing Makefile");
                         generate_file(path, MAKEFILE_TEMPLATE, language_name, &generate_opts)?;
+                    } else {
+                        // Migration from https://github.com/tree-sitter/tree-sitter/pull/4646,
+                        // to generate grammar.json from grammar.js
+                        let contents = contents
+                            .replace(
+                                indoc! {r"
+                                $(PARSER): $(SRC_DIR)/grammar.json
+                                	$(TS) generate $^
+                                "},
+                                indoc! {r"
+                                $(SRC_DIR)/grammar.json: grammar.js
+                                	$(TS) generate --stage=json $^
+                                
+                                $(PARSER): $(SRC_DIR)/grammar.json
+                                	$(TS) generate --stage=parser $^
+                                "}
+                            );
+                        write_file(path, contents)?;
                     }
                     Ok(())
                 },
@@ -518,6 +536,30 @@ pub fn generate_grammar_files(
                                                        INTERFACE $<BUILD_INTERFACE:${{CMAKE_CURRENT_SOURCE_DIR}}/bindings/c>
                                                                  $<INSTALL_INTERFACE:${{CMAKE_INSTALL_INCLUDEDIR}}>)
                             "}
+                        ).replace(
+                            indoc! {r#"
+                            add_custom_command(OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/src/parser.c"
+                                               DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/grammar.json"
+                                               COMMAND "${TREE_SITTER_CLI}" generate src/grammar.json
+                                                        --abi=${TREE_SITTER_ABI_VERSION}
+                                               WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+                                               COMMENT "Generating parser.c")
+                            "#},
+                            indoc! {r#"
+                            add_custom_command(OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/src/grammar.json"
+                                               DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/grammar.js"
+                                               COMMAND "${TREE_SITTER_CLI}" generate grammar.js
+                                                        --stage=json
+                                               WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+                                               COMMENT "Generating grammar.json")
+
+                            add_custom_command(OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/src/parser.c"
+                                               DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/grammar.json"
+                                               COMMAND "${TREE_SITTER_CLI}" generate src/grammar.json
+                                                        --stage=parser --abi=${TREE_SITTER_ABI_VERSION}
+                                               WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+                                               COMMENT "Generating parser.c")
+                            "#}
                         );
                     write_file(path, contents)?;
                     Ok(())
