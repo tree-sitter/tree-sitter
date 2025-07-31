@@ -12,7 +12,6 @@ extern "C" {
 #include "./array.h"
 #include "./error_costs.h"
 #include "./host.h"
-#include "./language.h"
 #include "tree_sitter/api.h"
 #include "./parser.h"
 
