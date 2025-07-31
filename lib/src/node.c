@@ -1,5 +1,4 @@
 #include <stdbool.h>
-#include <tree_sitter/api.h>
 #include "./point.h"
 #include "./subtree.h"
 #include "./tree.h"
@@ -587,51 +586,6 @@ bool ts_node_error_child_count(TSNode self, uint32_t *count) {
 TSNode ts_node_error_root(TSNode self) {
   return ts_node__get_first_error(self);
 }
-
-// TSNodeError ts_node_get_error(TSNode self) {
-//   TSNode child = ts_node__get_first_error(self);
-//   return (TSNodeError) { .error = child };
-// }
-// 
-// bool ts_node_error_is_null(TSNodeError self) {
-//   return ts_node_is_null(self.error);
-// }
-// 
-// uint32_t ts_node_error_child_count(TSNodeError self) {
-//   return ts_node_child_count(self.error);
-// }
-// 
-// uint32_t ts_node_error_start_byte(TSNodeError self) {
-//   return ts_node_start_byte(self.error);
-// }
-// 
-// uint32_t ts_node_error_end_byte(TSNodeError self) {
-//   return ts_node_end_byte(self.error);
-// }
-// 
-// TSPoint ts_node_error_start_point(TSNodeError self) {
-//   return ts_node_start_point(self.error);
-// }
-// 
-// TSPoint ts_node_error_end_point(TSNodeError self) {
-//   return ts_node_end_point(self.error);
-// }
-// 
-// TSNode ts_node_error_child(TSNodeError self, uint32_t child_index) {
-//   return ts_node_child(self.error, child_index);
-// }
-// 
-// TSNode ts_node_error_parent(TSNodeError self) {
-//   return ts_node_parent(self.error);
-// }
-// 
-// TSNode ts_node_error_prev_sibling(TSNodeError self) {
-//   return ts_node_prev_sibling(self.error);
-// }
-// 
-// TSNode ts_node_error_next_sibling(TSNodeError self) {
-//   return ts_node_next_sibling(self.error);
-// }
 
 uint32_t ts_node_descendant_count(TSNode self) {
   return ts_subtree_visible_descendant_count(ts_node__subtree(self)) + 1;
