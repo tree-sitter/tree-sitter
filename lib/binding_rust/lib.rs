@@ -1699,8 +1699,8 @@ impl<'tree> Node<'tree> {
     /// which contributed to causing the error.
     #[must_use]
     pub fn error_child(&self, i: usize) -> Option<Self> {
-        unsafe { 
-            let mut child = std::mem::MaybeUninit::uninit();
+        unsafe {
+            let mut child = core::mem::MaybeUninit::uninit();
             if ffi::ts_node_error_child(self.0, i as u32, child.as_mut_ptr()) {
                 Self::new(child.assume_init())
             } else {
@@ -1713,7 +1713,7 @@ impl<'tree> Node<'tree> {
     pub fn error_child_count(&self) -> Option<usize> {
         unsafe {
             let mut count: u32 = 0;
-            if ffi::ts_node_error_child_count(self.0, std::ptr::addr_of_mut!(count)) {
+            if ffi::ts_node_error_child_count(self.0, core::ptr::addr_of_mut!(count)) {
                 Some(count as usize)
             } else {
                 None
