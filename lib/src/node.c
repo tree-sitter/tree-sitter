@@ -1,4 +1,5 @@
 #include <stdbool.h>
+#include <tree_sitter/api.h>
 #include "./point.h"
 #include "./subtree.h"
 #include "./tree.h"
@@ -525,6 +526,112 @@ bool ts_node_is_error(TSNode self) {
   TSSymbol symbol = ts_node_symbol(self);
   return symbol == ts_builtin_sym_error;
 }
+
+// TODO: Declare these functions appropriately.
+static bool ts_node__is_interior_error(const TSNode *self) {
+  return ts_subtree_is_interor_error(ts_node__subtree(*self));
+}
+
+// Returns the first found `_ERROR` child.
+static TSNode ts_node__get_first_error(TSNode self) {
+  if (!ts_node_is_error(self)) {
+    return ts_node__null();
+  }
+  NodeChildIterator iter = ts_node_iterate_children(&self);
+  TSNode child;
+  while (ts_node_child_iterator_next(&iter, &child)) {
+    if (ts_node__is_interior_error(&child)) {
+      return child;
+    }
+  }
+
+  return ts_node__null();
+}
+
+bool ts_node_error_byte_range(TSNode self, uint32_t *start_byte, uint32_t *end_byte) {
+  if (ts_node_is_null(self)) {
+    return false;
+  }
+  TSNode error = ts_node__get_first_error(self);
+  *start_byte = ts_node_start_byte(error);
+  *end_byte = ts_node_end_byte(error);
+  return true;
+}
+
+bool ts_node_error_point_range(TSNode self, TSPoint *start_point, TSPoint *end_point) {
+  if (ts_node_is_null(self)) {
+    return false;
+  }
+  TSNode error = ts_node__get_first_error(self);
+  *start_point = ts_node_start_point(error);
+  *end_point = ts_node_end_point(error);
+  return true;
+}
+
+bool ts_node_error_child(TSNode self, uint32_t child_index, TSNode *child) {
+  if (ts_node_is_null(self)) {
+    return false;
+  }
+  *child = ts_node_child(ts_node__get_first_error(self), child_index);
+  return true;
+}
+
+bool ts_node_error_child_count(TSNode self, uint32_t *count) {
+  if (ts_node_is_null(self)) {
+    return false;
+  }
+  *count = ts_node_child_count(ts_node__get_first_error(self));
+  return true;
+}
+
+TSNode ts_node_error_root(TSNode self) {
+  return ts_node__get_first_error(self);
+}
+
+// TSNodeError ts_node_get_error(TSNode self) {
+//   TSNode child = ts_node__get_first_error(self);
+//   return (TSNodeError) { .error = child };
+// }
+// 
+// bool ts_node_error_is_null(TSNodeError self) {
+//   return ts_node_is_null(self.error);
+// }
+// 
+// uint32_t ts_node_error_child_count(TSNodeError self) {
+//   return ts_node_child_count(self.error);
+// }
+// 
+// uint32_t ts_node_error_start_byte(TSNodeError self) {
+//   return ts_node_start_byte(self.error);
+// }
+// 
+// uint32_t ts_node_error_end_byte(TSNodeError self) {
+//   return ts_node_end_byte(self.error);
+// }
+// 
+// TSPoint ts_node_error_start_point(TSNodeError self) {
+//   return ts_node_start_point(self.error);
+// }
+// 
+// TSPoint ts_node_error_end_point(TSNodeError self) {
+//   return ts_node_end_point(self.error);
+// }
+// 
+// TSNode ts_node_error_child(TSNodeError self, uint32_t child_index) {
+//   return ts_node_child(self.error, child_index);
+// }
+// 
+// TSNode ts_node_error_parent(TSNodeError self) {
+//   return ts_node_parent(self.error);
+// }
+// 
+// TSNode ts_node_error_prev_sibling(TSNodeError self) {
+//   return ts_node_prev_sibling(self.error);
+// }
+// 
+// TSNode ts_node_error_next_sibling(TSNodeError self) {
+//   return ts_node_next_sibling(self.error);
+// }
 
 uint32_t ts_node_descendant_count(TSNode self) {
   return ts_subtree_visible_descendant_count(ts_node__subtree(self)) + 1;

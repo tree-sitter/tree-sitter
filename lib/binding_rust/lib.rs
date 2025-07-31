@@ -127,6 +127,16 @@ pub struct InputEdit {
 #[repr(transparent)]
 pub struct Node<'tree>(ffi::TSNode, PhantomData<&'tree ()>);
 
+// /// Represents the internal error state of an `ERROR` [`Node`]. This type is
+// /// useful for identifying where an error occurred within an `ERROR` node as
+// /// well as inspecting all of the underlying nodes that contributed to the error.
+// /// That is, the `children` of one of these are parsed tree nodes which correspond
+// /// to the parsing errors.
+// #[doc(alias = "TSNodeError")]
+// #[derive(Clone, Copy)]
+// #[repr(transparent)]
+// pub struct NodeError<'tree>(ffi::TSNodeError, PhantomData<&'tree ()>);
+
 /// A stateful object that this is used to produce a [`Tree`] based on some
 /// source code.
 #[doc(alias = "TSParser")]
@@ -1685,6 +1695,110 @@ impl<'tree> Node<'tree> {
         unsafe { ffi::ts_node_is_error(self.0) }
     }
 
+    /// Gets the `i`th error child if `self` is an `ERROR` node. The returned node will be a node
+    /// which contributed to causing the error.
+    #[must_use]
+    pub fn error_child(&self, i: usize) -> Option<Self> {
+        unsafe { 
+            let mut child = std::mem::MaybeUninit::uninit();
+            if ffi::ts_node_error_child(self.0, i as u32, child.as_mut_ptr()) {
+                Self::new(child.assume_init())
+            } else {
+                None
+            }
+        }
+    }
+
+    #[must_use]
+    pub fn error_child_count(&self) -> Option<usize> {
+        unsafe {
+            let mut count: u32 = 0;
+            if ffi::ts_node_error_child_count(self.0, std::ptr::addr_of_mut!(count)) {
+                Some(count as usize)
+            } else {
+                None
+            }
+        }
+    }
+
+    /// Walks over the nodes which contributed to making this node into an `ERROR`. Returns `None`
+    /// if this node is not an error.
+    pub fn error_children<'cursor>(
+        &self,
+        cursor: &'cursor mut TreeCursor<'tree>,
+    ) -> Option<impl ExactSizeIterator<Item = Node<'tree>> + 'cursor> {
+        // Reset to the error node.
+        cursor.reset(Node::new(self.error_root()?)?);
+        cursor.goto_first_child();
+        Some((0..self.error_child_count()?).map(move |_| {
+            let result = cursor.node();
+            cursor.goto_next_sibling();
+            result
+        }))
+    }
+
+    // TODO: Move this to the ffi module?
+    fn error_root(&self) -> Option<ffi::TSNode> {
+        unsafe {
+            let node = ffi::ts_node_error_root(self.0);
+            if node.id.is_null() {
+                None
+            } else {
+                Some(node)
+            }
+        }
+    }
+
+    #[must_use]
+    pub fn error_start_byte(&self) -> Option<usize> {
+        let error = self.error_root()?;
+        Some(unsafe { ffi::ts_node_start_byte(error) as usize })
+    }
+
+    #[must_use]
+    pub fn error_end_byte(&self) -> Option<usize> {
+        let error = self.error_root()?;
+        Some(unsafe { ffi::ts_node_end_byte(error) as usize })
+    }
+
+    #[must_use]
+    pub fn error_start_position(&self) -> Option<Point> {
+        let error = self.error_root()?;
+        Some(unsafe { ffi::ts_node_start_point(error) }.into())
+    }
+
+    #[must_use]
+    pub fn error_end_position(&self) -> Option<Point> {
+        let error = self.error_root()?;
+        Some(unsafe { ffi::ts_node_end_point(error) }.into())
+    }
+
+    /// Get the byte range of source code that corresponds to the error portion of this node.
+    /// Returns `None` if this node is not an `ERROR` node.
+    #[must_use]
+    pub fn error_byte_range(&self) -> Option<core::ops::Range<usize>> {
+        Some(self.error_start_byte()?..self.error_end_byte()?)
+    }
+
+    /// Get the range of source code that corresponds to the error portion of this node, both in terms of
+    /// raw bytes and of row/column coordinates.
+    #[must_use]
+    pub fn error_range(&self) -> Option<Range> {
+        Some(Range {
+            start_byte: self.error_start_byte()?,
+            end_byte: self.error_end_byte()?,
+            start_point: self.error_start_position()?,
+            end_point: self.error_end_position()?,
+        })
+    }
+
+    // /// Get the child node which caused this error node to fail to parse. Returns `None` if this node is not
+    // /// an error node.
+    // #[must_use]
+    // pub fn node_error(&self) -> Option<NodeError<'tree>> {
+    //     NodeError::new(unsafe { ffi::ts_node_get_error(self.0) })
+    // }
+
     /// Get this node's parse state.
     #[doc(alias = "ts_node_parse_state")]
     #[must_use]
@@ -2136,6 +2250,12 @@ impl fmt::Display for Node<'_> {
         }
     }
 }
+
+// impl<'tree> NodeError<'tree> {
+//     fn new(node: ffi::TSNodeError) -> Option<Self> {
+//         (!node.error.id.is_null()).then_some(NodeError(node, PhantomData))
+//     }
+// }
 
 impl<'cursor> TreeCursor<'cursor> {
     /// Get the tree cursor's current [`Node`].

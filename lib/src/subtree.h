@@ -1,6 +1,7 @@
 #ifndef TREE_SITTER_SUBTREE_H_
 #define TREE_SITTER_SUBTREE_H_
 
+#include "language.h"
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -374,6 +375,10 @@ static inline bool ts_subtree_is_fragile(Subtree self) {
 
 static inline bool ts_subtree_is_error(Subtree self) {
   return ts_subtree_symbol(self) == ts_builtin_sym_error;
+}
+
+static inline bool ts_subtree_is_interor_error(Subtree self) {
+  return ts_subtree_symbol(self) == ts_builtin_sym_error_repeat;
 }
 
 static inline bool ts_subtree_is_eof(Subtree self) {
