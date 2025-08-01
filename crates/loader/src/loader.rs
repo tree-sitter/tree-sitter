@@ -723,10 +723,7 @@ impl Loader {
 
     pub fn load_language_at_path_with_name(&self, mut config: CompileConfig) -> Result<Language> {
         let mut lib_name = config.name.to_string();
-        let language_fn_name = format!(
-            "tree_sitter_{}",
-            replace_dashes_with_underscores(&config.name)
-        );
+        let language_fn_name = format!("tree_sitter_{}", config.name.replace('-', "_"));
         if self.debug_build {
             lib_name.push_str(".debug._");
         }
@@ -849,12 +846,21 @@ impl Loader {
             }
         }
 
-        let library = unsafe { Library::new(&output_path) }
-            .with_context(|| format!("Error opening dynamic library {}", output_path.display()))?;
+        Self::load_language(&output_path, &language_fn_name)
+    }
+
+    pub fn load_language(path: &Path, function_name: &str) -> Result<Language> {
+        let library = unsafe { Library::new(path) }
+            .with_context(|| format!("Error opening dynamic library {}", path.display()))?;
         let language = unsafe {
             let language_fn = library
-                .get::<Symbol<unsafe extern "C" fn() -> Language>>(language_fn_name.as_bytes())
-                .with_context(|| format!("Failed to load symbol {language_fn_name}"))?;
+                .get::<Symbol<unsafe extern "C" fn() -> Language>>(function_name.as_bytes())
+                .with_context(|| {
+                    format!(
+                        "Failed to load symbol {function_name} from {}",
+                        path.display()
+                    )
+                })?;
             language_fn()
         };
         mem::forget(library);
@@ -1410,8 +1416,13 @@ impl Loader {
         path: &Path,
         current_dir: &Path,
         scope: Option<&str>,
+        // path to dynamic library, name of language
+        lib_info: Option<(&Path, &str)>,
     ) -> Result<Language> {
-        if let Some(scope) = scope {
+        if let Some((lib_path, language_name)) = lib_info {
+            let language_fn_name = format!("tree_sitter_{}", language_name.replace('-', "_"));
+            Self::load_language(lib_path, &language_fn_name)
+        } else if let Some(scope) = scope {
             if let Some(config) = self
                 .language_configuration_for_scope(scope)
                 .with_context(|| format!("Failed to load language for scope '{scope}'"))?
@@ -1699,16 +1710,4 @@ fn needs_recompile(lib_path: &Path, paths_to_check: &[PathBuf]) -> Result<bool> 
 
 fn mtime(path: &Path) -> Result<SystemTime> {
     Ok(fs::metadata(path)?.modified()?)
-}
-
-fn replace_dashes_with_underscores(name: &str) -> String {
-    let mut result = String::with_capacity(name.len());
-    for c in name.chars() {
-        if c == '-' {
-            result.push('_');
-        } else {
-            result.push(c);
-        }
-    }
-    result
 }
