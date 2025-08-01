@@ -22,3 +22,9 @@ different bindings. However, doing so manually is error-prone and tedious, so
 this command takes care of the burden. If you are using a version control system,
 it is recommended to commit the changes made by this command, and to tag the
 commit with the new version.
+
+## Options
+
+### `-p/--grammar-path <PATH>`
+
+The path to the directory containing the grammar.

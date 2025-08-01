@@ -14,6 +14,10 @@ tree-sitter parse [OPTIONS] [PATHS]... # Aliases: p
 
 The path to a file that contains paths to source files to parse.
 
+### `-p/--grammar-path <PATH>`
+
+The path to the directory containing the grammar.
+
 ### `--scope <SCOPE>`
 
 The language scope to use for parsing. This is useful when the language is ambiguous.
@@ -76,6 +80,10 @@ in `UTF-16BE` or `UTF-16LE`. If no `BOM` is present, `UTF-8` is the default. One
 ### `--open-log`
 
 When using the `--debug-graph` option, open the log file in the default browser.
+
+### `-j/--json`
+
+Output parsing results in a JSON format.
 
 ### `--config-path <CONFIG_PATH>`
 

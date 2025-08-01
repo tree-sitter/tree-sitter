@@ -16,6 +16,14 @@ Only run tests whose names match this regex.
 
 Skip tests whose names match this regex.
 
+### `--file-name <NAME>`
+
+Only run tests from the given filename in the corpus.
+
+### `-p/--grammar-path <PATH>`
+
+The path to the directory containing the grammar.
+
 ### `-u/--update`
 
 Update the expected output of tests.
