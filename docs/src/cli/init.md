@@ -14,6 +14,10 @@ tree-sitter init [OPTIONS] # Aliases: i
 
 Update outdated generated files, if needed.
 
+### `-p/--grammar-path <PATH>`
+
+The path to the directory containing the grammar.
+
 ## Structure of `tree-sitter.json`
 
 The main file of interest for users to configure is `tree-sitter.json`, which tells the CLI information about your grammar,
