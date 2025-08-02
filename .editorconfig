@@ -10,6 +10,9 @@ insert_final_newline = true
 [*.rs]
 indent_size = 4
 
+[*.zig]
+indent_size = 4
+
 [Makefile]
 indent_style = tab
 indent_size = 8
