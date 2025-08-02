@@ -10,6 +10,7 @@ extern "C" {
 #include <stdlib.h>
 
 #define ts_builtin_sym_error ((TSSymbol)-1)
+#define ts_builtin_sym_error_repeat (ts_builtin_sym_error - 1)
 #define ts_builtin_sym_end 0
 #define TREE_SITTER_SERIALIZATION_BUFFER_SIZE 1024
 
