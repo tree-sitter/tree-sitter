@@ -72,8 +72,11 @@ $(LANGUAGE_NAME).pc: bindings/c/$(LANGUAGE_NAME).pc.in
 		-e 's|@PROJECT_HOMEPAGE_URL@|$(HOMEPAGE_URL)|' \
 		-e 's|@CMAKE_INSTALL_PREFIX@|$(PREFIX)|' $< > $@
 
+$(SRC_DIR)/grammar.json: grammar.js
+	$(TS) generate --stage=json $^
+
 $(PARSER): $(SRC_DIR)/grammar.json
-	$(TS) generate $^
+	$(TS) generate --stage=parser $^
 
 install: all
 	install -d '$(DESTDIR)$(DATADIR)'/tree-sitter/queries/KEBAB_PARSER_NAME '$(DESTDIR)$(INCLUDEDIR)'/tree_sitter '$(DESTDIR)$(PCLIBDIR)' '$(DESTDIR)$(LIBDIR)'
