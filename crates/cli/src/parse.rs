@@ -572,7 +572,7 @@ pub fn parse_file_at_path(
                         write!(&mut stdout, "</{}>", tag.expect("there is a tag"))?;
                         // we only write a line in the case where it's the last sibling
                         if let Some(parent) = node.parent() {
-                            if parent.child(parent.child_count() - 1).unwrap() == node {
+                            if parent.child(parent.child_count() as u32 - 1).unwrap() == node {
                                 stdout.write_all(b"\n")?;
                             }
                         }
