@@ -41,7 +41,7 @@ by visiting the [Rust website][rust] and following the instructions there.
 
 > [!NOTE]
 > By default, the build process will emit an ES6 module. If you need a CommonJS module, export `CJS` to `true`, or just
-> run `CJS=true npm run build`.
+> run `CJS=true npm run build` (or the equivalent command for Windows).
 
 > [!TIP]
 > To build the library with debug information, you can run `npm run build:debug`. The `CJS` environment variable is still
