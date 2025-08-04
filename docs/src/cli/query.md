@@ -8,6 +8,10 @@ tree-sitter query [OPTIONS] <QUERY_PATH> [PATHS]... # Aliases: q
 
 ## Options
 
+### `-p/--grammar-path <PATH>`
+
+The path to the directory containing the grammar.
+
 ### `-t/--time`
 
 Print the time taken to execute the query on the file.

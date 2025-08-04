@@ -246,6 +246,21 @@
       "required": ["type", "content"]
     },
 
+    "reserved-rule": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "RESERVED"
+        },
+        "context_name": { "type": "string" },
+        "content": {
+          "$ref": "#/definitions/rule"
+        }
+      },
+      "required": ["type", "context_name", "content"]
+    },
+
     "token-rule": {
       "type": "object",
       "properties": {
@@ -313,6 +328,7 @@
         { "$ref": "#/definitions/choice-rule" },
         { "$ref": "#/definitions/repeat1-rule" },
         { "$ref": "#/definitions/repeat-rule" },
+        { "$ref": "#/definitions/reserved-rule" },
         { "$ref": "#/definitions/token-rule" },
         { "$ref": "#/definitions/field-rule" },
         { "$ref": "#/definitions/prec-rule" }

@@ -1765,8 +1765,8 @@ impl<'tree> Node<'tree> {
     /// [`Node::children`] instead.
     #[doc(alias = "ts_node_child")]
     #[must_use]
-    pub fn child(&self, i: usize) -> Option<Self> {
-        Self::new(unsafe { ffi::ts_node_child(self.0, i as u32) })
+    pub fn child(&self, i: u32) -> Option<Self> {
+        Self::new(unsafe { ffi::ts_node_child(self.0, i) })
     }
 
     /// Get this node's number of children.
@@ -1784,8 +1784,8 @@ impl<'tree> Node<'tree> {
     /// [`Node::named_children`] instead.
     #[doc(alias = "ts_node_named_child")]
     #[must_use]
-    pub fn named_child(&self, i: usize) -> Option<Self> {
-        Self::new(unsafe { ffi::ts_node_named_child(self.0, i as u32) })
+    pub fn named_child(&self, i: u32) -> Option<Self> {
+        Self::new(unsafe { ffi::ts_node_named_child(self.0, i) })
     }
 
     /// Get this node's number of *named* children.
@@ -2067,7 +2067,7 @@ impl<'tree> Node<'tree> {
 
     #[must_use]
     pub fn utf16_text<'a>(&self, source: &'a [u16]) -> &'a [u16] {
-        &source[self.start_byte()..self.end_byte()]
+        &source[self.start_byte() / 2..self.end_byte() / 2]
     }
 
     /// Create a new [`TreeCursor`] starting from this node.

@@ -56,6 +56,10 @@ Print the overview of states from the given rule. This is useful for debugging a
 item sets for all given states in a given rule. To solely view state count numbers for rules, pass in `-` for the rule argument.
 To view the overview of states for every rule, pass in `*` for the rule argument.
 
+### `json`
+
+Report conflicts in a JSON format.
+
 ### `--js-runtime <EXECUTABLE>`
 
 The path to the JavaScript runtime executable to use when generating the parser. The default is `node`.
