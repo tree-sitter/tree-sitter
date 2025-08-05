@@ -19,8 +19,7 @@ use std::{
     time::SystemTime,
 };
 
-use anyhow::Error;
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Context, Error, Result};
 use etcetera::BaseStrategy as _;
 use fs4::fs_std::FileExt;
 use indoc::indoc;
