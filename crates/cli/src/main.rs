@@ -738,6 +738,14 @@ impl Init {
                     .map(|e| Some(e.trim().to_string()))
             };
 
+            let namespace = || {
+                Input::<String>::with_theme(&ColorfulTheme::default())
+                    .with_prompt("Package namespace")
+                    .default("io.github.tree-sitter".to_string())
+                    .allow_empty(true)
+                    .interact()
+            };
+
             let bindings = || {
                 let languages = Bindings::default().languages();
 
@@ -767,6 +775,7 @@ impl Init {
                 "author",
                 "email",
                 "url",
+                "namespace",
                 "bindings",
                 "exit",
             ];
@@ -787,6 +796,7 @@ impl Init {
                         "author" => opts.author = author()?,
                         "email" => opts.email = email()?,
                         "url" => opts.url = url()?,
+                        "namespace" => opts.namespace = Some(namespace()?),
                         "bindings" => opts.bindings = bindings()?,
                         "exit" => break,
                         _ => unreachable!(),
