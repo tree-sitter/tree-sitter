@@ -102,24 +102,6 @@ const ROOT_ZIG_TEMPLATE: &str = include_str!("./templates/root.zig");
 const TREE_SITTER_JSON_SCHEMA: &str =
     "https://tree-sitter.github.io/tree-sitter/assets/schemas/config.schema.json";
 
-#[must_use]
-pub fn path_in_ignore(repo_path: &Path) -> bool {
-    [
-        "bindings",
-        "build",
-        "examples",
-        "node_modules",
-        "queries",
-        "script",
-        "src",
-        "target",
-        "test",
-        "types",
-    ]
-    .iter()
-    .any(|dir| repo_path.ends_with(dir))
-}
-
 #[derive(Serialize, Deserialize, Clone)]
 pub struct JsonConfigOpts {
     pub name: String,
