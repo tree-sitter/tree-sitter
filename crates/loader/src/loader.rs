@@ -450,7 +450,6 @@ pub struct Links {
 pub struct Bindings {
     pub c: bool,
     pub go: bool,
-    #[serde(skip)]
     pub java: bool,
     #[serde(skip)]
     pub kotlin: bool,
@@ -464,12 +463,12 @@ pub struct Bindings {
 impl Bindings {
     /// return available languages and its default enabled state.
     #[must_use]
-    pub const fn languages(&self) -> [(&'static str, bool); 7] {
+    pub const fn languages(&self) -> [(&'static str, bool); 8] {
         [
             ("c", true),
             ("go", true),
-            // Comment out Java and Kotlin until the bindings are actually available.
-            // ("java", false),
+            ("java", false),
+            // Comment out Kotlin until the bindings are actually available.
             // ("kotlin", false),
             ("node", true),
             ("python", true),
@@ -500,8 +499,8 @@ impl Bindings {
             match v {
                 "c" => out.c = true,
                 "go" => out.go = true,
-                // Comment out Java and Kotlin until the bindings are actually available.
-                // "java" => out.java = true,
+                "java" => out.java = true,
+                // Comment out Kotlin until the bindings are actually available.
                 // "kotlin" => out.kotlin = true,
                 "node" => out.node = true,
                 "python" => out.python = true,
