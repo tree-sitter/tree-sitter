@@ -687,22 +687,17 @@ pub fn generate_grammar_files(
     // Generate Swift bindings
     if tree_sitter_config.bindings.swift {
         missing_path(bindings_dir.join("swift"), create_dir)?.apply(|path| {
-            let lang_path = path.join(format!("TreeSitter{camel_name}"));
+            let lang_path = path.join(&class_name);
             missing_path(&lang_path, create_dir)?;
 
             missing_path(lang_path.join(format!("{language_name}.h")), |path| {
                 generate_file(path, PARSER_NAME_H_TEMPLATE, language_name, &generate_opts)
             })?;
 
-            missing_path(
-                path.join(format!("TreeSitter{camel_name}Tests")),
-                create_dir,
-            )?
-            .apply(|path| {
-                missing_path(
-                    path.join(format!("TreeSitter{camel_name}Tests.swift")),
-                    |path| generate_file(path, TESTS_SWIFT_TEMPLATE, language_name, &generate_opts),
-                )?;
+            missing_path(path.join(format!("{class_name}Tests")), create_dir)?.apply(|path| {
+                missing_path(path.join(format!("{class_name}Tests.swift")), |path| {
+                    generate_file(path, TESTS_SWIFT_TEMPLATE, language_name, &generate_opts)
+                })?;
 
                 Ok(())
             })?;
