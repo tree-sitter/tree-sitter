@@ -465,12 +465,12 @@ pub fn generate_grammar_files(
                     generate_file(path, MAKEFILE_TEMPLATE, language_name, &generate_opts)
                 },
                 |path| {
-                    let contents = fs::read_to_string(path)?;
+                    let mut contents = fs::read_to_string(path)?;
                     if !contents.contains("cd '$(DESTDIR)$(LIBDIR)' && ln -sf") {
                         eprintln!("Replacing Makefile");
                         generate_file(path, MAKEFILE_TEMPLATE, language_name, &generate_opts)?;
                     } else {
-                        let contents = contents
+                        contents = contents
                             .replace(
                                 indoc! {r"
                                 $(PARSER): $(SRC_DIR)/grammar.json
@@ -479,7 +479,7 @@ pub fn generate_grammar_files(
                                 indoc! {r"
                                 $(SRC_DIR)/grammar.json: grammar.js
                                 	$(TS) generate --stage=json $^
-                                
+
                                 $(PARSER): $(SRC_DIR)/grammar.json
                                 	$(TS) generate --stage=parser $^
                                 "}
@@ -949,52 +949,47 @@ fn generate_file(
         }
     }
 
-    match generate_opts.license {
-        Some(license) => replacement = replacement.replace(PARSER_LICENSE_PLACEHOLDER, license),
-        _ => replacement = replacement.replace(PARSER_LICENSE_PLACEHOLDER, "MIT"),
+    if let Some(license) = generate_opts.license {
+        replacement = replacement.replace(PARSER_LICENSE_PLACEHOLDER, license);
+    } else {
+        replacement = replacement.replace(PARSER_LICENSE_PLACEHOLDER, "MIT");
     }
 
-    match generate_opts.description {
-        Some(description) => {
-            replacement = replacement.replace(PARSER_DESCRIPTION_PLACEHOLDER, description);
-        }
-        _ => {
-            replacement = replacement.replace(
-                PARSER_DESCRIPTION_PLACEHOLDER,
+    if let Some(description) = generate_opts.description {
+        replacement = replacement.replace(PARSER_DESCRIPTION_PLACEHOLDER, description);
+    } else {
+        replacement = replacement.replace(
+            PARSER_DESCRIPTION_PLACEHOLDER,
+            &format!(
+                "{} grammar for tree-sitter",
+                generate_opts.camel_parser_name,
+            ),
+        );
+    }
+
+    if let Some(repository) = generate_opts.repository {
+        replacement = replacement
+            .replace(
+                PARSER_URL_STRIPPED_PLACEHOLDER,
+                &repository.replace("https://", "").to_lowercase(),
+            )
+            .replace(PARSER_URL_PLACEHOLDER, &repository.to_lowercase());
+    } else {
+        replacement = replacement
+            .replace(
+                PARSER_URL_STRIPPED_PLACEHOLDER,
                 &format!(
-                    "{} grammar for tree-sitter",
-                    generate_opts.camel_parser_name,
+                    "github.com/tree-sitter/tree-sitter-{}",
+                    language_name.to_lowercase()
+                ),
+            )
+            .replace(
+                PARSER_URL_PLACEHOLDER,
+                &format!(
+                    "https://github.com/tree-sitter/tree-sitter-{}",
+                    language_name.to_lowercase()
                 ),
             );
-        }
-    }
-
-    match generate_opts.repository {
-        Some(repository) => {
-            replacement = replacement
-                .replace(
-                    PARSER_URL_STRIPPED_PLACEHOLDER,
-                    &repository.replace("https://", "").to_lowercase(),
-                )
-                .replace(PARSER_URL_PLACEHOLDER, &repository.to_lowercase());
-        }
-        _ => {
-            replacement = replacement
-                .replace(
-                    PARSER_URL_STRIPPED_PLACEHOLDER,
-                    &format!(
-                        "github.com/tree-sitter/tree-sitter-{}",
-                        language_name.to_lowercase()
-                    ),
-                )
-                .replace(
-                    PARSER_URL_PLACEHOLDER,
-                    &format!(
-                        "https://github.com/tree-sitter/tree-sitter-{}",
-                        language_name.to_lowercase()
-                    ),
-                );
-        }
     }
 
     if let Some(funding_url) = generate_opts.funding {
