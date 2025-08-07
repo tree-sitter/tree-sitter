@@ -1,10 +1,12 @@
 log*.html
+.direnv
 
 .idea
 *.xcodeproj
 .vscode
 .cache
 .zig-cache
+.direnv
 
 profile*
 fuzz-results
