@@ -139,6 +139,8 @@ jobs:
           [[ -n $runner ]] && printf 'CROSS_RUNNER=%s\n' "$runner" >> $GITHUB_ENV
         fi
 
+    # TODO: Remove RUSTFLAGS="--cap-lints allow" once we use a wasmtime release that addresses
+    # the `mismatched-lifetime-syntaxes` lint
     - name: Build wasmtime library
       if: ${{ !matrix.use-cross && contains(matrix.features, 'wasm') }}
       run: |
@@ -156,6 +158,7 @@ jobs:
         printf 'CMAKE_PREFIX_PATH=%s\n' "$PWD/artifacts" >> $GITHUB_ENV
       env:
         WASMTIME_REPO: https://github.com/bytecodealliance/wasmtime
+        RUSTFLAGS: "--cap-lints allow"
 
     - name: Build C library (make)
       if: ${{ runner.os != 'Windows' }}
