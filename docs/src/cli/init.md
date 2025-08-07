@@ -104,7 +104,7 @@ Typically, this will all be set up when you run `tree-sitter init`, but you are 
 - `description` — The brief description of your grammar
 - `authors` (required) — An array of objects that contain a `name` field, and optionally an `email` and `url` field.
 Each field is a string
-- `links` — An object that contains a `repository` field, and optionally a `homepage` field. Each field is a string
+- `links` — An object that contains a `repository` field, and optionally a `funding` field. Each field is a string
 - `namespace` — The namespace for the `Java` and `Kotlin` bindings, defaults to `io.github.tree-sitter` if not provided
 
 ### The `bindings` field
