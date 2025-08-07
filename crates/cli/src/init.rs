@@ -182,7 +182,6 @@ impl JsonConfigOpts {
                         .expect("Failed to parse default repository URL")
                     }),
                     funding: self.funding,
-                    homepage: None,
                 }),
                 namespace: None,
             },

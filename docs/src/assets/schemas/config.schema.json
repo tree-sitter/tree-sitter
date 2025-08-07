@@ -188,11 +188,6 @@
               "type": "string",
               "format": "uri",
               "description": "The project's funding link."
-            },
-            "homepage": {
-              "type": "string",
-              "format": "uri",
-              "description": "The project's homepage."
             }
           },
           "additionalProperties": false,
