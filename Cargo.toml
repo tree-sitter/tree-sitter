@@ -78,6 +78,9 @@ unnecessary_wraps = "allow"
 unused_self = "allow"
 used_underscore_items = "allow"
 
+[workspace.lints.rust]
+mismatched_lifetime_syntaxes = "allow"
+
 [profile.optimize]
 inherits = "release"
 strip = true         # Automatically strip symbols from the binary.
