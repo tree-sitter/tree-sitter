@@ -737,7 +737,7 @@ impl Init {
             let namespace = || {
                 Input::<String>::with_theme(&ColorfulTheme::default())
                     .with_prompt("Package namespace")
-                    .default("io.github.tree-sitter".to_string())
+                    .default("com.github.tree-sitter".to_string())
                     .allow_empty(true)
                     .interact()
             };
