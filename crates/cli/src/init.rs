@@ -751,9 +751,15 @@ pub fn generate_grammar_files(
 
     // Generate Zig bindings
     if tree_sitter_config.bindings.zig {
-        missing_path(repo_path.join("build.zig"), |path| {
-            generate_file(path, BUILD_ZIG_TEMPLATE, language_name, &generate_opts)
-        })?;
+        missing_path_else(
+            repo_path.join("build.zig"),
+            allow_update,
+            |path| generate_file(path, BUILD_ZIG_TEMPLATE, language_name, &generate_opts),
+            |path| {
+                eprintln!("Replacing build.zig");
+                generate_file(path, BUILD_ZIG_TEMPLATE, language_name, &generate_opts)
+            },
+        )?;
 
         missing_path_else(
             repo_path.join("build.zig.zon"),
@@ -766,9 +772,15 @@ pub fn generate_grammar_files(
         )?;
 
         missing_path(bindings_dir.join("zig"), create_dir)?.apply(|path| {
-            missing_path(path.join("root.zig"), |path| {
-                generate_file(path, ROOT_ZIG_TEMPLATE, language_name, &generate_opts)
-            })?;
+            missing_path_else(
+                path.join("root.zig"),
+                allow_update,
+                |path| generate_file(path, ROOT_ZIG_TEMPLATE, language_name, &generate_opts),
+                |path| {
+                    eprintln!("Replacing root.zig");
+                    generate_file(path, ROOT_ZIG_TEMPLATE, language_name, &generate_opts)
+                },
+            )?;
 
             missing_path(path.join("test.zig"), |path| {
                 generate_file(path, TEST_ZIG_TEMPLATE, language_name, &generate_opts)
