@@ -103,6 +103,7 @@ const PACKAGE_SWIFT_TEMPLATE: &str = include_str!("./templates/package.swift");
 const TESTS_SWIFT_TEMPLATE: &str = include_str!("./templates/tests.swift");
 
 const POM_XML_TEMPLATE: &str = include_str!("./templates/pom.xml");
+const JITPACK_YML_TEMPLATE: &str = include_str!("./templates/jitpack.yml");
 const BINDING_JAVA_TEMPLATE: &str = include_str!("./templates/binding.java");
 const TEST_JAVA_TEMPLATE: &str = include_str!("./templates/test.java");
 
@@ -808,6 +809,10 @@ pub fn generate_grammar_files(
     if tree_sitter_config.bindings.java {
         missing_path(repo_path.join("pom.xml"), |path| {
             generate_file(path, POM_XML_TEMPLATE, language_name, &generate_opts)
+        })?;
+
+        missing_path(repo_path.join("jitpack.yml"), |path| {
+            generate_file(path, JITPACK_YML_TEMPLATE, language_name, &generate_opts)
         })?;
 
         missing_path(bindings_dir.join("java"), create_dir)?.apply(|path| {

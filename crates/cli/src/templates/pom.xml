@@ -33,9 +33,6 @@
     <maven.compiler.release>22</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <maven.deploy.skip>true</maven.deploy.skip>
-    <gpg.skip>true</gpg.skip>
-    <publish.auto>false</publish.auto>
-    <publish.skip>true</publish.skip>
   </properties>
   <dependencies>
     <dependency>
@@ -70,6 +67,7 @@
         <version>3.11.2</version>
         <executions>
           <execution>
+            <id>attach-javadoc</id>
             <goals>
               <goal>jar</goal>
             </goals>
@@ -87,69 +85,13 @@
         <version>3.3.1</version>
         <executions>
           <execution>
+            <id>attach-sources</id>
             <goals>
-              <goal>jar-no-fork</goal>
+              <goal>jar</goal>
             </goals>
           </execution>
         </executions>
-      </plugin>
-      <plugin>
-        <artifactId>maven-gpg-plugin</artifactId>
-        <version>3.2.8</version>
-        <executions>
-          <execution>
-            <phase>verify</phase>
-            <goals>
-              <goal>sign</goal>
-            </goals>
-            <configuration>
-              <bestPractices>true</bestPractices>
-              <gpgArguments>
-                <arg>--no-tty</arg>
-                <arg>--pinentry-mode</arg>
-                <arg>loopback</arg>
-              </gpgArguments>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
-      <plugin>
-        <groupId>org.sonatype.central</groupId>
-        <artifactId>central-publishing-maven-plugin</artifactId>
-        <version>0.5.0</version>
-        <executions>
-          <execution>
-            <phase>deploy</phase>
-            <goals>
-              <goal>publish</goal>
-            </goals>
-            <configuration>
-              <waitUntil>validated</waitUntil>
-              <autoPublish>${publish.auto}</autoPublish>
-              <skipPublishing>${publish.skip}</skipPublishing>
-              <outputFilename>${project.artifactId}-${project.version}.zip</outputFilename>
-              <deploymentName>${project.artifactId}-${project.version}.zip</deploymentName>
-            </configuration>
-          </execution>
-        </executions>
-        <extensions>true</extensions>
       </plugin>
     </plugins>
   </build>
-  <profiles>
-    <profile>
-      <id>ci</id>
-      <activation>
-        <property>
-          <name>env.CI</name>
-          <value>true</value>
-        </property>
-      </activation>
-      <properties>
-        <gpg.skip>false</gpg.skip>
-        <publish.auto>true</publish.auto>
-        <publish.skip>false</publish.skip>
-      </properties>
-    </profile>
-  </profiles>
 </project>
