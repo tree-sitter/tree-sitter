@@ -16,7 +16,7 @@ use core::{
     marker::PhantomData,
     mem::MaybeUninit,
     num::NonZeroU16,
-    ops::{self, Deref},
+    ops::{self, ControlFlow, Deref},
     ptr::{self, NonNull},
     slice, str,
     sync::atomic::AtomicUsize,
@@ -177,7 +177,7 @@ impl<'a> ParseOptions<'a> {
     }
 
     #[must_use]
-    pub fn progress_callback<F: FnMut(&ParseState) -> bool>(mut self, callback: &'a mut F) -> Self {
+    pub fn progress_callback<F: FnMut(&ParseState) -> ControlFlow<()>>(mut self, callback: &'a mut F) -> Self {
         self.progress_callback = Some(callback);
         self
     }
@@ -232,7 +232,7 @@ type FieldId = NonZeroU16;
 type Logger<'a> = Box<dyn FnMut(LogType, &str) + 'a>;
 
 /// A callback that receives the parse state during parsing.
-type ParseProgressCallback<'a> = &'a mut dyn FnMut(&ParseState) -> bool;
+type ParseProgressCallback<'a> = &'a mut dyn FnMut(&ParseState) -> ControlFlow<()>;
 
 /// A callback that receives the query state during query execution.
 type QueryProgressCallback<'a> = &'a mut dyn FnMut(&QueryCursorState) -> bool;
@@ -869,7 +869,10 @@ impl Parser {
                 .cast::<ParseProgressCallback>()
                 .as_mut()
                 .unwrap();
-            callback(&ParseState::from_raw(state))
+            match callback(&ParseState::from_raw(state)) {
+                ControlFlow::Continue(()) => false,
+                ControlFlow::Break(()) => true,
+            }
         }
 
         // This C function is passed to Tree-sitter as the input callback.
@@ -1001,7 +1004,10 @@ impl Parser {
                 .cast::<ParseProgressCallback>()
                 .as_mut()
                 .unwrap();
-            callback(&ParseState::from_raw(state))
+            match callback(&ParseState::from_raw(state)) {
+                ControlFlow::Continue(()) => false,
+                ControlFlow::Break(()) => true,
+            }
         }
 
         // This C function is passed to Tree-sitter as the input callback.
@@ -1118,7 +1124,10 @@ impl Parser {
                 .cast::<ParseProgressCallback>()
                 .as_mut()
                 .unwrap();
-            callback(&ParseState::from_raw(state))
+            match callback(&ParseState::from_raw(state)) {
+                ControlFlow::Continue(()) => false,
+                ControlFlow::Break(()) => true,
+            }
         }
 
         // This C function is passed to Tree-sitter as the input callback.
@@ -1218,7 +1227,10 @@ impl Parser {
                 .cast::<ParseProgressCallback>()
                 .as_mut()
                 .unwrap();
-            callback(&ParseState::from_raw(state))
+            match callback(&ParseState::from_raw(state)) {
+                ControlFlow::Continue(()) => false,
+                ControlFlow::Break(()) => true,
+            }
         }
 
         // At compile time, create a C-compatible callback that calls the custom `decode` method.

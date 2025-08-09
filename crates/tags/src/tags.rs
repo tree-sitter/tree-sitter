@@ -7,7 +7,7 @@ use std::{
     collections::HashMap,
     ffi::{CStr, CString},
     mem,
-    ops::Range,
+    ops::{ControlFlow, Range},
     os::raw::c_char,
     str,
     sync::atomic::{AtomicUsize, Ordering},
@@ -301,9 +301,13 @@ impl TagsContext {
                 None,
                 Some(ParseOptions::new().progress_callback(&mut |_| {
                     if let Some(cancellation_flag) = cancellation_flag {
-                        cancellation_flag.load(Ordering::SeqCst) != 0
+                        if cancellation_flag.load(Ordering::SeqCst) != 0 {
+                            ControlFlow::Break(())
+                        } else {
+                            ControlFlow::Continue(())
+                        }
                     } else {
-                        false
+                        ControlFlow::Continue(())
                     }
                 })),
             )
