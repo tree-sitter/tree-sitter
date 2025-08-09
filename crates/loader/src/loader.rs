@@ -722,7 +722,7 @@ impl Loader {
     }
 
     pub fn load_language_at_path_with_name(&self, mut config: CompileConfig) -> Result<Language> {
-        let mut lib_name = config.name.to_string();
+        let mut lib_name = config.name.clone();
         let language_fn_name = format!("tree_sitter_{}", config.name.replace('-', "_"));
         if self.debug_build {
             lib_name.push_str(".debug._");
@@ -1298,7 +1298,7 @@ impl Loader {
 
                 for file_type in &configuration.file_types {
                     self.language_configuration_ids_by_file_type
-                        .entry(file_type.to_string())
+                        .entry(file_type.clone())
                         .or_default()
                         .push(self.language_configurations.len());
                 }
