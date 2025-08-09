@@ -821,8 +821,7 @@ fn test_query_matches_with_many_overlapping_results() {
         //    .foo(bar(BAZ))
         //    .foo(bar(BAZ))
         //    ...
-        let mut source = "a".to_string();
-        source += &"\n  .foo(bar(BAZ))".repeat(count);
+        let source = format!("a{}", "\n  .foo(bar(BAZ))".repeat(count));
 
         assert_query_matches(
             &language,
