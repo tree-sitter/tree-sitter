@@ -23,7 +23,9 @@ use tree_sitter::{format_sexp, Language, LogType, Parser, Query, Tree};
 use walkdir::WalkDir;
 
 use super::util;
-use crate::parse::Stats;
+use crate::parse::{
+    render_cst, ParseDebugType, ParseFileOptions, ParseOutput, ParseStats, ParseTheme, Stats,
+};
 
 static HEADER_REGEX: LazyLock<ByteRegex> = LazyLock::new(|| {
     ByteRegexBuilder::new(
@@ -82,6 +84,7 @@ pub struct TestAttributes {
     pub platform: bool,
     pub fail_fast: bool,
     pub error: bool,
+    pub cst: bool,
     pub languages: Vec<Box<str>>,
 }
 
@@ -102,6 +105,7 @@ impl Default for TestAttributes {
             platform: true,
             fail_fast: false,
             error: false,
+            cst: false,
             languages: vec!["".into()],
         }
     }
@@ -226,7 +230,7 @@ pub fn run_tests_at_path(parser: &mut Parser, opts: &mut TestOptions) -> Result<
                 println!("{} updates:\n", failures.len());
             }
 
-            for (i, (name, ..)) in failures.iter().enumerate() {
+            for (i, TestFailure { name, .. }) in failures.iter().enumerate() {
                 println!("  {}. {name}", i + 1);
             }
 
@@ -246,22 +250,36 @@ pub fn run_tests_at_path(parser: &mut Parser, opts: &mut TestOptions) -> Result<
                 if opts.color {
                     print_diff_key();
                 }
-                for (i, (name, actual, expected)) in failures.iter().enumerate() {
+                for (
+                    i,
+                    TestFailure {
+                        name,
+                        actual,
+                        expected,
+                        is_cst,
+                    },
+                ) in failures.iter().enumerate()
+                {
                     if expected == "NO ERROR" {
                         println!("\n  {}. {name}:\n", i + 1);
                         println!("  Expected an ERROR node, but got:");
-                        println!(
-                            "  {}",
-                            paint(
-                                opts.color.then_some(AnsiColor::Red),
-                                &format_sexp(actual, 2)
-                            )
-                        );
+                        let actual = if *is_cst {
+                            actual
+                        } else {
+                            &format_sexp(actual, 2)
+                        };
+                        println!("  {}", paint(opts.color.then_some(AnsiColor::Red), actual));
                     } else {
                         println!("\n  {}. {name}:", i + 1);
-                        let actual = format_sexp(actual, 2);
-                        let expected = format_sexp(expected, 2);
-                        print_diff(&actual, &expected, opts.color);
+                        if *is_cst {
+                            print_diff(actual, expected, opts.color);
+                        } else {
+                            print_diff(
+                                &format_sexp(actual, 2),
+                                &format_sexp(expected, 2),
+                                opts.color,
+                            );
+                        }
                     }
                 }
             }
@@ -348,6 +366,64 @@ pub fn paint(color: Option<impl Into<Color>>, text: &str) -> String {
     format!("{style}{text}{style:#}")
 }
 
+struct TestFailure {
+    name: String,
+    actual: String,
+    expected: String,
+    is_cst: bool,
+}
+
+impl TestFailure {
+    fn new<T, U, V>(name: T, actual: U, expected: V, is_cst: bool) -> Self
+    where
+        T: Into<String>,
+        U: Into<String>,
+        V: Into<String>,
+    {
+        Self {
+            name: name.into(),
+            actual: actual.into(),
+            expected: expected.into(),
+            is_cst,
+        }
+    }
+}
+
+struct TestCorrection {
+    name: String,
+    input: String,
+    output: String,
+    attributes_str: String,
+    header_delim_len: usize,
+    divider_delim_len: usize,
+}
+
+impl TestCorrection {
+    fn new<T, U, V, W>(
+        name: T,
+        input: U,
+        output: V,
+        attributes_str: W,
+        header_delim_len: usize,
+        divider_delim_len: usize,
+    ) -> Self
+    where
+        T: Into<String>,
+        U: Into<String>,
+        V: Into<String>,
+        W: Into<String>,
+    {
+        Self {
+            name: name.into(),
+            input: input.into(),
+            output: output.into(),
+            attributes_str: attributes_str.into(),
+            header_delim_len,
+            divider_delim_len,
+        }
+    }
+}
+
 /// This will return false if we want to "fail fast". It will bail and not parse any more tests.
 #[allow(clippy::too_many_arguments)]
 fn run_tests(
@@ -355,8 +431,8 @@ fn run_tests(
     test_entry: TestEntry,
     opts: &mut TestOptions,
     mut indent_level: u32,
-    failures: &mut Vec<(String, String, String)>,
-    corrected_entries: &mut Vec<(String, String, String, String, usize, usize)>,
+    failures: &mut Vec<TestFailure>,
+    corrected_entries: &mut Vec<TestCorrection>,
     has_parse_errors: &mut bool,
 ) -> Result<bool> {
     match test_entry {
@@ -431,12 +507,16 @@ fn run_tests(
                         opts.stats.successful_parses += 1;
                         if opts.update {
                             let input = String::from_utf8(input.clone()).unwrap();
-                            let output = format_sexp(&output, 0);
-                            corrected_entries.push((
-                                name.clone(),
+                            let output = if attributes.cst {
+                                output.clone()
+                            } else {
+                                format_sexp(&output, 0)
+                            };
+                            corrected_entries.push(TestCorrection::new(
+                                &name,
                                 input,
                                 output,
-                                attributes_str.clone(),
+                                &attributes_str,
                                 header_delim_len,
                                 divider_delim_len,
                             ));
@@ -445,12 +525,16 @@ fn run_tests(
                         if opts.update {
                             let input = String::from_utf8(input.clone()).unwrap();
                             // Keep the original `expected` output if the actual output has no error
-                            let output = format_sexp(&output, 0);
-                            corrected_entries.push((
-                                name.clone(),
+                            let output = if attributes.cst {
+                                output.clone()
+                            } else {
+                                format_sexp(&output, 0)
+                            };
+                            corrected_entries.push(TestCorrection::new(
+                                &name,
                                 input,
                                 output,
-                                attributes_str.clone(),
+                                &attributes_str,
                                 header_delim_len,
                                 divider_delim_len,
                             ));
@@ -461,19 +545,24 @@ fn run_tests(
                             opts.test_num,
                             paint(opts.color.then_some(AnsiColor::Red), &name),
                         )?;
-                        failures.push((
-                            name.clone(),
-                            tree.root_node().to_sexp(),
-                            "NO ERROR".to_string(),
-                        ));
+                        let actual = if attributes.cst {
+                            render_test_cst(&input, &tree)?
+                        } else {
+                            tree.root_node().to_sexp()
+                        };
+                        failures.push(TestFailure::new(&name, actual, "NO ERROR", attributes.cst));
                     }
 
                     if attributes.fail_fast {
                         return Ok(false);
                     }
                 } else {
-                    let mut actual = tree.root_node().to_sexp();
-                    if !(opts.show_fields || has_fields) {
+                    let mut actual = if attributes.cst {
+                        render_test_cst(&input, &tree)?
+                    } else {
+                        tree.root_node().to_sexp()
+                    };
+                    if !(attributes.cst || opts.show_fields || has_fields) {
                         actual = strip_sexp_fields(&actual);
                     }
 
@@ -487,12 +576,16 @@ fn run_tests(
                         opts.stats.successful_parses += 1;
                         if opts.update {
                             let input = String::from_utf8(input.clone()).unwrap();
-                            let output = format_sexp(&output, 0);
-                            corrected_entries.push((
-                                name.clone(),
+                            let output = if attributes.cst {
+                                actual
+                            } else {
+                                format_sexp(&output, 0)
+                            };
+                            corrected_entries.push(TestCorrection::new(
+                                &name,
                                 input,
                                 output,
-                                attributes_str.clone(),
+                                &attributes_str,
                                 header_delim_len,
                                 divider_delim_len,
                             ));
@@ -500,8 +593,11 @@ fn run_tests(
                     } else {
                         if opts.update {
                             let input = String::from_utf8(input.clone()).unwrap();
-                            let expected_output = format_sexp(&output, 0);
-                            let actual_output = format_sexp(&actual, 0);
+                            let (expected_output, actual_output) = if attributes.cst {
+                                (output.clone(), actual.clone())
+                            } else {
+                                (format_sexp(&output, 0), format_sexp(&actual, 0))
+                            };
 
                             // Only bail early before updating if the actual is not the output,
                             // sometimes users want to test cases that
@@ -512,20 +608,20 @@ fn run_tests(
 
                                 // keep the original `expected` output if the actual output has an
                                 // error
-                                corrected_entries.push((
-                                    name.clone(),
+                                corrected_entries.push(TestCorrection::new(
+                                    &name,
                                     input,
                                     expected_output,
-                                    attributes_str.clone(),
+                                    &attributes_str,
                                     header_delim_len,
                                     divider_delim_len,
                                 ));
                             } else {
-                                corrected_entries.push((
-                                    name.clone(),
+                                corrected_entries.push(TestCorrection::new(
+                                    &name,
                                     input,
                                     actual_output,
-                                    attributes_str.clone(),
+                                    &attributes_str,
                                     header_delim_len,
                                     divider_delim_len,
                                 ));
@@ -544,7 +640,7 @@ fn run_tests(
                                 paint(opts.color.then_some(AnsiColor::Red), &name),
                             )?;
                         }
-                        failures.push((name.clone(), actual, output.clone()));
+                        failures.push(TestFailure::new(&name, actual, &output, attributes.cst));
 
                         if attributes.fail_fast {
                             return Ok(false);
@@ -609,11 +705,11 @@ fn run_tests(
                     if should_skip(&child, opts) {
                         let input = String::from_utf8(input.clone()).unwrap();
                         let output = format_sexp(output, 0);
-                        corrected_entries.push((
-                            name.clone(),
+                        corrected_entries.push(TestCorrection::new(
+                            name,
                             input,
                             output,
-                            attributes_str.clone(),
+                            attributes_str,
                             header_delim_len,
                             divider_delim_len,
                         ));
@@ -657,6 +753,28 @@ fn run_tests(
     Ok(true)
 }
 
+/// Convenience wrapper to render a CST for a test entry.
+fn render_test_cst(input: &[u8], tree: &Tree) -> Result<String> {
+    let mut rendered_cst: Vec<u8> = Vec::new();
+    let mut cursor = tree.walk();
+    let opts = ParseFileOptions {
+        edits: &[],
+        output: ParseOutput::Cst,
+        stats: &mut ParseStats::default(),
+        print_time: false,
+        timeout: 0,
+        debug: ParseDebugType::Quiet,
+        debug_graph: false,
+        cancellation_flag: None,
+        encoding: None,
+        open_log: false,
+        no_ranges: false,
+        parse_theme: &ParseTheme::empty(),
+    };
+    render_cst(input, tree, &mut cursor, &opts, &mut rendered_cst)?;
+    Ok(String::from_utf8_lossy(&rendered_cst).trim().to_string())
+}
+
 // Parse time is interpreted in ns before converting to ms to avoid truncation issues
 // Parse rates often have several outliers, leading to a large standard deviation. Taking
 // the log of these rates serves to "flatten" out the distribution, yielding a more
@@ -669,20 +787,26 @@ pub fn adjusted_parse_rate(tree: &Tree, parse_time: Duration) -> f64 {
     )
 }
 
-fn write_tests(
-    file_path: &Path,
-    corrected_entries: &[(String, String, String, String, usize, usize)],
-) -> Result<()> {
+fn write_tests(file_path: &Path, corrected_entries: &[TestCorrection]) -> Result<()> {
     let mut buffer = fs::File::create(file_path)?;
     write_tests_to_buffer(&mut buffer, corrected_entries)
 }
 
 fn write_tests_to_buffer(
     buffer: &mut impl Write,
-    corrected_entries: &[(String, String, String, String, usize, usize)],
+    corrected_entries: &[TestCorrection],
 ) -> Result<()> {
-    for (i, (name, input, output, attributes_str, header_delim_len, divider_delim_len)) in
-        corrected_entries.iter().enumerate()
+    for (
+        i,
+        TestCorrection {
+            name,
+            input,
+            output,
+            attributes_str,
+            header_delim_len,
+            divider_delim_len,
+        },
+    ) in corrected_entries.iter().enumerate()
     {
         if i > 0 {
             writeln!(buffer)?;
@@ -776,8 +900,8 @@ fn parse_test_content(name: String, content: &str, file_path: Option<PathBuf>) -
             .name("suffix2")
             .map(|m| String::from_utf8_lossy(m.as_bytes()));
 
-        let (mut skip, mut platform, mut fail_fast, mut error, mut languages) =
-            (false, None, false, false, vec![]);
+        let (mut skip, mut platform, mut fail_fast, mut error, mut cst, mut languages) =
+            (false, None, false, false, false, vec![]);
 
         let test_name_and_markers = c
             .name("test_name_and_markers")
@@ -818,6 +942,7 @@ fn parse_test_content(name: String, content: &str, file_path: Option<PathBuf>) -
                         languages.push(lang.into());
                     }
                 }
+                ":cst" => (seen_marker, cst) = (true, true),
                 _ if !seen_marker => {
                     test_name.push_str(line);
                 }
@@ -858,6 +983,7 @@ fn parse_test_content(name: String, content: &str, file_path: Option<PathBuf>) -
                     platform: platform.unwrap_or(true),
                     fail_fast,
                     error,
+                    cst,
                     languages,
                 },
             ))
@@ -910,16 +1036,22 @@ fn parse_test_content(name: String, content: &str, file_path: Option<PathBuf>) -
                         input.pop();
                     }
 
-                    // Remove all comments
-                    let output = COMMENT_REGEX.replace_all(output, "").to_string();
+                    let (output, has_fields) = if prev_attributes.cst {
+                        (output.trim().to_string(), false)
+                    } else {
+                        // Remove all comments
+                        let output = COMMENT_REGEX.replace_all(output, "").to_string();
 
-                    // Normalize the whitespace in the expected output.
-                    let output = WHITESPACE_REGEX.replace_all(output.trim(), " ");
-                    let output = output.replace(" )", ")");
+                        // Normalize the whitespace in the expected output.
+                        let output = WHITESPACE_REGEX.replace_all(output.trim(), " ");
+                        let output = output.replace(" )", ")");
 
-                    // Identify if the expected output has fields indicated. If not, then
-                    // fields will not be checked.
-                    let has_fields = SEXP_FIELD_REGEX.is_match(&output);
+                        // Identify if the expected output has fields indicated. If not, then
+                        // fields will not be checked.
+                        let has_fields = SEXP_FIELD_REGEX.is_match(&output);
+
+                        (output, has_fields)
+                    };
 
                     let file_name = if let Some(ref path) = file_path {
                         path.file_name().map(|n| n.to_string_lossy().to_string())
@@ -1136,7 +1268,7 @@ abc
     fn test_write_tests_to_buffer() {
         let mut buffer = Vec::new();
         let corrected_entries = vec![
-            (
+            TestCorrection::new(
                 "title 1".to_string(),
                 "input 1".to_string(),
                 "output 1".to_string(),
@@ -1144,7 +1276,7 @@ abc
                 80,
                 80,
             ),
-            (
+            TestCorrection::new(
                 "title 2".to_string(),
                 "input 2".to_string(),
                 "output 2".to_string(),
@@ -1493,6 +1625,7 @@ a
                         platform: true,
                         fail_fast: false,
                         error: false,
+                        cst: false,
                         languages: vec!["".into()]
                     },
                     file_name: None,
@@ -1522,6 +1655,16 @@ Test with bad platform marker
 a
 ---
 (b)
+
+====================
+Test with cst marker
+:cst
+====================
+1
+---
+0:0 - 1:0   source_file
+0:0 - 0:1   expression
+0:0 - 0:1     number_literal `1`
 ",
                 std::env::consts::OS,
                 if std::env::consts::OS == "linux" {
@@ -1552,6 +1695,7 @@ a
                             platform: true,
                             fail_fast: true,
                             error: false,
+                            cst: false,
                             languages: vec!["".into()]
                         },
                         file_name: None,
@@ -1573,7 +1717,29 @@ a
                             platform: false,
                             fail_fast: false,
                             error: false,
+                            cst: false,
                             languages: vec!["foo".into()]
+                        },
+                        file_name: None,
+                    },
+                    TestEntry::Example {
+                        name: "Test with cst marker".to_string(),
+                        input: b"1".to_vec(),
+                        output: "0:0 - 1:0   source_file
+0:0 - 0:1   expression
+0:0 - 0:1     number_literal `1`"
+                            .to_string(),
+                        header_delim_len: 20,
+                        divider_delim_len: 3,
+                        has_fields: false,
+                        attributes_str: ":cst".to_string(),
+                        attributes: TestAttributes {
+                            skip: false,
+                            platform: true,
+                            fail_fast: false,
+                            error: false,
+                            cst: true,
+                            languages: vec!["".into()]
                         },
                         file_name: None,
                     }

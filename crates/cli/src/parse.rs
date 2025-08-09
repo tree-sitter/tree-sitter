@@ -1,6 +1,6 @@
 use std::{
     fmt, fs,
-    io::{self, StdoutLock, Write},
+    io::{self, Write},
     path::{Path, PathBuf},
     sync::atomic::{AtomicUsize, Ordering},
     time::{Duration, Instant},
@@ -501,53 +501,7 @@ pub fn parse_file_at_path(
         }
 
         if opts.output == ParseOutput::Cst {
-            let lossy_source_code = String::from_utf8_lossy(&source_code);
-            let total_width = lossy_source_code
-                .lines()
-                .enumerate()
-                .map(|(row, col)| {
-                    (row as f64).log10() as usize + (col.len() as f64).log10() as usize + 1
-                })
-                .max()
-                .unwrap_or(1);
-            let mut indent_level = 1;
-            let mut did_visit_children = false;
-            let mut in_error = false;
-            loop {
-                if did_visit_children {
-                    if cursor.goto_next_sibling() {
-                        did_visit_children = false;
-                    } else if cursor.goto_parent() {
-                        did_visit_children = true;
-                        indent_level -= 1;
-                        if !cursor.node().has_error() {
-                            in_error = false;
-                        }
-                    } else {
-                        break;
-                    }
-                } else {
-                    cst_render_node(
-                        opts,
-                        &mut cursor,
-                        &source_code,
-                        &mut stdout,
-                        total_width,
-                        indent_level,
-                        in_error,
-                    )?;
-                    if cursor.goto_first_child() {
-                        did_visit_children = false;
-                        indent_level += 1;
-                        if cursor.node().has_error() {
-                            in_error = true;
-                        }
-                    } else {
-                        did_visit_children = true;
-                    }
-                }
-            }
-            cursor.reset(tree.root_node());
+            render_cst(&source_code, &tree, &mut cursor, opts, &mut stdout)?;
             println!();
         }
 
@@ -781,6 +735,61 @@ const fn escape_invisible(c: char) -> Option<&'static str> {
     })
 }
 
+pub fn render_cst<'a, 'b: 'a>(
+    source_code: &[u8],
+    tree: &'b Tree,
+    cursor: &mut TreeCursor<'a>,
+    opts: &ParseFileOptions,
+    out: &mut impl Write,
+) -> Result<()> {
+    let lossy_source_code = String::from_utf8_lossy(source_code);
+    let total_width = lossy_source_code
+        .lines()
+        .enumerate()
+        .map(|(row, col)| (row as f64).log10() as usize + (col.len() as f64).log10() as usize + 1)
+        .max()
+        .unwrap_or(1);
+    let mut indent_level = 1;
+    let mut did_visit_children = false;
+    let mut in_error = false;
+    loop {
+        if did_visit_children {
+            if cursor.goto_next_sibling() {
+                did_visit_children = false;
+            } else if cursor.goto_parent() {
+                did_visit_children = true;
+                indent_level -= 1;
+                if !cursor.node().has_error() {
+                    in_error = false;
+                }
+            } else {
+                break;
+            }
+        } else {
+            cst_render_node(
+                opts,
+                cursor,
+                source_code,
+                out,
+                total_width,
+                indent_level,
+                in_error,
+            )?;
+            if cursor.goto_first_child() {
+                did_visit_children = false;
+                indent_level += 1;
+                if cursor.node().has_error() {
+                    in_error = true;
+                }
+            } else {
+                did_visit_children = true;
+            }
+        }
+    }
+    cursor.reset(tree.root_node());
+    Ok(())
+}
+
 fn render_node_text(source: &str) -> String {
     source
         .chars()
@@ -796,7 +805,7 @@ fn render_node_text(source: &str) -> String {
 
 fn write_node_text(
     opts: &ParseFileOptions,
-    stdout: &mut StdoutLock<'static>,
+    out: &mut impl Write,
     cursor: &TreeCursor,
     is_named: bool,
     source: &str,
@@ -812,7 +821,7 @@ fn write_node_text(
 
     if !is_named {
         write!(
-            stdout,
+            out,
             "{}{}{}",
             paint(quote_color, &String::from(quote)),
             paint(color, &render_node_text(source)),
@@ -838,7 +847,7 @@ fn write_node_text(
             let formatted_line = render_line_feed(line, opts);
             if !opts.no_ranges {
                 write!(
-                    stdout,
+                    out,
                     "{}{}{}{}{}{}",
                     if multiline { "\n" } else { "" },
                     if multiline {
@@ -857,7 +866,7 @@ fn write_node_text(
                 )?;
             } else {
                 write!(
-                    stdout,
+                    out,
                     "\n{}{}{}{}",
                     "  ".repeat(indent_level + 1),
                     paint(quote_color, &String::from(quote)),
@@ -920,7 +929,7 @@ fn cst_render_node(
     opts: &ParseFileOptions,
     cursor: &mut TreeCursor,
     source_code: &[u8],
-    stdout: &mut StdoutLock<'static>,
+    out: &mut impl Write,
     total_width: usize,
     indent_level: usize,
     in_error: bool,
@@ -929,13 +938,13 @@ fn cst_render_node(
     let is_named = node.is_named();
     if !opts.no_ranges {
         write!(
-            stdout,
+            out,
             "{}",
             render_node_range(opts, cursor, is_named, false, total_width, node.range())
         )?;
     }
     write!(
-        stdout,
+        out,
         "{}{}",
         "  ".repeat(indent_level),
         if in_error && !node.has_error() {
@@ -947,14 +956,14 @@ fn cst_render_node(
     if is_named {
         if let Some(field_name) = cursor.field_name() {
             write!(
-                stdout,
+                out,
                 "{}",
                 paint(opts.parse_theme.field, &format!("{field_name}: "))
             )?;
         }
 
         if node.has_error() || node.is_error() {
-            write!(stdout, "{}", paint(opts.parse_theme.error, "•"))?;
+            write!(out, "{}", paint(opts.parse_theme.error, "•"))?;
         }
 
         let kind_color = if node.is_error() {
@@ -964,13 +973,13 @@ fn cst_render_node(
         } else {
             opts.parse_theme.node_kind
         };
-        write!(stdout, "{} ", paint(kind_color, node.kind()))?;
+        write!(out, "{} ", paint(kind_color, node.kind()))?;
 
         if node.child_count() == 0 {
             // Node text from a pattern or external scanner
             write_node_text(
                 opts,
-                stdout,
+                out,
                 cursor,
                 is_named,
                 &String::from_utf8_lossy(&source_code[node.start_byte()..node.end_byte()]),
@@ -979,17 +988,13 @@ fn cst_render_node(
             )?;
         }
     } else if node.is_missing() {
-        write!(stdout, "{}: ", paint(opts.parse_theme.missing, "MISSING"))?;
-        write!(
-            stdout,
-            "\"{}\"",
-            paint(opts.parse_theme.missing, node.kind())
-        )?;
+        write!(out, "{}: ", paint(opts.parse_theme.missing, "MISSING"))?;
+        write!(out, "\"{}\"", paint(opts.parse_theme.missing, node.kind()))?;
     } else {
         // Terminal literals, like "fn"
         write_node_text(
             opts,
-            stdout,
+            out,
             cursor,
             is_named,
             node.kind(),
@@ -997,7 +1002,7 @@ fn cst_render_node(
             (total_width, indent_level),
         )?;
     }
-    writeln!(stdout)?;
+    writeln!(out)?;
 
     Ok(())
 }
