@@ -124,6 +124,24 @@ impl Node<'_> {
     }
 }
 
+// impl NodeError<'_> {
+//     /// Reconstructs a [`NodeError`] from a raw pointer.
+//     ///
+//     /// # Safety
+//     ///
+//     /// `ptr` must be non-null.
+//     #[must_use]
+//     pub const unsafe fn from_raw(raw: TSNodeError) -> Self {
+//         Self(raw, PhantomData)
+//     }
+// 
+//     /// Consumes the [`NodeError`], returning a raw pointer to the underlying C structure.
+//     #[must_use]
+//     pub fn into_raw(self) -> TSNodeError {
+//         ManuallyDrop::new(self).0
+//     }
+// }
+
 impl TreeCursor<'_> {
     /// Reconstructs a [`TreeCursor`] from a raw pointer.
     ///
