@@ -855,9 +855,9 @@ impl<'a> ParseTableBuilder<'a> {
         for symbol in preceding_symbols {
             conflict_error
                 .symbol_sequence
-                .push(self.symbol_name(symbol).to_string());
+                .push(self.symbol_name(symbol));
         }
-        conflict_error.conflicting_lookahead = self.symbol_name(&conflicting_lookahead).to_string();
+        conflict_error.conflicting_lookahead = self.symbol_name(&conflicting_lookahead);
 
         let interpretations = conflicting_items
             .iter()
@@ -865,7 +865,7 @@ impl<'a> ParseTableBuilder<'a> {
                 let preceding_symbols = preceding_symbols
                     .iter()
                     .take(preceding_symbols.len() - item.step_index as usize)
-                    .map(|symbol| self.symbol_name(symbol).to_string())
+                    .map(|symbol| self.symbol_name(symbol))
                     .collect::<Vec<_>>();
 
                 let variable_name = self.syntax_grammar.variables[item.variable_index as usize]
@@ -876,7 +876,7 @@ impl<'a> ParseTableBuilder<'a> {
                     .production
                     .steps
                     .iter()
-                    .map(|step| self.symbol_name(&step.symbol).to_string())
+                    .map(|step| self.symbol_name(&step.symbol))
                     .collect::<Vec<_>>();
 
                 let precedence = match item.precedence() {
@@ -892,7 +892,7 @@ impl<'a> ParseTableBuilder<'a> {
                     production_step_symbols,
                     step_index: item.step_index,
                     done: item.is_done(),
-                    conflicting_lookahead: self.symbol_name(&conflicting_lookahead).to_string(),
+                    conflicting_lookahead: self.symbol_name(&conflicting_lookahead),
                     precedence,
                     associativity,
                 }
