@@ -48,3 +48,4 @@ zig-out/
 *.tar.gz
 *.tgz
 *.zip
+*.jar

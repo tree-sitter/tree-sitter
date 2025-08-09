@@ -30,6 +30,8 @@ const PARSER_CLASS_NAME_PLACEHOLDER: &str = "PARSER_CLASS_NAME";
 
 const PARSER_DESCRIPTION_PLACEHOLDER: &str = "PARSER_DESCRIPTION";
 const PARSER_LICENSE_PLACEHOLDER: &str = "PARSER_LICENSE";
+const PARSER_NS_PLACEHOLDER: &str = "PARSER_NS";
+const PARSER_NS_CLEANED_PLACEHOLDER: &str = "PARSER_NS_CLEANED";
 const PARSER_URL_PLACEHOLDER: &str = "PARSER_URL";
 const PARSER_URL_STRIPPED_PLACEHOLDER: &str = "PARSER_URL_STRIPPED";
 const PARSER_VERSION_PLACEHOLDER: &str = "PARSER_VERSION";
@@ -50,6 +52,11 @@ const AUTHOR_EMAIL_PLACEHOLDER_PY: &str = ", email = \"PARSER_AUTHOR_EMAIL\"";
 const AUTHOR_BLOCK_RS: &str = "\nauthors = [";
 const AUTHOR_NAME_PLACEHOLDER_RS: &str = "PARSER_AUTHOR_NAME";
 const AUTHOR_EMAIL_PLACEHOLDER_RS: &str = " PARSER_AUTHOR_EMAIL";
+
+const AUTHOR_BLOCK_JAVA: &str = "\n    <developer>";
+const AUTHOR_NAME_PLACEHOLDER_JAVA: &str = "\n      <name>PARSER_AUTHOR_NAME</name>";
+const AUTHOR_EMAIL_PLACEHOLDER_JAVA: &str = "\n      <email>PARSER_AUTHOR_EMAIL</email>";
+const AUTHOR_URL_PLACEHOLDER_JAVA: &str = "\n      <url>PARSER_AUTHOR_URL</url>";
 
 const AUTHOR_BLOCK_GRAMMAR: &str = "\n * @author ";
 const AUTHOR_NAME_PLACEHOLDER_GRAMMAR: &str = "PARSER_AUTHOR_NAME";
@@ -95,6 +102,11 @@ const TEST_BINDING_PY_TEMPLATE: &str = include_str!("./templates/test_binding.py
 const PACKAGE_SWIFT_TEMPLATE: &str = include_str!("./templates/package.swift");
 const TESTS_SWIFT_TEMPLATE: &str = include_str!("./templates/tests.swift");
 
+const POM_XML_TEMPLATE: &str = include_str!("./templates/pom.xml");
+const JITPACK_YML_TEMPLATE: &str = include_str!("./templates/jitpack.yml");
+const BINDING_JAVA_TEMPLATE: &str = include_str!("./templates/binding.java");
+const TEST_JAVA_TEMPLATE: &str = include_str!("./templates/test.java");
+
 const BUILD_ZIG_TEMPLATE: &str = include_str!("./templates/build.zig");
 const BUILD_ZIG_ZON_TEMPLATE: &str = include_str!("./templates/build.zig.zon");
 const ROOT_ZIG_TEMPLATE: &str = include_str!("./templates/root.zig");
@@ -122,6 +134,7 @@ pub struct JsonConfigOpts {
     pub email: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub url: Option<Url>,
+    pub namespace: Option<String>,
     pub bindings: Bindings,
 }
 
@@ -166,7 +179,7 @@ impl JsonConfigOpts {
                     }),
                     funding: self.funding,
                 }),
-                namespace: None,
+                namespace: self.namespace,
             },
             bindings: self.bindings,
         }
@@ -189,6 +202,7 @@ impl Default for JsonConfigOpts {
             author: String::new(),
             email: None,
             url: None,
+            namespace: None,
             bindings: Bindings::default(),
         }
     }
@@ -206,6 +220,7 @@ struct GenerateOpts<'a> {
     camel_parser_name: &'a str,
     title_parser_name: &'a str,
     class_name: &'a str,
+    namespace: Option<&'a str>,
 }
 
 pub fn generate_grammar_files(
@@ -282,6 +297,7 @@ pub fn generate_grammar_files(
         camel_parser_name: &camel_name,
         title_parser_name: &title_name,
         class_name: &class_name,
+        namespace: tree_sitter_config.metadata.namespace.as_deref(),
     };
 
     // Create package.json
@@ -789,6 +805,49 @@ pub fn generate_grammar_files(
         })?;
     }
 
+    // Generate Java bindings
+    if tree_sitter_config.bindings.java {
+        missing_path(repo_path.join("pom.xml"), |path| {
+            generate_file(path, POM_XML_TEMPLATE, language_name, &generate_opts)
+        })?;
+
+        missing_path(repo_path.join("jitpack.yml"), |path| {
+            generate_file(path, JITPACK_YML_TEMPLATE, language_name, &generate_opts)
+        })?;
+
+        missing_path(bindings_dir.join("java"), create_dir)?.apply(|path| {
+            missing_path(path.join("main"), create_dir)?.apply(|path| {
+                let package_path = generate_opts
+                    .namespace
+                    .unwrap_or("io.github.treesitter")
+                    .replace(['-', '_'], "")
+                    .split('.')
+                    .fold(path.to_path_buf(), |path, dir| path.join(dir))
+                    .join("jtreesitter")
+                    .join(language_name.to_lowercase().replace('_', ""));
+                missing_path(package_path, create_dir)?.apply(|path| {
+                    missing_path(path.join(format!("{class_name}.java")), |path| {
+                        generate_file(path, BINDING_JAVA_TEMPLATE, language_name, &generate_opts)
+                    })?;
+
+                    Ok(())
+                })?;
+
+                Ok(())
+            })?;
+
+            missing_path(path.join("test"), create_dir)?.apply(|path| {
+                missing_path(path.join(format!("{class_name}Test.java")), |path| {
+                    generate_file(path, TEST_JAVA_TEMPLATE, language_name, &generate_opts)
+                })?;
+
+                Ok(())
+            })?;
+
+            Ok(())
+        })?;
+    }
+
     Ok(())
 }
 
@@ -885,6 +944,9 @@ fn generate_file(
             "Cargo.toml" => {
                 replacement = replacement.replace(AUTHOR_NAME_PLACEHOLDER_RS, "");
             }
+            "pom.xml" => {
+                replacement = replacement.replace(AUTHOR_NAME_PLACEHOLDER_JAVA, "");
+            }
             _ => {}
         }
     }
@@ -910,30 +972,49 @@ fn generate_file(
             "Cargo.toml" => {
                 replacement = replacement.replace(AUTHOR_EMAIL_PLACEHOLDER_RS, "");
             }
+            "pom.xml" => {
+                replacement = replacement.replace(AUTHOR_EMAIL_PLACEHOLDER_JAVA, "");
+            }
             _ => {}
         }
     }
 
-    if filename == "package.json" {
+    if filename == "package.json" || filename == "pom.xml" {
         if let Some(url) = generate_opts.author_url {
             replacement = replacement.replace(AUTHOR_URL_PLACEHOLDER, url);
-        } else {
+        } else if filename == "package.json" {
             replacement = replacement.replace(AUTHOR_URL_PLACEHOLDER_JS, "");
+        } else if filename == "pom.xml" {
+            replacement = replacement.replace(AUTHOR_URL_PLACEHOLDER_JAVA, "");
         }
     }
 
     if generate_opts.author_name.is_none()
         && generate_opts.author_email.is_none()
         && generate_opts.author_url.is_none()
-        && filename == "package.json"
     {
-        if let Some(start_idx) = replacement.find(AUTHOR_BLOCK_JS) {
-            if let Some(end_idx) = replacement[start_idx..]
-                .find("},")
-                .map(|i| i + start_idx + 2)
-            {
-                replacement.replace_range(start_idx..end_idx, "");
+        match filename {
+            "package.json" => {
+                if let Some(start_idx) = replacement.find(AUTHOR_BLOCK_JS) {
+                    if let Some(end_idx) = replacement[start_idx..]
+                        .find("},")
+                        .map(|i| i + start_idx + 2)
+                    {
+                        replacement.replace_range(start_idx..end_idx, "");
+                    }
+                }
             }
+            "pom.xml" => {
+                if let Some(start_idx) = replacement.find(AUTHOR_BLOCK_JAVA) {
+                    if let Some(end_idx) = replacement[start_idx..]
+                        .find("</developer>")
+                        .map(|i| i + start_idx + 12)
+                    {
+                        replacement.replace_range(start_idx..end_idx, "");
+                    }
+                }
+            }
+            _ => {}
         }
     } else if generate_opts.author_name.is_none() && generate_opts.author_email.is_none() {
         match filename {
@@ -1012,6 +1093,19 @@ fn generate_file(
                     language_name.to_lowercase()
                 ),
             );
+    }
+
+    if let Some(namespace) = generate_opts.namespace {
+        replacement = replacement
+            .replace(
+                PARSER_NS_CLEANED_PLACEHOLDER,
+                &namespace.replace(['-', '_'], ""),
+            )
+            .replace(PARSER_NS_PLACEHOLDER, namespace);
+    } else {
+        replacement = replacement
+            .replace(PARSER_NS_CLEANED_PLACEHOLDER, "io.github.treesitter")
+            .replace(PARSER_NS_PLACEHOLDER, "io.github.tree-sitter");
     }
 
     if let Some(funding_url) = generate_opts.funding {
