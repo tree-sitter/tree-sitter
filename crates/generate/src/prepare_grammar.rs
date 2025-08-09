@@ -172,7 +172,7 @@ fn validate_precedences(grammar: &InputGrammar) -> ValidatePrecedenceResult<()> 
                 if let Precedence::Name(n) = &params.precedence {
                     if !names.contains(n) {
                         Err(UndeclaredPrecedenceError {
-                            precedence: n.to_string(),
+                            precedence: n.clone(),
                             rule: rule_name.to_string(),
                         })?;
                     }
