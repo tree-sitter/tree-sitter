@@ -7,24 +7,24 @@ pub fn build(b: *std.Build) !void {
     const shared = b.option(bool, "build-shared", "Build a shared library") orelse true;
     const reuse_alloc = b.option(bool, "reuse-allocator", "Reuse the library allocator") orelse false;
 
-    const lib: *std.Build.Step.Compile = if (shared) b.addSharedLibrary(.{
-        .name = "tree-sitter-PARSER_NAME",
-        .pic = true,
-        .target = target,
-        .optimize = optimize,
-        .link_libc = true,
-    }) else b.addStaticLibrary(.{
-        .name = "tree-sitter-PARSER_NAME",
-        .target = target,
-        .optimize = optimize,
-        .link_libc = true,
+    const library_name = "tree-sitter-PARSER_NAME";
+
+    const lib: *std.Build.Step.Compile = b.addLibrary(.{
+        .name = library_name,
+        .linkage = if (shared) .dynamic else .static,
+        .root_module = b.createModule(.{
+            .target = target,
+            .optimize = optimize,
+            .link_libc = true,
+            .pic = if (shared) true else null,
+        }),
     });
 
     lib.addCSourceFile(.{
         .file = b.path("src/parser.c"),
         .flags = &.{"-std=c11"},
     });
-    if (hasScanner(b.build_root.handle)) {
+    if (fileExists(b, "src/scanner.c")) {
         lib.addCSourceFile(.{
             .file = b.path("src/scanner.c"),
             .flags = &.{"-std=c11"},
@@ -42,38 +42,49 @@ pub fn build(b: *std.Build) !void {
 
     b.installArtifact(lib);
     b.installFile("src/node-types.json", "node-types.json");
-    b.installDirectory(.{ .source_dir = b.path("queries"), .install_dir = .prefix, .install_subdir = "queries", .include_extensions = &.{"scm"} });
 
-    const module = b.addModule("tree-sitter-PARSER_NAME", .{
+    if (fileExists(b, "queries")) {
+        b.installDirectory(.{
+            .source_dir = b.path("queries"),
+            .install_dir = .prefix,
+            .install_subdir = "queries",
+            .include_extensions = &.{"scm"},
+        });
+    }
+
+    const module = b.addModule(library_name, .{
         .root_source_file = b.path("bindings/zig/root.zig"),
         .target = target,
         .optimize = optimize,
     });
     module.linkLibrary(lib);
 
-    const ts_dep = b.dependency("tree-sitter", .{});
-    const ts_mod = ts_dep.module("tree-sitter");
-    module.addImport("tree-sitter", ts_mod);
-
-    // ╭─────────────────╮
-    // │      Tests      │
-    // ╰─────────────────╯
-
     const tests = b.addTest(.{
-        .root_source_file = b.path("bindings/zig/root.zig"),
-        .target = target,
-        .optimize = optimize,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("bindings/zig/test.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
     });
-    tests.linkLibrary(lib);
-    tests.root_module.addImport("tree-sitter", ts_mod);
+    tests.root_module.addImport(library_name, module);
+
+    var args = try std.process.argsWithAllocator(b.allocator);
+    defer args.deinit();
+    while (args.next()) |a| {
+        if (std.mem.eql(u8, a, "test")) {
+            const ts_dep = b.lazyDependency("tree_sitter", .{}) orelse continue;
+            tests.root_module.addImport("tree-sitter", ts_dep.module("tree-sitter"));
+            break;
+        }
+    }
 
     const run_tests = b.addRunArtifact(tests);
-
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&run_tests.step);
 }
 
-inline fn hasScanner(dir: std.fs.Dir) bool {
-    dir.access("src/scanner.c", .{}) catch return false;
+inline fn fileExists(b: *std.Build, filename: []const u8) bool {
+    const dir = b.build_root.handle;
+    dir.access(filename, .{}) catch return false;
     return true;
 }
