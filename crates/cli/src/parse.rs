@@ -973,9 +973,10 @@ fn cst_render_node(
         } else {
             opts.parse_theme.node_kind
         };
-        write!(out, "{} ", paint(kind_color, node.kind()))?;
+        write!(out, "{}", paint(kind_color, node.kind()),)?;
 
         if node.child_count() == 0 {
+            write!(out, " ")?;
             // Node text from a pattern or external scanner
             write_node_text(
                 opts,
