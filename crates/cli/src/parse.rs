@@ -735,6 +735,14 @@ const fn escape_invisible(c: char) -> Option<&'static str> {
     })
 }
 
+const fn escape_delimiter(c: char) -> Option<&'static str> {
+    Some(match c {
+        '`' => "\\`",
+        '\"' => "\\\"",
+        _ => return None,
+    })
+}
+
 pub fn render_cst<'a, 'b: 'a>(
     source_code: &[u8],
     tree: &'b Tree,
@@ -795,6 +803,8 @@ fn render_node_text(source: &str) -> String {
         .chars()
         .fold(String::with_capacity(source.len()), |mut acc, c| {
             if let Some(esc) = escape_invisible(c) {
+                acc.push_str(esc);
+            } else if let Some(esc) = escape_delimiter(c) {
                 acc.push_str(esc);
             } else {
                 acc.push(c);
