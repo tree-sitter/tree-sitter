@@ -83,7 +83,7 @@ static inline void marshal_point_into(const void **buffer, TSPoint point) {
 }
 
 static inline void marshal_point(TSPoint point) {
-  marshal_point_into(point, TRANSFER_BUFFER);
+  marshal_point_into(TRANSFER_BUFFER, point);
 }
 
 static TSPoint unmarshal_point(const void **address) {
