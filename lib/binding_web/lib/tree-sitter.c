@@ -77,12 +77,12 @@ static inline TSTreeCursor unmarshal_cursor(const void **buffer, const TSTree *t
   return cursor;
 }
 
-static void marshal_point_into(TSPoint point, void **buffer) {
+static inline void marshal_point_into(const void **buffer, TSPoint point) {
   buffer[0] = (const void *)point.row;
   buffer[1] = (const void *)byte_to_code_unit(point.column);
 }
 
-static void marshal_point(TSPoint point) {
+static inline void marshal_point(TSPoint point) {
   marshal_point_into(point, TRANSFER_BUFFER);
 }
 
@@ -893,7 +893,7 @@ bool ts_node_error_child_wasm(const TSTree *tree, uint32_t index) {
 bool ts_node_error_child_count_wasm(const TSTree *tree) {
   TSNode node = unmarshal_node(tree);
   uint32_t count;
-  bool result = ts_node_error_child(node, &count);
+  bool result = ts_node_error_child_count(node, &count);
   if (result) {
     TRANSFER_BUFFER[0] = (const void *)(count);
   }
@@ -905,8 +905,8 @@ bool ts_node_error_point_range_wasm(const TSTree *tree) {
   TSPoint start, end;
   bool result = ts_node_error_point_range(node, &start, &end);
   if (result) {
-    marshal_point_into(start, TRANSFER_BUFFER);
-    marshal_point_into(end, TRANSFER_BUFFER + 2);
+    marshal_point_into(TRANSFER_BUFFER, start);
+    marshal_point_into(TRANSFER_BUFFER + 2, end);
   }
   return result;
 }
