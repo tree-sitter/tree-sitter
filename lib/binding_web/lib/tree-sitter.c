@@ -906,7 +906,7 @@ bool ts_node_error_point_range_wasm(const TSTree *tree) {
   bool result = ts_node_error_point_range(node, &start, &end);
   if (result) {
     marshal_point_into(start, TRANSFER_BUFFER);
-    marshal_point_into(end, TRANSFER_BUFFER + 2)
+    marshal_point_into(end, TRANSFER_BUFFER + 2);
   }
   return result;
 }
