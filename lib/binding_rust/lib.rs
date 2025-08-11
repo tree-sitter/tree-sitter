@@ -127,16 +127,6 @@ pub struct InputEdit {
 #[repr(transparent)]
 pub struct Node<'tree>(ffi::TSNode, PhantomData<&'tree ()>);
 
-// /// Represents the internal error state of an `ERROR` [`Node`]. This type is
-// /// useful for identifying where an error occurred within an `ERROR` node as
-// /// well as inspecting all of the underlying nodes that contributed to the error.
-// /// That is, the `children` of one of these are parsed tree nodes which correspond
-// /// to the parsing errors.
-// #[doc(alias = "TSNodeError")]
-// #[derive(Clone, Copy)]
-// #[repr(transparent)]
-// pub struct NodeError<'tree>(ffi::TSNodeError, PhantomData<&'tree ()>);
-
 /// A stateful object that this is used to produce a [`Tree`] based on some
 /// source code.
 #[doc(alias = "TSParser")]
@@ -1709,6 +1699,8 @@ impl<'tree> Node<'tree> {
         }
     }
 
+    /// Returns the number of children nodes which contributed to this node parsing as `ERROR`.
+    /// Returns `None` if this node is not an error.
     #[must_use]
     pub fn error_child_count(&self) -> Option<usize> {
         unsafe {
@@ -1722,7 +1714,7 @@ impl<'tree> Node<'tree> {
     }
 
     /// Walks over the nodes which contributed to making this node into an `ERROR`. Returns `None`
-    /// if this node is not an error.
+    /// if this node is not an error or is a leaf error.
     pub fn error_children<'cursor>(
         &self,
         cursor: &'cursor mut TreeCursor<'tree>,
@@ -1737,36 +1729,44 @@ impl<'tree> Node<'tree> {
         }))
     }
 
-    // TODO: Move this to the ffi module?
+    /// Returns the _ERROR node root of this error, if it exists.
     fn error_root(&self) -> Option<ffi::TSNode> {
         unsafe {
             let node = ffi::ts_node_error_root(self.0);
             if node.id.is_null() {
-                None
+                if self.is_error() {
+                    Some(self.0)
+                } else {
+                    None
+                }
             } else {
                 Some(node)
             }
         }
     }
 
+    /// Returns the first byte of the source code which produced the parsing error.
     #[must_use]
     pub fn error_start_byte(&self) -> Option<usize> {
         let error = self.error_root()?;
         Some(unsafe { ffi::ts_node_start_byte(error) as usize })
     }
 
+    /// Returns the last byte of the source code which produced the parsing error.
     #[must_use]
     pub fn error_end_byte(&self) -> Option<usize> {
         let error = self.error_root()?;
         Some(unsafe { ffi::ts_node_end_byte(error) as usize })
     }
 
+    /// Returns the first position of the source code which produced the parsing error.
     #[must_use]
     pub fn error_start_position(&self) -> Option<Point> {
         let error = self.error_root()?;
         Some(unsafe { ffi::ts_node_start_point(error) }.into())
     }
 
+    /// Returns the last position of the source code which produced the parsing error.
     #[must_use]
     pub fn error_end_position(&self) -> Option<Point> {
         let error = self.error_root()?;
@@ -1791,13 +1791,6 @@ impl<'tree> Node<'tree> {
             end_point: self.error_end_position()?,
         })
     }
-
-    // /// Get the child node which caused this error node to fail to parse. Returns `None` if this node is not
-    // /// an error node.
-    // #[must_use]
-    // pub fn node_error(&self) -> Option<NodeError<'tree>> {
-    //     NodeError::new(unsafe { ffi::ts_node_get_error(self.0) })
-    // }
 
     /// Get this node's parse state.
     #[doc(alias = "ts_node_parse_state")]

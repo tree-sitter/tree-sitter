@@ -126,11 +126,6 @@ typedef struct TSNode {
   const TSTree *tree;
 } TSNode;
 
-// TODO (JAB, 2025-07-30): Remove or use before merging.
-// typedef struct TSNodeError {
-//   TSNode error;
-// } TSNodeError;
-
 typedef struct TSTreeCursor {
   const void *tree;
   const void *id;
@@ -610,73 +605,6 @@ bool ts_node_is_extra(TSNode self);
  */
 bool ts_node_has_changes(TSNode self);
 
-
-/*******************/
-/* Section - Error */
-/*******************/
-
-/**
- * Check if the node is a syntax error or contains any syntax errors.
- */
-bool ts_node_has_error(TSNode self);
-
-/**
- * Check if the node is a syntax error.
-*/
-bool ts_node_is_error(TSNode self);
-
-// Although, it mostly just deals with inner nodes, so it is likely easier to do this approach of new
-// functions on the node itself.
-
-/**
- * If `self` is an error then this function returns the byte range containing the portion of the node which
- * caused the error. These values are stored in `*start_byte` and `*end_byte` and true is returned from the
- * function. If `self` is not an error node then `*start_byte` and `*end_byte` are left unmodified and the
- * function returns false.
-*/
-bool ts_node_error_byte_range(TSNode self, uint32_t *start_byte, uint32_t *end_byte);
-
-bool ts_node_error_point_range(TSNode self, TSPoint *start_point, TSPoint *end_point);
-
-bool ts_node_error_child(TSNode self, uint32_t child_index, TSNode *child);
-bool ts_node_error_child_count(TSNode self, uint32_t *count);
-
-// Another approach: Just return this and then manipulate it in the higher level APIs.
-/**
- * Returns a special node type which corresponds to the root of errors if `self` is an error node.
- * This API is low level and only used to build higher level abstractions.
-*/
-TSNode ts_node_error_root(TSNode self);
-
-
-// Here is an approach which introduces its own type.
-/**
- * Gets the first interior error child of an error node.
- * If `self` is not an error, or no interior error is found, this function will return a null node.
-*/
-// TSNodeError ts_node_get_error(TSNode self);
-// 
-// 
-// bool ts_node_error_is_null(TSNodeError self);
-// /**
-//  * Returns the number of inner error children nodes.
-// */
-// uint32_t ts_node_error_child_count(TSNodeError self);
-// 
-// uint32_t ts_node_error_start_byte(TSNodeError self);
-// uint32_t ts_node_error_end_byte(TSNodeError self);
-// 
-// TSPoint ts_node_error_start_point(TSNodeError self);
-// TSPoint ts_node_error_end_point(TSNodeError self);
-// 
-// TSNode ts_node_error_child(TSNodeError self, uint32_t child_index);
-// uint32_t ts_node_error_child_count(TSNodeError self);
-// 
-// TSNode ts_node_error_parent(TSNodeError self);
-// TSNode ts_node_error_prev_sibling(TSNodeError self);
-// TSNode ts_node_error_next_sibling(TSNodeError self);
-
-
 /**
  * Get this node's parse state.
 */
@@ -811,6 +739,37 @@ void ts_node_edit(TSNode *self, const TSInputEdit *edit);
  * Check if two nodes are identical.
  */
 bool ts_node_eq(TSNode self, TSNode other);
+
+/*******************/
+/* Section - Error */
+/*******************/
+
+/**
+ * Check if the node is a syntax error or contains any syntax errors.
+ */
+bool ts_node_has_error(TSNode self);
+
+/**
+ * Check if the node is a syntax error.
+*/
+bool ts_node_is_error(TSNode self);
+
+/**
+ * If `self` is an error then this function returns the byte range containing the portion of the node which
+ * caused the error. These values are stored in `*start_byte` and `*end_byte` and true is returned from the
+ * function. If `self` is not an error node then `*start_byte` and `*end_byte` are left unmodified and the
+ * function returns false.
+*/
+bool ts_node_error_byte_range(TSNode self, uint32_t *start_byte, uint32_t *end_byte);
+bool ts_node_error_point_range(TSNode self, TSPoint *start_point, TSPoint *end_point);
+bool ts_node_error_child(TSNode self, uint32_t child_index, TSNode *child);
+bool ts_node_error_child_count(TSNode self, uint32_t *count);
+
+/**
+ * Returns a special node type which corresponds to the root of errors if `self` is an error node.
+ * This API is low level and only used to build higher level abstractions.
+*/
+TSNode ts_node_error_root(TSNode self);
 
 /************************/
 /* Section - TreeCursor */
