@@ -106,8 +106,8 @@ ansi_colours = "1.2.3"
 anstyle = "1.0.11"
 anyhow = "1.0.98"
 bstr = "1.12.0"
-cc = "1.2.31"
-clap = { version = "4.5.42", features = [
+cc = "1.2.32"
+clap = { version = "4.5.44", features = [
   "cargo",
   "derive",
   "env",
@@ -115,7 +115,7 @@ clap = { version = "4.5.42", features = [
   "string",
   "unstable-styles",
 ] }
-clap_complete = "4.5.55"
+clap_complete = "4.5.57"
 clap_complete_nushell = "4.5.8"
 ctor = "0.2.9"
 ctrlc = { version = "3.4.7", features = ["termination"] }
@@ -125,7 +125,7 @@ filetime = "0.2.25"
 flate2 = "1.1.2"
 fs4 = "0.12.0"
 git2 = "0.20.2"
-glob = "0.3.2"
+glob = "0.3.3"
 heck = "0.5.0"
 html-escape = "0.2.13"
 indexmap = "2.10.0"
