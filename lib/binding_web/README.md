@@ -46,7 +46,7 @@ file to your `public` directory. You can do this automatically with a `postinsta
 You can also use this module with [deno](https://deno.land/):
 
 ```js
-import Parser from "npm:web-tree-sitter";
+import { Parser } from "npm:web-tree-sitter";
 await Parser.init();
 // the library is ready
 ```
