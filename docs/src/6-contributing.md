@@ -108,6 +108,13 @@ Additionally, if you want to run a particular _example_ from the corpus, you can
 cargo xtask test -l javascript -e Arrays
 ```
 
+If you are using `lldb` to debug the C library, tree-sitter provides custom pretty printers for several of its types. 
+You can enable these helpers by importing them:
+
+```sh
+(lldb) command script import /path/to/tree-sitter/lib/lldb_pretty_printers/tree_sitter_types.py
+```
+
 ## Published Packages
 
 The main [`tree-sitter/tree-sitter`][ts repo] repository contains the source code for
