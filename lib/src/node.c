@@ -544,6 +544,8 @@ static TSNode ts_node__get_first_error(TSNode self) {
     }
   }
 
+  printf("HERE\n");
+
   return ts_node__null();
 }
 
@@ -552,6 +554,9 @@ bool ts_node_error_byte_range(TSNode self, uint32_t *start_byte, uint32_t *end_b
     return false;
   }
   TSNode error = ts_node__get_first_error(self);
+  if (ts_node_is_null(error)) {
+    return false;
+  }
   *start_byte = ts_node_start_byte(error);
   *end_byte = ts_node_end_byte(error);
   return true;
@@ -562,6 +567,9 @@ bool ts_node_error_point_range(TSNode self, TSPoint *start_point, TSPoint *end_p
     return false;
   }
   TSNode error = ts_node__get_first_error(self);
+  if (ts_node_is_null(error)) {
+    return false;
+  }
   *start_point = ts_node_start_point(error);
   *end_point = ts_node_end_point(error);
   return true;
@@ -571,7 +579,12 @@ bool ts_node_error_child(TSNode self, uint32_t child_index, TSNode *child) {
   if (ts_node_is_null(self)) {
     return false;
   }
-  *child = ts_node_child(ts_node__get_first_error(self), child_index);
+  TSNode error = ts_node__get_first_error(self);
+  if (ts_node_is_null(error)) {
+    return false;
+  }
+
+  *child = ts_node_child(error, child_index);
   return true;
 }
 
@@ -579,7 +592,12 @@ bool ts_node_error_child_count(TSNode self, uint32_t *count) {
   if (ts_node_is_null(self)) {
     return false;
   }
-  *count = ts_node_child_count(ts_node__get_first_error(self));
+  TSNode error = ts_node__get_first_error(self);
+  if (ts_node_is_null(error)) {
+    return false;
+  }
+
+  *count = ts_node_child_count(error);
   return true;
 }
 
