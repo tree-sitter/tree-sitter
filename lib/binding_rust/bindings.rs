@@ -765,6 +765,10 @@ extern "C" {
     pub fn ts_language_state_count(self_: *const TSLanguage) -> u32;
 }
 extern "C" {
+    #[doc = " Get the number of large states in this language.\n\n (\"Large states\" are states with a number of terminal states above a certain\n threshold, which don't allow an optimized representation. Thus this number\n correlates with parser complexity and performance.)"]
+    pub fn ts_language_large_state_count(self_: *const TSLanguage) -> u32;
+}
+extern "C" {
     #[doc = " Get the numerical id for the given node type string."]
     pub fn ts_language_symbol_for_name(
         self_: *const TSLanguage,
