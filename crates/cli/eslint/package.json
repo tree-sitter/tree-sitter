@@ -21,5 +21,9 @@
   },
   "peerDependencies": {
     "eslint": ">= 9"
+  },
+  "scripts": {
+    "prepack": "cp ../../../LICENSE .",
+    "postpack": "rm LICENSE"
   }
 }

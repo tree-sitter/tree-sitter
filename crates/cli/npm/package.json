@@ -27,7 +27,7 @@
   },
   "scripts": {
     "install": "node install.js",
-    "prepack": "cp ../../LICENSE ../README.md .",
+    "prepack": "cp ../../../LICENSE ../README.md .",
     "postpack": "rm LICENSE README.md"
   },
   "bin": {
