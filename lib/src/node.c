@@ -526,9 +526,8 @@ bool ts_node_is_error(TSNode self) {
   return symbol == ts_builtin_sym_error;
 }
 
-// TODO: Declare these functions appropriately.
 static bool ts_node__is_interior_error(const TSNode *self) {
-  return ts_subtree_is_interor_error(ts_node__subtree(*self));
+  return ts_subtree_is_error_repeat(ts_node__subtree(*self));
 }
 
 // Returns the first found `_ERROR` child.
@@ -543,8 +542,6 @@ static TSNode ts_node__get_first_error(TSNode self) {
       return child;
     }
   }
-
-  printf("HERE\n");
 
   return ts_node__null();
 }

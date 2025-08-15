@@ -2244,12 +2244,6 @@ impl fmt::Display for Node<'_> {
     }
 }
 
-// impl<'tree> NodeError<'tree> {
-//     fn new(node: ffi::TSNodeError) -> Option<Self> {
-//         (!node.error.id.is_null()).then_some(NodeError(node, PhantomData))
-//     }
-// }
-
 impl<'cursor> TreeCursor<'cursor> {
     /// Get the tree cursor's current [`Node`].
     #[doc(alias = "ts_tree_cursor_current_node")]
