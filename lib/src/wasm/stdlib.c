@@ -1,5 +1,5 @@
 // This file implements a very simple allocator for external scanners running
-// in WASM. Allocation is just bumping a static pointer and growing the heap
+// in Wasm. Allocation is just bumping a static pointer and growing the heap
 // as needed, and freeing is mostly a noop. But in the special case of freeing
 // the last-allocated pointer, we'll reuse that pointer again.
 

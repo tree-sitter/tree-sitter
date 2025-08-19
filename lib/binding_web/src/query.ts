@@ -499,7 +499,7 @@ function parsePattern(
 
 export class Query {
   /** @internal */
-  private [0] = 0; // Internal handle for WASM
+  private [0] = 0; // Internal handle for Wasm
 
   /** @internal */
   private exceededMatchLimit: boolean;

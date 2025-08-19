@@ -116,7 +116,7 @@ fn test_load_multiple_wasm_languages() {
         let mut query_cursor = QueryCursor::new();
 
         // First, parse with the store that originally loaded the languages.
-        // Then parse with a new parser and wasm store, so that the languages
+        // Then parse with a new parser and Wasm store, so that the languages
         // are added one-by-one, in between parses.
         for mut parser in [parser, parser2] {
             for _ in 0..2 {
@@ -226,7 +226,7 @@ fn test_load_wasm_errors() {
             store.load_language("rust", bad_wasm).unwrap_err(),
             WasmError {
                 kind: WasmErrorKind::Parse,
-                message: "failed to parse dylink section of wasm module".into(),
+                message: "failed to parse dylink section of Wasm module".into(),
             }
         );
 

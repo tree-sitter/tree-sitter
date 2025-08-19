@@ -195,7 +195,7 @@ pub fn run_wasm(args: &BuildWasm) -> Result<()> {
 fn build_wasm(cmd: &mut Command) -> Result<()> {
     bail_on_err(
         &cmd.spawn()?.wait_with_output()?,
-        "Failed to compile the Tree-sitter WASM library",
+        "Failed to compile the Tree-sitter Wasm library",
     )?;
 
     Ok(())
@@ -239,7 +239,7 @@ pub fn run_wasm_stdlib() -> Result<()> {
         .arg("lib/src/wasm/stdlib.c")
         .output()?;
 
-    bail_on_err(&output, "Failed to compile the Tree-sitter WASM stdlib")?;
+    bail_on_err(&output, "Failed to compile the Tree-sitter Wasm stdlib")?;
 
     let xxd = Command::new("xxd")
         .args(["-C", "-i", "stdlib.wasm"])
@@ -247,7 +247,7 @@ pub fn run_wasm_stdlib() -> Result<()> {
 
     bail_on_err(
         &xxd,
-        "Failed to run xxd on the compiled Tree-sitter WASM stdlib",
+        "Failed to run xxd on the compiled Tree-sitter Wasm stdlib",
     )?;
 
     fs::write("lib/src/wasm/wasm-stdlib.h", xxd.stdout)?;

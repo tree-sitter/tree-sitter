@@ -217,10 +217,10 @@ const Parser = require('web-tree-sitter');
 
 `web-tree-sitter` needs to load the `tree-sitter.wasm` file. By default, it assumes that this file is available in the
 same path as the JavaScript code. Therefore, if the code is being served from `http://localhost:3000/bundle.js`, then
-the wasm file should be at `http://localhost:3000/tree-sitter.wasm`.
+the Wasm file should be at `http://localhost:3000/tree-sitter.wasm`.
 
 For server side frameworks like NextJS, this can be tricky as pages are often served from a path such as
-`http://localhost:3000/_next/static/chunks/pages/index.js`. The loader will therefore look for the wasm file at
+`http://localhost:3000/_next/static/chunks/pages/index.js`. The loader will therefore look for the Wasm file at
 `http://localhost:3000/_next/static/chunks/pages/tree-sitter.wasm`. The solution is to pass a `locateFile` function in
 the `moduleOptions` argument to `Parser.init()`:
 
@@ -232,8 +232,8 @@ await Parser.init({
 });
 ```
 
-`locateFile` takes in two parameters, `scriptName`, i.e. the wasm file name, and `scriptDirectory`, i.e. the directory
-where the loader expects the script to be. It returns the path where the loader will look for the wasm file. In the NextJS
+`locateFile` takes in two parameters, `scriptName`, i.e. the Wasm file name, and `scriptDirectory`, i.e. the directory
+where the loader expects the script to be. It returns the path where the loader will look for the Wasm file. In the NextJS
 case, we want to return just the `scriptName` so that the loader will look at `http://localhost:3000/tree-sitter.wasm`
 and not `http://localhost:3000/_next/static/chunks/pages/tree-sitter.wasm`.
 

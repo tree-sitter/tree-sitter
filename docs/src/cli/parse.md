@@ -37,7 +37,7 @@ The graphs are constructed with [graphviz dot][dot], and the output is written t
 
 ### `--wasm`
 
-Compile and run the parser as a WASM module.
+Compile and run the parser as a Wasm module.
 
 ### `--dot`
 

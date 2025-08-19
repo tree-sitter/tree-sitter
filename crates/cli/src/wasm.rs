@@ -11,7 +11,7 @@ use wasmparser::Parser;
 
 pub fn load_language_wasm_file(language_dir: &Path) -> Result<(String, Vec<u8>)> {
     let grammar_name = get_grammar_name(language_dir)
-        .with_context(|| "Failed to get wasm filename")
+        .with_context(|| "Failed to get Wasm filename")
         .unwrap();
     let wasm_filename = format!("tree-sitter-{grammar_name}.wasm");
     let contents = fs::read(language_dir.join(&wasm_filename)).with_context(|| {
@@ -61,7 +61,7 @@ pub fn compile_language_to_wasm(
     )?;
 
     // Exit with an error if the external scanner uses symbols from the
-    // C or C++ standard libraries that aren't available to wasm parsers.
+    // C or C++ standard libraries that aren't available to Wasm parsers.
     let stdlib_symbols = wasm_stdlib_symbols().collect::<Vec<_>>();
     let dylink_symbols = [
         "__indirect_function_table",
@@ -100,7 +100,7 @@ pub fn compile_language_to_wasm(
     if !missing_symbols.is_empty() {
         Err(anyhow!(
             concat!(
-                "This external scanner uses a symbol that isn't available to wasm parsers.\n",
+                "This external scanner uses a symbol that isn't available to Wasm parsers.\n",
                 "\n",
                 "Missing symbols:\n",
                 "    {}\n",

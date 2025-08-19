@@ -1416,7 +1416,7 @@ const TSLanguage *ts_wasm_store_load_language(
 );
 
 /**
- * Get the number of languages instantiated in the given wasm store.
+ * Get the number of languages instantiated in the given Wasm store.
  */
 size_t ts_wasm_store_language_count(const TSWasmStore *);
 
