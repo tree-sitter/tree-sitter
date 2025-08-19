@@ -1,5 +1,5 @@
 .{
-  .name = "tree-sitter",
+  .name = .@"tree-sitter",
   .version = "0.25.8",
   .paths = .{
     "build.zig",
