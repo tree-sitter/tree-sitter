@@ -104,10 +104,10 @@ codegen-units = 256
 [workspace.dependencies]
 ansi_colours = "1.2.3"
 anstyle = "1.0.11"
-anyhow = "1.0.98"
+anyhow = "1.0.99"
 bstr = "1.12.0"
-cc = "1.2.32"
-clap = { version = "4.5.44", features = [
+cc = "1.2.33"
+clap = { version = "4.5.45", features = [
   "cargo",
   "derive",
   "env",
@@ -149,7 +149,7 @@ smallbitvec = "2.6.0"
 streaming-iterator = "0.1.9"
 tar = "0.4.40"
 tempfile = "3.20.0"
-thiserror = "2.0.12"
+thiserror = "2.0.15"
 tiny_http = "0.12.0"
 toml = "0.8.23"
 topological-sort = "0.2.2"
