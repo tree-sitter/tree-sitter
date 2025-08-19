@@ -1,7 +1,7 @@
 # `tree-sitter build`
 
 The `build` command compiles your parser into a dynamically-loadable library,
-either as a shared object (`.so`, `.dylib`, or `.dll`) or as a WASM module.
+either as a shared object (`.so`, `.dylib`, or `.dll`) or as a Wasm module.
 
 ```bash
 tree-sitter build [OPTIONS] [PATH] # Aliases: b
@@ -18,11 +18,11 @@ will attempt to build the parser in the current working directory.
 
 ### `-w/--wasm`
 
-Compile the parser as a WASM module.
+Compile the parser as a Wasm module.
 
 ### `-o/--output`
 
-Specify where to output the shared object file (native or WASM). This flag accepts either an absolute path or a relative
+Specify where to output the shared object file (native or Wasm). This flag accepts either an absolute path or a relative
 path. If you don't supply this flag, the CLI will attempt to figure out what the language name is based on the parent
 directory name to use for the output file. If the CLI can't figure it out, it will default to `parser`, thus generating
 `parser.so` or `parser.wasm` in the current working directory.

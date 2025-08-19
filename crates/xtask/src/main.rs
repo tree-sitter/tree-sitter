@@ -22,14 +22,14 @@ use semver::Version;
 enum Commands {
     /// Runs `cargo benchmark` with some optional environment variables set.
     Benchmark(Benchmark),
-    /// Compile the Tree-sitter WASM library. This will create two files in the
+    /// Compile the Tree-sitter Wasm library. This will create two files in the
     /// `lib/binding_web` directory: `web-tree-sitter.js` and `web-tree-sitter.wasm`.
     BuildWasm(BuildWasm),
-    /// Compile the Tree-sitter WASM standard library.
+    /// Compile the Tree-sitter Wasm standard library.
     BuildWasmStdlib,
     /// Bumps the version of the workspace.
     BumpVersion(BumpVersion),
-    /// Checks that WASM exports are synced.
+    /// Checks that Wasm exports are synced.
     CheckWasmExports(CheckWasmExports),
     /// Runs `cargo clippy`.
     Clippy(Clippy),
@@ -41,11 +41,11 @@ enum Commands {
     GenerateBindings,
     /// Generates the fixtures for testing tree-sitter.
     GenerateFixtures(GenerateFixtures),
-    /// Generate the list of exports from Tree-sitter WASM files.
+    /// Generate the list of exports from Tree-sitter Wasm files.
     GenerateWasmExports,
     /// Run the test suite
     Test(Test),
-    /// Run the WASM test suite
+    /// Run the Wasm test suite
     TestWasm,
     /// Upgrade the wasmtime dependency.
     UpgradeWasmtime(UpgradeWasmtime),
@@ -120,7 +120,7 @@ struct Clippy {
 
 #[derive(Args)]
 struct GenerateFixtures {
-    /// Generates the parser to WASM
+    /// Generates the parser to Wasm
     #[arg(long, short)]
     wasm: bool,
 }
@@ -156,7 +156,7 @@ struct Test {
     /// Don't capture the output
     #[arg(long)]
     nocapture: bool,
-    /// Enable the wasm tests.
+    /// Enable the Wasm tests.
     #[arg(long, short)]
     wasm: bool,
 }

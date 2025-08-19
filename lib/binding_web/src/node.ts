@@ -9,7 +9,7 @@ import { TRANSFER_BUFFER } from './parser';
 /** A single node within a syntax {@link Tree}. */
 export class Node {
   /** @internal */
-  private [0] = 0; // Internal handle for WASM
+  private [0] = 0; // Internal handle for Wasm
 
   /** @internal */
   private _children?: Node[];
@@ -427,7 +427,7 @@ export class Node {
       }
     }
 
-    // Copy the array of symbols to the WASM heap
+    // Copy the array of symbols to the Wasm heap
     const symbolsAddress = C._malloc(SIZE_OF_INT * symbols.length);
     for (let i = 0, n = symbols.length; i < n; i++) {
       C.setValue(symbolsAddress + i * SIZE_OF_INT, symbols[i], 'i32');

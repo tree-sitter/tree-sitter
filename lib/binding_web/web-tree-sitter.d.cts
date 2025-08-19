@@ -130,7 +130,7 @@ declare module 'web-tree-sitter' {
 		/**
 		 * This must always be called before creating a Parser.
 		 *
-		 * You can optionally pass in options to configure the WASM module, the most common
+		 * You can optionally pass in options to configure the Wasm module, the most common
 		 * one being `locateFile` to help the module find the `.wasm` file.
 		 */
 		static init(moduleOptions?: EmscriptenModule): Promise<void>;

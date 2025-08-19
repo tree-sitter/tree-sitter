@@ -135,9 +135,9 @@ impl Drop for WasmStore {
 impl fmt::Display for WasmError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let kind = match self.kind {
-            WasmErrorKind::Parse => "Failed to parse wasm",
-            WasmErrorKind::Compile => "Failed to compile wasm",
-            WasmErrorKind::Instantiate => "Failed to instantiate wasm module",
+            WasmErrorKind::Parse => "Failed to parse Wasm",
+            WasmErrorKind::Compile => "Failed to compile Wasm",
+            WasmErrorKind::Instantiate => "Failed to instantiate Wasm module",
             WasmErrorKind::Other => "Unknown error",
         };
         write!(f, "{kind}: {}", self.message)

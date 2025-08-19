@@ -25,7 +25,7 @@ const EXCLUDES: [&str; 27] = [
     "ts_node_eq",
     "ts_tree_cursor_current_field_name",
     "ts_lookahead_iterator_current_symbol_name",
-    // Not used in wasm
+    // Not used in Wasm
     "ts_init",
     "ts_set_allocator",
     "ts_parser_set_cancellation_flag",
@@ -126,7 +126,7 @@ fn check_wasm_exports() -> Result<()> {
 
     if !missing.is_empty() {
         Err(anyhow!(format!(
-            "Unmatched wasm exports:\n{}",
+            "Unmatched Wasm exports:\n{}",
             missing.join("\n")
         )))?;
     }

@@ -153,7 +153,7 @@ struct Generate {
 #[derive(Args)]
 #[command(alias = "b")]
 struct Build {
-    /// Build a WASM module instead of a dynamic library
+    /// Build a Wasm module instead of a dynamic library
     #[arg(short, long)]
     pub wasm: bool,
     /// No longer used.
@@ -205,7 +205,7 @@ struct Parse {
     /// Produce the log.html file with debug graphs
     #[arg(long, short = 'D')]
     pub debug_graph: bool,
-    /// Compile parsers to wasm instead of native dynamic libraries
+    /// Compile parsers to Wasm instead of native dynamic libraries
     #[arg(long)]
     pub wasm: bool,
     /// Output the parse data with graphviz dot
@@ -302,7 +302,7 @@ struct Test {
     /// Produce the log.html file with debug graphs
     #[arg(long, short = 'D')]
     pub debug_graph: bool,
-    /// Compile parsers to wasm instead of native dynamic libraries
+    /// Compile parsers to Wasm instead of native dynamic libraries
     #[arg(long)]
     pub wasm: bool,
     /// Open `log.html` in the default browser, if `--debug-graph` is supplied
@@ -520,7 +520,7 @@ struct Playground {
     /// Don't open in default browser
     #[arg(long, short)]
     pub quiet: bool,
-    /// Path to the directory containing the grammar and wasm files
+    /// Path to the directory containing the grammar and Wasm files
     #[arg(long)]
     pub grammar_path: Option<PathBuf>,
 }

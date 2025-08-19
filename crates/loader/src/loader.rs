@@ -1068,7 +1068,7 @@ impl Loader {
         }
 
         fs::rename(src_path.join(output_name), output_path)
-            .context("failed to rename wasm output file")?;
+            .context("failed to rename Wasm output file")?;
 
         Ok(())
     }

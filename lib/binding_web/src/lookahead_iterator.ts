@@ -3,7 +3,7 @@ import { Language } from './language';
 
 export class LookaheadIterator implements Iterable<string> {
   /** @internal */
-  private [0] = 0; // Internal handle for WASM
+  private [0] = 0; // Internal handle for Wasm
 
   /** @internal */
   private language: Language;

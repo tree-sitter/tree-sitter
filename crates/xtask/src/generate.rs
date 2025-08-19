@@ -30,7 +30,7 @@ pub fn run_fixtures(args: &GenerateFixtures) -> Result<()> {
 
         println!(
             "Regenerating {grammar_name} parser{}",
-            if args.wasm { " to wasm" } else { "" }
+            if args.wasm { " to Wasm" } else { "" }
         );
 
         if args.wasm {

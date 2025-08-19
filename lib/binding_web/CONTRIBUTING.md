@@ -13,7 +13,7 @@ To make changes to Web-tree-sitter, you should have:
 1. A [Rust toolchain][rust], for running the xtasks necessary to build the library.
 2. Node.js and NPM (or an equivalent package manager).
 3. Either [Emscripten][emscripten], [Docker][docker], or [podman][podman] for
-compiling the library to WASM.
+compiling the library to Wasm.
 
 ### Building
 
@@ -51,19 +51,19 @@ by visiting the [Rust website][rust] and following the instructions there.
 
 #### The C side
 
-There are several components that come together to build the final JS and WASM files. First, we use `emscripten` in our
-xtask located at `xtask/src/build_wasm.rs` from the root directory to compile the WASM files. This WASM module is output into the
-local `lib` folder, and is used only in [`src/bindings.ts`][bindings.ts] to handle loading the WASM module. The C code that
-is compiled into the WASM module is located in at [`lib/tree-sitter.c`][tree-sitter.c], and contains all the necessary
+There are several components that come together to build the final JS and Wasm files. First, we use `emscripten` in our
+xtask located at `xtask/src/build_wasm.rs` from the root directory to compile the Wasm files. This Wasm module is output into the
+local `lib` folder, and is used only in [`src/bindings.ts`][bindings.ts] to handle loading the Wasm module. The C code that
+is compiled into the Wasm module is located in at [`lib/tree-sitter.c`][tree-sitter.c], and contains all the necessary
 glue code to interact with the JS environment. If you need to update the imported functions from the tree-sitter library,
-or anywhere else, you must update [`lib/exports.txt`][exports.txt]. Lastly, the type information for the WASM module is
+or anywhere else, you must update [`lib/exports.txt`][exports.txt]. Lastly, the type information for the Wasm module is
 located at [`lib/tree-sitter.d.ts`][tree-sitter.d.ts], and can be updated by running `cargo xtask build-wasm --emit-tsd`
 from the root directory.
 
 #### The TypeScript side
 
-The TypeScript library is a higher level abstraction over the WASM module, and is located in `src`. This is where the
-public API is defined, and where the WASM module is loaded and initialized. The TypeScript library is built into a single
+The TypeScript library is a higher level abstraction over the Wasm module, and is located in `src`. This is where the
+public API is defined, and where the Wasm module is loaded and initialized. The TypeScript library is built into a single
 ES6 (or CommonJS) module, and is output into the same directory as `package.json`. If you need to update the public API,
 you can do so by editing the files in `src`.
 
@@ -80,7 +80,7 @@ to the TypeScript source code.
 
 This TypeScript code is then compiled into a single JavaScript file with `esbuild`. The build configuration for this can
 be found in [`script/build.js`][build.js], but this shouldn't need to be updated. This step is responsible for emitting
-the final JS and WASM files that are shipped with the library, as well as their sourcemaps.
+the final JS and Wasm files that are shipped with the library, as well as their sourcemaps.
 
 ### Testing
 
@@ -97,7 +97,7 @@ Optionally, to update the generated parser.c files:
 cargo xtask generate-fixtures
 ```
 
-Then you can build the WASM modules:
+Then you can build the Wasm modules:
 
 ```sh
 cargo xtask generate-fixtures --wasm

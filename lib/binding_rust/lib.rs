@@ -365,7 +365,7 @@ pub struct QueryCapture<'tree> {
 
 /// An error that occurred when trying to assign an incompatible [`Language`] to
 /// a [`Parser`]. If the `wasm` feature is enabled, this can also indicate a failure
-/// to load the wasm store.
+/// to load the Wasm store.
 #[derive(Debug, PartialEq, Eq)]
 pub enum LanguageError {
     Version(usize),
@@ -3737,7 +3737,7 @@ impl fmt::Display for LanguageError {
             }
             #[cfg(feature = "wasm")]
             Self::Wasm => {
-                write!(f, "Failed to load the wasm store.")
+                write!(f, "Failed to load the Wasm store.")
             }
         }
     }
