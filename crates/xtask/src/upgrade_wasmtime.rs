@@ -67,6 +67,10 @@ fn update_zig(version: &Version) -> Result<()> {
                 let (_, _) = (old_lines.next(), old_lines.next());
                 zig_fetch(new_lines, version, "aarch64-macos-c-api.tar.xz")?;
             }
+            "    .wasmtime_c_api_aarch64_windows = .{" => {
+                let (_, _) = (old_lines.next(), old_lines.next());
+                zig_fetch(new_lines, version, "aarch64-windows-c-api.zip")?;
+            }
             "    .wasmtime_c_api_riscv64gc_linux = .{" => {
                 let (_, _) = (old_lines.next(), old_lines.next());
                 zig_fetch(new_lines, version, "riscv64gc-linux-c-api.tar.xz")?;
@@ -119,7 +123,7 @@ pub fn run(args: &UpgradeWasmtime) -> Result<()> {
     create_commit(
         &repo,
         &format!("build(deps): bump wasmtime-c-api to v{}", args.version),
-        &["lib/Cargo.toml", "build.zig.zon"],
+        &["lib/Cargo.toml", "Cargo.lock", "build.zig.zon"],
     )?;
 
     Ok(())
