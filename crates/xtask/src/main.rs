@@ -6,7 +6,6 @@ mod clippy;
 mod fetch;
 mod generate;
 mod test;
-mod upgrade_emscripten;
 mod upgrade_wasmtime;
 
 use std::path::Path;
@@ -49,8 +48,6 @@ enum Commands {
     TestWasm,
     /// Upgrade the wasmtime dependency.
     UpgradeWasmtime(UpgradeWasmtime),
-    /// Upgrade the emscripten file.
-    UpgradeEmscripten,
 }
 
 #[derive(Args)]
@@ -236,7 +233,6 @@ fn run() -> Result<()> {
         Commands::UpgradeWasmtime(upgrade_wasmtime_options) => {
             upgrade_wasmtime::run(&upgrade_wasmtime_options)?;
         }
-        Commands::UpgradeEmscripten => upgrade_emscripten::run()?,
     }
 
     Ok(())
