@@ -95,7 +95,7 @@ fn wasmtimeDep(target: std.Target) []const u8 {
 }
 
 fn findSourceFiles(b: *std.Build) ![]const []const u8 {
-  var sources = std.ArrayList([]const u8).init(b.allocator);
+  var sources : std.ArrayList([]const u8) = .empty;
 
   var dir = try b.build_root.handle.openDir("lib/src", .{ .iterate = true });
   var iter = dir.iterate();
@@ -106,7 +106,7 @@ fn findSourceFiles(b: *std.Build) ![]const []const u8 {
     const file = entry.name;
     const ext = std.fs.path.extension(file);
     if (std.mem.eql(u8, ext, ".c") and !std.mem.eql(u8, file, "lib.c")) {
-      try sources.append(b.dupe(file));
+      try sources.append(b.allocator, b.dupe(file));
     }
   }
 
