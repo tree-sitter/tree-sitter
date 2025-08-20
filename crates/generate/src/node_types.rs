@@ -102,7 +102,7 @@ impl ChildQuantity {
         }
     }
 
-    fn append(&mut self, other: Self) {
+    const fn append(&mut self, other: Self) {
         if other.exists {
             if self.exists || other.multiple {
                 self.multiple = true;
@@ -114,7 +114,7 @@ impl ChildQuantity {
         }
     }
 
-    fn union(&mut self, other: Self) -> bool {
+    const fn union(&mut self, other: Self) -> bool {
         let mut result = false;
         if !self.exists && other.exists {
             result = true;
