@@ -44,7 +44,7 @@ pub fn build(b: *std.Build) !void {
       lib.root_module.addCMacro("TREE_SITTER_FEATURE_WASM", "");
       lib.addSystemIncludePath(wasmtime.path("include"));
       lib.addLibraryPath(wasmtime.path("lib"));
-      lib.linkSystemLibrary("wasmtime");
+      if (shared) lib.linkSystemLibrary("wasmtime");
     }
   }
 
