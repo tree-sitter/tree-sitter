@@ -7,93 +7,6 @@
     sizes="32x32" />
   <link rel="icon" type="image/png" href="https://tree-sitter.github.io/tree-sitter/assets/images/favicon-16x16.png"
     sizes="16x16" />
-</head>
-
-<body>
-  <div id="playground-container" style="visibility: hidden;">
-    <header>
-      <div class="header-item">
-        <span class="language-name">Language: THE_LANGUAGE_NAME</span>
-      </div>
-
-      <div class="header-item">
-        <input id="logging-checkbox" type="checkbox">
-        <label for="logging-checkbox">log</label>
-      </div>
-
-      <div class="header-item">
-        <input id="anonymous-nodes-checkbox" type="checkbox">
-        <label for="anonymous-nodes-checkbox">show anonymous nodes</label>
-      </div>
-
-      <div class="header-item">
-        <input id="query-checkbox" type="checkbox">
-        <label for="query-checkbox">query</label>
-      </div>
-
-      <div class="header-item">
-        <input id="accessibility-checkbox" type="checkbox">
-        <label for="accessibility-checkbox">accessibility</label>
-      </div>
-
-      <div class="header-item">
-        <label for="update-time">parse time: </label>
-        <span id="update-time"></span>
-      </div>
-
-      <div class="header-item">
-        <a href="https://tree-sitter.github.io/tree-sitter/7-playground.html#about">(?)</a>
-      </div>
-
-      <select id="language-select" style="display: none;">
-        <option value="parser">Parser</option>
-      </select>
-
-      <div class="header-item">
-        <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme">
-          <svg class="sun-icon" viewBox="0 0 24 24" width="16" height="16">
-            <path fill="currentColor"
-              d="M12 17.5a5.5 5.5 0 1 0 0-11 5.5 5.5 0 0 0 0 11zm0 1.5a7 7 0 1 1 0-14 7 7 0 0 1 0 14zm0-16a1 1 0 0 1 1 1v2a1 1 0 1 1-2 0V4a1 1 0 0 1 1-1zm0 15a1 1 0 0 1 1 1v2a1 1 0 1 1-2 0v-2a1 1 0 0 1 1-1zm9-9a1 1 0 0 1-1 1h-2a1 1 0 1 1 0-2h2a1 1 0 0 1 1 1zM4 12a1 1 0 0 1-1 1H1a1 1 0 1 1 0-2h2a1 1 0 0 1 1 1z" />
-          </svg>
-          <svg class="moon-icon" viewBox="0 0 24 24" width="16" height="16">
-            <path fill="currentColor"
-              d="M12.1 22c-5.5 0-10-4.5-10-10s4.5-10 10-10c.2 0 .3 0 .5.1-1.3 1.4-2 3.2-2 5.2 0 4.1 3.4 7.5 7.5 7.5 2 0 3.8-.7 5.2-2 .1.2.1.3.1.5 0 5.4-4.5 9.7-10 9.7z" />
-          </svg>
-        </button>
-      </div>
-    </header>
-
-    <main>
-      <div id="input-pane">
-        <div class="panel-header">Code</div>
-        <div id="code-container">
-          <textarea id="code-input"></textarea>
-        </div>
-
-        <div id="query-container" style="visibility: hidden; position: absolute;">
-          <div class="panel-header">Query</div>
-          <textarea id="query-input"></textarea>
-        </div>
-      </div>
-
-      <div id="output-container-scroll">
-        <div class="panel-header">Tree</div>
-        <pre id="output-container" class="highlight"></pre>
-      </div>
-    </main>
-  </div>
-
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/codemirror.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/clusterize.js/0.19.0/clusterize.min.js"></script>
-
-  <script>LANGUAGE_BASE_URL = "";</script>
-  <script type="module" src="playground.js"></script>
-  <script type="module">
-    import * as TreeSitter from './web-tree-sitter.js';
-    window.TreeSitter = TreeSitter;
-    setTimeout(() => window.initializePlayground({local: true}), 1)
-  </script>
-
   <style>
     /* Base Variables */
     :root {
@@ -404,4 +317,90 @@
       }
     }
   </style>
+</head>
+
+<body>
+  <div id="playground-container" style="visibility: hidden;">
+    <header>
+      <div class="header-item">
+        <span class="language-name">Language: THE_LANGUAGE_NAME</span>
+      </div>
+
+      <div class="header-item">
+        <input id="logging-checkbox" type="checkbox">
+        <label for="logging-checkbox">log</label>
+      </div>
+
+      <div class="header-item">
+        <input id="anonymous-nodes-checkbox" type="checkbox">
+        <label for="anonymous-nodes-checkbox">show anonymous nodes</label>
+      </div>
+
+      <div class="header-item">
+        <input id="query-checkbox" type="checkbox">
+        <label for="query-checkbox">query</label>
+      </div>
+
+      <div class="header-item">
+        <input id="accessibility-checkbox" type="checkbox">
+        <label for="accessibility-checkbox">accessibility</label>
+      </div>
+
+      <div class="header-item">
+        <label for="update-time">parse time: </label>
+        <span id="update-time"></span>
+      </div>
+
+      <div class="header-item">
+        <a href="https://tree-sitter.github.io/tree-sitter/7-playground.html#about">(?)</a>
+      </div>
+
+      <select id="language-select" style="display: none;">
+        <option value="parser">Parser</option>
+      </select>
+
+      <div class="header-item">
+        <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme">
+          <svg class="sun-icon" viewBox="0 0 24 24" width="16" height="16">
+            <path fill="currentColor"
+              d="M12 17.5a5.5 5.5 0 1 0 0-11 5.5 5.5 0 0 0 0 11zm0 1.5a7 7 0 1 1 0-14 7 7 0 0 1 0 14zm0-16a1 1 0 0 1 1 1v2a1 1 0 1 1-2 0V4a1 1 0 0 1 1-1zm0 15a1 1 0 0 1 1 1v2a1 1 0 1 1-2 0v-2a1 1 0 0 1 1-1zm9-9a1 1 0 0 1-1 1h-2a1 1 0 1 1 0-2h2a1 1 0 0 1 1 1zM4 12a1 1 0 0 1-1 1H1a1 1 0 1 1 0-2h2a1 1 0 0 1 1 1z" />
+          </svg>
+          <svg class="moon-icon" viewBox="0 0 24 24" width="16" height="16">
+            <path fill="currentColor"
+              d="M12.1 22c-5.5 0-10-4.5-10-10s4.5-10 10-10c.2 0 .3 0 .5.1-1.3 1.4-2 3.2-2 5.2 0 4.1 3.4 7.5 7.5 7.5 2 0 3.8-.7 5.2-2 .1.2.1.3.1.5 0 5.4-4.5 9.7-10 9.7z" />
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <main>
+      <div id="input-pane">
+        <div class="panel-header">Code</div>
+        <div id="code-container">
+          <textarea id="code-input"></textarea>
+        </div>
+
+        <div id="query-container" style="visibility: hidden; position: absolute;">
+          <div class="panel-header">Query</div>
+          <textarea id="query-input"></textarea>
+        </div>
+      </div>
+
+      <div id="output-container-scroll">
+        <div class="panel-header">Tree</div>
+        <pre id="output-container" class="highlight"></pre>
+      </div>
+    </main>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/codemirror.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/clusterize.js/0.19.0/clusterize.min.js"></script>
+
+  <script>LANGUAGE_BASE_URL = "";</script>
+  <script type="module" src="playground.js"></script>
+  <script type="module">
+    import * as TreeSitter from './web-tree-sitter.js';
+    window.TreeSitter = TreeSitter;
+    setTimeout(() => window.initializePlayground({local: true}), 1)
+  </script>
 </body>
