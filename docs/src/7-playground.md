@@ -70,7 +70,10 @@
 <textarea id="query-input"></textarea>
 </div>
 
-<h2>Tree</h2>
+<h2>
+  Tree
+  <button type="button" id="copy-button" class="theme-toggle">📋</button>
+</h2>
 <span id="update-time"></span>
 <div id="output-container-scroll">
 <pre id="output-container" class="highlight"></pre>
