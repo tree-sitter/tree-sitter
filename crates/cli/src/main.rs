@@ -26,7 +26,9 @@ use tree_sitter_cli::{
     playground, query,
     tags::{self, TagsOptions},
     test::{self, TestOptions, TestStats},
-    test_highlight, test_tags, util, version, wasm,
+    test_highlight, test_tags, util, version,
+    version::BumpLevel,
+    wasm,
 };
 use tree_sitter_config::Config;
 use tree_sitter_highlight::Highlighter;
@@ -53,7 +55,7 @@ enum Commands {
     Parse(Parse),
     /// Run a parser's tests
     Test(Test),
-    /// Increment the version of a grammar
+    /// Display or increment the version of a grammar
     Version(Version),
     /// Fuzz a parser
     Fuzz(Fuzz),
@@ -327,14 +329,26 @@ struct Test {
 
 #[derive(Args)]
 #[command(alias = "publish")]
-/// Increment the version of a grammar
+/// Display or increment the version of a grammar
 struct Version {
-    #[arg(num_args = 1)]
     /// The version to bump to
-    pub version: SemverVersion,
+    #[arg(
+        conflicts_with = "bump",
+        long_help = "\
+        The version to bump to\n\
+        \n\
+        Examples:\n    \
+            tree-sitter version: display the current version\n    \
+            tree-sitter version <version>: bump to specified version\n    \
+            tree-sitter version --bump <level>: automatic bump"
+    )]
+    pub version: Option<SemverVersion>,
     /// The path to the tree-sitter grammar directory
     #[arg(long, short = 'p')]
     pub grammar_path: Option<PathBuf>,
+    /// Automatically bump from the current version
+    #[arg(long, value_enum, conflicts_with = "version")]
+    pub bump: Option<BumpLevel>,
 }
 
 #[derive(Args)]
@@ -1314,7 +1328,7 @@ impl Test {
 
 impl Version {
     fn run(self, current_dir: PathBuf) -> Result<()> {
-        version::Version::new(self.version.to_string(), current_dir).run()
+        version::Version::new(self.version, current_dir, self.bump).run()
     }
 }
 
