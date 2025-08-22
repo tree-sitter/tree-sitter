@@ -18,7 +18,7 @@ macro_rules! optional_resource {
             if let Some(tree_sitter_dir) = tree_sitter_dir {
                 Cow::Owned(fs::read(tree_sitter_dir.join($path)).unwrap())
             } else {
-                Cow::Borrowed(include_bytes!(concat!("../../", $path)))
+                Cow::Borrowed(include_bytes!(concat!("../../../", $path)))
             }
         }
 
@@ -41,7 +41,7 @@ fn get_main_html(tree_sitter_dir: Option<&Path>) -> Cow<'static, [u8]> {
     tree_sitter_dir.map_or(
         Cow::Borrowed(include_bytes!("playground.html")),
         |tree_sitter_dir| {
-            Cow::Owned(fs::read(tree_sitter_dir.join("cli/src/playground.html")).unwrap())
+            Cow::Owned(fs::read(tree_sitter_dir.join("crates/cli/src/playground.html")).unwrap())
         },
     )
 }
