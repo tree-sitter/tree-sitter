@@ -53,7 +53,8 @@ pub fn build(b: *std.Build) !void {
   b.installArtifact(lib);
 }
 
-fn wasmtimeDep(target: std.Target) []const u8 {
+/// Get the name of the wasmtime dependency for this target.
+pub fn wasmtimeDep(target: std.Target) []const u8 {
   const arch = target.cpu.arch;
   const os = target.os.tag;
   const abi = target.abi;
@@ -95,7 +96,7 @@ fn wasmtimeDep(target: std.Target) []const u8 {
 }
 
 fn findSourceFiles(b: *std.Build) ![]const []const u8 {
-  var sources : std.ArrayList([]const u8) = .empty;
+  var sources: std.ArrayList([]const u8) = .empty;
 
   var dir = try b.build_root.handle.openDir("lib/src", .{ .iterate = true });
   var iter = dir.iterate();
