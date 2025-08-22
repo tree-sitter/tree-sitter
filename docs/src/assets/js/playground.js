@@ -117,6 +117,7 @@ window.initializePlayground = async (opts) => {
   const queryContainer = document.getElementById("query-container");
   const queryInput = document.getElementById("query-input");
   const accessibilityCheckbox = document.getElementById("accessibility-checkbox");
+  const copyButton = document.getElementById("copy-button");
   const updateTimeSpan = document.getElementById("update-time");
   const languagesByName = {};
 
@@ -174,11 +175,12 @@ window.initializePlayground = async (opts) => {
   queryEditor.on("changes", debounce(handleQueryChange, 150));
 
   loggingCheckbox.addEventListener("change", handleLoggingChange);
-  anonymousNodes.addEventListener('change', renderTree);
+  anonymousNodes.addEventListener("change", renderTree);
   queryCheckbox.addEventListener("change", handleQueryEnableChange);
   accessibilityCheckbox.addEventListener("change", handleQueryChange);
   languageSelect.addEventListener("change", handleLanguageChange);
   outputContainer.addEventListener("click", handleTreeClick);
+  copyButton.addEventListener("click", handleCopy);
 
   handleQueryEnableChange();
   await handleLanguageChange();
@@ -495,6 +497,16 @@ window.initializePlayground = async (opts) => {
         });
       }
     }
+  }
+
+  function handleCopy() {
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    const range = document.createRange();
+    range.selectNodeContents(outputContainer);
+    selection.addRange(range);
+    navigator.clipboard.writeText(selection.toString());
+    selection.removeRange(range);
   }
 
   function handleTreeClick(event) {
