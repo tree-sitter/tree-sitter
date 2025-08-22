@@ -64,34 +64,34 @@ pub fn wasmtimeDep(target: std.Target) []const u8 {
         .gnu => "wasmtime_c_api_x86_64_linux",
         .musl => "wasmtime_c_api_x86_64_musl",
         .android => "wasmtime_c_api_x86_64_android",
-        else => null
+                else => null,
       },
       .aarch64 => switch (abi) {
         .gnu => "wasmtime_c_api_aarch64_linux",
         .android => "wasmtime_c_api_aarch64_android",
-        else => null
+                else => null,
       },
       .s390x => "wasmtime_c_api_s390x_linux",
       .riscv64 => "wasmtime_c_api_riscv64gc_linux",
-      else => null
+            else => null,
     },
     .windows => switch (arch) {
       .x86_64 => switch (abi) {
         .gnu => "wasmtime_c_api_x86_64_mingw",
         .msvc => "wasmtime_c_api_x86_64_windows",
-        else => null
+                else => null,
       },
-      else => null
+            else => null,
     },
     .macos => switch (arch) {
       .x86_64 => "wasmtime_c_api_x86_64_macos",
       .aarch64 => "wasmtime_c_api_aarch64_macos",
-      else => null
+            else => null,
     },
-    else => null
+        else => null,
   } orelse std.debug.panic(
     "Unsupported target for wasmtime: {s}-{s}-{s}",
-    .{ @tagName(arch), @tagName(os), @tagName(abi) }
+        .{ @tagName(arch), @tagName(os), @tagName(abi) },
   );
 }
 
