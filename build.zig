@@ -53,7 +53,8 @@ pub fn build(b: *std.Build) !void {
   b.installArtifact(lib);
 }
 
-fn wasmtimeDep(target: std.Target) []const u8 {
+/// Get the name of the wasmtime dependency for this target.
+pub fn wasmtimeDep(target: std.Target) []const u8 {
   const arch = target.cpu.arch;
   const os = target.os.tag;
   const abi = target.abi;
