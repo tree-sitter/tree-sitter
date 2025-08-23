@@ -411,6 +411,7 @@ pub fn generate_grammar_files(
                 |path| {
                     let contents = fs::read_to_string(path)?;
                     if !contents.contains("bun") {
+                        eprintln!("Replacing index.js");
                         generate_file(path, INDEX_JS_TEMPLATE, language_name, &generate_opts)?;
                     }
                     Ok(())
@@ -777,8 +778,13 @@ pub fn generate_grammar_files(
             allow_update,
             |path| generate_file(path, BUILD_ZIG_TEMPLATE, language_name, &generate_opts),
             |path| {
-                eprintln!("Replacing build.zig");
-                generate_file(path, BUILD_ZIG_TEMPLATE, language_name, &generate_opts)
+                let contents = fs::read_to_string(path)?;
+                if !contents.contains("b.pkg_hash.len") {
+                    eprintln!("Replacing build.zig");
+                    generate_file(path, BUILD_ZIG_TEMPLATE, language_name, &generate_opts)
+                } else {
+                    Ok(())
+                }
             },
         )?;
 
@@ -787,8 +793,13 @@ pub fn generate_grammar_files(
             allow_update,
             |path| generate_file(path, BUILD_ZIG_ZON_TEMPLATE, language_name, &generate_opts),
             |path| {
-                eprintln!("Replacing build.zig.zon");
-                generate_file(path, BUILD_ZIG_ZON_TEMPLATE, language_name, &generate_opts)
+                let contents = fs::read_to_string(path)?;
+                if !contents.contains(".name = .tree_sitter_") {
+                    eprintln!("Replacing build.zig.zon");
+                    generate_file(path, BUILD_ZIG_ZON_TEMPLATE, language_name, &generate_opts)
+                } else {
+                    Ok(())
+                }
             },
         )?;
 
@@ -798,8 +809,13 @@ pub fn generate_grammar_files(
                 allow_update,
                 |path| generate_file(path, ROOT_ZIG_TEMPLATE, language_name, &generate_opts),
                 |path| {
-                    eprintln!("Replacing root.zig");
-                    generate_file(path, ROOT_ZIG_TEMPLATE, language_name, &generate_opts)
+                    let contents = fs::read_to_string(path)?;
+                    if contents.contains("ts.Language") {
+                        eprintln!("Replacing root.zig");
+                        generate_file(path, ROOT_ZIG_TEMPLATE, language_name, &generate_opts)
+                    } else {
+                        Ok(())
+                    }
                 },
             )?;
 

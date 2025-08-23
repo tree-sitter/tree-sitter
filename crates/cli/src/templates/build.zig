@@ -68,13 +68,16 @@ pub fn build(b: *std.Build) !void {
     });
     tests.root_module.addImport(library_name, module);
 
-    var args = try std.process.argsWithAllocator(b.allocator);
-    defer args.deinit();
-    while (args.next()) |a| {
-        if (std.mem.eql(u8, a, "test")) {
-            const ts_dep = b.lazyDependency("tree_sitter", .{}) orelse continue;
-            tests.root_module.addImport("tree-sitter", ts_dep.module("tree-sitter"));
-            break;
+    // HACK: fetch tree-sitter dependency only when testing this module
+    if (b.pkg_hash.len == 0) {
+        var args = try std.process.argsWithAllocator(b.allocator);
+        defer args.deinit();
+        while (args.next()) |a| {
+            if (std.mem.eql(u8, a, "test")) {
+                const ts_dep = b.lazyDependency("tree_sitter", .{}) orelse continue;
+                tests.root_module.addImport("tree-sitter", ts_dep.module("tree-sitter"));
+                break;
+            }
         }
     }
 
