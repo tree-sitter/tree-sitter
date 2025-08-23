@@ -38,15 +38,15 @@ typedef struct {
     uint32_t *bytes_read
   );
   TSInputEncoding encoding;
-  DecodeFunction decode;
+  TSDecodeFunction decode;
 } TSInput;
 ```
 
 If you want to decode text that is not encoded in UTF-8 or UTF-16, you can set the `decode` field of the input to your function
-that will decode text. The signature of the `DecodeFunction` is as follows:
+that will decode text. The signature of the `TSDecodeFunction` is as follows:
 
 ```c
-typedef uint32_t (*DecodeFunction)(
+typedef uint32_t (*TSDecodeFunction)(
   const uint8_t *string,
   uint32_t length,
   int32_t *code_point

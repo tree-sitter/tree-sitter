@@ -51,11 +51,14 @@ typedef struct TSLookaheadIterator TSLookaheadIterator;
 // This function signature reads one code point from the given string,
 // returning the number of bytes consumed. It should write the code point
 // to the `code_point` pointer, or write -1 if the input is invalid.
-typedef uint32_t (*DecodeFunction)(
+typedef uint32_t (*TSDecodeFunction)(
   const uint8_t *string,
   uint32_t length,
   int32_t *code_point
 );
+
+// Deprecated alias to be removed in ABI 16
+typedef TSDecodeFunction DecodeFunction;
 
 typedef enum TSInputEncoding {
   TSInputEncodingUTF8,
@@ -87,7 +90,7 @@ typedef struct TSInput {
   void *payload;
   const char *(*read)(void *payload, uint32_t byte_index, TSPoint position, uint32_t *bytes_read);
   TSInputEncoding encoding;
-  DecodeFunction decode;
+  TSDecodeFunction decode;
 } TSInput;
 
 typedef struct TSParseState {

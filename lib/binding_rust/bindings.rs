@@ -35,7 +35,7 @@ pub struct TSQueryCursor {
 pub struct TSLookaheadIterator {
     _unused: [u8; 0],
 }
-pub type DecodeFunction = ::core::option::Option<
+pub type TSDecodeFunction = ::core::option::Option<
     unsafe extern "C" fn(string: *const u8, length: u32, code_point: *mut i32) -> u32,
 >;
 pub const TSInputEncodingUTF8: TSInputEncoding = 0;
@@ -75,7 +75,7 @@ pub struct TSInput {
         ) -> *const ::core::ffi::c_char,
     >,
     pub encoding: TSInputEncoding,
-    pub decode: DecodeFunction,
+    pub decode: TSDecodeFunction,
 }
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
