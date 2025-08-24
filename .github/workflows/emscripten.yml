@@ -1,30 +1,38 @@
 name: Update Emscripten
 
 on:
-  pull_request:
-    types: [opened, synchronize]
+  schedule:
+    - cron: "0 12 1 * *"
+  workflow_dispatch:
 
 permissions:
   contents: write
-  pull-requests: read
+  pull-requests: write
 
 jobs:
   update-emscripten:
-    if: github.actor == 'dependabot[bot]'
     runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{github.token}}
+      VERSION_FILE: crates/loader/emscripten-version
     steps:
-      - uses: actions/checkout@v5
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-
+      - name: Checkout repository
+        uses: actions/checkout@v5
       - name: Set up stable Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
-
-      - name: Run emscripten update xtask
-        run: |
-          git config --global user.name "dependabot[bot]"
-          git config --global user.email "49699333+dependabot[bot]@users.noreply.github.com"
-          cargo xtask upgrade-emscripten
-
+      - name: Update Emscripten version
+        id: update
+        run: |-
+          gh api /repos/emscripten-core/emsdk/tags --jq '.[0].name' > "$VERSION_FILE"
+          if ! git diff --exit-code -- "$VERSION_FILE"; then
+            printf 'version=%s\n' "$(<"$VERSION_FILE")" >> "$GITHUB_OUTPUT"
+          fi
       - name: Push updated version
-        run: git push origin HEAD:$GITHUB_HEAD_REF
+        if: steps.update.version
+        run: |-
+          git config --global user.name 'dependabot[bot]'
+          git config --global user.email '49699333+dependabot[bot]@users.noreply.github.com'
+          git add "$VERSION_FILE"
+          git commit -m 'build(deps): bump emscripten to ${{steps.update.version}}'
+          git push origin 'HEAD:update-emscripten-${{steps.update.version}}'
+          gh pr create -f -B "$GITHUB_REF_NAME" -H 'update-emscripten-${{steps.update-version}}'
