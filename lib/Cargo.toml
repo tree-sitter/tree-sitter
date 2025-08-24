@@ -30,6 +30,7 @@ include = [
   "/src/unicode/*",
   "/src/wasm/*",
   "/include/tree_sitter/api.h",
+  "/LICENSE",
 ]
 
 [package.metadata.docs.rs]
