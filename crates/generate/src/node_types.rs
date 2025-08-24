@@ -30,6 +30,7 @@ pub struct VariableInfo {
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq, Default, PartialOrd, Ord)]
+#[cfg(feature = "load")]
 pub struct NodeInfoJSON {
     #[serde(rename = "type")]
     kind: String,
@@ -47,6 +48,7 @@ pub struct NodeInfoJSON {
 }
 
 #[derive(Clone, Debug, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg(feature = "load")]
 pub struct NodeTypeJSON {
     #[serde(rename = "type")]
     kind: String,
@@ -54,6 +56,7 @@ pub struct NodeTypeJSON {
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg(feature = "load")]
 pub struct FieldInfoJSON {
     multiple: bool,
     required: bool,
@@ -67,6 +70,7 @@ pub struct ChildQuantity {
     multiple: bool,
 }
 
+#[cfg(feature = "load")]
 impl Default for FieldInfoJSON {
     fn default() -> Self {
         Self {
@@ -441,6 +445,7 @@ pub fn get_supertype_symbol_map(
     supertype_symbol_map
 }
 
+#[cfg(feature = "load")]
 pub type SuperTypeCycleResult<T> = Result<T, SuperTypeCycleError>;
 
 #[derive(Debug, Error, Serialize)]
@@ -462,6 +467,7 @@ impl std::fmt::Display for SuperTypeCycleError {
     }
 }
 
+#[cfg(feature = "load")]
 pub fn generate_node_types_json(
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
@@ -783,6 +789,7 @@ pub fn generate_node_types_json(
     Ok(result)
 }
 
+#[cfg(feature = "load")]
 fn process_supertypes(info: &mut FieldInfoJSON, subtype_map: &[(NodeTypeJSON, Vec<NodeTypeJSON>)]) {
     for (supertype, subtypes) in subtype_map {
         if info.types.contains(supertype) {
@@ -829,7 +836,7 @@ where
     })
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "load"))]
 mod tests {
     use super::*;
     use crate::{
