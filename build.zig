@@ -44,7 +44,7 @@ pub fn build(b: *std.Build) !void {
       lib.root_module.addCMacro("TREE_SITTER_FEATURE_WASM", "");
       lib.addSystemIncludePath(wasmtime.path("include"));
       lib.addLibraryPath(wasmtime.path("lib"));
-      lib.linkSystemLibrary("wasmtime");
+            if (shared) lib.linkSystemLibrary("wasmtime");
     }
   }
 
@@ -53,7 +53,8 @@ pub fn build(b: *std.Build) !void {
   b.installArtifact(lib);
 }
 
-fn wasmtimeDep(target: std.Target) []const u8 {
+/// Get the name of the wasmtime dependency for this target.
+pub fn wasmtimeDep(target: std.Target) []const u8 {
   const arch = target.cpu.arch;
   const os = target.os.tag;
   const abi = target.abi;
@@ -63,39 +64,39 @@ fn wasmtimeDep(target: std.Target) []const u8 {
         .gnu => "wasmtime_c_api_x86_64_linux",
         .musl => "wasmtime_c_api_x86_64_musl",
         .android => "wasmtime_c_api_x86_64_android",
-        else => null
+                else => null,
       },
       .aarch64 => switch (abi) {
         .gnu => "wasmtime_c_api_aarch64_linux",
         .android => "wasmtime_c_api_aarch64_android",
-        else => null
+                else => null,
       },
       .s390x => "wasmtime_c_api_s390x_linux",
       .riscv64 => "wasmtime_c_api_riscv64gc_linux",
-      else => null
+            else => null,
     },
     .windows => switch (arch) {
       .x86_64 => switch (abi) {
         .gnu => "wasmtime_c_api_x86_64_mingw",
         .msvc => "wasmtime_c_api_x86_64_windows",
-        else => null
+                else => null,
       },
-      else => null
+            else => null,
     },
     .macos => switch (arch) {
       .x86_64 => "wasmtime_c_api_x86_64_macos",
       .aarch64 => "wasmtime_c_api_aarch64_macos",
-      else => null
+            else => null,
     },
-    else => null
+        else => null,
   } orelse std.debug.panic(
     "Unsupported target for wasmtime: {s}-{s}-{s}",
-    .{ @tagName(arch), @tagName(os), @tagName(abi) }
+        .{ @tagName(arch), @tagName(os), @tagName(abi) },
   );
 }
 
 fn findSourceFiles(b: *std.Build) ![]const []const u8 {
-  var sources : std.ArrayList([]const u8) = .empty;
+  var sources: std.ArrayList([]const u8) = .empty;
 
   var dir = try b.build_root.handle.openDir("lib/src", .{ .iterate = true });
   var iter = dir.iterate();
