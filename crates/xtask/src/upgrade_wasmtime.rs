@@ -119,7 +119,7 @@ pub fn run(args: &UpgradeWasmtime) -> Result<()> {
     create_commit(
         &repo,
         &format!("build(deps): bump wasmtime-c-api to v{}", args.version),
-        &["lib/Cargo.toml", "build.zig.zon"],
+        &["lib/Cargo.toml", "Cargo.lock", "build.zig.zon"],
     )?;
 
     Ok(())
