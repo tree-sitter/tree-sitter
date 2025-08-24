@@ -285,14 +285,36 @@ pub fn generate_grammar_files(
     };
 
     // Create package.json
-    missing_path(repo_path.join("package.json"), |path| {
-        generate_file(
-            path,
-            PACKAGE_JSON_TEMPLATE,
-            dashed_language_name.as_str(),
-            &generate_opts,
-        )
-    })?;
+    missing_path_else(
+        repo_path.join("package.json"),
+        allow_update,
+        |path| {
+            generate_file(
+                path,
+                PACKAGE_JSON_TEMPLATE,
+                dashed_language_name.as_str(),
+                &generate_opts,
+            )
+        },
+        |path| {
+            let contents = fs::read_to_string(path)?
+                .replace(
+                    r#""node-addon-api": "^8.3.1"#,
+                    r#""node-addon-api": "^8.5.0""#,
+                )
+                .replace(
+                    indoc! {r#"
+                    "prebuildify": "^6.0.1",
+                    "tree-sitter-cli":"#},
+                    indoc! {r#"
+                    "prebuildify": "^6.0.1",
+                    "tree-sitter": "^0.22.4",
+                    "tree-sitter-cli":"#},
+                );
+            write_file(path, contents)?;
+            Ok(())
+        },
+    )?;
 
     // Do not create a grammar.js file in a repo with multiple language configs
     if !tree_sitter_config.has_multiple_language_configs() {
