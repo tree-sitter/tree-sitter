@@ -754,6 +754,7 @@ TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine, TSWasmError *wasm_error) {
   wasmtime_val_t stack_pointer_value = WASM_I32_VAL(0);
   wasmtime_global_t stack_pointer_global;
   error = wasmtime_global_new(context, var_i32_type, &stack_pointer_value, &stack_pointer_global);
+  wasm_globaltype_delete(var_i32_type);
   ts_assert(!error);
 
   *self = (TSWasmStore) {
