@@ -25,9 +25,11 @@ pub fn build(b: *std.Build) !void {
       .flags = &.{"-std=c11"},
     });
   } else {
+    const files = try findSourceFiles(b);
+    defer b.allocator.free(files);
     lib.addCSourceFiles(.{
       .root = b.path("lib/src"),
-      .files = try findSourceFiles(b),
+      .files = files,
       .flags = &.{"-std=c11"},
     });
   }
@@ -96,7 +98,7 @@ pub fn wasmtimeDep(target: std.Target) []const u8 {
 }
 
 fn findSourceFiles(b: *std.Build) ![]const []const u8 {
-  var sources: std.ArrayList([]const u8) = .empty;
+  var sources: std.ArrayListUnmanaged([]const u8) = .empty;
 
   var dir = try b.build_root.handle.openDir("lib/src", .{ .iterate = true });
   var iter = dir.iterate();
@@ -111,5 +113,5 @@ fn findSourceFiles(b: *std.Build) ![]const []const u8 {
     }
   }
 
-  return sources.items;
+  return sources.toOwnedSlice(b.allocator);
 }
