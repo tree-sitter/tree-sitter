@@ -46,8 +46,8 @@ std = ["regex/std", "regex/perf", "regex-syntax/unicode"]
 wasm = ["std", "wasmtime-c-api"]
 
 [dependencies]
-regex = { version = "1.11.1", default-features = false, features = ["unicode"] }
-regex-syntax = { version = "0.8.5", default-features = false }
+regex = { version = "1.11.2", default-features = false, features = ["unicode"] }
+regex-syntax = { version = "0.8.6", default-features = false }
 tree-sitter-language.workspace = true
 streaming-iterator = "0.1.9"
 
