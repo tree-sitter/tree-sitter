@@ -3356,12 +3356,11 @@ impl<'tree> QueryMatch<'_, 'tree> {
             .iter()
             .all(|predicate| match predicate {
                 TextPredicateCapture::EqCapture(i, j, is_positive, match_all_nodes) => {
-                    let nodes_1 = self.nodes_for_capture_index(*i);
-                    let mut nodes_2 = self.nodes_for_capture_index(*j);
-                    for node1 in nodes_1 {
-                        let Some(node2) = nodes_2.next() else {
-                            return false;
-                        };
+                    let mut nodes_1 = self.nodes_for_capture_index(*i).peekable();
+                    let mut nodes_2 = self.nodes_for_capture_index(*j).peekable();
+                    while nodes_1.peek().is_some() && nodes_2.peek().is_some() {
+                        let node1 = nodes_1.next().unwrap();
+                        let node2 = nodes_2.next().unwrap();
                         let mut text1 = text_provider.text(node1);
                         let mut text2 = text_provider.text(node2);
                         let text1 = node_text1.get_text(&mut text1);
@@ -3374,7 +3373,7 @@ impl<'tree> QueryMatch<'_, 'tree> {
                             return true;
                         }
                     }
-                    nodes_2.next().is_none()
+                    nodes_1.next().is_none() && nodes_2.next().is_none()
                 }
                 TextPredicateCapture::EqString(i, s, is_positive, match_all_nodes) => {
                     let nodes = self.nodes_for_capture_index(*i);
