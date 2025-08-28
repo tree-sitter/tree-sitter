@@ -83,6 +83,10 @@ pub fn wasmtimeDep(target: std.Target) []const u8 {
                 .msvc => "wasmtime_c_api_x86_64_windows",
                 else => null,
             },
+            .aarch64 => switch (abi) {
+                .msvc => "wasmtime_c_api_aarch64_windows",
+                else => null,
+            },
             else => null,
         },
         .macos => switch (arch) {
