@@ -689,15 +689,10 @@ pub fn generate_grammar_files(
                 allow_update,
                 |path| generate_file(path, SETUP_PY_TEMPLATE, language_name, &generate_opts),
                 |path| {
-                    let mut contents = fs::read_to_string(path)?;
-                    if !contents.contains("egg_info") || !contents.contains("Py_GIL_DISABLED") {
+                    let contents = fs::read_to_string(path)?;
+                    if !contents.contains("build_ext") {
                         eprintln!("Replacing setup.py");
                         generate_file(path, SETUP_PY_TEMPLATE, language_name, &generate_opts)?;
-                    } else {
-                        contents = contents
-                            .replace("path\nfrom platform import system", "name as os_name, path")
-                            .replace("system() != \"Windows\"", "os_name != \"nt\"");
-                        write_file(path, contents)?;
                     }
                     Ok(())
                 },
