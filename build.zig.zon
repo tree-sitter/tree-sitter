@@ -27,6 +27,11 @@
             .hash = "N-V-__8AAM1GMARD6LGQebhVsSZ0uePUoo3Fw5nEO2L764vf",
             .lazy = true,
         },
+        .wasmtime_c_api_aarch64_windows = .{
+            .url = "https://github.com/bytecodealliance/wasmtime/releases/download/v29.0.1/wasmtime-v29.0.1-aarch64-windows-c-api.zip",
+            .hash = "N-V-__8AAH8a_wQ7oAeVVsaJcoOZhKTMkHIBc_XjDyLlHp2x",
+            .lazy = true,
+        },
         .wasmtime_c_api_riscv64gc_linux = .{
             .url = "https://github.com/bytecodealliance/wasmtime/releases/download/v29.0.1/wasmtime-v29.0.1-riscv64gc-linux-c-api.tar.xz",
             .hash = "N-V-__8AAN2cuQadBwMc8zJxv0sMY99Ae1Nc1dZcZAK9b4DZ",
