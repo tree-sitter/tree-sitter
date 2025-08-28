@@ -1340,7 +1340,12 @@ static void ts_query__perform_analysis(
           // Determine if this hypothetical child node would match the current step
           // of the query pattern.
           bool does_match = false;
-          if (visible_symbol) {
+
+          // ERROR nodes can appear anywhere, so if the step is 
+          // looking for an ERROR node, consider it potentially matchable.
+          if (step->symbol == ts_builtin_sym_error) {
+            does_match = true;
+          } else if (visible_symbol) {
             does_match = true;
             if (step->symbol == WILDCARD_SYMBOL) {
               if (
