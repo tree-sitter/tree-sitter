@@ -213,7 +213,12 @@ pub(super) fn extract_tokens(
             {
                 reserved_words.push(Symbol::terminal(index));
             } else {
-                let token_name = match &reserved_rule {
+                let rule = if let Rule::Metadata { rule, .. } = &reserved_rule {
+                    rule.as_ref()
+                } else {
+                    &reserved_rule
+                };
+                let token_name = match rule {
                     Rule::String(s) => s.clone(),
                     Rule::Pattern(p, _) => p.clone(),
                     _ => "unknown".to_string(),
