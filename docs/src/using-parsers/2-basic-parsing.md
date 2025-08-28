@@ -86,6 +86,10 @@ TSPoint ts_node_start_point(TSNode);
 TSPoint ts_node_end_point(TSNode);
 ```
 
+```admonish note
+A *newline* is considered to be a single line feed (`\n`) character.
+```
+
 ## Retrieving Nodes
 
 Every tree has a _root node_:
