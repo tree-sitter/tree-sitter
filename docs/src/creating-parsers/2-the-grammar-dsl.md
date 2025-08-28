@@ -133,12 +133,13 @@ than globally. Can only be used with parse precedence, not lexical precedence.
 [*node types* file][static-node-types].
 
 - **`reserved`** — similar in structure to the main `rules` property, an object of reserved word sets associated with an
-array of reserved rules. The reserved rule in the array must be a terminal token meaning it must be a string, regex, or token,
-or a terminal rule. The *first* reserved word set in the object is the global word set, meaning it applies to every rule
-in every parse state. However, certain keywords are contextual, depending on the rule. For example, in JavaScript, keywords
-are typically not allowed as ordinary variables, however, they *can* be used as a property name. In this situation, the `reserved`
-function would be used, and the word set to pass in would be the name of the word set that is declared in the `reserved`
-object that corresponds to an empty array, signifying *no* keywords are reserved.
+array of reserved rules. The reserved rule in the array must be a terminal token meaning it must be a string, regex, token,
+or terminal rule. The reserved rule must also exist and be used in the grammar, specifying arbitrary tokens will not work.
+The *first* reserved word set in the object is the global word set, meaning it applies to every rule in every parse state.
+However, certain keywords are contextual, depending on the rule. For example, in JavaScript, keywords are typically not allowed
+as ordinary variables, however, they *can* be used as a property name. In this situation, the `reserved` function would be used,
+and the word set to pass in would be the name of the word set that is declared in the `reserved` object that corresponds to an
+empty array, signifying *no* keywords are reserved.
 
 [bison-dprec]: https://www.gnu.org/software/bison/manual/html_node/Generalized-LR-Parsing.html
 [ebnf]: https://en.wikipedia.org/wiki/Extended_Backus%E2%80%93Naur_form
