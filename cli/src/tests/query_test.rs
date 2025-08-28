@@ -17,7 +17,10 @@ use super::helpers::{
 };
 use crate::tests::{
     generate_parser,
-    helpers::query_helpers::{collect_captures, collect_matches},
+    helpers::{
+        fixtures::get_test_fixture_language,
+        query_helpers::{collect_captures, collect_matches},
+    },
     ITERATION_COUNT,
 };
 
@@ -5696,4 +5699,31 @@ fn test_query_with_predicate_causing_oob_access() {
        path: (scoped_identifier (identifier) @_regex (#any-of? @_regex \"Regex\" \"RegexBuilder\") .))
      (#set! injection.language \"regex\"))";
     Query::new(&language, query).unwrap();
+}
+
+#[test]
+fn test_query_with_anonymous_error_node() {
+    let language = get_test_fixture_language("anonymous_error");
+    let mut parser = Parser::new();
+    parser.set_language(&language).unwrap();
+
+    let source = "ERROR";
+
+    let tree = parser.parse(source, None).unwrap();
+    let query = Query::new(
+        &language,
+        r#"
+          "ERROR" @error
+          (document "ERROR" @error)
+        "#,
+    )
+    .unwrap();
+    let mut cursor = QueryCursor::new();
+    let matches = cursor.matches(&query, tree.root_node(), source.as_bytes());
+    let matches = collect_matches(matches, &query, source);
+
+    assert_eq!(
+        matches,
+        vec![(1, vec![("error", "ERROR")]), (0, vec![("error", "ERROR")])]
+    );
 }
