@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 
 use anyhow::Result;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use thiserror::Error;
@@ -261,6 +262,27 @@ pub(crate) fn parse_grammar(input: &str) -> ParseGrammarResult<InputGrammar> {
                 })
             });
             continue;
+        }
+
+        if extra_symbols
+            .iter()
+            .any(|r| rule_is_referenced(r, name, false))
+        {
+            let inner_rule = if let Rule::Metadata { rule, .. } = rule {
+                rule
+            } else {
+                rule
+            };
+            let matches_empty = match inner_rule {
+                Rule::String(rule_str) => rule_str.is_empty(),
+                Rule::Pattern(ref value, _) => Regex::new(value)
+                    .map(|reg| reg.is_match(""))
+                    .unwrap_or(false),
+                _ => false,
+            };
+            if matches_empty {
+                eprintln!("Warning: Named extra rule `{name}` matches the empty string. Inline this to avoid infinite loops while parsing.");
+            }
         }
         variables.push(Variable {
             name: name.clone(),
