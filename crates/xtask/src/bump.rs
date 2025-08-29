@@ -4,7 +4,6 @@ use anyhow::{anyhow, Result};
 use git2::{DiffOptions, Repository};
 use indoc::indoc;
 use semver::{BuildMetadata, Prerelease, Version};
-use toml::Value;
 
 use crate::{create_commit, BumpVersion};
 
@@ -241,7 +240,7 @@ fn update_crates(current_version: &Version, next_version: &Version) -> Result<()
         .arg("--force")
         .arg("tree-sitter{,-cli,-config,-generate,-loader,-highlight,-tags}")
         .arg("--ignore-changes")
-        .arg("lib/language/*");
+        .arg("crates/language/*");
 
     let status = cmd.status()?;
 
@@ -253,7 +252,10 @@ fn update_crates(current_version: &Version, next_version: &Version) -> Result<()
 }
 
 fn update_npm(next_version: &Version) -> Result<()> {
-    for path in ["lib/binding_web/package.json", "cli/npm/package.json"] {
+    for path in [
+        "lib/binding_web/package.json",
+        "crates/cli/npm/package.json",
+    ] {
         let package_json =
             serde_json::from_str::<serde_json::Value>(&std::fs::read_to_string(path)?)?;
 
@@ -275,13 +277,11 @@ fn update_npm(next_version: &Version) -> Result<()> {
 }
 
 fn update_zig(next_version: &Version) -> Result<()> {
-    let zig = std::fs::read_to_string("build.zig.zon")?;
-
-    let zig = zig
+    let zig = std::fs::read_to_string("build.zig.zon")?
         .lines()
         .map(|line| {
-            if line.starts_with("  .version") {
-                format!("  .version = \"{next_version}\",")
+            if line.starts_with("    .version") {
+                format!("    .version = \"{next_version}\",")
             } else {
                 line.to_string()
             }
@@ -297,11 +297,13 @@ fn update_zig(next_version: &Version) -> Result<()> {
 
 /// read Cargo.toml and get the version
 fn fetch_workspace_version() -> Result<String> {
-    let cargo_toml = toml::from_str::<Value>(&std::fs::read_to_string("Cargo.toml")?)?;
-
-    Ok(cargo_toml["workspace"]["package"]["version"]
-        .as_str()
-        .unwrap()
-        .trim_matches('"')
-        .to_string())
+    std::fs::read_to_string("Cargo.toml")?
+        .lines()
+        .find(|line| line.starts_with("version = "))
+        .and_then(|line| {
+            line.split_terminator('"')
+                .next_back()
+                .map(|s| s.to_string())
+        })
+        .ok_or_else(|| anyhow!("No version found in Cargo.toml"))
 }
