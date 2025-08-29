@@ -151,7 +151,6 @@ pub fn run_wasm(args: &BuildWasm) -> Result<()> {
     #[rustfmt::skip]
     emscripten_flags.extend([
         "-gsource-map=inline",
-        "--source-map-base", "./",
         "-fno-exceptions",
         "-std=c11",
         "-s", "WASM=1",
