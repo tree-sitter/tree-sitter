@@ -190,7 +190,7 @@ struct Parse {
     /// The path to the parser's dynamic library
     #[arg(long, short = 'l')]
     pub lib_path: Option<PathBuf>,
-    /// If `--lib_path` is used, the name of the language used to extract the
+    /// If `--lib-path` is used, the name of the language used to extract the
     /// library's language function
     #[arg(long)]
     pub lang_name: Option<String>,
@@ -288,7 +288,7 @@ struct Test {
     /// The path to the parser's dynamic library
     #[arg(long, short = 'l')]
     pub lib_path: Option<PathBuf>,
-    /// If `--lib_path` is used, the name of the language used to extract the
+    /// If `--lib-path` is used, the name of the language used to extract the
     /// library's language function
     #[arg(long)]
     pub lang_name: Option<String>,
@@ -366,7 +366,7 @@ struct Fuzz {
     /// The path to the parser's dynamic library
     #[arg(long)]
     pub lib_path: Option<PathBuf>,
-    /// If `--lib_path` is used, the name of the language used to extract the
+    /// If `--lib-path` is used, the name of the language used to extract the
     /// library's language function
     #[arg(long)]
     pub lang_name: Option<String>,
@@ -405,7 +405,7 @@ struct Query {
     /// The path to the parser's dynamic library
     #[arg(long, short = 'l')]
     pub lib_path: Option<PathBuf>,
-    /// If `--lib_path` is used, the name of the language used to extract the
+    /// If `--lib-path` is used, the name of the language used to extract the
     /// library's language function
     #[arg(long)]
     pub lang_name: Option<String>,
@@ -1061,7 +1061,17 @@ impl Parse {
         if self.lib_path.is_none() && self.lang_name.is_some() {
             eprintln!("Warning: --lang-name` specified without --lib-path. This argument will be ignored.");
         }
-        let lib_info = get_lib_info(self.lib_path.as_ref(), self.lang_name.as_ref());
+        let absolute_lib_path;
+        let lib_info = if let Some(lib_path) = self.lib_path.as_ref() {
+            if lib_path.is_absolute() {
+                get_lib_info(Some(lib_path), self.lang_name.as_ref())
+            } else {
+                absolute_lib_path = current_dir.join(lib_path);
+                get_lib_info(Some(&absolute_lib_path), self.lang_name.as_ref())
+            }
+        } else {
+            None
+        };
 
         let input = get_input(
             self.paths_file.as_deref(),
@@ -1106,7 +1116,13 @@ impl Parse {
                 let languages = loader.languages_at_path(current_dir)?;
 
                 let language = if let Some(ref lib_path) = self.lib_path {
-                    let lib_info = get_lib_info(self.lib_path.as_ref(), self.lang_name.as_ref());
+                    let absolute_lib_path;
+                    let lib_info = if lib_path.is_absolute() {
+                        get_lib_info(Some(lib_path), self.lang_name.as_ref())
+                    } else {
+                        absolute_lib_path = current_dir.join(lib_path);
+                        get_lib_info(Some(&absolute_lib_path), self.lang_name.as_ref())
+                    };
                     &loader
                         .select_language(lib_path, current_dir, None, lib_info)
                         .with_context(|| {
@@ -1197,7 +1213,13 @@ impl Test {
         }
         let languages = loader.languages_at_path(current_dir)?;
         let language = if let Some(ref lib_path) = self.lib_path {
-            let lib_info = get_lib_info(self.lib_path.as_ref(), self.lang_name.as_ref());
+            let absolute_lib_path;
+            let lib_info = if lib_path.is_absolute() {
+                get_lib_info(Some(lib_path), self.lang_name.as_ref())
+            } else {
+                absolute_lib_path = current_dir.join(lib_path);
+                get_lib_info(Some(&absolute_lib_path), self.lang_name.as_ref())
+            };
             &loader
                 .select_language(lib_path, current_dir, None, lib_info)
                 .with_context(|| {
@@ -1342,8 +1364,14 @@ impl Fuzz {
         }
         let languages = loader.languages_at_path(current_dir)?;
         let (language, language_name) = if let Some(ref lib_path) = self.lib_path {
-            let lib_info = get_lib_info(self.lib_path.as_ref(), self.lang_name.as_ref())
-                .with_context(|| anyhow!("No language name found for {}", lib_path.display()))?;
+            let absolute_lib_path;
+            let lib_info = if lib_path.is_absolute() {
+                get_lib_info(Some(lib_path), self.lang_name.as_ref())
+            } else {
+                absolute_lib_path = current_dir.join(lib_path);
+                get_lib_info(Some(&absolute_lib_path), self.lang_name.as_ref())
+            }
+            .with_context(|| anyhow!("No language name found for {}", lib_path.display()))?;
             &(
                 loader
                     .select_language(lib_path, current_dir, None, Some(lib_info))
@@ -1411,7 +1439,17 @@ impl Query {
                 "Warning: --lang-name specified without --lib-path. This argument will be ignored."
             );
         }
-        let lib_info = get_lib_info(self.lib_path.as_ref(), self.lang_name.as_ref());
+        let absolute_lib_path;
+        let lib_info = if let Some(lib_path) = self.lib_path.as_ref() {
+            if lib_path.is_absolute() {
+                get_lib_info(Some(lib_path), self.lang_name.as_ref())
+            } else {
+                absolute_lib_path = current_dir.join(lib_path);
+                get_lib_info(Some(&absolute_lib_path), self.lang_name.as_ref())
+            }
+        } else {
+            None
+        };
 
         let input = get_input(
             self.paths_file.as_deref(),
@@ -1453,7 +1491,17 @@ impl Query {
                 let path = get_tmp_source_file(&contents)?;
                 let languages = loader.languages_at_path(current_dir)?;
                 let language = if let Some(ref lib_path) = self.lib_path {
-                    let lib_info = get_lib_info(self.lib_path.as_ref(), self.lang_name.as_ref());
+                    let absolute_lib_path;
+                    let lib_info = if let Some(lib_path) = self.lib_path.as_ref() {
+                        if lib_path.is_absolute() {
+                            get_lib_info(Some(lib_path), self.lang_name.as_ref())
+                        } else {
+                            absolute_lib_path = current_dir.join(lib_path);
+                            get_lib_info(Some(&absolute_lib_path), self.lang_name.as_ref())
+                        }
+                    } else {
+                        None
+                    };
                     &loader
                         .select_language(lib_path, current_dir, None, lib_info)
                         .with_context(|| {
