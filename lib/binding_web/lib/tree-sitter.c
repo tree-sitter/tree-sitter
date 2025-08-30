@@ -876,7 +876,7 @@ void ts_query_matches_wasm(
   uint32_t end_index,
   uint32_t match_limit,
   uint32_t max_start_depth,
-  uint32_t timeout_micros
+  uint64_t timeout_micros
 ) {
   if (!scratch_query_cursor) {
     scratch_query_cursor = ts_query_cursor_new();
@@ -936,7 +936,7 @@ void ts_query_captures_wasm(
   uint32_t end_index,
   uint32_t match_limit,
   uint32_t max_start_depth,
-  uint32_t timeout_micros
+  uint64_t timeout_micros
 ) {
   if (!scratch_query_cursor) {
     scratch_query_cursor = ts_query_cursor_new();

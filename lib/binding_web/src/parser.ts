@@ -289,7 +289,7 @@ export class Parser {
    *
    * This is set via {@link Parser#setTimeoutMicros}.
    */
-  getTimeoutMicros(): number {
+  getTimeoutMicros(): bigint {
     return C._ts_parser_timeout_micros(this[0]);
   }
 
@@ -302,8 +302,8 @@ export class Parser {
    * If parsing takes longer than this, it will halt early, returning `null`.
    * See {@link Parser#parse} for more information.
    */
-  setTimeoutMicros(timeout: number): void {
-    C._ts_parser_set_timeout_micros(this[0], 0, timeout);
+  setTimeoutMicros(timeout: bigint): void {
+    C._ts_parser_set_timeout_micros(this[0], timeout);
   }
 
   /** Set the logging callback that a parser should use during parsing. */
