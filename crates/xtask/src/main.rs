@@ -35,7 +35,7 @@ enum Commands {
     /// Fetches emscripten.
     FetchEmscripten,
     /// Fetches the fixtures for testing tree-sitter.
-    FetchFixtures,
+    FetchFixtures(FetchFixtures),
     /// Generate the Rust bindings from the C library.
     GenerateBindings,
     /// Generates the fixtures for testing tree-sitter.
@@ -113,6 +113,13 @@ struct Clippy {
     /// The package to run Clippy against (`cargo -p <PACKAGE> clippy`).
     #[arg(long, short)]
     package: Option<String>,
+}
+
+#[derive(Args)]
+struct FetchFixtures {
+    /// Update all fixtures to the latest tag
+    #[arg(long, short)]
+    update: bool,
 }
 
 #[derive(Args)]
@@ -222,7 +229,9 @@ fn run() -> Result<()> {
         Commands::CheckWasmExports(check_options) => check_wasm_exports::run(&check_options)?,
         Commands::Clippy(clippy_options) => clippy::run(&clippy_options)?,
         Commands::FetchEmscripten => fetch::run_emscripten()?,
-        Commands::FetchFixtures => fetch::run_fixtures()?,
+        Commands::FetchFixtures(fetch_fixture_options) => {
+            fetch::run_fixtures(&fetch_fixture_options)?;
+        }
         Commands::GenerateBindings => generate::run_bindings()?,
         Commands::GenerateFixtures(generate_fixtures_options) => {
             generate::run_fixtures(&generate_fixtures_options)?;
