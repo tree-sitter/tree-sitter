@@ -133,7 +133,7 @@ declare module 'web-tree-sitter' {
 		 * You can optionally pass in options to configure the Wasm module, the most common
 		 * one being `locateFile` to help the module find the `.wasm` file.
 		 */
-		static init(moduleOptions?: EmscriptenModule): Promise<void>;
+		static init(moduleOptions?: Partial<EmscriptenModule>): Promise<void>;
 		/**
 		 * Create a new parser.
 		 */
@@ -490,13 +490,13 @@ declare module 'web-tree-sitter' {
 		 *
 		 * See also {@link Node#children}.
 		 */
-		childrenForFieldName(fieldName: string): (Node | null)[];
+		childrenForFieldName(fieldName: string): Node[];
 		/**
 		  * Get an array of this node's children with a given field id.
 		  *
 		  * See also {@link Node#childrenForFieldName}.
 		  */
-		childrenForFieldId(fieldId: number): (Node | null)[];
+		childrenForFieldId(fieldId: number): Node[];
 		/** Get the node's first child that contains or starts after the given byte offset. */
 		firstChildForIndex(index: number): Node | null;
 		/** Get the node's first named child that contains or starts after the given byte offset. */
@@ -531,13 +531,13 @@ declare module 'web-tree-sitter' {
 		 * If you're walking the tree recursively, you may want to use the
 		 * {@link TreeCursor} APIs directly instead.
 		 */
-		get children(): (Node | null)[];
+		get children(): Node[];
 		/**
 		 * Iterate over this node's named children.
 		 *
 		 * See also {@link Node#children}.
 		 */
-		get namedChildren(): (Node | null)[];
+		get namedChildren(): Node[];
 		/**
 		 * Get the descendants of this node that are the given type, or in the given types array.
 		 *
@@ -545,7 +545,7 @@ declare module 'web-tree-sitter' {
 		 *
 		 * Additionally, a `startPosition` and `endPosition` can be passed in to restrict the search to a byte range.
 		 */
-		descendantsOfType(types: string | string[], startPosition?: Point, endPosition?: Point): (Node | null)[];
+		descendantsOfType(types: string | string[], startPosition?: Point, endPosition?: Point): Node[];
 		/** Get this node's next sibling. */
 		get nextSibling(): Node | null;
 		/** Get this node's previous sibling. */
