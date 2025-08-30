@@ -3,7 +3,7 @@ module.exports = async ({ github, context }) => {
     ...context.repo,
     username: context.actor
   });
-  if (!data.permission.includes("triage")) {
+  if (!data.user.permissions.triage) {
     await github.log.error("Workflow called with insufficient permissions!");
     return;
   }
