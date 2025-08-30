@@ -1,40 +1,31 @@
-use std::{path::Path, process::Command};
+use std::{
+    fs,
+    path::Path,
+    process::{Command, Stdio},
+};
 
 use anyhow::Result;
 
-use crate::{bail_on_err, EMSCRIPTEN_VERSION};
+use crate::{bail_on_err, FetchFixtures, EMSCRIPTEN_VERSION};
 
-pub fn run_fixtures() -> Result<()> {
-    let grammars_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
+pub fn run_fixtures(args: &FetchFixtures) -> Result<()> {
+    let fixtures_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .unwrap()
         .join("test")
-        .join("fixtures")
-        .join("grammars");
+        .join("fixtures");
+    let grammars_dir = fixtures_dir.join("grammars");
+    let fixtures_path = fixtures_dir.join("fixtures.json");
 
-    [
-        ("bash", "master"),
-        ("c", "master"),
-        ("cpp", "master"),
-        ("embedded-template", "master"),
-        ("go", "master"),
-        ("html", "master"),
-        ("java", "master"),
-        ("javascript", "master"),
-        ("jsdoc", "master"),
-        ("json", "master"),
-        ("php", "master"),
-        ("python", "master"),
-        ("ruby", "master"),
-        ("rust", "master"),
-        ("typescript", "master"),
-    ]
-    .iter()
-    .try_for_each(|(grammar, r#ref)| {
-        let grammar_dir = grammars_dir.join(grammar);
+    // grammar name, tag
+    let mut fixtures: Vec<(String, String)> =
+        serde_json::from_str(&fs::read_to_string(&fixtures_path)?)?;
+
+    for (grammar, tag) in &mut fixtures {
+        let grammar_dir = grammars_dir.join(&grammar);
         let grammar_url = format!("https://github.com/tree-sitter/tree-sitter-{grammar}");
 
-        println!("Updating the {grammar} grammar...");
+        println!("Fetching the {grammar} grammar...");
 
         if !grammar_dir.exists() {
             let mut command = Command::new("git");
@@ -54,21 +45,54 @@ pub fn run_fixtures() -> Result<()> {
         std::env::set_current_dir(&grammar_dir)?;
 
         let mut command = Command::new("git");
-        command.args(["fetch", "origin", r#ref, "--depth", "1"]);
+        command.args(["fetch", "origin", "--tags"]);
         bail_on_err(
             &command.spawn()?.wait_with_output()?,
-            &format!("Failed to fetch the {grammar} grammar"),
+            &format!("Failed to fetch the {grammar} grammar's tags"),
         )?;
 
+        if args.update {
+            let mut command = Command::new("git");
+            command
+                .args(["tag", "--sort=-creatordate"])
+                .stdout(Stdio::piped());
+            let update_out = command.spawn()?.wait_with_output()?;
+            bail_on_err(
+                &update_out,
+                &format!("Failed to parse the {grammar} grammar's latest commit"),
+            )?;
+            let new_tag = String::from_utf8(update_out.stdout)?
+                .lines()
+                .next()
+                .expect("No tags found")
+                .trim()
+                .to_string();
+            if !new_tag.eq(tag) {
+                println!("Updating the {grammar} grammar from {tag} to {new_tag}...");
+                *tag = new_tag;
+            }
+        }
         let mut command = Command::new("git");
-        command.args(["reset", "--hard", "FETCH_HEAD"]);
+        command.args(["reset", "--hard", tag]);
         bail_on_err(
             &command.spawn()?.wait_with_output()?,
             &format!("Failed to reset the {grammar} grammar"),
         )?;
+    }
 
-        Ok(())
-    })
+    if args.update {
+        println!("Updating the fixtures lock file");
+        fs::write(
+            &fixtures_path,
+            // format the JSON without extra newlines
+            serde_json::to_string(&fixtures)?
+                .replace("[[", "[\n  [")
+                .replace("],", "],\n  ")
+                .replace("]]", "]\n]"),
+        )?;
+    }
+
+    Ok(())
 }
 
 pub fn run_emscripten() -> Result<()> {
