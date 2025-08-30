@@ -1,4 +1,4 @@
-// TypeScript bindings for emscripten-generated code.  Automatically generated at compile time.
+// TypeScript bindings for emscripten-generated code.  Automatically generated at compile time (manually edited).
 declare namespace RuntimeExports {
     function AsciiToString(ptr: number): string;
     function stringToUTF8(str: string, outPtr: number, maxBytesToWrite: number): number;
@@ -31,10 +31,10 @@ declare namespace RuntimeExports {
         allowUndefined?: boolean,
         loadAsync?: boolean,
         global?: boolean,
-        nodelete?: boolean;
+        nodelete?: boolean,
       },
       libName?: string,
-      localScope?: Record<string, any>,
+      localScope?: Record<string, unknown>,
       handle?: number
     ): Promise<Record<string, () => number>>;
     /**
@@ -48,10 +48,6 @@ declare namespace RuntimeExports {
      * @param {string} type
      */
     function setValue(ptr: number, value: number, type?: string): void;
-    let currentParseCallback: ((index: number, position: {row: number, column: number}) => string | undefined) | null;
-    let currentLogCallback: ((message: string, isLex: boolean) => void) | null;
-    let currentProgressCallback: ((state: {currentOffset: number, hasError: boolean}) => void) | null;
-    let currentQueryProgressCallback: ((state: {currentOffset: number}) => void) | null;
     let HEAPF32: Float32Array;
     let HEAPF64: Float64Array;
     let HEAP_DATA_VIEW: DataView;
@@ -69,6 +65,7 @@ interface WasmModule {
   _calloc(_0: number, _1: number): number;
   _realloc(_0: number, _1: number): number;
   _free(_0: number): void;
+  _memcmp(_0: number, _1: number, _2: number): number;
   _ts_language_symbol_count(_0: number): number;
   _ts_language_state_count(_0: number): number;
   _ts_language_version(_0: number): number;
@@ -88,16 +85,12 @@ interface WasmModule {
   _ts_lookahead_iterator_reset(_0: number, _1: number, _2: number): number;
   _ts_lookahead_iterator_next(_0: number): number;
   _ts_lookahead_iterator_current_symbol(_0: number): number;
-  _memset(_0: number, _1: number, _2: number): number;
-  _memcpy(_0: number, _1: number, _2: number): number;
   _ts_parser_delete(_0: number): void;
   _ts_parser_reset(_0: number): void;
   _ts_parser_set_language(_0: number, _1: number): number;
-  _ts_parser_timeout_micros(_0: number): number;
-  _ts_parser_set_timeout_micros(_0: number, _1: number, _2: number): void;
+  _ts_parser_timeout_micros(_0: number): bigint;
+  _ts_parser_set_timeout_micros(_0: number, _1: bigint): void;
   _ts_parser_set_included_ranges(_0: number, _1: number, _2: number): number;
-  _memmove(_0: number, _1: number, _2: number): number;
-  _memcmp(_0: number, _1: number, _2: number): number;
   _ts_query_new(_0: number, _1: number, _2: number, _3: number, _4: number): number;
   _ts_query_delete(_0: number): void;
   _iswspace(_0: number): number;
@@ -197,8 +190,11 @@ interface WasmModule {
   _ts_node_is_extra_wasm(_0: number): number;
   _ts_node_parse_state_wasm(_0: number): number;
   _ts_node_next_parse_state_wasm(_0: number): number;
-  _ts_query_matches_wasm(_0: number, _1: number, _2: number, _3: number, _4: number, _5: number, _6: number, _7: number, _8: number, _9: number, _10: number): void;
-  _ts_query_captures_wasm(_0: number, _1: number, _2: number, _3: number, _4: number, _5: number, _6: number, _7: number, _8: number, _9: number, _10: number): void;
+  _ts_query_matches_wasm(_0: number, _1: number, _2: number, _3: number, _4: number, _5: number, _6: number, _7: number, _8: number, _9: number, _10: bigint): void;
+  _ts_query_captures_wasm(_0: number, _1: number, _2: number, _3: number, _4: number, _5: number, _6: number, _7: number, _8: number, _9: number, _10: bigint): void;
+  _memset(_0: number, _1: number, _2: number): number;
+  _memcpy(_0: number, _1: number, _2: number): number;
+  _memmove(_0: number, _1: number, _2: number): number;
   _iswalpha(_0: number): number;
   _iswblank(_0: number): number;
   _iswdigit(_0: number): number;
@@ -212,9 +208,12 @@ interface WasmModule {
   _strncpy(_0: number, _1: number, _2: number): number;
   _towlower(_0: number): number;
   _towupper(_0: number): number;
-  _orig$ts_parser_timeout_micros(_0: number): bigint;
-  _orig$ts_parser_set_timeout_micros(_0: number, _1: bigint): void;
 }
 
-export type MainModule = WasmModule & typeof RuntimeExports;
+export type MainModule = WasmModule & typeof RuntimeExports & {
+    currentParseCallback: ((index: number, position: {row: number, column: number}) => string | undefined) | null;
+    currentLogCallback: ((message: string, isLex: boolean) => void) | null;
+    currentProgressCallback: ((state: {currentOffset: number, hasError: boolean}) => void) | null;
+    currentQueryProgressCallback: ((state: {currentOffset: number}) => void) | null;
+};
 export default function MainModuleFactory(options?: Partial<EmscriptenModule>): Promise<MainModule>;

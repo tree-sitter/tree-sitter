@@ -56,7 +56,7 @@ export interface QueryOptions {
    *
    * If query execution takes longer than this, it will halt early, returning an empty array.
    */
-  timeoutMicros?: number;
+  timeoutMicros?: bigint;
 
   /**
    * A function that will be called periodically during the execution of the query to check
@@ -708,7 +708,7 @@ export class Query {
     const endIndex = options.endIndex ?? 0;
     const matchLimit = options.matchLimit ?? 0xFFFFFFFF;
     const maxStartDepth = options.maxStartDepth ?? 0xFFFFFFFF;
-    const timeoutMicros = options.timeoutMicros ?? 0;
+    const timeoutMicros = options.timeoutMicros ?? 0n;
     const progressCallback = options.progressCallback;
 
     if (typeof matchLimit !== 'number') {
@@ -803,7 +803,7 @@ export class Query {
     const endIndex = options.endIndex ?? 0;
     const matchLimit = options.matchLimit ?? 0xFFFFFFFF;
     const maxStartDepth = options.maxStartDepth ?? 0xFFFFFFFF;
-    const timeoutMicros = options.timeoutMicros ?? 0;
+    const timeoutMicros = options.timeoutMicros ?? 0n;
     const progressCallback = options.progressCallback;
 
     if (typeof matchLimit !== 'number') {
