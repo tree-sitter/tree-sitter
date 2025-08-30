@@ -24,3 +24,18 @@ updates:
     groups:
       actions:
         patterns: ["*"]
+  - package-ecosystem: "npm"
+    directories:
+      - "/crates/npm"
+      - "/crates/eslint"
+      - "/lib/binding_web"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "build(deps)"
+    labels:
+      - "dependencies"
+      - "npm"
+    groups:
+      npm:
+        patterns: ["*"]
