@@ -24,7 +24,7 @@ enum EmccSource {
     Podman,
 }
 
-const EXPORTED_RUNTIME_METHODS: [&str; 8] = [
+const EXPORTED_RUNTIME_METHODS: [&str; 19] = [
     "AsciiToString",
     "stringToUTF8",
     "UTF8ToString",
@@ -33,6 +33,17 @@ const EXPORTED_RUNTIME_METHODS: [&str; 8] = [
     "loadWebAssemblyModule",
     "getValue",
     "setValue",
+    "HEAPF32",
+    "HEAPF64",
+    "HEAP_DATA_VIEW",
+    "HEAP8",
+    "HEAPU8",
+    "HEAP16",
+    "HEAPU16",
+    "HEAP32",
+    "HEAPU32",
+    "HEAP64",
+    "HEAPU64",
 ];
 
 pub fn run_wasm(args: &BuildWasm) -> Result<()> {
@@ -158,6 +169,7 @@ pub fn run_wasm(args: &BuildWasm) -> Result<()> {
         "-s", "INITIAL_MEMORY=33554432",
         "-s", "ALLOW_MEMORY_GROWTH=1",
         "-s", "SUPPORT_BIG_ENDIAN=1",
+        "-s", "WASM_BIGINT=1",
         "-s", "MAIN_MODULE=2",
         "-s", "FILESYSTEM=0",
         "-s", "NODEJS_CATCH_EXIT=0",
@@ -165,6 +177,7 @@ pub fn run_wasm(args: &BuildWasm) -> Result<()> {
         "-s", &exported_functions,
         "-s", &exported_runtime_methods,
         "-D", "fprintf(...)=",
+        "-D", "printf(...)=",
         "-D", "NDEBUG=",
         "-D", "_POSIX_C_SOURCE=200112L",
         "-D", "_DEFAULT_SOURCE=",
