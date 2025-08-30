@@ -1,18 +1,21 @@
+use std::{collections::HashMap, sync::LazyLock};
+#[cfg(feature = "load")]
 use std::{
-    collections::HashMap,
     env, fs,
     io::Write,
     path::{Path, PathBuf},
     process::{Command, Stdio},
-    sync::LazyLock,
 };
 
 use anyhow::Result;
 use node_types::VariableInfo;
 use regex::{Regex, RegexBuilder};
 use rules::{Alias, Symbol};
+#[cfg(feature = "load")]
 use semver::Version;
-use serde::{Deserialize, Serialize};
+#[cfg(feature = "load")]
+use serde::Deserialize;
+use serde::Serialize;
 use thiserror::Error;
 
 mod build_tables;
@@ -45,6 +48,7 @@ static JSON_COMMENT_REGEX: LazyLock<Regex> = LazyLock::new(|| {
 });
 
 struct JSONStageOutput {
+    #[cfg(feature = "load")]
     node_types_json: String,
     syntax_grammar: SyntaxGrammar,
     lexical_grammar: LexicalGrammar,
@@ -55,6 +59,7 @@ struct JSONStageOutput {
 
 struct GeneratedParser {
     c_code: String,
+    #[cfg(feature = "load")]
     node_types_json: String,
 }
 
@@ -69,6 +74,7 @@ pub enum GenerateError {
     GrammarPath(String),
     #[error("{0}")]
     IO(String),
+    #[cfg(feature = "load")]
     #[error(transparent)]
     LoadGrammarFile(#[from] LoadGrammarError),
     #[error(transparent)]
@@ -79,6 +85,7 @@ pub enum GenerateError {
     VariableInfo(#[from] VariableInfoError),
     #[error(transparent)]
     BuildTables(#[from] ParseTableBuilderError),
+    #[cfg(feature = "load")]
     #[error(transparent)]
     ParseVersion(#[from] ParseVersionError),
     #[error(transparent)]
@@ -91,8 +98,10 @@ impl From<std::io::Error> for GenerateError {
     }
 }
 
+#[cfg(feature = "load")]
 pub type LoadGrammarFileResult<T> = Result<T, LoadGrammarError>;
 
+#[cfg(feature = "load")]
 #[derive(Debug, Error, Serialize)]
 pub enum LoadGrammarError {
     #[error("Path to a grammar file with `.js` or `.json` extension is required")]
@@ -105,12 +114,14 @@ pub enum LoadGrammarError {
     FileExtension(PathBuf),
 }
 
+#[cfg(feature = "load")]
 impl From<std::io::Error> for LoadGrammarError {
     fn from(value: std::io::Error) -> Self {
         Self::IO(value.to_string())
     }
 }
 
+#[cfg(feature = "load")]
 #[derive(Debug, Error, Serialize)]
 pub enum ParseVersionError {
     #[error("{0}")]
@@ -121,8 +132,10 @@ pub enum ParseVersionError {
     IO(String),
 }
 
+#[cfg(feature = "load")]
 pub type JSResult<T> = Result<T, JSError>;
 
+#[cfg(feature = "load")]
 #[derive(Debug, Error, Serialize)]
 pub enum JSError {
     #[error("Failed to run `{runtime}` -- {error}")]
@@ -139,24 +152,28 @@ pub enum JSError {
     Serialzation(String),
 }
 
+#[cfg(feature = "load")]
 impl From<std::io::Error> for JSError {
     fn from(value: std::io::Error) -> Self {
         Self::IO(value.to_string())
     }
 }
 
+#[cfg(feature = "load")]
 impl From<serde_json::Error> for JSError {
     fn from(value: serde_json::Error) -> Self {
         Self::Serialzation(value.to_string())
     }
 }
 
+#[cfg(feature = "load")]
 impl From<semver::Error> for JSError {
     fn from(value: semver::Error) -> Self {
         Self::Semver(value.to_string())
     }
 }
 
+#[cfg(feature = "load")]
 pub fn generate_parser_in_directory<T, U, V>(
     repo_path: T,
     out_path: Option<U>,
@@ -268,6 +285,8 @@ fn generate_node_types_from_grammar(
         prepare_grammar(input_grammar)?;
     let variable_info =
         node_types::get_variable_info(&syntax_grammar, &lexical_grammar, &simple_aliases)?;
+
+    #[cfg(feature = "load")]
     let node_types_json = node_types::generate_node_types_json(
         &syntax_grammar,
         &lexical_grammar,
@@ -275,6 +294,7 @@ fn generate_node_types_from_grammar(
         &variable_info,
     )?;
     Ok(JSONStageOutput {
+        #[cfg(feature = "load")]
         node_types_json: serde_json::to_string_pretty(&node_types_json).unwrap(),
         syntax_grammar,
         lexical_grammar,
@@ -296,6 +316,7 @@ fn generate_parser_for_grammar_with_opts(
         inlines,
         simple_aliases,
         variable_info,
+        #[cfg(feature = "load")]
         node_types_json,
     } = generate_node_types_from_grammar(input_grammar)?;
     let supertype_symbol_map =
@@ -320,6 +341,7 @@ fn generate_parser_for_grammar_with_opts(
     );
     Ok(GeneratedParser {
         c_code,
+        #[cfg(feature = "load")]
         node_types_json,
     })
 }
@@ -329,6 +351,7 @@ fn generate_parser_for_grammar_with_opts(
 /// If the file is not found in the current directory or any of its parent directories, this will
 /// return `None` to maintain backwards compatibility. If the file is found but the version cannot
 /// be parsed as semver, this will return an error.
+#[cfg(feature = "load")]
 fn read_grammar_version(repo_path: &Path) -> Result<Option<Version>, ParseVersionError> {
     #[derive(Deserialize)]
     struct TreeSitterJson {
@@ -373,6 +396,7 @@ fn read_grammar_version(repo_path: &Path) -> Result<Option<Version>, ParseVersio
     }
 }
 
+#[cfg(feature = "load")]
 pub fn load_grammar_file(
     grammar_path: &Path,
     js_runtime: Option<&str>,
@@ -387,6 +411,7 @@ pub fn load_grammar_file(
     }
 }
 
+#[cfg(feature = "load")]
 fn load_js_grammar_file(grammar_path: &Path, js_runtime: Option<&str>) -> JSResult<String> {
     let grammar_path = fs::canonicalize(grammar_path)?;
 
@@ -481,6 +506,7 @@ fn load_js_grammar_file(grammar_path: &Path, js_runtime: Option<&str>) -> JSResu
     }
 }
 
+#[cfg(feature = "load")]
 pub fn write_file(path: &Path, body: impl AsRef<[u8]>) -> GenerateResult<()> {
     fs::write(path, body)
         .map_err(|e| GenerateError::IO(format!("Failed to write {:?} -- {e}", path.file_name())))
