@@ -1,4 +1,4 @@
-export {
+export type {
   Point,
   Range,
   Edit,
@@ -7,8 +7,8 @@ export {
   LogCallback,
 } from './constants';
 export {
-  ParseOptions,
-  ParseState,
+  type ParseOptions,
+  type ParseState,
   LANGUAGE_VERSION,
   MIN_COMPATIBLE_VERSION,
   Parser,
@@ -18,14 +18,14 @@ export { Tree } from './tree';
 export { Node } from './node';
 export { TreeCursor } from './tree_cursor';
 export {
-  QueryOptions,
-  QueryState,
-  QueryProperties,
-  QueryPredicate,
-  QueryCapture,
-  QueryMatch,
+  type QueryOptions,
+  type QueryState,
+  type QueryProperties,
+  type QueryPredicate,
+  type QueryCapture,
+  type QueryMatch,
   CaptureQuantifier,
-  PredicateStep,
+  type PredicateStep,
   Query,
-}  from './query';
+} from './query';
 export { LookaheadIterator } from './lookahead_iterator';

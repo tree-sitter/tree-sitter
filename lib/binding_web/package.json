@@ -61,10 +61,9 @@
     "lib/*.h"
   ],
   "devDependencies": {
-    "@eslint/js": "^9.19.0",
-    "@types/emscripten": "^1.40.0",
-    "@types/node": "^22.12.0",
-    "@vitest/coverage-v8": "^3.0.4",
+    "@eslint/js": "^9.20.0",
+    "@types/node": "^22.13.1",
+    "@vitest/coverage-v8": "^3.0.5",
     "dts-buddy": "^0.5.4",
     "esbuild": "^0.24.2",
     "eslint": "^9.19.0",
@@ -74,8 +73,16 @@
     "typescript-eslint": "^8.22.0",
     "vitest": "^3.0.4"
   },
+  "peerDependencies": {
+    "@types/emscripten": "^1.40.0"
+  },
+  "peerDependenciesMeta": {
+    "@types/emscripten": {
+      "optional": true
+    }
+  },
   "scripts": {
-    "build:ts": "node script/build.js",
+    "build:ts": "tsc -b . && node script/build.js",
     "build:wasm": "cd ../../ && cargo xtask build-wasm",
     "build:wasm:debug": "cd ../../ && cargo xtask build-wasm --debug",
     "build": "npm run build:wasm && npm run build:ts",

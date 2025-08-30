@@ -193,14 +193,14 @@ describe('Node', () => {
     it('correctly retrieves immediate children', () => {
       const sourceCode = 'let x = 1; console.log(x);';
       tree = parser.parse(sourceCode)!;
-      const root = tree.rootNode
-      const child = root.children[0].children[0]
-      const a = root.childWithDescendant(child)
-      expect(a!.startIndex).toBe(0)
-      const b = a!.childWithDescendant(child)
-      expect(b).toEqual(child)
-      const c = b!.childWithDescendant(child)
-      expect(c).toBeNull()
+      const root = tree.rootNode;
+      const child = root.children[0]!.children[0]!;
+      const a = root.childWithDescendant(child);
+      expect(a!.startIndex).toBe(0);
+      const b = a!.childWithDescendant(child);
+      expect(b).toEqual(child);
+      const c = b!.childWithDescendant(child);
+      expect(c).toBeNull();
     });
   });
 
