@@ -51,7 +51,6 @@
     "wasm"
   ],
   "files": [
-    "README.md",
     "web-tree-sitter.cjs",
     "web-tree-sitter.cjs.map",
     "web-tree-sitter.js",
@@ -67,10 +66,7 @@
     "web-tree-sitter.d.ts",
     "web-tree-sitter.d.ts.map",
     "web-tree-sitter.d.cts",
-    "web-tree-sitter.d.cts.map",
-    "src/**/*.ts",
-    "lib/*.c",
-    "lib/*.h"
+    "web-tree-sitter.d.cts.map"
   ],
   "devDependencies": {
     "@eslint/js": "^9.20.0",
