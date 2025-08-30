@@ -1,13 +1,4 @@
 module.exports = async ({ github, context }) => {
-  const { data } = await github.rest.repos.getCollaboratorPermissionLevel({
-    ...context.repo,
-    username: context.actor
-  });
-  if (!data.user.permissions.triage) {
-    await github.log.error("Workflow called with insufficient permissions!");
-    return;
-  }
-
   let target = context.payload.issue;
   if (target) {
     await github.rest.issues.update({
