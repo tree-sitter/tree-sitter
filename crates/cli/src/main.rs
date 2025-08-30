@@ -190,7 +190,7 @@ struct Parse {
     /// The path to the parser's dynamic library
     #[arg(long, short = 'l')]
     pub lib_path: Option<PathBuf>,
-    /// If `--lib_path` is used, the name of the language used to extract the
+    /// If `--lib-path` is used, the name of the language used to extract the
     /// library's language function
     #[arg(long)]
     pub lang_name: Option<String>,
@@ -288,7 +288,7 @@ struct Test {
     /// The path to the parser's dynamic library
     #[arg(long, short = 'l')]
     pub lib_path: Option<PathBuf>,
-    /// If `--lib_path` is used, the name of the language used to extract the
+    /// If `--lib-path` is used, the name of the language used to extract the
     /// library's language function
     #[arg(long)]
     pub lang_name: Option<String>,
@@ -366,7 +366,7 @@ struct Fuzz {
     /// The path to the parser's dynamic library
     #[arg(long)]
     pub lib_path: Option<PathBuf>,
-    /// If `--lib_path` is used, the name of the language used to extract the
+    /// If `--lib-path` is used, the name of the language used to extract the
     /// library's language function
     #[arg(long)]
     pub lang_name: Option<String>,
@@ -405,7 +405,7 @@ struct Query {
     /// The path to the parser's dynamic library
     #[arg(long, short = 'l')]
     pub lib_path: Option<PathBuf>,
-    /// If `--lib_path` is used, the name of the language used to extract the
+    /// If `--lib-path` is used, the name of the language used to extract the
     /// library's language function
     #[arg(long)]
     pub lang_name: Option<String>,
@@ -1061,7 +1061,7 @@ impl Parse {
         if self.lib_path.is_none() && self.lang_name.is_some() {
             eprintln!("Warning: --lang-name` specified without --lib-path. This argument will be ignored.");
         }
-        let lib_info = get_lib_info(self.lib_path.as_ref(), self.lang_name.as_ref());
+        let lib_info = get_lib_info(self.lib_path.as_ref(), self.lang_name.as_ref(), current_dir);
 
         let input = get_input(
             self.paths_file.as_deref(),
@@ -1080,7 +1080,12 @@ impl Parse {
                 for path in &paths {
                     let path = Path::new(&path);
                     let language = loader
-                        .select_language(path, current_dir, self.scope.as_deref(), lib_info)
+                        .select_language(
+                            path,
+                            current_dir,
+                            self.scope.as_deref(),
+                            lib_info.as_ref(),
+                        )
                         .with_context(|| {
                             anyhow!("Failed to load langauge for path \"{}\"", path.display())
                         })?;
@@ -1106,9 +1111,8 @@ impl Parse {
                 let languages = loader.languages_at_path(current_dir)?;
 
                 let language = if let Some(ref lib_path) = self.lib_path {
-                    let lib_info = get_lib_info(self.lib_path.as_ref(), self.lang_name.as_ref());
                     &loader
-                        .select_language(lib_path, current_dir, None, lib_info)
+                        .select_language(lib_path, current_dir, None, lib_info.as_ref())
                         .with_context(|| {
                             anyhow!(
                                 "Failed to load language for path \"{}\"",
@@ -1142,7 +1146,8 @@ impl Parse {
 
                 let path = get_tmp_source_file(&contents)?;
                 let name = "stdin";
-                let language = loader.select_language(&path, current_dir, None, lib_info)?;
+                let language =
+                    loader.select_language(&path, current_dir, None, lib_info.as_ref())?;
 
                 parse::parse_file_at_path(
                     &mut parser,
@@ -1197,9 +1202,10 @@ impl Test {
         }
         let languages = loader.languages_at_path(current_dir)?;
         let language = if let Some(ref lib_path) = self.lib_path {
-            let lib_info = get_lib_info(self.lib_path.as_ref(), self.lang_name.as_ref());
+            let lib_info =
+                get_lib_info(self.lib_path.as_ref(), self.lang_name.as_ref(), current_dir);
             &loader
-                .select_language(lib_path, current_dir, None, lib_info)
+                .select_language(lib_path, current_dir, None, lib_info.as_ref())
                 .with_context(|| {
                     anyhow!(
                         "Failed to load language for path \"{}\"",
@@ -1342,18 +1348,19 @@ impl Fuzz {
         }
         let languages = loader.languages_at_path(current_dir)?;
         let (language, language_name) = if let Some(ref lib_path) = self.lib_path {
-            let lib_info = get_lib_info(self.lib_path.as_ref(), self.lang_name.as_ref())
+            let lib_info = get_lib_info(Some(lib_path), self.lang_name.as_ref(), current_dir)
                 .with_context(|| anyhow!("No language name found for {}", lib_path.display()))?;
+            let lang_name = lib_info.1.to_string();
             &(
                 loader
-                    .select_language(lib_path, current_dir, None, Some(lib_info))
+                    .select_language(lib_path, current_dir, None, Some(&lib_info))
                     .with_context(|| {
                         anyhow!(
                             "Failed to load language for path \"{}\"",
                             lib_path.display()
                         )
                     })?,
-                lib_info.1.to_string(),
+                lang_name,
             )
         } else {
             languages
@@ -1411,7 +1418,7 @@ impl Query {
                 "Warning: --lang-name specified without --lib-path. This argument will be ignored."
             );
         }
-        let lib_info = get_lib_info(self.lib_path.as_ref(), self.lang_name.as_ref());
+        let lib_info = get_lib_info(self.lib_path.as_ref(), self.lang_name.as_ref(), current_dir);
 
         let input = get_input(
             self.paths_file.as_deref(),
@@ -1426,7 +1433,7 @@ impl Query {
                     Path::new(&paths[0]),
                     current_dir,
                     self.scope.as_deref(),
-                    lib_info,
+                    lib_info.as_ref(),
                 )?;
 
                 for path in paths {
@@ -1453,9 +1460,8 @@ impl Query {
                 let path = get_tmp_source_file(&contents)?;
                 let languages = loader.languages_at_path(current_dir)?;
                 let language = if let Some(ref lib_path) = self.lib_path {
-                    let lib_info = get_lib_info(self.lib_path.as_ref(), self.lang_name.as_ref());
                     &loader
-                        .select_language(lib_path, current_dir, None, lib_info)
+                        .select_language(lib_path, current_dir, None, lib_info.as_ref())
                         .with_context(|| {
                             anyhow!(
                                 "Failed to load language for path \"{}\"",
@@ -1490,7 +1496,8 @@ impl Query {
                 println!();
 
                 let path = get_tmp_source_file(&contents)?;
-                let language = loader.select_language(&path, current_dir, None, lib_info)?;
+                let language =
+                    loader.select_language(&path, current_dir, None, lib_info.as_ref())?;
                 query::query_file_at_path(
                     &language,
                     &path,
@@ -1975,15 +1982,21 @@ const fn get_styles() -> clap::builder::Styles {
 fn get_lib_info<'a>(
     lib_path: Option<&'a PathBuf>,
     language_name: Option<&'a String>,
-) -> Option<(&'a Path, &'a str)> {
+    current_dir: &Path,
+) -> Option<(PathBuf, &'a str)> {
     if let Some(lib_path) = lib_path {
+        let absolute_lib_path = if lib_path.is_absolute() {
+            lib_path.clone()
+        } else {
+            current_dir.join(lib_path)
+        };
         // Use the user-specified name if present, otherwise try to derive it from
         // the lib path
         match (
             language_name.map(|s| s.as_str()),
             lib_path.file_stem().and_then(|s| s.to_str()),
         ) {
-            (Some(name), _) | (None, Some(name)) => Some((lib_path.as_path(), name)),
+            (Some(name), _) | (None, Some(name)) => Some((absolute_lib_path, name)),
             _ => None,
         }
     } else {
