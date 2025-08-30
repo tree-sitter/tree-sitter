@@ -1415,9 +1415,9 @@ impl Loader {
         current_dir: &Path,
         scope: Option<&str>,
         // path to dynamic library, name of language
-        lib_info: Option<(&Path, &str)>,
+        lib_info: Option<&(PathBuf, &str)>,
     ) -> Result<Language> {
-        if let Some((lib_path, language_name)) = lib_info {
+        if let Some((ref lib_path, language_name)) = lib_info {
             let language_fn_name = format!("tree_sitter_{}", language_name.replace('-', "_"));
             Self::load_language(lib_path, &language_fn_name)
         } else if let Some(scope) = scope {
