@@ -3,7 +3,7 @@ use std::{
     ffi::{OsStr, OsString},
     fmt::Write,
     fs,
-    path::PathBuf,
+    path::{Path, PathBuf},
     process::Command,
     time::Duration,
 };
@@ -16,7 +16,9 @@ use notify::{
 };
 use notify_debouncer_full::new_debouncer;
 
-use crate::{bail_on_err, watch_wasm, BuildWasm, EMSCRIPTEN_TAG};
+use crate::{
+    bail_on_err, embed_sources::embed_sources_in_map, watch_wasm, BuildWasm, EMSCRIPTEN_TAG,
+};
 
 #[derive(PartialEq, Eq)]
 enum EmccSource {
@@ -48,10 +50,14 @@ const EXPORTED_RUNTIME_METHODS: [&str; 19] = [
 ];
 
 pub fn run_wasm(args: &BuildWasm) -> Result<()> {
-    let mut emscripten_flags = vec!["-O3", "--minify", "0"];
+    let mut emscripten_flags = if args.debug {
+        vec!["-O0", "--minify", "0"]
+    } else {
+        vec!["-O3", "--minify", "0"]
+    };
 
     if args.debug {
-        emscripten_flags.extend(["-s", "ASSERTIONS=1", "-s", "SAFE_HEAP=1", "-O0", "-g"]);
+        emscripten_flags.extend(["-s", "ASSERTIONS=1", "-s", "SAFE_HEAP=1", "-g"]);
     }
 
     if args.verbose {
@@ -285,6 +291,17 @@ fn build_wasm(cmd: &mut Command, edit_tsd: bool) -> Result<()> {
                 "MainModuleFactory(options?: Partial<EmscriptenModule>): Promise<MainModule>",
             );
         fs::write(file, content)?;
+    }
+
+    // Post-process the source map to embed source content for optimized builds
+    let map_path = Path::new("lib")
+        .join("binding_web")
+        .join("lib")
+        .join("web-tree-sitter.wasm.map");
+    if map_path.exists() {
+        if let Err(e) = embed_sources_in_map(&map_path) {
+            eprintln!("Warning: Failed to embed sources in source map: {e}");
+        }
     }
 
     Ok(())
