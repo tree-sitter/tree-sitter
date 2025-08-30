@@ -9,6 +9,7 @@ use std::{
 };
 
 use anyhow::{anyhow, Result};
+use indoc::indoc;
 use notify::{
     event::{AccessKind, AccessMode},
     EventKind, RecursiveMode,
@@ -159,6 +160,12 @@ pub fn run_wasm(args: &BuildWasm) -> Result<()> {
         emscripten_flags.extend(["-s", "EXPORT_ES6=1"]);
     }
 
+    macro_rules! binding_file {
+        ($ext:literal) => {
+            concat!("lib/binding_web/lib/web-tree-sitter", $ext)
+        };
+    }
+
     #[rustfmt::skip]
     emscripten_flags.extend([
         "-gsource-map=inline",
@@ -185,7 +192,7 @@ pub fn run_wasm(args: &BuildWasm) -> Result<()> {
         "-I", "lib/include",
         "--js-library", "lib/binding_web/lib/imports.js",
         "--pre-js",     "lib/binding_web/lib/prefix.js",
-        "-o",           if args.cjs { "lib/binding_web/lib/web-tree-sitter.cjs" } else { "lib/binding_web/lib/web-tree-sitter.mjs" },
+        "-o",           if args.cjs { binding_file!("cjs") } else { binding_file!(".mjs") },
         "lib/src/lib.c",
         "lib/binding_web/lib/tree-sitter.c",
     ]);
@@ -196,19 +203,89 @@ pub fn run_wasm(args: &BuildWasm) -> Result<()> {
     let command = command.args(&emscripten_flags);
 
     if args.watch {
-        watch_wasm!(|| build_wasm(command));
+        watch_wasm!(|| build_wasm(command, args.emit_tsd));
     } else {
-        build_wasm(command)?;
+        build_wasm(command, args.emit_tsd)?;
     }
 
     Ok(())
 }
 
-fn build_wasm(cmd: &mut Command) -> Result<()> {
+fn build_wasm(cmd: &mut Command, edit_tsd: bool) -> Result<()> {
     bail_on_err(
         &cmd.spawn()?.wait_with_output()?,
         "Failed to compile the Tree-sitter Wasm library",
     )?;
+
+    if edit_tsd {
+        let file = "lib/binding_web/lib/web-tree-sitter.d.ts";
+        let content = fs::read_to_string(file)?
+            .replace("Automatically generated", "Automatically @generated")
+            .replace(
+                "AsciiToString(ptr: any): string",
+                "AsciiToString(ptr: number): string",
+            )
+            .replace(
+                "stringToUTF8(str: any, outPtr: any, maxBytesToWrite: any): any",
+                "stringToUTF8(str: string, outPtr: number, maxBytesToWrite: number): number",
+            )
+            .replace(
+                "UTF8ToString(ptr: number, maxBytesToRead?: number | undefined): string",
+                "UTF8ToString(ptr: number, maxBytesToRead?: number): string",
+            )
+            .replace(
+                "lengthBytesUTF8(str: any): number",
+                "lengthBytesUTF8(str: string): number",
+            )
+            .replace(
+                "stringToUTF16(str: any, outPtr: any, maxBytesToWrite: any): number",
+                "stringToUTF16(str: string, outPtr: number, maxBytesToWrite: number): number",
+            )
+            .replace(
+                concat!(
+                    "loadWebAssemblyModule(binary: any, flags: any, libName?: string | ",
+                    "undefined, localScope?: any | undefined, handle?: number | undefined): any"
+                ),
+                concat!(
+                    "loadWebAssemblyModule(binary: Uint8Array, flags: Record<string, boolean>,",
+                    " libName?: string, localScope?: Record<string, unknown>, handle?: number):",
+                    " Promise<Record<string, () => number>>"
+                ),
+            )
+            .replace(
+                "getValue(ptr: number, type?: string): any",
+                "getValue(ptr: number, type?: string): number",
+            )
+            .replace("HEAPF32: any", "HEAPF32: Float32Array")
+            .replace("HEAPF64: any", "HEAPF64: Float64Array")
+            .replace("HEAP_DATA_VIEW: any", "HEAP_DATA_VIEW: DataView")
+            .replace("HEAP8: any", "HEAP8: Int8Array")
+            .replace("HEAPU8: any", "HEAPU8: Uint8Array")
+            .replace("HEAP16: any", "HEAP16: Int16Array")
+            .replace("HEAPU16: any", "HEAPU16: Uint16Array")
+            .replace("HEAP32: any", "HEAP32: Int32Array")
+            .replace("HEAPU32: any", "HEAPU32: Uint32Array")
+            .replace("HEAP64: any", "HEAP64: BigInt64Array")
+            .replace("HEAPU64: any", "HEAPU64: BigUint64Array")
+            .replace("BigInt;", "bigint;")
+            .replace("BigInt)", "bigint)")
+            .replace(
+                "WasmModule & typeof RuntimeExports;",
+                indoc! {"
+                WasmModule & typeof RuntimeExports & {
+                  currentParseCallback: ((index: number, position: {row: number, column: number}) => string | undefined) | null;
+                  currentLogCallback: ((message: string, isLex: boolean) => void) | null;
+                  currentProgressCallback: ((state: {currentOffset: number, hasError: boolean}) => void) | null;
+                  currentQueryProgressCallback: ((state: {currentOffset: number}) => void) | null;
+                };
+                "},
+            )
+            .replace(
+                "MainModuleFactory (options?: unknown): Promise<MainModule>",
+                "MainModuleFactory(options?: Partial<EmscriptenModule>): Promise<MainModule>",
+            );
+        fs::write(file, content)?;
+    }
 
     Ok(())
 }

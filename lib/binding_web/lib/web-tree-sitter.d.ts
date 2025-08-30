@@ -1,4 +1,4 @@
-// TypeScript bindings for emscripten-generated code.  Automatically generated at compile time (manually edited).
+// TypeScript bindings for emscripten-generated code.  Automatically @generated at compile time.
 declare namespace RuntimeExports {
     function AsciiToString(ptr: number): string;
     function stringToUTF8(str: string, outPtr: number, maxBytesToWrite: number): number;
@@ -25,18 +25,7 @@ declare namespace RuntimeExports {
      * @param {Object=} localScope
      * @param {number=} handle
      */
-    function loadWebAssemblyModule(
-      binary: Uint8Array,
-      flags: {
-        allowUndefined?: boolean,
-        loadAsync?: boolean,
-        global?: boolean,
-        nodelete?: boolean,
-      },
-      libName?: string,
-      localScope?: Record<string, unknown>,
-      handle?: number
-    ): Promise<Record<string, () => number>>;
+    function loadWebAssemblyModule(binary: Uint8Array, flags: Record<string, boolean>, libName?: string, localScope?: Record<string, unknown>, handle?: number): Promise<Record<string, () => number>>;
     /**
      * @param {number} ptr
      * @param {string} type
@@ -51,7 +40,7 @@ declare namespace RuntimeExports {
     let HEAPF32: Float32Array;
     let HEAPF64: Float64Array;
     let HEAP_DATA_VIEW: DataView;
-    let HEAP8: Int8Array
+    let HEAP8: Int8Array;
     let HEAPU8: Uint8Array;
     let HEAP16: Int16Array;
     let HEAPU16: Uint16Array;
@@ -211,9 +200,10 @@ interface WasmModule {
 }
 
 export type MainModule = WasmModule & typeof RuntimeExports & {
-    currentParseCallback: ((index: number, position: {row: number, column: number}) => string | undefined) | null;
-    currentLogCallback: ((message: string, isLex: boolean) => void) | null;
-    currentProgressCallback: ((state: {currentOffset: number, hasError: boolean}) => void) | null;
-    currentQueryProgressCallback: ((state: {currentOffset: number}) => void) | null;
+  currentParseCallback: ((index: number, position: {row: number, column: number}) => string | undefined) | null;
+  currentLogCallback: ((message: string, isLex: boolean) => void) | null;
+  currentProgressCallback: ((state: {currentOffset: number, hasError: boolean}) => void) | null;
+  currentQueryProgressCallback: ((state: {currentOffset: number}) => void) | null;
 };
+
 export default function MainModuleFactory(options?: Partial<EmscriptenModule>): Promise<MainModule>;
