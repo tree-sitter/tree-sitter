@@ -223,8 +223,8 @@
         "namespace": {
           "type": "string",
           "description": "The namespace for the Java & Kotlin packages.",
-          "default": "io.github.tree-sitter",
-          "$comment": "Used as is in the Maven/Gradle group name and transformed accordingly for the package names and directories (e.g. io.github.treesitter.jtreesitter.html - src/main/java/io/github/treesitter/jtreesitter/html)."
+          "default": "com.github.tree-sitter",
+          "$comment": "Used as is in the Maven/Gradle group name and transformed accordingly for the package names and directories (e.g. com.github.treesitter.jtreesitter.html - src/main/java/com/github/treesitter/jtreesitter/html)."
         }
       },
       "additionalProperties": false,
