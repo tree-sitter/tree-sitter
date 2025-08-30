@@ -34,12 +34,10 @@ type Rule =
   | SymbolRule<string>
   | TokenRule;
 
-class RustRegex {
+declare class RustRegex {
   value: string;
 
-  constructor(pattern: string) {
-    this.value = pattern;
-  }
+  constructor(pattern: string);
 }
 
 type RuleOrLiteral = Rule | RegExp | RustRegex | string;
@@ -263,7 +261,7 @@ declare function optional(rule: RuleOrLiteral): ChoiceRule;
  * @see https://docs.oracle.com/cd/E19504-01/802-5880/6i9k05dh3/index.html
  */
 declare const prec: {
-  (value: String | number, rule: RuleOrLiteral): PrecRule;
+  (value: string | number, rule: RuleOrLiteral): PrecRule;
 
   /**
    * Marks the given rule as left-associative (and optionally applies a
@@ -279,7 +277,7 @@ declare const prec: {
    * @see https://docs.oracle.com/cd/E19504-01/802-5880/6i9k05dh3/index.html
    */
   left(rule: RuleOrLiteral): PrecLeftRule;
-  left(value: String | number, rule: RuleOrLiteral): PrecLeftRule;
+  left(value: string | number, rule: RuleOrLiteral): PrecLeftRule;
 
   /**
    * Marks the given rule as right-associative (and optionally applies a
@@ -295,7 +293,7 @@ declare const prec: {
    * @see https://docs.oracle.com/cd/E19504-01/802-5880/6i9k05dh3/index.html
    */
   right(rule: RuleOrLiteral): PrecRightRule;
-  right(value: String | number, rule: RuleOrLiteral): PrecRightRule;
+  right(value: string | number, rule: RuleOrLiteral): PrecRightRule;
 
   /**
    * Marks the given rule with a numerical precedence which will be used to
@@ -312,7 +310,7 @@ declare const prec: {
    *
    * @see https://www.gnu.org/software/bison/manual/html_node/Generalized-LR-Parsing.html
    */
-  dynamic(value: String | number, rule: RuleOrLiteral): PrecDynamicRule;
+  dynamic(value: string | number, rule: RuleOrLiteral): PrecDynamicRule;
 };
 
 /**
@@ -359,7 +357,7 @@ declare function sym<Name extends string>(name: Name): SymbolRule<Name>;
 
 /**
  * Marks the given rule as producing only a single token. Tree-sitter's
- * default is to treat each String or RegExp literal in the grammar as a
+ * default is to treat each string or RegExp literal in the grammar as a
  * separate token. Each token is matched separately by the lexer and
  * returned as its own leaf node in the tree. The token function allows
  * you to express a complex rule using the DSL functions (rather
