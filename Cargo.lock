@@ -2029,7 +2029,7 @@ dependencies = [
  "unindent",
  "url",
  "walkdir",
- "wasmparser 0.224.1",
+ "wasmparser",
  "webbrowser",
  "widestring",
 ]
@@ -2312,20 +2312,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "38ba1d491ecacb085a2552025c10a675a6fddcbd03b1fc9b36c536010ce265d2"
 dependencies = [
  "leb128fmt",
- "wasmparser 0.229.0",
-]
-
-[[package]]
-name = "wasmparser"
-version = "0.224.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "04f17a5917c2ddd3819e84c661fae0d6ba29d7b9c1f0e96c708c65a9c4188e11"
-dependencies = [
- "bitflags 2.9.3",
- "hashbrown",
- "indexmap",
- "semver",
- "serde",
+ "wasmparser",
 ]
 
 [[package]]
@@ -2349,7 +2336,7 @@ checksum = "d25dac01892684a99b8fbfaf670eb6b56edea8a096438c75392daeb83156ae2e"
 dependencies = [
  "anyhow",
  "termcolor",
- "wasmparser 0.229.0",
+ "wasmparser",
 ]
 
 [[package]]
@@ -2381,7 +2368,7 @@ dependencies = [
  "smallvec",
  "sptr",
  "target-lexicon",
- "wasmparser 0.229.0",
+ "wasmparser",
  "wasmtime-asm-macros",
  "wasmtime-cranelift",
  "wasmtime-environ",
@@ -2447,7 +2434,7 @@ dependencies = [
  "smallvec",
  "target-lexicon",
  "thiserror 2.0.16",
- "wasmparser 0.229.0",
+ "wasmparser",
  "wasmtime-environ",
  "wasmtime-versioned-export-macros",
 ]
@@ -2471,7 +2458,7 @@ dependencies = [
  "smallvec",
  "target-lexicon",
  "wasm-encoder",
- "wasmparser 0.229.0",
+ "wasmparser",
  "wasmprinter",
 ]
 
@@ -2539,7 +2526,7 @@ dependencies = [
  "gimli",
  "object",
  "target-lexicon",
- "wasmparser 0.229.0",
+ "wasmparser",
  "wasmtime-cranelift",
  "wasmtime-environ",
  "winch-codegen",
@@ -2609,7 +2596,7 @@ dependencies = [
  "smallvec",
  "target-lexicon",
  "thiserror 2.0.16",
- "wasmparser 0.229.0",
+ "wasmparser",
  "wasmtime-cranelift",
  "wasmtime-environ",
 ]

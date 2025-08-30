@@ -156,7 +156,7 @@ topological-sort = "0.2.2"
 unindent = "0.2.4"
 url = { version = "2.5.4", features = ["serde"] }
 walkdir = "2.5.0"
-wasmparser = "0.224.1"
+wasmparser = "0.229.0"
 webbrowser = "1.0.5"
 
 tree-sitter = { version = "0.26.0", path = "./lib" }
