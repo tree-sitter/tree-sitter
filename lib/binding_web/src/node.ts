@@ -9,6 +9,7 @@ import { TRANSFER_BUFFER } from './parser';
 /** A single node within a syntax {@link Tree}. */
 export class Node {
   /** @internal */
+  // @ts-expect-error: never read
   private [0] = 0; // Internal handle for Wasm
 
   /** @internal */
@@ -635,7 +636,7 @@ export class Node {
   }
 
   /** Get the S-expression representation of this node. */
-  toString() {
+  toString(): string {
     marshalNode(this);
     const address = C._ts_node_to_string_wasm(this.tree[0]);
     const result = C.AsciiToString(address);

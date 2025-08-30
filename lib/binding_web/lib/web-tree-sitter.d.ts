@@ -50,7 +50,7 @@ declare namespace RuntimeExports {
     function setValue(ptr: number, value: number, type?: string): void;
     let currentParseCallback: ((index: number, position: {row: number, column: number}) => string | undefined) | null;
     let currentLogCallback: ((message: string, isLex: boolean) => void) | null;
-    let currentProgressCallback: ((state: {currentOffset: number}) => void) | null;
+    let currentProgressCallback: ((state: {currentOffset: number, hasError: boolean}) => void) | null;
     let currentQueryProgressCallback: ((state: {currentOffset: number}) => void) | null;
     let HEAPF32: Float32Array;
     let HEAPF64: Float64Array;
