@@ -3,6 +3,7 @@ mod build_wasm;
 mod bump;
 mod check_wasm_exports;
 mod clippy;
+mod embed_sources;
 mod fetch;
 mod generate;
 mod test;
