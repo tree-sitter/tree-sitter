@@ -6,7 +6,7 @@ import { Query } from './query';
 
 const LANGUAGE_FUNCTION_REGEX = /^tree_sitter_\w+$/;
 
-export class LanguageMetadata {
+export interface LanguageMetadata {
   readonly major_version: number;
   readonly minor_version: number;
   readonly patch_version: number;
