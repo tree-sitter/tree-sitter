@@ -7,16 +7,20 @@ import { getText, Tree } from './tree';
 /** A stateful object for walking a syntax {@link Tree} efficiently. */
 export class TreeCursor {
   /** @internal */
-  private [0] = 0; // Internal handle for WASM
+  // @ts-expect-error: never read
+  private [0] = 0; // Internal handle for Wasm
 
   /** @internal */
-  private [1] = 0; // Internal handle for WASM
+  // @ts-expect-error: never read
+  private [1] = 0; // Internal handle for Wasm
 
   /** @internal */
-  private [2] = 0; // Internal handle for WASM
+  // @ts-expect-error: never read
+  private [2] = 0; // Internal handle for Wasm
 
   /** @internal */
-  private [3] = 0; // Internal handle for WASM
+  // @ts-expect-error: never read
+  private [3] = 0; // Internal handle for Wasm
 
   /** @internal */
   private tree: Tree;
