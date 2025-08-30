@@ -923,6 +923,11 @@ TSQuery *ts_query_new(
 void ts_query_delete(TSQuery *self);
 
 /**
+ * Create a deep copy of `self`
+ */
+TSQuery *ts_query_copy(const TSQuery *self);
+
+/**
  * Get the number of patterns, captures, or string literals in the query.
  */
 uint32_t ts_query_pattern_count(const TSQuery *self);
