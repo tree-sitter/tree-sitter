@@ -4,7 +4,8 @@
   "description": "Eslint configuration for Tree-sitter grammar files",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/tree-sitter/tree-sitter.git"
+    "url": "git+https://github.com/tree-sitter/tree-sitter.git",
+    "directory": "crates/cli/eslint"
   },
   "license": "MIT",
   "author": "Amaan Qureshi <amaanq12@gmail.com>",
