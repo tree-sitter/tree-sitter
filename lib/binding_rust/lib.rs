@@ -21,8 +21,12 @@ use core::{
     slice, str,
     sync::atomic::AtomicUsize,
 };
+#[cfg(feature = "alloc")]
+use std::alloc::{self, Layout};
 #[cfg(feature = "std")]
 use std::error;
+#[cfg(feature = "alloc")]
+use std::mem::{align_of, size_of_val};
 #[cfg(all(unix, feature = "std"))]
 use std::os::fd::AsRawFd;
 #[cfg(all(windows, feature = "std"))]
@@ -3881,26 +3885,111 @@ pub fn wasm_stdlib_symbols() -> impl Iterator<Item = &'static str> {
         .map(|s| s.trim_matches(|c| c == '"' || c == ','))
 }
 
-extern "C" {
-    fn free(ptr: *mut c_void);
+unsafe extern "C" {
+    unsafe fn free(ptr: *mut c_void);
 }
 
 static mut FREE_FN: unsafe extern "C" fn(ptr: *mut c_void) = free;
 
-/// Sets the memory allocation functions that the core library should use.
+/// A trait containing the allocation functions used by the Tree-sitter library.
+///
+/// # Safety
+///
+/// Implementations of this trait can use unsafe functions.
+pub unsafe trait Allocator {
+    /// Allocates `size` bytes of uninitialized storage.
+    ///
+    /// # Safety
+    ///
+    /// May return a `null` pointer.
+    #[must_use]
+    unsafe extern "C" fn malloc(size: usize) -> *mut c_void;
+    /// Allocates memory for an array of `nmemb` objects of `size`
+    /// and initializes all bytes in the allocated storage to zero.
+    ///
+    /// # Safety
+    ///
+    /// May return a `null` pointer.
+    #[must_use]
+    unsafe extern "C" fn calloc(nmemb: usize, size: usize) -> *mut c_void;
+    /// Reallocates the given area of memory.
+    ///
+    /// # Safety
+    ///
+    /// May return a `null` pointer.
+    #[must_use]
+    unsafe extern "C" fn realloc(ptr: *mut c_void, size: usize) -> *mut c_void;
+    /// Deallocates the space previously allocated by [malloc], [calloc], or [realloc].
+    #[allow(clippy::missing_safety_doc)]
+    unsafe extern "C" fn free(ptr: *mut c_void);
+}
+
+/// An [Allocator] that uses Rust's standard [alloc] APIs.
+#[cfg(feature = "alloc")]
+pub struct RustAllocator;
+
+#[cfg(feature = "alloc")]
+impl RustAllocator {
+    const ALIGNMENT: usize = align_of::<*mut c_void>();
+}
+
+#[cfg(feature = "alloc")]
+unsafe impl Allocator for RustAllocator {
+    unsafe extern "C" fn malloc(size: usize) -> *mut c_void {
+        if let Ok(layout) = Layout::from_size_align(size, Self::ALIGNMENT) {
+            alloc::alloc(layout).cast()
+        } else {
+            ptr::null_mut()
+        }
+    }
+
+    unsafe extern "C" fn calloc(nmemb: usize, size: usize) -> *mut c_void {
+        if let Ok(layout) = Layout::from_size_align(nmemb * size, Self::ALIGNMENT) {
+            alloc::alloc_zeroed(layout).cast()
+        } else {
+            ptr::null_mut()
+        }
+    }
+
+    unsafe extern "C" fn realloc(ptr: *mut c_void, size: usize) -> *mut c_void {
+        if let Ok(layout) = Layout::from_size_align(size, Self::ALIGNMENT) {
+            alloc::realloc(ptr.cast(), layout, size).cast()
+        } else {
+            ptr::null_mut()
+        }
+    }
+
+    unsafe extern "C" fn free(ptr: *mut c_void) {
+        if let Ok(layout) = Layout::from_size_align(size_of_val(&ptr), Self::ALIGNMENT) {
+            alloc::dealloc(ptr.cast(), layout);
+        }
+    }
+}
+
+/// Sets the memory allocator that the core library should use.
 ///
 /// # Safety
 ///
 /// This function uses FFI and mutates a static global.
 #[doc(alias = "ts_set_allocator")]
-pub unsafe fn set_allocator(
-    new_malloc: Option<unsafe extern "C" fn(size: usize) -> *mut c_void>,
-    new_calloc: Option<unsafe extern "C" fn(nmemb: usize, size: usize) -> *mut c_void>,
-    new_realloc: Option<unsafe extern "C" fn(ptr: *mut c_void, size: usize) -> *mut c_void>,
-    new_free: Option<unsafe extern "C" fn(ptr: *mut c_void)>,
-) {
-    FREE_FN = new_free.unwrap_or(free);
-    ffi::ts_set_allocator(new_malloc, new_calloc, new_realloc, new_free);
+pub unsafe fn set_allocator<A: Allocator>() {
+    FREE_FN = A::free;
+    ffi::ts_set_allocator(
+        Some(A::malloc),
+        Some(A::calloc),
+        Some(A::realloc),
+        Some(A::free),
+    );
+}
+
+/// Resets the memory allocator that the core library should use.
+///
+/// # Safety
+///
+/// This function uses FFI and mutates a static global.
+pub unsafe fn unset_allocator<A: Allocator>() {
+    FREE_FN = free;
+    ffi::ts_set_allocator(None, None, None, None);
 }
 
 #[cfg(feature = "std")]

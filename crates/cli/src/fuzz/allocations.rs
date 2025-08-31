@@ -9,12 +9,7 @@ use std::{
 
 #[ctor::ctor]
 unsafe fn initialize_allocation_recording() {
-    tree_sitter::set_allocator(
-        Some(ts_record_malloc),
-        Some(ts_record_calloc),
-        Some(ts_record_realloc),
-        Some(ts_record_free),
-    );
+    tree_sitter::set_allocator::<RecordingAllocator>();
 }
 
 #[derive(Debug, PartialEq, Eq, Hash)]
@@ -33,11 +28,11 @@ thread_local! {
     static RECORDER: AllocationRecorder = AllocationRecorder::default();
 }
 
-extern "C" {
-    fn malloc(size: usize) -> *mut c_void;
-    fn calloc(count: usize, size: usize) -> *mut c_void;
-    fn realloc(ptr: *mut c_void, size: usize) -> *mut c_void;
-    fn free(ptr: *mut c_void);
+unsafe extern "C" {
+    unsafe fn malloc(size: usize) -> *mut c_void;
+    unsafe fn calloc(count: usize, size: usize) -> *mut c_void;
+    unsafe fn realloc(ptr: *mut c_void, size: usize) -> *mut c_void;
+    unsafe fn free(ptr: *mut c_void);
 }
 
 pub fn record<T>(f: impl FnOnce() -> T) -> Result<T, String> {
@@ -68,55 +63,61 @@ pub fn record<T>(f: impl FnOnce() -> T) -> Result<T, String> {
     Ok(value)
 }
 
-fn record_alloc(ptr: *mut c_void) {
-    RECORDER.with(|recorder| {
-        if recorder.enabled.load(SeqCst) {
-            let count = recorder.allocation_count.fetch_add(1, SeqCst);
-            recorder
-                .outstanding_allocations
-                .lock()
-                .unwrap()
-                .insert(Allocation(ptr), count);
-        }
-    });
-}
+struct RecordingAllocator;
 
-fn record_dealloc(ptr: *mut c_void) {
-    RECORDER.with(|recorder| {
-        if recorder.enabled.load(SeqCst) {
-            recorder
-                .outstanding_allocations
-                .lock()
-                .unwrap()
-                .remove(&Allocation(ptr));
-        }
-    });
-}
-
-unsafe extern "C" fn ts_record_malloc(size: usize) -> *mut c_void {
-    let result = malloc(size);
-    record_alloc(result);
-    result
-}
-
-unsafe extern "C" fn ts_record_calloc(count: usize, size: usize) -> *mut c_void {
-    let result = calloc(count, size);
-    record_alloc(result);
-    result
-}
-
-unsafe extern "C" fn ts_record_realloc(ptr: *mut c_void, size: usize) -> *mut c_void {
-    let result = realloc(ptr, size);
-    if ptr.is_null() {
-        record_alloc(result);
-    } else if !core::ptr::eq(ptr, result) {
-        record_dealloc(ptr);
-        record_alloc(result);
+impl RecordingAllocator {
+    fn record_alloc(ptr: *mut c_void) {
+        RECORDER.with(|recorder| {
+            if recorder.enabled.load(SeqCst) {
+                let count = recorder.allocation_count.fetch_add(1, SeqCst);
+                recorder
+                    .outstanding_allocations
+                    .lock()
+                    .unwrap()
+                    .insert(Allocation(ptr), count);
+            }
+        });
     }
-    result
+
+    fn record_dealloc(ptr: *mut c_void) {
+        RECORDER.with(|recorder| {
+            if recorder.enabled.load(SeqCst) {
+                recorder
+                    .outstanding_allocations
+                    .lock()
+                    .unwrap()
+                    .remove(&Allocation(ptr));
+            }
+        });
+    }
 }
 
-unsafe extern "C" fn ts_record_free(ptr: *mut c_void) {
-    record_dealloc(ptr);
-    free(ptr);
+unsafe impl tree_sitter::Allocator for RecordingAllocator {
+    unsafe extern "C" fn malloc(size: usize) -> *mut c_void {
+        let result = malloc(size);
+        Self::record_alloc(result);
+        result
+    }
+
+    unsafe extern "C" fn calloc(count: usize, size: usize) -> *mut c_void {
+        let result = calloc(count, size);
+        Self::record_alloc(result);
+        result
+    }
+
+    unsafe extern "C" fn realloc(ptr: *mut c_void, size: usize) -> *mut c_void {
+        let result = realloc(ptr, size);
+        if ptr.is_null() {
+            Self::record_alloc(result);
+        } else if !core::ptr::eq(ptr, result) {
+            Self::record_dealloc(ptr);
+            Self::record_alloc(result);
+        }
+        result
+    }
+
+    unsafe extern "C" fn free(ptr: *mut c_void) {
+        Self::record_dealloc(ptr);
+        free(ptr);
+    }
 }
