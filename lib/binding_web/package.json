@@ -70,6 +70,7 @@
   ],
   "devDependencies": {
     "@eslint/js": "^9.20.0",
+    "@types/emscripten": "^1.40.0",
     "@types/node": "^24.3.0",
     "@vitest/coverage-v8": "^3.0.5",
     "dts-buddy": "^0.6.2",
@@ -80,14 +81,6 @@
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.23.0",
     "vitest": "^3.0.5"
-  },
-  "peerDependencies": {
-    "@types/emscripten": "^1.40.0"
-  },
-  "peerDependenciesMeta": {
-    "@types/emscripten": {
-      "optional": true
-    }
   },
   "scripts": {
     "build:ts": "tsc -b . && node script/build.js",
