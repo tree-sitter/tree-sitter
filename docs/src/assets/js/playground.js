@@ -180,7 +180,7 @@ window.initializePlayground = async (opts) => {
   accessibilityCheckbox.addEventListener("change", handleQueryChange);
   languageSelect.addEventListener("change", handleLanguageChange);
   outputContainer.addEventListener("click", handleTreeClick);
-  copyButton.addEventListener("click", handleCopy);
+  copyButton?.addEventListener("click", handleCopy);
 
   handleQueryEnableChange();
   await handleLanguageChange();
