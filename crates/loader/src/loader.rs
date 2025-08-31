@@ -1105,21 +1105,51 @@ impl Loader {
         Ok(())
     }
 
+    /// This ensures that the wasi-sdk is available, downloading and extracting it if necessary,
+    /// and returns the path to the `clang` executable.
+    ///
+    /// If `TREE_SITTER_WASI_SDK_PATH` is set, it will use that path to look for the clang executable.
     fn ensure_wasi_sdk_exists(&self) -> Result<PathBuf, Error> {
+        let possible_executables = if cfg!(windows) {
+            vec![
+                "clang.exe",
+                "wasm32-unknown-wasi-clang.exe",
+                "wasm32-wasi-clang.exe",
+            ]
+        } else {
+            vec!["clang", "wasm32-unknown-wasi-clang", "wasm32-wasi-clang"]
+        };
+
+        if let Ok(wasi_sdk_path) = std::env::var("TREE_SITTER_WASI_SDK_PATH") {
+            let wasi_sdk_dir = PathBuf::from(wasi_sdk_path);
+
+            for exe in &possible_executables {
+                let clang_exe = wasi_sdk_dir.join("bin").join(exe);
+                if clang_exe.exists() {
+                    return Ok(clang_exe);
+                }
+            }
+
+            return Err(anyhow!(
+                "TREE_SITTER_WASI_SDK_PATH is set to '{}', but no clang executable found in 'bin/' directory. \
+                 Looked for: {}",
+                wasi_sdk_dir.display(),
+                possible_executables.join(", ")
+            ));
+        }
+
         let cache_dir = etcetera::choose_base_strategy()?
             .cache_dir()
             .join("tree-sitter");
         fs::create_dir_all(&cache_dir)?;
 
         let wasi_sdk_dir = cache_dir.join("wasi-sdk");
-        let clang_exe = if cfg!(windows) {
-            wasi_sdk_dir.join("bin").join("clang.exe")
-        } else {
-            wasi_sdk_dir.join("bin").join("clang")
-        };
 
-        if clang_exe.exists() {
-            return Ok(clang_exe);
+        for exe in &possible_executables {
+            let clang_exe = wasi_sdk_dir.join("bin").join(exe);
+            if clang_exe.exists() {
+                return Ok(clang_exe);
+            }
         }
 
         fs::create_dir_all(&wasi_sdk_dir)?;
@@ -1176,14 +1206,20 @@ impl Loader {
             .context("Failed to extract wasi-sdk archive")?;
 
         fs::remove_file(temp_tar_path).ok();
-        if !clang_exe.exists() {
-            return Err(anyhow!(
+        for exe in &possible_executables {
+            let clang_exe = wasi_sdk_dir.join("bin").join(exe);
+            if !clang_exe.exists() {
+                return Err(anyhow!(
                 "Failed to extract wasi-sdk correctly. Clang executable not found at expected location: {}",
                 clang_exe.display()
             ));
+            }
         }
 
-        Ok(clang_exe)
+        Err(anyhow!(
+            "Failed to find clang executable in downloaded wasi-sdk at '{}'",
+            wasi_sdk_dir.display()
+        ))
     }
 
     #[must_use]
