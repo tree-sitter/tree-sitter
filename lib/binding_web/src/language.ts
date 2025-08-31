@@ -255,16 +255,22 @@ export class Language {
    * The module can be provided as a path to a file or as a buffer.
    */
   static async load(input: string | Uint8Array): Promise<Language> {
-    let bytes: Promise<Uint8Array>;
+    let bytes: Uint8Array | WebAssembly.Module;
     if (input instanceof Uint8Array) {
-      bytes = Promise.resolve(input);
+      bytes = input;
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    } else if (globalThis.process?.versions.node) {
+      const fs: typeof import('fs/promises') = await import('fs/promises');
+      bytes = await fs.readFile(input);
     } else {
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-      if (globalThis.process?.versions.node) {
-        const fs: typeof import('fs/promises') = await import('fs/promises');
-        bytes = fs.readFile(input);
-      } else {
-        bytes = fetch(input)
+      try {
+        bytes = await WebAssembly.compileStreaming(fetch(input));
+      } catch (reason) {
+        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+        console.error(`wasm streaming compile failed: ${reason}`);
+        console.error('falling back to ArrayBuffer instantiation');
+        // fallback, probably because of bad MIME type
+        bytes = await fetch(input)
           .then((response) => response.arrayBuffer()
             .then((buffer) => {
               if (response.ok) {
@@ -277,7 +283,7 @@ export class Language {
       }
     }
 
-    const mod = await C.loadWebAssemblyModule(await bytes, { loadAsync: true });
+    const mod = await C.loadWebAssemblyModule(bytes, { loadAsync: true });
     const symbolNames = Object.keys(mod);
     const functionName = symbolNames.find((key) => LANGUAGE_FUNCTION_REGEX.test(key) &&
       !key.includes('external_scanner_'));
