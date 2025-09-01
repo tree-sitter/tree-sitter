@@ -908,6 +908,8 @@ impl Build {
             eprintln!("Warning: --docker flag is no longer used, and will be removed in a future release.");
         }
 
+        loader.debug_build(self.debug);
+
         if self.wasm {
             let output_path = self.output.map(|path| current_dir.join(path));
             let root_path = get_root_path(&grammar_path.join("tree-sitter.json"))?;
@@ -946,7 +948,6 @@ impl Build {
                 (false, false) => &[],
             };
 
-            loader.debug_build(self.debug);
             loader.force_rebuild(true);
 
             let config = Config::load(None)?;
