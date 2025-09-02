@@ -1,7 +1,6 @@
 use std::process::Command;
 
 use anyhow::{Context, Result};
-use git2::Repository;
 use semver::Version;
 
 use crate::{create_commit, UpgradeWasmtime};
@@ -93,9 +92,7 @@ pub fn run(args: &UpgradeWasmtime) -> Result<()> {
     println!("Upgrading wasmtime for Zig");
     update_zig(&args.version)?;
 
-    let repo = Repository::open(".")?;
     create_commit(
-        &repo,
         &format!("build(deps): bump wasmtime-c-api to v{}", args.version),
         &["lib/Cargo.toml", "Cargo.lock", "build.zig.zon"],
     )?;

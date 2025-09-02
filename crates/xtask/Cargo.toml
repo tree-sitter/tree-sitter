@@ -20,7 +20,6 @@ anyhow.workspace = true
 bindgen = { version = "0.72.0" }
 cc.workspace = true
 clap.workspace = true
-git2.workspace = true
 indoc.workspace = true
 regex.workspace = true
 semver.workspace = true
