@@ -247,7 +247,7 @@ fn build_wasm(cmd: &mut Command, edit_tsd: bool) -> Result<()> {
                     "undefined, localScope?: any | undefined, handle?: number | undefined): any"
                 ),
                 concat!(
-                    "loadWebAssemblyModule(binary: Uint8Array, flags: Record<string, boolean>,",
+                    "loadWebAssemblyModule(binary: Uint8Array | WebAssembly.Module, flags: Record<string, boolean>,",
                     " libName?: string, localScope?: Record<string, unknown>, handle?: number):",
                     " Promise<Record<string, () => number>>"
                 ),

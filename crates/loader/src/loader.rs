@@ -1042,7 +1042,7 @@ impl Loader {
             output_name,
             "-fPIC",
             "-shared",
-            "-Os",
+            if self.debug_build { "-g" } else { "-Os" },
             format!("-Wl,--export=tree_sitter_{language_name}").as_str(),
             "-Wl,--allow-undefined",
             "-Wl,--no-entry",

@@ -255,29 +255,33 @@ export class Language {
    * The module can be provided as a path to a file or as a buffer.
    */
   static async load(input: string | Uint8Array): Promise<Language> {
-    let bytes: Promise<Uint8Array>;
+    let binary: Uint8Array | WebAssembly.Module;
     if (input instanceof Uint8Array) {
-      bytes = Promise.resolve(input);
+      binary = input;
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    } else if (globalThis.process?.versions.node) {
+      const fs: typeof import('fs/promises') = await import('fs/promises');
+      binary = await fs.readFile(input);
     } else {
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-      if (globalThis.process?.versions.node) {
-        const fs: typeof import('fs/promises') = await import('fs/promises');
-        bytes = fs.readFile(input);
-      } else {
-        bytes = fetch(input)
-          .then((response) => response.arrayBuffer()
-            .then((buffer) => {
-              if (response.ok) {
-                return new Uint8Array(buffer);
-              } else {
-                const body = new TextDecoder('utf-8').decode(buffer);
-                throw new Error(`Language.load failed with status ${response.status}.\n\n${body}`);
-              }
-            }));
+      const response = await fetch(input);
+
+      if (!response.ok){
+        const body = await response.text();
+        throw new Error(`Language.load failed with status ${response.status}.\n\n${body}`);
+      }
+
+      const retryResp = response.clone();
+      try {
+        binary = await WebAssembly.compileStreaming(response);
+      } catch (reason) {
+        console.error('wasm streaming compile failed:', reason);
+        console.error('falling back to ArrayBuffer instantiation');
+        // fallback, probably because of bad MIME type
+        binary = new Uint8Array(await retryResp.arrayBuffer())
       }
     }
 
-    const mod = await C.loadWebAssemblyModule(await bytes, { loadAsync: true });
+    const mod = await C.loadWebAssemblyModule(binary, { loadAsync: true });
     const symbolNames = Object.keys(mod);
     const functionName = symbolNames.find((key) => LANGUAGE_FUNCTION_REGEX.test(key) &&
       !key.includes('external_scanner_'));
