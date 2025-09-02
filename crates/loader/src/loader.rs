@@ -1179,28 +1179,20 @@ impl Loader {
 
         eprintln!("Downloading wasi-sdk from {sdk_url}...");
         let temp_tar_path = cache_dir.join(sdk_filename);
-        let mut temp_file = fs::File::create(&temp_tar_path).with_context(|| {
-            format!(
-                "Failed to create temporary file at {}",
-                temp_tar_path.display()
-            )
-        })?;
 
-        let response = ureq::get(&sdk_url)
-            .call()
-            .with_context(|| format!("Failed to download wasi-sdk from {sdk_url}"))?;
-        if !response.status().is_success() {
-            return Err(anyhow::anyhow!(
-                "Failed to download wasi-sdk from {}",
-                sdk_url
-            ));
+        let status = Command::new("curl")
+            .arg("-f")
+            .arg("-L")
+            .arg("-o")
+            .arg(&temp_tar_path)
+            .arg(&sdk_url)
+            .status()
+            .with_context(|| format!("Failed to execute curl for {sdk_url}"))?;
+
+        if !status.success() {
+            return Err(anyhow!("Failed to download wasi-sdk from {sdk_url}",));
         }
 
-        std::io::copy(&mut response.into_body().into_reader(), &mut temp_file)
-            .context("Failed to write to temporary file")?;
-        temp_file
-            .flush()
-            .context("Failed to flush downloaded file")?;
         eprintln!("Extracting wasi-sdk to {}...", wasi_sdk_dir.display());
         self.extract_tar_gz_with_strip(&temp_tar_path, &wasi_sdk_dir)
             .context("Failed to extract wasi-sdk archive")?;
