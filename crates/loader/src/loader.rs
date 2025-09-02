@@ -1193,17 +1193,15 @@ impl Loader {
         fs::remove_file(temp_tar_path).ok();
         for exe in &possible_executables {
             let clang_exe = wasi_sdk_dir.join("bin").join(exe);
-            if !clang_exe.exists() {
-                return Err(anyhow!(
-                "Failed to extract wasi-sdk correctly. Clang executable not found at expected location: {}",
-                clang_exe.display()
-            ));
+            if clang_exe.exists() {
+                return Ok(clang_exe);
             }
         }
 
         Err(anyhow!(
-            "Failed to find clang executable in downloaded wasi-sdk at '{}'",
-            wasi_sdk_dir.display()
+            "Failed to find clang executable in downloaded wasi-sdk at '{}'. Looked for: {}",
+            wasi_sdk_dir.display(),
+            possible_executables.join(", ")
         ))
     }
 
