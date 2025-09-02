@@ -8,7 +8,7 @@ use std::sync::Mutex;
 use std::{
     collections::HashMap,
     env, fs,
-    io::{BufRead, BufReader, Write as _},
+    io::{BufRead, BufReader},
     marker::PhantomData,
     mem,
     path::{Path, PathBuf},
@@ -20,7 +20,6 @@ use std::{
 use anyhow::Error;
 use anyhow::{anyhow, Context, Result};
 use etcetera::BaseStrategy as _;
-use flate2::read::GzDecoder;
 use fs4::fs_std::FileExt;
 use indoc::indoc;
 use libloading::{Library, Symbol};
@@ -1073,35 +1072,29 @@ impl Loader {
         Ok(())
     }
 
-    /// Extracts a tar.gz archive, stripping the first path component.
-    ///
-    /// Similar to `tar -xzf <archive> --strip-components=1`
+    /// Extracts a tar.gz archive with `tar`, stripping the first path component.
     fn extract_tar_gz_with_strip(
         &self,
         archive_path: &Path,
         destination: &Path,
     ) -> Result<(), Error> {
-        let archive_file = fs::File::open(archive_path).context("Failed to open archive")?;
-        let mut archive = tar::Archive::new(GzDecoder::new(archive_file));
-        for entry in archive
-            .entries()
-            .with_context(|| "Failed to read archive entries")?
-        {
-            let mut entry = entry?;
-            let path = entry.path()?;
-            let Some(first_component) = path.components().next() else {
-                continue;
-            };
-            let dest_path = destination.join(path.strip_prefix(first_component).unwrap());
-            if let Some(parent) = dest_path.parent() {
-                fs::create_dir_all(parent).with_context(|| {
-                    format!("Failed to create directory at {}", parent.display())
-                })?;
-            }
-            entry
-                .unpack(&dest_path)
-                .with_context(|| format!("Failed to extract file to {}", dest_path.display()))?;
+        let status = Command::new("tar")
+            .arg("-xzf")
+            .arg(archive_path)
+            .arg("--strip-components=1")
+            .arg("-C")
+            .arg(destination)
+            .status()
+            .with_context(|| format!("Failed to execute tar for {}", archive_path.display()))?;
+
+        if !status.success() {
+            return Err(anyhow!(
+                "Failed to extract archive {} to {}",
+                archive_path.display(),
+                destination.display()
+            ));
         }
+
         Ok(())
     }
 

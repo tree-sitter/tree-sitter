@@ -31,7 +31,6 @@ default = ["tree-sitter-highlight", "tree-sitter-tags"]
 anyhow.workspace = true
 cc.workspace = true
 etcetera.workspace = true
-flate2.workspace = true
 fs4.workspace = true
 indoc.workspace = true
 libloading.workspace = true
@@ -41,7 +40,6 @@ regex.workspace = true
 semver.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-tar.workspace = true
 tempfile.workspace = true
 url.workspace = true
 
