@@ -259,7 +259,7 @@ jobs:
       shell: bash
       run: |
         cd lib
-        $BUILD_CMD check --no-default-features
+        $BUILD_CMD check --no-default-features --target=${{ matrix.target }}
 
     - name: Build target
       run: $BUILD_CMD build --release --target=${{ matrix.target }} --features=${{ matrix.features }}
@@ -271,15 +271,15 @@ jobs:
 
     - name: Fetch fixtures
       if: ${{ !matrix.no-run && inputs.run-test }}
-      run: $BUILD_CMD run -p xtask -- fetch-fixtures
+      run: $BUILD_CMD run -p xtask --target=${{ matrix.target }} -- fetch-fixtures
 
     - name: Generate fixtures
       if: ${{ !matrix.no-run && inputs.run-test && steps.cache.outputs.cache-hit != 'true' }}
-      run: $BUILD_CMD run -p xtask -- generate-fixtures
+      run: $BUILD_CMD run -p xtask --target=${{ matrix.target }} -- generate-fixtures
 
     - name: Generate Wasm fixtures
       if: ${{ !matrix.no-run && !matrix.use-cross && inputs.run-test && steps.cache.outputs.cache-hit != 'true' }}
-      run: $BUILD_CMD run -p xtask -- generate-fixtures --wasm
+      run: $BUILD_CMD run -p xtask --target=${{ matrix.target }} -- generate-fixtures --wasm
 
     - name: Run main tests
       if: ${{ !matrix.no-run && inputs.run-test }}
@@ -293,7 +293,7 @@ jobs:
 
     - name: Run wasm tests
       if: ${{ !matrix.no-run && !matrix.use-cross && inputs.run-test }}
-      run: $BUILD_CMD run -p xtask -- test-wasm
+      run: $BUILD_CMD run -p xtask --target=${{ matrix.target }} -- test-wasm
 
     - name: Upload CLI artifact
       uses: actions/upload-artifact@v4
