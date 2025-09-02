@@ -1,18 +1,25 @@
-use std::cmp::Ordering;
+use std::{cmp::Ordering, path::Path};
 
-use anyhow::{anyhow, Result};
-use git2::{DiffOptions, Repository};
+use anyhow::{anyhow, Context, Result};
 use indoc::indoc;
 use semver::{BuildMetadata, Prerelease, Version};
 
 use crate::{create_commit, BumpVersion};
 
-pub fn get_latest_tag(repo: &Repository) -> Result<String> {
-    let mut tags = repo
-        .tag_names(None)?
-        .into_iter()
-        .filter_map(|tag| tag.map(String::from))
-        .filter_map(|tag| Version::parse(tag.strip_prefix('v').unwrap_or(&tag)).ok())
+pub fn get_latest_tag() -> Result<String> {
+    let output = std::process::Command::new("git")
+        .args(["tag", "-l"])
+        .output()?;
+    if !output.status.success() {
+        anyhow::bail!(
+            "Failed to list tags: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
+    let mut tags = String::from_utf8(output.stdout)?
+        .lines()
+        .filter_map(|tag| Version::parse(tag.strip_prefix('v').unwrap_or(tag)).ok())
         .collect::<Vec<Version>>();
 
     tags.sort_by(
@@ -29,10 +36,19 @@ pub fn get_latest_tag(repo: &Repository) -> Result<String> {
 }
 
 pub fn run(args: BumpVersion) -> Result<()> {
-    let repo = Repository::open(".")?;
-    let latest_tag = get_latest_tag(&repo)?;
+    let latest_tag = get_latest_tag()?;
     let current_version = Version::parse(&latest_tag)?;
-    let latest_tag_sha = repo.revparse_single(&format!("v{latest_tag}"))?.id();
+
+    let output = std::process::Command::new("git")
+        .args(["rev-parse", &format!("v{latest_tag}")])
+        .output()?;
+    if !output.status.success() {
+        anyhow::bail!(
+            "Failed to get tag SHA: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+    let latest_tag_sha = String::from_utf8(output.stdout)?.trim().to_string();
 
     let workspace_toml_version = Version::parse(&fetch_workspace_version()?)?;
 
@@ -49,43 +65,57 @@ pub fn run(args: BumpVersion) -> Result<()> {
         return Ok(());
     }
 
-    let mut revwalk = repo.revwalk()?;
-    revwalk.push_range(format!("{latest_tag_sha}..HEAD").as_str())?;
-    let mut diff_options = DiffOptions::new();
+    let output = std::process::Command::new("git")
+        .args(["rev-list", &format!("{latest_tag_sha}..HEAD")])
+        .output()?;
+    if !output.status.success() {
+        anyhow::bail!(
+            "Failed to get commits: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+    let commits = String::from_utf8(output.stdout)?
+        .lines()
+        .map(|s| s.to_string())
+        .collect::<Vec<_>>();
 
     let mut should_increment_patch = false;
     let mut should_increment_minor = false;
 
-    for oid in revwalk {
-        let oid = oid?;
-        let commit = repo.find_commit(oid)?;
-        let message = commit.message().unwrap();
-        let message = message.trim();
+    for commit_sha in commits {
+        let output = std::process::Command::new("git")
+            .args(["log", "-1", "--format=%s", &commit_sha])
+            .output()?;
+        if !output.status.success() {
+            continue;
+        }
+        let message = String::from_utf8(output.stdout)?.trim().to_string();
 
-        let diff = {
-            let parent = commit.parent(0).unwrap();
-            let parent_tree = parent.tree().unwrap();
-            let commit_tree = commit.tree().unwrap();
-            repo.diff_tree_to_tree(
-                Some(&parent_tree),
-                Some(&commit_tree),
-                Some(&mut diff_options),
-            )?
-        };
+        let output = std::process::Command::new("git")
+            .args([
+                "diff-tree",
+                "--no-commit-id",
+                "--name-only",
+                "-r",
+                &commit_sha,
+            ])
+            .output()?;
+        if !output.status.success() {
+            continue;
+        }
 
         let mut source_code_changed = false;
-        diff.foreach(
-            &mut |delta, _| {
-                let path = delta.new_file().path().unwrap().to_str().unwrap();
-                if path.ends_with("rs") || path.ends_with("js") || path.ends_with('c') {
-                    source_code_changed = true;
-                }
-                true
-            },
-            None,
-            None,
-            None,
-        )?;
+        for path in String::from_utf8(output.stdout)?.lines() {
+            let path = Path::new(path);
+            if path.extension().is_some_and(|ext| {
+                ext.eq_ignore_ascii_case("rs")
+                    || ext.eq_ignore_ascii_case("js")
+                    || ext.eq_ignore_ascii_case("c")
+            }) {
+                source_code_changed = true;
+                break;
+            }
+        }
 
         if source_code_changed {
             should_increment_patch = true;
@@ -138,16 +168,13 @@ pub fn run(args: BumpVersion) -> Result<()> {
     update_cmake(&next_version)?;
     update_npm(&next_version)?;
     update_zig(&next_version)?;
-    tag_next_version(&repo, &next_version)?;
+    tag_next_version(&next_version)?;
 
     Ok(())
 }
 
-fn tag_next_version(repo: &Repository, next_version: &Version) -> Result<()> {
-    let signature = repo.signature()?;
-
-    let commit_id = create_commit(
-        repo,
+fn tag_next_version(next_version: &Version) -> Result<()> {
+    let commit_sha = create_commit(
         &format!("{next_version}"),
         &[
             "Cargo.lock",
@@ -166,15 +193,25 @@ fn tag_next_version(repo: &Repository, next_version: &Version) -> Result<()> {
         ],
     )?;
 
-    let tag = repo.tag(
-        &format!("v{next_version}"),
-        &repo.find_object(commit_id, None)?,
-        &signature,
-        &format!("v{next_version}"),
-        false,
-    )?;
+    // Create tag
+    let output = std::process::Command::new("git")
+        .args([
+            "tag",
+            "-a",
+            &format!("v{next_version}"),
+            "-m",
+            &format!("v{next_version}"),
+            &commit_sha,
+        ])
+        .output()?;
+    if !output.status.success() {
+        anyhow::bail!(
+            "Failed to create tag: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
 
-    println!("Tagged commit {commit_id} with tag {tag}");
+    println!("Tagged commit {commit_sha} with tag v{next_version}");
 
     Ok(())
 }
@@ -256,8 +293,9 @@ fn update_npm(next_version: &Version) -> Result<()> {
         "lib/binding_web/package.json",
         "crates/cli/npm/package.json",
     ] {
-        let package_json =
-            serde_json::from_str::<serde_json::Value>(&std::fs::read_to_string(path)?)?;
+        let package_json = serde_json::from_str::<serde_json::Value>(
+            &std::fs::read_to_string(path).with_context(|| format!("Failed to read {path}"))?,
+        )?;
 
         let mut package_json = package_json
             .as_object()

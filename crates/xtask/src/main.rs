@@ -9,12 +9,11 @@ mod generate;
 mod test;
 mod upgrade_wasmtime;
 
-use std::path::Path;
+use std::{path::Path, process::Command};
 
 use anstyle::{AnsiColor, Color, Style};
 use anyhow::Result;
-use clap::{crate_authors, Args, Command, FromArgMatches as _, Subcommand};
-use git2::{Oid, Repository};
+use clap::{crate_authors, Args, FromArgMatches as _, Subcommand};
 use semver::Version;
 
 #[derive(Subcommand)]
@@ -205,7 +204,7 @@ fn run() -> Result<()> {
     );
     let version: &'static str = Box::leak(version.into_boxed_str());
 
-    let cli = Command::new("xtask")
+    let cli = clap::Command::new("xtask")
         .help_template(
             "\
 {before-help}{name} {version}
@@ -296,27 +295,34 @@ const fn get_styles() -> clap::builder::Styles {
         .placeholder(Style::new().fg_color(Some(Color::Ansi(AnsiColor::White))))
 }
 
-pub fn create_commit(repo: &Repository, msg: &str, paths: &[&str]) -> Result<Oid> {
-    let mut index = repo.index()?;
+pub fn create_commit(msg: &str, paths: &[&str]) -> Result<String> {
     for path in paths {
-        index.add_path(Path::new(path))?;
+        let output = Command::new("git").args(["add", path]).output()?;
+        if !output.status.success() {
+            anyhow::bail!(
+                "Failed to add {path}: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+        }
     }
 
-    index.write()?;
+    let output = Command::new("git").args(["commit", "-m", msg]).output()?;
+    if !output.status.success() {
+        anyhow::bail!(
+            "Failed to commit: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
 
-    let tree_id = index.write_tree()?;
-    let tree = repo.find_tree(tree_id)?;
-    let signature = repo.signature()?;
-    let parent_commit = repo.revparse_single("HEAD")?.peel_to_commit()?;
+    let output = Command::new("git").args(["rev-parse", "HEAD"]).output()?;
+    if !output.status.success() {
+        anyhow::bail!(
+            "Failed to get commit SHA: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
 
-    Ok(repo.commit(
-        Some("HEAD"),
-        &signature,
-        &signature,
-        msg,
-        &tree,
-        &[&parent_commit],
-    )?)
+    Ok(String::from_utf8(output.stdout)?.trim().to_string())
 }
 
 #[macro_export]
