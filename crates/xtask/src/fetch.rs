@@ -59,6 +59,15 @@ pub fn run_fixtures(args: &FetchFixtures) -> Result<()> {
                     &format!("Failed to fetch tag {tag} for {grammar} grammar"),
                 )?;
 
+                let mut reset_command = Command::new("git");
+                reset_command
+                    .current_dir(&grammar_dir)
+                    .args(["reset", "--hard", "HEAD"]);
+                bail_on_err(
+                    &reset_command.spawn()?.wait_with_output()?,
+                    &format!("Failed to reset {grammar} grammar working tree"),
+                )?;
+
                 let mut checkout_command = Command::new("git");
                 checkout_command
                     .current_dir(&grammar_dir)
