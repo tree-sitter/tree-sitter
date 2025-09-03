@@ -8,7 +8,7 @@ mod process_inlines;
 
 use std::{
     cmp::Ordering,
-    collections::{hash_map, HashMap, HashSet},
+    collections::{hash_map, BTreeSet, HashMap, HashSet},
     mem,
 };
 
@@ -16,6 +16,7 @@ use anyhow::Result;
 pub use expand_tokens::ExpandTokensError;
 pub use extract_tokens::ExtractTokensError;
 pub use flatten_grammar::FlattenGrammarError;
+use indexmap::IndexMap;
 pub use intern_symbols::InternSymbolsError;
 pub use process_inlines::ProcessInlinesError;
 use serde::Serialize;
@@ -80,6 +81,7 @@ pub type PrepareGrammarResult<T> = Result<T, PrepareGrammarError>;
 #[error(transparent)]
 pub enum PrepareGrammarError {
     ValidatePrecedences(#[from] ValidatePrecedenceError),
+    ValidateIndirectRecursion(#[from] IndirectRecursionError),
     InternSymbols(#[from] InternSymbolsError),
     ExtractTokens(#[from] ExtractTokensError),
     FlattenGrammar(#[from] FlattenGrammarError),
@@ -94,6 +96,22 @@ pub type ValidatePrecedenceResult<T> = Result<T, ValidatePrecedenceError>;
 pub enum ValidatePrecedenceError {
     Undeclared(#[from] UndeclaredPrecedenceError),
     Ordering(#[from] ConflictingPrecedenceOrderingError),
+}
+
+#[derive(Debug, Error, Serialize)]
+pub struct IndirectRecursionError(pub Vec<String>);
+
+impl std::fmt::Display for IndirectRecursionError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Grammar contains an indirectly recursive rule: ")?;
+        for (i, symbol) in self.0.iter().enumerate() {
+            if i > 0 {
+                write!(f, " -> ")?;
+            }
+            write!(f, "{symbol}")?;
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Error, Serialize)]
@@ -141,6 +159,7 @@ pub fn prepare_grammar(
     AliasMap,
 )> {
     validate_precedences(input_grammar)?;
+    validate_indirect_recursion(input_grammar)?;
 
     let interned_grammar = intern_symbols(input_grammar)?;
     let (syntax_grammar, lexical_grammar) = extract_tokens(interned_grammar)?;
@@ -150,6 +169,83 @@ pub fn prepare_grammar(
     let default_aliases = extract_default_aliases(&mut syntax_grammar, &lexical_grammar);
     let inlines = process_inlines(&syntax_grammar, &lexical_grammar)?;
     Ok((syntax_grammar, lexical_grammar, inlines, default_aliases))
+}
+
+/// Check for indirect recursion cycles in the grammar that can cause infinite loops while
+/// parsing. An indirect recursion cycle occurs when a non-terminal can derive itself through
+/// a chain of single-symbol productions (e.g., A -> B, B -> A).
+fn validate_indirect_recursion(grammar: &InputGrammar) -> Result<(), IndirectRecursionError> {
+    let mut epsilon_transitions: IndexMap<&str, BTreeSet<String>> = IndexMap::new();
+
+    for variable in &grammar.variables {
+        let productions = get_single_symbol_productions(&variable.rule);
+        // Filter out rules that *directly* reference themselves, as this doesn't
+        // cause a parsing loop.
+        let filtered: BTreeSet<String> = productions
+            .into_iter()
+            .filter(|s| s != &variable.name)
+            .collect();
+        epsilon_transitions.insert(variable.name.as_str(), filtered);
+    }
+
+    for start_symbol in epsilon_transitions.keys() {
+        let mut visited = BTreeSet::new();
+        let mut path = Vec::new();
+        if let Some((start_idx, end_idx)) =
+            get_cycle(start_symbol, &epsilon_transitions, &mut visited, &mut path)
+        {
+            let cycle_symbols = path[start_idx..=end_idx]
+                .iter()
+                .map(|s| (*s).to_string())
+                .collect();
+            return Err(IndirectRecursionError(cycle_symbols));
+        }
+    }
+
+    Ok(())
+}
+
+fn get_single_symbol_productions(rule: &Rule) -> BTreeSet<String> {
+    match rule {
+        Rule::NamedSymbol(name) => BTreeSet::from([name.clone()]),
+        Rule::Choice(choices) => choices
+            .iter()
+            .flat_map(get_single_symbol_productions)
+            .collect(),
+        Rule::Metadata { rule, .. } => get_single_symbol_productions(rule),
+        _ => BTreeSet::new(),
+    }
+}
+
+/// Perform a depth-first search to detect cycles in single state transitions.
+fn get_cycle<'a>(
+    current: &'a str,
+    transitions: &'a IndexMap<&'a str, BTreeSet<String>>,
+    visited: &mut BTreeSet<&'a str>,
+    path: &mut Vec<&'a str>,
+) -> Option<(usize, usize)> {
+    if let Some(first_idx) = path.iter().position(|s| *s == current) {
+        path.push(current);
+        return Some((first_idx, path.len() - 1));
+    }
+
+    if visited.contains(current) {
+        return None;
+    }
+
+    path.push(current);
+    visited.insert(current);
+
+    if let Some(next_symbols) = transitions.get(current) {
+        for next in next_symbols {
+            if let Some(cycle) = get_cycle(next, transitions, visited, path) {
+                return Some(cycle);
+            }
+        }
+    }
+
+    path.pop();
+    None
 }
 
 /// Check that all of the named precedences used in the grammar are declared
