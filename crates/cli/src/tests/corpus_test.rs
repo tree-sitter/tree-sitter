@@ -381,7 +381,7 @@ fn test_feature_corpus_files() {
                 let actual_message = e.to_string().replace("\r\n", "\n");
                 if expected_message != actual_message {
                     eprintln!(
-                        "Unexpected error message.\n\nExpected:\n\n{expected_message}\nActual:\n\n{actual_message}\n",
+                        "Unexpected error message.\n\nExpected:\n\n`{expected_message}`\nActual:\n\n`{actual_message}`\n",
                     );
                     failure_count += 1;
                 }
