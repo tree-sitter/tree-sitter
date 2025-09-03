@@ -46,6 +46,7 @@ declare namespace RuntimeExports {
     let HEAPU32: Uint32Array;
     let HEAP64: BigInt64Array;
     let HEAPU64: BigUint64Array;
+    function LE_HEAP_STORE_I64(byteOffset: any, value: any): any;
 }
 interface WasmModule {
   _malloc(_0: number): number;

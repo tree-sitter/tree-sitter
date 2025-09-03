@@ -27,7 +27,7 @@ enum EmccSource {
     Podman,
 }
 
-const EXPORTED_RUNTIME_METHODS: [&str; 19] = [
+const EXPORTED_RUNTIME_METHODS: [&str; 20] = [
     "AsciiToString",
     "stringToUTF8",
     "UTF8ToString",
@@ -47,6 +47,7 @@ const EXPORTED_RUNTIME_METHODS: [&str; 19] = [
     "HEAPU32",
     "HEAP64",
     "HEAPU64",
+    "LE_HEAP_STORE_I64",
 ];
 
 pub fn run_wasm(args: &BuildWasm) -> Result<()> {
