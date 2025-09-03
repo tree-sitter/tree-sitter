@@ -1,9 +1,6 @@
 use crate::{bail_on_err, root_dir, FetchFixtures, EMSCRIPTEN_VERSION};
 use anyhow::Result;
-use std::{
-    fs,
-    process::{Command, Stdio},
-};
+use std::{fs, process::Command};
 
 pub fn run_fixtures(args: &FetchFixtures) -> Result<()> {
     let fixtures_dir = root_dir().join("test").join("fixtures");
@@ -26,6 +23,8 @@ pub fn run_fixtures(args: &FetchFixtures) -> Result<()> {
                 "clone",
                 "--depth",
                 "1",
+                "--branch",
+                tag,
                 &grammar_url,
                 &grammar_dir.to_string_lossy(),
             ]);
@@ -33,44 +32,45 @@ pub fn run_fixtures(args: &FetchFixtures) -> Result<()> {
                 &command.spawn()?.wait_with_output()?,
                 &format!("Failed to clone the {grammar} grammar"),
             )?;
-        }
+        } else {
+            let mut describe_command = Command::new("git");
+            describe_command.current_dir(&grammar_dir).args([
+                "describe",
+                "--tags",
+                "--exact-match",
+                "HEAD",
+            ]);
 
-        std::env::set_current_dir(&grammar_dir)?;
+            let output = describe_command.output()?;
+            let current_tag = String::from_utf8_lossy(&output.stdout);
+            let current_tag = current_tag.trim();
 
-        let mut command = Command::new("git");
-        command.args(["fetch", "origin", "--tags"]);
-        bail_on_err(
-            &command.spawn()?.wait_with_output()?,
-            &format!("Failed to fetch the {grammar} grammar's tags"),
-        )?;
+            if current_tag != tag {
+                println!("Updating {grammar} grammar from {current_tag} to {tag}...");
 
-        if args.update {
-            let mut command = Command::new("git");
-            command
-                .args(["tag", "--sort=-creatordate"])
-                .stdout(Stdio::piped());
-            let update_out = command.spawn()?.wait_with_output()?;
-            bail_on_err(
-                &update_out,
-                &format!("Failed to parse the {grammar} grammar's latest commit"),
-            )?;
-            let new_tag = String::from_utf8(update_out.stdout)?
-                .lines()
-                .next()
-                .expect("No tags found")
-                .trim()
-                .to_string();
-            if !new_tag.eq(tag) {
-                println!("Updating the {grammar} grammar from {tag} to {new_tag}...");
-                *tag = new_tag;
+                let mut fetch_command = Command::new("git");
+                fetch_command.current_dir(&grammar_dir).args([
+                    "fetch",
+                    "origin",
+                    &format!("refs/tags/{tag}:refs/tags/{tag}"),
+                ]);
+                bail_on_err(
+                    &fetch_command.spawn()?.wait_with_output()?,
+                    &format!("Failed to fetch tag {tag} for {grammar} grammar"),
+                )?;
+
+                let mut checkout_command = Command::new("git");
+                checkout_command
+                    .current_dir(&grammar_dir)
+                    .args(["checkout", tag]);
+                bail_on_err(
+                    &checkout_command.spawn()?.wait_with_output()?,
+                    &format!("Failed to checkout tag {tag} for {grammar} grammar"),
+                )?;
+            } else {
+                println!("{grammar} grammar is already at tag {tag}");
             }
         }
-        let mut command = Command::new("git");
-        command.args(["reset", "--hard", tag]);
-        bail_on_err(
-            &command.spawn()?.wait_with_output()?,
-            &format!("Failed to reset the {grammar} grammar"),
-        )?;
     }
 
     if args.update {
