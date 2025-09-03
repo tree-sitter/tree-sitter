@@ -19,7 +19,7 @@ endif()
 
 add_library(tree-sitter ${TS_SOURCE_FILES})
 
-target_include_directories(tree-sitter PRIVATE src src/wasm include)
+target_include_directories(tree-sitter PRIVATE src src/wasm PUBLIC include)
 
 if(MSVC)
   target_compile_options(tree-sitter PRIVATE
