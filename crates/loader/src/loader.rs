@@ -1,4 +1,4 @@
-#![doc = include_str!("../README.md")]
+#![cfg_attr(not(any(test, doctest)), doc = include_str!("../README.md"))]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
 #[cfg(any(feature = "tree-sitter-highlight", feature = "tree-sitter-tags"))]
