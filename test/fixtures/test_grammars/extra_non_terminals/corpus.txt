@@ -12,11 +12,12 @@ a b c d
 Extras
 ==============
 
-a (one) b (two) (three) c d
+a (one) b (two) (three) c d // e
 
 ---
 
 (module
-  (comment)
-  (comment)
-  (comment))
+  (comment (paren_comment))
+  (comment (paren_comment))
+  (comment (paren_comment))
+  (comment (line_comment)))
