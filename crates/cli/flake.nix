@@ -6,30 +6,24 @@
       lib,
       src,
       version,
+      crossTargets,
       ...
     }:
     let
-      nativeBuildInputs = [
-        pkgs.pkg-config
-        pkgs.nodejs_22
-      ];
-
-      buildInputs = [
-        pkgs.openssl
-        pkgs.installShellFiles
-      ];
-    in
-    {
-      packages = {
-        cli = pkgs.rustPlatform.buildRustPackage {
-          inherit
-            src
-            version
-            nativeBuildInputs
-            buildInputs
-            ;
-
+      buildCliFor =
+        targetPkgs:
+        let
+          isCross = targetPkgs.stdenv.hostPlatform != pkgs.stdenv.buildPlatform;
+        in
+        targetPkgs.rustPlatform.buildRustPackage {
+          inherit src version;
           pname = "tree-sitter-cli";
+
+          nativeBuildInputs = [
+            pkgs.pkg-config
+            pkgs.nodejs_22
+          ]
+          ++ lib.optionals (!isCross) [ pkgs.installShellFiles ];
 
           cargoLock.lockFile = ../../Cargo.lock;
 
@@ -40,20 +34,17 @@
             chmod -R u+w test/fixtures
           '';
 
-          preCheck = ''
-            export HOME=$TMPDIR
-          '';
+          preCheck = "export HOME=$TMPDIR";
+          doCheck = !isCross;
 
-          doCheck = true;
-
-          postInstall = ''
-            installShellCompletion --cmd tree-sitter               \
+          postInstall = lib.optionalString (!isCross) ''
+            installShellCompletion --cmd tree-sitter \
               --bash <($out/bin/tree-sitter complete --shell bash) \
-              --zsh  <($out/bin/tree-sitter complete --shell zsh)  \
+              --zsh  <($out/bin/tree-sitter complete --shell zsh) \
               --fish <($out/bin/tree-sitter complete --shell fish)
           '';
 
-          meta = {
+          meta = with lib; {
             description = "Tree-sitter CLI - A tool for developing, testing, and using Tree-sitter parsers";
             longDescription = ''
               Tree-sitter is a parser generator tool and an incremental parsing library.
@@ -63,13 +54,21 @@
             '';
             homepage = "https://tree-sitter.github.io/tree-sitter";
             changelog = "https://github.com/tree-sitter/tree-sitter/releases/tag/v${version}";
-            license = lib.licenses.mit;
-            maintainers = [ lib.maintainers.amaanq ];
-            platforms = lib.platforms.all;
+            license = licenses.mit;
+            maintainers = [ maintainers.amaanq ];
+            platforms = platforms.all;
             mainProgram = "tree-sitter";
           };
         };
 
+      crossPackages = lib.mapAttrs (name: targetPkgs: buildCliFor targetPkgs) crossTargets;
+    in
+    {
+      packages = {
+        cli = buildCliFor pkgs;
+      }
+      // (lib.mapAttrs' (name: pkg: lib.nameValuePair "cli-${name}" pkg) crossPackages)
+      // {
         rust-fmt =
           pkgs.runCommand "rust-fmt-check"
             {
