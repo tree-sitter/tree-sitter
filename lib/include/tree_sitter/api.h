@@ -609,16 +609,6 @@ bool ts_node_is_extra(TSNode self);
 bool ts_node_has_changes(TSNode self);
 
 /**
- * Check if the node is a syntax error or contains any syntax errors.
- */
-bool ts_node_has_error(TSNode self);
-
-/**
- * Check if the node is a syntax error.
-*/
-bool ts_node_is_error(TSNode self);
-
-/**
  * Get this node's parse state.
 */
 TSStateId ts_node_parse_state(TSNode self);
@@ -752,6 +742,37 @@ void ts_node_edit(TSNode *self, const TSInputEdit *edit);
  * Check if two nodes are identical.
  */
 bool ts_node_eq(TSNode self, TSNode other);
+
+/*******************/
+/* Section - Error */
+/*******************/
+
+/**
+ * Check if the node is a syntax error or contains any syntax errors.
+ */
+bool ts_node_has_error(TSNode self);
+
+/**
+ * Check if the node is a syntax error.
+*/
+bool ts_node_is_error(TSNode self);
+
+/**
+ * If `self` is an error then this function returns the byte range containing the portion of the node which
+ * caused the error. These values are stored in `*start_byte` and `*end_byte` and true is returned from the
+ * function. If `self` is not an error node then `*start_byte` and `*end_byte` are left unmodified and the
+ * function returns false.
+*/
+bool ts_node_error_byte_range(TSNode self, uint32_t *start_byte, uint32_t *end_byte);
+bool ts_node_error_point_range(TSNode self, TSPoint *start_point, TSPoint *end_point);
+bool ts_node_error_child(TSNode self, uint32_t child_index, TSNode *child);
+bool ts_node_error_child_count(TSNode self, uint32_t *count);
+
+/**
+ * Returns a special node type which corresponds to the root of errors if `self` is an error node.
+ * This API is low level and only used to build higher level abstractions.
+*/
+TSNode ts_node_error_root(TSNode self);
 
 /************************/
 /* Section - TreeCursor */

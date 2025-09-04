@@ -77,9 +77,13 @@ static inline TSTreeCursor unmarshal_cursor(const void **buffer, const TSTree *t
   return cursor;
 }
 
-static void marshal_point(TSPoint point) {
-  TRANSFER_BUFFER[0] = (const void *)point.row;
-  TRANSFER_BUFFER[1] = (const void *)byte_to_code_unit(point.column);
+static inline void marshal_point_into(const void **buffer, TSPoint point) {
+  buffer[0] = (const void *)point.row;
+  buffer[1] = (const void *)byte_to_code_unit(point.column);
+}
+
+static inline void marshal_point(TSPoint point) {
+  marshal_point_into(TRANSFER_BUFFER, point);
 }
 
 static TSPoint unmarshal_point(const void **address) {
@@ -831,6 +835,10 @@ int ts_node_has_changes_wasm(const TSTree *tree) {
   return ts_node_has_changes(node);
 }
 
+/*******************/
+/* Section - Error */
+/*******************/
+
 int ts_node_has_error_wasm(const TSTree *tree) {
   TSNode node = unmarshal_node(tree);
   return ts_node_has_error(node);
@@ -860,6 +868,50 @@ uint16_t ts_node_next_parse_state_wasm(const TSTree *tree) {
   TSNode node = unmarshal_node(tree);
   return ts_node_next_parse_state(node);
 }
+
+bool ts_node_error_byte_range_wasm(const TSTree *tree) {
+  TSNode node = unmarshal_node(tree);
+  uint32_t start_byte, end_byte;
+  bool result = ts_node_error_byte_range(node, &start_byte, &end_byte);
+  if (result) {
+    TRANSFER_BUFFER[0] = (const void *)(start_byte);
+    TRANSFER_BUFFER[1] = (const void *)(end_byte);
+  }
+  return result;
+}
+
+bool ts_node_error_child_wasm(const TSTree *tree, uint32_t index) {
+  TSNode node = unmarshal_node(tree);
+  TSNode child;
+  bool result = ts_node_error_child(node, index, &child);
+  if (result) {
+    marshal_node(TRANSFER_BUFFER, child);
+  }
+  return result;
+}
+
+bool ts_node_error_child_count_wasm(const TSTree *tree) {
+  TSNode node = unmarshal_node(tree);
+  uint32_t count;
+  bool result = ts_node_error_child_count(node, &count);
+  if (result) {
+    TRANSFER_BUFFER[0] = (const void *)(count);
+  }
+  return result;
+}
+
+bool ts_node_error_point_range_wasm(const TSTree *tree) {
+  TSNode node = unmarshal_node(tree);
+  TSPoint start, end;
+  bool result = ts_node_error_point_range(node, &start, &end);
+  if (result) {
+    marshal_point_into(TRANSFER_BUFFER, start);
+    marshal_point_into(TRANSFER_BUFFER + 2, end);
+  }
+  return result;
+}
+
+
 
 /******************/
 /* Section - Query */
