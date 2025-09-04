@@ -64,64 +64,59 @@ pub fn run(args: &Test) -> Result<()> {
         env::set_var("TREE_SITTER_LOG_GRAPHS", "1");
     }
 
-    let run_tests = |subdir: &str| -> Result<()> {
-        if args.g {
-            let mut cargo_cmd = Command::new("cargo");
-            cargo_cmd
-                .current_dir(subdir)
-                .arg("test")
-                .arg(&test_flags)
-                .arg("--no-run")
-                .arg("--message-format=json");
+    if args.g {
+        let mut cargo_cmd = Command::new("cargo");
+        cargo_cmd
+            .arg("test")
+            .arg("--all")
+            .arg(&test_flags)
+            .arg("--no-run")
+            .arg("--message-format=json");
 
-            #[cfg(target_os = "windows")]
-            cargo_cmd.arg("--").arg("--test-threads=1");
+        #[cfg(target_os = "windows")]
+        cargo_cmd.arg("--").arg("--test-threads=1");
 
-            let cargo_cmd = cargo_cmd.stdout(Stdio::piped()).spawn()?;
+        let cargo_cmd = cargo_cmd.stdout(Stdio::piped()).spawn()?;
 
-            let jq_cmd = Command::new("jq")
+        let jq_cmd = Command::new("jq")
             .arg("-rs")
             .arg(r#"map(select(.target.name == "tree_sitter_cli" and .executable))[0].executable"#)
             .stdin(cargo_cmd.stdout.unwrap())
             .output()?;
 
-            let test_binary = String::from_utf8(jq_cmd.stdout)?;
+        let test_binary = String::from_utf8(jq_cmd.stdout)?;
 
-            let mut lldb_cmd = Command::new("lldb");
-            lldb_cmd.arg(test_binary.trim()).arg("--").args(&args.args);
-            bail_on_err(
-                &lldb_cmd.spawn()?.wait_with_output()?,
-                &format!("Failed to run {lldb_cmd:?}"),
-            )
-        } else {
-            let mut cargo_cmd = Command::new("cargo");
-            cargo_cmd.current_dir(subdir).arg("test");
-            if args.wasm {
-                cargo_cmd.arg("--features").arg("wasm");
-            }
-            if !test_flags.is_empty() {
-                cargo_cmd.arg(&test_flags);
-            }
-            cargo_cmd.args(&args.args);
-
-            #[cfg(target_os = "windows")]
-            cargo_cmd.arg("--").arg("--test-threads=1");
-
-            if args.nocapture {
-                #[cfg(not(target_os = "windows"))]
-                cargo_cmd.arg("--");
-
-                cargo_cmd.arg("--nocapture");
-            }
-            bail_on_err(
-                &cargo_cmd.spawn()?.wait_with_output()?,
-                &format!("Failed to run {cargo_cmd:?}"),
-            )
+        let mut lldb_cmd = Command::new("lldb");
+        lldb_cmd.arg(test_binary.trim()).arg("--").args(&args.args);
+        bail_on_err(
+            &lldb_cmd.spawn()?.wait_with_output()?,
+            &format!("Failed to run {lldb_cmd:?}"),
+        )?;
+    } else {
+        let mut cargo_cmd = Command::new("cargo");
+        cargo_cmd.arg("test").arg("--all");
+        if args.wasm {
+            cargo_cmd.arg("--features").arg("wasm");
         }
-    };
+        if !test_flags.is_empty() {
+            cargo_cmd.arg(&test_flags);
+        }
+        cargo_cmd.args(&args.args);
 
-    run_tests(".")?;
-    run_tests("crates/generate")?;
+        #[cfg(target_os = "windows")]
+        cargo_cmd.arg("--").arg("--test-threads=1");
+
+        if args.nocapture {
+            #[cfg(not(target_os = "windows"))]
+            cargo_cmd.arg("--");
+
+            cargo_cmd.arg("--nocapture");
+        }
+        bail_on_err(
+            &cargo_cmd.spawn()?.wait_with_output()?,
+            &format!("Failed to run {cargo_cmd:?}"),
+        )?;
+    }
 
     Ok(())
 }
