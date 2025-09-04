@@ -44,6 +44,7 @@ workspace = true
 default = ["std"]
 std = ["regex/std", "regex/perf", "regex-syntax/unicode"]
 wasm = ["std", "wasmtime-c-api"]
+alloc = ["std"]
 
 [dependencies]
 regex = { version = "1.11.2", default-features = false, features = ["unicode"] }
