@@ -229,8 +229,6 @@
 
               pkgs.git
               pkgs.nixfmt-rfc-style
-              pkgs.openssl
-              pkgs.openssl.dev
             ];
 
             shellHook = ''

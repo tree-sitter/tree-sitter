@@ -99,8 +99,6 @@
             pkgs.libclang
           ];
 
-          buildInputs = [ pkgs.openssl ];
-
           buildPhase = ''
             export HOME=$TMPDIR
             export LIBCLANG_PATH="${pkgs.libclang.lib}/lib"
