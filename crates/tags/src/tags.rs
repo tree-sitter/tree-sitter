@@ -1,4 +1,4 @@
-#![doc = include_str!("../README.md")]
+#![cfg_attr(not(any(test, doctest)), doc = include_str!("../README.md"))]
 
 pub mod c_lib;
 
