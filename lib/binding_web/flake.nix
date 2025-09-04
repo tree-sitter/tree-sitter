@@ -82,8 +82,6 @@
             pkgs.emscripten
           ];
 
-          buildInputs = [ pkgs.openssl ];
-
           cargoDeps = pkgs.rustPlatform.importCargoLock {
             lockFile = ../../Cargo.lock;
           };
