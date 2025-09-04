@@ -604,6 +604,10 @@ extern "C" {
     pub fn ts_query_delete(self_: *mut TSQuery);
 }
 extern "C" {
+    #[doc = " Create a deep copy of `self`"]
+    pub fn ts_query_copy(self_: *const TSQuery) -> *mut TSQuery;
+}
+extern "C" {
     #[doc = " Get the number of patterns, captures, or string literals in the query."]
     pub fn ts_query_pattern_count(self_: *const TSQuery) -> u32;
 }
