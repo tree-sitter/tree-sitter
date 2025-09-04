@@ -9,7 +9,12 @@ module.exports = grammar({
   ],
 
   rules: {
-    module: $ => seq('a', 'b', 'c', 'd'),
-    comment: $ => seq('(', repeat(/[a-z]+/), ')'),
+    module: _ => seq('a', 'b', 'c', 'd'),
+
+    comment: $ => choice($.paren_comment, $.line_comment),
+
+    paren_comment: _ => token(seq('(', repeat(/[a-z]+/), ')')),
+
+    line_comment: _ => token(seq('//', /.*/)),
   }
 })
