@@ -584,7 +584,7 @@ impl Language {
     /// generate completion suggestions or valid symbols in error nodes.
     ///
     /// Example:
-    /// ```
+    /// ```ignore
     /// let state = language.next_state(node.parse_state(), node.grammar_id());
     /// ```
     #[doc(alias = "ts_language_next_state")]
