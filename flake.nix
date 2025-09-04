@@ -4,6 +4,10 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-parts.url = "github:hercules-ci/flake-parts";
+    fenix = {
+      url = "github:nix-community/fenix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
@@ -28,10 +32,20 @@
           self',
           pkgs,
           lib,
+          system,
           ...
         }:
         let
           version = "0.26.0";
+
+          fenix = inputs.fenix.packages.${system};
+          rustToolchain = fenix.complete.withComponents [
+            "cargo"
+            "clippy"
+            "rust-src"
+            "rustc"
+            "rustfmt"
+          ];
 
           src = pkgs.lib.cleanSourceWith {
             src = ./.;
