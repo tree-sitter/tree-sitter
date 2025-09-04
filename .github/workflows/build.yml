@@ -285,12 +285,6 @@ jobs:
       if: ${{ !matrix.no-run && inputs.run-test }}
       run: $BUILD_CMD test --target=${{ matrix.target }} --features=${{ matrix.features }}
 
-    - name: Run generate unit tests
-      if: ${{ !matrix.no-run && inputs.run-test }}
-      run: |
-        cd crates/generate
-        $BUILD_CMD test --target=${{ matrix.target }}
-
     - name: Run wasm tests
       if: ${{ !matrix.no-run && !matrix.use-cross && inputs.run-test }}
       run: $BUILD_CMD run -p xtask --target=${{ matrix.target }} -- test-wasm
