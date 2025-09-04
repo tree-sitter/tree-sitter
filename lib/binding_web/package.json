@@ -94,6 +94,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "prepack": "cp ../../LICENSE .",
+    "postpack": "rm LICENSE",
     "prepublishOnly": "tsx script/check-artifacts-fresh.ts"
   }
 }

@@ -12,7 +12,7 @@ documentation = "https://docs.rs/tree-sitter-cli"
 license.workspace = true
 keywords.workspace = true
 categories.workspace = true
-include = ["build.rs", "README.md", "benches/*", "src/**"]
+include = ["build.rs", "README.md", "LICENSE", "benches/*", "src/**"]
 
 [lints]
 workspace = true
