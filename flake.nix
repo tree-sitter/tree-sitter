@@ -248,6 +248,7 @@
               pkgs.clippy
               pkgs.rust-analyzer
               pkgs.rustfmt
+              pkgs.cargo-cross
 
               pkgs.cmake
               pkgs.gnumake
@@ -256,6 +257,7 @@
               pkgs.libclang
 
               pkgs.nodejs_22
+              pkgs.nodePackages.typescript
               pkgs.emscripten
               pkgs.pkgsCross.wasi32.stdenv.cc
 
