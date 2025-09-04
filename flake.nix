@@ -91,10 +91,31 @@
             };
 
           testGrammars = lib.mapAttrs (name: spec: fetchGrammar name spec.rev spec.sha256) grammarSpecs;
+
+          crossTargets = {
+            aarch64-linux = pkgs.pkgsCross.aarch64-multiplatform;
+            armv7l-linux = pkgs.pkgsCross.armv7l-hf-multiplatform;
+            x86_64-linux = pkgs.pkgsCross.gnu64;
+            i686-linux = pkgs.pkgsCross.gnu32;
+            loongarch64 = pkgs.pkgsCross.loongarch64-linux;
+            mips = pkgs.pkgsCross.mips-linux-gnu;
+            mips64 = pkgs.pkgsCross.mips64-linux-gnuabi64;
+            musl64 = pkgs.pkgsCross.musl64;
+            powerpc64-linux = pkgs.pkgsCross.ppc64;
+            riscv32 = pkgs.pkgsCross.riscv32;
+            riscv64 = pkgs.pkgsCross.riscv64;
+            s390x = pkgs.pkgsCross.s390x;
+
+            x86_64-windows = pkgs.pkgsCross.mingwW64;
+          }
+          // (lib.optionalAttrs pkgs.stdenv.isDarwin {
+            x86_64-darwin = pkgs.pkgsCross.x86_64-darwin;
+            aarch64-darwin = pkgs.pkgsCross.aarch64-darwin;
+          });
         in
         {
           _module.args = {
-            inherit src version;
+            inherit src version crossTargets;
           };
 
           packages = {
@@ -240,6 +261,27 @@
               echo "  nix build .#lib              - Build C library"
               echo "  nix build .#web-tree-sitter  - Build WASM bindings"
               echo "  nix build .#docs             - Build documentation"
+              echo ""
+              echo "Cross-compilation:"
+              echo "  Build for other platforms using .#cli-<target> for the CLI,"
+              echo "  and .#lib-<target> for the library (e.g. nix build .#cli-aarch64-linux)."
+              echo ""
+              echo "  Available targets:"
+              echo "    aarch64-linux    - ARM64 Linux"
+              echo "    armv7l-linux     - ARMv7 Linux"
+              echo "    x86_64-linux     - x86_64 Linux"
+              echo "    i686-linux       - i686 Linux"
+              echo "    loongarch64      - LoongArch64 Linux"
+              echo "    mips             - MIPS Linux"
+              echo "    mips64           - MIPS64 Linux"
+              echo "    musl64           - x86_64 MUSL Linux"
+              echo "    powerpc64-linux  - PowerPC64 Linux"
+              echo "    riscv32          - RISC-V 32-bit Linux"
+              echo "    riscv64          - RISC-V 64-bit Linux"
+              echo "    s390x            - s390x Linux"
+              echo "    x86_64-windows   - x86_64 Windows"
+              echo "    x86_64-darwin    - x86_64 macOS (Darwin only)"
+              echo "    aarch64-darwin   - ARM64 macOS (Darwin only)"
               echo ""
               echo "Apps:"
               echo "  nix run .#cli                - Run tree-sitter CLI"
