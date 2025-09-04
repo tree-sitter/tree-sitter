@@ -183,6 +183,7 @@ fn tag_next_version(next_version: &Version) -> Result<()> {
             "build.zig.zon",
             "crates/cli/Cargo.toml",
             "crates/cli/npm/package.json",
+            "crates/cli/npm/package-lock.json",
             "crates/config/Cargo.toml",
             "crates/highlight/Cargo.toml",
             "crates/loader/Cargo.toml",
@@ -190,6 +191,7 @@ fn tag_next_version(next_version: &Version) -> Result<()> {
             "lib/CMakeLists.txt",
             "lib/Cargo.toml",
             "lib/binding_web/package.json",
+            "lib/binding_web/package-lock.json",
         ],
     )?;
 
@@ -289,12 +291,14 @@ fn update_crates(current_version: &Version, next_version: &Version) -> Result<()
 }
 
 fn update_npm(next_version: &Version) -> Result<()> {
-    for path in [
-        "lib/binding_web/package.json",
-        "crates/cli/npm/package.json",
-    ] {
+    for npm_project in ["lib/binding_web", "crates/cli/npm"] {
+        let npm_path = Path::new(npm_project);
+
+        let package_json_path = npm_path.join("package.json");
+
         let package_json = serde_json::from_str::<serde_json::Value>(
-            &std::fs::read_to_string(path).with_context(|| format!("Failed to read {path}"))?,
+            &std::fs::read_to_string(&package_json_path)
+                .with_context(|| format!("Failed to read {}", package_json_path.display()))?,
         )?;
 
         let mut package_json = package_json
@@ -308,7 +312,25 @@ fn update_npm(next_version: &Version) -> Result<()> {
 
         let package_json = serde_json::to_string_pretty(&package_json)? + "\n";
 
-        std::fs::write(path, package_json)?;
+        std::fs::write(package_json_path, package_json)?;
+
+        let Ok(cmd) = std::process::Command::new("npm")
+            .arg("install")
+            .arg("--package-lock-only")
+            .arg("--ignore-scripts")
+            .current_dir(npm_path)
+            .output()
+        else {
+            return Ok(()); // npm is not `executable`, ignore
+        };
+
+        if !cmd.status.success() {
+            let stderr = String::from_utf8_lossy(&cmd.stderr);
+            return Err(anyhow!(
+                "Failed to run `npm install` in {}:\n{stderr}",
+                npm_path.display()
+            ));
+        }
     }
 
     Ok(())
