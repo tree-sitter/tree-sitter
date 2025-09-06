@@ -11,15 +11,15 @@ option(TREE_SITTER_FEATURE_WASM "Enable the Wasm feature" OFF)
 option(AMALGAMATED "Build using an amalgamated source" OFF)
 
 if(AMALGAMATED)
-  set(TS_SOURCE_FILES "${PROJECT_SOURCE_DIR}/src/lib.c")
+  set(TS_SOURCE_FILES "${PROJECT_SOURCE_DIR}/lib/src/lib.c")
 else()
-  file(GLOB TS_SOURCE_FILES src/*.c)
-  list(REMOVE_ITEM TS_SOURCE_FILES "${PROJECT_SOURCE_DIR}/src/lib.c")
+  file(GLOB TS_SOURCE_FILES lib/src/*.c)
+  list(REMOVE_ITEM TS_SOURCE_FILES "${PROJECT_SOURCE_DIR}/lib/src/lib.c")
 endif()
 
 add_library(tree-sitter ${TS_SOURCE_FILES})
 
-target_include_directories(tree-sitter PRIVATE src src/wasm PUBLIC include)
+target_include_directories(tree-sitter PRIVATE lib/src lib/src/wasm PUBLIC lib/include)
 
 if(MSVC)
   target_compile_options(tree-sitter PRIVATE
@@ -85,9 +85,9 @@ target_compile_definitions(tree-sitter PRIVATE _POSIX_C_SOURCE=200112L _DEFAULT_
 
 include(GNUInstallDirs)
 
-configure_file(tree-sitter.pc.in "${CMAKE_CURRENT_BINARY_DIR}/tree-sitter.pc" @ONLY)
+configure_file(lib/tree-sitter.pc.in "${CMAKE_CURRENT_BINARY_DIR}/tree-sitter.pc" @ONLY)
 
-install(FILES include/tree_sitter/api.h
+install(FILES lib/include/tree_sitter/api.h
         DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/tree_sitter")
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/tree-sitter.pc"
         DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig")
