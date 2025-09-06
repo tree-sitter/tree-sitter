@@ -24,7 +24,7 @@
             targetPkgs.pkg-config
           ];
 
-          sourceRoot = "source/lib";
+          sourceRoot = "source";
 
           cmakeFlags = [
             "-DBUILD_SHARED_LIBS=ON"
