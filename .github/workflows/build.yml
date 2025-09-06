@@ -175,7 +175,7 @@ jobs:
       if: ${{ matrix.platform == 'windows-x64' }}
       shell: msys2 {0}
       run: |
-        cmake -G Ninja -S lib -B build/static \
+        cmake -G Ninja -S . -B build/static \
           -DBUILD_SHARED_LIBS=OFF \
           -DCMAKE_BUILD_TYPE=Debug \
           -DCMAKE_COMPILE_WARNING_AS_ERROR=ON \
@@ -184,7 +184,7 @@ jobs:
         cmake --build build/static
         rm -rf build/static
 
-        cmake -G Ninja -S lib -B build/shared \
+        cmake -G Ninja -S . -B build/shared \
           -DBUILD_SHARED_LIBS=ON \
           -DCMAKE_BUILD_TYPE=Debug \
           -DCMAKE_COMPILE_WARNING_AS_ERROR=ON \
@@ -225,14 +225,14 @@ jobs:
     - name: Build C library (CMake)
       if: ${{ !matrix.use-cross }}
       run: |
-        cmake -S lib -B build/static \
+        cmake -S . -B build/static \
           -DBUILD_SHARED_LIBS=OFF \
           -DCMAKE_BUILD_TYPE=Debug \
           -DCMAKE_COMPILE_WARNING_AS_ERROR=ON \
           -DTREE_SITTER_FEATURE_WASM=$WASM
         cmake --build build/static --verbose
 
-        cmake -S lib -B build/shared \
+        cmake -S . -B build/shared \
           -DBUILD_SHARED_LIBS=ON \
           -DCMAKE_BUILD_TYPE=Debug \
           -DCMAKE_COMPILE_WARNING_AS_ERROR=ON \

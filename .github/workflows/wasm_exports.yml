@@ -11,7 +11,7 @@ on:
     paths:
       - lib/include/tree_sitter/api.h
       - lib/binding_rust/bindings.rs
-      - lib/CMakeLists.txt
+      - CMakeLists.txt
 
 jobs:
   check-wasm-exports:

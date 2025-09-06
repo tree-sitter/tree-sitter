@@ -187,7 +187,7 @@ fn tag_next_version(next_version: &Version) -> Result<()> {
             "crates/highlight/Cargo.toml",
             "crates/loader/Cargo.toml",
             "crates/tags/Cargo.toml",
-            "lib/CMakeLists.txt",
+            "CMakeLists.txt",
             "lib/Cargo.toml",
             "lib/binding_web/package.json",
         ],
@@ -237,7 +237,7 @@ fn update_makefile(next_version: &Version) -> Result<()> {
 }
 
 fn update_cmake(next_version: &Version) -> Result<()> {
-    let cmake = std::fs::read_to_string("lib/CMakeLists.txt")?;
+    let cmake = std::fs::read_to_string("CMakeLists.txt")?;
     let cmake = cmake
         .lines()
         .map(|line| {
@@ -257,7 +257,7 @@ fn update_cmake(next_version: &Version) -> Result<()> {
         .join("\n")
         + "\n";
 
-    std::fs::write("lib/CMakeLists.txt", cmake)?;
+    std::fs::write("CMakeLists.txt", cmake)?;
 
     Ok(())
 }
