@@ -35,16 +35,14 @@ buildNpmPackage {
 
   buildPhase = ''
     pushd lib/binding_web
-     
+
     CJS=true npm run build
     CJS=true npm run build:debug
     npm run build:debug
     npm run build
 
     popd
-  '';
 
-  checkPhase = ''
     mkdir -p target/release
 
     for grammar in ${wasm-test-grammars}/*.wasm; do
@@ -52,7 +50,9 @@ buildNpmPackage {
         cp "$grammar" target/release/
       fi
     done
+  '';
 
+  checkPhase = ''
     cd lib/binding_web && npm test
   '';
 
