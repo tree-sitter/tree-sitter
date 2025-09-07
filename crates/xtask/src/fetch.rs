@@ -1,18 +1,32 @@
-use crate::{bail_on_err, root_dir, FetchFixtures, EMSCRIPTEN_VERSION};
+use crate::{bail_on_err, root_dir, EMSCRIPTEN_VERSION};
 use anyhow::Result;
-use std::{fs, process::Command};
+use serde::Deserialize;
+use std::{collections::HashMap, fs, process::Command};
 
-pub fn run_fixtures(args: &FetchFixtures) -> Result<()> {
+#[derive(Deserialize)]
+struct Fixtures {
+    pins: HashMap<String, Pin>,
+}
+
+#[derive(Deserialize)]
+struct Pin {
+    version: String,
+}
+
+pub fn run_fixtures() -> Result<()> {
     let fixtures_dir = root_dir().join("test").join("fixtures");
     let grammars_dir = fixtures_dir.join("grammars");
-    let fixtures_path = fixtures_dir.join("fixtures.json");
+    let fixtures_path = fixtures_dir.join("sources.json");
 
     // grammar name, tag
-    let mut fixtures: Vec<(String, String)> =
-        serde_json::from_str(&fs::read_to_string(&fixtures_path)?)?;
+    let fixtures = serde_json::from_str::<Fixtures>(&fs::read_to_string(&fixtures_path)?)?;
 
-    for (grammar, tag) in &mut fixtures {
-        let grammar_dir = grammars_dir.join(&grammar);
+    for (grammar, tag) in &mut fixtures
+        .pins
+        .iter()
+        .map(|(grammar, pin)| (grammar, pin.version.clone()))
+    {
+        let grammar_dir = grammars_dir.join(grammar);
         let grammar_url = format!("https://github.com/tree-sitter/tree-sitter-{grammar}");
 
         println!("Fetching the {grammar} grammar...");
@@ -24,7 +38,7 @@ pub fn run_fixtures(args: &FetchFixtures) -> Result<()> {
                 "--depth",
                 "1",
                 "--branch",
-                tag,
+                &tag,
                 &grammar_url,
                 &grammar_dir.to_string_lossy(),
             ]);
@@ -71,7 +85,7 @@ pub fn run_fixtures(args: &FetchFixtures) -> Result<()> {
                 let mut checkout_command = Command::new("git");
                 checkout_command
                     .current_dir(&grammar_dir)
-                    .args(["checkout", tag]);
+                    .args(["checkout", &tag]);
                 bail_on_err(
                     &checkout_command.spawn()?.wait_with_output()?,
                     &format!("Failed to checkout tag {tag} for {grammar} grammar"),
@@ -80,18 +94,6 @@ pub fn run_fixtures(args: &FetchFixtures) -> Result<()> {
                 println!("{grammar} grammar is already at tag {tag}");
             }
         }
-    }
-
-    if args.update {
-        println!("Updating the fixtures lock file");
-        fs::write(
-            &fixtures_path,
-            // format the JSON without extra newlines
-            serde_json::to_string(&fixtures)?
-                .replace("[[", "[\n  [")
-                .replace("],", "],\n  ")
-                .replace("]]", "]\n]"),
-        )?;
     }
 
     Ok(())

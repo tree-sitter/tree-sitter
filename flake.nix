@@ -34,35 +34,15 @@
           ]
         );
       };
-      fixturesJson = lib.importJSON ./test/fixtures/fixtures.json;
 
-      grammarHashes = {
-        bash = "sha256-vRaN/mNfpR+hdv2HVS1bzaW0o+HGjizRFsk3iinICJE=";
-        c = "sha256-gmzbdwvrKSo6C1fqTJFGxy8x0+T+vUTswm7F5sojzKc=";
-        cpp = "sha256-tP5Tu747V8QMCEBYwOEmMQUm8OjojpJdlRmjcJTbe2k=";
-        embedded-template = "sha256-nBQain0Lc21jOgQFfvkyq615ZmT8qdMxtqIoUcOcO3A=";
-        go = "sha256-y7bTET8ypPczPnMVlCaiZuswcA7vFrDOc2jlbfVk5Sk=";
-        html = "sha256-Pd5Me1twLGOrRB3pSMVX9M8VKenTK0896aoLznjNkGo=";
-        java = "sha256-OvEO1BLZLjP3jt4gar18kiXderksFKO0WFXDQqGLRIY=";
-        javascript = "sha256-2Jj/SUG+k8lHlGSuPZvHjJojvQFgDiZHZzH8xLu7suE=";
-        jsdoc = "sha256-Azzb2zBjAfwbEmAEO1YqhpaxtzbXmRjfIzRla2Hx+24=";
-        json = "sha256-DNZC2cTy1C8OaMOpEHM6NoRtOIbLaBf0CLXXWCKODlw=";
-        php = "sha256-jI7yzcoHS/tNxUqJI4aD1rdEZV3jMn1GZD0J+81Dyf0=";
-        python = "sha256-71Od4sUsxGEvTwmXX8hBvzqD55hnXkVJublrhp1GICg=";
-        ruby = "sha256-iu3MVJl0Qr/Ba+aOttmEzMiVY6EouGi5wGOx5ofROzA=";
-        rust = "sha256-y3sJURlSTM7LRRN5WGIAeslsdRZU522Tfcu6dnXH/XQ=";
-        typescript = "sha256-CU55+YoFJb6zWbJnbd38B7iEGkhukSVpBN7sli6GkGY=";
-      };
+      fixtures = lib.importJSON ./test/fixtures/sources.json;
+      grammarSpecs = lib.mapAttrs' (name: contents: {
+        inherit name;
+        value = {
+          inherit (contents) version hash;
+        };
+      }) fixtures.pins;
 
-      grammarSpecs = lib.listToAttrs (
-        map (fixture: {
-          name = lib.elemAt fixture 0;
-          value = {
-            rev = lib.elemAt fixture 1;
-            sha256 = grammarHashes.${lib.elemAt fixture 0};
-          };
-        }) fixturesJson
-      );
       filesWithExtension =
         ext:
         fs.toSource {
@@ -112,7 +92,7 @@
                   inherit rev sha256;
                 };
 
-              testGrammars = lib.mapAttrs (name: spec: fetchGrammar name spec.rev spec.sha256) grammarSpecs;
+              testGrammars = lib.mapAttrs (name: spec: fetchGrammar name spec.version spec.hash) grammarSpecs;
             in
             pkgs.stdenv.mkDerivation {
               inherit src version;
@@ -340,6 +320,8 @@
 
               git
               nixfmt
+
+              npins
             ];
 
             shellHook = ''
@@ -388,6 +370,7 @@
             env = {
               RUST_BACKTRACE = 1;
               LIBCLANG_PATH = "${pkgs.libclang.lib}/lib";
+              NPINS_DIRECTORY = "./test/fixtures";
             };
           };
         }
