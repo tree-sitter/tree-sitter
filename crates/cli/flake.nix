@@ -67,49 +67,6 @@
       packages = {
         cli = buildCliFor pkgs;
       }
-      // (lib.mapAttrs' (name: pkg: lib.nameValuePair "cli-${name}" pkg) crossPackages)
-      // {
-        rust-fmt =
-          pkgs.runCommand "rust-fmt-check"
-            {
-              nativeBuildInputs = [
-                pkgs.cargo
-                pkgs.rustfmt
-              ];
-            }
-            ''
-              cd ${src}
-              cargo fmt --all --check
-              touch $out
-            '';
-
-        rust-clippy = pkgs.rustPlatform.buildRustPackage {
-          inherit src version;
-
-          pname = "rust-clippy-check";
-
-          cargoLock.lockFile = ../../Cargo.lock;
-
-          nativeBuildInputs = [
-            pkgs.pkg-config
-            pkgs.clippy
-            pkgs.cmake
-            pkgs.clang
-            pkgs.libclang
-          ];
-
-          buildPhase = ''
-            export HOME=$TMPDIR
-            export LIBCLANG_PATH="${pkgs.libclang.lib}/lib"
-            cargo xtask clippy
-          '';
-
-          installPhase = ''
-            touch $out
-          '';
-
-          doCheck = false;
-        };
-      };
+      // (lib.mapAttrs' (name: pkg: lib.nameValuePair "cli-${name}" pkg) crossPackages);
     };
 }

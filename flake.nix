@@ -206,24 +206,55 @@
             };
           };
 
-          checks = {
-            inherit (self'.packages)
-              cli
-              lib
-              web-tree-sitter
-              web-lint
-              rust-fmt
-              rust-clippy
-              ;
+          checks =
+            let
+              filesWithExtension =
+                ext:
+                fs.toSource {
+                  root = ./.;
+                  fileset = fs.fileFilter (file: file.hasExt ext) ./.;
+                };
+            in
+            {
+              inherit (self'.packages)
+                cli
+                lib
+                web-tree-sitter
+                web-lint
+                # rust-clippy
+                ;
 
-            nix-fmt =
-              pkgs.runCommand "nix-fmt-check"
-                {
-                  nativeBuildInputs = [ pkgs.nixfmt-rfc-style ];
-                }
-                ''
-                  cd ${src}
-                  nixfmt --check *.nix crates/cli/*.nix lib/*.nix lib/binding_web/*.nix docs/*.nix
+              nix-fmt = pkgs.runCommandNoCC "nix-fmt-check" { } ''
+                ${lib.getExe config.formatter} --check ${filesWithExtension "nix"}
+                touch $out
+              '';
+              rust-fmt = pkgs.runCommandNoCC "rust-fmt-check" { } ''
+                ${lib.getExe pkgs.rustfmt} --check
+                touch $out
+              '';
+
+              rust-clippy = pkgs.rustPlatform.buildRustPackage {
+                inherit src version;
+
+                pname = "rust-clippy-check";
+
+                cargoLock.lockFile = ./Cargo.lock;
+
+                nativeBuildInputs = with pkgs; [
+                  pkg-config
+                  clippy
+                  cmake
+                  clang
+                  libclang
+                ];
+
+                buildPhase = ''
+                  export HOME=$TMPDIR
+                  export LIBCLANG_PATH="${pkgs.libclang.lib}/lib"
+                  cargo xtask clippy
+                '';
+
+                installPhase = ''
                   touch $out
                 '';
           };
