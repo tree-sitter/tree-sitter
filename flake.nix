@@ -4,10 +4,6 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-parts.url = "github:hercules-ci/flake-parts";
-    fenix = {
-      url = "github:nix-community/fenix";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
   };
 
   outputs =
@@ -20,19 +16,13 @@
         "aarch64-darwin"
       ];
 
-      imports = [
-        ./crates/cli/flake.nix
-        ./lib/flake.nix
-        ./lib/binding_web/flake.nix
-        ./docs/flake.nix
-      ];
-
       perSystem =
         {
           self',
           pkgs,
           lib,
           system,
+          config,
           ...
         }:
         let
@@ -115,6 +105,13 @@
             x86_64-darwin = pkgs.pkgsCross.x86_64-darwin;
             aarch64-darwin = pkgs.pkgsCross.aarch64-darwin;
           });
+
+          filesWithExtension =
+            ext:
+            fs.toSource {
+              root = ./.;
+              fileset = fs.fileFilter (file: file.hasExt ext) ./.;
+            };
         in
         {
           _module.args = {
@@ -123,6 +120,8 @@
 
           packages = {
             default = self'.packages.cli;
+
+            docs = pkgs.callPackage ./docs/package.nix { inherit version; };
 
             test-grammars = pkgs.stdenv.mkDerivation {
               inherit src version;
@@ -141,14 +140,47 @@
                 cp -r test/fixtures $out/fixtures
               '';
             };
-          };
+
+            wasm-test-grammars = pkgs.callPackage ./lib/binding_web/wasm-test-grammars.nix {
+              inherit src version;
+              inherit (self'.packages) cli test-grammars;
+            };
+
+            web-tree-sitter = pkgs.callPackage ./lib/binding_web/package.nix {
+              inherit src version;
+              inherit (self'.packages) wasm-test-grammars;
+
+            };
+
+            lib = pkgs.callPackage ./lib/package.nix {
+              inherit src version;
+            };
+
+            cli = pkgs.callPackage ./crates/cli/package.nix {
+              inherit src version;
+              inherit (self'.packages) test-grammars;
+            };
+          }
+          // (lib.mapAttrs' (arch: pkg: {
+            name = "cli-${arch}";
+            value = pkg.callPackage ./crates/cli/package.nix {
+              inherit src version;
+              inherit (self'.packages) test-grammars;
+            };
+          }) crossTargets)
+          // (lib.mapAttrs' (arch: pkg: {
+            name = "lib-${arch}";
+            value = pkg.callPackage ./lib/package.nix {
+              inherit src version;
+            };
+          }) crossTargets);
 
           apps = {
             default = self'.apps.cli;
 
             cli = {
               type = "app";
-              program = "${self'.packages.cli}/bin/tree-sitter";
+              program = "${lib.getExe self'.packages.cli}";
               meta.description = "Tree-sitter CLI for developing, testing, and using parsers";
             };
 
@@ -156,7 +188,7 @@
               type = "app";
               program = "${pkgs.writeShellScript "docs" ''
                 echo "📚 Serving documentation at http://localhost:3000"
-                cd docs && ${pkgs.mdbook}/bin/mdbook serve
+                cd docs && ${lib.getExe pkgs.mdbook} serve
               ''}";
               meta.description = "Serve Tree-sitter documentation locally";
             };
@@ -204,86 +236,101 @@
             };
           };
 
-          checks =
-            let
-              filesWithExtension =
-                ext:
-                fs.toSource {
-                  root = ./.;
-                  fileset = fs.fileFilter (file: file.hasExt ext) ./.;
-                };
-            in
-            {
-              inherit (self'.packages)
-                cli
-                lib
-                web-tree-sitter
-                web-lint
-                # rust-clippy
-                ;
+          checks = {
+            inherit (self'.packages)
+              cli
+              lib
+              web-tree-sitter
+              ;
 
-              nix-fmt = pkgs.runCommandNoCC "nix-fmt-check" { } ''
-                ${lib.getExe config.formatter} --check ${filesWithExtension "nix"}
+            nix-fmt = pkgs.runCommandNoCC "nix-fmt-check" { } ''
+              ${lib.getExe config.formatter} --check ${filesWithExtension "nix"}
+              touch $out
+            '';
+            rust-fmt = pkgs.runCommandNoCC "rust-fmt-check" { } ''
+              ${lib.getExe pkgs.rustfmt} --check
+              touch $out
+            '';
+
+            rust-clippy = pkgs.rustPlatform.buildRustPackage {
+              inherit src version;
+
+              pname = "rust-clippy-check";
+
+              cargoLock.lockFile = ./Cargo.lock;
+
+              nativeBuildInputs = with pkgs; [
+                pkg-config
+                clippy
+                cmake
+                clang
+                libclang
+              ];
+
+              buildPhase = ''
+                export HOME=$TMPDIR
+                export LIBCLANG_PATH="${pkgs.libclang.lib}/lib"
+                cargo xtask clippy
+              '';
+
+              installPhase = ''
                 touch $out
               '';
-              rust-fmt = pkgs.runCommandNoCC "rust-fmt-check" { } ''
-                ${lib.getExe pkgs.rustfmt} --check
+
+              doCheck = false;
+            };
+
+            web-lint = pkgs.buildNpmPackage {
+              inherit src version;
+
+              pname = "web-tree-sitter-lint";
+
+              npmDepsHash = "sha256-y0GobcskcZTmju90TM64GjeWiBmPFCrTOg0yfccdB+Q=";
+
+              postPatch = ''
+                cp lib/binding_web/package{,-lock}.json .
+              '';
+
+              buildPhase = ''
+                cd lib/binding_web
+                npm run lint
+              '';
+
+              installPhase = ''
                 touch $out
               '';
 
-              rust-clippy = pkgs.rustPlatform.buildRustPackage {
-                inherit src version;
-
-                pname = "rust-clippy-check";
-
-                cargoLock.lockFile = ./Cargo.lock;
-
-                nativeBuildInputs = with pkgs; [
-                  pkg-config
-                  clippy
-                  cmake
-                  clang
-                  libclang
-                ];
-
-                buildPhase = ''
-                  export HOME=$TMPDIR
-                  export LIBCLANG_PATH="${pkgs.libclang.lib}/lib"
-                  cargo xtask clippy
-                '';
-
-                installPhase = ''
-                  touch $out
-                '';
+              meta.description = "Lint check for web-tree-sitter TypeScript/JavaScript code";
+            };
           };
 
-          formatter = pkgs.nixfmt-rfc-style;
+          formatter = pkgs.nixfmt;
 
           devShells.default = pkgs.mkShell {
-            buildInputs = [
-              pkgs.cargo
-              pkgs.rustc
-              pkgs.clippy
-              pkgs.rust-analyzer
-              pkgs.rustfmt
-              pkgs.cargo-cross
+            buildInputs = with pkgs; [
+              cargo
+              rustc
+              clippy
+              rust-analyzer
+              rustfmt
+              cargo-cross
 
-              pkgs.cmake
-              pkgs.gnumake
-              pkgs.pkg-config
-              pkgs.clang
-              pkgs.libclang
+              cmake
+              gnumake
+              pkg-config
+              clang
+              libclang
 
-              pkgs.nodejs_22
-              pkgs.nodePackages.typescript
-              pkgs.emscripten
-              pkgs.pkgsCross.wasi32.stdenv.cc
+              nodejs_22
+              nodePackages.typescript
+              emscripten
+              pkgsCross.wasi32.stdenv.cc
 
-              pkgs.mdbook
-              pkgs.mdbook-admonish
+              mdbook
+              mdbook-admonish
 
-              pkgs.git
-              pkgs.nixfmt-rfc-style
+              git
+              nixfmt
             ];
 
             shellHook = ''
