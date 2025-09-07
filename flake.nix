@@ -140,7 +140,6 @@
           web-tree-sitter = pkgs.callPackage ./lib/binding_web/package.nix {
             inherit src version;
             inherit (self.packages.${system}) wasm-test-grammars;
-
           };
 
           lib = pkgs.callPackage ./lib/package.nix {
