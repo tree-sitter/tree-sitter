@@ -163,40 +163,38 @@
 
             format = {
               type = "app";
-              program = toString (
-                pkgs.writeShellScript "format-all" ''
-                  set -e
-                  echo "Formatting..."
-                  echo ""
-                  echo "→ Rust..."
-                  ${pkgs.cargo}/bin/cargo fmt --all
-                  echo "→ Nix..."
-                  ${pkgs.nixfmt-rfc-style}/bin/nixfmt *.nix crates/cli/*.nix lib/*.nix lib/binding_web/*.nix docs/*.nix
-                  echo "→ Web (TypeScript/JavaScript)..."
-                  cd lib/binding_web && ${pkgs.nodejs_22}/bin/npm install --silent && ${pkgs.nodejs_22}/bin/npm run lint:fix
-                  cd ../..
-                  echo ""
-                  echo "Formatting complete"
-                ''
-              );
+              program = pkgs.writeShellScriptBin "format-all" ''
+                set -e
+                echo "Formatting..."
+                echo ""
+                echo "→ Rust..."
+                ${lib.getExe pkgs.cargo} fmt --all
+                echo "→ Nix..."
+                ${lib.getExe pkgs.nixfmt} ${filesWithExtension "nix"}
+                echo "→ Web (TypeScript/JavaScript)..."
+                cd lib/binding_web && ${pkgs.nodejs_22}/bin/npm install --silent && ${pkgs.nodejs_22}/bin/npm run lint:fix
+                cd ../..
+                echo ""
+                echo "Formatting complete"
+              '';
               meta.description = "Format all Rust and Nix code";
             };
 
             lint = {
               type = "app";
               program = toString (
-                pkgs.writeShellScript "lint-all" ''
+                pkgs.writeShellScriptBin "lint-all" ''
                   set -e
                   echo "Linting code..."
                   echo ""
                   echo "→ Checking Rust formatting..."
-                  ${pkgs.cargo}/bin/cargo fmt --all --check
+                  ${lib.getExe pkgs.cargo} fmt --all --check
                   echo "→ Running clippy..."
-                  ${pkgs.cargo}/bin/cargo clippy --workspace --all-targets -- -D warnings
+                  ${lib.getExe pkgs.cargo} clippy --workspace --all-targets -- -D warnings
                   echo "→ Checking Nix formatting..."
-                  ${pkgs.nixfmt-rfc-style}/bin/nixfmt --check *.nix crates/cli/*.nix lib/*.nix lib/binding_web/*.nix docs/*.nix
+                  ${lib.getExe pkgs.nixfmt} --check ${filesWithExtension "nix"}
                   echo "→ Checking Web code..."
-                  cd lib/binding_web && ${pkgs.nodejs_22}/bin/npm install --silent && ${pkgs.nodejs_22}/bin/npm run lint
+                  cd lib/binding_web && ${lib.getExe' pkgs.nodejs_22 "npm"} install --silent && ${lib.getExe' pkgs.nodejs_22 "npm"} run lint
                   cd ../..
                   echo ""
                   echo "Linting complete"
