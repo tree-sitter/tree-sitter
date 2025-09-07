@@ -38,32 +38,21 @@
         let
           version = "0.26.0";
 
-          fenix = inputs.fenix.packages.${system};
-          rustToolchain = fenix.complete.withComponents [
-            "cargo"
-            "clippy"
-            "rust-src"
-            "rustc"
-            "rustfmt"
-          ];
+          fs = lib.fileset;
 
-          src = pkgs.lib.cleanSourceWith {
-            src = ./.;
-            filter =
-              name: type:
-              let
-                baseName = baseNameOf name;
-              in
-              !(
-                lib.elem baseName [
-                  "target"
-                  "node_modules"
-                  ".git"
-                  ".direnv"
-                  "flake.lock"
-                ]
-                || lib.hasPrefix "result" baseName
-              );
+          src = fs.toSource {
+            root = ./.;
+            fileset = fs.difference (fs.gitTracked ./.) (
+              fs.unions [
+                ./.envrc
+                ./flake.lock
+                ./FUNDING.json
+                ./README.md
+                ./Dockerfile
+                (fs.fileFilter (file: lib.strings.hasInfix ".git" file.name) ./.)
+                (fs.fileFilter (file: file.hasExt "nix") ./.)
+              ]
+            );
           };
 
           fixturesJson = lib.importJSON ./test/fixtures/fixtures.json;
