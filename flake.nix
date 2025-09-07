@@ -1,90 +1,80 @@
 {
   description = "Tree-sitter - A parser generator tool and an incremental parsing library";
 
-  inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    flake-parts.url = "github:hercules-ci/flake-parts";
-  };
+  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
   outputs =
-    inputs@{ flake-parts, ... }:
-    flake-parts.lib.mkFlake { inherit inputs; } {
+    inputs:
+    let
+      inherit (inputs.nixpkgs) lib;
+      inherit (inputs) self;
       systems = [
         "x86_64-linux"
         "aarch64-linux"
         "x86_64-darwin"
         "aarch64-darwin"
       ];
+      eachSystem = lib.genAttrs systems;
+      pkgsFor = inputs.nixpkgs.legacyPackages;
 
-      perSystem =
-        {
-          self',
-          pkgs,
-          lib,
-          system,
-          config,
-          ...
-        }:
+      version = "0.26.0";
+
+      fs = lib.fileset;
+      src = fs.toSource {
+        root = ./.;
+        fileset = fs.difference (fs.gitTracked ./.) (
+          fs.unions [
+            ./.envrc
+            ./flake.lock
+            ./FUNDING.json
+            ./README.md
+            ./Dockerfile
+            (fs.fileFilter (file: lib.strings.hasInfix ".git" file.name) ./.)
+            (fs.fileFilter (file: file.hasExt "nix") ./.)
+          ]
+        );
+      };
+      fixturesJson = lib.importJSON ./test/fixtures/fixtures.json;
+
+      grammarHashes = {
+        bash = "sha256-vRaN/mNfpR+hdv2HVS1bzaW0o+HGjizRFsk3iinICJE=";
+        c = "sha256-gmzbdwvrKSo6C1fqTJFGxy8x0+T+vUTswm7F5sojzKc=";
+        cpp = "sha256-tP5Tu747V8QMCEBYwOEmMQUm8OjojpJdlRmjcJTbe2k=";
+        embedded-template = "sha256-nBQain0Lc21jOgQFfvkyq615ZmT8qdMxtqIoUcOcO3A=";
+        go = "sha256-y7bTET8ypPczPnMVlCaiZuswcA7vFrDOc2jlbfVk5Sk=";
+        html = "sha256-Pd5Me1twLGOrRB3pSMVX9M8VKenTK0896aoLznjNkGo=";
+        java = "sha256-OvEO1BLZLjP3jt4gar18kiXderksFKO0WFXDQqGLRIY=";
+        javascript = "sha256-2Jj/SUG+k8lHlGSuPZvHjJojvQFgDiZHZzH8xLu7suE=";
+        jsdoc = "sha256-Azzb2zBjAfwbEmAEO1YqhpaxtzbXmRjfIzRla2Hx+24=";
+        json = "sha256-DNZC2cTy1C8OaMOpEHM6NoRtOIbLaBf0CLXXWCKODlw=";
+        php = "sha256-jI7yzcoHS/tNxUqJI4aD1rdEZV3jMn1GZD0J+81Dyf0=";
+        python = "sha256-71Od4sUsxGEvTwmXX8hBvzqD55hnXkVJublrhp1GICg=";
+        ruby = "sha256-iu3MVJl0Qr/Ba+aOttmEzMiVY6EouGi5wGOx5ofROzA=";
+        rust = "sha256-y3sJURlSTM7LRRN5WGIAeslsdRZU522Tfcu6dnXH/XQ=";
+        typescript = "sha256-CU55+YoFJb6zWbJnbd38B7iEGkhukSVpBN7sli6GkGY=";
+      };
+
+      grammarSpecs = lib.listToAttrs (
+        map (fixture: {
+          name = lib.elemAt fixture 0;
+          value = {
+            rev = lib.elemAt fixture 1;
+            sha256 = grammarHashes.${lib.elemAt fixture 0};
+          };
+        }) fixturesJson
+      );
+      filesWithExtension =
+        ext:
+        fs.toSource {
+          root = ./.;
+          fileset = fs.fileFilter (file: (file.hasExt ext) && file.type == "regular") ./.;
+        };
+    in
+    {
+      packages = eachSystem (
+        system:
         let
-          version = "0.26.0";
-
-          fs = lib.fileset;
-
-          src = fs.toSource {
-            root = ./.;
-            fileset = fs.difference (fs.gitTracked ./.) (
-              fs.unions [
-                ./.envrc
-                ./flake.lock
-                ./FUNDING.json
-                ./README.md
-                ./Dockerfile
-                (fs.fileFilter (file: lib.strings.hasInfix ".git" file.name) ./.)
-                (fs.fileFilter (file: file.hasExt "nix") ./.)
-              ]
-            );
-          };
-
-          fixturesJson = lib.importJSON ./test/fixtures/fixtures.json;
-
-          grammarHashes = {
-            bash = "sha256-vRaN/mNfpR+hdv2HVS1bzaW0o+HGjizRFsk3iinICJE=";
-            c = "sha256-gmzbdwvrKSo6C1fqTJFGxy8x0+T+vUTswm7F5sojzKc=";
-            cpp = "sha256-tP5Tu747V8QMCEBYwOEmMQUm8OjojpJdlRmjcJTbe2k=";
-            embedded-template = "sha256-nBQain0Lc21jOgQFfvkyq615ZmT8qdMxtqIoUcOcO3A=";
-            go = "sha256-y7bTET8ypPczPnMVlCaiZuswcA7vFrDOc2jlbfVk5Sk=";
-            html = "sha256-Pd5Me1twLGOrRB3pSMVX9M8VKenTK0896aoLznjNkGo=";
-            java = "sha256-OvEO1BLZLjP3jt4gar18kiXderksFKO0WFXDQqGLRIY=";
-            javascript = "sha256-2Jj/SUG+k8lHlGSuPZvHjJojvQFgDiZHZzH8xLu7suE=";
-            jsdoc = "sha256-Azzb2zBjAfwbEmAEO1YqhpaxtzbXmRjfIzRla2Hx+24=";
-            json = "sha256-DNZC2cTy1C8OaMOpEHM6NoRtOIbLaBf0CLXXWCKODlw=";
-            php = "sha256-jI7yzcoHS/tNxUqJI4aD1rdEZV3jMn1GZD0J+81Dyf0=";
-            python = "sha256-71Od4sUsxGEvTwmXX8hBvzqD55hnXkVJublrhp1GICg=";
-            ruby = "sha256-iu3MVJl0Qr/Ba+aOttmEzMiVY6EouGi5wGOx5ofROzA=";
-            rust = "sha256-y3sJURlSTM7LRRN5WGIAeslsdRZU522Tfcu6dnXH/XQ=";
-            typescript = "sha256-CU55+YoFJb6zWbJnbd38B7iEGkhukSVpBN7sli6GkGY=";
-          };
-
-          grammarSpecs = lib.listToAttrs (
-            map (fixture: {
-              name = lib.elemAt fixture 0;
-              value = {
-                rev = lib.elemAt fixture 1;
-                sha256 = grammarHashes.${lib.elemAt fixture 0};
-              };
-            }) fixturesJson
-          );
-
-          fetchGrammar =
-            name: rev: sha256:
-            pkgs.fetchFromGitHub {
-              owner = "tree-sitter";
-              repo = "tree-sitter-${name}";
-              inherit rev sha256;
-            };
-
-          testGrammars = lib.mapAttrs (name: spec: fetchGrammar name spec.rev spec.sha256) grammarSpecs;
-
+          pkgs = pkgsFor.${system};
           crossTargets = {
             aarch64-linux = pkgs.pkgsCross.aarch64-multiplatform;
             armv7l-linux = pkgs.pkgsCross.armv7l-hf-multiplatform;
@@ -106,24 +96,25 @@
             aarch64-darwin = pkgs.pkgsCross.aarch64-darwin;
           });
 
-          filesWithExtension =
-            ext:
-            fs.toSource {
-              root = ./.;
-              fileset = fs.fileFilter (file: file.hasExt ext) ./.;
-            };
         in
         {
-          _module.args = {
-            inherit src version crossTargets;
-          };
+          default = self.packages.${system}.cli;
 
-          packages = {
-            default = self'.packages.cli;
+          docs = pkgs.callPackage ./docs/package.nix { inherit version; };
 
-            docs = pkgs.callPackage ./docs/package.nix { inherit version; };
+          test-grammars =
+            let
+              fetchGrammar =
+                name: rev: sha256:
+                pkgs.fetchFromGitHub {
+                  owner = "tree-sitter";
+                  repo = "tree-sitter-${name}";
+                  inherit rev sha256;
+                };
 
-            test-grammars = pkgs.stdenv.mkDerivation {
+              testGrammars = lib.mapAttrs (name: spec: fetchGrammar name spec.rev spec.sha256) grammarSpecs;
+            in
+            pkgs.stdenv.mkDerivation {
               inherit src version;
 
               pname = "test-grammars";
@@ -141,61 +132,70 @@
               '';
             };
 
-            wasm-test-grammars = pkgs.callPackage ./lib/binding_web/wasm-test-grammars.nix {
-              inherit src version;
-              inherit (self'.packages) cli test-grammars;
-            };
+          wasm-test-grammars = pkgs.callPackage ./lib/binding_web/wasm-test-grammars.nix {
+            inherit src version;
+            inherit (self.packages.${system}) cli test-grammars;
+          };
 
-            web-tree-sitter = pkgs.callPackage ./lib/binding_web/package.nix {
-              inherit src version;
-              inherit (self'.packages) wasm-test-grammars;
+          web-tree-sitter = pkgs.callPackage ./lib/binding_web/package.nix {
+            inherit src version;
+            inherit (self.packages.${system}) wasm-test-grammars;
 
-            };
+          };
 
-            lib = pkgs.callPackage ./lib/package.nix {
-              inherit src version;
-            };
+          lib = pkgs.callPackage ./lib/package.nix {
+            inherit src version;
+          };
 
-            cli = pkgs.callPackage ./crates/cli/package.nix {
-              inherit src version;
-              inherit (self'.packages) test-grammars;
-            };
-          }
-          // (lib.mapAttrs' (arch: pkg: {
-            name = "cli-${arch}";
-            value = pkg.callPackage ./crates/cli/package.nix {
-              inherit src version;
-              inherit (self'.packages) test-grammars;
-            };
-          }) crossTargets)
-          // (lib.mapAttrs' (arch: pkg: {
-            name = "lib-${arch}";
-            value = pkg.callPackage ./lib/package.nix {
-              inherit src version;
-            };
-          }) crossTargets);
+          cli = pkgs.callPackage ./crates/cli/package.nix {
+            inherit src version;
+            inherit (self.packages.${system}) test-grammars;
+          };
+        }
+        // (lib.mapAttrs' (arch: pkg: {
+          name = "cli-${arch}";
+          value = pkg.callPackage ./crates/cli/package.nix {
+            inherit src version;
+            inherit (self.packages.${system}) test-grammars;
+          };
+        }) crossTargets)
+        // (lib.mapAttrs' (arch: pkg: {
+          name = "lib-${arch}";
+          value = pkg.callPackage ./lib/package.nix {
+            inherit src version;
+          };
+        }) crossTargets)
+      );
 
-          apps = {
-            default = self'.apps.cli;
+      apps = eachSystem (
+        system:
+        let
+          pkgs = pkgsFor.${system};
+        in
+        {
+          default = self.apps.${system}.cli;
 
-            cli = {
-              type = "app";
-              program = "${lib.getExe self'.packages.cli}";
-              meta.description = "Tree-sitter CLI for developing, testing, and using parsers";
-            };
+          cli = {
+            type = "app";
+            program = "${lib.getExe self.packages.${system}.cli}";
+            meta.description = "Tree-sitter CLI for developing, testing, and using parsers";
+          };
 
-            docs = {
-              type = "app";
-              program = "${pkgs.writeShellScript "docs" ''
+          docs = {
+            type = "app";
+            program = lib.getExe (
+              pkgs.writeShellScriptBin "docs" ''
                 echo "📚 Serving documentation at http://localhost:3000"
                 cd docs && ${lib.getExe pkgs.mdbook} serve
-              ''}";
-              meta.description = "Serve Tree-sitter documentation locally";
-            };
+              ''
+            );
+            meta.description = "Serve Tree-sitter documentation locally";
+          };
 
-            format = {
-              type = "app";
-              program = pkgs.writeShellScriptBin "format-all" ''
+          format = {
+            type = "app";
+            program = lib.getExe (
+              pkgs.writeShellScriptBin "format-all" ''
                 set -e
                 echo "Formatting..."
                 echo ""
@@ -208,105 +208,119 @@
                 cd ../..
                 echo ""
                 echo "Formatting complete"
-              '';
-              meta.description = "Format all Rust and Nix code";
-            };
-
-            lint = {
-              type = "app";
-              program = toString (
-                pkgs.writeShellScriptBin "lint-all" ''
-                  set -e
-                  echo "Linting code..."
-                  echo ""
-                  echo "→ Checking Rust formatting..."
-                  ${lib.getExe pkgs.cargo} fmt --all --check
-                  echo "→ Running clippy..."
-                  ${lib.getExe pkgs.cargo} clippy --workspace --all-targets -- -D warnings
-                  echo "→ Checking Nix formatting..."
-                  ${lib.getExe pkgs.nixfmt} --check ${filesWithExtension "nix"}
-                  echo "→ Checking Web code..."
-                  cd lib/binding_web && ${lib.getExe' pkgs.nodejs_22 "npm"} install --silent && ${lib.getExe' pkgs.nodejs_22 "npm"} run lint
-                  cd ../..
-                  echo ""
-                  echo "Linting complete"
-                ''
-              );
-              meta.description = "Run all linting checks";
-            };
+              ''
+            );
+            meta.description = "Format all Rust and Nix code";
           };
 
-          checks = {
-            inherit (self'.packages)
-              cli
-              lib
-              web-tree-sitter
-              ;
+          lint = {
+            type = "app";
+            program = lib.getExe (
+              pkgs.writeShellScriptBin "lint-all" ''
+                set -e
+                echo "Linting code..."
+                echo ""
+                echo "→ Checking Rust formatting..."
+                ${lib.getExe pkgs.cargo} fmt --all --check
+                echo "→ Running clippy..."
+                ${lib.getExe pkgs.cargo} clippy --workspace --all-targets -- -D warnings
+                echo "→ Checking Nix formatting..."
+                ${lib.getExe pkgs.nixfmt} --check ${filesWithExtension "nix"}
+                echo "→ Checking Web code..."
+                cd lib/binding_web && ${lib.getExe' pkgs.nodejs_22 "npm"} install --silent && ${lib.getExe' pkgs.nodejs_22 "npm"} run lint
+                cd ../..
+                echo ""
+                echo "Linting complete"
+              ''
+            );
+            meta.description = "Run all linting checks";
+          };
+        }
+      );
 
-            nix-fmt = pkgs.runCommandNoCC "nix-fmt-check" { } ''
-              ${lib.getExe config.formatter} --check ${filesWithExtension "nix"}
+      checks = eachSystem (
+        system:
+        let
+          pkgs = pkgsFor.${system};
+        in
+        {
+          inherit (self.packages.${system})
+            cli
+            lib
+            web-tree-sitter
+            ;
+
+          nix-fmt = pkgs.runCommandNoCC "nix-fmt-check" { } ''
+            ${lib.getExe self.formatter.${system}} --check ${filesWithExtension "nix"}
+            touch $out
+          '';
+          rust-fmt = pkgs.runCommandNoCC "rust-fmt-check" { } ''
+            ${lib.getExe pkgs.rustfmt} --check
+            touch $out
+          '';
+
+          rust-clippy = pkgs.rustPlatform.buildRustPackage {
+            inherit src version;
+
+            pname = "rust-clippy-check";
+
+            cargoLock.lockFile = ./Cargo.lock;
+
+            nativeBuildInputs = with pkgs; [
+              pkg-config
+              clippy
+              cmake
+              clang
+              libclang
+            ];
+
+            buildPhase = ''
+              export HOME=$TMPDIR
+              export LIBCLANG_PATH="${pkgs.libclang.lib}/lib"
+              cargo xtask clippy
+            '';
+
+            installPhase = ''
               touch $out
             '';
-            rust-fmt = pkgs.runCommandNoCC "rust-fmt-check" { } ''
-              ${lib.getExe pkgs.rustfmt} --check
-              touch $out
-            '';
 
-            rust-clippy = pkgs.rustPlatform.buildRustPackage {
-              inherit src version;
-
-              pname = "rust-clippy-check";
-
-              cargoLock.lockFile = ./Cargo.lock;
-
-              nativeBuildInputs = with pkgs; [
-                pkg-config
-                clippy
-                cmake
-                clang
-                libclang
-              ];
-
-              buildPhase = ''
-                export HOME=$TMPDIR
-                export LIBCLANG_PATH="${pkgs.libclang.lib}/lib"
-                cargo xtask clippy
-              '';
-
-              installPhase = ''
-                touch $out
-              '';
-
-              doCheck = false;
-            };
-
-            web-lint = pkgs.buildNpmPackage {
-              inherit src version;
-
-              pname = "web-tree-sitter-lint";
-
-              npmDepsHash = "sha256-y0GobcskcZTmju90TM64GjeWiBmPFCrTOg0yfccdB+Q=";
-
-              postPatch = ''
-                cp lib/binding_web/package{,-lock}.json .
-              '';
-
-              buildPhase = ''
-                cd lib/binding_web
-                npm run lint
-              '';
-
-              installPhase = ''
-                touch $out
-              '';
-
-              meta.description = "Lint check for web-tree-sitter TypeScript/JavaScript code";
-            };
+            doCheck = false;
           };
 
-          formatter = pkgs.nixfmt;
+          web-lint = pkgs.buildNpmPackage {
+            inherit src version;
 
-          devShells.default = pkgs.mkShell {
+            pname = "web-tree-sitter-lint";
+
+            npmDepsHash = "sha256-y0GobcskcZTmju90TM64GjeWiBmPFCrTOg0yfccdB+Q=";
+
+            postPatch = ''
+              cp lib/binding_web/package{,-lock}.json .
+            '';
+
+            buildPhase = ''
+              cd lib/binding_web
+              npm run lint
+            '';
+
+            installPhase = ''
+              touch $out
+            '';
+
+            meta.description = "Lint check for web-tree-sitter TypeScript/JavaScript code";
+          };
+        }
+      );
+
+      formatter = eachSystem (system: pkgsFor.${system}.nixfmt);
+
+      devShells = eachSystem (
+        system:
+        let
+          pkgs = pkgsFor.${system};
+        in
+        {
+          default = pkgs.mkShell {
             buildInputs = with pkgs; [
               cargo
               rustc
@@ -376,9 +390,12 @@
               echo "Version: ${version}"
             '';
 
-            RUST_BACKTRACE = 1;
-            LIBCLANG_PATH = "${pkgs.libclang.lib}/lib";
+            env = {
+              RUST_BACKTRACE = 1;
+              LIBCLANG_PATH = "${pkgs.libclang.lib}/lib";
+            };
           };
-        };
+        }
+      );
     };
 }
