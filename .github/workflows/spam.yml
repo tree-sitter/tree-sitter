@@ -22,7 +22,7 @@ jobs:
           sparse-checkout-cone-mode: false
 
       - name: Run script
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const script = require('./.github/scripts/close_spam.js')
