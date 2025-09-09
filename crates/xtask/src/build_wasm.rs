@@ -8,7 +8,7 @@ use std::{
     time::Duration,
 };
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Error, Result};
 use indoc::indoc;
 use notify::{
     event::{AccessKind, AccessMode},
@@ -308,24 +308,55 @@ fn build_wasm(cmd: &mut Command, edit_tsd: bool) -> Result<()> {
     Ok(())
 }
 
+/// This gets the path to the `clang` binary in the WASI SDK specified by the
+/// `TREE_SITTER_WASI_SDK_PATH` environment variable.
+fn get_wasi_binary() -> Result<PathBuf, Error> {
+    let possible_executables = if cfg!(windows) {
+        vec![
+            "clang.exe",
+            "wasm32-unknown-wasi-clang.exe",
+            "wasm32-wasi-clang.exe",
+        ]
+    } else {
+        vec!["clang", "wasm32-unknown-wasi-clang", "wasm32-wasi-clang"]
+    };
+
+    if let Ok(wasi_sdk_path) = std::env::var("TREE_SITTER_WASI_SDK_PATH") {
+        let wasi_sdk_dir = PathBuf::from(wasi_sdk_path);
+
+        for exe in &possible_executables {
+            let clang_exe = wasi_sdk_dir.join("bin").join(exe);
+            if clang_exe.exists() {
+                return Ok(clang_exe);
+            }
+        }
+
+        return Err(anyhow!(
+                "TREE_SITTER_WASI_SDK_PATH is set to '{}', but no clang executable found in 'bin/' directory. \
+                 Looked for: {}",
+                wasi_sdk_dir.display(),
+                possible_executables.join(", ")
+            ));
+    }
+
+    Err(anyhow!(
+        "TREE_SITTER_WASI_SDK_PATH environment variable is not set. \
+         Please install the WASI SDK from https://github.com/WebAssembly/wasi-sdk/releases \
+         and set TREE_SITTER_WASI_SDK_PATH to the installation directory."
+    ))
+}
+
 pub fn run_wasm_stdlib() -> Result<()> {
     let export_flags = include_str!("../../../lib/src/wasm/stdlib-symbols.txt")
         .lines()
         .map(|line| format!("-Wl,--export={}", &line[1..line.len() - 2]))
         .collect::<Vec<String>>();
 
-    let mut command = Command::new("docker");
+    let clang_exe = get_wasi_binary()?;
+    println!("Using WASI clang at: {}", clang_exe.display());
 
-    let output = command
+    let output = Command::new(&clang_exe)
         .args([
-            "run",
-            "--rm",
-            "-v",
-            format!("{}:/src", std::env::current_dir().unwrap().display()).as_str(),
-            "-w",
-            "/src",
-            "ghcr.io/webassembly/wasi-sdk",
-            "/opt/wasi-sdk/bin/clang",
             "-o",
             "stdlib.wasm",
             "-Os",
@@ -338,11 +369,10 @@ pub fn run_wasm_stdlib() -> Result<()> {
             "-Wl,--import-memory",
             "-Wl,--import-table",
             "-Wl,--strip-debug",
-            "-Wl,--export=reset_heap",
             "-Wl,--export=__wasm_call_ctors",
             "-Wl,--export=__stack_pointer",
         ])
-        .args(export_flags)
+        .args(&export_flags)
         .arg("lib/src/wasm/stdlib.c")
         .output()?;
 
