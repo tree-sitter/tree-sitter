@@ -106,6 +106,7 @@ window.initializePlayground = async (opts) => {
 
   const codeInput = document.getElementById("code-input");
   const languageSelect = document.getElementById("language-select");
+  const languageVersion = document.getElementById('language-version');
   const loggingCheckbox = document.getElementById("logging-checkbox");
   const anonymousNodes = document.getElementById('anonymous-nodes-checkbox');
   const outputContainer = document.getElementById("output-container");
@@ -205,6 +206,15 @@ window.initializePlayground = async (opts) => {
 
     tree = null;
     languageName = newLanguageName;
+
+    const metadata = languagesByName[languageName].metadata;
+    if (metadata) {
+      languageVersion.textContent = `v${metadata.major_version}.${metadata.minor_version}.${metadata.patch_version}`;
+      languageVersion.style.visibility = 'visible';
+    } else {
+      languageVersion.style.visibility = 'hidden';
+    }
+
     parser.setLanguage(languagesByName[newLanguageName]);
     handleCodeChange();
     handleQueryChange();

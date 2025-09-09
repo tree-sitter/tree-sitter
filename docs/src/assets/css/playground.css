@@ -54,6 +54,23 @@
   display: inline-block;
 }
 
+.language-container {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+#language-version {
+  color: var(--light-text);
+  font-size: 14px;
+  font-weight: 500;
+  padding: 4px 8px;
+  background: var(--light-bg);
+  border-radius: 4px;
+  border: 1px solid var(--light-border);
+}
+
 #language-select {
   background-color: var(--light-bg);
   border: 1px solid var(--light-border);
@@ -264,6 +281,7 @@ input[type="checkbox"]:focus {
 .coal,
 .navy {
 
+  & #language-version,
   & #language-select,
   & .select-button {
     background-color: var(--dark-bg);

@@ -84,7 +84,8 @@
       gap: 8px;
     }
 
-    .language-name {
+    .language-name,
+    #language-version {
       font-weight: 600;
     }
 
@@ -151,6 +152,9 @@
       font-size: 14px;
       border-bottom: 1px solid var(--border-color);
       background-color: var(--panel-bg);
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
 
     .CodeMirror {
@@ -275,6 +279,29 @@
       text-decoration: underline;
     }
 
+    #copy-button {
+      background: none;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      padding: 6px;
+      cursor: pointer;
+      color: var(--text-color);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-left: 8px;
+    }
+
+    #copy-button:hover {
+      background-color: var(--primary-color-alpha);
+    }
+
+    #copy-button:focus {
+      outline: none;
+      border-color: var(--primary-color);
+      box-shadow: 0 0 0 2px var(--primary-color-alpha);
+    }
+
     /* Dark Theme Node Colors */
     [data-theme="dark"] {
       & #output-container a {
@@ -324,6 +351,7 @@
     <header>
       <div class="header-item">
         <span class="language-name">Language: THE_LANGUAGE_NAME</span>
+        <span id="language-version"></span>
       </div>
 
       <div class="header-item">
