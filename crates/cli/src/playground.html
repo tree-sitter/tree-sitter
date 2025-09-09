@@ -302,6 +302,29 @@
       box-shadow: 0 0 0 2px var(--primary-color-alpha);
     }
 
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background-color: var(--light-text);
+      color: white;
+      padding: 12px 16px;
+      border-radius: 6px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      font-size: 14px;
+      font-weight: 500;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: all 0.3s ease;
+      z-index: 1000;
+      pointer-events: none;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
     /* Dark Theme Node Colors */
     [data-theme="dark"] {
       & #output-container a {
@@ -341,6 +364,11 @@
 
       & .CodeMirror-selected {
         background-color: rgba(255, 255, 255, 0.1) !important;
+      }
+
+      & .toast {
+        background-color: var(--dark-bg);
+        color: var(--dark-text);
       }
     }
   </style>
@@ -417,7 +445,13 @@
       <div id="output-container-scroll">
         <div class="panel-header">
           Tree
-          <button type="button" id="copy-button" class="theme-toggle">📋</button>
+          <button type="button" id="copy-button" class="theme-toggle" aria-label="Copy tree">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+              <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+            </svg>
+          </button>
         </div>
         <pre id="output-container" class="highlight"></pre>
       </div>

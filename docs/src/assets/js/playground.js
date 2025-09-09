@@ -128,8 +128,6 @@ window.initializePlayground = async (opts) => {
 
   const parser = new Parser();
 
-  console.log(parser, codeInput, queryInput);
-
   const codeEditor = CodeMirror.fromTextArea(codeInput, {
     lineNumbers: true,
     showCursorWhenSelecting: true
@@ -517,6 +515,7 @@ window.initializePlayground = async (opts) => {
     selection.addRange(range);
     navigator.clipboard.writeText(selection.toString());
     selection.removeRange(range);
+    showToast('Tree copied to clipboard!');
   }
 
   function handleTreeClick(event) {
@@ -641,5 +640,24 @@ window.initializePlayground = async (opts) => {
       timeout = setTimeout(later, wait);
       if (callNow) func.apply(context, args);
     };
+  }
+
+  function showToast(message) {
+    const existingToast = document.querySelector('.toast');
+    if (existingToast) {
+      existingToast.remove();
+    }
+
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.textContent = message;
+    document.body.appendChild(toast);
+
+    setTimeout(() => toast.classList.add('show'), 50);
+
+    setTimeout(() => {
+      toast.classList.remove('show');
+      setTimeout(() => toast.remove(), 200);
+    }, 1000);
   }
 };

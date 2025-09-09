@@ -86,6 +86,53 @@
   background-position: right 8px center;
 }
 
+#copy-button {
+  background: none;
+  border: 1px solid var(--light-border);
+  border-radius: 4px;
+  padding: 6px;
+  cursor: pointer;
+  color: var(--light-text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 8px;
+}
+
+#copy-button:hover {
+  background-color: var(--primary-color-alpha);
+  border-color: var(--light-hover-border);
+}
+
+#copy-button:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px var(--primary-color-alpha);
+}
+
+.toast {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background-color: var(--lighbt-bg);
+  color: var(--light-text);
+  padding: 12px 16px;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  font-size: 14px;
+  font-weight: 500;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all 0.3s ease;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 .select-button {
   background-color: var(--light-bg);
   border: 1px solid var(--light-border);
@@ -283,10 +330,29 @@ input[type="checkbox"]:focus {
 
   & #language-version,
   & #language-select,
+  & #copy-button,
   & .select-button {
     background-color: var(--dark-bg);
     border-color: var(--dark-border);
     color: var(--dark-text);
+  }
+
+  & #copy-button:hover,
+  & #language-select:hover,
+  & .select-button:hover {
+    border-color: var(--dark-border);
+    background-color: var(--primary-color-alpha-dark);
+  }
+
+  & .toast {
+    background-color: var(--dark-bg);
+    color: var(--dark-text);
+  }
+
+  #language-select:focus,
+  & .select-button:focus {
+    border-color: #79c0ff;
+    box-shadow: 0 0 0 2px var(--primary-color-alpha-dark);
   }
 
   & input[type="checkbox"] {
