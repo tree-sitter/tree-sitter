@@ -84,11 +84,10 @@ export class Language {
   * the language's `tree-sitter.json` file.
   */
   get metadata(): LanguageMetadata | null {
-    C._ts_language_metadata(this[0]);
+    C._ts_language_metadata_wasm(this[0]);
     const length = C.getValue(TRANSFER_BUFFER, 'i32');
-    const address = C.getValue(TRANSFER_BUFFER + SIZE_OF_INT, 'i32');
     if (length === 0) return null;
-    return unmarshalLanguageMetadata(address);
+    return unmarshalLanguageMetadata(TRANSFER_BUFFER + SIZE_OF_INT);
   }
 
   /**

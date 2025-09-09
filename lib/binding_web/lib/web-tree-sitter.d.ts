@@ -58,7 +58,6 @@ interface WasmModule {
   _ts_language_state_count(_0: number): number;
   _ts_language_version(_0: number): number;
   _ts_language_abi_version(_0: number): number;
-  _ts_language_metadata(_0: number): number;
   _ts_language_name(_0: number): number;
   _ts_language_field_count(_0: number): number;
   _ts_language_next_state(_0: number, _1: number, _2: number): number;
@@ -106,6 +105,7 @@ interface WasmModule {
   _ts_parser_included_ranges_wasm(_0: number): void;
   _ts_language_type_is_named_wasm(_0: number, _1: number): number;
   _ts_language_type_is_visible_wasm(_0: number, _1: number): number;
+  _ts_language_metadata_wasm(_0: number): void;
   _ts_language_supertypes_wasm(_0: number): void;
   _ts_language_subtypes_wasm(_0: number, _1: number): void;
   _ts_tree_root_node_wasm(_0: number): void;
