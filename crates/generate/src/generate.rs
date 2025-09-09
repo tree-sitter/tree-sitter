@@ -62,6 +62,7 @@ struct JSONOutput {
 
 struct GeneratedParser {
     c_code: String,
+    header_code: String,
     #[cfg(feature = "load")]
     node_types_json: String,
 }
@@ -272,6 +273,7 @@ where
     // Generate the parser and related files.
     let GeneratedParser {
         c_code,
+        header_code,
         node_types_json,
     } = generate_parser_for_grammar_with_opts(
         &input_grammar,
@@ -285,7 +287,19 @@ where
     fs::create_dir_all(&header_path)?;
     write_file(&header_path.join("alloc.h"), ALLOC_HEADER)?;
     write_file(&header_path.join("array.h"), ARRAY_HEADER)?;
-    write_file(&header_path.join("parser.h"), PARSER_HEADER)?;
+    let parser_h_content = if header_code.is_empty() {
+        PARSER_HEADER.to_string()
+    } else {
+        let Some(insert_pos) = PARSER_HEADER.find("}\n\n/*\n *  Lexer Macros\n */") else {
+            panic!("Failed to find insertion point in parser.h");
+        };
+
+        let mut content = PARSER_HEADER.to_string();
+        content.insert_str(insert_pos + 1, &format!("\n\n{header_code}"));
+        content
+    };
+
+    write_file(&header_path.join("parser.h"), parser_h_content)?;
 
     Ok(())
 }
@@ -293,7 +307,7 @@ where
 pub fn generate_parser_for_grammar(
     grammar_json: &str,
     semantic_version: Option<(u8, u8, u8)>,
-) -> GenerateResult<(String, String)> {
+) -> GenerateResult<(String, String, String)> {
     let grammar_json = JSON_COMMENT_REGEX.replace_all(grammar_json, "\n");
     let input_grammar = parse_grammar(&grammar_json)?;
     let parser = generate_parser_for_grammar_with_opts(
@@ -302,7 +316,7 @@ pub fn generate_parser_for_grammar(
         semantic_version,
         None,
     )?;
-    Ok((input_grammar.name, parser.c_code))
+    Ok((input_grammar.name, parser.c_code, parser.header_code))
 }
 
 fn generate_node_types_from_grammar(input_grammar: &InputGrammar) -> GenerateResult<JSONOutput> {
@@ -354,7 +368,7 @@ fn generate_parser_for_grammar_with_opts(
         &inlines,
         report_symbol_name,
     )?;
-    let c_code = render_c_code(
+    let (c_code, header_code) = render_c_code(
         &input_grammar.name,
         tables,
         syntax_grammar,
@@ -366,6 +380,7 @@ fn generate_parser_for_grammar_with_opts(
     );
     Ok(GeneratedParser {
         c_code,
+        header_code,
         #[cfg(feature = "load")]
         node_types_json,
     })

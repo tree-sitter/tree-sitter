@@ -65,6 +65,7 @@ macro_rules! dedent {
 #[derive(Default)]
 struct Generator {
     buffer: String,
+    header_buffer: String,
     indent_level: usize,
     language_name: String,
     parse_table: ParseTable,
@@ -73,6 +74,7 @@ struct Generator {
     large_character_sets: Vec<(Option<Symbol>, CharacterSet)>,
     large_character_set_info: Vec<LargeCharacterSetInfo>,
     large_state_count: usize,
+    symbol_to_character_sets: HashMap<Symbol, Vec<usize>>,
     syntax_grammar: SyntaxGrammar,
     lexical_grammar: LexicalGrammar,
     default_aliases: AliasMap,
@@ -93,6 +95,7 @@ struct Generator {
 struct LargeCharacterSetInfo {
     constant_name: String,
     is_used: bool,
+    index: usize,
 }
 
 struct Metadata {
@@ -102,7 +105,7 @@ struct Metadata {
 }
 
 impl Generator {
-    fn generate(mut self) -> String {
+    fn generate(mut self) -> (String, String) {
         self.init();
         self.add_header();
         self.add_includes();
@@ -150,6 +153,9 @@ impl Generator {
         for ix in 0..self.large_character_sets.len() {
             self.add_character_set(ix);
         }
+
+        self.add_character_set_helpers();
+
         self.buffer.push_str(&lex_functions);
 
         self.add_lex_modes();
@@ -169,7 +175,7 @@ impl Generator {
 
         self.add_parser_export();
 
-        self.buffer
+        (self.buffer, self.header_buffer)
     }
 
     fn init(&mut self) {
@@ -277,7 +283,16 @@ impl Generator {
             self.large_character_set_info.push(LargeCharacterSetInfo {
                 constant_name,
                 is_used: false,
+                index: count,
             });
+
+            // Track which character sets belong to which symbols
+            if let Some(symbol) = symbol {
+                self.symbol_to_character_sets
+                    .entry(*symbol)
+                    .or_default()
+                    .push(ix);
+            }
         }
 
         // Assign an id to each unique reserved word set
@@ -1134,6 +1149,126 @@ impl Generator {
         add_line!(self, "");
     }
 
+    fn add_character_set_helpers(&mut self) {
+        let mut symbols_with_char_sets = self
+            .symbol_to_character_sets
+            .iter()
+            .filter(|(_, sets)| !sets.is_empty())
+            .collect::<Vec<_>>();
+
+        symbols_with_char_sets.sort_by_key(|(symbol, _)| &self.symbol_ids[symbol]);
+
+        let mut header_added = false;
+
+        for (symbol, char_set_indices) in symbols_with_char_sets {
+            let symbol_name = &self.symbol_ids[symbol];
+
+            let used_char_sets = char_set_indices
+                .iter()
+                .copied()
+                .filter(|&ix| self.large_character_set_info[ix].is_used)
+                .collect::<Vec<_>>();
+
+            if !used_char_sets.is_empty() {
+                if !header_added {
+                    write!(
+                        self.header_buffer,
+                        "/*\n *  External scanner character range functions\n */\n\n"
+                    )
+                    .unwrap();
+                    header_added = true;
+                }
+
+                let readable_name = self.sanitize_identifier(self.metadata_for_symbol(*symbol).0);
+
+                // If there's more than one character set for this symbol, then add functions
+                // to match each individual character set.
+                if used_char_sets.len() > 1 {
+                    for &ix in &used_char_sets {
+                        let LargeCharacterSetInfo {
+                            constant_name: set_name,
+                            index,
+                            ..
+                        } = &self.large_character_set_info[ix];
+                        let characters = &self.large_character_sets[ix].1;
+
+                        let suffix = match index {
+                            1 => "st",
+                            2 => "nd",
+                            3 => "rd",
+                            _ => "th",
+                        };
+
+                        // Match function for this character set
+
+                        writeln!(
+                        self.header_buffer,
+                        "// Check if `lookahead` matches the {readable_name} symbol's {index}{suffix} character set"
+                    ).unwrap();
+
+                        writeln!(
+                            self.header_buffer,
+                            "bool matches_{set_name}(int32_t lookahead);\n"
+                        )
+                        .unwrap();
+
+                        add_line!(self, "bool matches_{set_name}(int32_t lookahead) {{");
+                        add_line!(
+                            self,
+                            "  return set_contains({set_name}, {}, lookahead);",
+                            characters.range_count()
+                        );
+                        add_line!(self, "}}");
+                        add_line!(self, "");
+                    }
+                }
+
+                // Match function that checks all character sets for this symbol
+
+                writeln!(
+                    self.header_buffer,
+                    "// Check if `lookahead` matches any character set for the `{readable_name}` symbol"
+                )
+                .unwrap();
+
+                writeln!(
+                    self.header_buffer,
+                    "bool matches_{symbol_name}(int32_t lookahead);\n",
+                )
+                .unwrap();
+
+                add_line!(self, "bool matches_{symbol_name}(int32_t lookahead) {{");
+
+                // Check if the lookahead character matches any of the character sets
+                add!(self, "  return");
+                if used_char_sets.len() > 1 {
+                    for (i, &ix) in used_char_sets.iter().enumerate() {
+                        let set_name = &self.large_character_set_info[ix].constant_name;
+                        if i == 0 {
+                            add!(self, " matches_{set_name}(lookahead)");
+                        } else {
+                            add!(self, "    || matches_{set_name}(lookahead)");
+                        }
+                        if i != used_char_sets.len() - 1 {
+                            add_line!(self, "");
+                        }
+                    }
+                } else {
+                    let set_name = &self.large_character_set_info[used_char_sets[0]].constant_name;
+                    let set_length = &self.large_character_sets[used_char_sets[0]].1.range_count();
+                    add!(self, " set_contains({set_name}, {set_length}, lookahead)");
+                }
+                add_line!(self, ";");
+                add_line!(self, "}}");
+                add_line!(self, "");
+            }
+        }
+
+        if !self.header_buffer.is_empty() {
+            self.header_buffer.truncate(self.header_buffer.len() - 2); // Remove last 2 newlines
+        }
+    }
+
     fn add_advance_action(&mut self, action: &AdvanceAction) {
         if action.in_main_token {
             add!(self, "ADVANCE({});", action.state);
@@ -1942,7 +2077,7 @@ pub fn render_c_code(
     abi_version: usize,
     semantic_version: Option<(u8, u8, u8)>,
     supertype_symbol_map: BTreeMap<Symbol, Vec<ChildType>>,
-) -> String {
+) -> (String, String) {
     assert!(
         (ABI_VERSION_MIN..=ABI_VERSION_MAX).contains(&abi_version),
         "This version of Tree-sitter can only generate parsers with ABI version {ABI_VERSION_MIN} - {ABI_VERSION_MAX}, not {abi_version}",
