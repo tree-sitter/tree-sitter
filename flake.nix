@@ -392,6 +392,7 @@
             env = {
               RUST_BACKTRACE = 1;
               LIBCLANG_PATH = "${pkgs.libclang.lib}/lib";
+              TREE_SITTER_WASI_SDK_PATH = "${pkgs.pkgsCross.wasi32.stdenv.cc}";
             };
           };
         }

@@ -70,5 +70,4 @@ buildNpmPackage {
     maintainers = with lib.maintainers; [ amaanq ];
     platforms = lib.platforms.all;
   };
-
 }
