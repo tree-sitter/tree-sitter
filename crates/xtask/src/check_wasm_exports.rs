@@ -15,7 +15,7 @@ use notify_debouncer_full::new_debouncer;
 
 use crate::{bail_on_err, watch_wasm, CheckWasmExports};
 
-const EXCLUDES: [&str; 27] = [
+const EXCLUDES: [&str; 23] = [
     // Unneeded because the JS side has its own way of implementing it
     "ts_node_child_by_field_name",
     "ts_node_edit",
@@ -28,8 +28,6 @@ const EXCLUDES: [&str; 27] = [
     // Not used in Wasm
     "ts_init",
     "ts_set_allocator",
-    "ts_parser_set_cancellation_flag",
-    "ts_parser_cancellation_flag",
     "ts_parser_print_dot_graphs",
     "ts_tree_print_dot_graph",
     "ts_parser_set_wasm_store",
@@ -43,10 +41,8 @@ const EXCLUDES: [&str; 27] = [
     "ts_parser_parse_string_encoding",
     // Query cursor is not managed by user in web bindings
     "ts_query_cursor_delete",
-    "ts_query_cursor_timeout_micros",
     "ts_query_cursor_match_limit",
     "ts_query_cursor_remove_match",
-    "ts_query_cursor_timeout_micros",
 ];
 
 pub fn run(args: &CheckWasmExports) -> Result<()> {
