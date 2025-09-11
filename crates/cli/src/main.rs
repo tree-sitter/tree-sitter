@@ -143,12 +143,24 @@ struct Generate {
     #[arg(long)]
     pub json: bool,
     /// The name or path of the JavaScript runtime to use for generating parsers
+    #[cfg(not(feature = "qjs-rt"))]
     #[arg(
         long,
         value_name = "EXECUTABLE",
         env = "TREE_SITTER_JS_RUNTIME",
         default_value = "node"
     )]
+    pub js_runtime: Option<String>,
+
+    #[cfg(feature = "qjs-rt")]
+    #[arg(
+        long,
+        value_name = "EXECUTABLE",
+        env = "TREE_SITTER_JS_RUNTIME",
+        default_value = "node"
+    )]
+    /// The name or path of the JavaScript runtime to use for generating parsers, specify `native`
+    /// to use the native `QuickJS` runtime
     pub js_runtime: Option<String>,
 }
 
@@ -868,6 +880,7 @@ impl Generate {
             // TODO: migrate to `warn!` once https://github.com/tree-sitter/tree-sitter/pull/4604 is merged
             eprintln!("Warning: --build is deprecated, use --stage=lib instead");
         }
+
         if let Err(err) = tree_sitter_generate::generate_parser_in_directory(
             current_dir,
             self.output.as_deref(),
