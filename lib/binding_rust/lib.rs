@@ -19,7 +19,6 @@ use core::{
     ops::{self, ControlFlow, Deref},
     ptr::{self, NonNull},
     slice, str,
-    sync::atomic::AtomicUsize,
 };
 #[cfg(feature = "std")]
 use std::error;
@@ -437,15 +436,6 @@ impl Language {
 
     /// Get the ABI version number that indicates which version of the
     /// Tree-sitter CLI that was used to generate this [`Language`].
-    #[doc(alias = "ts_language_version")]
-    #[deprecated(since = "0.25.0", note = "Use abi_version instead")]
-    #[must_use]
-    pub fn version(&self) -> usize {
-        unsafe { ffi::ts_language_version(self.0) as usize }
-    }
-
-    /// Get the ABI version number that indicates which version of the
-    /// Tree-sitter CLI that was used to generate this [`Language`].
     #[doc(alias = "ts_language_abi_version")]
     #[must_use]
     pub fn abi_version(&self) -> usize {
@@ -792,8 +782,6 @@ impl Parser {
     ///
     /// Returns a [`Tree`] if parsing succeeded, or `None` if:
     ///  * The parser has not yet had a language assigned with [`Parser::set_language`]
-    ///  * The timeout set with [`Parser::set_timeout_micros`] expired (deprecated)
-    ///  * The cancellation flag set with [`Parser::set_cancellation_flag`] was flipped (deprecated)
     #[doc(alias = "ts_parser_parse")]
     pub fn parse(&mut self, text: impl AsRef<[u8]>, old_tree: Option<&Tree>) -> Option<Tree> {
         let bytes = text.as_ref();
@@ -803,47 +791,6 @@ impl Parser {
             old_tree,
             None,
         )
-    }
-
-    /// Parse a slice of UTF16 text.
-    ///
-    /// # Arguments:
-    /// * `text` The UTF16-encoded text to parse.
-    /// * `old_tree` A previous syntax tree parsed from the same document. If the text of the
-    ///   document has changed since `old_tree` was created, then you must edit `old_tree` to match
-    ///   the new text using [`Tree::edit`].
-    #[deprecated(since = "0.25.0", note = "Prefer parse_utf16_le instead")]
-    pub fn parse_utf16(
-        &mut self,
-        input: impl AsRef<[u16]>,
-        old_tree: Option<&Tree>,
-    ) -> Option<Tree> {
-        let code_points = input.as_ref();
-        let len = code_points.len();
-        self.parse_utf16_le_with_options(
-            &mut |i, _| (i < len).then(|| &code_points[i..]).unwrap_or_default(),
-            old_tree,
-            None,
-        )
-    }
-
-    /// Parse UTF8 text provided in chunks by a callback.
-    ///
-    /// # Arguments:
-    /// * `callback` A function that takes a byte offset and position and returns a slice of
-    ///   UTF8-encoded text starting at that byte offset and position. The slices can be of any
-    ///   length. If the given position is at the end of the text, the callback should return an
-    ///   empty slice.
-    /// * `old_tree` A previous syntax tree parsed from the same document. If the text of the
-    ///   document has changed since `old_tree` was created, then you must edit `old_tree` to match
-    ///   the new text using [`Tree::edit`].
-    #[deprecated(since = "0.25.0", note = "Prefer `parse_with_options` instead")]
-    pub fn parse_with<T: AsRef<[u8]>, F: FnMut(usize, Point) -> T>(
-        &mut self,
-        callback: &mut F,
-        old_tree: Option<&Tree>,
-    ) -> Option<Tree> {
-        self.parse_with_options(callback, old_tree, None)
     }
 
     /// Parse text provided in chunks by a callback.
@@ -937,28 +884,6 @@ impl Parser {
 
             NonNull::new(c_new_tree).map(Tree)
         }
-    }
-
-    /// Parse UTF16 text provided in chunks by a callback.
-    ///
-    /// # Arguments:
-    /// * `callback` A function that takes a code point offset and position and returns a slice of
-    ///   UTF16-encoded text starting at that byte offset and position. The slices can be of any
-    ///   length. If the given position is at the end of the text, the callback should return an
-    ///   empty slice.
-    /// * `old_tree` A previous syntax tree parsed from the same document. If the text of the
-    ///   document has changed since `old_tree` was created, then you must edit `old_tree` to match
-    ///   the new text using [`Tree::edit`].
-    #[deprecated(
-        since = "0.25.0",
-        note = "Prefer `parse_utf16_le_with_options` instead"
-    )]
-    pub fn parse_utf16_with<T: AsRef<[u16]>, F: FnMut(usize, Point) -> T>(
-        &mut self,
-        callback: &mut F,
-        old_tree: Option<&Tree>,
-    ) -> Option<Tree> {
-        self.parse_utf16_le_with_options(callback, old_tree, None)
     }
 
     /// Parse a slice of UTF16 little-endian text.
@@ -1313,41 +1238,13 @@ impl Parser {
 
     /// Instruct the parser to start the next parse from the beginning.
     ///
-    /// If the parser previously failed because of a timeout, cancellation,
-    /// or callback, then by default, it will resume where it left off on the
-    /// next call to [`parse`](Parser::parse) or other parsing functions.
-    /// If you don't want to resume, and instead intend to use this parser to
-    /// parse some other document, you must call `reset` first.
+    /// If the parser previously failed because of a callback, then by default,
+    /// it will resume where it left off on the next call to [`parse`](Parser::parse)
+    /// or other parsing functions. If you don't want to resume, and instead intend to use
+    /// this parser to parse some other document, you must call `reset` first.
     #[doc(alias = "ts_parser_reset")]
     pub fn reset(&mut self) {
         unsafe { ffi::ts_parser_reset(self.0.as_ptr()) }
-    }
-
-    /// Get the duration in microseconds that parsing is allowed to take.
-    ///
-    /// This is set via [`set_timeout_micros`](Parser::set_timeout_micros).
-    #[doc(alias = "ts_parser_timeout_micros")]
-    #[deprecated(
-        since = "0.25.0",
-        note = "Prefer using `parse_with_options` and using a callback"
-    )]
-    #[must_use]
-    pub fn timeout_micros(&self) -> u64 {
-        unsafe { ffi::ts_parser_timeout_micros(self.0.as_ptr()) }
-    }
-
-    /// Set the maximum duration in microseconds that parsing should be allowed
-    /// to take before halting.
-    ///
-    /// If parsing takes longer than this, it will halt early, returning `None`.
-    /// See [`parse`](Parser::parse) for more information.
-    #[doc(alias = "ts_parser_set_timeout_micros")]
-    #[deprecated(
-        since = "0.25.0",
-        note = "Prefer using `parse_with_options` and using a callback"
-    )]
-    pub fn set_timeout_micros(&mut self, timeout_micros: u64) {
-        unsafe { ffi::ts_parser_set_timeout_micros(self.0.as_ptr(), timeout_micros) }
     }
 
     /// Set the ranges of text that the parser should include when parsing.
@@ -1403,49 +1300,6 @@ impl Parser {
             let ranges = slice::from_raw_parts(ptr, count as usize);
             let result = ranges.iter().copied().map(Into::into).collect();
             result
-        }
-    }
-
-    /// Get the parser's current cancellation flag pointer.
-    ///
-    /// # Safety
-    ///
-    /// It uses FFI
-    #[doc(alias = "ts_parser_cancellation_flag")]
-    #[deprecated(
-        since = "0.25.0",
-        note = "Prefer using `parse_with_options` and using a callback"
-    )]
-    #[must_use]
-    pub unsafe fn cancellation_flag(&self) -> Option<&AtomicUsize> {
-        ffi::ts_parser_cancellation_flag(self.0.as_ptr())
-            .cast::<AtomicUsize>()
-            .as_ref()
-    }
-
-    /// Set the parser's current cancellation flag pointer.
-    ///
-    /// If a pointer is assigned, then the parser will periodically read from
-    /// this pointer during parsing. If it reads a non-zero value, it will halt
-    /// early, returning `None`. See [`parse`](Parser::parse) for more
-    /// information.
-    ///
-    /// # Safety
-    ///
-    /// It uses FFI
-    #[doc(alias = "ts_parser_set_cancellation_flag")]
-    #[deprecated(
-        since = "0.25.0",
-        note = "Prefer using `parse_with_options` and using a callback"
-    )]
-    pub unsafe fn set_cancellation_flag(&mut self, flag: Option<&AtomicUsize>) {
-        if let Some(flag) = flag {
-            ffi::ts_parser_set_cancellation_flag(
-                self.0.as_ptr(),
-                core::ptr::from_ref::<AtomicUsize>(flag).cast::<usize>(),
-            );
-        } else {
-            ffi::ts_parser_set_cancellation_flag(self.0.as_ptr(), ptr::null());
         }
     }
 }
@@ -3023,34 +2877,6 @@ impl QueryCursor {
         unsafe {
             ffi::ts_query_cursor_set_match_limit(self.ptr.as_ptr(), limit);
         }
-    }
-
-    /// Set the maximum duration in microseconds that query execution should be allowed to
-    /// take before halting.
-    ///
-    /// If query execution takes longer than this, it will halt early, returning None.
-    #[doc(alias = "ts_query_cursor_set_timeout_micros")]
-    #[deprecated(
-        since = "0.25.0",
-        note = "Prefer using `matches_with_options` or `captures_with_options` and using a callback"
-    )]
-    pub fn set_timeout_micros(&mut self, timeout: u64) {
-        unsafe {
-            ffi::ts_query_cursor_set_timeout_micros(self.ptr.as_ptr(), timeout);
-        }
-    }
-
-    /// Get the duration in microseconds that query execution is allowed to take.
-    ///
-    /// This is set via [`set_timeout_micros`](QueryCursor::set_timeout_micros).
-    #[doc(alias = "ts_query_cursor_timeout_micros")]
-    #[deprecated(
-        since = "0.25.0",
-        note = "Prefer using `matches_with_options` or `captures_with_options` and using a callback"
-    )]
-    #[must_use]
-    pub fn timeout_micros(&self) -> u64 {
-        unsafe { ffi::ts_query_cursor_timeout_micros(self.ptr.as_ptr()) }
     }
 
     /// Check if, on its last execution, this cursor exceeded its maximum number

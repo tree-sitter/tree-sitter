@@ -158,9 +158,6 @@ struct Build {
     /// Build a Wasm module instead of a dynamic library
     #[arg(short, long)]
     pub wasm: bool,
-    /// No longer used.
-    #[arg(short, long)]
-    pub docker: bool,
     /// The path to output the compiled file
     #[arg(short, long)]
     pub output: Option<PathBuf>,
@@ -903,10 +900,6 @@ impl Generate {
 impl Build {
     fn run(self, mut loader: loader::Loader, current_dir: &Path) -> Result<()> {
         let grammar_path = current_dir.join(self.path.unwrap_or_default());
-
-        if self.docker {
-            eprintln!("Warning: --docker flag is no longer used, and will be removed in a future release.");
-        }
 
         loader.debug_build(self.debug);
 
