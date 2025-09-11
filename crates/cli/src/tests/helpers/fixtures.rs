@@ -44,7 +44,13 @@ pub fn get_language(name: &str) -> Language {
 
 pub fn get_test_fixture_language(name: &str) -> Language {
     let grammar_dir_path = fixtures_dir().join("test_grammars").join(name);
-    let grammar_json = load_grammar_file(&grammar_dir_path.join("grammar.js"), None).unwrap();
+    let grammar_json = load_grammar_file(
+        &grammar_dir_path.join("grammar.js"),
+        None,
+        #[cfg(feature = "qjs-rt")]
+        &[],
+    )
+    .unwrap();
     let (parser_name, parser_code) = generate_parser(&grammar_json).unwrap();
     get_test_language(&parser_name, &parser_code, Some(&grammar_dir_path))
 }
