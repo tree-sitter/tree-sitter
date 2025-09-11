@@ -1,0 +1,218 @@
+@eslint/plugin-kit - npm
+Kit de complementos de ESLintDescripciónUna colección de utilidades para ayudar a crear complementos de ESLint.InstalaciónPara Node.js y entornos de ejecución compatibles:
+npm install @eslint/plugin-kit
+ # o
+hilo agregar @eslint/plugin-kit
+# o
+instalación pnpm @eslint/plugin-kit
+# o 
+agrega @eslint/plugin-kit
+Para Deno:
+deno agregar @eslint/plugin-kit
+UsoEste paquete exporta las siguientes utilidades:
+ConfigCommentParser- se utiliza para analizar los comentarios de configuración de ESLint (es decir, /* eslint-disable rule */)
+VisitNodeStepyCallMethodStep - se utiliza para ayudar a implementarSourceCode#traverse()
+Directive- utilizado para ayudar a implementarSourceCode#getDisableDirectives()
+TextSourceCodeBase- clase base para ayudar a implementar la SourceCodeinterfaz
+ConfigCommentParser
+Para utilizar la ConfigCommentParserclase, impórtela desde el paquete y cree una nueva instancia, como por ejemplo:
+
+importar  {  ConfigCommentParser  }  desde  "@eslint/plugin-kit" ;
+
+// crea una nueva instancia 
+const  commentParser  =  new  ConfigCommentParser ( ) ;
+
+// pasa una cadena de comentarios sin los delimitadores de comentarios 
+const Directive  =  commentParser.parseDirective  ( " eslint - disable prefer-const, semi -- No quiero usarlos." , ) ;
+	
+
+
+// no estará definido cuando no se pueda analizar una directiva 
+if (  directiva ) {  console.log 
+	( directiva.label ) ; // " eslint-disable" console.log ( directiva.value ) ; // " prefer - const, semi" console.log ( directiva.justification ) ; // " No quiero usar estos . " } 
+	 
+	 
+Hay diferentes estilos de valores de directiva que deberá analizar por separado para obtener el formato correcto:
+importar  {  ConfigCommentParser  }  desde  "@eslint/plugin-kit" ;
+
+// crea una nueva instancia 
+const  commentParser  =  new  ConfigCommentParser ( ) ;
+
+// formato de lista 
+const list  =  commentParser.parseListConfig  ( " prefer-const, semi"); console.log(Object.entradas(lista)) ; // [ [ " prefer - const " , true ] , [ "semi", true] ]
+ 
+
+// string format
+const strings = commentParser.parseStringConfig("foo:off, bar");
+console.log(Object.entries(strings)); // [["foo", "off"], ["bar", null]]
+
+// JSON-like config format
+const jsonLike = commentParser.parseJSONLikeConfig(
+	"semi:[error, never], prefer-const: warn",
+);
+console.log(Object.entries(jsonLike.config)); // [["semi", ["error", "never"]], ["prefer-const", "warn"]]
+VisitNodeStep and CallMethodStep
+The VisitNodeStep and CallMethodStep classes represent steps in the traversal of source code. They implement the correct interfaces to return from the SourceCode#traverse() method.
+
+The VisitNodeStep class is the more common of the two, where you are describing a visit to a particular node during the traversal. The constructor accepts three arguments:
+
+target - the node being visited. This is used to determine the method to call inside of a rule. For instance, if the node's type is Literal then ESLint will call a method named Literal() on the rule (if present).
+phase - either 1 for enter or 2 for exit.
+args - an array of arguments to pass into the visitor method of a rule.
+For example:
+
+import { VisitNodeStep } from "@eslint/plugin-kit";
+
+class MySourceCode {
+	traverse() {
+		const steps = [];
+
+		for (const { node, parent, phase } of iterator(this.ast)) {
+			steps.push(
+				new VisitNodeStep({
+					target: node,
+					phase: phase === "enter" ? 1 : 2,
+					args: [node, parent],
+				}),
+			);
+		}
+
+		return steps;
+	}
+}
+The CallMethodStep class is less common and is used to tell ESLint to call a specific method on the rule. The constructor accepts two arguments:
+
+target - the name of the method to call, frequently beginning with "on" such as "onCodePathStart".
+args - an array of arguments to pass to the method.
+For example:
+
+import { VisitNodeStep, CallMethodStep } from "@eslint/plugin-kit";
+
+class MySourceCode {
+    traverse() {
+        const steps = [];
+
+        for (const { node, parent, phase } of iterator(this.ast)) {
+            steps.push(
+                new VisitNodeStep({
+                    target: node,
+                    phase: phase === "enter" ? 1 : 2,
+                    args: [node, parent],
+                }),
+            );
+
+            // call a method indicating how many times we've been through the loop
+            steps.push(
+                new CallMethodStep({
+                    target: "onIteration",
+                    args: [steps.length]
+                });
+            )
+        }
+
+        return steps;
+    }
+}
+Directive
+The Directive class represents a disable directive in the source code and implements the Directive interface from @eslint/core. You can tell ESLint about disable directives using the SourceCode#getDisableDirectives() method, where part of the return value is an array of Directive objects. Here's an example:
+
+import { Directive, ConfigCommentParser } from "@eslint/plugin-kit";
+
+class MySourceCode {
+	getDisableDirectives() {
+		const directives = [];
+		const problems = [];
+		const commentParser = new ConfigCommentParser();
+
+		// read in the inline config nodes to check each one
+		this.getInlineConfigNodes().forEach(comment => {
+			// Step 1: Parse the directive
+			const { label, value, justification } =
+				commentParser.parseDirective(comment.value);
+
+			// Step 2: Extract the directive value and create the `Directive` object
+			switch (label) {
+				case "eslint-disable":
+				case "eslint-enable":
+				case "eslint-disable-next-line":
+				case "eslint-disable-line": {
+					const directiveType = label.slice("eslint-".length);
+
+					directives.push(
+						new Directive({
+							type: directiveType,
+							node: comment,
+							value,
+							justification,
+						}),
+					);
+				}
+
+				// ignore any comments that don't begin with known labels
+			}
+		});
+
+		return {
+			directives,
+			problems,
+		};
+	}
+}
+TextSourceCodeBase
+The TextSourceCodeBase class is intended to be a base class that has several of the common members found in SourceCode objects already implemented. Those members are:
+
+lines - an array of text lines that is created automatically when the constructor is called.
+getLoc(node) - gets the location of a node. Works for nodes that have the ESLint-style loc property and nodes that have the Unist-style position property. If you're using an AST with a different location format, you'll still need to implement this method yourself.
+getRange(node) - gets the range of a node within the source text. Works for nodes that have the ESLint-style range property and nodes that have the Unist-style position property. If you're using an AST with a different range format, you'll still need to implement this method yourself.
+getText(nodeOrToken, charsBefore, charsAfter) - gets the source text for the given node or token that has range information attached. Optionally, can return additional characters before and after the given node or token. As long as getRange() is properly implemented, this method will just work.
+getAncestors(node) - returns the ancestry of the node. In order for this to work, you must implement the getParent() method yourself.
+Here's an example:
+
+import { TextSourceCodeBase } from "@eslint/plugin-kit";
+
+export class MySourceCode extends TextSourceCodeBase {
+	#parents = new Map();
+
+	constructor({ ast, text }) {
+		super({ ast, text });
+	}
+
+	getParent(node) {
+		return this.#parents.get(node);
+	}
+
+	traverse() {
+		const steps = [];
+
+		for (const { node, parent, phase } of iterator(this.ast)) {
+			//save the parent information
+			this.#parent.set(node, parent);
+
+			steps.push(
+				new VisitNodeStep({
+					target: node,
+					phase: phase === "enter" ? 1 : 2,
+					args: [node, parent],
+				}),
+			);
+		}
+
+		return steps;
+	}
+}
+In general, it's safe to collect the parent information during the traverse() method as getParent() and getAncestor() will only be called from rules once the AST has been traversed at least once.
+
+License
+Apache 2.0
+
+Sponsors
+The following companies, organizations, and individuals support ESLint's ongoing maintenance and development. Become a Sponsor to get your logo on our READMEs and website.
+
+Platinum Sponsors
+AutomáticoAirbnb
+Gold Sponsors
+Software de calidadtrunk.ioShopify
+Silver Sponsors
+ViteDespeguetarjeta American ExpressStackBlitz
+Bronze Sponsors
+CybozuSolucionador de anagramasIconos8DiscordiaGitBookNxGrupo Mercedes-BenzHeroCodersPrueba LambdaPatrocinadores tecnológicos Los patrocinadores tecnológicos nos permiten utilizar sus productos y servicios de forma gratuita como parte de una contribución al ecosistema de código abierto y a nuestro trabajo.NetlifyAlgolia1Contraseña
