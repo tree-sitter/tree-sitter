@@ -3,6 +3,7 @@
   src,
   rustPlatform,
   version,
+  cmake,
   pkg-config,
   nodejs_22,
   test-grammars,
@@ -17,7 +18,10 @@ rustPlatform.buildRustPackage {
 
   inherit src version;
 
+  cargoBuildFlags = [ "--all-features" ];
+
   nativeBuildInputs = [
+    cmake
     pkg-config
     nodejs_22
   ]
