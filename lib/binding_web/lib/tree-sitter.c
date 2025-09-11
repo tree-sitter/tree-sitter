@@ -875,8 +875,7 @@ void ts_query_matches_wasm(
   uint32_t start_index,
   uint32_t end_index,
   uint32_t match_limit,
-  uint32_t max_start_depth,
-  uint64_t timeout_micros
+  uint32_t max_start_depth
 ) {
   if (!scratch_query_cursor) {
     scratch_query_cursor = ts_query_cursor_new();
@@ -894,7 +893,6 @@ void ts_query_matches_wasm(
   ts_query_cursor_set_byte_range(scratch_query_cursor, start_index, end_index);
   ts_query_cursor_set_match_limit(scratch_query_cursor, match_limit);
   ts_query_cursor_set_max_start_depth(scratch_query_cursor, max_start_depth);
-  ts_query_cursor_set_timeout_micros(scratch_query_cursor, timeout_micros);
 
   TSQueryCursorOptions options = {.payload = NULL, .progress_callback = query_progress_callback};
 
@@ -935,8 +933,7 @@ void ts_query_captures_wasm(
   uint32_t start_index,
   uint32_t end_index,
   uint32_t match_limit,
-  uint32_t max_start_depth,
-  uint64_t timeout_micros
+  uint32_t max_start_depth
 ) {
   if (!scratch_query_cursor) {
     scratch_query_cursor = ts_query_cursor_new();
@@ -951,7 +948,6 @@ void ts_query_captures_wasm(
   ts_query_cursor_set_byte_range(scratch_query_cursor, start_index, end_index);
   ts_query_cursor_set_match_limit(scratch_query_cursor, match_limit);
   ts_query_cursor_set_max_start_depth(scratch_query_cursor, max_start_depth);
-  ts_query_cursor_set_timeout_micros(scratch_query_cursor, timeout_micros);
   ts_query_cursor_exec(scratch_query_cursor, self, node);
 
   unsigned index = 0;

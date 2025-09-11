@@ -153,7 +153,7 @@ export class Parser {
       this.language = null;
     } else if (language.constructor === Language) {
       address = language[0];
-      const version = C._ts_language_version(address);
+      const version = C._ts_language_abi_version(address);
       if (version < MIN_COMPATIBLE_VERSION || LANGUAGE_VERSION < version) {
         throw new Error(
           `Incompatible language version ${version}. ` +
@@ -253,8 +253,8 @@ export class Parser {
   /**
    * Instruct the parser to start the next parse from the beginning.
    *
-   * If the parser previously failed because of a timeout, cancellation,
-   * or callback, then by default, it will resume where it left off on the
+   * If the parser previously failed because of a callback, 
+   * then by default, it will resume where it left off on the
    * next call to {@link Parser#parse} or other parsing functions.
    * If you don't want to resume, and instead intend to use this parser to
    * parse some other document, you must call `reset` first.
@@ -280,30 +280,6 @@ export class Parser {
     }
 
     return result;
-  }
-
-  /**
-   * @deprecated since version 0.25.0, prefer passing a progress callback to {@link Parser#parse}
-   *
-   * Get the duration in microseconds that parsing is allowed to take.
-   *
-   * This is set via {@link Parser#setTimeoutMicros}.
-   */
-  getTimeoutMicros(): bigint {
-    return C._ts_parser_timeout_micros(this[0]);
-  }
-
-  /**
-   * @deprecated since version 0.25.0, prefer passing a progress callback to {@link Parser#parse}
-   *
-   * Set the maximum duration in microseconds that parsing should be allowed
-   * to take before halting.
-   *
-   * If parsing takes longer than this, it will halt early, returning `null`.
-   * See {@link Parser#parse} for more information.
-   */
-  setTimeoutMicros(timeout: bigint): void {
-    C._ts_parser_set_timeout_micros(this[0], timeout);
   }
 
   /** Set the logging callback that a parser should use during parsing. */

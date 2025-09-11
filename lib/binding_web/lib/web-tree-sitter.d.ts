@@ -56,7 +56,6 @@ interface WasmModule {
   _memcmp(_0: number, _1: number, _2: number): number;
   _ts_language_symbol_count(_0: number): number;
   _ts_language_state_count(_0: number): number;
-  _ts_language_version(_0: number): number;
   _ts_language_abi_version(_0: number): number;
   _ts_language_name(_0: number): number;
   _ts_language_field_count(_0: number): number;
@@ -75,8 +74,6 @@ interface WasmModule {
   _ts_parser_delete(_0: number): void;
   _ts_parser_reset(_0: number): void;
   _ts_parser_set_language(_0: number, _1: number): number;
-  _ts_parser_timeout_micros(_0: number): bigint;
-  _ts_parser_set_timeout_micros(_0: number, _1: bigint): void;
   _ts_parser_set_included_ranges(_0: number, _1: number, _2: number): number;
   _ts_query_new(_0: number, _1: number, _2: number, _3: number, _4: number): number;
   _ts_query_delete(_0: number): void;
@@ -178,8 +175,8 @@ interface WasmModule {
   _ts_node_is_extra_wasm(_0: number): number;
   _ts_node_parse_state_wasm(_0: number): number;
   _ts_node_next_parse_state_wasm(_0: number): number;
-  _ts_query_matches_wasm(_0: number, _1: number, _2: number, _3: number, _4: number, _5: number, _6: number, _7: number, _8: number, _9: number, _10: bigint): void;
-  _ts_query_captures_wasm(_0: number, _1: number, _2: number, _3: number, _4: number, _5: number, _6: number, _7: number, _8: number, _9: number, _10: bigint): void;
+  _ts_query_matches_wasm(_0: number, _1: number, _2: number, _3: number, _4: number, _5: number, _6: number, _7: number, _8: number, _9: number): void;
+  _ts_query_captures_wasm(_0: number, _1: number, _2: number, _3: number, _4: number, _5: number, _6: number, _7: number, _8: number, _9: number): void;
   _memset(_0: number, _1: number, _2: number): number;
   _memcpy(_0: number, _1: number, _2: number): number;
   _memmove(_0: number, _1: number, _2: number): number;
