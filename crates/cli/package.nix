@@ -3,6 +3,8 @@
   src,
   rustPlatform,
   version,
+  clang,
+  libclang,
   cmake,
   pkg-config,
   nodejs_22,
@@ -21,6 +23,7 @@ rustPlatform.buildRustPackage {
   cargoBuildFlags = [ "--all-features" ];
 
   nativeBuildInputs = [
+    clang
     cmake
     pkg-config
     nodejs_22
@@ -28,6 +31,8 @@ rustPlatform.buildRustPackage {
   ++ lib.optionals (!isCross) [ installShellFiles ];
 
   cargoLock.lockFile = ../../Cargo.lock;
+
+  env.LIBCLANG_PATH = "${libclang.lib}/lib";
 
   preBuild = ''
     rm -rf test/fixtures

@@ -20,8 +20,9 @@ path = "src/generate.rs"
 workspace = true
 
 [features]
-default = ["load"]
+default = ["qjs-rt"]
 load = ["dep:semver", "dep:url"]
+qjs-rt = ["load", "rquickjs", "pathdiff"]
 
 [dependencies]
 anyhow.workspace = true
@@ -29,8 +30,15 @@ heck.workspace = true
 indexmap.workspace = true
 indoc.workspace = true
 log.workspace = true
+pathdiff = { version = "0.2.3", optional = true }
 regex.workspace = true
 regex-syntax.workspace = true
+rquickjs = { version = "0.9.0", optional = true, features = [
+  "bindgen",
+  "loader",
+  "macro",
+  "phf",
+] }
 rustc-hash.workspace = true
 semver = { workspace = true, optional = true }
 serde.workspace = true
@@ -43,3 +51,6 @@ tree-sitter.workspace = true
 
 [target.'cfg(windows)'.dependencies]
 url = { workspace = true, optional = true }
+
+[dev-dependencies]
+tempfile.workspace = true

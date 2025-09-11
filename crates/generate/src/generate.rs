@@ -25,6 +25,8 @@ mod nfa;
 mod node_types;
 pub mod parse_grammar;
 mod prepare_grammar;
+#[cfg(feature = "qjs-rt")]
+mod quickjs;
 mod render;
 mod rules;
 mod tables;
@@ -150,6 +152,9 @@ pub enum JSError {
     Semver(String),
     #[error("Failed to serialze grammar JSON -- {0}")]
     Serialzation(String),
+    #[cfg(feature = "qjs-rt")]
+    #[error("QuickJS error: {0}")]
+    QuickJS(String),
 }
 
 #[cfg(feature = "load")]
@@ -173,7 +178,15 @@ impl From<semver::Error> for JSError {
     }
 }
 
+#[cfg(feature = "qjs-rt")]
+impl From<rquickjs::Error> for JSError {
+    fn from(value: rquickjs::Error) -> Self {
+        Self::QuickJS(value.to_string())
+    }
+}
+
 #[cfg(feature = "load")]
+#[allow(clippy::too_many_arguments)]
 pub fn generate_parser_in_directory<T, U, V>(
     repo_path: T,
     out_path: Option<U>,
@@ -419,6 +432,11 @@ fn load_js_grammar_file(grammar_path: &Path, js_runtime: Option<&str>) -> JSResu
     let grammar_path = url::Url::from_file_path(grammar_path)
         .expect("Failed to convert path to URL")
         .to_string();
+
+    #[cfg(feature = "qjs-rt")]
+    if js_runtime == Some("native") {
+        return quickjs::execute_native_runtime(&grammar_path);
+    }
 
     let js_runtime = js_runtime.unwrap_or("node");
 
