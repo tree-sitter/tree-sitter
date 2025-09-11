@@ -49,10 +49,6 @@ const TSSymbol *ts_language_subtypes(
   return &self->supertype_map_entries[slice.index];
 }
 
-uint32_t ts_language_version(const TSLanguage *self) {
-  return self->abi_version;
-}
-
 uint32_t ts_language_abi_version(const TSLanguage *self) {
   return self->abi_version;
 }

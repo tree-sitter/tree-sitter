@@ -1,4 +1,3 @@
-#include <time.h>
 #include <stdio.h>
 #include <limits.h>
 #include <stdbool.h>
@@ -6,8 +5,6 @@
 #include "tree_sitter/api.h"
 #include "./alloc.h"
 #include "./array.h"
-#include "./atomic.h"
-#include "./clock.h"
 #include "./error_costs.h"
 #include "./get_changed_ranges.h"
 #include "./language.h"
@@ -81,7 +78,7 @@ static const unsigned MAX_VERSION_COUNT = 6;
 static const unsigned MAX_VERSION_COUNT_OVERFLOW = 4;
 static const unsigned MAX_SUMMARY_DEPTH = 16;
 static const unsigned MAX_COST_DIFFERENCE = 18 * ERROR_COST_PER_SKIPPED_TREE;
-static const unsigned OP_COUNT_PER_PARSER_TIMEOUT_CHECK = 100;
+static const unsigned OP_COUNT_PER_PARSER_CALLBACK_CHECK = 100;
 
 typedef struct {
   Subtree token;
@@ -104,11 +101,8 @@ struct TSParser {
   ReusableNode reusable_node;
   void *external_scanner_payload;
   FILE *dot_graph_file;
-  TSClock end_clock;
-  TSDuration timeout_duration;
   unsigned accept_count;
   unsigned operation_count;
-  const volatile size_t *cancellation_flag;
   Subtree old_tree;
   TSRangeArray included_range_differences;
   TSParseOptions parse_options;
@@ -1537,7 +1531,7 @@ static void ts_parser__handle_error(
 
 static bool ts_parser__check_progress(TSParser *self, Subtree *lookahead, const uint32_t *position, unsigned operations) {
   self->operation_count += operations;
-  if (self->operation_count >= OP_COUNT_PER_PARSER_TIMEOUT_CHECK) {
+  if (self->operation_count >= OP_COUNT_PER_PARSER_CALLBACK_CHECK) {
     self->operation_count = 0;
   }
   if (position != NULL) {
@@ -1546,12 +1540,7 @@ static bool ts_parser__check_progress(TSParser *self, Subtree *lookahead, const 
   }
   if (
     self->operation_count == 0 &&
-    (
-      // TODO(amaanq): remove cancellation flag & clock checks before 0.26
-      (self->cancellation_flag && atomic_load(self->cancellation_flag)) ||
-      (!clock_is_null(self->end_clock) && clock_is_gt(clock_now(), self->end_clock)) ||
-      (self->parse_options.progress_callback && self->parse_options.progress_callback(&self->parse_state))
-    )
+    (self->parse_options.progress_callback && self->parse_options.progress_callback(&self->parse_state))
   ) {
     if (lookahead && lookahead->ptr) {
       ts_subtree_release(&self->tree_pool, *lookahead);
@@ -1611,7 +1600,7 @@ static bool ts_parser__advance(
       }
     }
 
-    // If a cancellation flag, timeout, or progress callback was provided, then check every
+    // If a progress callback was provided, then check every
     // time a fixed number of parse actions has been processed.
     if (!ts_parser__check_progress(self, &lookahead, &position, 1)) {
       return false;
@@ -1949,14 +1938,11 @@ TSParser *ts_parser_new(void) {
   self->finished_tree = NULL_SUBTREE;
   self->reusable_node = reusable_node_new();
   self->dot_graph_file = NULL;
-  self->cancellation_flag = NULL;
-  self->timeout_duration = 0;
   self->language = NULL;
   self->has_scanner_error = false;
   self->has_error = false;
   self->canceled_balancing = false;
   self->external_scanner_payload = NULL;
-  self->end_clock = clock_null();
   self->operation_count = 0;
   self->old_tree = NULL_SUBTREE;
   self->included_range_differences = (TSRangeArray) array_new();
@@ -2042,22 +2028,6 @@ void ts_parser_print_dot_graphs(TSParser *self, int fd) {
   }
 }
 
-const size_t *ts_parser_cancellation_flag(const TSParser *self) {
-  return (const size_t *)self->cancellation_flag;
-}
-
-void ts_parser_set_cancellation_flag(TSParser *self, const size_t *flag) {
-  self->cancellation_flag = (const volatile size_t *)flag;
-}
-
-uint64_t ts_parser_timeout_micros(const TSParser *self) {
-  return duration_to_micros(self->timeout_duration);
-}
-
-void ts_parser_set_timeout_micros(TSParser *self, uint64_t timeout_micros) {
-  self->timeout_duration = duration_from_micros(timeout_micros);
-}
-
 bool ts_parser_set_included_ranges(
   TSParser *self,
   const TSRange *ranges,
@@ -2115,11 +2085,6 @@ TSTree *ts_parser_parse(
   self->included_range_difference_index = 0;
 
   self->operation_count = 0;
-  if (self->timeout_duration) {
-    self->end_clock = clock_after(clock_now(), self->timeout_duration);
-  } else {
-    self->end_clock = clock_null();
-  }
 
   if (ts_parser_has_outstanding_parse(self)) {
     LOG("resume_parsing");
