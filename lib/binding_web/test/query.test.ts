@@ -461,17 +461,6 @@ describe('Query', () => {
     });
   });
 
-  describe('Set a timeout', () => {
-    it('returns less than the expected matches', { timeout: 10000 }, () => {
-      tree = parser.parse('function foo() while (true) { } }\n'.repeat(1000))!;
-      query = new Query(JavaScript, '(function_declaration name: (identifier) @function)');
-      const matches = query.matches(tree.rootNode, { timeoutMicros: 1000n });
-      expect(matches.length).toBeLessThan(1000);
-      const matches2 = query.matches(tree.rootNode, { timeoutMicros: 0n });
-      expect(matches2).toHaveLength(1000);
-    });
-  });
-
   describe('Start and end indices for patterns', () => {
     it('Returns the start and end indices for a pattern', () => {
       const patterns1 = `

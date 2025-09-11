@@ -51,14 +51,6 @@ export interface QueryOptions {
   maxStartDepth?: number;
 
   /**
-   * The maximum duration in microseconds that query execution should be allowed to
-   * take before halting.
-   *
-   * If query execution takes longer than this, it will halt early, returning an empty array.
-   */
-  timeoutMicros?: bigint;
-
-  /**
    * A function that will be called periodically during the execution of the query to check
    * if query execution should be cancelled. You can also use this to instrument query execution
    * and check where the query is at in the document. The progress callback takes a single argument,
@@ -116,9 +108,6 @@ export interface QueryCapture {
 
 /** A match of a {@link Query} to a particular set of {@link Node}s. */
 export interface QueryMatch {
-  /** @deprecated since version 0.25.0, use `patternIndex` instead. */
-  pattern: number;
-
   /** The index of the pattern that matched. */
   patternIndex: number;
 
@@ -708,7 +697,6 @@ export class Query {
     const endIndex = options.endIndex ?? 0;
     const matchLimit = options.matchLimit ?? 0xFFFFFFFF;
     const maxStartDepth = options.maxStartDepth ?? 0xFFFFFFFF;
-    const timeoutMicros = options.timeoutMicros ?? 0n;
     const progressCallback = options.progressCallback;
 
     if (typeof matchLimit !== 'number') {
@@ -744,7 +732,6 @@ export class Query {
       endIndex,
       matchLimit,
       maxStartDepth,
-      timeoutMicros,
     );
 
     const rawCount = C.getValue(TRANSFER_BUFFER, 'i32');
@@ -765,7 +752,7 @@ export class Query {
       address = unmarshalCaptures(this, node.tree, address, patternIndex, captures);
 
       if (this.textPredicates[patternIndex].every((p) => p(captures))) {
-        result[filteredCount] = { pattern: patternIndex, patternIndex, captures };
+        result[filteredCount] = { patternIndex, captures };
         const setProperties = this.setProperties[patternIndex];
         result[filteredCount].setProperties = setProperties;
         const assertedProperties = this.assertedProperties[patternIndex];
@@ -803,7 +790,6 @@ export class Query {
     const endIndex = options.endIndex ?? 0;
     const matchLimit = options.matchLimit ?? 0xFFFFFFFF;
     const maxStartDepth = options.maxStartDepth ?? 0xFFFFFFFF;
-    const timeoutMicros = options.timeoutMicros ?? 0n;
     const progressCallback = options.progressCallback;
 
     if (typeof matchLimit !== 'number') {
@@ -839,7 +825,6 @@ export class Query {
       endIndex,
       matchLimit,
       maxStartDepth,
-      timeoutMicros,
     );
 
     const count = C.getValue(TRANSFER_BUFFER, 'i32');

@@ -2,7 +2,6 @@ import { C, INTERNAL, Internal, assertInternal, SIZE_OF_INT, SIZE_OF_SHORT } fro
 import { LookaheadIterator } from './lookahead_iterator';
 import { unmarshalLanguageMetadata } from './marshal';
 import { TRANSFER_BUFFER } from './parser';
-import { Query } from './query';
 
 const LANGUAGE_FUNCTION_REGEX = /^tree_sitter_\w+$/;
 
@@ -61,14 +60,6 @@ export class Language {
     const ptr = C._ts_language_name(this[0]);
     if (ptr === 0) return null;
     return C.UTF8ToString(ptr);
-  }
-
-  /**
-   * @deprecated since version 0.25.0, use {@link Language#abiVersion} instead
-   * Gets the version of the language.
-   */
-  get version(): number {
-    return C._ts_language_version(this[0]);
   }
 
   /**
@@ -230,23 +221,6 @@ export class Language {
     const address = C._ts_lookahead_iterator_new(this[0], stateId);
     if (address) return new LookaheadIterator(INTERNAL, address, this);
     return null;
-  }
-
-  /**
-   * @deprecated since version 0.25.0, call `new` on a {@link Query} instead
-   *
-   * Create a new query from a string containing one or more S-expression
-   * patterns.
-   *
-   * The query is associated with a particular language, and can only be run
-   * on syntax nodes parsed with that language. References to Queries can be
-   * shared between multiple threads.
-   *
-   * @link {@see https://tree-sitter.github.io/tree-sitter/using-parsers/queries}
-   */
-  query(source: string): Query {
-    console.warn('Language.query is deprecated. Use new Query(language, source) instead.');
-    return new Query(this, source);
   }
 
   /**
