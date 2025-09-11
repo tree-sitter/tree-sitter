@@ -10,7 +10,6 @@
 #include "tree_sitter/api.h"
 #include "./alloc.h"
 #include "./array.h"
-#include "./clock.h"
 #include "./language.h"
 #include "./point.h"
 #include "./tree_cursor.h"
@@ -324,8 +323,6 @@ struct TSQueryCursor {
   TSPoint start_point;
   TSPoint end_point;
   uint32_t next_state_id;
-  TSClock end_clock;
-  TSDuration timeout_duration;
   const TSQueryCursorOptions *query_options;
   TSQueryCursorState query_state;
   unsigned operation_count;
@@ -339,7 +336,7 @@ static const TSQueryError PARENT_DONE = -1;
 static const uint16_t PATTERN_DONE_MARKER = UINT16_MAX;
 static const uint16_t NONE = UINT16_MAX;
 static const TSSymbol WILDCARD_SYMBOL = 0;
-static const unsigned OP_COUNT_PER_QUERY_TIMEOUT_CHECK = 100;
+static const unsigned OP_COUNT_PER_QUERY_CALLBACK_CHECK = 100;
 
 /**********
  * Stream
@@ -3099,8 +3096,6 @@ TSQueryCursor *ts_query_cursor_new(void) {
     .start_point = {0, 0},
     .end_point = POINT_MAX,
     .max_start_depth = UINT32_MAX,
-    .timeout_duration = 0,
-    .end_clock = clock_null(),
     .operation_count = 0,
   };
   array_reserve(&self->states, 8);
@@ -3126,14 +3121,6 @@ uint32_t ts_query_cursor_match_limit(const TSQueryCursor *self) {
 
 void ts_query_cursor_set_match_limit(TSQueryCursor *self, uint32_t limit) {
   self->capture_list_pool.max_capture_list_count = limit;
-}
-
-uint64_t ts_query_cursor_timeout_micros(const TSQueryCursor *self) {
-  return duration_to_micros(self->timeout_duration);
-}
-
-void ts_query_cursor_set_timeout_micros(TSQueryCursor *self, uint64_t timeout_micros) {
-  self->timeout_duration = duration_from_micros(timeout_micros);
 }
 
 #ifdef DEBUG_EXECUTE_QUERY
@@ -3185,11 +3172,6 @@ void ts_query_cursor_exec(
   self->query = query;
   self->did_exceed_match_limit = false;
   self->operation_count = 0;
-  if (self->timeout_duration) {
-    self->end_clock = clock_after(clock_now(), self->timeout_duration);
-  } else {
-    self->end_clock = clock_null();
-  }
   self->query_options = NULL;
   self->query_state = (TSQueryCursorState) {0};
 }
@@ -3614,7 +3596,7 @@ static inline bool ts_query_cursor__advance(
       }
     }
 
-    if (++self->operation_count == OP_COUNT_PER_QUERY_TIMEOUT_CHECK) {
+    if (++self->operation_count == OP_COUNT_PER_QUERY_CALLBACK_CHECK) {
       self->operation_count = 0;
     }
 
@@ -3627,7 +3609,6 @@ static inline bool ts_query_cursor__advance(
       (
         self->operation_count == 0 &&
         (
-          (!clock_is_null(self->end_clock) && clock_is_gt(clock_now(), self->end_clock)) ||
           (self->query_options && self->query_options->progress_callback && self->query_options->progress_callback(&self->query_state))
         )
       )
