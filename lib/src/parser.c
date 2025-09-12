@@ -396,20 +396,24 @@ static void ts_parser__external_scanner_destroy(
 static unsigned ts_parser__external_scanner_serialize(
   TSParser *self
 ) {
+  uint32_t length;
   if (ts_language_is_wasm(self->language)) {
-    return ts_wasm_store_call_scanner_serialize(
+    length = ts_wasm_store_call_scanner_serialize(
       self->wasm_store,
       (uintptr_t)self->external_scanner_payload,
       self->lexer.debug_buffer
     );
+    if (ts_wasm_store_has_error(self->wasm_store)) {
+      self->has_scanner_error = true;
+    }
   } else {
-    uint32_t length = self->language->external_scanner.serialize(
+    length = self->language->external_scanner.serialize(
       self->external_scanner_payload,
       self->lexer.debug_buffer
     );
-    ts_assert(length <= TREE_SITTER_SERIALIZATION_BUFFER_SIZE);
-    return length;
   }
+  ts_assert(length <= TREE_SITTER_SERIALIZATION_BUFFER_SIZE);
+  return length;
 }
 
 static void ts_parser__external_scanner_deserialize(
