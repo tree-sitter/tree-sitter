@@ -1700,6 +1700,113 @@ impl<'tree> Node<'tree> {
         unsafe { ffi::ts_node_is_error(self.0) }
     }
 
+    /// Gets the `i`th error child if `self` is an `ERROR` node. The returned node will be a node
+    /// which contributed to causing the error.
+    #[must_use]
+    pub fn error_child(&self, i: usize) -> Option<Self> {
+        unsafe {
+            let mut child = core::mem::MaybeUninit::uninit();
+            if ffi::ts_node_error_child(self.0, i as u32, child.as_mut_ptr()) {
+                Self::new(child.assume_init())
+            } else {
+                None
+            }
+        }
+    }
+
+    /// Returns the number of children nodes which contributed to this node parsing as `ERROR`.
+    /// Returns `None` if this node is not an error.
+    #[must_use]
+    pub fn error_child_count(&self) -> Option<usize> {
+        unsafe {
+            let mut count: u32 = 0;
+            if ffi::ts_node_error_child_count(self.0, core::ptr::addr_of_mut!(count)) {
+                Some(count as usize)
+            } else {
+                None
+            }
+        }
+    }
+
+    /// Walks over the nodes which contributed to making this node into an `ERROR`. Returns `None`
+    /// if this node is not an error or is a leaf error.
+    pub fn error_children<'cursor>(
+        &self,
+        cursor: &'cursor mut TreeCursor<'tree>,
+    ) -> Option<impl ExactSizeIterator<Item = Node<'tree>> + 'cursor> {
+        // Reset to the error node.
+        cursor.reset(Node::new(self.error_root()?)?);
+        cursor.goto_first_child();
+        Some((0..self.error_child_count()?).map(move |_| {
+            let result = cursor.node();
+            cursor.goto_next_sibling();
+            result
+        }))
+    }
+
+    /// Returns the _ERROR node root of this error, if it exists.
+    fn error_root(&self) -> Option<ffi::TSNode> {
+        unsafe {
+            let node = ffi::ts_node_error_root(self.0);
+            if node.id.is_null() {
+                if self.is_error() {
+                    Some(self.0)
+                } else {
+                    None
+                }
+            } else {
+                Some(node)
+            }
+        }
+    }
+
+    /// Returns the first byte of the source code which produced the parsing error.
+    #[must_use]
+    pub fn error_start_byte(&self) -> Option<usize> {
+        let error = self.error_root()?;
+        Some(unsafe { ffi::ts_node_start_byte(error) as usize })
+    }
+
+    /// Returns the last byte of the source code which produced the parsing error.
+    #[must_use]
+    pub fn error_end_byte(&self) -> Option<usize> {
+        let error = self.error_root()?;
+        Some(unsafe { ffi::ts_node_end_byte(error) as usize })
+    }
+
+    /// Returns the first position of the source code which produced the parsing error.
+    #[must_use]
+    pub fn error_start_position(&self) -> Option<Point> {
+        let error = self.error_root()?;
+        Some(unsafe { ffi::ts_node_start_point(error) }.into())
+    }
+
+    /// Returns the last position of the source code which produced the parsing error.
+    #[must_use]
+    pub fn error_end_position(&self) -> Option<Point> {
+        let error = self.error_root()?;
+        Some(unsafe { ffi::ts_node_end_point(error) }.into())
+    }
+
+    /// Get the byte range of source code that corresponds to the error portion of this node.
+    /// Returns `None` if this node is not an `ERROR` node.
+    #[must_use]
+    pub fn error_byte_range(&self) -> Option<core::ops::Range<usize>> {
+        Some(self.error_start_byte()?..self.error_end_byte()?)
+    }
+
+    /// Get the range of source code that corresponds to the error portion of this node, both in terms of
+    /// raw bytes and of row/column coordinates.
+    #[must_use]
+    pub fn error_range(&self) -> Option<Range> {
+        Some(Range {
+            start_byte: self.error_start_byte()?,
+            end_byte: self.error_end_byte()?,
+            start_point: self.error_start_position()?,
+            end_point: self.error_end_position()?,
+        })
+    }
+
     /// Get this node's parse state.
     #[doc(alias = "ts_node_parse_state")]
     #[must_use]

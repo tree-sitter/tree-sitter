@@ -8,8 +8,6 @@ extern "C" {
 #include "./subtree.h"
 #include "./parser.h"
 
-#define ts_builtin_sym_error_repeat (ts_builtin_sym_error - 1)
-
 #define LANGUAGE_VERSION_WITH_RESERVED_WORDS 15
 #define LANGUAGE_VERSION_WITH_PRIMARY_STATES 14
 

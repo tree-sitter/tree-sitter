@@ -376,6 +376,10 @@ static inline bool ts_subtree_is_error(Subtree self) {
   return ts_subtree_symbol(self) == ts_builtin_sym_error;
 }
 
+static inline bool ts_subtree_is_error_repeat(Subtree self) {
+  return ts_subtree_symbol(self) == ts_builtin_sym_error_repeat;
+}
+
 static inline bool ts_subtree_is_eof(Subtree self) {
   return ts_subtree_symbol(self) == ts_builtin_sym_end;
 }
