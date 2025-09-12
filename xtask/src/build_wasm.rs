@@ -223,6 +223,7 @@ pub fn run_wasm_stdlib() -> Result<()> {
             "stdlib.wasm",
             "-Os",
             "-fPIC",
+            "-DTREE_SITTER_FEATURE_WASM",
             "-Wl,--no-entry",
             "-Wl,--stack-first",
             "-Wl,-z",
@@ -234,6 +235,7 @@ pub fn run_wasm_stdlib() -> Result<()> {
             "-Wl,--export=reset_heap",
             "-Wl,--export=__wasm_call_ctors",
             "-Wl,--export=__stack_pointer",
+            "-Wl,--export=reset_heap",
         ])
         .args(export_flags)
         .arg("lib/src/wasm/stdlib.c")
