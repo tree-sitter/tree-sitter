@@ -4,7 +4,7 @@ description = "The tree-sitter Language type, used by the library and by languag
 version = "0.1.4"
 authors.workspace = true
 edition.workspace = true
-rust-version = "1.76"
+rust-version = "1.77"
 readme = "README.md"
 homepage.workspace = true
 repository.workspace = true
@@ -12,6 +12,9 @@ documentation = "https://docs.rs/tree-sitter-language"
 license.workspace = true
 keywords.workspace = true
 categories = ["api-bindings", "development-tools::ffi", "parsing"]
+
+build = "build.rs"
+links = "tree-sitter-language"
 
 [lints]
 workspace = true
