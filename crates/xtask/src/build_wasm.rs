@@ -374,7 +374,7 @@ pub fn run_wasm_stdlib() -> Result<()> {
             "-Wl,--export=reset_heap",
         ])
         .args(&export_flags)
-        .arg("lib/src/wasm/stdlib.c")
+        .arg("crates/language/wasm/src/stdlib.c")
         .output()?;
 
     bail_on_err(&output, "Failed to compile the Tree-sitter Wasm stdlib")?;

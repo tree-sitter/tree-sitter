@@ -394,9 +394,48 @@ pub fn generate_grammar_files(
                 generate_file(path, LIB_RS_TEMPLATE, language_name, &generate_opts)
             })?;
 
-            missing_path(path.join("build.rs"), |path| {
-                generate_file(path, BUILD_RS_TEMPLATE, language_name, &generate_opts)
-            })?;
+            missing_path_else(
+                path.join("build.rs"),
+                allow_update,
+                |path| generate_file(path, BUILD_RS_TEMPLATE, language_name, &generate_opts),
+                |path| {
+                    let replacement = indoc!{r#"
+                        c_config.flag("-utf-8");
+
+                        if std::env::var("TARGET").unwrap() == "wasm32-unknown-unknown" {
+                            let Ok(wasm_headers) = std::env::var("DEP_TREE_SITTER_LANGUAGE_WASM_HEADERS") else {
+                                panic!("Environment variable DEP_TREE_SITTER_LANGUAGE_WASM_HEADERS must be set by the language crate");
+                            };
+                            let Ok(wasm_src) =
+                                std::env::var("DEP_TREE_SITTER_LANGUAGE_WASM_SRC").map(std::path::PathBuf::from)
+                            else {
+                                panic!("Environment variable DEP_TREE_SITTER_LANGUAGE_WASM_SRC must be set by the language crate");
+                            };
+
+                            c_config.include(&wasm_headers);
+                            c_config.files([
+                                wasm_src.join("stdio.c"),
+                                wasm_src.join("stdlib.c"),
+                                wasm_src.join("string.c"),
+                            ]);
+                        }
+                    "#};
+
+                    let indented_replacement = replacement
+                        .lines()
+                        .map(|line| if line.is_empty() { line.to_string() } else { format!("    {line}") })
+                        .collect::<Vec<_>>()
+                        .join("\n");
+
+                    let mut contents = fs::read_to_string(path)?;
+                    if !contents.contains("wasm32-unknown-unknown") {
+                        contents = contents.replace(r#"    c_config.flag("-utf-8");"#, &indented_replacement);
+                    }
+
+                    write_file(path, contents)?;
+                    Ok(())
+                },
+            )?;
 
             missing_path_else(
                 repo_path.join("Cargo.toml"),
