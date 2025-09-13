@@ -143,12 +143,24 @@ struct Generate {
     #[arg(long)]
     pub json: bool,
     /// The name or path of the JavaScript runtime to use for generating parsers
+    #[cfg(not(feature = "qjs-rt"))]
     #[arg(
         long,
         value_name = "EXECUTABLE",
         env = "TREE_SITTER_JS_RUNTIME",
         default_value = "node"
     )]
+    pub js_runtime: Option<String>,
+
+    #[cfg(feature = "qjs-rt")]
+    #[arg(
+        long,
+        value_name = "EXECUTABLE",
+        env = "TREE_SITTER_JS_RUNTIME",
+        default_value = "node"
+    )]
+    /// The name or path of the JavaScript runtime to use for generating parsers, specify `native`
+    /// to use the native `QuickJS` runtime
     pub js_runtime: Option<String>,
 }
 
@@ -868,6 +880,14 @@ impl Generate {
             // TODO: migrate to `warn!` once https://github.com/tree-sitter/tree-sitter/pull/4604 is merged
             eprintln!("Warning: --build is deprecated, use --stage=lib instead");
         }
+
+        #[cfg(feature = "qjs-rt")]
+        let parser_directories = {
+            let config = Config::load(None)?;
+            let loader_config: loader::Config = config.get()?;
+            loader_config.parser_directories
+        };
+
         if let Err(err) = tree_sitter_generate::generate_parser_in_directory(
             current_dir,
             self.output.as_deref(),
@@ -876,6 +896,8 @@ impl Generate {
             self.report_states_for_rule.as_deref(),
             self.js_runtime.as_deref(),
             self.stage != GenerationStage::Json,
+            #[cfg(feature = "qjs-rt")]
+            &parser_directories,
         ) {
             if self.json {
                 eprintln!("{}", serde_json::to_string_pretty(&err)?);

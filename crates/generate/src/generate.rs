@@ -25,6 +25,8 @@ mod nfa;
 mod node_types;
 pub mod parse_grammar;
 mod prepare_grammar;
+#[cfg(feature = "qjs-rt")]
+mod quickjs;
 mod render;
 mod rules;
 mod tables;
@@ -150,6 +152,9 @@ pub enum JSError {
     Semver(String),
     #[error("Failed to serialze grammar JSON -- {0}")]
     Serialzation(String),
+    #[cfg(feature = "qjs-rt")]
+    #[error("QuickJS error: {0}")]
+    QuickJS(String),
 }
 
 #[cfg(feature = "load")]
@@ -173,7 +178,15 @@ impl From<semver::Error> for JSError {
     }
 }
 
+#[cfg(feature = "qjs-rt")]
+impl From<rquickjs::Error> for JSError {
+    fn from(value: rquickjs::Error) -> Self {
+        Self::QuickJS(value.to_string())
+    }
+}
+
 #[cfg(feature = "load")]
+#[allow(clippy::too_many_arguments)]
 pub fn generate_parser_in_directory<T, U, V>(
     repo_path: T,
     out_path: Option<U>,
@@ -182,6 +195,7 @@ pub fn generate_parser_in_directory<T, U, V>(
     report_symbol_name: Option<&str>,
     js_runtime: Option<&str>,
     generate_parser: bool,
+    #[cfg(feature = "qjs-rt")] parser_directories: &[PathBuf],
 ) -> GenerateResult<()>
 where
     T: Into<PathBuf>,
@@ -208,7 +222,12 @@ where
     };
 
     // Read the grammar file.
-    let grammar_json = load_grammar_file(&grammar_path, js_runtime)?;
+    let grammar_json = load_grammar_file(
+        &grammar_path,
+        js_runtime,
+        #[cfg(feature = "qjs-rt")]
+        parser_directories,
+    )?;
 
     let src_path = out_path.map_or_else(|| repo_path.join("src"), |p| p.into());
     let header_path = src_path.join("tree_sitter");
@@ -400,25 +419,40 @@ fn read_grammar_version(repo_path: &Path) -> Result<Option<Version>, ParseVersio
 pub fn load_grammar_file(
     grammar_path: &Path,
     js_runtime: Option<&str>,
+    #[cfg(feature = "qjs-rt")] parser_directories: &[PathBuf],
 ) -> LoadGrammarFileResult<String> {
     if grammar_path.is_dir() {
         Err(LoadGrammarError::InvalidPath)?;
     }
     match grammar_path.extension().and_then(|e| e.to_str()) {
-        Some("js") => Ok(load_js_grammar_file(grammar_path, js_runtime)?),
+        Some("js") => Ok(load_js_grammar_file(
+            grammar_path,
+            js_runtime,
+            #[cfg(feature = "qjs-rt")]
+            parser_directories,
+        )?),
         Some("json") => Ok(fs::read_to_string(grammar_path)?),
         _ => Err(LoadGrammarError::FileExtension(grammar_path.to_owned()))?,
     }
 }
 
 #[cfg(feature = "load")]
-fn load_js_grammar_file(grammar_path: &Path, js_runtime: Option<&str>) -> JSResult<String> {
+fn load_js_grammar_file(
+    grammar_path: &Path,
+    js_runtime: Option<&str>,
+    #[cfg(feature = "qjs-rt")] parser_directories: &[PathBuf],
+) -> JSResult<String> {
     let grammar_path = fs::canonicalize(grammar_path)?;
 
     #[cfg(windows)]
     let grammar_path = url::Url::from_file_path(grammar_path)
         .expect("Failed to convert path to URL")
         .to_string();
+
+    #[cfg(feature = "qjs-rt")]
+    if js_runtime == Some("native") {
+        return quickjs::execute_native_runtime(&grammar_path, parser_directories);
+    }
 
     let js_runtime = js_runtime.unwrap_or("node");
 
