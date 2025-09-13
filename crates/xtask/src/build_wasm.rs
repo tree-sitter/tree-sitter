@@ -199,7 +199,7 @@ pub fn run_wasm(args: &BuildWasm) -> Result<()> {
         "-I", "lib/include",
         "--js-library", "lib/binding_web/lib/imports.js",
         "--pre-js",     "lib/binding_web/lib/prefix.js",
-        "-o",           if args.cjs { binding_file!("cjs") } else { binding_file!(".mjs") },
+        "-o",           if args.cjs { binding_file!(".cjs") } else { binding_file!(".mjs") },
         "lib/src/lib.c",
         "lib/binding_web/lib/tree-sitter.c",
     ]);
