@@ -46,6 +46,7 @@ jobs:
           - { platform: windows-x86       , target: i686-pc-windows-msvc          , os: windows-latest                     }
           - { platform: macos-arm64       , target: aarch64-apple-darwin          , os: macos-latest     , features: wasm  }
           - { platform: macos-x64         , target: x86_64-apple-darwin           , os: macos-13         , features: wasm  }
+          - { platform: wasm32            , target: wasm32-unknown-unknown        , os: ubuntu-latest    , no-run: true    }
 
           # Cross compilers for C library
           - { platform: linux-arm64       , cc: aarch64-linux-gnu-gcc           , ar: aarch64-linux-gnu-ar   }
@@ -262,7 +263,12 @@ jobs:
         $BUILD_CMD check --no-default-features --target=${{ matrix.target }}
 
     - name: Build target
-      run: $BUILD_CMD build --release --target=${{ matrix.target }} --features=${{ matrix.features }}
+      run: |
+        PACKAGE=""
+        if [[ "${{ matrix.target }}" == "wasm32-unknown-unknown" ]]; then
+          PACKAGE="-p tree-sitter"
+        fi
+        $BUILD_CMD build --release --target=${{ matrix.target }} --features=${{ matrix.features }} $PACKAGE
 
     - name: Cache fixtures
       id: cache
@@ -290,6 +296,7 @@ jobs:
       run: $BUILD_CMD run -p xtask --target=${{ matrix.target }} -- test-wasm
 
     - name: Upload CLI artifact
+      if: ${{ matrix.platform != 'wasm32' }}
       uses: actions/upload-artifact@v4
       with:
         name: tree-sitter.${{ matrix.platform }}
