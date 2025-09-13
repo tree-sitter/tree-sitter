@@ -146,7 +146,7 @@ void ts_tree_print_dot_graph(const TSTree *self, int fd) {
   fclose(file);
 }
 
-#elif !defined(__wasi__) // WASI doesn't support dup
+#elif !defined(__wasm__) // Wasm doesn't support dup
 
 #include <unistd.h>
 

@@ -6,10 +6,7 @@
 // grown as necessary, and the allocation is made at the end of the heap.
 // When the heap is reset, all allocated memory is considered freed.
 
-#ifdef TREE_SITTER_FEATURE_WASM
-
-#include <stdio.h>
-#include <unistd.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -136,4 +133,6 @@ void *realloc(void *ptr, size_t new_size) {
   return result;
 }
 
-#endif
+__attribute__((noreturn))  void abort(void) {
+  __builtin_trap();
+}
