@@ -471,9 +471,8 @@ module.exports = grammar({
 ```
 
 ```admonish note
-Tree-sitter intentionally simplifies some common regex patterns, both as a performance optimization and for simplicity,
-typically in ways that don't affect the meaning of the pattern. For example, `\w` is simplified to `[a-zA-Z0-9_]`, `\s`
-to `[ \t\n\r]`, and `\d` to `[0-9]`. If you need more complex behavior, you can always use a more explicit regex.
+Tree-sitter intentionally simplifies the whitespace character class, `\s`, to `[ \t\n\r]` as a performance
+optimization. This is because typically users do not require the full Unicode definition of whitespace.
 ```
 
 ## Using Supertypes
