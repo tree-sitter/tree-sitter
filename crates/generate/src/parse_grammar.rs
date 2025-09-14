@@ -80,6 +80,7 @@ enum RuleJSON {
         context_name: String,
         content: Box<Self>,
     },
+    EOF,
 }
 
 #[derive(Deserialize)]
@@ -151,7 +152,7 @@ fn rule_is_referenced(rule: &Rule, target: &str, is_external: bool) -> bool {
             rule_is_referenced(rule, target, is_external)
         }
         Rule::Repeat(inner) => rule_is_referenced(inner, target, false),
-        Rule::Blank | Rule::String(_) | Rule::Pattern(_, _) | Rule::Symbol(_) => false,
+        Rule::Blank | Rule::String(_) | Rule::Pattern(_, _) | Rule::Symbol(_) | Rule::Eof => false,
     }
 }
 
@@ -291,7 +292,7 @@ fn collect_referenced_names<'a>(rule: &'a Rule, skip_top_level: bool, out: &mut 
             collect_referenced_names(rule, skip_top_level, out);
         }
         Rule::Repeat(inner) => collect_referenced_names(inner, false, out),
-        Rule::Blank | Rule::String(_) | Rule::Pattern(_, _) | Rule::Symbol(_) => {}
+        Rule::Blank | Rule::String(_) | Rule::Pattern(_, _) | Rule::Symbol(_) | Rule::Eof => {}
     }
 }
 
@@ -452,6 +453,7 @@ fn parse_rule(json: RuleJSON, is_token: bool) -> ParseGrammarResult<Rule> {
         RuleJSON::IMMEDIATE_TOKEN { content } => {
             parse_rule(*content, true).map(Rule::immediate_token)
         }
+        RuleJSON::EOF => Ok(Rule::Eof),
     }
 }
 
