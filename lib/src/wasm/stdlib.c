@@ -60,6 +60,8 @@ void reset_heap(void *new_heap_start) {
 }
 
 void *malloc(size_t size) {
+  if (size == 0) return NULL;
+
   Region *prev = NULL;
   Region *curr = free_list;
   while (curr != NULL) {
