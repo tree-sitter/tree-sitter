@@ -395,6 +395,87 @@ function_definition: $ =>
 
 Adding fields like this allows you to retrieve nodes using the [field APIs][field-names-section].
 
+## Using Extras
+
+Extras are tokens that can appear anywhere in the grammar, without being explicitly mentioned in a rule. This is useful
+for things like whitespace and comments, which can appear between any two tokens in most programming languages. To define
+an extra, you can use the `extras` function:
+
+```js
+module.exports = grammar({
+  name: "my_language",
+
+  extras: ($) => [
+    /\s/, // whitespace
+    $.comment,
+  ],
+
+  rules: {
+    comment: ($) =>
+      token(
+        choice(seq("//", /.*/), seq("/*", /[^*]*\*+([^/*][^*]*\*+)*/, "/")),
+      ),
+  },
+});
+```
+
+```admonish warning
+When adding more complicated tokens to `extras`, it's preferable to associate the pattern
+with a rule. This way, you avoid the lexer inlining this pattern in a bunch of spots,
+which can dramatically reduce the parser size.
+```
+
+For example, instead of defining the `comment` token inline in `extras`:
+
+```js
+// ❌ Less preferable
+
+const comment = token(
+  choice(seq("//", /.*/), seq("/*", /[^*]*\*+([^/*][^*]*\*+)*/, "/")),
+);
+
+module.exports = grammar({
+  name: "my_language",
+  extras: ($) => [
+    /\s/, // whitespace
+    comment,
+  ],
+  rules: {
+    // ...
+  },
+});
+```
+
+We can define it as a rule and then reference it in `extras`:
+
+```js
+// ✅ More preferable
+
+module.exports = grammar({
+  name: "my_language",
+
+  extras: ($) => [
+    /\s/, // whitespace
+    $.comment,
+  ],
+
+  rules: {
+    // ...
+
+    comment: ($) =>
+      token(
+        choice(seq("//", /.*/), seq("/*", /[^*]*\*+([^/*][^*]*\*+)*/, "/")),
+      ),
+  },
+});
+```
+
+```admonish note
+Tree-sitter intentionally simplifies some common regex patterns, both as a performance optimization and for simplicity,
+typically in ways that don't affect the meaning of the pattern. For example, `\w` is simplified to `[a-zA-Z0-9_]`, `\s`
+to `[ \t\n\r]`, and `\d` to `[0-9]`. If you need more complex behavior, you can always use a more explicit regex.
+```
+
 # Lexical Analysis
 
 Tree-sitter's parsing process is divided into two phases: parsing (which is described above) and [lexing][lexing] — the
