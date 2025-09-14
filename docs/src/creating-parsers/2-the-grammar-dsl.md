@@ -107,7 +107,7 @@ grammar rules themselves. These fields are:
 
 - **`extras`** — an array of tokens that may appear *anywhere* in the language. This is often used for whitespace and
 comments. The default value of `extras` is to accept whitespace. To control whitespace explicitly, specify
-`extras: $ => []` in your grammar.
+`extras: $ => []` in your grammar. See the section on [using extras][extras] for more details.
 
 - **`inline`** — an array of rule names that should be automatically *removed* from the grammar by replacing all of their
 usages with a copy of their definition. This is useful for rules that are used in multiple places but for which you *don't*
@@ -144,6 +144,7 @@ empty array, signifying *no* keywords are reserved.
 [bison-dprec]: https://www.gnu.org/software/bison/manual/html_node/Generalized-LR-Parsing.html
 [ebnf]: https://en.wikipedia.org/wiki/Extended_Backus%E2%80%93Naur_form
 [external-scanners]: ./4-external-scanners.md
+[extras]: ./3-writing-the-grammar.html#using-extras
 [keyword-extraction]: ./3-writing-the-grammar.md#keyword-extraction
 [lexical vs parse]: ./3-writing-the-grammar.md#lexical-precedence-vs-parse-precedence
 [lr-conflict]: https://en.wikipedia.org/wiki/LR_parser#Conflicts_in_the_constructed_tables
