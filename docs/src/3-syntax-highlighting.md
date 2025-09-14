@@ -180,8 +180,15 @@ The capture names are as follows:
 - `@local.reference` — indicates that a syntax node contains the *name*, which *may* refer to an earlier definition within
 some enclosing scope.
 
-Additionally, to ignore certain nodes from being tagged, you can use the `@ignore` capture. This is useful if you want
-to run a predicate or directive on a node, but don't want it to be tagged.
+Additionally, to ignore certain nodes from being tagged, you can use the `@ignore` capture. This is useful if you want to
+exclude a subset of nodes from being tagged. When writing a query leveraging this, you should ensure this pattern comes
+before any other patterns that would be used for tagging, for example:
+
+```scheme
+(expression (identifier) @ignore)
+
+(identifier) @local.reference
+```
 
 When highlighting a file, Tree-sitter will keep track of the set of scopes that contains any given position, and the set
 of definitions within each scope. When processing a syntax node that is captured as a `local.reference`, Tree-sitter will
