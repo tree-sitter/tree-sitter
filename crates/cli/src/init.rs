@@ -646,9 +646,24 @@ pub fn generate_grammar_files(
                 generate_file(path, INIT_PY_TEMPLATE, language_name, &generate_opts)
             })?;
 
-            missing_path(lang_path.join("__init__.pyi"), |path| {
-                generate_file(path, INIT_PYI_TEMPLATE, language_name, &generate_opts)
-            })?;
+            missing_path_else(
+                lang_path.join("__init__.pyi"),
+                allow_update,
+                |path| generate_file(path, INIT_PYI_TEMPLATE, language_name, &generate_opts),
+                |path| {
+                    let mut contents = fs::read_to_string(path)?;
+                    if !contents.contains("CapsuleType") {
+                        contents = contents
+                            .replace(
+                                "from typing import Final",
+                                "from typing import Final\nfrom typing_extensions import CapsuleType"
+                            )
+                            .replace("-> object:", "-> CapsuleType:");
+                        write_file(path, contents)?;
+                    }
+                    Ok(())
+                },
+            )?;
 
             missing_path(lang_path.join("py.typed"), |path| {
                 generate_file(path, "", language_name, &generate_opts) // py.typed is empty

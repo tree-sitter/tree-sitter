@@ -1,4 +1,5 @@
 from typing import Final
+from typing_extensions import CapsuleType
 
 # NOTE: uncomment these to include any queries that this grammar contains:
 
@@ -7,4 +8,4 @@ from typing import Final
 # LOCALS_QUERY: Final[str]
 # TAGS_QUERY: Final[str]
 
-def language() -> object: ...
+def language() -> CapsuleType: ...
