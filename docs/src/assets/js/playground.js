@@ -206,10 +206,10 @@ window.initializePlayground = async (opts) => {
     languageName = newLanguageName;
 
     const metadata = languagesByName[languageName].metadata;
-    if (metadata) {
+    if (languageVersion && metadata) {
       languageVersion.textContent = `v${metadata.major_version}.${metadata.minor_version}.${metadata.patch_version}`;
       languageVersion.style.visibility = 'visible';
-    } else {
+    } else if (languageVersion) {
       languageVersion.style.visibility = 'hidden';
     }
 
