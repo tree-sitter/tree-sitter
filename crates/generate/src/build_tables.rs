@@ -334,7 +334,7 @@ fn identify_keywords(
         .enumerate()
         .filter_map(|(i, variable)| {
             cursor.reset(vec![variable.start_state]);
-            if all_chars_are_alphabetical(&cursor)
+            if all_chars_are_valid_for_keywords(&cursor)
                 && token_conflict_map.does_match_same_string(i, word_token.index)
                 && !token_conflict_map.does_match_different_string(i, word_token.index)
             {
@@ -531,12 +531,17 @@ fn report_state_info<'a>(
     }
 }
 
-fn all_chars_are_alphabetical(cursor: &NfaCursor) -> bool {
+/// This definition should match the set of characters that are typically
+/// allowed in programming language keywords. Note that it is provisional,
+/// and can be adjusted if necessary.
+fn all_chars_are_valid_for_keywords(cursor: &NfaCursor) -> bool {
     cursor.transition_chars().all(|(chars, is_sep)| {
         if is_sep {
             true
         } else {
-            chars.chars().all(|c| c.is_alphabetic() || c == '_')
+            chars
+                .chars()
+                .all(|c| c.is_alphanumeric() || "_!@#$-:.?/`".contains(c))
         }
     })
 }
