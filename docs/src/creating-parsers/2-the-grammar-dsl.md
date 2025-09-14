@@ -129,8 +129,11 @@ than globally. Can only be used with parse precedence, not lexical precedence.
 - **`word`** — the name of a token that will match keywords to the
 [keyword extraction][keyword-extraction] optimization.
 
-- **`supertypes`** — an array of hidden rule names which should be considered to be 'supertypes' in the generated
-[*node types* file][static-node-types].
+- **`supertypes`** — an array of rule names which should be considered to be 'supertypes' in the generated
+[*node types* file][static-node-types-supertypes]. Supertype rules are automatically hidden from the parse tree, regardless
+of whether their names start with an underscore. The main use case for supertypes is to group together multiple different
+kinds of nodes under a single abstract category, such as "expression" or "declaration". See the section on [`using supertypes`][supertypes]
+for more details.
 
 - **`reserved`** — similar in structure to the main `rules` property, an object of reserved word sets associated with an
 array of reserved rules. The reserved rule in the array must be a terminal token meaning it must be a string, regex, token,
@@ -144,11 +147,13 @@ empty array, signifying *no* keywords are reserved.
 [bison-dprec]: https://www.gnu.org/software/bison/manual/html_node/Generalized-LR-Parsing.html
 [ebnf]: https://en.wikipedia.org/wiki/Extended_Backus%E2%80%93Naur_form
 [external-scanners]: ./4-external-scanners.md
-[extras]: ./3-writing-the-grammar.html#using-extras
+[extras]: ./3-writing-the-grammar.md#using-extras
 [keyword-extraction]: ./3-writing-the-grammar.md#keyword-extraction
 [lexical vs parse]: ./3-writing-the-grammar.md#lexical-precedence-vs-parse-precedence
 [lr-conflict]: https://en.wikipedia.org/wiki/LR_parser#Conflicts_in_the_constructed_tables
 [named-vs-anonymous-nodes]: ../using-parsers/2-basic-parsing.md#named-vs-anonymous-nodes
 [rust regex]: https://docs.rs/regex/1.1.8/regex/#grouping-and-flags
 [static-node-types]: ../using-parsers/6-static-node-types.md
+[static-node-types-supertypes]: ../using-parsers/6-static-node-types.md#supertype-nodes
+[supertypes]: ./3-writing-the-grammar.md#using-supertypes
 [yacc-prec]: https://docs.oracle.com/cd/E19504-01/802-5880/6i9k05dh3/index.html

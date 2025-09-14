@@ -96,6 +96,26 @@ by `(ERROR)` queries. Specific missing node types can also be queried:
 (MISSING ";") @missing-semicolon
 ```
 
+### Supertype Nodes
+
+Some node types are marked as _supertypes_ in a grammar. A supertype is a node type that contains multiple
+subtypes. For example, in the [JavaScript grammar example][grammar], `expression` is a supertype that can represent any kind
+of expression, such as a `binary_expression`, `call_expression`, or `identifier`. You can use supertypes in queries to match
+any of their subtypes, rather than having to list out each subtype individually. For example, this pattern would match any
+kind of expression, even though it's not a visible node in the syntax tree:
+
+```query
+(expression) @any-expression
+```
+
+To query specific subtypes of a supertype, you can use the syntax `supertype/subtype`. For example, this pattern would
+match a `binary_expression` only if it is a child of `expression`:
+
+```query
+(expression/binary_expression) @binary-expression
+```
+
+[grammar]: ../../creating-parsers/3-writing-the-grammar.md#structuring-rules-well
 [node-field-names]: ../2-basic-parsing.md#node-field-names
 [named-vs-anonymous-nodes]: ../2-basic-parsing.md#named-vs-anonymous-nodes
 [s-exp]: https://en.wikipedia.org/wiki/S-expression
