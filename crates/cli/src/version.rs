@@ -2,6 +2,7 @@ use std::{fs, path::PathBuf, process::Command};
 
 use anyhow::{anyhow, Context, Result};
 use clap::ValueEnum;
+use log::{info, warn};
 use regex::Regex;
 use semver::Version as SemverVersion;
 use std::cmp::Ordering;
@@ -44,7 +45,7 @@ impl Version {
         let current_version = tree_sitter_json.metadata.version;
         self.version = match (self.version.is_some(), self.bump) {
             (false, None) => {
-                println!("Current version: {current_version}");
+                info!("Current version: {current_version}");
                 return Ok(());
             }
             (true, None) => self.version,
@@ -70,14 +71,14 @@ impl Version {
         let new_version = self.version.as_ref().unwrap();
         match new_version.cmp(&current_version) {
             Ordering::Less => {
-                eprintln!("Warning: new version is lower than current!");
-                println!("Reverting version {current_version} to {new_version}");
+                warn!("New version is lower than current!");
+                warn!("Reverting version {current_version} to {new_version}");
             }
             Ordering::Greater => {
-                println!("Bumping version {current_version} to {new_version}");
+                info!("Bumping version {current_version} to {new_version}");
             }
             Ordering::Equal => {
-                println!("Keeping version {current_version}");
+                info!("Keeping version {current_version}");
             }
         }
 
