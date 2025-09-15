@@ -1,4 +1,4 @@
-module.exports = grammar({
+export default grammar({
     name: 'external_and_internal_anonymous_tokens',
 
     externals: $ => [

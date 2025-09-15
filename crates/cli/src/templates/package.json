@@ -2,6 +2,7 @@
   "name": "tree-sitter-PARSER_NAME",
   "version": "PARSER_VERSION",
   "description": "PARSER_DESCRIPTION",
+  "type": "module",
   "repository": {
     "type": "git",
     "url": "git+PARSER_URL.git"

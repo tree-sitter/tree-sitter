@@ -1,4 +1,4 @@
-module.exports = grammar({
+export default grammar({
   name: "inlined_aliased_rules",
 
   extras: $ => [/\s/],

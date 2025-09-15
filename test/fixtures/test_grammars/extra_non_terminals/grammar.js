@@ -1,6 +1,6 @@
 // This grammar has an "extra" rule, `comment`, that is a non-terminal.
 
-module.exports = grammar({
+export default grammar({
   name: "extra_non_terminals",
 
   extras: $ => [

@@ -1,4 +1,4 @@
-module.exports = grammar({
+export default grammar({
   name: 'indirect_recursive_in_single_symbol_transitions',
   rules: {
     source_file: $ => repeat($._statement),

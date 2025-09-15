@@ -5,7 +5,7 @@
 // their parent rule. In that situation, eliminating the invisible node could cause the alias to be
 // incorrectly applied to its child.
 
-module.exports = grammar({
+export default grammar({
     name: 'aliased_unit_reductions',
 
     extras: $ => [/\s/],

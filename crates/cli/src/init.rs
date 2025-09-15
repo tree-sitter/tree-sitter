@@ -297,7 +297,7 @@ pub fn generate_grammar_files(
             )
         },
         |path| {
-            let contents = fs::read_to_string(path)?
+            let mut contents = fs::read_to_string(path)?
                 .replace(
                     r#""node-addon-api": "^8.3.1"#,
                     r#""node-addon-api": "^8.5.0""#,
@@ -311,6 +311,16 @@ pub fn generate_grammar_files(
                     "tree-sitter": "^0.22.4",
                     "tree-sitter-cli":"#},
                 );
+            if !contents.contains("module") {
+                eprintln!("Updating package.json");
+                contents = contents.replace(
+                    indoc! {r#"
+                    "repository": {"#},
+                    indoc! {r#"
+                    "type": "module",
+                      "repository": {"#},
+                );
+            }
             write_file(path, contents)?;
             Ok(())
         },
@@ -318,9 +328,20 @@ pub fn generate_grammar_files(
 
     // Do not create a grammar.js file in a repo with multiple language configs
     if !tree_sitter_config.has_multiple_language_configs() {
-        missing_path(repo_path.join("grammar.js"), |path| {
-            generate_file(path, GRAMMAR_JS_TEMPLATE, language_name, &generate_opts)
-        })?;
+        missing_path_else(
+            repo_path.join("grammar.js"),
+            allow_update,
+            |path| generate_file(path, GRAMMAR_JS_TEMPLATE, language_name, &generate_opts),
+            |path| {
+                let mut contents = fs::read_to_string(path)?;
+                if contents.contains("module.exports") {
+                    contents = contents.replace("module.exports =", "export default");
+                    write_file(path, contents)?;
+                }
+
+                Ok(())
+            },
+        )?;
     }
 
     // Write .gitignore file
@@ -410,7 +431,7 @@ pub fn generate_grammar_files(
                 |path| generate_file(path, INDEX_JS_TEMPLATE, language_name, &generate_opts),
                 |path| {
                     let contents = fs::read_to_string(path)?;
-                    if !contents.contains("bun") {
+                    if !contents.contains("new URL") {
                         eprintln!("Replacing index.js");
                         generate_file(path, INDEX_JS_TEMPLATE, language_name, &generate_opts)?;
                     }
@@ -422,14 +443,31 @@ pub fn generate_grammar_files(
                 generate_file(path, INDEX_D_TS_TEMPLATE, language_name, &generate_opts)
             })?;
 
-            missing_path(path.join("binding_test.js"), |path| {
-                generate_file(
-                    path,
-                    BINDING_TEST_JS_TEMPLATE,
-                    language_name,
-                    &generate_opts,
-                )
-            })?;
+            missing_path_else(
+                path.join("binding_test.js"),
+                allow_update,
+                |path| {
+                    generate_file(
+                        path,
+                        BINDING_TEST_JS_TEMPLATE,
+                        language_name,
+                        &generate_opts,
+                    )
+                },
+                |path| {
+                    let contents = fs::read_to_string(path)?;
+                    if !contents.contains("import") {
+                        eprintln!("Replacing binding_test.js");
+                        generate_file(
+                            path,
+                            BINDING_TEST_JS_TEMPLATE,
+                            language_name,
+                            &generate_opts,
+                        )?;
+                    }
+                    Ok(())
+                },
+            )?;
 
             missing_path(path.join("binding.cc"), |path| {
                 generate_file(path, JS_BINDING_CC_TEMPLATE, language_name, &generate_opts)

@@ -313,7 +313,7 @@ A construct like `[x, y]` could be legitimately parsed as both an array literal 
 pattern (like in `let [x, y] = arr`).
 
 ```js
-module.exports = grammar({
+export default grammar({
   name: "javascript",
 
   rules: {
