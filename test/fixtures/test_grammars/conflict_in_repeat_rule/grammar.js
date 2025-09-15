@@ -2,7 +2,7 @@
 // parser generator in order to implement repetition. There is no way of referring to these rules in
 // the grammar DSL, so these conflicts must be resolved by referring to their parent rules.
 
-module.exports = grammar({
+export default grammar({
     name: 'conflict_in_repeat_rule',
 
     rules: {

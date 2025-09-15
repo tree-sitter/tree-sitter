@@ -1,4 +1,4 @@
-module.exports = grammar({
+export default grammar({
   name: "next_sibling_from_zwt",
   extras: $ => [
     /\s|\\\r?\n/,

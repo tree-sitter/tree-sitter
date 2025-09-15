@@ -1,4 +1,4 @@
-module.exports = grammar({
+export default grammar({
   name: 'readme_grammar',
 
   // Things that can appear anywhere in the language, like comments

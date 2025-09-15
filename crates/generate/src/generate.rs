@@ -428,6 +428,15 @@ pub fn load_grammar_file(
 fn load_js_grammar_file(grammar_path: &Path, js_runtime: Option<&str>) -> JSResult<String> {
     let grammar_path = fs::canonicalize(grammar_path)?;
 
+    let grammar_uses_commonjs = fs::read_to_string(&grammar_path)?.contains("module.exports");
+    if grammar_uses_commonjs {
+        eprintln!("Warning: Your grammar.js uses CommonJS.");
+        eprintln!("Consider migrating to ES modules (export default) for better compatibility.");
+        eprintln!(
+            "See: https://tree-sitter.github.io/tree-sitter/creating-parsers/#the-grammar-file"
+        );
+    }
+
     #[cfg(windows)]
     let grammar_path = url::Url::from_file_path(grammar_path)
         .expect("Failed to convert path to URL")
