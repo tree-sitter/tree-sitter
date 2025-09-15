@@ -106,7 +106,7 @@ ansi_colours = "1.2.3"
 anstyle = "1.0.11"
 anyhow = "1.0.99"
 bstr = "1.12.0"
-cc = "1.2.36"
+cc = "1.2.37"
 clap = { version = "4.5.45", features = [
   "cargo",
   "derive",
@@ -126,7 +126,7 @@ fs4 = "0.12.0"
 glob = "0.3.3"
 heck = "0.5.0"
 html-escape = "0.2.13"
-indexmap = "2.11.0"
+indexmap = "2.11.1"
 indoc = "2.0.6"
 libloading = "0.8.8"
 log = { version = "0.4.28", features = ["std"] }
@@ -138,14 +138,14 @@ rand = "0.8.5"
 regex = "1.11.2"
 regex-syntax = "0.8.6"
 rustc-hash = "2.1.1"
-semver = { version = "1.0.26", features = ["serde"] }
+semver = { version = "1.0.27", features = ["serde"] }
 serde = { version = "1.0.219", features = ["derive"] }
 serde_derive = "1.0.217"
-serde_json = { version = "1.0.143", features = ["preserve_order"] }
+serde_json = { version = "1.0.145", features = ["preserve_order"] }
 similar = "2.7.0"
 smallbitvec = "2.6.0"
 streaming-iterator = "0.1.9"
-tempfile = "3.21.0"
+tempfile = "3.22.0"
 thiserror = "2.0.16"
 tiny_http = "0.12.0"
 topological-sort = "0.2.2"
