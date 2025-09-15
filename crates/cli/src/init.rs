@@ -299,7 +299,7 @@ pub fn generate_grammar_files(
         |path| {
             let mut contents = fs::read_to_string(path)?
                 .replace(
-                    r#""node-addon-api": "^8.3.1"#,
+                    r#""node-addon-api": "^8.3.1""#,
                     r#""node-addon-api": "^8.5.0""#,
                 )
                 .replace(
