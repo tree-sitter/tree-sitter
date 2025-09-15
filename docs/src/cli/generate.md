@@ -63,4 +63,6 @@ Report conflicts in a JSON format.
 ### `--js-runtime <EXECUTABLE>`
 
 The path to the JavaScript runtime executable to use when generating the parser. The default is `node`.
-Note that you can also set this with `TREE_SITTER_JS_RUNTIME`.
+Note that you can also set this with `TREE_SITTER_JS_RUNTIME`. Starting from version 0.26.0, you can
+also pass in `native` to use the native QuickJS runtime that comes bundled with the CLI. This avoids
+the dependency on a JavaScript runtime entirely.
