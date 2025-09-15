@@ -3,7 +3,7 @@ use std::{
     mem,
 };
 
-use log::info;
+use log::debug;
 
 use super::token_conflicts::TokenConflictMap;
 use crate::{
@@ -244,7 +244,7 @@ impl Minimizer<'_> {
                         let group1 = group_ids_by_state_id[*s1];
                         let group2 = group_ids_by_state_id[*s2];
                         if group1 != group2 {
-                            info!(
+                            debug!(
                                 "split states {} {} - successors for {} are split: {s1} {s2}",
                                 state1.id,
                                 state2.id,
@@ -265,7 +265,7 @@ impl Minimizer<'_> {
                         let group1 = group_ids_by_state_id[*s1];
                         let group2 = group_ids_by_state_id[*s2];
                         if group1 != group2 {
-                            info!(
+                            debug!(
                                 "split states {} {} - successors for {} are split: {s1} {s2}",
                                 state1.id,
                                 state2.id,
@@ -295,7 +295,7 @@ impl Minimizer<'_> {
         let actions1 = &entry1.actions;
         let actions2 = &entry2.actions;
         if actions1.len() != actions2.len() {
-            info!(
+            debug!(
                 "split states {state_id1} {state_id2} - differing action counts for token {}",
                 self.symbol_name(token)
             );
@@ -322,13 +322,13 @@ impl Minimizer<'_> {
                 if group1 == group2 && is_repetition1 == is_repetition2 {
                     continue;
                 }
-                info!(
+                debug!(
                     "split states {state_id1} {state_id2} - successors for {} are split: {s1} {s2}",
                     self.symbol_name(token),
                 );
                 return true;
             } else if action1 != action2 {
-                info!(
+                debug!(
                     "split states {state_id1} {state_id2} - unequal actions for {}",
                     self.symbol_name(token),
                 );
@@ -347,14 +347,14 @@ impl Minimizer<'_> {
         new_token: Symbol,
     ) -> bool {
         if new_token == Symbol::end_of_nonterminal_extra() {
-            info!("split states {left_id} {right_id} - end of non-terminal extra",);
+            debug!("split states {left_id} {right_id} - end of non-terminal extra",);
             return true;
         }
 
         // Do not add external tokens; they could conflict lexically with any of the state's
         // existing lookahead tokens.
         if new_token.is_external() {
-            info!(
+            debug!(
                 "split states {left_id} {right_id} - external token {}",
                 self.symbol_name(&new_token),
             );
@@ -373,7 +373,7 @@ impl Minimizer<'_> {
             .iter()
             .any(|external| external.corresponding_internal_token == Some(new_token))
         {
-            info!(
+            debug!(
                 "split states {left_id} {right_id} - internal/external token {}",
                 self.symbol_name(&new_token),
             );
@@ -399,7 +399,7 @@ impl Minimizer<'_> {
                     .token_conflict_map
                     .does_match_same_string(new_token.index, token.index)
             {
-                info!(
+                debug!(
                     "split states {} {} - token {} conflicts with {}",
                     left_id,
                     right_id,

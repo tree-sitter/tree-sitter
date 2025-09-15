@@ -5,6 +5,7 @@ use std::{
 };
 
 use indexmap::{map::Entry, IndexMap};
+use log::warn;
 use rustc_hash::FxHasher;
 use serde::Serialize;
 use thiserror::Error;
@@ -346,17 +347,21 @@ impl<'a> ParseTableBuilder<'a> {
         }
 
         if !self.actual_conflicts.is_empty() {
-            println!("Warning: unnecessary conflicts");
-            for conflict in &self.actual_conflicts {
-                println!(
-                    "  {}",
-                    conflict
-                        .iter()
-                        .map(|symbol| format!("`{}`", self.symbol_name(symbol)))
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                );
-            }
+            warn!(
+                "unnecessary conflicts:\n  {}",
+                &self
+                    .actual_conflicts
+                    .iter()
+                    .map(|conflict| {
+                        conflict
+                            .iter()
+                            .map(|symbol| format!("`{}`", self.symbol_name(symbol)))
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    })
+                    .collect::<Vec<_>>()
+                    .join("\n  ")
+            );
         }
 
         Ok((self.parse_table, self.parse_state_info_by_id))
