@@ -4,6 +4,7 @@ use std::{
     sync::{LazyLock, Mutex},
 };
 
+use log::{error, info, warn};
 use rquickjs::{
     loader::{FileResolver, ScriptLoader},
     Context, Ctx, Function, Module, Object, Runtime, Type, Value,
@@ -116,19 +117,19 @@ impl Console {
 
     #[allow(clippy::needless_pass_by_value)]
     pub fn log(&self, args: rquickjs::function::Rest<Value<'_>>) -> rquickjs::Result<()> {
-        println!("{}", Self::format_args(&args));
+        info!("{}", Self::format_args(&args));
         Ok(())
     }
 
     #[allow(clippy::needless_pass_by_value)]
     pub fn warn(&self, args: rquickjs::function::Rest<Value<'_>>) -> rquickjs::Result<()> {
-        eprintln!("Warning: {}", Self::format_args(&args));
+        warn!("{}", Self::format_args(&args));
         Ok(())
     }
 
     #[allow(clippy::needless_pass_by_value)]
     pub fn error(&self, args: rquickjs::function::Rest<Value<'_>>) -> rquickjs::Result<()> {
-        eprintln!("Error: {}", Self::format_args(&args));
+        error!("Error: {}", Self::format_args(&args));
         Ok(())
     }
 }
