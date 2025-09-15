@@ -1,16 +1,16 @@
 use std::collections::HashSet;
 
 use anyhow::Result;
+use log::warn;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use thiserror::Error;
 
-use super::{
-    grammars::{InputGrammar, PrecedenceEntry, Variable, VariableType},
+use crate::{
+    grammars::{InputGrammar, PrecedenceEntry, ReservedWordContext, Variable, VariableType},
     rules::{Precedence, Rule},
 };
-use crate::grammars::ReservedWordContext;
 
 #[derive(Deserialize)]
 #[serde(tag = "type")]
@@ -281,7 +281,13 @@ pub(crate) fn parse_grammar(input: &str) -> ParseGrammarResult<InputGrammar> {
                 _ => false,
             };
             if matches_empty {
-                eprintln!("Warning: Named extra rule `{name}` matches the empty string. Inline this to avoid infinite loops while parsing.");
+                warn!(
+                    concat!(
+                        "Named extra rule `{}` matches the empty string. ",
+                        "Inline this to avoid infinite loops while parsing."
+                    ),
+                    name
+                );
             }
         }
         variables.push(Variable {
@@ -342,7 +348,7 @@ fn parse_rule(json: RuleJSON, is_token: bool) -> ParseGrammarResult<Rule> {
                     } else {
                         // silently ignore unicode flags
                         if c != 'u' && c != 'v' {
-                            eprintln!("Warning: unsupported flag {c}");
+                            warn!("unsupported flag {c}");
                         }
                         false
                     }

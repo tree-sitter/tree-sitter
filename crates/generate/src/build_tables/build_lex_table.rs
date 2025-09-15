@@ -3,7 +3,7 @@ use std::{
     mem,
 };
 
-use log::info;
+use log::debug;
 
 use super::{coincident_tokens::CoincidentTokenIndex, token_conflicts::TokenConflictMap};
 use crate::{
@@ -176,7 +176,7 @@ impl<'a> LexTableBuilder<'a> {
         let (state_id, is_new) = self.add_state(nfa_states, eof_valid);
 
         if is_new {
-            info!(
+            debug!(
                 "entry point state: {state_id}, tokens: {:?}",
                 tokens
                     .iter()
