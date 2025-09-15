@@ -6,9 +6,9 @@ use tree_sitter::Point;
 use tree_sitter_highlight::{Highlight, HighlightConfiguration, HighlightEvent, Highlighter};
 use tree_sitter_loader::{Config, Loader};
 
-use super::{
+use crate::{
+    logger::paint,
     query_testing::{parse_position_comments, to_utf8_point, Assertion, Utf8Point},
-    test::paint,
     util,
 };
 

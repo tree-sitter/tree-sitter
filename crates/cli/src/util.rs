@@ -9,6 +9,7 @@ use std::{
 
 use anyhow::{anyhow, Context, Result};
 use indoc::indoc;
+use log::error;
 use tree_sitter::{Parser, Tree};
 use tree_sitter_config::Config;
 use tree_sitter_loader::Config as LoaderConfig;
@@ -120,7 +121,7 @@ impl Drop for LogSession {
                 webbrowser::open(&self.path.to_string_lossy()).unwrap();
             }
         } else {
-            eprintln!(
+            error!(
                 "Dot failed: {} {}",
                 String::from_utf8_lossy(&output.stdout),
                 String::from_utf8_lossy(&output.stderr)

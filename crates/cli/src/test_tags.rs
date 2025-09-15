@@ -5,9 +5,9 @@ use anyhow::{anyhow, Result};
 use tree_sitter_loader::{Config, Loader};
 use tree_sitter_tags::{TagsConfiguration, TagsContext};
 
-use super::{
+use crate::{
+    logger::paint,
     query_testing::{parse_position_comments, to_utf8_point, Assertion, Utf8Point},
-    test::paint,
     util,
 };
 

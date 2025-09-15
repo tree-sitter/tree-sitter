@@ -7,6 +7,7 @@ use std::{
 };
 
 use anyhow::{anyhow, Context, Result};
+use log::{error, info};
 use tiny_http::{Header, Response, Server};
 
 use super::wasm;
@@ -116,9 +117,9 @@ pub fn serve(grammar_path: &Path, open_in_browser: bool) -> Result<()> {
     let server = get_server()?;
     let (grammar_name, language_wasm) = wasm::load_language_wasm_file(grammar_path)?;
     let url = format!("http://{}", server.server_addr());
-    println!("Started playground on: {url}");
+    info!("Started playground on: {url}");
     if open_in_browser && webbrowser::open(&url).is_err() {
-        eprintln!("Failed to open '{url}' in a web browser");
+        error!("Failed to open '{url}' in a web browser");
     }
 
     let tree_sitter_dir = env::var("TREE_SITTER_BASE_DIR").map(PathBuf::from).ok();

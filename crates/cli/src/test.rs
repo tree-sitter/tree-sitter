@@ -10,7 +10,7 @@ use std::{
     time::Duration,
 };
 
-use anstyle::{AnsiColor, Color, Style};
+use anstyle::AnsiColor;
 use anyhow::{anyhow, Context, Result};
 use clap::ValueEnum;
 use indoc::indoc;
@@ -23,8 +23,11 @@ use tree_sitter::{format_sexp, Language, LogType, Parser, Query, Tree};
 use walkdir::WalkDir;
 
 use super::util;
-use crate::parse::{
-    render_cst, ParseDebugType, ParseFileOptions, ParseOutput, ParseStats, ParseTheme, Stats,
+use crate::{
+    logger::paint,
+    parse::{
+        render_cst, ParseDebugType, ParseFileOptions, ParseOutput, ParseStats, ParseTheme, Stats,
+    },
 };
 
 static HEADER_REGEX: LazyLock<ByteRegex> = LazyLock::new(|| {
@@ -205,7 +208,7 @@ pub fn run_tests_at_path(parser: &mut Parser, opts: &mut TestOptions) -> Result<
                     // 3 standard deviations below the mean, aka the "Empirical Rule"
                     if *adj_rate < 3.0f64.mul_add(-std_dev, avg) {
                         stats += &paint(
-                            opts.color.then_some(AnsiColor::Red),
+                            opts.color.then_some(AnsiColor::Yellow),
                             &format!(" -- Warning: Slow parse rate ({true_rate:.3} bytes/ms)"),
                         );
                     }
@@ -220,77 +223,75 @@ pub fn run_tests_at_path(parser: &mut Parser, opts: &mut TestOptions) -> Result<
 
     if failures.is_empty() {
         Ok(())
+    } else if opts.update && !has_parse_errors {
+        println!(
+            "\n{} update{}:\n",
+            failures.len(),
+            if failures.len() == 1 { "" } else { "s" }
+        );
+
+        for (i, TestFailure { name, .. }) in failures.iter().enumerate() {
+            println!("  {}. {name}", i + 1);
+        }
+
+        Ok(())
     } else {
-        println!();
+        has_parse_errors = opts.update && has_parse_errors;
 
-        if opts.update && !has_parse_errors {
-            if failures.len() == 1 {
-                println!("1 update:\n");
-            } else {
-                println!("{} updates:\n", failures.len());
+        if !opts.overview_only {
+            if !has_parse_errors {
+                println!(
+                    "\n{} failure{}:",
+                    failures.len(),
+                    if failures.len() == 1 { "" } else { "s" }
+                );
             }
 
-            for (i, TestFailure { name, .. }) in failures.iter().enumerate() {
-                println!("  {}. {name}", i + 1);
+            if opts.color {
+                print_diff_key();
             }
-
-            Ok(())
+            for (
+                i,
+                TestFailure {
+                    name,
+                    actual,
+                    expected,
+                    is_cst,
+                },
+            ) in failures.iter().enumerate()
+            {
+                if expected == "NO ERROR" {
+                    println!("\n  {}. {name}:\n", i + 1);
+                    println!("  Expected an ERROR node, but got:");
+                    let actual = if *is_cst {
+                        actual
+                    } else {
+                        &format_sexp(actual, 2)
+                    };
+                    println!("  {}", paint(opts.color.then_some(AnsiColor::Red), actual));
+                } else {
+                    println!("\n  {}. {name}:", i + 1);
+                    if *is_cst {
+                        print_diff(actual, expected, opts.color);
+                    } else {
+                        print_diff(
+                            &format_sexp(actual, 2),
+                            &format_sexp(expected, 2),
+                            opts.color,
+                        );
+                    }
+                }
+            }
         } else {
-            has_parse_errors = opts.update && has_parse_errors;
+            println!();
+        }
 
-            if !opts.overview_only {
-                if !has_parse_errors {
-                    if failures.len() == 1 {
-                        println!("1 failure:");
-                    } else {
-                        println!("{} failures:", failures.len());
-                    }
-                }
-
-                if opts.color {
-                    print_diff_key();
-                }
-                for (
-                    i,
-                    TestFailure {
-                        name,
-                        actual,
-                        expected,
-                        is_cst,
-                    },
-                ) in failures.iter().enumerate()
-                {
-                    if expected == "NO ERROR" {
-                        println!("\n  {}. {name}:\n", i + 1);
-                        println!("  Expected an ERROR node, but got:");
-                        let actual = if *is_cst {
-                            actual
-                        } else {
-                            &format_sexp(actual, 2)
-                        };
-                        println!("  {}", paint(opts.color.then_some(AnsiColor::Red), actual));
-                    } else {
-                        println!("\n  {}. {name}:", i + 1);
-                        if *is_cst {
-                            print_diff(actual, expected, opts.color);
-                        } else {
-                            print_diff(
-                                &format_sexp(actual, 2),
-                                &format_sexp(expected, 2),
-                                opts.color,
-                            );
-                        }
-                    }
-                }
-            }
-
-            if has_parse_errors {
-                Err(anyhow!(indoc! {"
-                    Some tests failed to parse with unexpected `ERROR` or `MISSING` nodes, as shown above, and cannot be updated automatically.
-                    Either fix the grammar or manually update the tests if this is expected."}))
-            } else {
-                Err(anyhow!(""))
-            }
+        if has_parse_errors {
+            Err(anyhow!(indoc! {"
+                Some tests failed to parse with unexpected `ERROR` or `MISSING` nodes, as shown above, and cannot be updated automatically.
+                Either fix the grammar or manually update the tests if this is expected."}))
+        } else {
+            Err(anyhow!(""))
         }
     }
 }
@@ -359,11 +360,6 @@ pub fn print_diff(actual: &str, expected: &str, use_color: bool) {
     }
 
     println!();
-}
-
-pub fn paint(color: Option<impl Into<Color>>, text: &str) -> String {
-    let style = Style::new().fg_color(color.map(Into::into));
-    format!("{style}{text}{style:#}")
 }
 
 struct TestFailure {
