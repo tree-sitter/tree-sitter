@@ -10,6 +10,7 @@ use clap::{crate_authors, Args, Command, FromArgMatches as _, Subcommand, ValueE
 use clap_complete::generate;
 use dialoguer::{theme::ColorfulTheme, Confirm, FuzzySelect, Input, MultiSelect};
 use heck::ToUpperCamelCase;
+use log::{error, info, warn};
 use regex::Regex;
 use semver::Version as SemverVersion;
 use tree_sitter::{ffi, Parser, Point};
@@ -585,7 +586,7 @@ impl InitConfig {
         config.add(tree_sitter_loader::Config::initial())?;
         config.add(tree_sitter_cli::highlight::ThemeConfig::default())?;
         config.save()?;
-        println!(
+        info!(
             "Saved initial configuration to {}",
             config.location.display()
         );
@@ -797,7 +798,7 @@ impl Init {
 
             // Loop for editing the configuration
             loop {
-                println!(
+                info!(
                     "Your current configuration:\n{}",
                     serde_json::to_string_pretty(&opts)?
                 );
@@ -840,7 +841,7 @@ impl Init {
 impl Generate {
     fn run(self, mut loader: loader::Loader, current_dir: &Path) -> Result<()> {
         if self.log {
-            logger::init();
+            logger::enable_debug();
         }
         let abi_version =
             self.abi_version
@@ -853,9 +854,7 @@ impl Generate {
                     }
                 });
         if self.build {
-            // TODO: remove the `--build` argument in 0.27
-            // TODO: migrate to `warn!` once https://github.com/tree-sitter/tree-sitter/pull/4604 is merged
-            eprintln!("Warning: --build is deprecated, use --stage=lib instead");
+            warn!("--build is deprecated, use --stage=lib instead");
         }
 
         if let Err(err) = tree_sitter_generate::generate_parser_in_directory(
@@ -1043,7 +1042,7 @@ impl Parse {
         };
 
         if self.lib_path.is_none() && self.lang_name.is_some() {
-            eprintln!("Warning: --lang-name` specified without --lib-path. This argument will be ignored.");
+            warn!("--lang-name` specified without --lib-path. This argument will be ignored.");
         }
         let lib_info = get_lib_info(self.lib_path.as_ref(), self.lang_name.as_ref(), current_dir);
 
@@ -1182,7 +1181,7 @@ impl Test {
         }
 
         if self.lib_path.is_none() && self.lang_name.is_some() {
-            eprintln!("Warning: --lang-name` specified without --lib-path. This argument will be ignored.");
+            warn!("--lang-name` specified without --lib-path. This argument will be ignored.");
         }
         let languages = loader.languages_at_path(current_dir)?;
         let language = if let Some(ref lib_path) = self.lib_path {
@@ -1328,7 +1327,7 @@ impl Fuzz {
         loader.force_rebuild(self.rebuild || self.grammar_path.is_some());
 
         if self.lib_path.is_none() && self.lang_name.is_some() {
-            eprintln!("Warning: --lang-name` specified without --lib-path. This argument will be ignored.");
+            warn!("--lang-name` specified without --lib-path. This argument will be ignored.");
         }
         let languages = loader.languages_at_path(current_dir)?;
         let (language, language_name) = if let Some(ref lib_path) = self.lib_path {
@@ -1398,9 +1397,7 @@ impl Query {
         let cancellation_flag = util::cancel_on_signal();
 
         if self.lib_path.is_none() && self.lang_name.is_some() {
-            eprintln!(
-                "Warning: --lang-name specified without --lib-path. This argument will be ignored."
-            );
+            warn!("--lang-name specified without --lib-path. This argument will be ignored.");
         }
         let lib_info = get_lib_info(self.lib_path.as_ref(), self.lang_name.as_ref(), current_dir);
 
@@ -1555,7 +1552,7 @@ impl Highlight {
                                 {
                                     (lang, lang_config)
                                 } else {
-                                    eprintln!(
+                                    warn!(
                                         "{}",
                                         util::lang_not_found_for_path(&path, &loader_config)
                                     );
@@ -1576,7 +1573,7 @@ impl Highlight {
                             &options,
                         )?;
                     } else {
-                        eprintln!(
+                        warn!(
                             "No syntax highlighting config found for path {}",
                             path.display()
                         );
@@ -1607,7 +1604,7 @@ impl Highlight {
                 {
                     highlight::highlight(&loader, &path, &name, highlight_config, false, &options)?;
                 } else {
-                    eprintln!("No syntax highlighting config found for test {name}");
+                    warn!("No syntax highlighting config found for test {name}");
                 }
                 fs::remove_file(path)?;
             }
@@ -1647,7 +1644,7 @@ impl Highlight {
                         &options,
                     )?;
                 } else {
-                    eprintln!(
+                    warn!(
                         "No syntax highlighting config found for path {}",
                         current_dir.display()
                     );
@@ -1706,7 +1703,7 @@ impl Tags {
                                 {
                                     (lang, lang_config)
                                 } else {
-                                    eprintln!(
+                                    warn!(
                                         "{}",
                                         util::lang_not_found_for_path(&path, &loader_config)
                                     );
@@ -1724,7 +1721,7 @@ impl Tags {
                             &options,
                         )?;
                     } else {
-                        eprintln!("No tags config found for path {}", path.display());
+                        warn!("No tags config found for path {}", path.display());
                     }
                 }
             }
@@ -1750,7 +1747,7 @@ impl Tags {
                 if let Some(tags_config) = language_config.tags_config(language)? {
                     tags::generate_tags(&path, &name, tags_config, false, &options)?;
                 } else {
-                    eprintln!("No tags config found for test {name}");
+                    warn!("No tags config found for test {name}");
                 }
                 fs::remove_file(path)?;
             }
@@ -1781,7 +1778,7 @@ impl Tags {
                 if let Some(tags_config) = language_config.tags_config(language)? {
                     tags::generate_tags(&path, "stdin", tags_config, false, &options)?;
                 } else {
-                    eprintln!("No tags config found for path {}", current_dir.display());
+                    warn!("No tags config found for path {}", current_dir.display());
                 }
                 fs::remove_file(path)?;
             }
@@ -1806,7 +1803,7 @@ impl DumpLanguages {
         let loader_config = config.get()?;
         loader.find_all_languages(&loader_config)?;
         for (configuration, language_path) in loader.get_all_language_configurations() {
-            println!(
+            info!(
                 concat!(
                     "name: {}\n",
                     "scope: {}\n",
@@ -1857,28 +1854,30 @@ fn main() {
             }
         }
         if !err.to_string().is_empty() {
-            eprintln!("{err:?}");
+            error!("{err:?}");
         }
         std::process::exit(1);
     }
 }
 
 fn run() -> Result<()> {
+    logger::init();
+
     let version = BUILD_SHA.map_or_else(
         || BUILD_VERSION.to_string(),
         |build_sha| format!("{BUILD_VERSION} ({build_sha})"),
     );
 
     let cli = Command::new("tree-sitter")
-        .help_template(
-            "\
-{before-help}{name} {version}
-{author-with-newline}{about-with-newline}
-{usage-heading} {usage}
-
-{all-args}{after-help}
-",
-        )
+        .help_template(concat!(
+            "\n",
+            "{before-help}{name} {version}\n",
+            "{author-with-newline}{about-with-newline}\n",
+            "{usage-heading} {usage}\n",
+            "\n",
+            "{all-args}{after-help}\n",
+            "\n"
+        ))
         .version(version)
         .subcommand_required(true)
         .arg_required_else_help(true)

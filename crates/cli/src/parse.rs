@@ -10,14 +10,14 @@ use std::{
 use anstyle::{AnsiColor, Color, RgbColor};
 use anyhow::{anyhow, Context, Result};
 use clap::ValueEnum;
+use log::info;
 use serde::{Deserialize, Serialize};
 use tree_sitter::{
     ffi, InputEdit, Language, LogType, ParseOptions, ParseState, Parser, Point, Range, Tree,
     TreeCursor,
 };
 
-use super::util;
-use crate::{fuzz::edits::Edit, test::paint};
+use crate::{fuzz::edits::Edit, logger::paint, util};
 
 #[derive(Debug, Default, Serialize)]
 pub struct Stats {
@@ -425,7 +425,7 @@ pub fn parse_file_at_path(
 
     if let Some(mut tree) = tree {
         if opts.debug_graph && !opts.edits.is_empty() {
-            println!("BEFORE:\n{}", String::from_utf8_lossy(&source_code));
+            info!("BEFORE:\n{}", String::from_utf8_lossy(&source_code));
         }
 
         let edit_time = Instant::now();
@@ -435,7 +435,7 @@ pub fn parse_file_at_path(
             tree = parser.parse(&source_code, Some(&tree)).unwrap();
 
             if opts.debug_graph {
-                println!("AFTER {i}:\n{}", String::from_utf8_lossy(&source_code));
+                info!("AFTER {i}:\n{}", String::from_utf8_lossy(&source_code));
             }
         }
         let edit_duration = edit_time.elapsed();

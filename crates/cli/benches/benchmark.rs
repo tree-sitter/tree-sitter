@@ -8,6 +8,7 @@ use std::{
 };
 
 use anyhow::Context;
+use log::info;
 use tree_sitter::{Language, Parser, Query};
 use tree_sitter_loader::{CompileConfig, Loader};
 
@@ -71,6 +72,8 @@ static EXAMPLE_AND_QUERY_PATHS_BY_LANGUAGE_DIR: LazyLock<
 });
 
 fn main() {
+    tree_sitter_cli::logger::init();
+
     let max_path_length = EXAMPLE_AND_QUERY_PATHS_BY_LANGUAGE_DIR
         .values()
         .flat_map(|(e, q)| {
@@ -81,7 +84,7 @@ fn main() {
         .max()
         .unwrap_or(0);
 
-    eprintln!("Benchmarking with {} repetitions", *REPETITION_COUNT);
+    info!("Benchmarking with {} repetitions", *REPETITION_COUNT);
 
     let mut parser = Parser::new();
     let mut all_normal_speeds = Vec::new();
@@ -98,11 +101,11 @@ fn main() {
             }
         }
 
-        eprintln!("\nLanguage: {language_name}");
+        info!("\nLanguage: {language_name}");
         let language = get_language(language_path);
         parser.set_language(&language).unwrap();
 
-        eprintln!("  Constructing Queries");
+        info!("  Constructing Queries");
         for path in query_paths {
             if let Some(filter) = EXAMPLE_FILTER.as_ref() {
                 if !path.to_str().unwrap().contains(filter.as_str()) {
@@ -117,7 +120,7 @@ fn main() {
             });
         }
 
-        eprintln!("  Parsing Valid Code:");
+        info!("  Parsing Valid Code:");
         let mut normal_speeds = Vec::new();
         for example_path in example_paths {
             if let Some(filter) = EXAMPLE_FILTER.as_ref() {
@@ -131,7 +134,7 @@ fn main() {
             }));
         }
 
-        eprintln!("  Parsing Invalid Code (mismatched languages):");
+        info!("  Parsing Invalid Code (mismatched languages):");
         let mut error_speeds = Vec::new();
         for (other_language_path, (example_paths, _)) in
             EXAMPLE_AND_QUERY_PATHS_BY_LANGUAGE_DIR.iter()
@@ -152,30 +155,30 @@ fn main() {
         }
 
         if let Some((average_normal, worst_normal)) = aggregate(&normal_speeds) {
-            eprintln!("  Average Speed (normal): {average_normal} bytes/ms");
-            eprintln!("  Worst Speed (normal):   {worst_normal} bytes/ms");
+            info!("  Average Speed (normal): {average_normal} bytes/ms");
+            info!("  Worst Speed (normal):   {worst_normal} bytes/ms");
         }
 
         if let Some((average_error, worst_error)) = aggregate(&error_speeds) {
-            eprintln!("  Average Speed (errors): {average_error} bytes/ms");
-            eprintln!("  Worst Speed (errors):   {worst_error} bytes/ms");
+            info!("  Average Speed (errors): {average_error} bytes/ms");
+            info!("  Worst Speed (errors):   {worst_error} bytes/ms");
         }
 
         all_normal_speeds.extend(normal_speeds);
         all_error_speeds.extend(error_speeds);
     }
 
-    eprintln!("\n  Overall");
+    info!("\n  Overall");
     if let Some((average_normal, worst_normal)) = aggregate(&all_normal_speeds) {
-        eprintln!("  Average Speed (normal): {average_normal} bytes/ms");
-        eprintln!("  Worst Speed (normal):   {worst_normal} bytes/ms");
+        info!("  Average Speed (normal): {average_normal} bytes/ms");
+        info!("  Worst Speed (normal):   {worst_normal} bytes/ms");
     }
 
     if let Some((average_error, worst_error)) = aggregate(&all_error_speeds) {
-        eprintln!("  Average Speed (errors): {average_error} bytes/ms");
-        eprintln!("  Worst Speed (errors):   {worst_error} bytes/ms");
+        info!("  Average Speed (errors): {average_error} bytes/ms");
+        info!("  Worst Speed (errors):   {worst_error} bytes/ms");
     }
-    eprintln!();
+    info!("");
 }
 
 fn aggregate(speeds: &[usize]) -> Option<(usize, usize)> {
@@ -194,12 +197,6 @@ fn aggregate(speeds: &[usize]) -> Option<(usize, usize)> {
 }
 
 fn parse(path: &Path, max_path_length: usize, mut action: impl FnMut(&[u8])) -> usize {
-    eprint!(
-        "    {:width$}\t",
-        path.file_name().unwrap().to_str().unwrap(),
-        width = max_path_length
-    );
-
     let source_code = fs::read(path)
         .with_context(|| format!("Failed to read {}", path.display()))
         .unwrap();
@@ -210,8 +207,9 @@ fn parse(path: &Path, max_path_length: usize, mut action: impl FnMut(&[u8])) -> 
     let duration = time.elapsed() / (*REPETITION_COUNT as u32);
     let duration_ns = duration.as_nanos();
     let speed = ((source_code.len() as u128) * 1_000_000) / duration_ns;
-    eprintln!(
-        "time {:>7.2} ms\t\tspeed {speed:>6} bytes/ms",
+    info!(
+        "    {:max_path_length$}\ttime {:>7.2} ms\t\tspeed {speed:>6} bytes/ms",
+        path.file_name().unwrap().to_str().unwrap(),
         (duration_ns as f64) / 1e6,
     );
     speed as usize

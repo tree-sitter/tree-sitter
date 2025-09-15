@@ -12,6 +12,7 @@ use std::{
 use ansi_colours::{ansi256_from_rgb, rgb_from_ansi256};
 use anstyle::{Ansi256Color, AnsiColor, Color, Effects, RgbColor};
 use anyhow::Result;
+use log::{info, warn};
 use serde::{ser::SerializeMap, Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{json, Value};
 use tree_sitter_highlight::{HighlightConfiguration, HighlightEvent, Highlighter, HtmlRenderer};
@@ -348,19 +349,17 @@ pub fn highlight(
             config.nonconformant_capture_names(&HashSet::new())
         };
         if names.is_empty() {
-            eprintln!("All highlight captures conform to standards.");
+            info!("All highlight captures conform to standards.");
         } else {
-            eprintln!(
-                "Non-standard highlight {} detected:",
+            warn!(
+                "Non-standard highlight {} detected:\n* {}",
                 if names.len() > 1 {
                     "captures"
                 } else {
                     "capture"
-                }
+                },
+                names.join("\n* ")
             );
-            for name in names {
-                eprintln!("* {name}");
-            }
         }
     }
 
@@ -451,7 +450,7 @@ pub fn highlight(
     }
 
     if opts.print_time {
-        eprintln!("Time: {}ms", time.elapsed().as_millis());
+        info!("Time: {}ms", time.elapsed().as_millis());
     }
 
     Ok(())

@@ -8,12 +8,13 @@ use std::{
 
 use anstyle::AnsiColor;
 use anyhow::{Context, Result};
+use log::warn;
 use streaming_iterator::StreamingIterator;
 use tree_sitter::{Language, Parser, Point, Query, QueryCursor};
 
 use crate::{
+    logger::paint,
     query_testing::{self, to_utf8_point},
-    test::paint,
 };
 
 #[allow(clippy::too_many_arguments)]
@@ -114,11 +115,8 @@ pub fn query_file_at_path(
             }
         }
     }
-    if query_cursor.did_exceed_match_limit() {
-        writeln!(
-            &mut stdout,
-            "  WARNING: Query exceeded maximum number of in-progress captures!"
-        )?;
+    if !query_cursor.did_exceed_match_limit() {
+        warn!("Query exceeded maximum number of in-progress captures!");
     }
     if should_test {
         let path_name = if stdin {
