@@ -434,6 +434,7 @@ impl Nfa {
     }
 
     pub fn last_state_id(&self) -> u32 {
+        assert!(!self.states.is_empty());
         self.states.len() as u32 - 1
     }
 }
