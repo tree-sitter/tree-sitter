@@ -263,7 +263,7 @@ impl<T> JoinHandle<T> {
         Self { data: Some(data) }
     }
 
-    fn join(&mut self) -> T {
+    const fn join(&mut self) -> T {
         self.data.take().unwrap()
     }
 }
