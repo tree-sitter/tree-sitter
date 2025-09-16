@@ -1,5 +1,6 @@
 use std::{collections::HashMap, env, fs};
 
+use anyhow::Context;
 use tree_sitter::Parser;
 use tree_sitter_proc_macro::test_with_seed;
 
@@ -363,7 +364,14 @@ fn test_feature_corpus_files() {
             grammar_path = test_path.join("grammar.json");
         }
         let error_message_path = test_path.join("expected_error.txt");
-        let grammar_json = tree_sitter_generate::load_grammar_file(&grammar_path, None).unwrap();
+        let grammar_json = tree_sitter_generate::load_grammar_file(&grammar_path, None)
+            .with_context(|| {
+                format!(
+                    "Could not load grammar file for test language '{language_name}' at {}",
+                    grammar_path.display()
+                )
+            })
+            .unwrap();
         let generate_result =
             tree_sitter_generate::generate_parser_for_grammar(&grammar_json, Some((0, 0, 0)));
 
