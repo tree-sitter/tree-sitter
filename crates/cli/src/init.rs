@@ -314,11 +314,10 @@ pub fn generate_grammar_files(
             if !contents.contains("module") {
                 eprintln!("Updating package.json");
                 contents = contents.replace(
-                    indoc! {r#"
-                    "repository": {"#},
+                    r#""repository":"#,
                     indoc! {r#"
                     "type": "module",
-                      "repository": {"#},
+                      "repository":"#},
                 );
             }
             write_file(path, contents)?;
