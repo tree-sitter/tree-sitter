@@ -26,7 +26,6 @@ qjs-rt = ["load", "rquickjs", "pathdiff"]
 
 [dependencies]
 anyhow.workspace = true
-heck.workspace = true
 indexmap.workspace = true
 indoc.workspace = true
 log.workspace = true
