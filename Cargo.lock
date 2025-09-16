@@ -651,18 +651,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "filetime"
-version = "0.2.26"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bc0505cd1b6fa6580283f6bdf70a73fcf4aba1184038c90902b92b3dd0df63ed"
-dependencies = [
- "cfg-if",
- "libc",
- "libredox",
- "windows-sys 0.60.2",
-]
-
-[[package]]
 name = "find-msvc-tools"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1079,17 +1067,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f9fbbcab51052fe104eb5e5d351cf728d30a5be1fe14d9be8a3b097481fb97de"
 
 [[package]]
-name = "libredox"
-version = "0.1.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "391290121bad3d37fbddad76d8f5d1c1c314cfc646d143d7e07a3086ddff0ce3"
-dependencies = [
- "bitflags 2.9.4",
- "libc",
- "redox_syscall",
-]
-
-[[package]]
 name = "linux-raw-sys"
 version = "0.4.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1270,12 +1247,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a4895175b425cb1f87721b59f0f286c2092bd4af812243672510e1ac53e2e0ad"
 
 [[package]]
-name = "path-slash"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e91099d4268b0e11973f036e885d652fb0b21fedcf69738c627f94db6a44f42"
-
-[[package]]
 name = "pathdiff"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1452,15 +1423,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ec0be4795e2f6a28069bec0b5ff3e2ac9bafc99e6a9a7dc3547996c5c816922c"
 dependencies = [
  "getrandom 0.2.16",
-]
-
-[[package]]
-name = "redox_syscall"
-version = "0.5.17"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5407465600fb0548f1442edf71dd20683c6ed326200ace4b1ef0763521bb3b77"
-dependencies = [
- "bitflags 2.9.4",
 ]
 
 [[package]]
@@ -1945,29 +1907,22 @@ dependencies = [
  "ctrlc",
  "dialoguer",
  "encoding_rs",
- "filetime",
  "glob",
  "heck",
  "html-escape",
- "indexmap",
  "indoc",
  "log",
  "memchr",
  "pretty_assertions",
  "rand",
  "regex",
- "regex-syntax",
- "rustc-hash 2.1.1",
  "semver",
  "serde",
- "serde_derive",
  "serde_json",
  "similar",
- "smallbitvec",
  "streaming-iterator",
  "tempfile",
  "tiny_http",
- "topological-sort",
  "tree-sitter",
  "tree-sitter-config",
  "tree-sitter-generate",
@@ -1998,7 +1953,6 @@ name = "tree-sitter-generate"
 version = "0.26.0"
 dependencies = [
  "anyhow",
- "heck",
  "indexmap",
  "indoc",
  "log",
@@ -2042,7 +1996,6 @@ dependencies = [
  "indoc",
  "libloading",
  "once_cell",
- "path-slash",
  "regex",
  "semver",
  "serde",
@@ -2071,7 +2024,6 @@ version = "0.0.0"
 dependencies = [
  "proc-macro2",
  "quote",
- "rand",
  "syn",
 ]
 
@@ -2781,14 +2733,12 @@ dependencies = [
  "anstyle",
  "anyhow",
  "bindgen 0.72.1",
- "cc",
  "clap",
  "indoc",
  "notify",
  "notify-debouncer-full",
  "regex",
  "semver",
- "serde",
  "serde_json",
 ]
 

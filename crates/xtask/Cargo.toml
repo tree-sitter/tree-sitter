@@ -18,12 +18,10 @@ workspace = true
 anstyle.workspace = true
 anyhow.workspace = true
 bindgen = { version = "0.72.0" }
-cc.workspace = true
 clap.workspace = true
 indoc.workspace = true
 regex.workspace = true
 semver.workspace = true
-serde.workspace = true
 serde_json.workspace = true
 notify = "8.2.0"
 notify-debouncer-full = "0.6.0"
