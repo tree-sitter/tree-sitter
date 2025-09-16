@@ -2,14 +2,12 @@ const root = new URL("../..", import.meta.url).pathname;
 
 const binding = typeof process.versions.bun === "string"
   // Support `bun build --compile` by being statically analyzable enough to find the .node file at build-time
-  ? await import(`../../prebuilds/${process.platform}-${process.arch}/tree-sitter-KEBAB_PARSER_NAME.node`)
-  : await import("node-gyp-build");
-
-const result = binding.default ? binding.default(root) : binding(root);
+  ? await import(`${root}/prebuilds/${process.platform}-${process.arch}/tree-sitter-KEBAB_PARSER_NAME.node`)
+  : (await import("node-gyp-build")).default(root);
 
 try {
-  const nodeTypeInfo = await import("../../src/node-types.json", {assert: {type: "json"}});
-  result.nodeTypeInfo = nodeTypeInfo.default;
+  const nodeTypes = await import(`${root}/src/node-types.json`, {with: {type: "json"}});
+  binding.nodeTypeInfo = nodeTypes.default;
 } catch (_) {}
 
-export default result;
+export default binding;
