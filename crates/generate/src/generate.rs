@@ -65,6 +65,8 @@ struct GeneratedParser {
     node_types_json: String,
 }
 
+// NOTE: This constant must be kept in sync with the definition of
+// `TREE_SITTER_LANGUAGE_VERSION` in `lib/include/tree_sitter/api.h`.
 const LANGUAGE_VERSION: usize = 15;
 
 pub const ALLOC_HEADER: &str = include_str!("templates/alloc.h");
@@ -531,4 +533,22 @@ fn load_js_grammar_file(grammar_path: &Path, js_runtime: Option<&str>) -> JSResu
 pub fn write_file(path: &Path, body: impl AsRef<[u8]>) -> GenerateResult<()> {
     fs::write(path, body)
         .map_err(|e| GenerateError::IO(format!("Failed to write {:?} -- {e}", path.file_name())))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::LANGUAGE_VERSION;
+    #[test]
+    fn the_language_versions_are_in_sync() {
+        let api_h = include_str!("../../../lib/include/tree_sitter/api.h");
+        let api_language_version = api_h
+            .lines()
+            .find_map(|line| {
+                line.trim()
+                    .strip_prefix("#define TREE_SITTER_LANGUAGE_VERSION ")
+                    .and_then(|v| v.parse::<usize>().ok())
+            })
+            .expect("Failed to find TREE_SITTER_LANGUAGE_VERSION definition in api.h");
+        assert_eq!(LANGUAGE_VERSION, api_language_version);
+    }
 }
