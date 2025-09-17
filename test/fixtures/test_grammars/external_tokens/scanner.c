@@ -30,7 +30,7 @@ void tree_sitter_external_tokens_external_scanner_destroy(void *payload) {
 unsigned tree_sitter_external_tokens_external_scanner_serialize(
   void *payload,
   char *buffer
-) { return true; }
+) { return 0; }
 
 void tree_sitter_external_tokens_external_scanner_deserialize(
   void *payload,

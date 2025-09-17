@@ -1,13 +1,12 @@
-use std::{fs, sync::LazyLock};
+use std::fs;
 
 use streaming_iterator::StreamingIterator;
-use tree_sitter::{
-    wasmtime::Engine, Parser, Query, QueryCursor, WasmError, WasmErrorKind, WasmStore,
+use tree_sitter::{Parser, Query, QueryCursor, WasmError, WasmErrorKind, WasmStore};
+
+use crate::tests::helpers::{
+    allocations,
+    fixtures::{get_test_fixture_language_wasm, ENGINE, WASM_DIR},
 };
-
-use crate::tests::helpers::{allocations, fixtures::WASM_DIR};
-
-static ENGINE: LazyLock<Engine> = LazyLock::new(Engine::default);
 
 #[test]
 fn test_wasm_stdlib_symbols() {
@@ -89,6 +88,36 @@ fn test_load_wasm_javascript_language() {
         parser.set_language(&language).unwrap();
         let tree = parser.parse("const a = b\nconst c = d", None).unwrap();
         assert_eq!(tree.root_node().to_sexp(), "(program (lexical_declaration (variable_declarator name: (identifier) value: (identifier))) (lexical_declaration (variable_declarator name: (identifier) value: (identifier))))");
+    });
+}
+
+#[test]
+fn test_load_wasm_python_language() {
+    allocations::record(|| {
+        let mut store = WasmStore::new(&ENGINE).unwrap();
+        let mut parser = Parser::new();
+        let wasm = fs::read(WASM_DIR.join("tree-sitter-python.wasm")).unwrap();
+        let language = store.load_language("python", &wasm).unwrap();
+        parser.set_wasm_store(store).unwrap();
+        parser.set_language(&language).unwrap();
+        let tree = parser.parse("a = b\nc = d", None).unwrap();
+        assert_eq!(tree.root_node().to_sexp(), "(module (expression_statement (assignment left: (identifier) right: (identifier))) (expression_statement (assignment left: (identifier) right: (identifier))))");
+    });
+}
+
+#[test]
+fn test_load_fixture_language_wasm() {
+    allocations::record(|| {
+        let store = WasmStore::new(&ENGINE).unwrap();
+        let mut parser = Parser::new();
+        let language = get_test_fixture_language_wasm("external_extra_tokens");
+        parser.set_wasm_store(store).unwrap();
+        parser.set_language(&language).unwrap();
+        let tree = parser.parse("x = # a comment\ny", None).unwrap();
+        assert_eq!(
+            tree.root_node().to_sexp(),
+            "(assignment (variable) (comment) (variable))"
+        );
     });
 }
 

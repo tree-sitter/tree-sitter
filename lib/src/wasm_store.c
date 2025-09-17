@@ -1377,11 +1377,12 @@ const TSLanguage *ts_wasm_store_load_language(
       if (symbol == 0) break;
       uint16_t value_count;
       memcpy(&value_count, &memory[wasm_language.alias_map + alias_map_size], sizeof(value_count));
+      alias_map_size += sizeof(uint16_t);
       alias_map_size += value_count * sizeof(TSSymbol);
     }
     language->alias_map = copy(
       &memory[wasm_language.alias_map],
-      alias_map_size * sizeof(TSSymbol)
+      alias_map_size
     );
     language->alias_sequences = copy(
       &memory[wasm_language.alias_sequences],
