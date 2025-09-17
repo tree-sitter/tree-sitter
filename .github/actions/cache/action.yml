@@ -17,10 +17,9 @@ runs:
           test/fixtures/grammars
           target/release/tree-sitter-*.wasm
         key: fixtures-${{ join(matrix.*, '_') }}-${{ hashFiles(
-          'cli/generate/src/**',
+          'crates/generate/src/**',
           'lib/src/parser.h',
           'lib/src/array.h',
           'lib/src/alloc.h',
-          'xtask/src/*',
           'test/fixtures/grammars/*/**/src/*.c',
           '.github/actions/cache/action.yml') }}
