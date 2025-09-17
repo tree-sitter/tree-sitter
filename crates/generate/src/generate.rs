@@ -429,17 +429,17 @@ pub fn load_grammar_file(
 
 #[cfg(feature = "load")]
 fn load_js_grammar_file(grammar_path: &Path, js_runtime: Option<&str>) -> JSResult<String> {
-    let grammar_path = fs::canonicalize(grammar_path)?;
-
-    #[cfg(windows)]
-    let grammar_path = url::Url::from_file_path(grammar_path)
-        .expect("Failed to convert path to URL")
-        .to_string();
+    let grammar_path = dunce::canonicalize(grammar_path)?;
 
     #[cfg(feature = "qjs-rt")]
     if js_runtime == Some("native") {
         return quickjs::execute_native_runtime(&grammar_path);
     }
+
+    // The "file:///" prefix is incompatible with the quickjs runtime, but is required
+    // for node and bun
+    #[cfg(windows)]
+    let grammar_path = PathBuf::from(format!("file:///{}", grammar_path.display()));
 
     let js_runtime = js_runtime.unwrap_or("node");
 

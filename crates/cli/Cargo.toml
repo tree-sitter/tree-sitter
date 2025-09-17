@@ -59,7 +59,6 @@ serde_json.workspace = true
 similar.workspace = true
 streaming-iterator.workspace = true
 tiny_http.workspace = true
-url.workspace = true
 walkdir.workspace = true
 wasmparser.workspace = true
 webbrowser.workspace = true

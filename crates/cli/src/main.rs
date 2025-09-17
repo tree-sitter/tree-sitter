@@ -34,7 +34,6 @@ use tree_sitter_config::Config;
 use tree_sitter_highlight::Highlighter;
 use tree_sitter_loader::{self as loader, Bindings, TreeSitterJSON};
 use tree_sitter_tags::TagsContext;
-use url::Url;
 
 const BUILD_VERSION: &str = env!("CARGO_PKG_VERSION");
 const BUILD_SHA: Option<&'static str> = option_env!("BUILD_SHA");
@@ -651,15 +650,10 @@ impl Init {
             };
 
             let repository = |name: &str| {
-                Input::<Url>::with_theme(&ColorfulTheme::default())
+                Input::<String>::with_theme(&ColorfulTheme::default())
                     .with_prompt("Repository URL")
                     .allow_empty(true)
-                    .default(
-                        Url::parse(&format!(
-                            "https://github.com/tree-sitter/tree-sitter-{name}"
-                        ))
-                        .expect("Failed to parse default repository URL"),
-                    )
+                    .default(format!("https://github.com/tree-sitter/tree-sitter-{name}"))
                     .show_default(false)
                     .interact_text()
             };
@@ -668,18 +662,8 @@ impl Init {
                 Input::<String>::with_theme(&ColorfulTheme::default())
                     .with_prompt("Funding URL")
                     .allow_empty(true)
-                    .validate_with(|input: &String| {
-                        if input.trim().is_empty()
-                            || Url::parse(input)
-                                .is_ok_and(|u| u.scheme() == "http" || u.scheme() == "https")
-                        {
-                            Ok(())
-                        } else {
-                            Err("The URL must start with 'http://' or 'https://'")
-                        }
-                    })
                     .interact_text()
-                    .map(|e| (!e.trim().is_empty()).then(|| Url::parse(&e).unwrap()))
+                    .map(|e| Some(e.trim().to_string()))
             };
 
             let scope = |name: &str| {
@@ -746,15 +730,8 @@ impl Init {
                 Input::<String>::with_theme(&ColorfulTheme::default())
                     .with_prompt("Author URL")
                     .allow_empty(true)
-                    .validate_with(|input: &String| -> Result<(), &str> {
-                        if input.trim().is_empty() || Url::parse(input).is_ok() {
-                            Ok(())
-                        } else {
-                            Err("This is not a valid URL")
-                        }
-                    })
                     .interact_text()
-                    .map(|e| (!e.trim().is_empty()).then(|| Url::parse(&e).unwrap()))
+                    .map(|e| Some(e.trim().to_string()))
             };
 
             let bindings = || {
