@@ -36,7 +36,6 @@ use tree_sitter::QueryErrorKind;
 use tree_sitter_highlight::HighlightConfiguration;
 #[cfg(feature = "tree-sitter-tags")]
 use tree_sitter_tags::{Error as TagsError, TagsConfiguration};
-use url::Url;
 
 static GRAMMAR_NAME_REGEX: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r#""name":\s*"(.*?)""#).unwrap());
@@ -214,9 +213,9 @@ pub struct Author {
 
 #[derive(Serialize, Deserialize)]
 pub struct Links {
-    pub repository: Url,
+    pub repository: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub funding: Option<Url>,
+    pub funding: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone)]

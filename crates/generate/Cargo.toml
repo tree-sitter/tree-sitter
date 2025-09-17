@@ -21,11 +21,12 @@ workspace = true
 
 [features]
 default = ["qjs-rt"]
-load = ["dep:semver", "dep:url"]
+load = ["dep:semver"]
 qjs-rt = ["load", "rquickjs", "pathdiff"]
 
 [dependencies]
 anyhow.workspace = true
+dunce = "1.0.5"
 indexmap.workspace = true
 indoc.workspace = true
 log.workspace = true
@@ -45,9 +46,6 @@ serde_json.workspace = true
 smallbitvec.workspace = true
 thiserror.workspace = true
 topological-sort.workspace = true
-
-[target.'cfg(windows)'.dependencies]
-url = { workspace = true, optional = true }
 
 [dev-dependencies]
 tempfile.workspace = true

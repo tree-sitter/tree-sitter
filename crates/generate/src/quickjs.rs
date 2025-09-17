@@ -251,13 +251,7 @@ fn load_module_from_content<'a>(
     module_obj.get("exports")
 }
 
-pub fn execute_native_runtime(
-    #[cfg(windows)] grammar_path: &str,
-    #[cfg(not(windows))] grammar_path: &Path,
-) -> JSResult<String> {
-    #[cfg(not(windows))]
-    let grammar_path = grammar_path.to_string_lossy();
-
+pub fn execute_native_runtime(grammar_path: &Path) -> JSResult<String> {
     let runtime = Runtime::new()?;
 
     runtime.set_memory_limit(64 * 1024 * 1024); // 64MB
@@ -272,7 +266,7 @@ pub fn execute_native_runtime(
     runtime.set_loader(resolver, loader);
 
     let cwd = std::env::current_dir()?;
-    let relative_path = pathdiff::diff_paths(&*grammar_path, &cwd)
+    let relative_path = pathdiff::diff_paths(grammar_path, &cwd)
         .map(|p| p.to_string_lossy().to_string())
         .ok_or_else(|| JSError::IO("Failed to get relative path".to_string()))?;
 
@@ -301,7 +295,7 @@ pub fn execute_native_runtime(
             .or_js_error(&ctx)?;
         globals.set("module", module).or_js_error(&ctx)?;
 
-        let grammar_path_string = grammar_path.to_string();
+        let grammar_path_string = grammar_path.to_string_lossy().to_string();
         let main_require = Function::new(
             ctx.clone(),
             move |ctx_inner, target_path: String| -> rquickjs::Result<Value> {

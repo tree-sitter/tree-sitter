@@ -12,7 +12,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use tree_sitter_generate::write_file;
 use tree_sitter_loader::{Author, Bindings, Grammar, Links, Metadata, PathsJSON, TreeSitterJSON};
-use url::Url;
 
 const CLI_VERSION: &str = env!("CARGO_PKG_VERSION");
 const CLI_VERSION_PLACEHOLDER: &str = "CLI_VERSION";
@@ -110,9 +109,9 @@ pub struct JsonConfigOpts {
     pub title: String,
     pub description: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub repository: Option<Url>,
+    pub repository: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub funding: Option<Url>,
+    pub funding: Option<String>,
     pub scope: String,
     pub file_types: Vec<String>,
     pub version: Version,
@@ -121,7 +120,7 @@ pub struct JsonConfigOpts {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub email: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub url: Option<Url>,
+    pub url: Option<String>,
     pub bindings: Bindings,
 }
 
@@ -158,11 +157,7 @@ impl JsonConfigOpts {
                 }]),
                 links: Some(Links {
                     repository: self.repository.unwrap_or_else(|| {
-                        Url::parse(&format!(
-                            "https://github.com/tree-sitter/tree-sitter-{}",
-                            self.name
-                        ))
-                        .expect("Failed to parse default repository URL")
+                        format!("https://github.com/tree-sitter/tree-sitter-{}", self.name)
                     }),
                     funding: self.funding,
                 }),
@@ -277,7 +272,7 @@ pub fn generate_grammar_files(
             .metadata
             .links
             .as_ref()
-            .and_then(|l| l.funding.as_ref().map(|f| f.as_str())),
+            .and_then(|l| l.funding.as_deref()),
         version: &tree_sitter_config.metadata.version,
         camel_parser_name: &camel_name,
         title_parser_name: &title_name,
