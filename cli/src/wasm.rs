@@ -5,7 +5,7 @@ use std::{
 
 use anyhow::{anyhow, Context, Result};
 use tree_sitter::wasm_stdlib_symbols;
-use tree_sitter_generate::parse_grammar::GrammarJSON;
+use tree_sitter_generate::{load_grammar_file, parse_grammar::GrammarJSON};
 use tree_sitter_loader::Loader;
 use wasmparser::Parser;
 
@@ -46,7 +46,8 @@ pub fn compile_language_to_wasm(
     output_file: Option<PathBuf>,
     force_docker: bool,
 ) -> Result<()> {
-    let grammar_name = get_grammar_name(language_dir)?;
+    let grammar_name = get_grammar_name(language_dir)
+        .or_else(|_| load_grammar_file(&language_dir.join("grammar.js"), None))?;
     let output_filename =
         output_file.unwrap_or_else(|| output_dir.join(format!("tree-sitter-{grammar_name}.wasm")));
     let src_path = language_dir.join("src");
