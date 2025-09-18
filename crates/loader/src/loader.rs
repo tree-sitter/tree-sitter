@@ -773,7 +773,6 @@ impl Loader {
             if recompile {
                 self.compile_parser_to_wasm(
                     &config.name,
-                    None,
                     config.src_path,
                     config
                         .scanner_path
@@ -1026,7 +1025,6 @@ impl Loader {
     pub fn compile_parser_to_wasm(
         &self,
         language_name: &str,
-        _root_path: Option<&Path>,
         src_path: &Path,
         scanner_filename: Option<&Path>,
         output_path: &Path,

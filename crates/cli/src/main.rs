@@ -19,7 +19,7 @@ use tree_sitter_cli::{
         LOG_GRAPH_ENABLED, START_SEED,
     },
     highlight::{self, HighlightOptions},
-    init::{generate_grammar_files, get_root_path, JsonConfigOpts},
+    init::{generate_grammar_files, JsonConfigOpts},
     input::{get_input, get_tmp_source_file, CliInput},
     logger,
     parse::{self, ParseDebugType, ParseFileOptions, ParseOutput, ParseTheme},
@@ -895,14 +895,7 @@ impl Build {
 
         if self.wasm {
             let output_path = self.output.map(|path| current_dir.join(path));
-            let root_path = get_root_path(&grammar_path.join("tree-sitter.json"))?;
-            wasm::compile_language_to_wasm(
-                &loader,
-                Some(&root_path),
-                &grammar_path,
-                current_dir,
-                output_path,
-            )?;
+            wasm::compile_language_to_wasm(&loader, &grammar_path, current_dir, output_path)?;
         } else {
             let output_path = if let Some(ref path) = self.output {
                 let path = Path::new(path);
