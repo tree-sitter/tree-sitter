@@ -40,7 +40,11 @@ extern "C" {
     fn free(ptr: *mut c_void);
 }
 
-pub fn record<T>(f: impl FnOnce() -> T) -> Result<T, String> {
+pub fn record<T>(f: impl FnOnce() -> T) -> T {
+    record_checked(f).unwrap()
+}
+
+pub fn record_checked<T>(f: impl FnOnce() -> T) -> Result<T, String> {
     RECORDER.with(|recorder| {
         recorder.enabled.store(true, SeqCst);
         recorder.allocation_count.store(0, SeqCst);
@@ -93,19 +97,34 @@ fn record_dealloc(ptr: *mut c_void) {
     });
 }
 
-unsafe extern "C" fn ts_record_malloc(size: usize) -> *mut c_void {
+/// # Safety
+///
+/// The caller must ensure that the returned pointer is eventually
+/// freed by calling `ts_record_free`.
+#[must_use]
+pub unsafe extern "C" fn ts_record_malloc(size: usize) -> *mut c_void {
     let result = malloc(size);
     record_alloc(result);
     result
 }
 
-unsafe extern "C" fn ts_record_calloc(count: usize, size: usize) -> *mut c_void {
+/// # Safety
+///
+/// The caller must ensure that the returned pointer is eventually
+/// freed by calling `ts_record_free`.
+#[must_use]
+pub unsafe extern "C" fn ts_record_calloc(count: usize, size: usize) -> *mut c_void {
     let result = calloc(count, size);
     record_alloc(result);
     result
 }
 
-unsafe extern "C" fn ts_record_realloc(ptr: *mut c_void, size: usize) -> *mut c_void {
+/// # Safety
+///
+/// The caller must ensure that the returned pointer is eventually
+/// freed by calling `ts_record_free`.
+#[must_use]
+pub unsafe extern "C" fn ts_record_realloc(ptr: *mut c_void, size: usize) -> *mut c_void {
     let result = realloc(ptr, size);
     if ptr.is_null() {
         record_alloc(result);
@@ -116,7 +135,11 @@ unsafe extern "C" fn ts_record_realloc(ptr: *mut c_void, size: usize) -> *mut c_
     result
 }
 
-unsafe extern "C" fn ts_record_free(ptr: *mut c_void) {
+/// # Safety
+///
+/// The caller must ensure that `ptr` was allocated by a previous call
+/// to `ts_record_malloc`, `ts_record_calloc`, or `ts_record_realloc`.
+pub unsafe extern "C" fn ts_record_free(ptr: *mut c_void) {
     record_dealloc(ptr);
     free(ptr);
 }

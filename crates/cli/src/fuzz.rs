@@ -163,7 +163,7 @@ pub fn fuzz_language_corpus(
 
         println!("  {test_index}. {test_name}");
 
-        let passed = allocations::record(|| {
+        let passed = allocations::record_checked(|| {
             let mut log_session = None;
             let mut parser = get_parser(&mut log_session, "log.html");
             parser.set_language(language).unwrap();
@@ -207,7 +207,7 @@ pub fn fuzz_language_corpus(
 
         for trial in 0..options.iterations {
             let seed = start_seed + trial;
-            let passed = allocations::record(|| {
+            let passed = allocations::record_checked(|| {
                 let mut rand = Rand::new(seed);
                 let mut log_session = None;
                 let mut parser = get_parser(&mut log_session, "log.html");
