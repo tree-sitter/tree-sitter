@@ -26,16 +26,6 @@ static TEST_LOADER: LazyLock<Loader> = LazyLock::new(|| {
 #[cfg(feature = "wasm")]
 pub static ENGINE: LazyLock<tree_sitter::wasmtime::Engine> = LazyLock::new(Default::default);
 
-#[cfg(feature = "wasm")]
-static TEST_WASM_LOADER: LazyLock<Loader> = LazyLock::new(|| {
-    let mut loader = Loader::with_parser_lib_path(SCRATCH_DIR.clone());
-    loader.use_wasm(&ENGINE);
-    if env::var("TREE_SITTER_GRAMMAR_DEBUG").is_ok() {
-        loader.debug_build(true);
-    }
-    loader
-});
-
 pub fn test_loader() -> &'static Loader {
     &TEST_LOADER
 }
@@ -55,13 +45,6 @@ pub fn get_language(name: &str) -> Language {
     TEST_LOADER.load_language_at_path(config).unwrap()
 }
 
-fn get_test_fixture_language_internal(name: &str, wasm: bool) -> Language {
-    let grammar_dir_path = fixtures_dir().join("test_grammars").join(name);
-    let grammar_json = load_grammar_file(&grammar_dir_path.join("grammar.js"), None).unwrap();
-    let (parser_name, parser_code) = generate_parser(&grammar_json).unwrap();
-    get_test_language_internal(&parser_name, &parser_code, Some(&grammar_dir_path), wasm)
-}
-
 pub fn get_test_fixture_language(name: &str) -> Language {
     get_test_fixture_language_internal(name, false)
 }
@@ -69,6 +52,13 @@ pub fn get_test_fixture_language(name: &str) -> Language {
 #[cfg(feature = "wasm")]
 pub fn get_test_fixture_language_wasm(name: &str) -> Language {
     get_test_fixture_language_internal(name, true)
+}
+
+fn get_test_fixture_language_internal(name: &str, wasm: bool) -> Language {
+    let grammar_dir_path = fixtures_dir().join("test_grammars").join(name);
+    let grammar_json = load_grammar_file(&grammar_dir_path.join("grammar.js"), None).unwrap();
+    let (parser_name, parser_code) = generate_parser(&grammar_json).unwrap();
+    get_test_language_internal(&parser_name, &parser_code, Some(&grammar_dir_path), wasm)
 }
 
 pub fn get_language_queries_path(language_name: &str) -> PathBuf {
@@ -170,13 +160,16 @@ fn get_test_language_internal(
     if wasm {
         #[cfg(feature = "wasm")]
         {
-            TEST_WASM_LOADER
-                .load_language_at_path_with_name(config)
-                .unwrap()
+            let mut loader = Loader::with_parser_lib_path(SCRATCH_DIR.clone());
+            loader.use_wasm(&ENGINE);
+            if env::var("TREE_SITTER_GRAMMAR_DEBUG").is_ok() {
+                loader.debug_build(true);
+            }
+            loader.load_language_at_path_with_name(config).unwrap()
         }
         #[cfg(not(feature = "wasm"))]
         {
-            unimplemented!("WASM feature is not enabled")
+            unimplemented!("Wasm feature is not enabled")
         }
     } else {
         TEST_LOADER.load_language_at_path_with_name(config).unwrap()

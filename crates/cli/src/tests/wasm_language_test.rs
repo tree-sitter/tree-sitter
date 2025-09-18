@@ -110,14 +110,11 @@ fn test_load_fixture_language_wasm() {
     allocations::record(|| {
         let store = WasmStore::new(&ENGINE).unwrap();
         let mut parser = Parser::new();
-        let language = get_test_fixture_language_wasm("external_extra_tokens");
+        let language = get_test_fixture_language_wasm("epsilon_external_tokens");
         parser.set_wasm_store(store).unwrap();
         parser.set_language(&language).unwrap();
-        let tree = parser.parse("x = # a comment\ny", None).unwrap();
-        assert_eq!(
-            tree.root_node().to_sexp(),
-            "(assignment (variable) (comment) (variable))"
-        );
+        let tree = parser.parse("hello", None).unwrap();
+        assert_eq!(tree.root_node().to_sexp(), "(document (zero_width))");
     });
 }
 
