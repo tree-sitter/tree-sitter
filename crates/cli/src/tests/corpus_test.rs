@@ -216,8 +216,7 @@ pub fn test_language_corpus(
             }
 
             true
-        })
-        .unwrap();
+        });
 
         if !passed {
             failure_count += 1;
@@ -312,7 +311,7 @@ pub fn test_language_corpus(
                 }
 
                 true
-            }).unwrap();
+            });
 
             if !passed {
                 failure_count += 1;
@@ -434,8 +433,7 @@ fn test_feature_corpus_files() {
                         println!();
                         false
                     }
-                })
-                .unwrap();
+                });
 
                 if !passed {
                     failure_count += 1;
