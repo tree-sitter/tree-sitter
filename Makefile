@@ -75,6 +75,10 @@ tree-sitter.pc: lib/tree-sitter.pc.in
 		-e 's|@PROJECT_HOMEPAGE_URL@|$(HOMEPAGE_URL)|' \
 		-e 's|@CMAKE_INSTALL_PREFIX@|$(PREFIX)|' $< > $@
 
+shared: libtree-sitter.$(SOEXT)
+
+static: libtree-sitter.a
+
 clean:
 	$(RM) $(OBJ) tree-sitter.pc libtree-sitter.a libtree-sitter.$(SOEXT) libtree-stitter.dll.a
 
@@ -102,7 +106,7 @@ uninstall:
 		'$(DESTDIR)$(PCLIBDIR)'/tree-sitter.pc
 	rmdir '$(DESTDIR)$(INCLUDEDIR)'/tree_sitter
 
-.PHONY: all install uninstall clean
+.PHONY: all shared static install uninstall clean
 
 
 ##### Dev targets #####
