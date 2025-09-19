@@ -120,6 +120,48 @@ pub struct InputEdit {
     pub new_end_position: Point,
 }
 
+impl InputEdit {
+    /// Edit a point to keep it in-sync with source code that has been edited.
+    ///
+    /// This function updates a single point's byte offset and row/column position
+    /// based on this edit operation. This is useful for editing points without
+    /// requiring a tree or node instance.
+    #[doc(alias = "ts_point_edit")]
+    pub fn edit_point(&self, point: &mut Point, byte: &mut usize) {
+        let edit = self.into();
+        let mut ts_point = (*point).into();
+        let mut ts_byte = *byte as u32;
+
+        unsafe {
+            ffi::ts_point_edit(
+                core::ptr::addr_of_mut!(ts_point),
+                core::ptr::addr_of_mut!(ts_byte),
+                &edit,
+            );
+        }
+
+        *point = ts_point.into();
+        *byte = ts_byte as usize;
+    }
+
+    /// Edit a range to keep it in-sync with source code that has been edited.
+    ///
+    /// This function updates a range's start and end positions based on this edit
+    /// operation. This is useful for editing ranges without requiring a tree
+    /// or node instance.
+    #[doc(alias = "ts_range_edit")]
+    pub fn edit_range(&self, range: &mut Range) {
+        let edit = self.into();
+        let mut ts_range = (*range).into();
+
+        unsafe {
+            ffi::ts_range_edit(core::ptr::addr_of_mut!(ts_range), &edit);
+        }
+
+        *range = ts_range.into();
+    }
+}
+
 /// A single node within a syntax [`Tree`].
 #[doc(alias = "TSNode")]
 #[derive(Clone, Copy)]
