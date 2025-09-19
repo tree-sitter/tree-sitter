@@ -183,6 +183,20 @@ impl<'a> ParseOptions<'a> {
         self.progress_callback = Some(callback);
         self
     }
+
+    /// Create a new `ParseOptions` with a shorter lifetime, borrowing from this one.
+    ///
+    /// This is useful when you need to reuse parse options multiple times, e.g., calling
+    /// [`Parser::parse_with_options`] multiple times with the same options.
+    #[must_use]
+    pub fn reborrow(&mut self) -> ParseOptions {
+        ParseOptions {
+            progress_callback: match &mut self.progress_callback {
+                Some(cb) => Some(*cb),
+                None => None,
+            },
+        }
+    }
 }
 
 #[derive(Default)]
@@ -203,6 +217,20 @@ impl<'a> QueryCursorOptions<'a> {
     ) -> Self {
         self.progress_callback = Some(callback);
         self
+    }
+
+    /// Create a new `QueryCursorOptions` with a shorter lifetime, borrowing from this one.
+    ///
+    /// This is useful when you need to reuse query cursor options multiple times, e.g., calling
+    /// [`QueryCursor::matches`] multiple times with the same options.
+    #[must_use]
+    pub fn reborrow(&mut self) -> QueryCursorOptions {
+        QueryCursorOptions {
+            progress_callback: match &mut self.progress_callback {
+                Some(cb) => Some(*cb),
+                None => None,
+            },
+        }
     }
 }
 
