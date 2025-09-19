@@ -2075,3 +2075,54 @@ const fn simple_range(start: usize, end: usize) -> Range {
 fn chunked_input<'a>(text: &'a str, size: usize) -> impl FnMut(usize, Point) -> &'a [u8] {
     move |offset, _| &text.as_bytes()[offset..text.len().min(offset + size)]
 }
+
+#[test]
+fn test_parse_options_reborrow() {
+    let mut parser = Parser::new();
+    parser.set_language(&get_language("rust")).unwrap();
+
+    let parse_count = AtomicUsize::new(0);
+
+    let mut callback = |_: &ParseState| {
+        parse_count.fetch_add(1, Ordering::SeqCst);
+        ControlFlow::Continue(())
+    };
+    let mut options = ParseOptions::new().progress_callback(&mut callback);
+
+    let text1 = "fn first() {}".repeat(20);
+    let text2 = "fn second() {}".repeat(20);
+
+    let tree1 = parser
+        .parse_with_options(
+            &mut |offset, _| {
+                if offset >= text1.len() {
+                    &[]
+                } else {
+                    &text1.as_bytes()[offset..]
+                }
+            },
+            None,
+            Some(options.reborrow()),
+        )
+        .unwrap();
+
+    assert_eq!(tree1.root_node().child(0).unwrap().kind(), "function_item");
+
+    let tree2 = parser
+        .parse_with_options(
+            &mut |offset, _| {
+                if offset >= text2.len() {
+                    &[]
+                } else {
+                    &text2.as_bytes()[offset..]
+                }
+            },
+            None,
+            Some(options.reborrow()),
+        )
+        .unwrap();
+
+    assert_eq!(tree2.root_node().child(0).unwrap().kind(), "function_item");
+
+    assert!(parse_count.load(Ordering::SeqCst) > 0);
+}
