@@ -1,10 +1,11 @@
-import { INTERNAL, Internal, assertInternal, Point, Edit, SIZE_OF_INT, SIZE_OF_NODE, SIZE_OF_POINT, ZERO_POINT, isPoint, C } from './constants';
+import { INTERNAL, Internal, assertInternal, SIZE_OF_INT, SIZE_OF_NODE, SIZE_OF_POINT, ZERO_POINT, isPoint, C, Point } from './constants';
 import { getText, Tree } from './tree';
 import { TreeCursor } from './tree_cursor';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Language } from './language';
 import { marshalNode, marshalPoint, unmarshalNode, unmarshalPoint } from './marshal';
 import { TRANSFER_BUFFER } from './parser';
+import { Edit } from './edit';
 
 /** A single node within a syntax {@link Tree}. */
 export class Node {

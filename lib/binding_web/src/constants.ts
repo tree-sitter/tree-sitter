@@ -33,29 +33,6 @@ export interface Range {
   endIndex: number;
 }
 
-/**
- * A summary of a change to a text document.
- */
-export interface Edit {
-  /** The start position of the change. */
-  startPosition: Point;
-
-  /** The end position of the change before the edit. */
-  oldEndPosition: Point;
-
-  /** The end position of the change after the edit. */
-  newEndPosition: Point;
-
-  /** The start index of the change. */
-  startIndex: number;
-
-  /** The end index of the change before the edit. */
-  oldEndIndex: number;
-
-  /** The end index of the change after the edit. */
-  newEndIndex: number;
-}
-
 /** @internal */
 export const SIZE_OF_SHORT = 2;
 
