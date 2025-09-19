@@ -496,6 +496,14 @@ extern "C" {
     pub fn ts_node_eq(self_: TSNode, other: TSNode) -> bool;
 }
 extern "C" {
+    #[doc = " Edit a point to keep it in-sync with source code that has been edited.\n\n This function updates a single point's byte offset and row/column position\n based on an edit operation. This is useful for editing points without\n requiring a tree or node instance."]
+    pub fn ts_point_edit(point: *mut TSPoint, point_byte: *mut u32, edit: *const TSInputEdit);
+}
+extern "C" {
+    #[doc = " Edit a range to keep it in-sync with source code that has been edited.\n\n This function updates a range's start and end positions based on an edit\n operation. This is useful for editing ranges without requiring a tree\n or node instance."]
+    pub fn ts_range_edit(range: *mut TSRange, edit: *const TSInputEdit);
+}
+extern "C" {
     #[doc = " Create a new tree cursor starting from the given node.\n\n A tree cursor allows you to walk a syntax tree more efficiently than is\n possible using the [`TSNode`] functions. It is a mutable object that is always\n on a certain syntax node, and can be moved imperatively to different nodes.\n\n Note that the given node is considered the root of the cursor,\n and the cursor cannot walk outside this node."]
     pub fn ts_tree_cursor_new(node: TSNode) -> TSTreeCursor;
 }

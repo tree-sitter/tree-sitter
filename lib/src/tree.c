@@ -54,37 +54,7 @@ const TSLanguage *ts_tree_language(const TSTree *self) {
 
 void ts_tree_edit(TSTree *self, const TSInputEdit *edit) {
   for (unsigned i = 0; i < self->included_range_count; i++) {
-    TSRange *range = &self->included_ranges[i];
-    if (range->end_byte >= edit->old_end_byte) {
-      if (range->end_byte != UINT32_MAX) {
-        range->end_byte = edit->new_end_byte + (range->end_byte - edit->old_end_byte);
-        range->end_point = point_add(
-          edit->new_end_point,
-          point_sub(range->end_point, edit->old_end_point)
-        );
-        if (range->end_byte < edit->new_end_byte) {
-          range->end_byte = UINT32_MAX;
-          range->end_point = POINT_MAX;
-        }
-      }
-    } else if (range->end_byte > edit->start_byte) {
-      range->end_byte = edit->start_byte;
-      range->end_point = edit->start_point;
-    }
-    if (range->start_byte >= edit->old_end_byte) {
-      range->start_byte = edit->new_end_byte + (range->start_byte - edit->old_end_byte);
-      range->start_point = point_add(
-        edit->new_end_point,
-        point_sub(range->start_point, edit->old_end_point)
-      );
-      if (range->start_byte < edit->new_end_byte) {
-        range->start_byte = UINT32_MAX;
-        range->start_point = POINT_MAX;
-      }
-    } else if (range->start_byte > edit->start_byte) {
-      range->start_byte = edit->start_byte;
-      range->start_point = edit->start_point;
-    }
+    ts_range_edit(&self->included_ranges[i], edit);
   }
 
   SubtreePool pool = ts_subtree_pool_new(0);

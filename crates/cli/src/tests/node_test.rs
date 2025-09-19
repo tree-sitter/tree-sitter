@@ -1,4 +1,4 @@
-use tree_sitter::{Node, Parser, Point, Tree};
+use tree_sitter::{InputEdit, Node, Parser, Point, Tree};
 use tree_sitter_generate::load_grammar_file;
 
 use super::{
@@ -841,6 +841,92 @@ fn test_node_is_error() {
     let child = root_node.child(0).unwrap();
     assert_eq!(child.kind(), "ERROR");
     assert!(child.is_error());
+}
+
+#[test]
+fn test_edit_point() {
+    let edit = InputEdit {
+        start_byte: 5,
+        old_end_byte: 5,
+        new_end_byte: 10,
+        start_position: Point::new(0, 5),
+        old_end_position: Point::new(0, 5),
+        new_end_position: Point::new(0, 10),
+    };
+
+    // Point after edit
+    let mut point = Point::new(0, 8);
+    let mut byte = 8;
+    edit.edit_point(&mut point, &mut byte);
+    assert_eq!(point, Point::new(0, 13));
+    assert_eq!(byte, 13);
+
+    // Point before edit
+    let mut point = Point::new(0, 2);
+    let mut byte = 2;
+    edit.edit_point(&mut point, &mut byte);
+    assert_eq!(point, Point::new(0, 2));
+    assert_eq!(byte, 2);
+
+    // Point at edit start
+    let mut point = Point::new(0, 5);
+    let mut byte = 5;
+    edit.edit_point(&mut point, &mut byte);
+    assert_eq!(point, Point::new(0, 10));
+    assert_eq!(byte, 10);
+}
+
+#[test]
+fn test_edit_range() {
+    use tree_sitter::{InputEdit, Point, Range};
+
+    let edit = InputEdit {
+        start_byte: 10,
+        old_end_byte: 15,
+        new_end_byte: 20,
+        start_position: Point::new(1, 0),
+        old_end_position: Point::new(1, 5),
+        new_end_position: Point::new(2, 0),
+    };
+
+    // Range after edit
+    let mut range = Range {
+        start_byte: 20,
+        end_byte: 25,
+        start_point: Point::new(2, 0),
+        end_point: Point::new(2, 5),
+    };
+    edit.edit_range(&mut range);
+    assert_eq!(range.start_byte, 25);
+    assert_eq!(range.end_byte, 30);
+    assert_eq!(range.start_point, Point::new(3, 0));
+    assert_eq!(range.end_point, Point::new(3, 5));
+
+    // Range before edit
+    let mut range = Range {
+        start_byte: 5,
+        end_byte: 8,
+        start_point: Point::new(0, 5),
+        end_point: Point::new(0, 8),
+    };
+    edit.edit_range(&mut range);
+    assert_eq!(range.start_byte, 5);
+    assert_eq!(range.end_byte, 8);
+    assert_eq!(range.start_point, Point::new(0, 5));
+    assert_eq!(range.end_point, Point::new(0, 8));
+
+    // Range overlapping edit
+    let mut range = Range {
+        start_byte: 8,
+        end_byte: 12,
+        start_point: Point::new(0, 8),
+        end_point: Point::new(1, 2),
+    };
+    edit.edit_range(&mut range);
+    assert_eq!(range.start_byte, 8);
+    assert_eq!(range.end_byte, 10);
+    assert_eq!(range.start_point, Point::new(0, 8));
+    assert_eq!(range.end_point, Point::new(1, 0));
 }
 
 #[test]
