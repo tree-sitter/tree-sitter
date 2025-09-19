@@ -72,7 +72,7 @@ const LANGUAGE_VERSION: usize = 15;
 
 pub const ALLOC_HEADER: &str = include_str!("templates/alloc.h");
 pub const ARRAY_HEADER: &str = include_str!("templates/array.h");
-pub const PARSER_HEADER: &str = include_str!(concat!(env!("OUT_DIR"), "/parser.h"));
+pub const PARSER_HEADER: &str = include_str!("parser.h.inc");
 
 pub type GenerateResult<T> = Result<T, GenerateError>;
 
@@ -544,9 +544,9 @@ pub fn write_file(path: &Path, body: impl AsRef<[u8]>) -> GenerateResult<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::LANGUAGE_VERSION;
+    use super::{LANGUAGE_VERSION, PARSER_HEADER};
     #[test]
-    fn the_language_versions_are_in_sync() {
+    fn test_language_versions_are_in_sync() {
         let api_h = include_str!("../../../lib/include/tree_sitter/api.h");
         let api_language_version = api_h
             .lines()
@@ -557,5 +557,14 @@ mod tests {
             })
             .expect("Failed to find TREE_SITTER_LANGUAGE_VERSION definition in api.h");
         assert_eq!(LANGUAGE_VERSION, api_language_version);
+    }
+
+    #[test]
+    fn test_parser_header_in_sync() {
+        let parser_h = include_str!("../../../lib/src/parser.h");
+        assert!(
+            parser_h == PARSER_HEADER,
+            "parser.h.inc is out of sync with lib/src/parser.h. Run: cp lib/src/parser.h crates/generate/src/parser.h.inc"
+        );
     }
 }
