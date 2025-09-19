@@ -1,4 +1,4 @@
-import { Edit, INTERNAL, Point, Range, SIZE_OF_INT, SIZE_OF_NODE, SIZE_OF_POINT, C } from "./constants";
+import { INTERNAL, Point, Range, SIZE_OF_INT, SIZE_OF_NODE, SIZE_OF_POINT, C } from "./constants";
 import { Node } from "./node";
 import { Tree } from "./tree";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -6,6 +6,7 @@ import { Query, QueryCapture, type QueryMatch } from "./query";
 import { TreeCursor } from "./tree_cursor";
 import { TRANSFER_BUFFER } from "./parser";
 import { LanguageMetadata } from "./language";
+import { Edit } from "./edit";
 
 /**
  * @internal

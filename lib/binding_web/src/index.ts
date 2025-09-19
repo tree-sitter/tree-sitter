@@ -1,11 +1,11 @@
 export type {
   Point,
   Range,
-  Edit,
   ParseCallback,
   ProgressCallback,
   LogCallback,
 } from './constants';
+export { Edit } from './edit';
 export {
   type ParseOptions,
   type ParseState,

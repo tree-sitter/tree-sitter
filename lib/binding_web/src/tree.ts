@@ -1,9 +1,10 @@
-import { INTERNAL, Internal, assertInternal, ParseCallback, Point, Range, Edit, SIZE_OF_NODE, SIZE_OF_INT, SIZE_OF_RANGE, C } from './constants';
+import { INTERNAL, Internal, assertInternal, ParseCallback, Point, Range, SIZE_OF_NODE, SIZE_OF_INT, SIZE_OF_RANGE, C } from './constants';
 import { Language } from './language';
 import { Node } from './node';
 import { TreeCursor } from './tree_cursor';
 import { marshalEdit, marshalPoint, unmarshalNode, unmarshalRange } from './marshal';
 import { TRANSFER_BUFFER } from './parser';
+import { Edit } from './edit';
 
 /** @internal */
 export function getText(tree: Tree, startIndex: number, endIndex: number, startPosition: Point): string {
