@@ -545,6 +545,9 @@ struct Playground {
     /// Path to the directory containing the grammar and Wasm files
     #[arg(long)]
     pub grammar_path: Option<PathBuf>,
+    /// Export playground files to specified directory instead of serving them
+    #[arg(long, short)]
+    pub export: Option<PathBuf>,
 }
 
 #[derive(Args)]
@@ -1786,9 +1789,15 @@ impl Tags {
 
 impl Playground {
     fn run(self, current_dir: &Path) -> Result<()> {
-        let open_in_browser = !self.quiet;
         let grammar_path = self.grammar_path.as_deref().map_or(current_dir, Path::new);
-        playground::serve(grammar_path, open_in_browser)?;
+
+        if let Some(export_path) = self.export {
+            playground::export(grammar_path, &export_path)?;
+        } else {
+            let open_in_browser = !self.quiet;
+            playground::serve(grammar_path, open_in_browser)?;
+        }
+
         Ok(())
     }
 }

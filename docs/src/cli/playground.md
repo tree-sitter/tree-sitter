@@ -13,6 +13,10 @@ For this to work, you must have already built the parser as a Wasm module. This 
 
 ## Options
 
+### `-e/--export <EXPORT_PATH>`
+
+Export static playground files to the specified directory instead of serving them.
+
 ### `-q/--quiet`
 
 Don't automatically open the playground in the default browser.

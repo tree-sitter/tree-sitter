@@ -46,6 +46,72 @@ fn get_main_html(tree_sitter_dir: Option<&Path>) -> Cow<'static, [u8]> {
     )
 }
 
+pub fn export(grammar_path: &Path, export_path: &Path) -> Result<()> {
+    let (grammar_name, language_wasm) = wasm::load_language_wasm_file(grammar_path)?;
+
+    fs::create_dir_all(export_path).with_context(|| {
+        format!(
+            "Failed to create export directory: {}",
+            export_path.display()
+        )
+    })?;
+
+    let tree_sitter_dir = env::var("TREE_SITTER_BASE_DIR").map(PathBuf::from).ok();
+
+    let playground_js = get_playground_js(tree_sitter_dir.as_deref());
+    let lib_js = get_lib_js(tree_sitter_dir.as_deref());
+    let lib_wasm = get_lib_wasm(tree_sitter_dir.as_deref());
+
+    let has_local_playground_js = !playground_js.is_empty();
+    let has_local_lib_js = !lib_js.is_empty();
+    let has_local_lib_wasm = !lib_wasm.is_empty();
+
+    let mut main_html = str::from_utf8(&get_main_html(tree_sitter_dir.as_deref()))
+        .unwrap()
+        .replace("THE_LANGUAGE_NAME", &grammar_name);
+
+    if !has_local_playground_js {
+        main_html = main_html.replace(
+            r#"<script type="module" src="playground.js"></script>"#,
+            r#"<script type="module" src="https://tree-sitter.github.io/tree-sitter/assets/js/playground.js"></script>"#
+        );
+    }
+    if !has_local_lib_js {
+        main_html = main_html.replace(
+            "import * as TreeSitter from './web-tree-sitter.js';",
+            "import * as TreeSitter from 'https://tree-sitter.github.io/web-tree-sitter.js';",
+        );
+    }
+
+    fs::write(export_path.join("index.html"), main_html.as_bytes())
+        .with_context(|| "Failed to write index.html")?;
+
+    fs::write(export_path.join("tree-sitter-parser.wasm"), language_wasm)
+        .with_context(|| "Failed to write parser wasm file")?;
+
+    if has_local_playground_js {
+        fs::write(export_path.join("playground.js"), playground_js)
+            .with_context(|| "Failed to write playground.js")?;
+    }
+
+    if has_local_lib_js {
+        fs::write(export_path.join("web-tree-sitter.js"), lib_js)
+            .with_context(|| "Failed to write web-tree-sitter.js")?;
+    }
+
+    if has_local_lib_wasm {
+        fs::write(export_path.join("web-tree-sitter.wasm"), lib_wasm)
+            .with_context(|| "Failed to write web-tree-sitter.wasm")?;
+    }
+
+    println!(
+        "Exported playground to {}",
+        export_path.canonicalize()?.display()
+    );
+
+    Ok(())
+}
+
 pub fn serve(grammar_path: &Path, open_in_browser: bool) -> Result<()> {
     let server = get_server()?;
     let (grammar_name, language_wasm) = wasm::load_language_wasm_file(grammar_path)?;
