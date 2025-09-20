@@ -7,6 +7,7 @@ use std::{
 use anyhow::{anyhow, Context, Result};
 use heck::{ToKebabCase, ToShoutySnakeCase, ToSnakeCase, ToUpperCamelCase};
 use indoc::{formatdoc, indoc};
+use log::warn;
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
@@ -307,7 +308,7 @@ pub fn generate_grammar_files(
                     "tree-sitter-cli":"#},
                 );
             if !contents.contains("module") {
-                eprintln!("Updating package.json");
+                warn!("Updating package.json");
                 contents = contents.replace(
                     r#""repository":"#,
                     indoc! {r#"
@@ -346,7 +347,7 @@ pub fn generate_grammar_files(
         |path| {
             let contents = fs::read_to_string(path)?;
             if !contents.contains("Zig artifacts") {
-                eprintln!("Replacing .gitignore");
+                warn!("Replacing .gitignore");
                 generate_file(path, GITIGNORE_TEMPLATE, language_name, &generate_opts)?;
             }
             Ok(())
@@ -465,7 +466,7 @@ pub fn generate_grammar_files(
                 |path| {
                     let contents = fs::read_to_string(path)?;
                     if !contents.contains("new URL") {
-                        eprintln!("Replacing index.js");
+                        warn!("Replacing index.js");
                         generate_file(path, INDEX_JS_TEMPLATE, language_name, &generate_opts)?;
                     }
                     Ok(())
@@ -490,7 +491,7 @@ pub fn generate_grammar_files(
                 |path| {
                     let contents = fs::read_to_string(path)?;
                     if !contents.contains("import") {
-                        eprintln!("Replacing binding_test.js");
+                        warn!("Replacing binding_test.js");
                         generate_file(
                             path,
                             BINDING_TEST_JS_TEMPLATE,
@@ -561,7 +562,7 @@ pub fn generate_grammar_files(
                 |path| {
                     let mut contents = fs::read_to_string(path)?;
                     if !contents.contains("cd '$(DESTDIR)$(LIBDIR)' && ln -sf") {
-                        eprintln!("Replacing Makefile");
+                        warn!("Replacing Makefile");
                         generate_file(path, MAKEFILE_TEMPLATE, language_name, &generate_opts)?;
                     } else {
                         contents = contents
@@ -777,7 +778,7 @@ pub fn generate_grammar_files(
                 |path| {
                     let contents = fs::read_to_string(path)?;
                     if !contents.contains("build_ext") {
-                        eprintln!("Replacing setup.py");
+                        warn!("Replacing setup.py");
                         generate_file(path, SETUP_PY_TEMPLATE, language_name, &generate_opts)?;
                     }
                     Ok(())
@@ -861,7 +862,7 @@ pub fn generate_grammar_files(
             |path| {
                 let contents = fs::read_to_string(path)?;
                 if !contents.contains("b.pkg_hash.len") {
-                    eprintln!("Replacing build.zig");
+                    warn!("Replacing build.zig");
                     generate_file(path, BUILD_ZIG_TEMPLATE, language_name, &generate_opts)
                 } else {
                     Ok(())
@@ -876,7 +877,7 @@ pub fn generate_grammar_files(
             |path| {
                 let contents = fs::read_to_string(path)?;
                 if !contents.contains(".name = .tree_sitter_") {
-                    eprintln!("Replacing build.zig.zon");
+                    warn!("Replacing build.zig.zon");
                     generate_file(path, BUILD_ZIG_ZON_TEMPLATE, language_name, &generate_opts)
                 } else {
                     Ok(())
@@ -892,7 +893,7 @@ pub fn generate_grammar_files(
                 |path| {
                     let contents = fs::read_to_string(path)?;
                     if contents.contains("ts.Language") {
-                        eprintln!("Replacing root.zig");
+                        warn!("Replacing root.zig");
                         generate_file(path, ROOT_ZIG_TEMPLATE, language_name, &generate_opts)
                     } else {
                         Ok(())

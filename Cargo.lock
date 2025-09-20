@@ -1949,6 +1949,7 @@ version = "0.27.0"
 dependencies = [
  "anyhow",
  "etcetera",
+ "log",
  "serde",
  "serde_json",
 ]
@@ -2000,6 +2001,7 @@ dependencies = [
  "fs4",
  "indoc",
  "libloading",
+ "log",
  "once_cell",
  "regex",
  "semver",
