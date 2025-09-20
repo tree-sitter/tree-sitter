@@ -946,6 +946,11 @@ impl Loader {
         } else {
             ""
         };
+        let section = if cfg!(all(target_arch = "powerpc64", target_os = "linux")) {
+            " D "
+        } else {
+            " T "
+        };
         let mut must_have = vec![
             format!("{prefix}tree_sitter_{name}_external_scanner_create"),
             format!("{prefix}tree_sitter_{name}_external_scanner_destroy"),
@@ -954,16 +959,16 @@ impl Loader {
             format!("{prefix}tree_sitter_{name}_external_scanner_scan"),
         ];
 
-        let command = Command::new("nm")
-            .arg("-W")
-            .arg("-U")
+        let nm_cmd = env::var("NM").unwrap_or_else(|_| "nm".to_owned());
+        let command = Command::new(nm_cmd)
+            .arg("--defined-only")
             .arg(library_path)
             .output();
         if let Ok(output) = command {
             if output.status.success() {
                 let mut found_non_static = false;
                 for line in String::from_utf8_lossy(&output.stdout).lines() {
-                    if line.contains(" T ") {
+                    if line.contains(section) {
                         if let Some(function_name) =
                             line.split_whitespace().collect::<Vec<_>>().get(2)
                         {
