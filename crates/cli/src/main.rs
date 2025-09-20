@@ -87,7 +87,7 @@ struct Init {
 }
 
 #[derive(Clone, Debug, Default, ValueEnum, PartialEq, Eq)]
-enum GenerationStage {
+enum GenerationEmit {
     /// Generate `grammar.json` and `node-types.json`
     Json,
     /// Generate `parser.c` and related files
@@ -119,12 +119,12 @@ struct Generate {
                 )
     )]
     pub abi_version: Option<String>,
-    /// Which generation stage to end after
+    /// What generated files to emit
     #[arg(long)]
-    #[clap(value_enum, default_value_t=GenerationStage::Parser)]
-    pub stage: GenerationStage,
-    /// Deprecated: use --stage=lib.
-    #[arg(long, short = 'b', conflicts_with = "stage")]
+    #[clap(value_enum, default_value_t=GenerationEmit::Parser)]
+    pub emit: GenerationEmit,
+    /// Deprecated: use --emit=lib.
+    #[arg(long, short = 'b', conflicts_with = "emit")]
     pub build: bool,
     /// Compile a parser in debug mode
     #[arg(long, short = '0')]
@@ -858,7 +858,7 @@ impl Generate {
         if self.build {
             // TODO: remove the `--build` argument in 0.27
             // TODO: migrate to `warn!` once https://github.com/tree-sitter/tree-sitter/pull/4604 is merged
-            eprintln!("Warning: --build is deprecated, use --stage=lib instead");
+            eprintln!("Warning: --build is deprecated, use --emit=lib instead");
         }
 
         if let Err(err) = tree_sitter_generate::generate_parser_in_directory(
@@ -868,7 +868,7 @@ impl Generate {
             abi_version,
             self.report_states_for_rule.as_deref(),
             self.js_runtime.as_deref(),
-            self.stage != GenerationStage::Json,
+            self.emit != GenerationEmit::Json,
         ) {
             if self.json {
                 eprintln!("{}", serde_json::to_string_pretty(&err)?);
@@ -879,7 +879,7 @@ impl Generate {
                 Err(anyhow!(err.to_string())).with_context(|| "Error when generating parser")?;
             }
         }
-        if self.stage == GenerationStage::Lib || self.build {
+        if self.emit == GenerationEmit::Lib || self.build {
             if let Some(path) = self.libdir {
                 loader = loader::Loader::with_parser_lib_path(path);
             }
