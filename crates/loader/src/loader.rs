@@ -954,7 +954,8 @@ impl Loader {
             format!("{prefix}tree_sitter_{name}_external_scanner_scan"),
         ];
 
-        let command = Command::new("nm")
+        let nm_cmd = env::var("NM").unwrap_or_else(|_| "nm".to_owned());
+        let command = Command::new(nm_cmd)
             .arg("-W")
             .arg("-U")
             .arg(library_path)

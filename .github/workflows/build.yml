@@ -94,11 +94,14 @@ jobs:
       run: |
         sudo apt-get update -qy
         if [[ $PLATFORM == linux-arm ]]; then
-           sudo apt-get install -qy {binutils,gcc}-arm-linux-gnueabihf qemu-user
+          sudo apt-get install -qy {binutils,gcc}-arm-linux-gnueabihf qemu-user
+          printf 'NM=arm-linux-gnueabihf-nm\n' >> $GITHUB_ENV
         elif [[ $PLATFORM == linux-x86 ]]; then
           sudo apt-get install -qy {binutils,gcc}-i686-linux-gnu
+          printf 'NM=i686-linux-gnu-nm\n' >> $GITHUB_ENV
         elif [[ $PLATFORM == linux-powerpc64 ]]; then
           sudo apt-get install -qy {binutils,gcc}-powerpc64-linux-gnu qemu-user
+          printf 'NM=powerpc64-linux-gnu-nm\n' >> $GITHUB_ENV
         fi
       env:
         PLATFORM: ${{ matrix.platform }}
