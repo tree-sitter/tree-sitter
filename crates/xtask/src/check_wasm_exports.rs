@@ -1,5 +1,6 @@
 use std::{
     collections::HashSet,
+    env,
     io::BufRead,
     path::PathBuf,
     process::{Command, Stdio},
@@ -94,7 +95,8 @@ fn check_wasm_exports() -> Result<()> {
             }),
     );
 
-    let nm_child = Command::new("nm")
+    let nm_cmd = env::var("NM").unwrap_or_else(|_| "nm".to_owned());
+    let nm_child = Command::new(nm_cmd)
         .arg("-W")
         .arg("-U")
         .arg("libtree-sitter.so")
