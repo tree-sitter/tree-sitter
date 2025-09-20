@@ -4,6 +4,7 @@ use std::{env, fs, path::PathBuf};
 
 use anyhow::{Context, Result};
 use etcetera::BaseStrategy as _;
+use log::warn;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -47,8 +48,8 @@ impl Config {
             if legacy_apple_path.is_file() {
                 fs::create_dir_all(xdg_path.parent().unwrap())?;
                 fs::rename(&legacy_apple_path, &xdg_path)?;
-                println!(
-                    "Warning: your config.json file has been automatically migrated from \"{}\" to \"{}\"",
+                warn!(
+                    "Your config.json file has been automatically migrated from \"{}\" to \"{}\"",
                     legacy_apple_path.display(),
                     xdg_path.display()
                 );
