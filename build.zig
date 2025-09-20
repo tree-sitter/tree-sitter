@@ -60,7 +60,7 @@ pub fn wasmtimeDep(target: std.Target) []const u8 {
     const arch = target.cpu.arch;
     const os = target.os.tag;
     const abi = target.abi;
-    return switch (os) {
+    return @as(?[]const u8, switch (os) {
         .linux => switch (arch) {
             .x86_64 => switch (abi) {
                 .gnu => "wasmtime_c_api_x86_64_linux",
@@ -70,11 +70,26 @@ pub fn wasmtimeDep(target: std.Target) []const u8 {
             },
             .aarch64 => switch (abi) {
                 .gnu => "wasmtime_c_api_aarch64_linux",
+                .musl => "wasmtime_c_api_aarch64_musl",
                 .android => "wasmtime_c_api_aarch64_android",
                 else => null,
             },
-            .s390x => "wasmtime_c_api_s390x_linux",
-            .riscv64 => "wasmtime_c_api_riscv64gc_linux",
+            .x86 => switch (abi) {
+                .gnu => "wasmtime_c_api_i686_linux",
+                else => null,
+            },
+            .arm => switch (abi) {
+                .gnueabi => "wasmtime_c_api_armv7_linux",
+                else => null,
+            },
+            .s390x => switch (abi) {
+                .gnu => "wasmtime_c_api_s390x_linux",
+                else => null,
+            },
+            .riscv64 => switch (abi) {
+                .gnu => "wasmtime_c_api_riscv64gc_linux",
+                else => null,
+            },
             else => null,
         },
         .windows => switch (arch) {
@@ -87,6 +102,10 @@ pub fn wasmtimeDep(target: std.Target) []const u8 {
                 .msvc => "wasmtime_c_api_aarch64_windows",
                 else => null,
             },
+            .x86 => switch (abi) {
+                .msvc => "wasmtime_c_api_i686_windows",
+                else => null,
+            },
             else => null,
         },
         .macos => switch (arch) {
@@ -95,7 +114,7 @@ pub fn wasmtimeDep(target: std.Target) []const u8 {
             else => null,
         },
         else => null,
-    } orelse std.debug.panic(
+    }) orelse std.debug.panic(
         "Unsupported target for wasmtime: {s}-{s}-{s}",
         .{ @tagName(arch), @tagName(os), @tagName(abi) },
     );
