@@ -21,8 +21,8 @@ use anyhow::Error;
 use anyhow::{anyhow, Context, Result};
 use etcetera::BaseStrategy as _;
 use fs4::fs_std::FileExt;
-use indoc::indoc;
 use libloading::{Library, Symbol};
+use log::{error, info, warn};
 use once_cell::unsync::OnceCell;
 use regex::{Regex, RegexBuilder};
 use semver::Version;
@@ -493,10 +493,12 @@ impl Loader {
 
     pub fn find_all_languages(&mut self, config: &Config) -> Result<()> {
         if config.parser_directories.is_empty() {
-            eprintln!("Warning: You have not configured any parser directories!");
-            eprintln!("Please run `tree-sitter init-config` and edit the resulting");
-            eprintln!("configuration file to indicate where we should look for");
-            eprintln!("language grammars.\n");
+            warn!(concat!(
+                "You have not configured any parser directories!\n",
+                "Please run `tree-sitter init-config` and edit the resulting\n",
+                "configuration file to indicate where we should look for\n",
+                "language grammars.\n"
+            ));
         }
         for parser_container_dir in &config.parser_directories {
             if let Ok(entries) = fs::read_dir(parser_container_dir) {
@@ -975,9 +977,9 @@ impl Loader {
                             if !line.contains("tree_sitter_") {
                                 if !found_non_static {
                                     found_non_static = true;
-                                    eprintln!("Warning: Found non-static non-tree-sitter functions in the external scannner");
+                                    warn!("Found non-static non-tree-sitter functions in the external scanner");
                                 }
-                                eprintln!("  `{function_name}`");
+                                warn!("  `{function_name}`");
                             } else {
                                 must_have.retain(|f| f != function_name);
                             }
@@ -985,7 +987,10 @@ impl Loader {
                     }
                 }
                 if found_non_static {
-                    eprintln!("Consider making these functions static, they can cause conflicts when another tree-sitter project uses the same function name");
+                    warn!(concat!(
+                        "Consider making these functions static, they can cause conflicts ",
+                        "when another tree-sitter project uses the same function name."
+                    ));
                 }
 
                 if !must_have.is_empty() {
@@ -996,7 +1001,7 @@ impl Loader {
                         .join("\n");
 
                     return Err(anyhow!(format!(
-                        indoc! {"
+                        indoc::indoc! {"
                             Missing required functions in the external scanner, parsing won't work without these!
 
                             {}
@@ -1176,7 +1181,7 @@ impl Loader {
             "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-25/{sdk_filename}",
         );
 
-        eprintln!("Downloading wasi-sdk from {sdk_url}...");
+        info!("Downloading wasi-sdk from {sdk_url}...");
         let temp_tar_path = cache_dir.join(sdk_filename);
 
         let status = Command::new("curl")
@@ -1192,7 +1197,7 @@ impl Loader {
             return Err(anyhow!("Failed to download wasi-sdk from {sdk_url}",));
         }
 
-        eprintln!("Extracting wasi-sdk to {}...", wasi_sdk_dir.display());
+        info!("Extracting wasi-sdk to {}...", wasi_sdk_dir.display());
         self.extract_tar_gz_with_strip(&temp_tar_path, &wasi_sdk_dir)
             .context("Failed to extract wasi-sdk archive")?;
 
@@ -1219,15 +1224,15 @@ impl Loader {
     ) -> Option<&'a HighlightConfiguration> {
         match self.language_configuration_for_injection_string(string) {
             Err(e) => {
-                eprintln!("Failed to load language for injection string '{string}': {e}",);
+                error!("Failed to load language for injection string '{string}': {e}",);
                 None
             }
             Ok(None) => None,
             Ok(Some((language, configuration))) => {
                 match configuration.highlight_config(language, None) {
                     Err(e) => {
-                        eprintln!(
-                            "Failed to load property sheet for injection string '{string}': {e}",
+                        error!(
+                            "Failed to load higlight config for injection string '{string}': {e}"
                         );
                         None
                     }
@@ -1349,8 +1354,8 @@ impl Loader {
                 // This is noisy, and not really an issue.
                 Some(e) if e.kind() == std::io::ErrorKind::NotFound => {}
                 _ => {
-                    eprintln!(
-                        "Warning: Failed to parse {} -- {e}",
+                    warn!(
+                        "Failed to parse {} -- {e}",
                         parser_path.join("tree-sitter.json").display()
                     );
                 }
@@ -1696,12 +1701,14 @@ impl LanguageConfiguration<'_> {
         } else {
             // highlights.scm is needed to test highlights, and tags.scm to test tags
             if default_path == "highlights.scm" || default_path == "tags.scm" {
-                eprintln!(
-                    indoc! {"
-                        Warning: you should add a `{}` entry pointing to the highlights path in the `tree-sitter` object in the grammar's tree-sitter.json file.
-                        See more here: https://tree-sitter.github.io/tree-sitter/3-syntax-highlighting#query-paths
-                    "},
-                    default_path.replace(".scm", "")
+                warn!(
+                    concat!(
+                        "You should add a `{}` entry pointing to the {} path in the `tree-sitter` ",
+                        "object in the grammar's tree-sitter.json file. See more here: ",
+                        "https://tree-sitter.github.io/tree-sitter/3-syntax-highlighting#query-paths"
+                    ),
+                    default_path.replace(".scm", ""),
+                    default_path
                 );
             }
             let queries_path = self.root_path.join("queries");
