@@ -49,7 +49,7 @@ static JSON_COMMENT_REGEX: LazyLock<Regex> = LazyLock::new(|| {
         .unwrap()
 });
 
-struct JSONStageOutput {
+struct JSONOutput {
     #[cfg(feature = "load")]
     node_types_json: String,
     syntax_grammar: SyntaxGrammar,
@@ -296,9 +296,7 @@ pub fn generate_parser_for_grammar(
     Ok((input_grammar.name, parser.c_code))
 }
 
-fn generate_node_types_from_grammar(
-    input_grammar: &InputGrammar,
-) -> GenerateResult<JSONStageOutput> {
+fn generate_node_types_from_grammar(input_grammar: &InputGrammar) -> GenerateResult<JSONOutput> {
     let (syntax_grammar, lexical_grammar, inlines, simple_aliases) =
         prepare_grammar(input_grammar)?;
     let variable_info =
@@ -311,7 +309,7 @@ fn generate_node_types_from_grammar(
         &simple_aliases,
         &variable_info,
     )?;
-    Ok(JSONStageOutput {
+    Ok(JSONOutput {
         #[cfg(feature = "load")]
         node_types_json: serde_json::to_string_pretty(&node_types_json).unwrap(),
         syntax_grammar,
@@ -328,7 +326,7 @@ fn generate_parser_for_grammar_with_opts(
     semantic_version: Option<(u8, u8, u8)>,
     report_symbol_name: Option<&str>,
 ) -> GenerateResult<GeneratedParser> {
-    let JSONStageOutput {
+    let JSONOutput {
         syntax_grammar,
         lexical_grammar,
         inlines,
