@@ -1156,7 +1156,11 @@ impl Loader {
                 "x86_64-macos"
             }
         } else if cfg!(target_os = "windows") {
-            "x86_64-windows"
+            if cfg!(target_arch = "aarch64") {
+                "arm64-windows"
+            } else {
+                "x86_64-windows"
+            }
         } else if cfg!(target_os = "linux") {
             if cfg!(target_arch = "aarch64") {
                 "arm64-linux"
