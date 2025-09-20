@@ -572,10 +572,10 @@ pub fn generate_grammar_files(
                                 "},
                                 indoc! {r"
                                 $(SRC_DIR)/grammar.json: grammar.js
-                                	$(TS) generate --stage=json $^
+                                	$(TS) generate --emit=json $^
 
                                 $(PARSER): $(SRC_DIR)/grammar.json
-                                	$(TS) generate --stage=parser $^
+                                	$(TS) generate --emit=parser $^
                                 "}
                             );
                         write_file(path, contents)?;
@@ -623,14 +623,14 @@ pub fn generate_grammar_files(
                             add_custom_command(OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/src/grammar.json"
                                                DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/grammar.js"
                                                COMMAND "${TREE_SITTER_CLI}" generate grammar.js
-                                                        --stage=json
+                                                        --emit=json
                                                WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
                                                COMMENT "Generating grammar.json")
 
                             add_custom_command(OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/src/parser.c"
                                                DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/grammar.json"
                                                COMMAND "${TREE_SITTER_CLI}" generate src/grammar.json
-                                                        --stage=parser --abi=${TREE_SITTER_ABI_VERSION}
+                                                        --emit=parser --abi=${TREE_SITTER_ABI_VERSION}
                                                WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
                                                COMMENT "Generating parser.c")
                             "#}
