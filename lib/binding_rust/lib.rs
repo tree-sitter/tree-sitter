@@ -1441,6 +1441,11 @@ impl Drop for Parser {
     }
 }
 
+#[cfg(windows)]
+extern "C" {
+    fn _open_osfhandle(osfhandle: isize, flags: core::ffi::c_int) -> core::ffi::c_int;
+}
+
 impl Tree {
     /// Get the root node of the syntax tree.
     #[doc(alias = "ts_tree_root_node")]
@@ -1550,7 +1555,8 @@ impl Tree {
         #[cfg(windows)]
         {
             let handle = file.as_raw_handle();
-            unsafe { ffi::ts_tree_print_dot_graph(self.0.as_ptr(), handle as i32) }
+            let fd = unsafe { _open_osfhandle(handle as isize, 0) };
+            unsafe { ffi::ts_tree_print_dot_graph(self.0.as_ptr(), fd) }
         }
     }
 }
