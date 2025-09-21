@@ -908,7 +908,23 @@ impl Loader {
             let out = format!("-out:{}", output_path.to_str().unwrap());
             command.arg(if self.debug_build { "-LDd" } else { "-LD" });
             command.arg("-utf-8");
+
+            // Use output directory for object files to avoid conflicts in parallel tests
+            let output_dir = output_path.parent().unwrap();
+            let pid = std::process::id();
+            let tid = format!("{:?}", std::thread::current().id())
+                .replace("ThreadId(", "")
+                .replace(")", "");
+
+            // Create a unique subdirectory for this compilation to avoid conflicts
+            let obj_dir = output_dir.join(format!("obj_{pid}_{tid}"));
+            std::fs::create_dir_all(&obj_dir).unwrap();
+
+            // Use /Fo with directory path (must end with \) for multiple source files
+            let fo_arg = format!("/Fo{}\\", obj_dir.to_str().unwrap());
+            command.arg(fo_arg);
             command.args(cc_config.get_files());
+
             command.arg("-link").arg(out);
         } else {
             command.arg("-Werror=implicit-function-declaration");

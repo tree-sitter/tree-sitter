@@ -9,7 +9,7 @@ on:
       - LICENSE
       - cli/src/templates
   push:
-    branches: [master]
+    # branches: [master]
     paths-ignore:
       - docs/**
       - "**/README.md"
