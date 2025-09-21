@@ -30,7 +30,7 @@ what keywords were extracted, what states were split and why, and the entry poin
 
 The ABI to use for parser generation. The default is ABI 15, with ABI 14 being a supported target.
 
-### `--stage`
+### `--emit`
 
 What generated files to emit. Possible values:
 
