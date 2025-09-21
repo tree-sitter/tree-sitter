@@ -5295,7 +5295,7 @@ fn test_grammar_with_aliased_literal_query() {
     //     expansion: $ => seq('}'),
     //   },
     // });
-    let (parser_name, parser_code) = generate_parser(
+    let (parser_name, parser_code, header_code) = generate_parser(
         r#"
         {
             "name": "test",
@@ -5352,7 +5352,7 @@ fn test_grammar_with_aliased_literal_query() {
     )
     .unwrap();
 
-    let language = get_test_language(&parser_name, &parser_code, None);
+    let language = get_test_language(&parser_name, &parser_code, &header_code, None);
 
     let query = Query::new(
         &language,

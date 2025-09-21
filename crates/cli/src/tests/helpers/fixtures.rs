@@ -57,8 +57,14 @@ pub fn get_test_fixture_language_wasm(name: &str) -> Language {
 fn get_test_fixture_language_internal(name: &str, wasm: bool) -> Language {
     let grammar_dir_path = fixtures_dir().join("test_grammars").join(name);
     let grammar_json = load_grammar_file(&grammar_dir_path.join("grammar.js"), None).unwrap();
-    let (parser_name, parser_code) = generate_parser(&grammar_json).unwrap();
-    get_test_language_internal(&parser_name, &parser_code, Some(&grammar_dir_path), wasm)
+    let (parser_name, parser_code, header_code) = generate_parser(&grammar_json).unwrap();
+    get_test_language_internal(
+        &parser_name,
+        &parser_code,
+        &header_code,
+        Some(&grammar_dir_path),
+        wasm,
+    )
 }
 
 pub fn get_language_queries_path(language_name: &str) -> PathBuf {
@@ -98,13 +104,19 @@ pub fn get_tags_config(language_name: &str) -> TagsConfiguration {
     TagsConfiguration::new(language, &tags_query, &locals_query).unwrap()
 }
 
-pub fn get_test_language(name: &str, parser_code: &str, path: Option<&Path>) -> Language {
-    get_test_language_internal(name, parser_code, path, false)
+pub fn get_test_language(
+    name: &str,
+    parser_code: &str,
+    header_code: &str,
+    path: Option<&Path>,
+) -> Language {
+    get_test_language_internal(name, parser_code, header_code, path, false)
 }
 
 fn get_test_language_internal(
     name: &str,
     parser_code: &str,
+    header_code: &str,
     path: Option<&Path>,
     wasm: bool,
 ) -> Language {
@@ -136,10 +148,23 @@ fn get_test_language_internal(
     let header_path = src_dir.join("tree_sitter");
     fs::create_dir_all(&header_path).unwrap();
 
+    let parser_h_content = if header_code.is_empty() {
+        tree_sitter::PARSER_HEADER.to_string()
+    } else {
+        let Some(insert_pos) = tree_sitter::PARSER_HEADER.find("}\n\n/*\n *  Lexer Macros\n */")
+        else {
+            panic!("Failed to find insertion point in parser.h");
+        };
+
+        let mut content = tree_sitter::PARSER_HEADER.to_string();
+        content.insert_str(insert_pos + 1, &format!("\n\n{header_code}"));
+        content
+    };
+
     for (file, content) in [
         ("alloc.h", ALLOC_HEADER),
         ("array.h", ARRAY_HEADER),
-        ("parser.h", tree_sitter::PARSER_HEADER),
+        ("parser.h", parser_h_content.as_str()),
     ] {
         let file = header_path.join(file);
         fs::write(&file, content)

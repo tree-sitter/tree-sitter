@@ -1,12 +1,15 @@
 export default grammar({
   name: 'unicode_classes',
 
+  externals: $ => [$.letter_number_with_prefix],
+
   rules: {
     program: $ => repeat(choice(
       $.lower,
       $.upper,
       $.math_sym,
       $.letter_number,
+      $.letter_number_with_prefix,
     )),
 
     lower: _ => /\p{Ll}\p{L}*/,

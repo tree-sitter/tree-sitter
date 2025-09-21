@@ -91,9 +91,14 @@ fn hang_test() {
         .join("get_col_should_hang_not_crash");
 
     let grammar_json = load_grammar_file(&test_grammar_dir.join("grammar.js"), None).unwrap();
-    let (parser_name, parser_code) = generate_parser(grammar_json.as_str()).unwrap();
+    let (parser_name, parser_code, header_code) = generate_parser(grammar_json.as_str()).unwrap();
 
-    let language = get_test_language(&parser_name, &parser_code, Some(test_grammar_dir.as_path()));
+    let language = get_test_language(
+        &parser_name,
+        &parser_code,
+        &header_code,
+        Some(test_grammar_dir.as_path()),
+    );
 
     let mut parser = Parser::new();
     parser.set_language(&language).unwrap();
