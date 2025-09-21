@@ -87,7 +87,6 @@ fn test_parsing_with_logging() {
 }
 
 #[test]
-#[cfg(unix)]
 fn test_parsing_with_debug_graph_enabled() {
     use std::io::{BufRead, BufReader, Seek};
 
