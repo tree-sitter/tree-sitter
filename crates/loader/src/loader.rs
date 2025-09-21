@@ -908,7 +908,18 @@ impl Loader {
             let out = format!("-out:{}", output_path.to_str().unwrap());
             command.arg(if self.debug_build { "-LDd" } else { "-LD" });
             command.arg("-utf-8");
-            command.args(cc_config.get_files());
+
+            let pid = std::process::id();
+            let tid = format!("{:?}", std::thread::current().id())
+                .replace("ThreadId(", "")
+                .replace(")", "");
+
+            for (i, file) in cc_config.get_files().enumerate() {
+                let obj_name = format!("/Foobj_{pid}_{tid}_{i}.obj");
+                command.arg(obj_name);
+                command.arg(file);
+            }
+
             command.arg("-link").arg(out);
         } else {
             command.arg("-Werror=implicit-function-declaration");

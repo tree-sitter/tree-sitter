@@ -74,10 +74,7 @@ jobs:
       run: |
         printf 'EMSCRIPTEN_VERSION=%s\n' "$(<crates/loader/emscripten-version)" >> $GITHUB_ENV
 
-        if [[ '${{ matrix.platform }}' =~ ^windows ]]; then
-          # Prevent race condition (see #2041)
-          printf 'RUST_TEST_THREADS=1\n' >> $GITHUB_ENV
-        elif [[ '${{ matrix.cross }}' == true ]]; then
+        if [[ '${{ matrix.cross }}' == true ]]; then
           for target in armv7-unknown-linux-gnueabihf i686-unknown-linux-gnu powerpc64-unknown-linux-gnu; do
             camel_target=${target//-/_}; target_cc=${target/-unknown/}
             printf 'CC_%s=%s\n' "$camel_target" "${target_cc/v7/}-gcc"
