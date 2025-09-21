@@ -73,9 +73,6 @@ pub fn run(args: &Test) -> Result<()> {
             .arg("--no-run")
             .arg("--message-format=json");
 
-        #[cfg(target_os = "windows")]
-        cargo_cmd.arg("--").arg("--test-threads=1");
-
         let cargo_cmd = cargo_cmd.stdout(Stdio::piped()).spawn()?;
 
         let jq_cmd = Command::new("jq")
@@ -102,9 +99,6 @@ pub fn run(args: &Test) -> Result<()> {
             cargo_cmd.arg(&test_flags);
         }
         cargo_cmd.args(&args.args);
-
-        #[cfg(target_os = "windows")]
-        cargo_cmd.arg("--").arg("--test-threads=1");
 
         if args.nocapture {
             #[cfg(not(target_os = "windows"))]

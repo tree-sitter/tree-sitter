@@ -904,12 +904,27 @@ impl Loader {
 
         let output_path = config.output_path.as_ref().unwrap();
 
-        if compiler.is_like_msvc() {
+        let temp_dir = if compiler.is_like_msvc() {
             let out = format!("-out:{}", output_path.to_str().unwrap());
             command.arg(if self.debug_build { "-LDd" } else { "-LD" });
             command.arg("-utf-8");
+
+            // Windows creates intermediate files when compiling (.exp, .lib, .obj), which causes
+            // issues when multiple processes are compiling in the same directory. This creates a
+            // temporary directory for those files to go into, which is deleted after compilation.
+            let temp_dir = output_path.parent().unwrap().join(format!(
+                "tmp_{}_{:?}",
+                std::process::id(),
+                std::thread::current().id()
+            ));
+            std::fs::create_dir_all(&temp_dir).unwrap();
+
+            command.arg(format!("/Fo{}\\", temp_dir.display()));
             command.args(cc_config.get_files());
             command.arg("-link").arg(out);
+            command.arg(format!("/IMPLIB:{}.lib", temp_dir.join("temp").display()));
+
+            Some(temp_dir)
         } else {
             command.arg("-Werror=implicit-function-declaration");
             if cfg!(any(target_os = "macos", target_os = "ios")) {
@@ -921,11 +936,17 @@ impl Loader {
             }
             command.args(cc_config.get_files());
             command.arg("-o").arg(output_path);
-        }
+
+            None
+        };
 
         let output = command.output().with_context(|| {
             format!("Failed to execute the C compiler with the following command:\n{command:?}")
         })?;
+
+        if let Some(temp_dir) = temp_dir {
+            let _ = fs::remove_dir_all(temp_dir);
+        }
 
         FileExt::unlock(lock_file)?;
         fs::remove_file(lock_path)?;
