@@ -9,7 +9,7 @@ test "can load grammar" {
     const parser = Parser.create();
     defer parser.destroy();
 
-    const lang: *const ts.Language = @ptrCast(root.language());
+    const lang: *const ts.Language = Language.fromRaw(root.language());
     defer lang.destroy();
 
     try testing.expectEqual(void{}, parser.setLanguage(lang));
