@@ -153,8 +153,9 @@ webbrowser = "1.0.5"
 
 tree-sitter = { version = "0.27.0", path = "./lib" }
 tree-sitter-generate = { version = "0.27.0", path = "./crates/generate" }
-tree-sitter-language = { path = "./crates/language" }
 tree-sitter-loader = { version = "0.27.0", path = "./crates/loader" }
 tree-sitter-config = { version = "0.27.0", path = "./crates/config" }
 tree-sitter-highlight = { version = "0.27.0", path = "./crates/highlight" }
 tree-sitter-tags = { version = "0.27.0", path = "./crates/tags" }
+
+tree-sitter-language = { version = "0.1.4", path = "./crates/language" }
