@@ -24,7 +24,7 @@ pub fn run_fixtures() -> Result<()> {
         ("jsdoc", "master"),
         ("json", "master"),
         ("php", "master"),
-        ("python", "master"),
+        ("python", "v0.25.0"),
         ("ruby", "master"),
         ("rust", "master"),
         ("typescript", "master"),
