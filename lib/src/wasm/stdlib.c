@@ -1,7 +1,10 @@
 // This file implements a very simple allocator for external scanners running
 // in WASM. Allocation is just bumping a static pointer and growing the heap
-// as needed, and freeing is mostly a noop. But in the special case of freeing
-// the last-allocated pointer, we'll reuse that pointer again.
+// as needed, and freeing is just adding the freed region to a free list.
+// When additional memory is allocated, the free list is searched first.
+// If there is not a suitable region in the free list, the heap is
+// grown as necessary, and the allocation is made at the end of the heap.
+// When the heap is reset, all allocated memory is considered freed.
 
 #ifdef TREE_SITTER_FEATURE_WASM
 
@@ -17,12 +20,14 @@ extern void tree_sitter_debug_message(const char *, size_t);
 
 typedef struct {
   size_t size;
+  struct Region *next;
   char data[0];
 } Region;
 
 static Region *heap_end = NULL;
 static Region *heap_start = NULL;
 static Region *next = NULL;
+static Region *free_list = NULL;
 
 // Get the region metadata for the given heap pointer.
 static inline Region *region_for_ptr(void *ptr) {
@@ -51,9 +56,25 @@ void reset_heap(void *new_heap_start) {
   heap_start = new_heap_start;
   next = new_heap_start;
   heap_end = get_heap_end();
+  free_list = NULL;
 }
 
 void *malloc(size_t size) {
+  Region *prev = NULL;
+  Region *curr = free_list;
+  while (curr != NULL) {
+    if (curr->size >= size) {
+      if (prev == NULL) {
+        free_list = curr->next;
+      } else {
+        prev->next = curr->next;
+      }
+      return &curr->data;
+    }
+    prev = curr;
+    curr = curr->next;
+  }
+
   Region *region_end = region_after(next, size);
 
   if (region_end > heap_end) {
@@ -81,6 +102,9 @@ void free(void *ptr) {
   // pointer for the next allocation.
   if (region_end == next) {
     next = region;
+  } else {
+    region->next = free_list;
+    free_list = region;
   }
 }
 
