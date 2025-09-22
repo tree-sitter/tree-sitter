@@ -40,6 +40,7 @@ pub fn build(b: *std.Build) !void {
 
     lib.root_module.addCMacro("_POSIX_C_SOURCE", "200112L");
     lib.root_module.addCMacro("_DEFAULT_SOURCE", "");
+    lib.root_module.addCMacro("_DARWIN_C_SOURCE", "");
 
     if (wasm) {
         if (b.lazyDependency(wasmtimeDep(target.result), .{})) |wasmtime| {
