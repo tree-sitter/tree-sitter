@@ -78,7 +78,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        directory: [cli/npm, lib/binding_web]
+        directory: [crates/cli/npm, lib/binding_web]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
