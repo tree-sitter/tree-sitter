@@ -81,7 +81,7 @@ set_target_properties(tree-sitter
                       SOVERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}"
                       DEFINE_SYMBOL "")
 
-target_compile_definitions(tree-sitter PRIVATE _POSIX_C_SOURCE=200112L _DEFAULT_SOURCE)
+target_compile_definitions(tree-sitter PRIVATE _POSIX_C_SOURCE=200112L _DEFAULT_SOURCE _DARWIN_C_SOURCE)
 
 include(GNUInstallDirs)
 
