@@ -1,12 +1,17 @@
 use std::{
     ops::ControlFlow,
-    sync::atomic::{AtomicUsize, Ordering},
-    thread, time,
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        mpsc,
+    },
+    thread,
+    time::{self, Duration},
 };
 
 use tree_sitter::{
     Decode, IncludedRangesError, InputEdit, LogType, ParseOptions, ParseState, Parser, Point, Range,
 };
+use tree_sitter_generate::load_grammar_file;
 use tree_sitter_proc_macro::retry;
 
 use super::helpers::{
@@ -17,7 +22,11 @@ use super::helpers::{
 use crate::{
     fuzz::edits::Edit,
     parse::perform_edit,
-    tests::{generate_parser, helpers::fixtures::get_test_fixture_language, invert_edit},
+    tests::{
+        generate_parser,
+        helpers::fixtures::{fixtures_dir, get_test_fixture_language},
+        invert_edit,
+    },
 };
 
 #[test]
@@ -2124,4 +2133,47 @@ fn test_parse_options_reborrow() {
     assert_eq!(tree2.root_node().child(0).unwrap().kind(), "function_item");
 
     assert!(parse_count.load(Ordering::SeqCst) > 0);
+}
+
+#[test]
+fn test_grammar_that_should_hang_and_not_segfault() {
+    fn hang_test() {
+        let test_grammar_dir = fixtures_dir()
+            .join("test_grammars")
+            .join("get_col_should_hang_not_crash");
+
+        let grammar_json = load_grammar_file(&test_grammar_dir.join("grammar.js"), None)
+            .expect("Failed to load grammar file");
+
+        let (parser_name, parser_code) =
+            generate_parser(grammar_json.as_str()).expect("Failed to generate parser");
+
+        let language =
+            get_test_language(&parser_name, &parser_code, Some(test_grammar_dir.as_path()));
+
+        let mut parser = Parser::new();
+        parser
+            .set_language(&language)
+            .expect("Failed to set parser language");
+
+        let code_that_should_hang = "\nHello";
+
+        parser
+            .parse(code_that_should_hang, None)
+            .expect("Parse operation completed unexpectedly");
+    }
+
+    let timeout = Duration::from_millis(500);
+    let (tx, rx) = mpsc::channel();
+
+    thread::spawn(move || tx.send(std::panic::catch_unwind(hang_test)));
+
+    match rx.recv_timeout(timeout) {
+        Ok(Ok(())) => panic!("The test completed rather than hanging"),
+        Ok(Err(panic_info)) => panic!("The test panicked unexpectedly: {panic_info:?}"),
+        Err(mpsc::RecvTimeoutError::Timeout) => {} // Expected
+        Err(mpsc::RecvTimeoutError::Disconnected) => {
+            panic!("The test thread disconnected unexpectedly")
+        }
+    }
 }
