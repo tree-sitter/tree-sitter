@@ -8,6 +8,7 @@ use tree_sitter::{
     QueryCursorOptions, QueryError, QueryErrorKind, QueryPredicate, QueryPredicateArg,
     QueryProperty, Range,
 };
+use tree_sitter_generate::load_grammar_file;
 use unindent::Unindent;
 
 use super::helpers::{
@@ -5761,4 +5762,61 @@ fn test_query_allows_error_nodes_with_children() {
         let matches = collect_matches(matches, &query, code);
         assert_eq!(matches, &[(0, vec![("error", ".bar")])]);
     });
+}
+
+#[test]
+fn test_query_assertion_on_unreachable_node_with_child() {
+    // The `await_binding` rule is unreachable because it has a lower precedence than
+    // `identifier`, so we'll always reduce to an expression of type `identifier`
+    // instead whenever we see the token `await` followed by an identifier.
+    //
+    // A query that tries to capture the `await` token in the `await_binding` rule
+    // should not cause an assertion failure during query analysis.
+    let grammar = r#"
+module.exports = grammar({
+  name: "query_assertion_crash",
+
+  rules: {
+    source_file: $ => repeat($.expression),
+
+    expression: $ => choice(
+      $.await_binding,
+      $.await_expr,
+      $.equal_expr,
+      prec(3, $.identifier),
+    ),
+
+    await_binding: $ => prec(1, seq('await', $.identifier, '=', $.expression)),
+
+    await_expr: $ => prec(1, seq('await', $.expression)),
+
+    equal_expr: $ => prec.right(2, seq($.expression, '=', $.expression)),
+
+    identifier: _ => /[a-z]+/,
+  }
+});
+    "#;
+
+    let file = tempfile::NamedTempFile::with_suffix(".js").unwrap();
+    std::fs::write(file.path(), grammar).unwrap();
+
+    let grammar_json = load_grammar_file(file.path(), None).unwrap();
+
+    let (parser_name, parser_code) = generate_parser(&grammar_json).unwrap();
+
+    let language = get_test_language(&parser_name, &parser_code, None);
+
+    let query_result = Query::new(&language, r#"(await_binding "await")"#);
+
+    assert!(query_result.is_err());
+    assert_eq!(
+        query_result.unwrap_err(),
+        QueryError {
+            kind: QueryErrorKind::Structure,
+            row: 0,
+            offset: 0,
+            column: 0,
+            message: ["(await_binding \"await\")", "^"].join("\n"),
+        }
+    );
 }

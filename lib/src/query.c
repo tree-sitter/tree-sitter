@@ -1759,8 +1759,13 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
     // If this pattern cannot match, store the pattern index so that it can be
     // returned to the caller.
     if (analysis.finished_parent_symbols.size == 0) {
-      ts_assert(analysis.final_step_indices.size > 0);
-      uint16_t impossible_step_index = *array_back(&analysis.final_step_indices);
+      uint16_t impossible_step_index;
+      if (analysis.final_step_indices.size > 0) {
+        impossible_step_index = *array_back(&analysis.final_step_indices);
+      } else {
+        // If there isn't a final step, then that means the parent step itself is unreachable.
+        impossible_step_index = parent_step_index;
+      }
       uint32_t j, impossible_exists;
       array_search_sorted_by(&self->step_offsets, .step_index, impossible_step_index, &j, &impossible_exists);
       if (j >= self->step_offsets.size) j = self->step_offsets.size - 1;
