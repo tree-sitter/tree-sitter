@@ -505,7 +505,6 @@ fn load_js_grammar_file(grammar_path: &Path, js_runtime: Option<&str>) -> JSResu
         .wait_with_output()
         .map_err(|e| JSError::IO(format!("Failed to read output from `{js_runtime}` -- {e}")))?;
     match output.status.code() {
-        None => panic!("`{js_runtime}` process was killed"),
         Some(0) => {
             let stdout = String::from_utf8(output.stdout).map_err(|e| JSError::JSRuntimeUtf8 {
                 runtime: js_runtime.to_string(),
@@ -532,6 +531,10 @@ fn load_js_grammar_file(grammar_path: &Path, js_runtime: Option<&str>) -> JSResu
         Some(code) => Err(JSError::JSRuntimeExit {
             runtime: js_runtime.to_string(),
             code,
+        }),
+        None => Err(JSError::JSRuntimeExit {
+            runtime: js_runtime.to_string(),
+            code: -1,
         }),
     }
 }

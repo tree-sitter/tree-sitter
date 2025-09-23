@@ -351,7 +351,7 @@ impl From<ffi::TSQuantifier> for CaptureQuantifier {
             ffi::TSQuantifierZeroOrMore => Self::ZeroOrMore,
             ffi::TSQuantifierOne => Self::One,
             ffi::TSQuantifierOneOrMore => Self::OneOrMore,
-            _ => panic!("Unrecognized quantifier: {value}"),
+            _ => unreachable!(),
         }
     }
 }
