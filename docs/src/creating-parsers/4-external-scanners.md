@@ -294,6 +294,94 @@ bool tree_sitter_my_language_external_scanner_scan(
 
 ```
 
+### Character Set Functions
+
+If your grammar contains complex patterns, Tree-sitter automatically generates helper functions that your external scanner
+can use to check if a character matches those character sets. This avoids the need to reimplement logic for matching complex
+tokens in your scanner. These matching functions are added to the `parser.h` header file. The function names follow the pattern
+`matches_sym_<symbol_name>(int32_t lookahead)`.
+
+The threshold for complexity is determined by how many unique character _ranges_ your token has. If a token has more than
+8 character ranges, Tree-sitter will generate a matching function for it. Here, a character range is defined as a contiguous
+sequence of characters. For example, the regex `[a-zA-Z0-9_]` has four character ranges: `a-z`, `A-Z`, `0-9`, and `_`.
+
+Given this grammar:
+
+```js
+export default grammar({
+  name: "large_character_set",
+
+  externals: ($) => [$.some_external_token],
+
+  rules: {
+    program: ($) =>
+      repeat(choice($.identifier, $.number, $.some_external_token)),
+
+    identifier: (_) => /\p{Letter}\p{Letter_Number}*/,
+
+    number: (_) => /\p{Number}+/,
+  },
+});
+```
+
+Tree-sitter will generate these functions that you can use in your external scanner:
+
+```c
+// Check if `lookahead` matches any character set for the `identifier` symbol
+bool matches_sym_identifier(int32_t lookahead);
+
+// Check if `lookahead` matches any character set for the `number` symbol
+bool matches_sym_number(int32_t lookahead);
+```
+
+You can then use these functions in your scanner:
+
+```c
+#include "tree_sitter/parser.h"
+
+enum TokenType {
+  SOME_EXTERNAL_TOKEN,
+};
+
+// ...
+
+bool tree_sitter_large_character_set_external_scanner_scan(
+  void *payload,
+  TSLexer *lexer,
+  const bool *valid_symbols
+) {
+  if (valid_symbols[SOME_EXTERNAL_TOKEN]) {
+    if (
+       matches_sym_identifier(lexer->lookahead) && // <-- using the generated function
+      /* some other condition */
+    ) {
+      lexer->result_symbol = SOME_EXTERNAL_TOKEN;
+      return true;
+    }
+  }
+
+  return false;
+}
+```
+
+You might notice that there are other functions beyond the `matches_sym_<symbol_name>` functions in the `parser.h` file.
+This will happen if the token has multiple distinct character set groups, such as the following example:
+
+```js
+identifier: _ => /[_\p{XID_Start}][_\p{XID_Continue}]*/,
+```
+
+In this case, Tree-sitter would generate:
+
+- `matches_sym_identifier_character_set_1(int32_t lookahead)` for the `[_\p{XID_Start}]` group
+
+- `matches_sym_identifier_character_set_2(int32_t lookahead)` for the `[_\p{XID_Continue}]` group
+
+- `matches_sym_identifier(int32_t lookahead)` as a wrapper that checks every group
+
+This allows you to match specific parts of complex tokens when needed, or use the main function to match any valid character
+for that token.
+
 ## Other External Scanner Details
 
 External scanners have priority over Tree-sitter's normal lexing process. When a token listed in the externals array is valid

@@ -29,6 +29,6 @@ pub use crate::fuzz::{
 
 /// This is a simple wrapper around [`tree_sitter_generate::generate_parser_for_grammar`], because
 /// our tests do not need to pass in a version number, only the grammar JSON.
-fn generate_parser(grammar_json: &str) -> GenerateResult<(String, String)> {
+fn generate_parser(grammar_json: &str) -> GenerateResult<(String, String, String)> {
     tree_sitter_generate::generate_parser_for_grammar(grammar_json, Some((0, 0, 0)))
 }

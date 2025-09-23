@@ -41,3 +41,14 @@ Letterlike numeric characters
 
 (program
   (letter_number) (letter_number) (letter_number))
+
+================================================================================
+Letterlike numeric characters with a prefix
+================================================================================
+
+!ᛯ !Ⅵ !〩
+
+---
+
+(program
+  (letter_number_with_prefix) (letter_number_with_prefix) (letter_number_with_prefix))

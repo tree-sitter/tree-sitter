@@ -1551,7 +1551,7 @@ fn test_parsing_with_a_newly_included_range() {
 
 #[test]
 fn test_parsing_with_included_ranges_and_missing_tokens() {
-    let (parser_name, parser_code) = generate_parser(
+    let (parser_name, parser_code, header_code) = generate_parser(
         r#"{
             "name": "test_leading_missing_token",
             "rules": {
@@ -1577,7 +1577,12 @@ fn test_parsing_with_included_ranges_and_missing_tokens() {
 
     let mut parser = Parser::new();
     parser
-        .set_language(&get_test_language(&parser_name, &parser_code, None))
+        .set_language(&get_test_language(
+            &parser_name,
+            &parser_code,
+            &header_code,
+            None,
+        ))
         .unwrap();
 
     // There's a missing `a` token at the beginning of the code. It must be inserted
@@ -1612,7 +1617,7 @@ fn test_parsing_with_included_ranges_and_missing_tokens() {
 
 #[test]
 fn test_grammars_that_can_hang_on_eof() {
-    let (parser_name, parser_code) = generate_parser(
+    let (parser_name, parser_code, header_code) = generate_parser(
         r#"
         {
             "name": "test_single_null_char_regex",
@@ -1634,11 +1639,16 @@ fn test_grammars_that_can_hang_on_eof() {
 
     let mut parser = Parser::new();
     parser
-        .set_language(&get_test_language(&parser_name, &parser_code, None))
+        .set_language(&get_test_language(
+            &parser_name,
+            &parser_code,
+            &header_code,
+            None,
+        ))
         .unwrap();
     parser.parse("\"", None).unwrap();
 
-    let (parser_name, parser_code) = generate_parser(
+    let (parser_name, parser_code, header_code) = generate_parser(
         r#"
         {
             "name": "test_null_char_with_next_char_regex",
@@ -1659,11 +1669,16 @@ fn test_grammars_that_can_hang_on_eof() {
     .unwrap();
 
     parser
-        .set_language(&get_test_language(&parser_name, &parser_code, None))
+        .set_language(&get_test_language(
+            &parser_name,
+            &parser_code,
+            &header_code,
+            None,
+        ))
         .unwrap();
     parser.parse("\"", None).unwrap();
 
-    let (parser_name, parser_code) = generate_parser(
+    let (parser_name, parser_code, header_code) = generate_parser(
         r#"
         {
             "name": "test_null_char_with_range_regex",
@@ -1684,7 +1699,12 @@ fn test_grammars_that_can_hang_on_eof() {
     .unwrap();
 
     parser
-        .set_language(&get_test_language(&parser_name, &parser_code, None))
+        .set_language(&get_test_language(
+            &parser_name,
+            &parser_code,
+            &header_code,
+            None,
+        ))
         .unwrap();
     parser.parse("\"", None).unwrap();
 }

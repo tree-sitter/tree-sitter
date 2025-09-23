@@ -555,11 +555,17 @@ fn test_node_named_child() {
 
 #[test]
 fn test_node_named_child_with_aliases_and_extras() {
-    let (parser_name, parser_code) = generate_parser(GRAMMAR_WITH_ALIASES_AND_EXTRAS).unwrap();
+    let (parser_name, parser_code, header_code) =
+        generate_parser(GRAMMAR_WITH_ALIASES_AND_EXTRAS).unwrap();
 
     let mut parser = Parser::new();
     parser
-        .set_language(&get_test_language(&parser_name, &parser_code, None))
+        .set_language(&get_test_language(
+            &parser_name,
+            &parser_code,
+            &header_code,
+            None,
+        ))
         .unwrap();
 
     let tree = parser.parse("b ... b ... c", None).unwrap();
@@ -948,7 +954,7 @@ fn test_node_sexp() {
 
 #[test]
 fn test_node_field_names() {
-    let (parser_name, parser_code) = generate_parser(
+    let (parser_name, parser_code, header_code) = generate_parser(
         r#"
         {
             "name": "test_grammar_with_fields",
@@ -1020,7 +1026,7 @@ fn test_node_field_names() {
     .unwrap();
 
     let mut parser = Parser::new();
-    let language = get_test_language(&parser_name, &parser_code, None);
+    let language = get_test_language(&parser_name, &parser_code, &header_code, None);
     parser.set_language(&language).unwrap();
 
     let tree = parser
@@ -1058,7 +1064,7 @@ fn test_node_field_names() {
 
 #[test]
 fn test_node_field_calls_in_language_without_fields() {
-    let (parser_name, parser_code) = generate_parser(
+    let (parser_name, parser_code, header_code) = generate_parser(
         r#"
         {
             "name": "test_grammar_with_no_fields",
@@ -1090,7 +1096,7 @@ fn test_node_field_calls_in_language_without_fields() {
     .unwrap();
 
     let mut parser = Parser::new();
-    let language = get_test_language(&parser_name, &parser_code, None);
+    let language = get_test_language(&parser_name, &parser_code, &header_code, None);
     parser.set_language(&language).unwrap();
 
     let tree = parser.parse("b c d", None).unwrap();
@@ -1116,10 +1122,10 @@ fn test_node_is_named_but_aliased_as_anonymous() {
     )
     .unwrap();
 
-    let (parser_name, parser_code) = generate_parser(&grammar_json).unwrap();
+    let (parser_name, parser_code, header_code) = generate_parser(&grammar_json).unwrap();
 
     let mut parser = Parser::new();
-    let language = get_test_language(&parser_name, &parser_code, None);
+    let language = get_test_language(&parser_name, &parser_code, &header_code, None);
     parser.set_language(&language).unwrap();
 
     let tree = parser.parse("B C B", None).unwrap();
