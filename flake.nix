@@ -17,7 +17,7 @@
       eachSystem = lib.genAttrs systems;
       pkgsFor = inputs.nixpkgs.legacyPackages;
 
-          version = "0.26.0";
+      version = "0.26.0";
 
       fs = lib.fileset;
       src = fs.toSource {
@@ -326,11 +326,12 @@
               clippy
               rust-analyzer
               rustfmt
-              cargo-cross
+              cargo-llvm-cov
 
               cmake
               gnumake
               pkg-config
+              llvm
               clang
               libclang
 
@@ -392,6 +393,8 @@
             env = {
               RUST_BACKTRACE = 1;
               LIBCLANG_PATH = "${pkgs.libclang.lib}/lib";
+              LLVM_COV = "${pkgs.llvm}/bin/llvm-cov";
+              LLVM_PROFDATA = "${pkgs.llvm}/bin/llvm-profdata";
               TREE_SITTER_WASI_SDK_PATH = "${pkgs.pkgsCross.wasi32.stdenv.cc}";
             };
           };
