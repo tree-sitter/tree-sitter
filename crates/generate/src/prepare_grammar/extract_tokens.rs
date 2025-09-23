@@ -591,14 +591,13 @@ mod test {
         ]);
         grammar.external_tokens = vec![Variable::named("rule_1", Rule::non_terminal(1))];
 
-        match extract_tokens(grammar) {
-            Err(e) => {
-                assert_eq!(e.to_string(), "Rule 'rule_1' cannot be used as both an external token and a non-terminal rule");
-            }
-            _ => {
-                panic!("Expected an error but got no error");
-            }
-        }
+        let result = extract_tokens(grammar);
+        assert!(result.is_err(), "Expected an error but got no error");
+        let err = result.err().unwrap();
+        assert_eq!(
+            err.to_string(),
+            "Rule 'rule_1' cannot be used as both an external token and a non-terminal rule"
+        );
     }
 
     #[test]
