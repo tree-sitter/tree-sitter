@@ -481,7 +481,7 @@ fn test_highlighting_cancellation() {
 
     // The initial `highlight` call, which eagerly parses the outer document, should not fail.
     let mut highlighter = Highlighter::new();
-    let events = highlighter
+    let mut events = highlighter
         .highlight(
             &HTML_HIGHLIGHT,
             source.as_bytes(),
@@ -492,14 +492,18 @@ fn test_highlighting_cancellation() {
 
     // Iterating the scopes should not panic. It should return an error once the
     // cancellation is detected.
-    for event in events {
-        if let Err(e) = event {
-            assert_eq!(e, Error::Cancelled);
-            return;
+    let found_cancellation_error = events.any(|event| match event {
+        Ok(_) => false,
+        Err(Error::Cancelled) => true,
+        Err(Error::InvalidLanguage | Error::Unknown) => {
+            unreachable!("Unexpected error type while iterating events")
         }
-    }
+    });
 
-    panic!("Expected an error while iterating highlighter");
+    assert!(
+        found_cancellation_error,
+        "Expected a cancellation error while iterating events"
+    );
 }
 
 #[test]

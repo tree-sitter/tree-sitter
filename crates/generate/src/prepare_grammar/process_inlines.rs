@@ -549,10 +549,9 @@ mod tests {
             ..Default::default()
         };
 
-        if let Err(error) = process_inlines(&grammar, &lexical_grammar) {
-            assert_eq!(error.to_string(), "Token `something` cannot be inlined");
-        } else {
-            panic!("expected an error, but got none");
-        }
+        let result = process_inlines(&grammar, &lexical_grammar);
+        assert!(result.is_err(), "expected an error, but got none");
+        let err = result.err().unwrap();
+        assert_eq!(err.to_string(), "Token `something` cannot be inlined",);
     }
 }

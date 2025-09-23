@@ -1,6 +1,7 @@
 use std::{
     ffi::{CStr, CString},
     fs, ptr, slice, str,
+    sync::atomic::{AtomicUsize, Ordering},
 };
 
 use tree_sitter::Point;
@@ -262,34 +263,34 @@ fn test_tags_ruby() {
 
 #[test]
 fn test_tags_cancellation() {
-    use std::sync::atomic::{AtomicUsize, Ordering};
-
     allocations::record(|| {
         // Large javascript document
-        let source = (0..500)
-            .map(|_| "/* hi */ class A { /* ok */ b() {} }\n")
-            .collect::<String>();
-
+        let source = "/* hi */ class A { /* ok */ b() {} }\n".repeat(500);
         let cancellation_flag = AtomicUsize::new(0);
         let language = get_language("javascript");
         let tags_config = TagsConfiguration::new(language, JS_TAG_QUERY, "").unwrap();
-
         let mut tag_context = TagsContext::new();
         let tags = tag_context
             .generate_tags(&tags_config, source.as_bytes(), Some(&cancellation_flag))
             .unwrap();
 
-        for (i, tag) in tags.0.enumerate() {
+        let found_cancellation_error = tags.0.enumerate().any(|(i, tag)| {
             if i == 150 {
                 cancellation_flag.store(1, Ordering::SeqCst);
             }
-            if let Err(e) = tag {
-                assert_eq!(e, Error::Cancelled);
-                return;
+            match tag {
+                Ok(_) => false,
+                Err(Error::Cancelled) => true,
+                Err(e) => {
+                    unreachable!("Unexpected error type while iterating tags: {e}")
+                }
             }
-        }
+        });
 
-        panic!("Expected to halt tagging with an error");
+        assert!(
+            found_cancellation_error,
+            "Expected to halt tagging with a cancellation error"
+        );
     });
 }
 

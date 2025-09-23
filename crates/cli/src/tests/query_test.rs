@@ -4186,12 +4186,9 @@ fn test_query_random() {
             let pattern = pattern_ast.to_string();
             let expected_matches = pattern_ast.matches_in_tree(&test_tree);
 
-            let query = match Query::new(&language, &pattern) {
-                Ok(query) => query,
-                Err(e) => {
-                    panic!("failed to build query for pattern {pattern} - {e}. seed: {seed}");
-                }
-            };
+            let query = Query::new(&language, &pattern).unwrap_or_else(|e| {
+                panic!("failed to build query for pattern {pattern}. seed: {seed}\n{e}")
+            });
             let mut actual_matches = Vec::new();
             let mut match_iter = cursor.matches(
                 &query,

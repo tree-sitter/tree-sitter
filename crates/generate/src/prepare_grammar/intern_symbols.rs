@@ -279,10 +279,9 @@ mod tests {
     fn test_grammar_with_undefined_symbols() {
         let result = intern_symbols(&build_grammar(vec![Variable::named("x", Rule::named("y"))]));
 
-        match result {
-            Err(e) => assert_eq!(e.to_string(), "Undefined symbol `y`"),
-            _ => panic!("Expected an error but got none"),
-        }
+        assert!(result.is_err(), "Expected an error but got none");
+        let e = result.err().unwrap();
+        assert_eq!(e.to_string(), "Undefined symbol `y`");
     }
 
     fn build_grammar(variables: Vec<Variable>) -> InputGrammar {
