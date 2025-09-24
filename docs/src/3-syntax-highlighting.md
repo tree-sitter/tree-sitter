@@ -433,7 +433,7 @@ not the `keyword` class.
 ```
 
 [erb]: https://en.wikipedia.org/wiki/ERuby
-[highlight crate]: https://github.com/tree-sitter/tree-sitter/tree/master/highlight
+[highlight crate]: https://github.com/tree-sitter/tree-sitter/tree/master/crates/highlight
 [init-config]: ./cli/init-config.md
 [init]: ./cli/init.md#structure-of-tree-sitterjson
 [js grammar]: https://github.com/tree-sitter/tree-sitter-javascript
