@@ -1,6 +1,2 @@
 [alias]
 xtask = "run --package xtask --"
-
-[env]
-# See: https://github.com/rust-lang/cargo/issues/3946#issuecomment-973132993
-CARGO_WORKSPACE_DIR = { value = "", relative = true }
