@@ -8,6 +8,7 @@ use std::{
 };
 
 use anyhow::Result;
+use bitflags::bitflags;
 use log::warn;
 use node_types::VariableInfo;
 use regex::{Regex, RegexBuilder};
@@ -191,6 +192,19 @@ impl From<rquickjs::Error> for JSError {
     }
 }
 
+bitflags! {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    pub struct OptLevel: u32 {
+        const MergeStates = 1 << 0;
+    }
+}
+
+impl Default for OptLevel {
+    fn default() -> Self {
+        Self::MergeStates
+    }
+}
+
 #[cfg(feature = "load")]
 #[allow(clippy::too_many_arguments)]
 pub fn generate_parser_in_directory<T, U, V>(
@@ -201,6 +215,7 @@ pub fn generate_parser_in_directory<T, U, V>(
     report_symbol_name: Option<&str>,
     js_runtime: Option<&str>,
     generate_parser: bool,
+    optimizations: OptLevel,
 ) -> GenerateResult<()>
 where
     T: Into<PathBuf>,
@@ -278,6 +293,7 @@ where
         abi_version,
         semantic_version.map(|v| (v.major as u8, v.minor as u8, v.patch as u8)),
         report_symbol_name,
+        optimizations,
     )?;
 
     write_file(&src_path.join("parser.c"), c_code)?;
@@ -301,6 +317,7 @@ pub fn generate_parser_for_grammar(
         LANGUAGE_VERSION,
         semantic_version,
         None,
+        OptLevel::empty(),
     )?;
     Ok((input_grammar.name, parser.c_code))
 }
@@ -334,6 +351,7 @@ fn generate_parser_for_grammar_with_opts(
     abi_version: usize,
     semantic_version: Option<(u8, u8, u8)>,
     report_symbol_name: Option<&str>,
+    optimizations: OptLevel,
 ) -> GenerateResult<GeneratedParser> {
     let JSONOutput {
         syntax_grammar,
@@ -353,6 +371,7 @@ fn generate_parser_for_grammar_with_opts(
         &variable_info,
         &inlines,
         report_symbol_name,
+        optimizations,
     )?;
     let c_code = render_c_code(
         &input_grammar.name,
