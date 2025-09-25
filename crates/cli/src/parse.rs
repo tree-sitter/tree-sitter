@@ -234,6 +234,7 @@ impl ParseSummary {
 pub struct ParseStats {
     pub parse_summaries: Vec<ParseSummary>,
     pub cumulative_stats: Stats,
+    pub source_count: usize,
 }
 
 #[derive(Serialize, ValueEnum, Debug, Copy, Clone, Default, Eq, PartialEq)]
@@ -508,11 +509,18 @@ pub fn parse_file_at_path(
 
         if opts.output == ParseOutput::Xml {
             let mut needs_newline = false;
-            let mut indent_level = 0;
+            let mut indent_level = 2;
             let mut did_visit_children = false;
             let mut had_named_children = false;
             let mut tags = Vec::<&str>::new();
-            writeln!(&mut stdout, "<?xml version=\"1.0\"?>")?;
+
+            // If we're parsing the first file, write the header
+            if opts.stats.parse_summaries.is_empty() {
+                writeln!(&mut stdout, "<?xml version=\"1.0\"?>")?;
+                writeln!(&mut stdout, "<sources>")?;
+            }
+            writeln!(&mut stdout, "  <source name=\"{}\">", path.display())?;
+
             loop {
                 let node = cursor.node();
                 let is_named = node.is_named();
@@ -591,8 +599,14 @@ pub fn parse_file_at_path(
                     }
                 }
             }
+            writeln!(&mut stdout)?;
+            writeln!(&mut stdout, "  </source>")?;
+
+            // If we parsed the last file, write the closing tag for the `sources` header
+            if opts.stats.parse_summaries.len() == opts.stats.source_count - 1 {
+                writeln!(&mut stdout, "</sources>")?;
+            }
             cursor.reset(tree.root_node());
-            println!();
         }
 
         if opts.output == ParseOutput::Dot {

@@ -1055,6 +1055,7 @@ impl Parse {
                     .map(|p| p.to_string_lossy().chars().count())
                     .max()
                     .unwrap_or(0);
+                options.stats.source_count = paths.len();
 
                 for path in &paths {
                     let path = Path::new(&path);
