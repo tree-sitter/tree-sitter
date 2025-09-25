@@ -5,9 +5,11 @@ use std::{
 };
 
 use anyhow::{anyhow, Context, Result};
+use crc32fast::hash as crc32;
 use heck::{ToKebabCase, ToShoutySnakeCase, ToSnakeCase, ToUpperCamelCase};
 use indoc::{formatdoc, indoc};
 use log::warn;
+use rand::{thread_rng, Rng};
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
@@ -33,6 +35,7 @@ const PARSER_LICENSE_PLACEHOLDER: &str = "PARSER_LICENSE";
 const PARSER_URL_PLACEHOLDER: &str = "PARSER_URL";
 const PARSER_URL_STRIPPED_PLACEHOLDER: &str = "PARSER_URL_STRIPPED";
 const PARSER_VERSION_PLACEHOLDER: &str = "PARSER_VERSION";
+const PARSER_FINGERPRINT_PLACEHOLDER: &str = "PARSER_FINGERPRINT";
 
 const AUTHOR_NAME_PLACEHOLDER: &str = "PARSER_AUTHOR_NAME";
 const AUTHOR_EMAIL_PLACEHOLDER: &str = "PARSER_AUTHOR_EMAIL";
@@ -154,7 +157,7 @@ impl JsonConfigOpts {
                 authors: Some(vec![Author {
                     name: self.author,
                     email: self.email,
-                    url: self.url.map(|url| url.to_string()),
+                    url: self.url,
                 }]),
                 links: Some(Links {
                     repository: self.repository.unwrap_or_else(|| {
@@ -1151,6 +1154,18 @@ fn generate_file(
             }
             _ => {}
         }
+    }
+
+    if filename == "build.zig.zon" {
+        let id = thread_rng().gen_range(1u32..0xFFFF_FFFFu32);
+        let checksum = crc32(format!("tree_sitter_{language_name}").as_bytes());
+        replacement = replacement.replace(
+            PARSER_FINGERPRINT_PLACEHOLDER,
+            #[cfg(target_endian = "little")]
+            &format!("0x{checksum:x}{id:x}"),
+            #[cfg(target_endian = "big")]
+            &format!("0x{id:x}{checksum:x}"),
+        );
     }
 
     write_file(path, replacement)?;

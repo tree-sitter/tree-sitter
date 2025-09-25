@@ -117,6 +117,7 @@ clap = { version = "4.5.45", features = [
 ] }
 clap_complete = "4.5.57"
 clap_complete_nushell = "4.5.8"
+crc32fast = "1.5.0"
 ctor = "0.2.9"
 ctrlc = { version = "3.5.0", features = ["termination"] }
 dialoguer = { version = "0.11.0", features = ["fuzzy-select"] }
