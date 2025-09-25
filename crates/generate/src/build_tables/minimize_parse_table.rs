@@ -11,6 +11,7 @@ use crate::{
     grammars::{LexicalGrammar, SyntaxGrammar, VariableType},
     rules::{AliasMap, Symbol, TokenSet},
     tables::{GotoAction, ParseAction, ParseState, ParseStateId, ParseTable, ParseTableEntry},
+    OptLevel,
 };
 
 pub fn minimize_parse_table(
@@ -20,6 +21,7 @@ pub fn minimize_parse_table(
     simple_aliases: &AliasMap,
     token_conflict_map: &TokenConflictMap,
     keywords: &TokenSet,
+    optimizations: OptLevel,
 ) {
     let mut minimizer = Minimizer {
         parse_table,
@@ -29,7 +31,9 @@ pub fn minimize_parse_table(
         keywords,
         simple_aliases,
     };
-    minimizer.merge_compatible_states();
+    if optimizations.contains(OptLevel::MergeStates) {
+        minimizer.merge_compatible_states();
+    }
     minimizer.remove_unit_reductions();
     minimizer.remove_unused_states();
     minimizer.reorder_states_by_descending_size();

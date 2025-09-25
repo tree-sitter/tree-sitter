@@ -1959,6 +1959,7 @@ name = "tree-sitter-generate"
 version = "0.26.0"
 dependencies = [
  "anyhow",
+ "bitflags 2.9.4",
  "dunce",
  "indexmap",
  "indoc",
