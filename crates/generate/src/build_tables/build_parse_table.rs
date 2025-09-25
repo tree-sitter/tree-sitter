@@ -77,6 +77,8 @@ pub enum ParseTableBuilderError {
         "The non-terminal rule `{0}` is used in a non-terminal `extra` rule, which is not allowed."
     )]
     ImproperNonTerminalExtra(String),
+    #[error("State count `{0}` exceeds the max value {max}.", max=u16::MAX)]
+    StateCount(usize),
 }
 
 #[derive(Default, Debug, Serialize)]

@@ -100,6 +100,10 @@ pub fn build_tables(
         );
     }
 
+    if parse_table.states.len() > u16::MAX as usize {
+        Err(ParseTableBuilderError::StateCount(parse_table.states.len()))?;
+    }
+
     Ok(Tables {
         parse_table,
         main_lex_table: lex_tables.main_lex_table,
