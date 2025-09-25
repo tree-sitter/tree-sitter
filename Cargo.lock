@@ -1909,6 +1909,7 @@ dependencies = [
  "clap",
  "clap_complete",
  "clap_complete_nushell",
+ "crc32fast",
  "ctor",
  "ctrlc",
  "dialoguer",

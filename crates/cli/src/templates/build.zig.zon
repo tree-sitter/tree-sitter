@@ -1,5 +1,6 @@
 .{
     .name = .tree_sitter_PARSER_NAME,
+    .fingerprint = PARSER_FINGERPRINT,
     .version = "PARSER_VERSION",
     .dependencies = .{
         .tree_sitter = .{
