@@ -416,11 +416,11 @@ fn test_query_errors_on_impossible_patterns() {
             Err(QueryError {
                 kind: QueryErrorKind::Structure,
                 row: 0,
-                offset: 51,
-                column: 51,
+                offset: 37,
+                column: 37,
                 message: [
                     "(binary_expression left: (expression (identifier)) left: (expression (identifier)))",
-                    "                                                   ^",
+                    "                                     ^",
                 ]
                 .join("\n"),
             })
@@ -5773,7 +5773,7 @@ fn test_query_assertion_on_unreachable_node_with_child() {
     // A query that tries to capture the `await` token in the `await_binding` rule
     // should not cause an assertion failure during query analysis.
     let grammar = r#"
-module.exports = grammar({
+export default grammar({
   name: "query_assertion_crash",
 
   rules: {
@@ -5819,4 +5819,53 @@ module.exports = grammar({
             message: ["(await_binding \"await\")", "^"].join("\n"),
         }
     );
+}
+
+#[test]
+fn test_query_supertype_with_anonymous_node() {
+    let grammar = r#"
+export default grammar({
+  name: "supertype_anonymous_test",
+
+  extras: $ => [/\s/, $.comment],
+
+  supertypes: $ => [$.expression],
+
+  word: $ => $.identifier,
+
+  rules: {
+    source_file: $ => repeat($.expression),
+
+    expression: $ => choice(
+      $.function_call,
+      '()' // an empty tuple, which should be queryable with the supertype syntax
+    ),
+
+    function_call: $ => seq($.identifier, '()'),
+
+    identifier: _ => /[a-zA-Z_][a-zA-Z0-9_]*/,
+
+    comment: _ => token(seq('//', /.*/)),
+  }
+});
+    "#;
+
+    let file = tempfile::NamedTempFile::with_suffix(".js").unwrap();
+    std::fs::write(file.path(), grammar).unwrap();
+
+    let grammar_json = load_grammar_file(file.path(), None).unwrap();
+
+    let (parser_name, parser_code) = generate_parser(&grammar_json).unwrap();
+
+    let language = get_test_language(&parser_name, &parser_code, None);
+
+    let query_result = Query::new(&language, r#"(expression/"()") @tuple"#);
+
+    assert!(query_result.is_ok());
+
+    let query = query_result.unwrap();
+
+    let source = "foo()\n()";
+
+    assert_query_matches(&language, &query, source, &[(0, vec![("tuple", "()")])]);
 }
