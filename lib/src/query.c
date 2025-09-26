@@ -2415,6 +2415,7 @@ static TSQueryError ts_query__parse_pattern(
 
       stream_skip_whitespace(stream);
 
+      // Parse a supertype symbol
       if (stream->next == '/') {
         if (!step->supertype_symbol) {
           stream_reset(stream, node_name - 1); // reset to the start of the node
@@ -2422,20 +2423,31 @@ static TSQueryError ts_query__parse_pattern(
         }
 
         stream_advance(stream);
-        if (!stream_is_ident_start(stream)) {
+
+        const char *subtype_node_name = stream->input;
+
+        if (stream_is_ident_start(stream)) { // Named node
+          stream_scan_identifier(stream);
+          uint32_t length = (uint32_t)(stream->input - subtype_node_name);
+          step->symbol = ts_language_symbol_for_name(
+            self->language,
+            subtype_node_name,
+            length,
+            true
+          );
+        } else if (stream->next == '"') { // Anonymous leaf node
+          TSQueryError e = ts_query__parse_string_literal(self, stream);
+          if (e) return e;
+          step->symbol = ts_language_symbol_for_name(
+            self->language,
+            self->string_buffer.contents,
+            self->string_buffer.size,
+            false
+          );
+        } else {
           return TSQueryErrorSyntax;
         }
 
-        const char *subtype_node_name = stream->input;
-        stream_scan_identifier(stream);
-        uint32_t length = (uint32_t)(stream->input - subtype_node_name);
-
-        step->symbol = ts_language_symbol_for_name(
-          self->language,
-          subtype_node_name,
-          length,
-          true
-        );
         if (!step->symbol) {
           stream_reset(stream, subtype_node_name);
           return TSQueryErrorNodeType;
