@@ -131,6 +131,6 @@ To learn more about this command, check the [reference page](../cli/generate.md)
 [npm]: https://docs.npmjs.com
 [path-env]: https://en.wikipedia.org/wiki/PATH_(variable)
 [releases]: https://github.com/tree-sitter/tree-sitter/releases/latest
-[tree-sitter-cli]: https://github.com/tree-sitter/tree-sitter/tree/master/cli
+[tree-sitter-cli]: https://github.com/tree-sitter/tree-sitter/tree/master/crates/cli
 [triple-slash]: https://www.typescriptlang.org/docs/handbook/triple-slash-directives.html
 [ts-check]: https://www.typescriptlang.org/docs/handbook/intro-to-js-ts.html

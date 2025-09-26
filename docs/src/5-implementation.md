@@ -51,10 +51,10 @@ WIP
 [crates]: https://crates.io
 [npm]: https://npmjs.com
 [gh]: https://github.com/tree-sitter/tree-sitter/releases/latest
-[src]: https://github.com/tree-sitter/tree-sitter/tree/master/cli/src
+[src]: https://github.com/tree-sitter/tree-sitter/tree/master/crates/cli/src
 [schema]: https://tree-sitter.github.io/tree-sitter/assets/schemas/grammar.schema.json
-[parse grammar]: https://github.com/tree-sitter/tree-sitter/blob/master/cli/generate/src/parse_grammar.rs
+[parse grammar]: https://github.com/tree-sitter/tree-sitter/blob/master/crates/generate/src/parse_grammar.rs
 [enum]: https://doc.rust-lang.org/book/ch06-01-defining-an-enum.html
-[rules.rs]: https://github.com/tree-sitter/tree-sitter/blob/master/cli/generate/src/rules.rs
-[prepare grammar]: https://github.com/tree-sitter/tree-sitter/tree/master/cli/generate/src/prepare_grammar
+[rules.rs]: https://github.com/tree-sitter/tree-sitter/blob/master/crates/generate/src/rules.rs
+[prepare grammar]: https://github.com/tree-sitter/tree-sitter/tree/master/crates/generate/src/prepare_grammar
 [symbols]: https://en.wikipedia.org/wiki/Terminal_and_nonterminal_symbols
