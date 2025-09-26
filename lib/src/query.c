@@ -1483,6 +1483,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
   // basic information about each step. Mark all of the steps that contain
   // captures, and record the indices of all of the steps that have child steps.
   Array(uint32_t) parent_step_indices = array_new();
+  bool all_patterns_are_valid = true;
   for (unsigned i = 0; i < self->steps.size; i++) {
     QueryStep *step = array_get(&self->steps, i);
     if (step->depth == PATTERN_DONE_MARKER) {
@@ -1510,8 +1511,45 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
       has_children = true;
     }
 
-    if (has_children && !is_wildcard) {
-      array_push(&parent_step_indices, i);
+    if (has_children) {
+      if (!is_wildcard) {
+        array_push(&parent_step_indices, i);
+      } else if (step->supertype_symbol && self->language->abi_version >= LANGUAGE_VERSION_WITH_RESERVED_WORDS) {
+        // Look at the child steps to see if any aren't valid subtypes for this supertype.
+        uint32_t subtype_length;
+        const TSSymbol *subtypes = ts_language_subtypes(
+          self->language,
+          step->supertype_symbol,
+          &subtype_length
+        );
+
+        for (unsigned j = i + 1; j < self->steps.size; j++) {
+          QueryStep *child_step = array_get(&self->steps, j);
+          if (child_step->depth == PATTERN_DONE_MARKER || child_step->depth <= step->depth) {
+            break;
+          }
+          if (child_step->depth == step->depth + 1 && child_step->symbol != WILDCARD_SYMBOL) {
+            bool is_valid_subtype = false;
+            for (uint32_t k = 0; k < subtype_length; k++) {
+              if (child_step->symbol == subtypes[k]) {
+                is_valid_subtype = true;
+                break;
+              }
+            }
+
+            if (!is_valid_subtype) {
+              for (unsigned offset_idx = 0; offset_idx < self->step_offsets.size; offset_idx++) {
+                StepOffset *step_offset = array_get(&self->step_offsets, offset_idx);
+                if (step_offset->step_index >= j) {
+                  *error_offset = step_offset->byte_offset;
+                  all_patterns_are_valid = false;
+                  goto supertype_cleanup;
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }
 
@@ -1684,7 +1722,6 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
 
   // For each non-terminal pattern, determine if the pattern can successfully match,
   // and identify all of the possible children within the pattern where matching could fail.
-  bool all_patterns_are_valid = true;
   QueryAnalysis analysis = query_analysis__new();
   for (unsigned i = 0; i < parent_step_indices.size; i++) {
     uint16_t parent_step_index = *array_get(&parent_step_indices, i);
@@ -1962,10 +1999,12 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
   array_delete(&subgraphs);
   query_analysis__delete(&analysis);
   array_delete(&next_nodes);
-  array_delete(&non_rooted_pattern_start_steps);
-  array_delete(&parent_step_indices);
   array_delete(&predicate_capture_ids);
   state_predecessor_map_delete(&predecessor_map);
+
+supertype_cleanup:
+  array_delete(&non_rooted_pattern_start_steps);
+  array_delete(&parent_step_indices);
 
   return all_patterns_are_valid;
 }

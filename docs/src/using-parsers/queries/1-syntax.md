@@ -115,6 +115,12 @@ match a `binary_expression` only if it is a child of `expression`:
 (expression/binary_expression) @binary-expression
 ```
 
+This also applies to anonymous nodes. For example, this pattern would match `"()"` only if it is a child of `expression`:
+
+```query
+(expression/"()") @empty-expression
+```
+
 [grammar]: ../../creating-parsers/3-writing-the-grammar.md#structuring-rules-well
 [node-field-names]: ../2-basic-parsing.md#node-field-names
 [named-vs-anonymous-nodes]: ../2-basic-parsing.md#named-vs-anonymous-nodes
