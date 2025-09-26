@@ -37,9 +37,8 @@ pub(super) fn extract_default_aliases(
                     SymbolType::External => &mut external_status_list[step.symbol.index],
                     SymbolType::NonTerminal => &mut non_terminal_status_list[step.symbol.index],
                     SymbolType::Terminal => &mut terminal_status_list[step.symbol.index],
-                    SymbolType::End | SymbolType::EndOfNonTerminalExtra => {
-                        panic!("Unexpected end token")
-                    }
+                    SymbolType::End => continue,
+                    SymbolType::EndOfNonTerminalExtra => panic!("Unexpected end token"),
                 };
 
                 // Default aliases don't work for inlined variables.
@@ -69,9 +68,8 @@ pub(super) fn extract_default_aliases(
             SymbolType::External => &mut external_status_list[symbol.index],
             SymbolType::NonTerminal => &mut non_terminal_status_list[symbol.index],
             SymbolType::Terminal => &mut terminal_status_list[symbol.index],
-            SymbolType::End | SymbolType::EndOfNonTerminalExtra => {
-                panic!("Unexpected end token")
-            }
+            SymbolType::End => continue,
+            SymbolType::EndOfNonTerminalExtra => panic!("Unexpected end token"),
         };
         status.appears_unaliased = true;
     }
@@ -125,9 +123,8 @@ pub(super) fn extract_default_aliases(
                     SymbolType::External => &mut external_status_list[step.symbol.index],
                     SymbolType::NonTerminal => &mut non_terminal_status_list[step.symbol.index],
                     SymbolType::Terminal => &mut terminal_status_list[step.symbol.index],
-                    SymbolType::End | SymbolType::EndOfNonTerminalExtra => {
-                        panic!("Unexpected end token")
-                    }
+                    SymbolType::End => continue,
+                    SymbolType::EndOfNonTerminalExtra => panic!("Unexpected end token"),
                 };
 
                 // If this step is aliased as the symbol's default alias, then remove that alias.
