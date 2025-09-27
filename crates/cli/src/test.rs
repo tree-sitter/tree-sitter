@@ -421,12 +421,11 @@ impl TestCorrection {
 }
 
 /// This will return false if we want to "fail fast". It will bail and not parse any more tests.
-#[allow(clippy::too_many_arguments)]
 fn run_tests(
     parser: &mut Parser,
     test_entry: TestEntry,
     opts: &mut TestOptions,
-    mut indent_level: u32,
+    indent_level: u32,
     failures: &mut Vec<TestFailure>,
     corrected_entries: &mut Vec<TestCorrection>,
     has_parse_errors: &mut bool,
@@ -660,7 +659,6 @@ fn run_tests(
                 return Ok(true);
             }
 
-            indent_level += 1;
             let failure_count = failures.len();
             let mut has_printed = false;
 
@@ -680,16 +678,10 @@ fn run_tests(
                 }
             };
 
-            let should_skip = |entry: &TestEntry, opts: &TestOptions| match entry {
-                TestEntry::Example {
-                    name, file_name, ..
-                } => !matches_filter(name, file_name, opts),
-                TestEntry::Group { .. } => false,
-            };
-
             for child in children {
                 if let TestEntry::Example {
                     ref name,
+                    ref file_name,
                     ref input,
                     ref output,
                     ref attributes_str,
@@ -698,29 +690,30 @@ fn run_tests(
                     ..
                 } = child
                 {
-                    if should_skip(&child, opts) {
-                        let input = String::from_utf8(input.clone()).unwrap();
-                        let output = format_sexp(output, 0);
-                        corrected_entries.push(TestCorrection::new(
-                            name,
-                            input,
-                            output,
-                            attributes_str,
-                            header_delim_len,
-                            divider_delim_len,
-                        ));
+                    if !matches_filter(name, file_name, opts) {
+                        if opts.update {
+                            let input = String::from_utf8(input.clone()).unwrap();
+                            let output = format_sexp(output, 0);
+                            corrected_entries.push(TestCorrection::new(
+                                name,
+                                input,
+                                output,
+                                attributes_str,
+                                header_delim_len,
+                                divider_delim_len,
+                            ));
+                        }
 
                         opts.test_num += 1;
-
                         continue;
                     }
                 }
-                if !has_printed && indent_level > 1 {
+                if !has_printed && indent_level > 0 {
                     has_printed = true;
                     writeln!(
                         opts.output,
                         "{}{name}:",
-                        "  ".repeat((indent_level - 1) as usize)
+                        "  ".repeat(indent_level as usize)
                     )?;
                     opts.parse_rates.push((false, None));
                 }
@@ -728,7 +721,7 @@ fn run_tests(
                     parser,
                     child,
                     opts,
-                    indent_level,
+                    indent_level + 1,
                     failures,
                     corrected_entries,
                     has_parse_errors,
