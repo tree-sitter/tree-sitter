@@ -1291,7 +1291,9 @@ impl Loader {
                                         if path.starts_with(parser_path) {
                                             Ok(path)
                                         } else {
-                                            Err(anyhow!("External file path {path:?} is outside of parser directory {parser_path:?}"))
+                                            Err(anyhow!(
+                                                "External file path {} is outside of parser directory {}", path.display(), parser_path.display(),
+                                            ))
                                         }
                                     })
                                     .collect::<Result<Vec<_>>>()
