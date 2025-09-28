@@ -78,7 +78,7 @@
     "eslint": "^9.20.0",
     "source-map": "^0.7.4",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.3",
+    "typescript": "^5.9.2",
     "typescript-eslint": "^8.23.0",
     "vitest": "^3.0.5"
   },
