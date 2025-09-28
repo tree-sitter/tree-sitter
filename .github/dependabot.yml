@@ -4,6 +4,8 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    cooldown:
+      default-days: 3
     commit-message:
       prefix: "build(deps)"
     labels:
@@ -16,6 +18,8 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    cooldown:
+      default-days: 3
     commit-message:
       prefix: "ci"
     labels:
@@ -31,6 +35,8 @@ updates:
       - "/lib/binding_web"
     schedule:
       interval: "weekly"
+    cooldown:
+      default-days: 3
     commit-message:
       prefix: "build(deps)"
     labels:
