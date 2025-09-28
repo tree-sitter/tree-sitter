@@ -238,6 +238,20 @@ fn test_query_errors_on_invalid_syntax() {
             ]
             .join("\n")
         );
+        assert_eq!(
+            Query::new(&language, "(statement / export_statement)").unwrap_err(),
+            QueryError {
+                row: 0,
+                offset: 11,
+                column: 11,
+                kind: QueryErrorKind::Syntax,
+                message: [
+                    "(statement / export_statement)", //
+                    "           ^"
+                ]
+                .join("\n")
+            }
+        );
     });
 }
 

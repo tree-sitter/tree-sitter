@@ -2452,8 +2452,6 @@ static TSQueryError ts_query__parse_pattern(
         step->is_named = true;
       }
 
-      stream_skip_whitespace(stream);
-
       // Parse a supertype symbol
       if (stream->next == '/') {
         if (!step->supertype_symbol) {
@@ -2516,9 +2514,9 @@ static TSQueryError ts_query__parse_pattern(
             return TSQueryErrorStructure;
           }
         }
-
-        stream_skip_whitespace(stream);
       }
+
+      stream_skip_whitespace(stream);
 
       // Parse the child patterns
       bool child_is_immediate = false;
