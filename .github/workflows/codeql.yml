@@ -32,7 +32,7 @@ jobs:
           - rust
         include:
           - language: c-cpp
-            build-mode: manual
+            build-mode: autobuild
           - language: javascript-typescript
             build-mode: none
           - language: rust
@@ -46,17 +46,6 @@ jobs:
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
-
-      - name: Build C library
-        if: matrix.language == 'c-cpp'
-        shell: sh
-        run: |
-          cmake -S . -B build \
-            -DBUILD_SHARED_LIBS=OFF \
-            -DCMAKE_BUILD_TYPE=Debug \
-            -DCMAKE_C_COMPILER=clang \
-            -DCMAKE_COMPILE_WARNING_AS_ERROR=ON
-          cmake --build build --verbose
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
