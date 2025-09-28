@@ -1,4 +1,6 @@
-const root = new URL("../..", import.meta.url).pathname;
+import { fileURLToPath } from "node:url";
+
+const root = fileURLToPath(new URL("../..", import.meta.url));
 
 const binding = typeof process.versions.bun === "string"
   // Support `bun build --compile` by being statically analyzable enough to find the .node file at build-time
