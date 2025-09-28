@@ -98,7 +98,12 @@ fn test_highlights_indented(
                 })?;
             let highlight_config = language_config
                 .highlight_config(language, None)?
-                .ok_or_else(|| anyhow!("No highlighting config found for {test_file_path:?}"))?;
+                .ok_or_else(|| {
+                    anyhow!(
+                        "No highlighting config found for {}",
+                        test_file_path.display()
+                    )
+                })?;
             match test_highlight(
                 loader,
                 highlighter,
