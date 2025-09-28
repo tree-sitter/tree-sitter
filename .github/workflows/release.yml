@@ -17,6 +17,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     permissions:
+      id-token: write
+      attestations: write
       contents: write
     steps:
       - name: Checkout repository
@@ -47,9 +49,16 @@ jobs:
           rm -rf artifacts
           ls -l target/
 
+      - name: Generate attestations
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: |
+            target/tree-sitter-*.gz
+            target/web-tree-sitter.tar.gz
+
       - name: Create release
         run: |-
-          gh release create ${{ github.ref_name }} \
+          gh release create $GITHUB_REF_NAME \
             target/tree-sitter-*.gz \
             target/web-tree-sitter.tar.gz
         env:
@@ -58,6 +67,10 @@ jobs:
   crates_io:
     name: Publish packages to Crates.io
     runs-on: ubuntu-latest
+    environment: crates
+    permissions:
+      id-token: write
+      contents: read
     needs: release
     steps:
       - name: Checkout repository
@@ -66,14 +79,22 @@ jobs:
       - name: Set up Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
 
+      - name: Set up registry token
+        id: auth
+        uses: rust-lang/crates-io-auth-action@v1
+
       - name: Publish crates to Crates.io
         uses: katyo/publish-crates@v2
         with:
-          registry-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          registry-token: ${{ steps.auth.outputs.token }}
 
   npm:
     name: Publish packages to npmjs.com
     runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      id-token: write
+      contents: read
     needs: release
     strategy:
       fail-fast: false
@@ -106,5 +127,3 @@ jobs:
       - name: Publish to npmjs.com
         working-directory: ${{ matrix.directory }}
         run: npm publish
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
