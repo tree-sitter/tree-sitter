@@ -29,6 +29,7 @@ updates:
       actions:
         patterns: ["*"]
   - package-ecosystem: "npm"
+    versioning-strategy: increase
     directories:
       - "/crates/npm"
       - "/crates/eslint"
