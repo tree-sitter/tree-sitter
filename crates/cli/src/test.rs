@@ -317,49 +317,78 @@ pub fn check_queries_at_path(language: &Language, path: &Path) -> Result<()> {
     Ok(())
 }
 
-pub fn print_diff_key() {
-    println!(
-        "\ncorrect / {} / {}",
-        paint(Some(AnsiColor::Green), "expected"),
-        paint(Some(AnsiColor::Red), "unexpected")
-    );
+pub struct DiffKey;
+
+impl std::fmt::Display for DiffKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "\ncorrect / {} / {}",
+            paint(Some(AnsiColor::Green), "expected"),
+            paint(Some(AnsiColor::Red), "unexpected")
+        )?;
+        Ok(())
+    }
 }
 
-pub fn print_diff(actual: &str, expected: &str, use_color: bool) {
-    let diff = TextDiff::from_lines(actual, expected);
-    for diff in diff.iter_all_changes() {
-        match diff.tag() {
-            ChangeTag::Equal => {
-                if use_color {
-                    print!("{diff}");
-                } else {
-                    print!(" {diff}");
+pub struct TestDiff<'a> {
+    pub actual: &'a str,
+    pub expected: &'a str,
+    pub use_color: bool,
+}
+
+impl<'a> TestDiff<'a> {
+    #[must_use]
+    pub const fn new(actual: &'a str, expected: &'a str, use_color: bool) -> Self {
+        Self {
+            actual,
+            expected,
+            use_color,
+        }
+    }
+}
+
+impl std::fmt::Display for TestDiff<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let diff = TextDiff::from_lines(self.actual, self.expected);
+        for diff in diff.iter_all_changes() {
+            match diff.tag() {
+                ChangeTag::Equal => {
+                    if self.use_color {
+                        write!(f, "{diff}")?;
+                    } else {
+                        write!(f, " {diff}")?;
+                    }
                 }
-            }
-            ChangeTag::Insert => {
-                if use_color {
-                    print!("{}", paint(Some(AnsiColor::Green), diff.as_str().unwrap()));
-                } else {
-                    print!("+{diff}");
+                ChangeTag::Insert => {
+                    if self.use_color {
+                        write!(
+                            f,
+                            "{}",
+                            paint(Some(AnsiColor::Green), diff.as_str().unwrap())
+                        )?;
+                    } else {
+                        write!(f, "+{diff}")?;
+                    }
+                    if diff.missing_newline() {
+                        writeln!(f)?;
+                    }
                 }
-                if diff.missing_newline() {
-                    println!();
-                }
-            }
-            ChangeTag::Delete => {
-                if use_color {
-                    print!("{}", paint(Some(AnsiColor::Red), diff.as_str().unwrap()));
-                } else {
-                    print!("-{diff}");
-                }
-                if diff.missing_newline() {
-                    println!();
+                ChangeTag::Delete => {
+                    if self.use_color {
+                        write!(f, "{}", paint(Some(AnsiColor::Red), diff.as_str().unwrap()))?;
+                    } else {
+                        write!(f, "-{diff}")?;
+                    }
+                    if diff.missing_newline() {
+                        writeln!(f)?;
+                    }
                 }
             }
         }
-    }
 
-    println!();
+        Ok(())
+    }
 }
 
 struct TestFailure {

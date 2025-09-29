@@ -16,7 +16,7 @@ use crate::{
         LOG_GRAPH_ENABLED, START_SEED,
     },
     parse::perform_edit,
-    test::{parse_tests, print_diff, print_diff_key, strip_sexp_fields},
+    test::{parse_tests, strip_sexp_fields, DiffKey, TestDiff},
     tests::{
         allocations,
         helpers::fixtures::{fixtures_dir, get_language, get_test_language, SCRATCH_BASE_DIR},
@@ -209,8 +209,8 @@ pub fn test_language_corpus(
 
             if actual_output != test.output {
                 println!("Incorrect initial parse for {test_name}");
-                print_diff_key();
-                print_diff(&actual_output, &test.output, true);
+                println!("{DiffKey}");
+                println!("{}", TestDiff::new(&actual_output, &test.output, true));
                 println!();
                 return false;
             }
@@ -297,8 +297,8 @@ pub fn test_language_corpus(
 
                 if actual_output != test.output {
                     println!("Incorrect parse for {test_name} - seed {seed}");
-                    print_diff_key();
-                    print_diff(&actual_output, &test.output, true);
+                    println!("{DiffKey}");
+                    println!("{}", TestDiff::new(&actual_output, &test.output, true));
                     println!();
                     return false;
                 }
@@ -428,8 +428,8 @@ fn test_feature_corpus_files() {
                     if actual_output == test.output {
                         true
                     } else {
-                        print_diff_key();
-                        print_diff(&actual_output, &test.output, true);
+                        println!("{DiffKey}");
+                        print!("{}", TestDiff::new(&actual_output, &test.output, true));
                         println!();
                         false
                     }
