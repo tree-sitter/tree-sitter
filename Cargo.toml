@@ -130,11 +130,11 @@ indexmap = "2.11.4"
 indoc = "2.0.6"
 libloading = "0.8.9"
 log = { version = "0.4.28", features = ["std"] }
-memchr = "2.7.5"
+memchr = "2.7.6"
 once_cell = "1.21.3"
 pretty_assertions = "1.4.1"
 rand = "0.8.5"
-regex = "1.11.2"
+regex = "1.11.3"
 regex-syntax = "0.8.6"
 rustc-hash = "2.1.1"
 semver = { version = "1.0.27", features = ["serde"] }
