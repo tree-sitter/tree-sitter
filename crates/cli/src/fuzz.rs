@@ -25,7 +25,7 @@ use crate::{
         random::Rand,
     },
     parse::perform_edit,
-    test::{parse_tests, print_diff, print_diff_key, strip_sexp_fields, TestEntry},
+    test::{parse_tests, strip_sexp_fields, DiffKey, TestDiff, TestEntry},
 };
 
 pub static LOG_ENABLED: LazyLock<bool> = LazyLock::new(|| env::var("TREE_SITTER_LOG").is_ok());
@@ -183,8 +183,8 @@ pub fn fuzz_language_corpus(
 
             if actual_output != test.output {
                 println!("Incorrect initial parse for {test_name}");
-                print_diff_key();
-                print_diff(&actual_output, &test.output, true);
+                println!("{DiffKey}");
+                println!("{}", TestDiff::new(&actual_output, &test.output, true));
                 println!();
                 return false;
             }
@@ -276,8 +276,8 @@ pub fn fuzz_language_corpus(
 
                 if actual_output != test.output && !test.error {
                     println!("Incorrect parse for {test_name} - seed {seed}");
-                    print_diff_key();
-                    print_diff(&actual_output, &test.output, true);
+                    println!("{DiffKey}");
+                    println!("{}", TestDiff::new(&actual_output, &test.output, true));
                     println!();
                     return false;
                 }
