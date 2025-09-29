@@ -129,9 +129,12 @@ struct Generate {
     /// Produce a report of the states for the given rule, use `-` to report every rule
     #[arg(long)]
     pub report_states_for_rule: Option<String>,
-    /// Report conflicts in a JSON format
-    #[arg(long)]
+    /// Deprecated: use --json-summary
+    #[arg(long, conflicts_with = "json_summary")]
     pub json: bool,
+    /// Report conflicts in a JSON format
+    #[arg(long, conflicts_with = "json")]
+    pub json_summary: bool,
     /// The name or path of the JavaScript runtime to use for generating parsers
     #[cfg(not(feature = "qjs-rt"))]
     #[arg(
@@ -249,9 +252,12 @@ struct Parse {
     /// Open `log.html` in the default browser, if `--debug-graph` is supplied
     #[arg(long)]
     pub open_log: bool,
-    /// Output parsing results in a JSON format
-    #[arg(long, short = 'j')]
+    /// Deprecated: use --json-summary
+    #[arg(long, short = 'j', conflicts_with = "json_summary")]
     pub json: bool,
+    /// Output parsing results in a JSON format
+    #[arg(long, conflicts_with = "json")]
+    pub json_summary: bool,
     /// The path to an alternative config.json file
     #[arg(long)]
     pub config_path: Option<PathBuf>,
@@ -855,6 +861,13 @@ impl Generate {
                     }
                 });
 
+        let json_summary = if self.json {
+            warn!("--json is deprecated, use --json-summary instead");
+            true
+        } else {
+            self.json_summary
+        };
+
         if let Err(err) = tree_sitter_generate::generate_parser_in_directory(
             current_dir,
             self.output.as_deref(),
@@ -869,7 +882,7 @@ impl Generate {
                 OptLevel::default()
             },
         ) {
-            if self.json {
+            if json_summary {
                 eprintln!("{}", serde_json::to_string_pretty(&err)?);
                 // Exit early to prevent errors from being printed a second time in the caller
                 std::process::exit(1);
@@ -940,13 +953,19 @@ impl Parse {
     fn run(self, mut loader: loader::Loader, current_dir: &Path) -> Result<()> {
         let config = Config::load(self.config_path)?;
         let color = env::var("NO_COLOR").map_or(true, |v| v != "1");
+        let json_summary = if self.json {
+            warn!("--json is deprecated, use --json-summary instead");
+            true
+        } else {
+            self.json_summary
+        };
         let output = if self.output_dot {
             ParseOutput::Dot
         } else if self.output_xml {
             ParseOutput::Xml
         } else if self.output_cst {
             ParseOutput::Cst
-        } else if self.quiet || self.json {
+        } else if self.quiet || json_summary {
             ParseOutput::Quiet
         } else {
             ParseOutput::Normal
@@ -1142,7 +1161,7 @@ impl Parse {
         if should_track_stats {
             println!("\n{}", stats.cumulative_stats);
         }
-        if self.json {
+        if json_summary {
             println!("{}", serde_json::to_string_pretty(&stats)?);
         }
 
