@@ -6,30 +6,33 @@ use std::{
     time::Instant,
 };
 
-use anstyle::AnsiColor;
 use anyhow::{Context, Result};
 use log::warn;
 use streaming_iterator::StreamingIterator;
 use tree_sitter::{Language, Parser, Point, Query, QueryCursor};
 
 use crate::{
-    logger::paint,
     query_testing::{self, to_utf8_point},
+    test::{TestInfo, TestOutcome, TestResult, TestSummary},
 };
 
-#[allow(clippy::too_many_arguments)]
+#[derive(Default)]
+pub struct QueryFileOptions {
+    pub ordered_captures: bool,
+    pub byte_range: Option<Range<usize>>,
+    pub point_range: Option<Range<Point>>,
+    pub quiet: bool,
+    pub print_time: bool,
+    pub stdin: bool,
+}
+
 pub fn query_file_at_path(
     language: &Language,
     path: &Path,
     name: &str,
     query_path: &Path,
-    ordered_captures: bool,
-    byte_range: Option<Range<usize>>,
-    point_range: Option<Range<Point>>,
-    should_test: bool,
-    quiet: bool,
-    print_time: bool,
-    stdin: bool,
+    opts: &QueryFileOptions,
+    test_summary: Option<&mut TestSummary>,
 ) -> Result<()> {
     let stdout = io::stdout();
     let mut stdout = stdout.lock();
@@ -39,19 +42,20 @@ pub fn query_file_at_path(
     let query = Query::new(language, &query_source).with_context(|| "Query compilation failed")?;
 
     let mut query_cursor = QueryCursor::new();
-    if let Some(range) = byte_range {
-        query_cursor.set_byte_range(range);
+    if let Some(ref range) = opts.byte_range {
+        query_cursor.set_byte_range(range.clone());
     }
-    if let Some(range) = point_range {
-        query_cursor.set_point_range(range);
+    if let Some(ref range) = opts.point_range {
+        query_cursor.set_point_range(range.clone());
     }
 
     let mut parser = Parser::new();
     parser.set_language(language)?;
 
     let mut results = Vec::new();
+    let should_test = test_summary.is_some();
 
-    if !should_test && !stdin {
+    if !should_test && !opts.stdin {
         writeln!(&mut stdout, "{name}")?;
     }
 
@@ -60,12 +64,12 @@ pub fn query_file_at_path(
     let tree = parser.parse(&source_code, None).unwrap();
 
     let start = Instant::now();
-    if ordered_captures {
+    if opts.ordered_captures {
         let mut captures = query_cursor.captures(&query, tree.root_node(), source_code.as_slice());
         while let Some((mat, capture_index)) = captures.next() {
             let capture = mat.captures[*capture_index];
             let capture_name = &query.capture_names()[capture.index as usize];
-            if !quiet && !should_test {
+            if !opts.quiet && !should_test {
                 writeln!(
                         &mut stdout,
                         "    pattern: {:>2}, capture: {} - {capture_name}, start: {}, end: {}, text: `{}`",
@@ -85,14 +89,14 @@ pub fn query_file_at_path(
     } else {
         let mut matches = query_cursor.matches(&query, tree.root_node(), source_code.as_slice());
         while let Some(m) = matches.next() {
-            if !quiet && !should_test {
+            if !opts.quiet && !should_test {
                 writeln!(&mut stdout, "  pattern: {}", m.pattern_index)?;
             }
             for capture in m.captures {
                 let start = capture.node.start_position();
                 let end = capture.node.end_position();
                 let capture_name = &query.capture_names()[capture.index as usize];
-                if !quiet && !should_test {
+                if !opts.quiet && !should_test {
                     if end.row == start.row {
                         writeln!(
                                 &mut stdout,
@@ -119,26 +123,38 @@ pub fn query_file_at_path(
         warn!("Query exceeded maximum number of in-progress captures!");
     }
     if should_test {
-        let path_name = if stdin {
+        let path_name = if opts.stdin {
             "stdin"
         } else {
             Path::new(&path).file_name().unwrap().to_str().unwrap()
         };
+        // Invariant: `test_summary` will always be `Some` when `should_test` is true
+        let test_summary = test_summary.unwrap();
         match query_testing::assert_expected_captures(&results, path, &mut parser, language) {
             Ok(assertion_count) => {
-                println!(
-                    "  ✓ {} ({} assertions)",
-                    paint(Some(AnsiColor::Green), path_name),
-                    assertion_count
-                );
+                test_summary.query_results.add_case(TestResult {
+                    name: path_name.to_string(),
+                    info: TestInfo::AssertionTest {
+                        outcome: TestOutcome::AssertionPassed { assertion_count },
+                        test_num: test_summary.test_num,
+                    },
+                });
             }
             Err(e) => {
-                println!("  ✗ {}", paint(Some(AnsiColor::Red), path_name));
+                test_summary.query_results.add_case(TestResult {
+                    name: path_name.to_string(),
+                    info: TestInfo::AssertionTest {
+                        outcome: TestOutcome::AssertionFailed {
+                            error: e.to_string(),
+                        },
+                        test_num: test_summary.test_num,
+                    },
+                });
                 return Err(e);
             }
         }
     }
-    if print_time {
+    if opts.print_time {
         writeln!(&mut stdout, "{:?}", start.elapsed())?;
     }
 

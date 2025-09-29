@@ -24,11 +24,12 @@ use tree_sitter_cli::{
     input::{get_input, get_tmp_source_file, CliInput},
     logger,
     parse::{self, ParseDebugType, ParseFileOptions, ParseOutput, ParseTheme},
-    playground, query,
+    playground,
+    query::{self, QueryFileOptions},
     tags::{self, TagsOptions},
-    test::{self, TestOptions, TestStats},
-    test_highlight, test_tags, util, version,
-    version::BumpLevel,
+    test::{self, TestOptions, TestStats, TestSummary},
+    test_highlight, test_tags, util,
+    version::{self, BumpLevel},
     wasm,
 };
 use tree_sitter_config::Config;
@@ -340,6 +341,9 @@ struct Test {
     /// Show only the pass-fail overview tree
     #[arg(long)]
     pub overview_only: bool,
+    /// Output the test summary in a JSON output
+    #[arg(long)]
+    pub json_summary: bool,
 }
 
 #[derive(Args)]
@@ -1165,6 +1169,28 @@ impl Parse {
     }
 }
 
+/// In case an error is encountered, prints out the contents of `test_summary` and
+/// propagates the error
+fn check_test(
+    test_result: Result<()>,
+    test_summary: &TestSummary,
+    json_summary: bool,
+) -> Result<()> {
+    if let Err(e) = test_result {
+        if json_summary {
+            let json_summary = serde_json::to_string_pretty(test_summary)
+                .expect("Failed to encode summary to JSON");
+            println!("{json_summary}");
+        } else {
+            println!("{test_summary}");
+        }
+
+        Err(e)?;
+    }
+
+    Ok(())
+}
+
 impl Test {
     fn run(self, mut loader: loader::Loader, current_dir: &Path) -> Result<()> {
         let config = Config::load(self.config_path)?;
@@ -1209,15 +1235,18 @@ impl Test {
         parser.set_language(language)?;
 
         let test_dir = current_dir.join("test");
-        let mut stats = parse::Stats::default();
+        let mut test_summary = TestSummary::new(
+            color,
+            stat,
+            self.update,
+            self.overview_only,
+            self.json_summary,
+        );
 
         // Run the corpus tests. Look for them in `test/corpus`.
         let test_corpus_dir = test_dir.join("corpus");
         if test_corpus_dir.is_dir() {
-            let mut output = String::new();
-            let mut rates = Vec::new();
-            let mut opts = TestOptions {
-                output: &mut output,
+            let opts = TestOptions {
                 path: test_corpus_dir,
                 debug: self.debug,
                 debug_graph: self.debug_graph,
@@ -1228,51 +1257,67 @@ impl Test {
                 open_log: self.open_log,
                 languages: languages.iter().map(|(l, n)| (n.as_str(), l)).collect(),
                 color,
-                test_num: 1,
-                parse_rates: &mut rates,
-                stat_display: stat,
-                stats: &mut stats,
                 show_fields: self.show_fields,
                 overview_only: self.overview_only,
             };
 
-            test::run_tests_at_path(&mut parser, &mut opts)?;
-            println!("\n{stats}");
+            check_test(
+                test::run_tests_at_path(&mut parser, &opts, &mut test_summary),
+                &test_summary,
+                self.json_summary,
+            )?;
+            test_summary.test_num = 1;
         }
 
         // Check that all of the queries are valid.
-        test::check_queries_at_path(language, &current_dir.join("queries"))?;
+        let query_dir = current_dir.join("queries");
+        check_test(
+            test::check_queries_at_path(language, &query_dir),
+            &test_summary,
+            self.json_summary,
+        )?;
+        test_summary.test_num = 1;
 
         // Run the syntax highlighting tests.
         let test_highlight_dir = test_dir.join("highlight");
         if test_highlight_dir.is_dir() {
             let mut highlighter = Highlighter::new();
             highlighter.parser = parser;
-            test_highlight::test_highlights(
-                &loader,
-                &config.get()?,
-                &mut highlighter,
-                &test_highlight_dir,
-                color,
+            check_test(
+                test_highlight::test_highlights(
+                    &loader,
+                    &config.get()?,
+                    &mut highlighter,
+                    &test_highlight_dir,
+                    &mut test_summary,
+                ),
+                &test_summary,
+                self.json_summary,
             )?;
             parser = highlighter.parser;
+            test_summary.test_num = 1;
         }
 
         let test_tag_dir = test_dir.join("tags");
         if test_tag_dir.is_dir() {
             let mut tags_context = TagsContext::new();
             tags_context.parser = parser;
-            test_tags::test_tags(
-                &loader,
-                &config.get()?,
-                &mut tags_context,
-                &test_tag_dir,
-                color,
+            check_test(
+                test_tags::test_tags(
+                    &loader,
+                    &config.get()?,
+                    &mut tags_context,
+                    &test_tag_dir,
+                    &mut test_summary,
+                ),
+                &test_summary,
+                self.json_summary,
             )?;
+            test_summary.test_num = 1;
         }
 
         // For the rest of the queries, find their tests and run them
-        for entry in walkdir::WalkDir::new(current_dir.join("queries"))
+        for entry in walkdir::WalkDir::new(&query_dir)
             .into_iter()
             .filter_map(|e| e.ok())
             .filter(|e| e.file_type().is_file())
@@ -1295,27 +1340,41 @@ impl Test {
                     })
                     .collect::<Vec<_>>();
                 if !entries.is_empty() {
-                    println!("{stem}:");
+                    test_summary.query_results.add_group(stem);
                 }
 
-                for entry in entries {
+                test_summary.test_num = 1;
+                let opts = QueryFileOptions::default();
+                for entry in &entries {
                     let path = entry.path();
-                    query::query_file_at_path(
-                        language,
-                        path,
-                        &path.display().to_string(),
-                        path,
-                        false,
-                        None,
-                        None,
-                        true,
-                        false,
-                        false,
-                        false,
+                    check_test(
+                        query::query_file_at_path(
+                            language,
+                            path,
+                            &path.display().to_string(),
+                            path,
+                            &opts,
+                            Some(&mut test_summary),
+                        ),
+                        &test_summary,
+                        self.json_summary,
                     )?;
+                }
+                if !entries.is_empty() {
+                    test_summary.query_results.pop_traversal();
                 }
             }
         }
+        test_summary.test_num = 1;
+
+        if self.json_summary {
+            let json_summary = serde_json::to_string_pretty(&test_summary)
+                .expect("Failed to encode test summary to JSON");
+            println!("{json_summary}");
+        } else {
+            println!("{test_summary}");
+        }
+
         Ok(())
     }
 }
@@ -1422,19 +1481,22 @@ impl Query {
                     lib_info.as_ref(),
                 )?;
 
+                let opts = QueryFileOptions {
+                    ordered_captures: self.captures,
+                    byte_range,
+                    point_range,
+                    quiet: self.quiet,
+                    print_time: self.time,
+                    stdin: false,
+                };
                 for path in paths {
                     query::query_file_at_path(
                         &language,
                         &path,
                         &path.display().to_string(),
                         query_path,
-                        self.captures,
-                        byte_range.clone(),
-                        point_range.clone(),
-                        self.test,
-                        self.quiet,
-                        self.time,
-                        false,
+                        &opts,
+                        None,
                     )?;
                 }
             }
@@ -1462,19 +1524,15 @@ impl Query {
                         .map(|(l, _)| l.clone())
                         .ok_or_else(|| anyhow!("No language found"))?
                 };
-                query::query_file_at_path(
-                    language,
-                    &path,
-                    &name,
-                    query_path,
-                    self.captures,
+                let opts = QueryFileOptions {
+                    ordered_captures: self.captures,
                     byte_range,
                     point_range,
-                    self.test,
-                    self.quiet,
-                    self.time,
-                    true,
-                )?;
+                    quiet: self.quiet,
+                    print_time: self.time,
+                    stdin: true,
+                };
+                query::query_file_at_path(language, &path, &name, query_path, &opts, None)?;
                 fs::remove_file(path)?;
             }
             CliInput::Stdin(contents) => {
@@ -1484,19 +1542,15 @@ impl Query {
                 let path = get_tmp_source_file(&contents)?;
                 let language =
                     loader.select_language(&path, current_dir, None, lib_info.as_ref())?;
-                query::query_file_at_path(
-                    &language,
-                    &path,
-                    "stdin",
-                    query_path,
-                    self.captures,
+                let opts = QueryFileOptions {
+                    ordered_captures: self.captures,
                     byte_range,
                     point_range,
-                    self.test,
-                    self.quiet,
-                    self.time,
-                    true,
-                )?;
+                    quiet: self.quiet,
+                    print_time: self.time,
+                    stdin: true,
+                };
+                query::query_file_at_path(&language, &path, "stdin", query_path, &opts, None)?;
                 fs::remove_file(path)?;
             }
         }
