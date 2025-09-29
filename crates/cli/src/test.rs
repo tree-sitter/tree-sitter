@@ -1,7 +1,7 @@
 use std::{
     collections::BTreeMap,
     ffi::OsStr,
-    fmt::Write as _,
+    fmt::Display as _,
     fs,
     io::{self, Write},
     path::{Path, PathBuf},
@@ -18,6 +18,7 @@ use regex::{
     bytes::{Regex as ByteRegex, RegexBuilder as ByteRegexBuilder},
     Regex,
 };
+use serde::Serialize;
 use similar::{ChangeTag, TextDiff};
 use tree_sitter::{format_sexp, Language, LogType, Parser, Query, Tree};
 use walkdir::WalkDir;
@@ -114,7 +115,7 @@ impl Default for TestAttributes {
     }
 }
 
-#[derive(ValueEnum, Default, Copy, Clone, PartialEq, Eq)]
+#[derive(ValueEnum, Default, Debug, Copy, Clone, PartialEq, Eq, Serialize)]
 pub enum TestStats {
     All,
     #[default]
@@ -123,7 +124,6 @@ pub enum TestStats {
 }
 
 pub struct TestOptions<'a> {
-    pub output: &'a mut String,
     pub path: PathBuf,
     pub debug: bool,
     pub debug_graph: bool,
@@ -134,17 +134,453 @@ pub struct TestOptions<'a> {
     pub open_log: bool,
     pub languages: BTreeMap<&'a str, &'a Language>,
     pub color: bool,
-    pub test_num: usize,
-    /// Whether a test ran for the nth line in `output`, the true parse rate, and the adjusted
-    /// parse rate
-    pub parse_rates: &'a mut Vec<(bool, Option<(f64, f64)>)>,
-    pub stat_display: TestStats,
-    pub stats: &'a mut Stats,
     pub show_fields: bool,
     pub overview_only: bool,
 }
 
-pub fn run_tests_at_path(parser: &mut Parser, opts: &mut TestOptions) -> Result<()> {
+/// A stateful object used to collect results from running a grammar's test suite
+#[derive(Debug, Default, Serialize)]
+pub struct TestSummary {
+    // Parse test results and associated data
+    #[serde(serialize_with = "serialize_as_array")]
+    pub parse_results: TestResultHierarchy,
+    pub parse_failures: Vec<TestFailure>,
+    pub parse_stats: Stats,
+    #[serde(skip)]
+    pub has_parse_errors: bool,
+    #[serde(skip)]
+    pub parse_stat_display: TestStats,
+
+    // Other test results
+    #[serde(serialize_with = "serialize_as_array")]
+    pub highlight_results: TestResultHierarchy,
+    #[serde(serialize_with = "serialize_as_array")]
+    pub tag_results: TestResultHierarchy,
+    #[serde(serialize_with = "serialize_as_array")]
+    pub query_results: TestResultHierarchy,
+
+    // Data used during construction
+    #[serde(skip)]
+    pub test_num: usize,
+    // Options passed in from the CLI which control how the summary is displayed
+    #[serde(skip)]
+    pub color: bool,
+    #[serde(skip)]
+    pub overview_only: bool,
+    #[serde(skip)]
+    pub update: bool,
+    #[serde(skip)]
+    pub json: bool,
+}
+
+impl TestSummary {
+    #[must_use]
+    pub fn new(
+        color: bool,
+        stat_display: TestStats,
+        parse_update: bool,
+        overview_only: bool,
+        json_summary: bool,
+    ) -> Self {
+        Self {
+            color,
+            parse_stat_display: stat_display,
+            update: parse_update,
+            overview_only,
+            json: json_summary,
+            test_num: 1,
+            ..Default::default()
+        }
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct TestResultHierarchy {
+    root_group: Vec<TestResult>,
+    traversal_idxs: Vec<usize>,
+}
+
+fn serialize_as_array<S>(results: &TestResultHierarchy, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    results.root_group.serialize(serializer)
+}
+
+/// Stores arbitrarily nested parent test groups and child cases. Supports creation
+/// in DFS traversal order
+impl TestResultHierarchy {
+    /// Signifies the start of a new group's traversal during construction.
+    fn push_traversal(&mut self, idx: usize) {
+        self.traversal_idxs.push(idx);
+    }
+
+    /// Signifies the end of the current group's traversal during construction.
+    /// Must be paired with a prior call to [`TestResultHierarchy::add_group`].
+    pub fn pop_traversal(&mut self) {
+        self.traversal_idxs.pop();
+    }
+
+    /// Adds a new group as a child of the current group. Caller is responsible
+    /// for calling [`TestResultHierarchy::pop_traversal`] once the group is done
+    /// being traversed.
+    pub fn add_group(&mut self, group_name: &str) {
+        let new_group_idx = self.curr_group_len();
+        self.push(TestResult {
+            name: group_name.to_string(),
+            info: TestInfo::Group {
+                children: Vec::new(),
+            },
+        });
+        self.push_traversal(new_group_idx);
+    }
+
+    /// Adds a new test example as a child of the current group.
+    /// Asserts that `test_case.info` is not [`TestInfo::Group`].
+    pub fn add_case(&mut self, test_case: TestResult) {
+        assert!(!matches!(test_case.info, TestInfo::Group { .. }));
+        self.push(test_case);
+    }
+
+    /// Adds a new `TestResult` to the current group.
+    fn push(&mut self, result: TestResult) {
+        // If there are no traversal steps, we're adding to the root
+        if self.traversal_idxs.is_empty() {
+            self.root_group.push(result);
+            return;
+        }
+
+        #[allow(clippy::manual_let_else)]
+        let mut curr_group = match self.root_group[self.traversal_idxs[0]].info {
+            TestInfo::Group { ref mut children } => children,
+            _ => unreachable!(),
+        };
+        for idx in self.traversal_idxs.iter().skip(1) {
+            curr_group = match curr_group[*idx].info {
+                TestInfo::Group { ref mut children } => children,
+                _ => unreachable!(),
+            };
+        }
+
+        curr_group.push(result);
+    }
+
+    fn curr_group_len(&self) -> usize {
+        if self.traversal_idxs.is_empty() {
+            return self.root_group.len();
+        }
+
+        #[allow(clippy::manual_let_else)]
+        let mut curr_group = match self.root_group[self.traversal_idxs[0]].info {
+            TestInfo::Group { ref children } => children,
+            _ => unreachable!(),
+        };
+        for idx in self.traversal_idxs.iter().skip(1) {
+            curr_group = match curr_group[*idx].info {
+                TestInfo::Group { ref children } => children,
+                _ => unreachable!(),
+            };
+        }
+        curr_group.len()
+    }
+
+    #[allow(clippy::iter_without_into_iter)]
+    #[must_use]
+    pub fn iter(&self) -> TestResultIterWithDepth<'_> {
+        let mut stack = Vec::with_capacity(self.root_group.len());
+        for child in self.root_group.iter().rev() {
+            stack.push((0, child));
+        }
+        TestResultIterWithDepth { stack }
+    }
+}
+
+pub struct TestResultIterWithDepth<'a> {
+    stack: Vec<(usize, &'a TestResult)>,
+}
+
+impl<'a> Iterator for TestResultIterWithDepth<'a> {
+    type Item = (usize, &'a TestResult);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.stack.pop().inspect(|(depth, result)| {
+            if let TestInfo::Group { children } = &result.info {
+                for child in children.iter().rev() {
+                    self.stack.push((depth + 1, child));
+                }
+            }
+        })
+    }
+}
+
+#[derive(Debug, Serialize)]
+pub struct TestResult {
+    pub name: String,
+    #[serde(flatten)]
+    pub info: TestInfo,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(untagged)]
+pub enum TestInfo {
+    Group {
+        children: Vec<TestResult>,
+    },
+    ParseTest {
+        outcome: TestOutcome,
+        // True parse rate, adjusted parse rate
+        #[serde(serialize_with = "serialize_parse_rates")]
+        parse_rate: Option<(f64, f64)>,
+        test_num: usize,
+    },
+    AssertionTest {
+        outcome: TestOutcome,
+        test_num: usize,
+    },
+}
+
+fn serialize_parse_rates<S>(
+    parse_rate: &Option<(f64, f64)>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    match parse_rate {
+        None => serializer.serialize_none(),
+        Some((first, _)) => serializer.serialize_some(first),
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Serialize)]
+pub enum TestOutcome {
+    // Parse outcomes
+    Passed,
+    Failed,
+    Updated,
+    Skipped,
+    Platform,
+
+    // Highlight/Tag/Query outcomes
+    AssertionPassed { assertion_count: usize },
+    AssertionFailed { error: String },
+}
+
+impl TestSummary {
+    fn fmt_parse_results(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let (count, total_adj_parse_time) = self
+            .parse_results
+            .iter()
+            .filter_map(|(_, result)| match result.info {
+                TestInfo::Group { .. } => None,
+                TestInfo::ParseTest { parse_rate, .. } => parse_rate,
+                _ => unreachable!(),
+            })
+            .fold((0usize, 0.0f64), |(count, rate_accum), (_, adj_rate)| {
+                (count + 1, rate_accum + adj_rate)
+            });
+
+        let avg = total_adj_parse_time / count as f64;
+        let std_dev = {
+            let variance = self
+                .parse_results
+                .iter()
+                .filter_map(|(_, result)| match result.info {
+                    TestInfo::Group { .. } => None,
+                    TestInfo::ParseTest { parse_rate, .. } => parse_rate,
+                    _ => unreachable!(),
+                })
+                .map(|(_, rate_i)| (rate_i - avg).powi(2))
+                .sum::<f64>()
+                / count as f64;
+            variance.sqrt()
+        };
+
+        for (depth, entry) in self.parse_results.iter() {
+            write!(f, "{}", "  ".repeat(depth + 1))?;
+            match &entry.info {
+                TestInfo::Group { .. } => writeln!(f, "{}:", entry.name)?,
+                TestInfo::ParseTest {
+                    outcome,
+                    parse_rate,
+                    test_num,
+                } => {
+                    let (color, result_char) = match outcome {
+                        TestOutcome::Passed => (AnsiColor::Green, "✓"),
+                        TestOutcome::Failed => (AnsiColor::Red, "✗"),
+                        TestOutcome::Updated => (AnsiColor::Blue, "✓"),
+                        TestOutcome::Skipped => (AnsiColor::Yellow, "⌀"),
+                        TestOutcome::Platform => (AnsiColor::Magenta, "⌀"),
+                        _ => unreachable!(),
+                    };
+                    let stat_display = match (self.parse_stat_display, parse_rate) {
+                        (TestStats::TotalOnly, _) | (_, None) => String::new(),
+                        (display, Some((true_rate, adj_rate))) => {
+                            let mut stats = if display == TestStats::All {
+                                format!(" ({true_rate:.3} bytes/ms)")
+                            } else {
+                                String::new()
+                            };
+                            // 3 standard deviations below the mean, aka the "Empirical Rule"
+                            if *adj_rate < 3.0f64.mul_add(-std_dev, avg) {
+                                stats += &paint(
+                                    self.color.then_some(AnsiColor::Yellow),
+                                    &format!(
+                                        " -- Warning: Slow parse rate ({true_rate:.3} bytes/ms)"
+                                    ),
+                                );
+                            }
+                            stats
+                        }
+                    };
+                    writeln!(
+                        f,
+                        "{test_num:>3}. {result_char} {}{stat_display}",
+                        paint(self.color.then_some(color), &entry.name),
+                    )?;
+                }
+                TestInfo::AssertionTest { .. } => unreachable!(),
+            }
+        }
+
+        // Parse failure info
+        if !self.parse_failures.is_empty() && self.update && !self.has_parse_errors {
+            writeln!(
+                f,
+                "\n{} update{}:\n",
+                self.parse_failures.len(),
+                if self.parse_failures.len() == 1 {
+                    ""
+                } else {
+                    "s"
+                }
+            )?;
+
+            for (i, TestFailure { name, .. }) in self.parse_failures.iter().enumerate() {
+                writeln!(f, "  {}. {name}", i + 1)?;
+            }
+        } else if !self.parse_failures.is_empty() && !self.overview_only {
+            if !self.has_parse_errors {
+                writeln!(
+                    f,
+                    "\n{} failure{}:",
+                    self.parse_failures.len(),
+                    if self.parse_failures.len() == 1 {
+                        ""
+                    } else {
+                        "s"
+                    }
+                )?;
+            }
+
+            if self.color {
+                DiffKey.fmt(f)?;
+            }
+            for (
+                i,
+                TestFailure {
+                    name,
+                    actual,
+                    expected,
+                    is_cst,
+                },
+            ) in self.parse_failures.iter().enumerate()
+            {
+                if expected == "NO ERROR" {
+                    writeln!(f, "\n  {}. {name}:\n", i + 1)?;
+                    writeln!(f, "  Expected an ERROR node, but got:")?;
+                    let actual = if *is_cst {
+                        actual
+                    } else {
+                        &format_sexp(actual, 2)
+                    };
+                    writeln!(
+                        f,
+                        "  {}",
+                        paint(self.color.then_some(AnsiColor::Red), actual)
+                    )?;
+                } else {
+                    writeln!(f, "\n  {}. {name}:", i + 1)?;
+                    if *is_cst {
+                        writeln!(
+                            f,
+                            "{}",
+                            TestDiff::new(actual, expected).with_color(self.color)
+                        )?;
+                    } else {
+                        writeln!(
+                            f,
+                            "{}",
+                            TestDiff::new(&format_sexp(actual, 2), &format_sexp(expected, 2))
+                                .with_color(self.color,)
+                        )?;
+                    }
+                }
+            }
+        } else {
+            writeln!(f)?;
+        }
+
+        Ok(())
+    }
+}
+
+impl std::fmt::Display for TestSummary {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.fmt_parse_results(f)?;
+
+        let mut render_assertion_results =
+            |name: &str, results: &TestResultHierarchy| -> std::fmt::Result {
+                writeln!(f, "{name}:")?;
+                for (depth, entry) in results.iter() {
+                    write!(f, "{}", "  ".repeat(depth + 2))?;
+                    match &entry.info {
+                        TestInfo::Group { .. } => writeln!(f, "{}", entry.name)?,
+                        TestInfo::AssertionTest { outcome, test_num } => match outcome {
+                            TestOutcome::AssertionPassed { assertion_count } => writeln!(
+                                f,
+                                "{:>3}. ✓ {} ({assertion_count} assertions)",
+                                test_num,
+                                paint(self.color.then_some(AnsiColor::Green), &entry.name)
+                            )?,
+                            TestOutcome::AssertionFailed { error } => {
+                                writeln!(
+                                    f,
+                                    "{:>3}. ✗ {}",
+                                    test_num,
+                                    paint(self.color.then_some(AnsiColor::Red), &entry.name)
+                                )?;
+                                writeln!(f, "{}  {error}", "  ".repeat(depth + 1))?;
+                            }
+                            _ => unreachable!(),
+                        },
+                        TestInfo::ParseTest { .. } => unreachable!(),
+                    }
+                }
+                Ok(())
+            };
+
+        if !self.highlight_results.root_group.is_empty() {
+            render_assertion_results("syntax highlighting", &self.highlight_results)?;
+        }
+
+        if !self.tag_results.root_group.is_empty() {
+            render_assertion_results("tags", &self.tag_results)?;
+        }
+
+        if !self.query_results.root_group.is_empty() {
+            render_assertion_results("queries", &self.query_results)?;
+        }
+
+        Ok(())
+    }
+}
+
+pub fn run_tests_at_path(
+    parser: &mut Parser,
+    opts: &TestOptions,
+    test_summary: &mut TestSummary,
+) -> Result<()> {
     let test_entry = parse_tests(&opts.path)?;
     let mut _log_session = None;
 
@@ -159,140 +595,26 @@ pub fn run_tests_at_path(parser: &mut Parser, opts: &mut TestOptions) -> Result<
         })));
     }
 
-    let mut failures = Vec::new();
     let mut corrected_entries = Vec::new();
-    let mut has_parse_errors = false;
     run_tests(
         parser,
         test_entry,
         opts,
-        0,
-        &mut failures,
+        test_summary,
         &mut corrected_entries,
-        &mut has_parse_errors,
+        true,
     )?;
-
-    let (count, total_adj_parse_time) = opts
-        .parse_rates
-        .iter()
-        .flat_map(|(_, rates)| rates)
-        .fold((0usize, 0.0f64), |(count, rate_accum), (_, adj_rate)| {
-            (count + 1, rate_accum + adj_rate)
-        });
-
-    let avg = total_adj_parse_time / count as f64;
-    let std_dev = {
-        let variance = opts
-            .parse_rates
-            .iter()
-            .flat_map(|(_, rates)| rates)
-            .map(|(_, rate_i)| (rate_i - avg).powi(2))
-            .sum::<f64>()
-            / count as f64;
-        variance.sqrt()
-    };
-
-    for ((is_test, rates), out_line) in opts.parse_rates.iter().zip(opts.output.lines()) {
-        let stat_display = if !is_test {
-            // Test group, no actual parsing took place
-            String::new()
-        } else {
-            match (opts.stat_display, rates) {
-                (TestStats::TotalOnly, _) | (_, None) => String::new(),
-                (display, Some((true_rate, adj_rate))) => {
-                    let mut stats = if display == TestStats::All {
-                        format!(" ({true_rate:.3} bytes/ms)")
-                    } else {
-                        String::new()
-                    };
-                    // 3 standard deviations below the mean, aka the "Empirical Rule"
-                    if *adj_rate < 3.0f64.mul_add(-std_dev, avg) {
-                        stats += &paint(
-                            opts.color.then_some(AnsiColor::Yellow),
-                            &format!(" -- Warning: Slow parse rate ({true_rate:.3} bytes/ms)"),
-                        );
-                    }
-                    stats
-                }
-            }
-        };
-        println!("{out_line}{stat_display}");
-    }
 
     parser.stop_printing_dot_graphs();
 
-    if failures.is_empty() {
+    if test_summary.parse_failures.is_empty() || (opts.update && !test_summary.has_parse_errors) {
         Ok(())
-    } else if opts.update && !has_parse_errors {
-        println!(
-            "\n{} update{}:\n",
-            failures.len(),
-            if failures.len() == 1 { "" } else { "s" }
-        );
-
-        for (i, TestFailure { name, .. }) in failures.iter().enumerate() {
-            println!("  {}. {name}", i + 1);
-        }
-
-        Ok(())
-    } else {
-        has_parse_errors = opts.update && has_parse_errors;
-
-        if !opts.overview_only {
-            if !has_parse_errors {
-                println!(
-                    "\n{} failure{}:",
-                    failures.len(),
-                    if failures.len() == 1 { "" } else { "s" }
-                );
-            }
-
-            if opts.color {
-                print_diff_key();
-            }
-            for (
-                i,
-                TestFailure {
-                    name,
-                    actual,
-                    expected,
-                    is_cst,
-                },
-            ) in failures.iter().enumerate()
-            {
-                if expected == "NO ERROR" {
-                    println!("\n  {}. {name}:\n", i + 1);
-                    println!("  Expected an ERROR node, but got:");
-                    let actual = if *is_cst {
-                        actual
-                    } else {
-                        &format_sexp(actual, 2)
-                    };
-                    println!("  {}", paint(opts.color.then_some(AnsiColor::Red), actual));
-                } else {
-                    println!("\n  {}. {name}:", i + 1);
-                    if *is_cst {
-                        print_diff(actual, expected, opts.color);
-                    } else {
-                        print_diff(
-                            &format_sexp(actual, 2),
-                            &format_sexp(expected, 2),
-                            opts.color,
-                        );
-                    }
-                }
-            }
-        } else {
-            println!();
-        }
-
-        if has_parse_errors {
-            Err(anyhow!(indoc! {"
+    } else if opts.update && test_summary.has_parse_errors {
+        Err(anyhow!(indoc! {"
                 Some tests failed to parse with unexpected `ERROR` or `MISSING` nodes, as shown above, and cannot be updated automatically.
                 Either fix the grammar or manually update the tests if this is expected."}))
-        } else {
-            Err(anyhow!(""))
-        }
+    } else {
+        Err(anyhow!(""))
     }
 }
 
@@ -331,20 +653,33 @@ impl std::fmt::Display for DiffKey {
     }
 }
 
+impl DiffKey {
+    /// Writes [`DiffKey`] to stdout
+    pub fn print() {
+        println!("{Self}");
+    }
+}
+
 pub struct TestDiff<'a> {
     pub actual: &'a str,
     pub expected: &'a str,
-    pub use_color: bool,
+    pub color: bool,
 }
 
 impl<'a> TestDiff<'a> {
     #[must_use]
-    pub const fn new(actual: &'a str, expected: &'a str, use_color: bool) -> Self {
+    pub const fn new(actual: &'a str, expected: &'a str) -> Self {
         Self {
             actual,
             expected,
-            use_color,
+            color: true,
         }
+    }
+
+    #[must_use]
+    pub const fn with_color(mut self, color: bool) -> Self {
+        self.color = color;
+        self
     }
 }
 
@@ -354,14 +689,14 @@ impl std::fmt::Display for TestDiff<'_> {
         for diff in diff.iter_all_changes() {
             match diff.tag() {
                 ChangeTag::Equal => {
-                    if self.use_color {
+                    if self.color {
                         write!(f, "{diff}")?;
                     } else {
                         write!(f, " {diff}")?;
                     }
                 }
                 ChangeTag::Insert => {
-                    if self.use_color {
+                    if self.color {
                         write!(
                             f,
                             "{}",
@@ -375,7 +710,7 @@ impl std::fmt::Display for TestDiff<'_> {
                     }
                 }
                 ChangeTag::Delete => {
-                    if self.use_color {
+                    if self.color {
                         write!(f, "{}", paint(Some(AnsiColor::Red), diff.as_str().unwrap()))?;
                     } else {
                         write!(f, "-{diff}")?;
@@ -391,7 +726,8 @@ impl std::fmt::Display for TestDiff<'_> {
     }
 }
 
-struct TestFailure {
+#[derive(Debug, Serialize)]
+pub struct TestFailure {
     name: String,
     actual: String,
     expected: String,
@@ -453,11 +789,10 @@ impl TestCorrection {
 fn run_tests(
     parser: &mut Parser,
     test_entry: TestEntry,
-    opts: &mut TestOptions,
-    indent_level: u32,
-    failures: &mut Vec<TestFailure>,
+    opts: &TestOptions,
+    test_summary: &mut TestSummary,
     corrected_entries: &mut Vec<TestCorrection>,
-    has_parse_errors: &mut bool,
+    is_root: bool,
 ) -> Result<bool> {
     match test_entry {
         TestEntry::Example {
@@ -471,29 +806,29 @@ fn run_tests(
             attributes,
             ..
         } => {
-            write!(opts.output, "{}", "  ".repeat(indent_level as usize))?;
-
             if attributes.skip {
-                writeln!(
-                    opts.output,
-                    "{:>3}. ⌀ {}",
-                    opts.test_num,
-                    paint(opts.color.then_some(AnsiColor::Yellow), &name),
-                )?;
-                opts.parse_rates.push((true, None));
-                opts.test_num += 1;
+                test_summary.parse_results.add_case(TestResult {
+                    name: name.clone(),
+                    info: TestInfo::ParseTest {
+                        outcome: TestOutcome::Skipped,
+                        parse_rate: None,
+                        test_num: test_summary.test_num,
+                    },
+                });
+                test_summary.test_num += 1;
                 return Ok(true);
             }
 
             if !attributes.platform {
-                writeln!(
-                    opts.output,
-                    "{:>3}. ⌀ {}",
-                    opts.test_num,
-                    paint(opts.color.then_some(AnsiColor::Magenta), &name),
-                )?;
-                opts.parse_rates.push((true, None));
-                opts.test_num += 1;
+                test_summary.parse_results.add_case(TestResult {
+                    name: name.clone(),
+                    info: TestInfo::ParseTest {
+                        outcome: TestOutcome::Platform,
+                        parse_rate: None,
+                        test_num: test_summary.test_num,
+                    },
+                });
+                test_summary.test_num += 1;
                 return Ok(true);
             }
 
@@ -507,28 +842,30 @@ fn run_tests(
                 }
                 let start = std::time::Instant::now();
                 let tree = parser.parse(&input, None).unwrap();
-                {
+                let parse_rate = {
                     let parse_time = start.elapsed();
                     let true_parse_rate = tree.root_node().byte_range().len() as f64
                         / (parse_time.as_nanos() as f64 / 1_000_000.0);
                     let adj_parse_rate = adjusted_parse_rate(&tree, parse_time);
 
-                    opts.parse_rates
-                        .push((true, Some((true_parse_rate, adj_parse_rate))));
-                    opts.stats.total_parses += 1;
-                    opts.stats.total_duration += parse_time;
-                    opts.stats.total_bytes += tree.root_node().byte_range().len();
-                }
+                    test_summary.parse_stats.total_parses += 1;
+                    test_summary.parse_stats.total_duration += parse_time;
+                    test_summary.parse_stats.total_bytes += tree.root_node().byte_range().len();
+
+                    Some((true_parse_rate, adj_parse_rate))
+                };
 
                 if attributes.error {
                     if tree.root_node().has_error() {
-                        writeln!(
-                            opts.output,
-                            "{:>3}. ✓ {}",
-                            opts.test_num,
-                            paint(opts.color.then_some(AnsiColor::Green), &name),
-                        )?;
-                        opts.stats.successful_parses += 1;
+                        test_summary.parse_results.add_case(TestResult {
+                            name: name.clone(),
+                            info: TestInfo::ParseTest {
+                                outcome: TestOutcome::Passed,
+                                parse_rate,
+                                test_num: test_summary.test_num,
+                            },
+                        });
+                        test_summary.parse_stats.successful_parses += 1;
                         if opts.update {
                             let input = String::from_utf8(input.clone()).unwrap();
                             let output = if attributes.cst {
@@ -563,18 +900,25 @@ fn run_tests(
                                 divider_delim_len,
                             ));
                         }
-                        writeln!(
-                            opts.output,
-                            "{:>3}. ✗ {}",
-                            opts.test_num,
-                            paint(opts.color.then_some(AnsiColor::Red), &name),
-                        )?;
+                        test_summary.parse_results.add_case(TestResult {
+                            name: name.clone(),
+                            info: TestInfo::ParseTest {
+                                outcome: TestOutcome::Failed,
+                                parse_rate,
+                                test_num: test_summary.test_num,
+                            },
+                        });
                         let actual = if attributes.cst {
                             render_test_cst(&input, &tree)?
                         } else {
                             tree.root_node().to_sexp()
                         };
-                        failures.push(TestFailure::new(&name, actual, "NO ERROR", attributes.cst));
+                        test_summary.parse_failures.push(TestFailure::new(
+                            &name,
+                            actual,
+                            "NO ERROR",
+                            attributes.cst,
+                        ));
                     }
 
                     if attributes.fail_fast {
@@ -591,13 +935,15 @@ fn run_tests(
                     }
 
                     if actual == output {
-                        writeln!(
-                            opts.output,
-                            "{:>3}. ✓ {}",
-                            opts.test_num,
-                            paint(opts.color.then_some(AnsiColor::Green), &name),
-                        )?;
-                        opts.stats.successful_parses += 1;
+                        test_summary.parse_results.add_case(TestResult {
+                            name: name.clone(),
+                            info: TestInfo::ParseTest {
+                                outcome: TestOutcome::Passed,
+                                parse_rate,
+                                test_num: test_summary.test_num,
+                            },
+                        });
+                        test_summary.parse_stats.successful_parses += 1;
                         if opts.update {
                             let input = String::from_utf8(input.clone()).unwrap();
                             let output = if attributes.cst {
@@ -628,7 +974,7 @@ fn run_tests(
                             // are intended to have errors, hence why this
                             // check isn't shown above
                             if actual.contains("ERROR") || actual.contains("MISSING") {
-                                *has_parse_errors = true;
+                                test_summary.has_parse_errors = true;
 
                                 // keep the original `expected` output if the actual output has an
                                 // error
@@ -649,22 +995,31 @@ fn run_tests(
                                     header_delim_len,
                                     divider_delim_len,
                                 ));
-                                writeln!(
-                                    opts.output,
-                                    "{:>3}. ✓ {}",
-                                    opts.test_num,
-                                    paint(opts.color.then_some(AnsiColor::Blue), &name),
-                                )?;
+                                test_summary.parse_results.add_case(TestResult {
+                                    name: name.clone(),
+                                    info: TestInfo::ParseTest {
+                                        outcome: TestOutcome::Updated,
+                                        parse_rate,
+                                        test_num: test_summary.test_num,
+                                    },
+                                });
                             }
                         } else {
-                            writeln!(
-                                opts.output,
-                                "{:>3}. ✗ {}",
-                                opts.test_num,
-                                paint(opts.color.then_some(AnsiColor::Red), &name),
-                            )?;
+                            test_summary.parse_results.add_case(TestResult {
+                                name: name.clone(),
+                                info: TestInfo::ParseTest {
+                                    outcome: TestOutcome::Failed,
+                                    parse_rate,
+                                    test_num: test_summary.test_num,
+                                },
+                            });
                         }
-                        failures.push(TestFailure::new(&name, actual, &output, attributes.cst));
+                        test_summary.parse_failures.push(TestFailure::new(
+                            &name,
+                            actual,
+                            &output,
+                            attributes.cst,
+                        ));
 
                         if attributes.fail_fast {
                             return Ok(false);
@@ -677,7 +1032,7 @@ fn run_tests(
                     parser.set_language(opts.languages.values().next().unwrap())?;
                 }
             }
-            opts.test_num += 1;
+            test_summary.test_num += 1;
         }
         TestEntry::Group {
             name,
@@ -688,8 +1043,8 @@ fn run_tests(
                 return Ok(true);
             }
 
-            let failure_count = failures.len();
-            let mut has_printed = false;
+            let failure_count = test_summary.parse_failures.len();
+            let mut ran_test_in_group = false;
 
             let matches_filter = |name: &str, file_name: &Option<String>, opts: &TestOptions| {
                 if let (Some(test_file_path), Some(filter_file_name)) = (file_name, &opts.file_name)
@@ -733,35 +1088,26 @@ fn run_tests(
                             ));
                         }
 
-                        opts.test_num += 1;
+                        test_summary.test_num += 1;
                         continue;
                     }
                 }
-                if !has_printed && indent_level > 0 {
-                    has_printed = true;
-                    writeln!(
-                        opts.output,
-                        "{}{name}:",
-                        "  ".repeat(indent_level as usize)
-                    )?;
-                    opts.parse_rates.push((false, None));
+
+                if !ran_test_in_group && !is_root {
+                    test_summary.parse_results.add_group(&name);
+                    ran_test_in_group = true;
                 }
-                if !run_tests(
-                    parser,
-                    child,
-                    opts,
-                    indent_level + 1,
-                    failures,
-                    corrected_entries,
-                    has_parse_errors,
-                )? {
+                if !run_tests(parser, child, opts, test_summary, corrected_entries, false)? {
                     // fail fast
                     return Ok(false);
                 }
             }
+            // Now that we're done traversing the children of the current group, pop
+            // the index
+            test_summary.parse_results.pop_traversal();
 
             if let Some(file_path) = file_path {
-                if opts.update && failures.len() - failure_count > 0 {
+                if opts.update && test_summary.parse_failures.len() - failure_count > 0 {
                     write_tests(&file_path, corrected_entries)?;
                 }
                 corrected_entries.clear();

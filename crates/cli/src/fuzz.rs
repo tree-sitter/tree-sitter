@@ -183,8 +183,8 @@ pub fn fuzz_language_corpus(
 
             if actual_output != test.output {
                 println!("Incorrect initial parse for {test_name}");
-                println!("{DiffKey}");
-                println!("{}", TestDiff::new(&actual_output, &test.output, true));
+                DiffKey::print();
+                println!("{}", TestDiff::new(&actual_output, &test.output));
                 println!();
                 return false;
             }
@@ -276,8 +276,8 @@ pub fn fuzz_language_corpus(
 
                 if actual_output != test.output && !test.error {
                     println!("Incorrect parse for {test_name} - seed {seed}");
-                    println!("{DiffKey}");
-                    println!("{}", TestDiff::new(&actual_output, &test.output, true));
+                    DiffKey::print();
+                    println!("{}", TestDiff::new(&actual_output, &test.output));
                     println!();
                     return false;
                 }
