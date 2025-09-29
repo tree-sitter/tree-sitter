@@ -70,22 +70,23 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v5
 
-    - name: Set up environment
+    - name: Set up cross-compilation
+      if: matrix.cross
       run: |
-        printf 'EMSCRIPTEN_VERSION=%s\n' "$(<crates/loader/emscripten-version)" >> $GITHUB_ENV
+        for target in armv7-unknown-linux-gnueabihf i686-unknown-linux-gnu powerpc64-unknown-linux-gnu; do
+          camel_target=${target//-/_}; target_cc=${target/-unknown/}
+          printf 'CC_%s=%s\n' "$camel_target" "${target_cc/v7/}-gcc"
+          printf 'AR_%s=%s\n' "$camel_target" "${target_cc/v7/}-ar"
+          printf 'CARGO_TARGET_%s_LINKER=%s\n' "${camel_target^^}" "${target_cc/v7/}-gcc"
+        done >> $GITHUB_ENV
+        {
+          printf 'CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_RUNNER=qemu-arm -L /usr/arm-linux-gnueabihf\n'
+          printf 'CARGO_TARGET_POWERPC64_UNKNOWN_LINUX_GNU_RUNNER=qemu-ppc64 -L /usr/powerpc64-linux-gnu\n'
+        } >> $GITHUB_ENV
 
-        if [[ '${{ matrix.cross }}' == true ]]; then
-          for target in armv7-unknown-linux-gnueabihf i686-unknown-linux-gnu powerpc64-unknown-linux-gnu; do
-            camel_target=${target//-/_}; target_cc=${target/-unknown/}
-            printf 'CC_%s=%s\n' "$camel_target" "${target_cc/v7/}-gcc"
-            printf 'AR_%s=%s\n' "$camel_target" "${target_cc/v7/}-ar"
-            printf 'CARGO_TARGET_%s_LINKER=%s\n' "${camel_target^^}" "${target_cc/v7/}-gcc"
-          done >> $GITHUB_ENV
-          {
-            printf 'CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_RUNNER=qemu-arm -L /usr/arm-linux-gnueabihf\n'
-            printf 'CARGO_TARGET_POWERPC64_UNKNOWN_LINUX_GNU_RUNNER=qemu-ppc64 -L /usr/powerpc64-linux-gnu\n'
-          } >> $GITHUB_ENV
-        fi
+    - name: Get emscripten version
+      if: contains(matrix.features, 'wasm')
+      run: printf 'EMSCRIPTEN_VERSION=%s\n' "$(<crates/loader/emscripten-version)" >> $GITHUB_ENV
 
     - name: Install Emscripten
       if: contains(matrix.features, 'wasm')
