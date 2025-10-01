@@ -230,11 +230,21 @@ impl ParseSummary {
     }
 }
 
-#[derive(Serialize, Debug, Default)]
+#[derive(Serialize, Debug)]
 pub struct ParseStats {
     pub parse_summaries: Vec<ParseSummary>,
     pub cumulative_stats: Stats,
     pub source_count: usize,
+}
+
+impl Default for ParseStats {
+    fn default() -> Self {
+        Self {
+            parse_summaries: Vec::new(),
+            cumulative_stats: Stats::default(),
+            source_count: 1,
+        }
+    }
 }
 
 #[derive(Serialize, ValueEnum, Debug, Copy, Clone, Default, Eq, PartialEq)]
