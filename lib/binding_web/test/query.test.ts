@@ -96,6 +96,64 @@ describe('Query', () => {
       ]);
     });
 
+    it('can search in contained within point ranges', () => {
+      tree = parser.parse(`[
+                {"key1": "value1"},
+                {"key2": "value2"},
+                {"key3": "value3"},
+                {"key4": "value4"},
+                {"key5": "value5"},
+                {"key6": "value6"},
+                {"key7": "value7"},
+                {"key8": "value8"},
+                {"key9": "value9"},
+                {"key10": "value10"},
+                {"key11": "value11"},
+                {"key12": "value12"},
+]`)!;
+      query = new Query(JavaScript, '("[" @l_bracket "]" @r_bracket) ("{" @l_brace "}" @r_brace)');
+      const matches = query.matches(
+        tree.rootNode,
+        {
+          startContainingPosition: { row: 5, column: 0 },
+          endContainingPosition: { row: 7, column: 0 },
+        }
+      );
+      expect(formatMatches(matches)).toEqual([
+        { patternIndex: 1, captures: [{ patternIndex: 1, name: 'l_brace', text: '{' }, { patternIndex: 1, name: 'r_brace', text: '}' },] },
+        { patternIndex: 1, captures: [{ patternIndex: 1, name: 'l_brace', text: '{' }, { patternIndex: 1, name: 'r_brace', text: '}' },] },
+      ]);
+    });
+
+    it('can search in contained within byte ranges', () => {
+      tree = parser.parse(`[
+                {"key1": "value1"},
+                {"key2": "value2"},
+                {"key3": "value3"},
+                {"key4": "value4"},
+                {"key5": "value5"},
+                {"key6": "value6"},
+                {"key7": "value7"},
+                {"key8": "value8"},
+                {"key9": "value9"},
+                {"key10": "value10"},
+                {"key11": "value11"},
+                {"key12": "value12"},
+]`)!;
+      query = new Query(JavaScript, '("[" @l_bracket "]" @r_bracket) ("{" @l_brace "}" @r_brace)');
+      const matches = query.matches(
+        tree.rootNode,
+        {
+          startContainingIndex: 290,
+          endContainingIndex: 432,
+        }
+      );
+      expect(formatMatches(matches)).toEqual([
+        { patternIndex: 1, captures: [{ patternIndex: 1, name: 'l_brace', text: '{' }, { patternIndex: 1, name: 'r_brace', text: '}' },] },
+        { patternIndex: 1, captures: [{ patternIndex: 1, name: 'l_brace', text: '{' }, { patternIndex: 1, name: 'r_brace', text: '}' },] },
+      ]);
+    });
+
     it('handles predicates that compare the text of capture to literal strings', () => {
       tree = parser.parse(`
         giraffe(1, 2, []);

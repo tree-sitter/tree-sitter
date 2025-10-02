@@ -1102,6 +1102,28 @@ bool ts_query_cursor_set_byte_range(TSQueryCursor *self, uint32_t start_byte, ui
 bool ts_query_cursor_set_point_range(TSQueryCursor *self, TSPoint start_point, TSPoint end_point);
 
 /**
+ * Set the byte range within which all matches must be fully contained.
+ *
+ * Set the range of bytes in which matches will be searched for. In contrast to
+ * `ts_query_cursor_set_byte_range`, this will restrict the query cursor to only return
+ * matches where _all_ nodes are _fully_ contained within the given range. Both functions
+ * can be used together, e.g. to search for any matches that intersect line 5000, as
+ * long as they are fully contained within lines 4500-5500
+ */
+bool ts_query_cursor_set_containing_byte_range(TSQueryCursor *self, uint32_t start_byte, uint32_t end_byte);
+
+/**
+ * Set the point range within which all matches must be fully contained.
+ *
+ * Set the range of bytes in which matches will be searched for. In contrast to
+ * `ts_query_cursor_set_point_range`, this will restrict the query cursor to only return
+ * matches where _all_ nodes are _fully_ contained within the given range. Both functions
+ * can be used together, e.g. to search for any matches that intersect line 5000, as
+ * long as they are fully contained within lines 4500-5500
+ */
+bool ts_query_cursor_set_containing_point_range(TSQueryCursor *self, TSPoint start_point, TSPoint end_point);
+
+/**
  * Advance to the next match of the currently running query.
  *
  * If there is a match, write it to `*match` and return `true`.

@@ -36,9 +36,19 @@ The path to a file that contains paths to source files in which the query will b
 
 The range of byte offsets in which the query will be executed. The format is `start_byte:end_byte`.
 
+### `--containing-byte-range <BYTE_RANGE>`
+
+The range of byte offsets in which the query will be executed. Only the matches that are fully contained within the provided
+byte range will be returned.
+
 ### `--row-range <ROW_RANGE>`
 
 The range of rows in which the query will be executed. The format is `start_row:end_row`.
+
+### `--containing-row-range <ROW_RANGE>`
+
+The range of rows in which the query will be executed. Only the matches that are fully contained within the provided row range
+will be returned.
 
 ### `--scope <SCOPE>`
 
