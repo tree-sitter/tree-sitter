@@ -227,7 +227,7 @@ struct Parse {
     #[arg(long = "cst", short = 'c')]
     pub output_cst: bool,
     /// Show parsing statistic
-    #[arg(long, short)]
+    #[arg(long, short, conflicts_with = "json", conflicts_with = "json_summary")]
     pub stat: bool,
     /// Interrupt the parsing process by timeout (µs)
     #[arg(long)]
@@ -253,10 +253,15 @@ struct Parse {
     #[arg(long)]
     pub open_log: bool,
     /// Deprecated: use --json-summary
-    #[arg(long, short = 'j', conflicts_with = "json_summary")]
+    #[arg(
+        long,
+        short = 'j',
+        conflicts_with = "json_summary",
+        conflicts_with = "stat"
+    )]
     pub json: bool,
     /// Output parsing results in a JSON format
-    #[arg(long, conflicts_with = "json")]
+    #[arg(long, conflicts_with = "json", conflicts_with = "stat")]
     pub json_summary: bool,
     /// The path to an alternative config.json file
     #[arg(long)]
@@ -1039,7 +1044,7 @@ impl Parse {
 
         let mut update_stats = |stats: &mut parse::ParseStats| {
             let parse_result = stats.parse_summaries.last().unwrap();
-            if should_track_stats {
+            if should_track_stats || json_summary {
                 stats.cumulative_stats.total_parses += 1;
                 if parse_result.successful {
                     stats.cumulative_stats.successful_parses += 1;
