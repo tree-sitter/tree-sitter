@@ -76,11 +76,13 @@ pub fn query_file_at_path(
                         capture.node.utf8_text(&source_code).unwrap_or("")
                     )?;
             }
-            results.push(query_testing::CaptureInfo {
-                name: (*capture_name).to_string(),
-                start: to_utf8_point(capture.node.start_position(), source_code.as_slice()),
-                end: to_utf8_point(capture.node.end_position(), source_code.as_slice()),
-            });
+            if should_test {
+                results.push(query_testing::CaptureInfo {
+                    name: (*capture_name).to_string(),
+                    start: to_utf8_point(capture.node.start_position(), source_code.as_slice()),
+                    end: to_utf8_point(capture.node.end_position(), source_code.as_slice()),
+                });
+            }
         }
     } else {
         let mut matches = query_cursor.matches(&query, tree.root_node(), source_code.as_slice());
@@ -107,11 +109,13 @@ pub fn query_file_at_path(
                         )?;
                     }
                 }
-                results.push(query_testing::CaptureInfo {
-                    name: (*capture_name).to_string(),
-                    start: to_utf8_point(capture.node.start_position(), source_code.as_slice()),
-                    end: to_utf8_point(capture.node.end_position(), source_code.as_slice()),
-                });
+                if should_test {
+                    results.push(query_testing::CaptureInfo {
+                        name: (*capture_name).to_string(),
+                        start: to_utf8_point(capture.node.start_position(), source_code.as_slice()),
+                        end: to_utf8_point(capture.node.end_position(), source_code.as_slice()),
+                    });
+                }
             }
         }
     }
