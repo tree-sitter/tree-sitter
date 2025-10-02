@@ -3181,6 +3181,44 @@ impl QueryCursor {
         self
     }
 
+    /// Set the byte range within which all matches must be fully contained.
+    ///
+    /// Set the range of bytes in which matches will be searched for. In contrast to
+    /// `ts_query_cursor_set_byte_range`, this will restrict the query cursor to only return
+    /// matches where _all_ nodes are _fully_ contained within the given range. Both functions
+    /// can be used together, e.g. to search for any matches that intersect line 5000, as
+    /// long as they are fully contained within lines 4500-5500
+    #[doc(alias = "ts_query_cursor_set_containing_byte_range")]
+    pub fn set_containing_byte_range(&mut self, range: ops::Range<usize>) -> &mut Self {
+        unsafe {
+            ffi::ts_query_cursor_set_containing_byte_range(
+                self.ptr.as_ptr(),
+                range.start as u32,
+                range.end as u32,
+            );
+        }
+        self
+    }
+
+    /// Set the point range within which all matches must be fully contained.
+    ///
+    /// Set the range of bytes in which matches will be searched for. In contrast to
+    /// `ts_query_cursor_set_point_range`, this will restrict the query cursor to only return
+    /// matches where _all_ nodes are _fully_ contained within the given range. Both functions
+    /// can be used together, e.g. to search for any matches that intersect line 5000, as
+    /// long as they are fully contained within lines 4500-5500
+    #[doc(alias = "ts_query_cursor_set_containing_point_range")]
+    pub fn set_containing_point_range(&mut self, range: ops::Range<Point>) -> &mut Self {
+        unsafe {
+            ffi::ts_query_cursor_set_containing_point_range(
+                self.ptr.as_ptr(),
+                range.start.into(),
+                range.end.into(),
+            );
+        }
+        self
+    }
+
     /// Set the maximum start depth for a query cursor.
     ///
     /// This prevents cursors from exploring children nodes at a certain depth.

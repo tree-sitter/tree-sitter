@@ -713,6 +713,22 @@ extern "C" {
     ) -> bool;
 }
 extern "C" {
+    #[doc = " Set the byte range within which all matches must be fully contained.\n\n Set the range of bytes in which matches will be searched for. In contrast to\n `ts_query_cursor_set_byte_range`, this will restrict the query cursor to only return\n matches where _all_ nodes are _fully_ contained within the given range. Both functions\n can be used together, e.g. to search for any matches that intersect line 5000, as\n long as they are fully contained within lines 4500-5500"]
+    pub fn ts_query_cursor_set_containing_byte_range(
+        self_: *mut TSQueryCursor,
+        start_byte: u32,
+        end_byte: u32,
+    ) -> bool;
+}
+extern "C" {
+    #[doc = " Set the point range within which all matches must be fully contained.\n\n Set the range of bytes in which matches will be searched for. In contrast to\n `ts_query_cursor_set_point_range`, this will restrict the query cursor to only return\n matches where _all_ nodes are _fully_ contained within the given range. Both functions\n can be used together, e.g. to search for any matches that intersect line 5000, as\n long as they are fully contained within lines 4500-5500"]
+    pub fn ts_query_cursor_set_containing_point_range(
+        self_: *mut TSQueryCursor,
+        start_point: TSPoint,
+        end_point: TSPoint,
+    ) -> bool;
+}
+extern "C" {
     #[doc = " Advance to the next match of the currently running query.\n\n If there is a match, write it to `*match` and return `true`.\n Otherwise, return `false`."]
     pub fn ts_query_cursor_next_match(self_: *mut TSQueryCursor, match_: *mut TSQueryMatch)
         -> bool;
