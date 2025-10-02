@@ -26,6 +26,8 @@ pub fn query_file_at_path(
     ordered_captures: bool,
     byte_range: Option<Range<usize>>,
     point_range: Option<Range<Point>>,
+    containing_byte_range: Option<Range<usize>>,
+    containing_point_range: Option<Range<Point>>,
     should_test: bool,
     quiet: bool,
     print_time: bool,
@@ -44,6 +46,12 @@ pub fn query_file_at_path(
     }
     if let Some(range) = point_range {
         query_cursor.set_point_range(range);
+    }
+    if let Some(range) = containing_byte_range {
+        query_cursor.set_containing_byte_range(range);
+    }
+    if let Some(range) = containing_point_range {
+        query_cursor.set_containing_point_range(range);
     }
 
     let mut parser = Parser::new();

@@ -2670,6 +2670,56 @@ fn test_query_matches_within_range_of_long_repetition() {
 }
 
 #[test]
+fn test_query_matches_contained_within_range() {
+    allocations::record(|| {
+        let language = get_language("json");
+        let query = Query::new(
+            &language,
+            r#"
+            ("[" @l_bracket "]" @r_bracket)
+            ("{" @l_brace "}" @r_brace)
+            "#,
+        )
+        .unwrap();
+
+        let source = r#"
+            [
+                {"key1": "value1"},
+                {"key2": "value2"},
+                {"key3": "value3"},
+                {"key4": "value4"},
+                {"key5": "value5"},
+                {"key6": "value6"},
+                {"key7": "value7"},
+                {"key8": "value8"},
+                {"key9": "value9"},
+                {"key10": "value10"},
+                {"key11": "value11"},
+                {"key12": "value12"},
+            ]
+        "#
+        .unindent();
+
+        let mut parser = Parser::new();
+        let mut cursor = QueryCursor::new();
+
+        parser.set_language(&language).unwrap();
+        let tree = parser.parse(&source, None).unwrap();
+
+        let matches = cursor
+            .set_containing_point_range(Point::new(5, 0)..Point::new(7, 0))
+            .matches(&query, tree.root_node(), source.as_bytes());
+        assert_eq!(
+            collect_matches(matches, &query, &source),
+            &[
+                (1, vec![("l_brace", "{"), ("r_brace", "}")]),
+                (1, vec![("l_brace", "{"), ("r_brace", "}")]),
+            ]
+        );
+    });
+}
+
+#[test]
 fn test_query_matches_different_queries_same_cursor() {
     allocations::record(|| {
         let language = get_language("javascript");

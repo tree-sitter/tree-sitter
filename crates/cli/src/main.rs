@@ -442,6 +442,14 @@ struct Query {
     /// The range of rows in which the query will be executed
     #[arg(long)]
     pub row_range: Option<String>,
+    /// The range of byte offsets in which the query will be executed. Only the matches that are fully contained within provided byte range
+    /// will be returned.
+    #[arg(long)]
+    pub containing_byte_range: Option<String>,
+    /// The range of rows in which the query will be executed. Only the matches that are fully contained within provided row range
+    /// will be returned.
+    #[arg(long)]
+    pub containing_row_range: Option<String>,
     /// Select a language by the scope instead of a file extension
     #[arg(long)]
     pub scope: Option<String>,
@@ -1311,6 +1319,8 @@ impl Test {
                         false,
                         None,
                         None,
+                        None,
+                        None,
                         true,
                         false,
                         false,
@@ -1401,6 +1411,18 @@ impl Query {
             let end = parts.next().unwrap().parse().ok()?;
             Some(Point::new(start, 0)..Point::new(end, 0))
         });
+        let containing_byte_range = self.containing_byte_range.as_ref().and_then(|range| {
+            let mut parts = range.split(':');
+            let start = parts.next()?.parse().ok()?;
+            let end = parts.next().unwrap().parse().ok()?;
+            Some(start..end)
+        });
+        let containing_point_range = self.containing_row_range.as_ref().and_then(|range| {
+            let mut parts = range.split(':');
+            let start = parts.next()?.parse().ok()?;
+            let end = parts.next().unwrap().parse().ok()?;
+            Some(Point::new(start, 0)..Point::new(end, 0))
+        });
 
         let cancellation_flag = util::cancel_on_signal();
 
@@ -1434,6 +1456,8 @@ impl Query {
                         self.captures,
                         byte_range.clone(),
                         point_range.clone(),
+                        containing_byte_range.clone(),
+                        containing_point_range.clone(),
                         self.test,
                         self.quiet,
                         self.time,
@@ -1473,6 +1497,8 @@ impl Query {
                     self.captures,
                     byte_range,
                     point_range,
+                    containing_byte_range,
+                    containing_point_range,
                     self.test,
                     self.quiet,
                     self.time,
@@ -1495,6 +1521,8 @@ impl Query {
                     self.captures,
                     byte_range,
                     point_range,
+                    containing_byte_range,
+                    containing_point_range,
                     self.test,
                     self.quiet,
                     self.time,
