@@ -81,6 +81,15 @@ impl<'a> ParseItemSetBuilder<'a> {
                 .insert(symbol, ReservedWordSetId::default());
         }
 
+        let end_symbol = Symbol::end();
+        let mut end_set = TokenSet::new();
+        end_set.insert(end_symbol);
+        result.first_sets.insert(end_symbol, end_set.clone());
+        result.last_sets.insert(end_symbol, end_set);
+        result
+            .reserved_first_sets
+            .insert(end_symbol, ReservedWordSetId::default());
+
         // The FIRST set of a non-terminal `i` is the union of the FIRST sets
         // of all the symbols that appear at the beginnings of i's productions. Some
         // of these symbols may themselves be non-terminals, so this is a recursive

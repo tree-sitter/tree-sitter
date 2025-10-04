@@ -248,7 +248,7 @@ impl NfaBuilder {
                 }
                 result
             }
-            Rule::Blank => Ok(false),
+            Rule::Blank | Rule::Eof => Ok(false),
             _ => Err(ExpandRuleError::UnexpectedRule(rule.clone()))?,
         }
     }

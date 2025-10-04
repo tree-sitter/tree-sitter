@@ -64,6 +64,11 @@ impl Expander {
             Rule::Repeat(content) => {
                 let inner_rule = self.expand_rule(content);
 
+                assert!(
+                    !Self::rule_can_match_eof_only(&inner_rule),
+                    "Cannot repeat rules that can match eof only"
+                );
+
                 if let Some(existing_symbol) = self.existing_repeats.get(&inner_rule) {
                     return Rule::Symbol(*existing_symbol);
                 }
@@ -97,6 +102,25 @@ impl Expander {
             Rule::Seq(vec![Rule::Symbol(symbol), Rule::Symbol(symbol)]),
             rule,
         ])
+    }
+
+    // if the rule inside a repeat here can potentially only match EOF, we should
+    // not allow it to be repeated, as that would create an infinite loop.
+    fn rule_can_match_eof_only(rule: &Rule) -> bool {
+        match rule {
+            Rule::Choice(choices) => choices.iter().any(Self::rule_can_match_eof_only),
+            Rule::Seq(sequence) => sequence.iter().all(Self::rule_can_match_eof_only),
+            Rule::Reserved { rule, .. } | Rule::Metadata { rule, .. } => {
+                Self::rule_can_match_eof_only(rule)
+            }
+            Rule::Repeat(_) => Self::rule_can_match_eof_only(rule),
+            Rule::Symbol(sym) => *sym == Symbol::end(),
+            Rule::Eof
+            | Rule::Blank
+            | Rule::String(_)
+            | Rule::Pattern(_, _)
+            | Rule::NamedSymbol(_) => false,
+        }
     }
 }
 
