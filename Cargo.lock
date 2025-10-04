@@ -2035,11 +2035,11 @@ dependencies = [
 name = "tree-sitter-config"
 version = "0.26.0"
 dependencies = [
- "anyhow",
  "etcetera",
  "log",
  "serde",
  "serde_json",
+ "thiserror 2.0.16",
 ]
 
 [[package]]
