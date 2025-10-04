@@ -28,7 +28,6 @@ wasm = ["tree-sitter/wasm"]
 default = ["tree-sitter-highlight", "tree-sitter-tags"]
 
 [dependencies]
-anyhow.workspace = true
 cc.workspace = true
 etcetera.workspace = true
 fs4.workspace = true
@@ -41,6 +40,7 @@ semver.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tempfile.workspace = true
+thiserror.workspace = true
 
 tree-sitter = { workspace = true }
 tree-sitter-highlight = { workspace = true, optional = true }
