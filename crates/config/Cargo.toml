@@ -20,8 +20,8 @@ path = "src/tree_sitter_config.rs"
 workspace = true
 
 [dependencies]
-anyhow.workspace = true
 etcetera.workspace = true
 log.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+thiserror.workspace = true
