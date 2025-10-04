@@ -12,7 +12,6 @@ use std::{
     mem,
 };
 
-use anyhow::Result;
 pub use expand_tokens::ExpandTokensError;
 pub use extract_tokens::ExtractTokensError;
 pub use flatten_grammar::FlattenGrammarError;

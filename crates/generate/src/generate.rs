@@ -7,7 +7,6 @@ use std::{
     process::{Command, Stdio},
 };
 
-use anyhow::Result;
 use bitflags::bitflags;
 use log::warn;
 use node_types::VariableInfo;
