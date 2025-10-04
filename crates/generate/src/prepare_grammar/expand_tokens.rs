@@ -1,4 +1,3 @@
-use anyhow::Result;
 use regex_syntax::{
     hir::{Class, Hir, HirKind},
     ParserBuilder,

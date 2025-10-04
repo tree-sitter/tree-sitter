@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use anyhow::Result;
 use serde::Serialize;
 use thiserror::Error;
 
