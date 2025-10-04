@@ -1078,7 +1078,7 @@ impl Parse {
                             lib_info.as_ref(),
                         )
                         .with_context(|| {
-                            anyhow!("Failed to load langauge for path \"{}\"", path.display())
+                            anyhow!("Failed to load language for path \"{}\"", path.display())
                         })?;
 
                     parse::parse_file_at_path(
