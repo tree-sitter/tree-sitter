@@ -318,10 +318,8 @@ struct TSQueryCursor {
   CaptureListPool capture_list_pool;
   uint32_t depth;
   uint32_t max_start_depth;
-  uint32_t start_byte;
-  uint32_t end_byte;
-  TSPoint start_point;
-  TSPoint end_point;
+  TSRange included_range;
+  TSRange containing_range;
   uint32_t next_state_id;
   const TSQueryCursorOptions *query_options;
   TSQueryCursorState query_state;
@@ -1336,7 +1334,7 @@ static void ts_query__perform_analysis(
           // of the query pattern.
           bool does_match = false;
 
-          // ERROR nodes can appear anywhere, so if the step is 
+          // ERROR nodes can appear anywhere, so if the step is
           // looking for an ERROR node, consider it potentially matchable.
           if (step->symbol == ts_builtin_sym_error) {
             does_match = true;
@@ -3145,10 +3143,18 @@ TSQueryCursor *ts_query_cursor_new(void) {
     .states = array_new(),
     .finished_states = array_new(),
     .capture_list_pool = capture_list_pool_new(),
-    .start_byte = 0,
-    .end_byte = UINT32_MAX,
-    .start_point = {0, 0},
-    .end_point = POINT_MAX,
+    .included_range = {
+      .start_point = {0, 0},
+      .end_point = POINT_MAX,
+      .start_byte = 0,
+      .end_byte = UINT32_MAX,
+    },
+    .containing_range = {
+      .start_point = {0, 0},
+      .end_point = POINT_MAX,
+      .start_byte = 0,
+      .end_byte = UINT32_MAX,
+    },
     .max_start_depth = UINT32_MAX,
     .operation_count = 0,
   };
@@ -3256,8 +3262,8 @@ bool ts_query_cursor_set_byte_range(
   if (start_byte > end_byte) {
     return false;
   }
-  self->start_byte = start_byte;
-  self->end_byte = end_byte;
+  self->included_range.start_byte = start_byte;
+  self->included_range.end_byte = end_byte;
   return true;
 }
 
@@ -3272,8 +3278,40 @@ bool ts_query_cursor_set_point_range(
   if (point_gt(start_point, end_point)) {
     return false;
   }
-  self->start_point = start_point;
-  self->end_point = end_point;
+  self->included_range.start_point = start_point;
+  self->included_range.end_point = end_point;
+  return true;
+}
+
+bool ts_query_cursor_set_containing_byte_range(
+  TSQueryCursor *self,
+  uint32_t start_byte,
+  uint32_t end_byte
+) {
+  if (end_byte == 0) {
+    end_byte = UINT32_MAX;
+  }
+  if (start_byte > end_byte) {
+    return false;
+  }
+  self->containing_range.start_byte = start_byte;
+  self->containing_range.end_byte = end_byte;
+  return true;
+}
+
+bool ts_query_cursor_set_containing_point_range(
+  TSQueryCursor *self,
+  TSPoint start_point,
+  TSPoint end_point
+) {
+  if (end_point.row == 0 && end_point.column == 0) {
+    end_point = POINT_MAX;
+  }
+  if (point_gt(start_point, end_point)) {
+    return false;
+  }
+  self->containing_range.start_point = start_point;
+  self->containing_range.end_point = end_point;
   return true;
 }
 
@@ -3304,8 +3342,8 @@ static bool ts_query_cursor__first_in_progress_capture(
 
     TSNode node = array_get(captures, state->consumed_capture_count)->node;
     if (
-      ts_node_end_byte(node) <= self->start_byte ||
-      point_lte(ts_node_end_point(node), self->start_point)
+      ts_node_end_byte(node) <= self->included_range.start_byte ||
+      point_lte(ts_node_end_point(node), self->included_range.start_point)
     ) {
       state->consumed_capture_count++;
       i--;
@@ -3761,28 +3799,38 @@ static inline bool ts_query_cursor__advance(
       bool is_empty = start_byte == end_byte;
 
       bool parent_precedes_range = !ts_node_is_null(parent_node) && (
-        ts_node_end_byte(parent_node) <= self->start_byte ||
-        point_lte(ts_node_end_point(parent_node), self->start_point)
+        ts_node_end_byte(parent_node) <= self->included_range.start_byte ||
+        point_lte(ts_node_end_point(parent_node), self->included_range.start_point)
       );
       bool parent_follows_range = !ts_node_is_null(parent_node) && (
-        ts_node_start_byte(parent_node) >= self->end_byte ||
-        point_gte(ts_node_start_point(parent_node), self->end_point)
+        ts_node_start_byte(parent_node) >= self->included_range.end_byte ||
+        point_gte(ts_node_start_point(parent_node), self->included_range.end_point)
       );
       bool node_precedes_range =
         parent_precedes_range ||
-        end_byte < self->start_byte ||
-        point_lt(end_point, self->start_point) ||
-        (!is_empty && end_byte == self->start_byte) ||
-        (!is_empty && point_eq(end_point, self->start_point));
+        end_byte < self->included_range.start_byte ||
+        point_lt(end_point, self->included_range.start_point) ||
+        (!is_empty && end_byte == self->included_range.start_byte) ||
+        (!is_empty && point_eq(end_point, self->included_range.start_point));
 
       bool node_follows_range = parent_follows_range || (
-        start_byte >= self->end_byte ||
-        point_gte(start_point, self->end_point)
+        start_byte >= self->included_range.end_byte ||
+        point_gte(start_point, self->included_range.end_point)
       );
       bool parent_intersects_range = !parent_precedes_range && !parent_follows_range;
       bool node_intersects_range = !node_precedes_range && !node_follows_range;
+      bool node_within_containing_range =
+        start_byte >= self->containing_range.start_byte &&
+        point_gte(start_point, self->containing_range.start_point) &&
+        end_byte <= self->containing_range.end_byte &&
+        point_lte(end_point, self->containing_range.end_point);
+      bool node_intersects_containing_range =
+        end_byte > self->containing_range.start_byte &&
+        point_gt(end_point, self->containing_range.start_point) &&
+        start_byte < self->containing_range.end_byte &&
+        point_lt(start_point, self->containing_range.end_point);
 
-      if (self->on_visible_node) {
+      if (node_within_containing_range && self->on_visible_node) {
         TSSymbol symbol = ts_node_symbol(node);
         bool is_named = ts_node_is_named(node);
         bool is_missing = ts_node_is_missing(node);
@@ -4172,7 +4220,7 @@ static inline bool ts_query_cursor__advance(
         }
       }
 
-      if (ts_query_cursor__should_descend(self, node_intersects_range)) {
+      if (node_intersects_containing_range && ts_query_cursor__should_descend(self, node_intersects_range)) {
         switch (ts_tree_cursor_goto_first_child_internal(&self->cursor)) {
           case TreeCursorStepVisible:
             self->depth++;
@@ -4294,12 +4342,12 @@ bool ts_query_cursor_next_capture(
       TSNode node = array_get(captures, state->consumed_capture_count)->node;
 
       bool node_precedes_range = (
-        ts_node_end_byte(node) <= self->start_byte ||
-        point_lte(ts_node_end_point(node), self->start_point)
+        ts_node_end_byte(node) <= self->included_range.start_byte ||
+        point_lte(ts_node_end_point(node), self->included_range.start_point)
       );
       bool node_follows_range = (
-        ts_node_start_byte(node) >= self->end_byte ||
-        point_gte(ts_node_start_point(node), self->end_point)
+        ts_node_start_byte(node) >= self->included_range.end_byte ||
+        point_gte(ts_node_start_point(node), self->included_range.end_point)
       );
       bool node_outside_of_range = node_precedes_range || node_follows_range;
 

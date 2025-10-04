@@ -3181,6 +3181,34 @@ impl QueryCursor {
         self
     }
 
+    /// Set the range in which all matches must be fully contained, in terms of byte
+    /// offsets.
+    #[doc(alias = "ts_query_cursor_set_containing_byte_range")]
+    pub fn set_containing_byte_range(&mut self, range: ops::Range<usize>) -> &mut Self {
+        unsafe {
+            ffi::ts_query_cursor_set_containing_byte_range(
+                self.ptr.as_ptr(),
+                range.start as u32,
+                range.end as u32,
+            );
+        }
+        self
+    }
+
+    /// Set the range in which all matches must be fully contained, in terms of rows and
+    /// columns.
+    #[doc(alias = "ts_query_cursor_set_containing_point_range")]
+    pub fn set_containing_point_range(&mut self, range: ops::Range<Point>) -> &mut Self {
+        unsafe {
+            ffi::ts_query_cursor_set_containing_point_range(
+                self.ptr.as_ptr(),
+                range.start.into(),
+                range.end.into(),
+            );
+        }
+        self
+    }
+
     /// Set the maximum start depth for a query cursor.
     ///
     /// This prevents cursors from exploring children nodes at a certain depth.
