@@ -34,6 +34,8 @@ macro_rules! add {
 
 macro_rules! add_whitespace {
     ($this:tt) => {{
+        // 4 bytes per char, 2 spaces per indent level
+        $this.buffer.reserve(4 * 2 * $this.indent_level);
         for _ in 0..$this.indent_level {
             write!(&mut $this.buffer, "  ").unwrap();
         }
@@ -688,13 +690,14 @@ impl Generator {
                         flat_field_map.push((field_name.clone(), *location));
                     }
                 }
+                let field_map_len = flat_field_map.len();
                 field_map_ids.push((
                     self.get_field_map_id(
-                        flat_field_map.clone(),
+                        flat_field_map,
                         &mut flat_field_maps,
                         &mut next_flat_field_map_index,
                     ),
-                    flat_field_map.len(),
+                    field_map_len,
                 ));
             }
         }
@@ -962,10 +965,7 @@ impl Generator {
                 large_char_set_ix = Some(char_set_ix);
             }
 
-            let mut line_break = "\n".to_string();
-            for _ in 0..self.indent_level + 2 {
-                line_break.push_str("  ");
-            }
+            let line_break = format!("\n{}", "  ".repeat(self.indent_level + 2));
 
             let has_positive_condition = large_char_set_ix.is_some() || !asserted_chars.is_empty();
             let has_negative_condition = !negated_chars.is_empty();
