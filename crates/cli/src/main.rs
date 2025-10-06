@@ -939,9 +939,6 @@ impl Build {
 
             loader.force_rebuild(true);
 
-            let config = Config::load(None)?;
-            let loader_config = config.get()?;
-            loader.find_all_languages(&loader_config).unwrap();
             loader
                 .compile_parser_at_path(&grammar_path, output_path, flags)
                 .unwrap();
