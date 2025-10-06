@@ -3678,6 +3678,31 @@ static inline bool ts_query_cursor__should_descend(
   return false;
 }
 
+bool range_intersects(const TSRange *a, const TSRange *b) {
+  bool is_empty = a->start_byte == a->end_byte;
+  return (
+    (
+      a->end_byte > b->start_byte ||
+      (is_empty && a->end_byte == b->start_byte)
+    ) &&
+    (
+      point_gt(a->end_point, b->start_point) ||
+      (is_empty && point_eq(a->end_point, b->start_point))
+    ) &&
+    a->start_byte < b->end_byte &&
+    point_lt(a->start_point, b->end_point)
+  );
+}
+
+bool range_within(const TSRange *a, const TSRange *b) {
+  return (
+    a->start_byte >= b->start_byte &&
+    point_gte(a->start_point, b->start_point) &&
+    a->end_byte <= b->end_byte &&
+    point_lte(a->end_point, b->end_point)
+  );
+}
+
 // Walk the tree, processing patterns until at least one pattern finishes,
 // If one or more patterns finish, return `true` and store their states in the
 // `finished_states` array. Multiple patterns can finish on the same node. If
@@ -3798,47 +3823,29 @@ static inline bool ts_query_cursor__advance(
 
     // Enter a new node.
     else {
-      // Get the properties of the current node.
       TSNode node = ts_tree_cursor_current_node(&self->cursor);
       TSNode parent_node = ts_tree_cursor_parent_node(&self->cursor);
 
-      uint32_t start_byte = ts_node_start_byte(node);
-      uint32_t end_byte = ts_node_end_byte(node);
-      TSPoint start_point = ts_node_start_point(node);
-      TSPoint end_point = ts_node_end_point(node);
-      bool is_empty = start_byte == end_byte;
-
-      bool parent_precedes_range = !ts_node_is_null(parent_node) && (
-        ts_node_end_byte(parent_node) <= self->included_range.start_byte ||
-        point_lte(ts_node_end_point(parent_node), self->included_range.start_point)
-      );
-      bool parent_follows_range = !ts_node_is_null(parent_node) && (
-        ts_node_start_byte(parent_node) >= self->included_range.end_byte ||
-        point_gte(ts_node_start_point(parent_node), self->included_range.end_point)
-      );
-      bool node_precedes_range =
-        parent_precedes_range ||
-        end_byte < self->included_range.start_byte ||
-        point_lt(end_point, self->included_range.start_point) ||
-        (!is_empty && end_byte == self->included_range.start_byte) ||
-        (!is_empty && point_eq(end_point, self->included_range.start_point));
-
-      bool node_follows_range = parent_follows_range || (
-        start_byte >= self->included_range.end_byte ||
-        point_gte(start_point, self->included_range.end_point)
-      );
-      bool parent_intersects_range = !parent_precedes_range && !parent_follows_range;
-      bool node_intersects_range = !node_precedes_range && !node_follows_range;
-      bool node_within_containing_range =
-        start_byte >= self->containing_range.start_byte &&
-        point_gte(start_point, self->containing_range.start_point) &&
-        end_byte <= self->containing_range.end_byte &&
-        point_lte(end_point, self->containing_range.end_point);
+      bool parent_intersects_range =
+        ts_node_is_null(parent_node) ||
+        range_intersects(&(TSRange) {
+          .start_point = ts_node_start_point(parent_node),
+          .end_point = ts_node_end_point(parent_node),
+          .start_byte = ts_node_start_byte(parent_node),
+          .end_byte = ts_node_end_byte(parent_node),
+        }, &self->included_range);
+      TSRange node_range = (TSRange) {
+        .start_point = ts_node_start_point(node),
+        .end_point = ts_node_end_point(node),
+        .start_byte = ts_node_start_byte(node),
+        .end_byte = ts_node_end_byte(node),
+      };
+      bool node_intersects_range =
+        parent_intersects_range && range_intersects(&node_range, &self->included_range);
       bool node_intersects_containing_range =
-        end_byte > self->containing_range.start_byte &&
-        point_gt(end_point, self->containing_range.start_point) &&
-        start_byte < self->containing_range.end_byte &&
-        point_lt(start_point, self->containing_range.end_point);
+        range_intersects(&node_range, &self->containing_range);
+      bool node_within_containing_range =
+        range_within(&node_range, &self->containing_range);
 
       if (node_within_containing_range && self->on_visible_node) {
         TSSymbol symbol = ts_node_symbol(node);
