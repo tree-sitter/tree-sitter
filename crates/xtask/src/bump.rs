@@ -2,7 +2,7 @@ use std::{cmp::Ordering, path::Path};
 
 use anyhow::{anyhow, Context, Result};
 use indoc::indoc;
-use semver::{BuildMetadata, Prerelease, Version};
+use semver::{Prerelease, Version};
 
 use crate::{create_commit, BumpVersion};
 
@@ -48,7 +48,6 @@ pub fn run(args: BumpVersion) -> Result<()> {
             String::from_utf8_lossy(&output.stderr)
         );
     }
-    let latest_tag_sha = String::from_utf8(output.stdout)?.trim().to_string();
 
     let workspace_toml_version = Version::parse(&fetch_workspace_version()?)?;
 
@@ -65,102 +64,7 @@ pub fn run(args: BumpVersion) -> Result<()> {
         return Ok(());
     }
 
-    let output = std::process::Command::new("git")
-        .args(["rev-list", &format!("{latest_tag_sha}..HEAD")])
-        .output()?;
-    if !output.status.success() {
-        anyhow::bail!(
-            "Failed to get commits: {}",
-            String::from_utf8_lossy(&output.stderr)
-        );
-    }
-    let commits = String::from_utf8(output.stdout)?
-        .lines()
-        .map(|s| s.to_string())
-        .collect::<Vec<_>>();
-
-    let mut should_increment_patch = false;
-    let mut should_increment_minor = false;
-
-    for commit_sha in commits {
-        let output = std::process::Command::new("git")
-            .args(["log", "-1", "--format=%s", &commit_sha])
-            .output()?;
-        if !output.status.success() {
-            continue;
-        }
-        let message = String::from_utf8(output.stdout)?.trim().to_string();
-
-        let output = std::process::Command::new("git")
-            .args([
-                "diff-tree",
-                "--no-commit-id",
-                "--name-only",
-                "-r",
-                &commit_sha,
-            ])
-            .output()?;
-        if !output.status.success() {
-            continue;
-        }
-
-        let mut source_code_changed = false;
-        for path in String::from_utf8(output.stdout)?.lines() {
-            let path = Path::new(path);
-            if path.extension().is_some_and(|ext| {
-                ext.eq_ignore_ascii_case("rs")
-                    || ext.eq_ignore_ascii_case("js")
-                    || ext.eq_ignore_ascii_case("c")
-            }) {
-                source_code_changed = true;
-                break;
-            }
-        }
-
-        if source_code_changed {
-            should_increment_patch = true;
-
-            let Some((prefix, _)) = message.split_once(':') else {
-                continue;
-            };
-
-            let convention = if prefix.contains('(') {
-                prefix.split_once('(').unwrap().0
-            } else {
-                prefix
-            };
-
-            if ["feat", "feat!"].contains(&convention) || prefix.ends_with('!') {
-                should_increment_minor = true;
-            }
-        }
-    }
-
-    let next_version = if let Some(version) = args.version {
-        version
-    } else {
-        let mut next_version = current_version.clone();
-        if should_increment_minor {
-            next_version.minor += 1;
-            next_version.patch = 0;
-            next_version.pre = Prerelease::EMPTY;
-            next_version.build = BuildMetadata::EMPTY;
-        } else if should_increment_patch {
-            next_version.patch += 1;
-            next_version.pre = Prerelease::EMPTY;
-            next_version.build = BuildMetadata::EMPTY;
-        } else {
-            return Err(anyhow!(format!(
-                "No source code changed since {current_version}"
-            )));
-        }
-        next_version
-    };
-    if next_version <= current_version {
-        return Err(anyhow!(format!(
-            "Next version {next_version} must be greater than current version {current_version}"
-        )));
-    }
+    let next_version = args.version;
 
     println!("Bumping from {current_version} to {next_version}");
     update_crates(&current_version, &next_version)?;
