@@ -204,7 +204,7 @@ impl fmt::Display for ParseItemDisplay<'_> {
                     || step.reserved_word_set_id != ReservedWordSetId::default()
                 {
                     write!(f, " (")?;
-                    if step.precedence.is_none() {
+                    if !step.precedence.is_none() {
                         write!(f, " {}", step.precedence)?;
                     }
                     if let Some(associativity) = step.associativity {
