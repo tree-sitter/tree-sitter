@@ -784,6 +784,9 @@ pub fn generate_node_types_json(
                 a_is_leaf.cmp(&b_is_leaf)
             })
             .then_with(|| a.kind.cmp(&b.kind))
+            .then_with(|| a.named.cmp(&b.named))
+            .then_with(|| a.root.cmp(&b.root))
+            .then_with(|| a.extra.cmp(&b.extra))
     });
     result.dedup();
     Ok(result)
