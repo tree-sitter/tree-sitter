@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt};
+use std::{collections::BTreeMap, fmt};
 
 use serde::Serialize;
 use smallbitvec::SmallBitVec;
@@ -34,7 +34,7 @@ pub enum Precedence {
     Name(String),
 }
 
-pub type AliasMap = HashMap<Symbol, Alias>;
+pub type AliasMap = BTreeMap<Symbol, Alias>;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Serialize)]
 pub struct MetadataParams {

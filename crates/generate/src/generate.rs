@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::LazyLock};
+use std::{collections::BTreeMap, sync::LazyLock};
 #[cfg(feature = "load")]
 use std::{
     env, fs,
@@ -57,7 +57,7 @@ struct JSONOutput {
     syntax_grammar: SyntaxGrammar,
     lexical_grammar: LexicalGrammar,
     inlines: InlinedProductionMap,
-    simple_aliases: HashMap<Symbol, Alias>,
+    simple_aliases: BTreeMap<Symbol, Alias>,
     variable_info: Vec<VariableInfo>,
 }
 
