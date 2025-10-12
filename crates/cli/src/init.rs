@@ -1044,17 +1044,17 @@ fn generate_file(
         .replace(PARSER_CLASS_NAME_PLACEHOLDER, generate_opts.class_name)
         .replace(
             HIGHLIGHTS_QUERY_PATH_PLACEHOLDER,
-            &generate_opts.highlights_query_path,
+            generate_opts.highlights_query_path,
         )
         .replace(
             INJECTIONS_QUERY_PATH_PLACEHOLDER,
-            &generate_opts.injections_query_path,
+            generate_opts.injections_query_path,
         )
         .replace(
             LOCALS_QUERY_PATH_PLACEHOLDER,
-            &generate_opts.locals_query_path,
+            generate_opts.locals_query_path,
         )
-        .replace(TAGS_QUERY_PATH_PLACEHOLDER, &generate_opts.tags_query_path);
+        .replace(TAGS_QUERY_PATH_PLACEHOLDER, generate_opts.tags_query_path);
 
     if let Some(name) = generate_opts.author_name {
         replacement = replacement.replace(AUTHOR_NAME_PLACEHOLDER, name);

@@ -32,12 +32,18 @@ pub const LANGUAGE: LanguageFn = unsafe { LanguageFn::from_raw(tree_sitter_PARSE
 /// [`node-types.json`]: https://tree-sitter.github.io/tree-sitter/using-parsers/6-static-node-types
 pub const NODE_TYPES: &str = include_str!("../../src/node-types.json");
 
-// NOTE: uncomment these to include any queries that this grammar contains:
+// NOTE: if queries are drawn from multiple files, remove the #[cfg] attribute and load them with
+// concat!(include_str!("first_file"), include_str!("second_file"))
+// Make sure that each file is included in the crate by adding necessary any paths to `Cargo.toml`
 
-// pub const HIGHLIGHTS_QUERY: &str = include_str!("../../queries/highlights.scm");
-// pub const INJECTIONS_QUERY: &str = include_str!("../../queries/injections.scm");
-// pub const LOCALS_QUERY: &str = include_str!("../../queries/locals.scm");
-// pub const TAGS_QUERY: &str = include_str!("../../queries/tags.scm");
+#[cfg(with_highlights_query)]
+pub const HIGHLIGHTS_QUERY: &str = include_str!("../../HIGHLIGHTS_QUERY_PATH");
+#[cfg(with_injections_query)]
+pub const INJECTIONS_QUERY: &str = include_str!("../../INJECTIONS_QUERY_PATH");
+#[cfg(with_locals_query)]
+pub const LOCALS_QUERY: &str = include_str!("../../LOCALS_QUERY_PATH");
+#[cfg(with_tags_query)]
+pub const TAGS_QUERY: &str = include_str!("../../TAGS_QUERY_PATH");
 
 #[cfg(test)]
 mod tests {
