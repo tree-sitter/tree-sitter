@@ -139,13 +139,21 @@ struct Generate {
     #[arg(long, short, value_name = "DIRECTORY")]
     pub output: Option<PathBuf>,
     /// Produce a report of the states for the given rule, use `-` to report every rule
-    #[arg(long)]
+    #[arg(long, conflicts_with = "json", conflicts_with = "json_summary")]
     pub report_states_for_rule: Option<String>,
     /// Deprecated: use --json-summary
-    #[arg(long, conflicts_with = "json_summary")]
+    #[arg(
+        long,
+        conflicts_with = "json_summary",
+        conflicts_with = "report_states_for_rule"
+    )]
     pub json: bool,
     /// Report conflicts in a JSON format
-    #[arg(long, conflicts_with = "json")]
+    #[arg(
+        long,
+        conflicts_with = "json",
+        conflicts_with = "report_states_for_rule"
+    )]
     pub json_summary: bool,
     /// The name or path of the JavaScript runtime to use for generating parsers
     #[cfg(not(feature = "qjs-rt"))]
