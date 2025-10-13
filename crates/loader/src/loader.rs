@@ -245,6 +245,14 @@ impl std::fmt::Display for WasiSDKClangError {
     }
 }
 
+pub const DEFAULT_HIGHLIGHTS_QUERY_FILE_NAME: &str = "highlights.scm";
+
+pub const DEFAULT_INJECTIONS_QUERY_FILE_NAME: &str = "injections.scm";
+
+pub const DEFAULT_LOCALS_QUERY_FILE_NAME: &str = "locals.scm";
+
+pub const DEFAULT_TAGS_QUERY_FILE_NAME: &str = "tags.scm";
+
 #[derive(Default, Deserialize, Serialize)]
 pub struct Config {
     #[serde(default)]
@@ -1764,21 +1772,21 @@ impl LanguageConfiguration<'_> {
                 Some(
                     paths
                         .iter()
-                        .filter(|p| p.ends_with("highlights.scm"))
+                        .filter(|p| p.ends_with(DEFAULT_HIGHLIGHTS_QUERY_FILE_NAME))
                         .cloned()
                         .collect::<Vec<_>>(),
                 ),
                 Some(
                     paths
                         .iter()
-                        .filter(|p| p.ends_with("tags.scm"))
+                        .filter(|p| p.ends_with(DEFAULT_TAGS_QUERY_FILE_NAME))
                         .cloned()
                         .collect::<Vec<_>>(),
                 ),
                 Some(
                     paths
                         .iter()
-                        .filter(|p| p.ends_with("locals.scm"))
+                        .filter(|p| p.ends_with(DEFAULT_LOCALS_QUERY_FILE_NAME))
                         .cloned()
                         .collect::<Vec<_>>(),
                 ),
@@ -1793,7 +1801,7 @@ impl LanguageConfiguration<'_> {
                     } else {
                         self.highlights_filenames.as_deref()
                     },
-                    "highlights.scm",
+                    DEFAULT_HIGHLIGHTS_QUERY_FILE_NAME,
                 )?;
                 let (injections_query, injection_ranges) = self.read_queries(
                     if injections_filenames.is_some() {
@@ -1801,7 +1809,7 @@ impl LanguageConfiguration<'_> {
                     } else {
                         self.injections_filenames.as_deref()
                     },
-                    "injections.scm",
+                    DEFAULT_INJECTIONS_QUERY_FILE_NAME,
                 )?;
                 let (locals_query, locals_ranges) = self.read_queries(
                     if locals_filenames.is_some() {
@@ -1809,7 +1817,7 @@ impl LanguageConfiguration<'_> {
                     } else {
                         self.locals_filenames.as_deref()
                     },
-                    "locals.scm",
+                    DEFAULT_LOCALS_QUERY_FILE_NAME,
                 )?;
 
                 if highlights_query.is_empty() {
@@ -1871,10 +1879,12 @@ impl LanguageConfiguration<'_> {
     pub fn tags_config(&self, language: Language) -> LoaderResult<Option<&TagsConfiguration>> {
         self.tags_config
             .get_or_try_init(|| {
-                let (tags_query, tags_ranges) =
-                    self.read_queries(self.tags_filenames.as_deref(), "tags.scm")?;
-                let (locals_query, locals_ranges) =
-                    self.read_queries(self.locals_filenames.as_deref(), "locals.scm")?;
+                let (tags_query, tags_ranges) = self
+                    .read_queries(self.tags_filenames.as_deref(), DEFAULT_TAGS_QUERY_FILE_NAME)?;
+                let (locals_query, locals_ranges) = self.read_queries(
+                    self.locals_filenames.as_deref(),
+                    DEFAULT_LOCALS_QUERY_FILE_NAME,
+                )?;
                 if tags_query.is_empty() {
                     Ok(None)
                 } else {
@@ -1947,7 +1957,9 @@ impl LanguageConfiguration<'_> {
             }
         } else {
             // highlights.scm is needed to test highlights, and tags.scm to test tags
-            if default_path == "highlights.scm" || default_path == "tags.scm" {
+            if default_path == DEFAULT_HIGHLIGHTS_QUERY_FILE_NAME
+                || default_path == DEFAULT_TAGS_QUERY_FILE_NAME
+            {
                 warn!(
                     concat!(
                         "You should add a `{}` entry pointing to the {} path in the `tree-sitter` ",
