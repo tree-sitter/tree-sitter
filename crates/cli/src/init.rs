@@ -14,7 +14,11 @@ use semver::Version;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use tree_sitter_generate::write_file;
-use tree_sitter_loader::{Author, Bindings, Grammar, Links, Metadata, PathsJSON, TreeSitterJSON};
+use tree_sitter_loader::{
+    Author, Bindings, Grammar, Links, Metadata, PathsJSON, TreeSitterJSON,
+    DEFAULT_HIGHLIGHTS_QUERY_FILE_NAME, DEFAULT_INJECTIONS_QUERY_FILE_NAME,
+    DEFAULT_LOCALS_QUERY_FILE_NAME, DEFAULT_TAGS_QUERY_FILE_NAME,
+};
 
 const CLI_VERSION: &str = env!("CARGO_PKG_VERSION");
 const CLI_VERSION_PLACEHOLDER: &str = "CLI_VERSION";
@@ -59,6 +63,11 @@ const AUTHOR_NAME_PLACEHOLDER_GRAMMAR: &str = "PARSER_AUTHOR_NAME";
 const AUTHOR_EMAIL_PLACEHOLDER_GRAMMAR: &str = " PARSER_AUTHOR_EMAIL";
 
 const FUNDING_URL_PLACEHOLDER: &str = "FUNDING_URL";
+
+const HIGHLIGHTS_QUERY_PATH_PLACEHOLDER: &str = "HIGHLIGHTS_QUERY_PATH";
+const INJECTIONS_QUERY_PATH_PLACEHOLDER: &str = "INJECTIONS_QUERY_PATH";
+const LOCALS_QUERY_PATH_PLACEHOLDER: &str = "LOCALS_QUERY_PATH";
+const TAGS_QUERY_PATH_PLACEHOLDER: &str = "TAGS_QUERY_PATH";
 
 const GRAMMAR_JS_TEMPLATE: &str = include_str!("./templates/grammar.js");
 const PACKAGE_JSON_TEMPLATE: &str = include_str!("./templates/package.json");
@@ -205,6 +214,10 @@ struct GenerateOpts<'a> {
     camel_parser_name: &'a str,
     title_parser_name: &'a str,
     class_name: &'a str,
+    highlights_query_path: &'a str,
+    injections_query_path: &'a str,
+    locals_query_path: &'a str,
+    tags_query_path: &'a str,
 }
 
 pub fn generate_grammar_files(
@@ -255,6 +268,28 @@ pub fn generate_grammar_files(
         .clone()
         .unwrap_or_else(|| format!("TreeSitter{}", language_name.to_upper_camel_case()));
 
+    fn pathsjson_to_variable<'a>(paths_json: &'a PathsJSON, default: &'a PathBuf) -> &'a str {
+        match paths_json {
+            PathsJSON::Empty => Some(default),
+            PathsJSON::Single(path_buf) => Some(path_buf),
+            PathsJSON::Multiple(paths) => {
+                if paths.len() == 1 {
+                    paths.first()
+                } else {
+                    // If multiple paths are not supported for now, as we would need a more expressive template system
+                    // to be able to represent faithfully in a variable.
+                    None
+                }
+            }
+        }
+        .map_or("", |path| path.as_os_str().to_str().unwrap_or(""))
+    }
+
+    let default_highlights_path = Path::new("queries").join(DEFAULT_HIGHLIGHTS_QUERY_FILE_NAME);
+    let default_injections_path = Path::new("queries").join(DEFAULT_INJECTIONS_QUERY_FILE_NAME);
+    let default_locals_path = Path::new("queries").join(DEFAULT_LOCALS_QUERY_FILE_NAME);
+    let default_tags_path = Path::new("queries").join(DEFAULT_TAGS_QUERY_FILE_NAME);
+
     let generate_opts = GenerateOpts {
         author_name: authors
             .map(|a| a.first().map(|a| a.name.as_str()))
@@ -281,6 +316,22 @@ pub fn generate_grammar_files(
         camel_parser_name: &camel_name,
         title_parser_name: &title_name,
         class_name: &class_name,
+        highlights_query_path: pathsjson_to_variable(
+            &tree_sitter_config.grammars[0].highlights,
+            &default_highlights_path,
+        ),
+        injections_query_path: pathsjson_to_variable(
+            &tree_sitter_config.grammars[0].injections,
+            &default_injections_path,
+        ),
+        locals_query_path: pathsjson_to_variable(
+            &tree_sitter_config.grammars[0].locals,
+            &default_locals_path,
+        ),
+        tags_query_path: pathsjson_to_variable(
+            &tree_sitter_config.grammars[0].tags,
+            &default_tags_path,
+        ),
     };
 
     // Create package.json
@@ -990,7 +1041,20 @@ fn generate_file(
             PARSER_VERSION_PLACEHOLDER,
             &generate_opts.version.to_string(),
         )
-        .replace(PARSER_CLASS_NAME_PLACEHOLDER, generate_opts.class_name);
+        .replace(PARSER_CLASS_NAME_PLACEHOLDER, generate_opts.class_name)
+        .replace(
+            HIGHLIGHTS_QUERY_PATH_PLACEHOLDER,
+            &generate_opts.highlights_query_path,
+        )
+        .replace(
+            INJECTIONS_QUERY_PATH_PLACEHOLDER,
+            &generate_opts.injections_query_path,
+        )
+        .replace(
+            LOCALS_QUERY_PATH_PLACEHOLDER,
+            &generate_opts.locals_query_path,
+        )
+        .replace(TAGS_QUERY_PATH_PLACEHOLDER, &generate_opts.tags_query_path);
 
     if let Some(name) = generate_opts.author_name {
         replacement = replacement.replace(AUTHOR_NAME_PLACEHOLDER, name);
