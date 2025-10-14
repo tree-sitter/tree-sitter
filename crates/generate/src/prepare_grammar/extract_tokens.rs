@@ -153,7 +153,7 @@ pub(super) fn extract_tokens(
         }
     }
 
-    let mut external_tokens = Vec::new();
+    let mut external_tokens = Vec::with_capacity(grammar.external_tokens.len());
     for external_token in grammar.external_tokens {
         let rule = symbol_replacer.replace_symbols_in_rule(&external_token.rule);
         if let Rule::Symbol(symbol) = rule {

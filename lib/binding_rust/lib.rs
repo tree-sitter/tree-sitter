@@ -3190,9 +3190,9 @@ impl QueryCursor {
     /// The zero max start depth value can be used as a special behavior and
     /// it helps to destructure a subtree by staying on a node and using
     /// captures for interested parts. Note that the zero max start depth
-    /// only limit a search depth for a pattern's root node but other nodes
-    /// that are parts of the pattern may be searched at any depth what
-    /// defined by the pattern structure.
+    /// only limits a search depth for a pattern's root node but other nodes
+    /// that are parts of the pattern may be searched at any depth depending on
+    /// what is defined by the pattern structure.
     ///
     /// Set to `None` to remove the maximum start depth.
     #[doc(alias = "ts_query_cursor_set_max_start_depth")]
