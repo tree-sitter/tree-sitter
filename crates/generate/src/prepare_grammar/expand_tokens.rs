@@ -27,7 +27,7 @@ pub enum ExpandTokensError {
         "The rule `{0}` matches the empty string.
 Tree-sitter does not support syntactic rules that match the empty string
 unless they are used only as the grammar's start rule.
-        "
+"
     )]
     EmptyString(String),
     #[error(transparent)]
@@ -189,7 +189,7 @@ impl NfaBuilder {
             }
             Rule::String(s) => {
                 for c in s.chars().rev() {
-                    self.push_advance(CharacterSet::empty().add_char(c), next_state_id);
+                    self.push_advance(CharacterSet::from_char(c), next_state_id);
                     next_state_id = self.nfa.last_state_id();
                 }
                 Ok(!s.is_empty())

@@ -81,7 +81,7 @@ pub enum ParseTableBuilderError {
     StateCount(usize),
 }
 
-#[derive(Default, Debug, Serialize)]
+#[derive(Default, Debug, Serialize, Error)]
 pub struct ConflictError {
     pub symbol_sequence: Vec<String>,
     pub conflicting_lookahead: String,
@@ -89,7 +89,7 @@ pub struct ConflictError {
     pub possible_resolutions: Vec<Resolution>,
 }
 
-#[derive(Default, Debug, Serialize)]
+#[derive(Default, Debug, Serialize, Error)]
 pub struct Interpretation {
     pub preceding_symbols: Vec<String>,
     pub variable_name: String,
@@ -108,7 +108,7 @@ pub enum Resolution {
     AddConflict { symbols: Vec<String> },
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Error)]
 pub struct AmbiguousExtraError {
     pub parent_symbols: Vec<String>,
 }
@@ -237,9 +237,6 @@ impl std::fmt::Display for AmbiguousExtraError {
         Ok(())
     }
 }
-
-impl std::error::Error for ConflictError {}
-impl std::error::Error for AmbiguousExtraError {}
 
 impl<'a> ParseTableBuilder<'a> {
     fn new(
