@@ -715,7 +715,8 @@ impl Loader {
 
     pub fn load_language_at_path(&self, mut config: CompileConfig) -> Result<Language> {
         let grammar_path = config.src_path.join("grammar.json");
-        config.name = Self::grammar_json_name(&grammar_path)?;
+        config.name =
+            Self::grammar_json_name(&grammar_path).context("failed to load grammar.json")?;
         self.load_language_at_path_with_name(config)
     }
 
@@ -732,7 +733,8 @@ impl Loader {
         }
 
         if config.output_path.is_none() {
-            fs::create_dir_all(&self.parser_lib_path)?;
+            fs::create_dir_all(&self.parser_lib_path)
+                .context("failed to create parser lib path")?;
         }
 
         let mut recompile = self.force_rebuild || config.output_path.is_some(); // if specified, always recompile
@@ -767,7 +769,7 @@ impl Loader {
 
         if !recompile {
             recompile = needs_recompile(&output_path, &paths_to_check)
-                .with_context(|| "Failed to compare source and binary timestamps")?;
+                .context("Failed to compare source and binary timestamps")?;
         }
 
         #[cfg(feature = "wasm")]
@@ -834,7 +836,9 @@ impl Loader {
                 .truncate(true)
                 .write(true)
                 .open(&lock_path)?;
-            lock_file.lock_exclusive()?;
+            lock_file
+                .lock_exclusive()
+                .context("Failed to acquire lock")?;
 
             self.compile_parser_to_dylib(&config, &lock_file, &lock_path)?;
 
