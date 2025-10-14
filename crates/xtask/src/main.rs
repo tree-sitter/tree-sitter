@@ -94,8 +94,8 @@ struct BuildWasm {
 #[derive(Args)]
 struct BumpVersion {
     /// The version to bump to.
-    #[arg(long, short)]
-    version: Option<Version>,
+    #[arg(index = 1)]
+    version: Version,
 }
 
 #[derive(Args)]
