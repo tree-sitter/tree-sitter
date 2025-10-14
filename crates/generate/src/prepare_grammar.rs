@@ -82,6 +82,7 @@ pub type PrepareGrammarResult<T> = Result<T, PrepareGrammarError>;
 pub enum PrepareGrammarError {
     ValidatePrecedences(#[from] ValidatePrecedenceError),
     ValidateIndirectRecursion(#[from] IndirectRecursionError),
+    ValidateEofUsage(#[from] ValidateEofError),
     InternSymbols(#[from] InternSymbolsError),
     ExtractTokens(#[from] ExtractTokensError),
     FlattenGrammar(#[from] FlattenGrammarError),
@@ -110,6 +111,16 @@ impl std::fmt::Display for IndirectRecursionError {
             }
             write!(f, "{symbol}")?;
         }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Error, Serialize)]
+pub struct ValidateEofError(pub String);
+
+impl std::fmt::Display for ValidateEofError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)?;
         Ok(())
     }
 }
