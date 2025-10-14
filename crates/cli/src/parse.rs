@@ -674,10 +674,9 @@ pub fn parse_file_at_path(
                 width = max_path_length
             )?;
             if let Some(node) = first_error {
-                let start = node.start_position();
-                let end = node.end_position();
-                let mut node_text = String::new();
-                for c in node.kind().chars() {
+                let node_kind = node.kind();
+                let mut node_text = String::with_capacity(node_kind.len());
+                for c in node_kind.chars() {
                     if let Some(escaped) = escape_invisible(c) {
                         node_text += escaped;
                     } else {
@@ -694,6 +693,9 @@ pub fn parse_file_at_path(
                 } else {
                     write!(&mut stdout, "{node_text}")?;
                 }
+
+                let start = node.start_position();
+                let end = node.end_position();
                 write!(
                     &mut stdout,
                     " [{}, {}] - [{}, {}])",
