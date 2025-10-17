@@ -431,8 +431,45 @@ pub fn generate_grammar_files(
     // Generate Rust bindings
     if tree_sitter_config.bindings.rust {
         missing_path(bindings_dir.join("rust"), create_dir)?.apply(|path| {
-            missing_path(path.join("lib.rs"), |path| {
+            missing_path_else(path.join("lib.rs"), allow_update, |path| {
                 generate_file(path, LIB_RS_TEMPLATE, language_name, &generate_opts)
+            }, |path| {
+                let mut contents = fs::read_to_string(path)?;
+                let replacement = indoc! {r#"
+                    #[cfg(with_highlights_query)]
+                    /// The syntax highlighting query for this grammar.
+                    pub const HIGHLIGHTS_QUERY: &str = include_str!("../../HIGHLIGHTS_QUERY_PATH");
+
+                    #[cfg(with_injections_query)]
+                    /// The language injection query for this grammar.
+                    pub const INJECTIONS_QUERY: &str = include_str!("../../INJECTIONS_QUERY_PATH");
+
+                    #[cfg(with_locals_query)]
+                    /// The local variable query for this grammar.
+                    pub const LOCALS_QUERY: &str = include_str!("../../LOCALS_QUERY_PATH");
+
+                    #[cfg(with_tags_query)]
+                    /// The symbol tagging query for this grammar.
+                    pub const TAGS_QUERY: &str = include_str!("../../TAGS_QUERY_PATH");
+                    "#}
+                    .replace("HIGHLIGHTS_QUERY_PATH", generate_opts.highlights_query_path)
+                    .replace("INJECTIONS_QUERY_PATH", generate_opts.injections_query_path)
+                    .replace("LOCALS_QUERY_PATH", generate_opts.locals_query_path)
+                    .replace("TAGS_QUERY_PATH", generate_opts.tags_query_path);
+                contents = contents
+                    .replace(
+                        indoc! {r#"
+                        // NOTE: uncomment these to include any queries that this grammar contains:
+
+                        // pub const HIGHLIGHTS_QUERY: &str = include_str!("../../queries/highlights.scm");
+                        // pub const INJECTIONS_QUERY: &str = include_str!("../../queries/injections.scm");
+                        // pub const LOCALS_QUERY: &str = include_str!("../../queries/locals.scm");
+                        // pub const TAGS_QUERY: &str = include_str!("../../queries/tags.scm");
+                        "#},
+                        &replacement,
+                    );
+                write_file(path, contents)?;
+                Ok(())
             })?;
 
             missing_path_else(
@@ -472,6 +509,43 @@ pub fn generate_grammar_files(
                     if !contents.contains("wasm32-unknown-unknown") {
                         contents = contents.replace(r#"    c_config.flag("-utf-8");"#, &indented_replacement);
                     }
+
+                    // Introduce configuration variables for dynamic query inclusion
+                    let replaced = indoc! {r#"
+                            c_config.compile("tree-sitter-KEBAB_PARSER_NAME");
+                        }"#}
+                        .replace("KEBAB_PARSER_NAME", &language_name.to_kebab_case());
+
+                    let replacement = indoc! {r#"
+                            c_config.compile("tree-sitter-KEBAB_PARSER_NAME");
+
+                            println!("cargo:rustc-check-cfg=cfg(with_highlights_query)");
+                            if !"HIGHLIGHTS_QUERY_PATH".is_empty() && std::path::Path::new("HIGHLIGHTS_QUERY_PATH").exists() {
+                                println!("cargo:rustc-cfg=with_highlights_query");
+                            }
+                            println!("cargo:rustc-check-cfg=cfg(with_injections_query)");
+                            if !"INJECTIONS_QUERY_PATH".is_empty() && std::path::Path::new("INJECTIONS_QUERY_PATH").exists() {
+                                println!("cargo:rustc-cfg=with_injections_query");
+                            }
+                            println!("cargo:rustc-check-cfg=cfg(with_locals_query)");
+                            if !"LOCALS_QUERY_PATH".is_empty() && std::path::Path::new("LOCALS_QUERY_PATH").exists() {
+                                println!("cargo:rustc-cfg=with_locals_query");
+                            }
+                            println!("cargo:rustc-check-cfg=cfg(with_tags_query)");
+                            if !"TAGS_QUERY_PATH".is_empty() && std::path::Path::new("TAGS_QUERY_PATH").exists() {
+                                println!("cargo:rustc-cfg=with_tags_query");
+                            }
+                        }"#}
+                        .replace("KEBAB_PARSER_NAME", &language_name.to_kebab_case())
+                        .replace("HIGHLIGHTS_QUERY_PATH", generate_opts.highlights_query_path)
+                        .replace("INJECTIONS_QUERY_PATH", generate_opts.injections_query_path)
+                        .replace("LOCALS_QUERY_PATH", generate_opts.locals_query_path)
+                        .replace("TAGS_QUERY_PATH", generate_opts.tags_query_path);
+
+                    contents = contents.replace(
+                        &replaced,
+                        &replacement,
+                    );
 
                     write_file(path, contents)?;
                     Ok(())
