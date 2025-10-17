@@ -6,8 +6,6 @@ from ._binding import language
 
 
 def _get_query(name, file):
-    if not file:
-        return None
     try:
         query = _files(f"{__package__}") / file
         globals()[name] = query.read_text()

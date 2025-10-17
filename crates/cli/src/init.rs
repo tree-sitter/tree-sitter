@@ -272,15 +272,7 @@ pub fn generate_grammar_files(
         match paths_json {
             PathsJSON::Empty => Some(default),
             PathsJSON::Single(path_buf) => Some(path_buf),
-            PathsJSON::Multiple(paths) => {
-                if paths.len() == 1 {
-                    paths.first()
-                } else {
-                    // If multiple paths are not supported for now, as we would need a more expressive template system
-                    // to be able to represent faithfully in a variable.
-                    None
-                }
-            }
+            PathsJSON::Multiple(paths) => paths.first(),
         }
         .map_or("", |path| path.as_os_str().to_str().unwrap_or(""))
     }
