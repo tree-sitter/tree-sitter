@@ -435,6 +435,7 @@ pub fn generate_grammar_files(
                 generate_file(path, LIB_RS_TEMPLATE, language_name, &generate_opts)
             }, |path| {
                 let mut contents = fs::read_to_string(path)?;
+                if !contents.contains("#[cfg(with_highlights_query)]") {
                 let replacement = indoc! {r#"
                     #[cfg(with_highlights_query)]
                     /// The syntax highlighting query for this grammar.
@@ -468,6 +469,7 @@ pub fn generate_grammar_files(
                         "#},
                         &replacement,
                     );
+                }
                 write_file(path, contents)?;
                 Ok(())
             })?;
@@ -477,27 +479,29 @@ pub fn generate_grammar_files(
                 allow_update,
                 |path| generate_file(path, BUILD_RS_TEMPLATE, language_name, &generate_opts),
                 |path| {
-                    let replacement = indoc!{r#"
-                        c_config.flag("-utf-8");
+                    let mut contents = fs::read_to_string(path)?;
+                    if !contents.contains("wasm32-unknown-unknown") {
+                        let replacement = indoc!{r#"
+                            c_config.flag("-utf-8");
 
-                        if std::env::var("TARGET").unwrap() == "wasm32-unknown-unknown" {
-                            let Ok(wasm_headers) = std::env::var("DEP_TREE_SITTER_LANGUAGE_WASM_HEADERS") else {
-                                panic!("Environment variable DEP_TREE_SITTER_LANGUAGE_WASM_HEADERS must be set by the language crate");
-                            };
-                            let Ok(wasm_src) =
-                                std::env::var("DEP_TREE_SITTER_LANGUAGE_WASM_SRC").map(std::path::PathBuf::from)
-                            else {
-                                panic!("Environment variable DEP_TREE_SITTER_LANGUAGE_WASM_SRC must be set by the language crate");
-                            };
+                            if std::env::var("TARGET").unwrap() == "wasm32-unknown-unknown" {
+                                let Ok(wasm_headers) = std::env::var("DEP_TREE_SITTER_LANGUAGE_WASM_HEADERS") else {
+                                    panic!("Environment variable DEP_TREE_SITTER_LANGUAGE_WASM_HEADERS must be set by the language crate");
+                                };
+                                let Ok(wasm_src) =
+                                    std::env::var("DEP_TREE_SITTER_LANGUAGE_WASM_SRC").map(std::path::PathBuf::from)
+                                else {
+                                    panic!("Environment variable DEP_TREE_SITTER_LANGUAGE_WASM_SRC must be set by the language crate");
+                                };
 
-                            c_config.include(&wasm_headers);
-                            c_config.files([
-                                wasm_src.join("stdio.c"),
-                                wasm_src.join("stdlib.c"),
-                                wasm_src.join("string.c"),
-                            ]);
-                        }
-                    "#};
+                                c_config.include(&wasm_headers);
+                                c_config.files([
+                                    wasm_src.join("stdio.c"),
+                                    wasm_src.join("stdlib.c"),
+                                    wasm_src.join("string.c"),
+                                ]);
+                            }
+                        "#};
 
                     let indented_replacement = replacement
                         .lines()
@@ -505,47 +509,47 @@ pub fn generate_grammar_files(
                         .collect::<Vec<_>>()
                         .join("\n");
 
-                    let mut contents = fs::read_to_string(path)?;
-                    if !contents.contains("wasm32-unknown-unknown") {
                         contents = contents.replace(r#"    c_config.flag("-utf-8");"#, &indented_replacement);
                     }
 
                     // Introduce configuration variables for dynamic query inclusion
-                    let replaced = indoc! {r#"
-                            c_config.compile("tree-sitter-KEBAB_PARSER_NAME");
-                        }"#}
-                        .replace("KEBAB_PARSER_NAME", &language_name.to_kebab_case());
+                    if !contents.contains("with_highlights_query") {
+                        let replaced = indoc! {r#"
+                                c_config.compile("tree-sitter-KEBAB_PARSER_NAME");
+                            }"#}
+                            .replace("KEBAB_PARSER_NAME", &language_name.to_kebab_case());
 
-                    let replacement = indoc! {r#"
-                            c_config.compile("tree-sitter-KEBAB_PARSER_NAME");
+                        let replacement = indoc! {r#"
+                                c_config.compile("tree-sitter-KEBAB_PARSER_NAME");
 
-                            println!("cargo:rustc-check-cfg=cfg(with_highlights_query)");
-                            if !"HIGHLIGHTS_QUERY_PATH".is_empty() && std::path::Path::new("HIGHLIGHTS_QUERY_PATH").exists() {
-                                println!("cargo:rustc-cfg=with_highlights_query");
-                            }
-                            println!("cargo:rustc-check-cfg=cfg(with_injections_query)");
-                            if !"INJECTIONS_QUERY_PATH".is_empty() && std::path::Path::new("INJECTIONS_QUERY_PATH").exists() {
-                                println!("cargo:rustc-cfg=with_injections_query");
-                            }
-                            println!("cargo:rustc-check-cfg=cfg(with_locals_query)");
-                            if !"LOCALS_QUERY_PATH".is_empty() && std::path::Path::new("LOCALS_QUERY_PATH").exists() {
-                                println!("cargo:rustc-cfg=with_locals_query");
-                            }
-                            println!("cargo:rustc-check-cfg=cfg(with_tags_query)");
-                            if !"TAGS_QUERY_PATH".is_empty() && std::path::Path::new("TAGS_QUERY_PATH").exists() {
-                                println!("cargo:rustc-cfg=with_tags_query");
-                            }
-                        }"#}
-                        .replace("KEBAB_PARSER_NAME", &language_name.to_kebab_case())
-                        .replace("HIGHLIGHTS_QUERY_PATH", generate_opts.highlights_query_path)
-                        .replace("INJECTIONS_QUERY_PATH", generate_opts.injections_query_path)
-                        .replace("LOCALS_QUERY_PATH", generate_opts.locals_query_path)
-                        .replace("TAGS_QUERY_PATH", generate_opts.tags_query_path);
+                                println!("cargo:rustc-check-cfg=cfg(with_highlights_query)");
+                                if !"HIGHLIGHTS_QUERY_PATH".is_empty() && std::path::Path::new("HIGHLIGHTS_QUERY_PATH").exists() {
+                                    println!("cargo:rustc-cfg=with_highlights_query");
+                                }
+                                println!("cargo:rustc-check-cfg=cfg(with_injections_query)");
+                                if !"INJECTIONS_QUERY_PATH".is_empty() && std::path::Path::new("INJECTIONS_QUERY_PATH").exists() {
+                                    println!("cargo:rustc-cfg=with_injections_query");
+                                }
+                                println!("cargo:rustc-check-cfg=cfg(with_locals_query)");
+                                if !"LOCALS_QUERY_PATH".is_empty() && std::path::Path::new("LOCALS_QUERY_PATH").exists() {
+                                    println!("cargo:rustc-cfg=with_locals_query");
+                                }
+                                println!("cargo:rustc-check-cfg=cfg(with_tags_query)");
+                                if !"TAGS_QUERY_PATH".is_empty() && std::path::Path::new("TAGS_QUERY_PATH").exists() {
+                                    println!("cargo:rustc-cfg=with_tags_query");
+                                }
+                            }"#}
+                            .replace("KEBAB_PARSER_NAME", &language_name.to_kebab_case())
+                            .replace("HIGHLIGHTS_QUERY_PATH", generate_opts.highlights_query_path)
+                            .replace("INJECTIONS_QUERY_PATH", generate_opts.injections_query_path)
+                            .replace("LOCALS_QUERY_PATH", generate_opts.locals_query_path)
+                            .replace("TAGS_QUERY_PATH", generate_opts.tags_query_path);
 
-                    contents = contents.replace(
-                        &replaced,
-                        &replacement,
-                    );
+                        contents = contents.replace(
+                            &replaced,
+                            &replacement,
+                        );
+                    }
 
                     write_file(path, contents)?;
                     Ok(())
