@@ -834,9 +834,21 @@ pub fn generate_grammar_files(
                 },
             )?;
 
-            missing_path(lang_path.join("__init__.py"), |path| {
-                generate_file(path, INIT_PY_TEMPLATE, language_name, &generate_opts)
-            })?;
+            missing_path_else(
+                lang_path.join("__init__.py"),
+                allow_update,
+                |path| {
+                    generate_file(path, INIT_PY_TEMPLATE, language_name, &generate_opts)
+                },
+                |path| {
+                    let contents = fs::read_to_string(path)?;
+                    if !contents.contains("FileNotFoundError") {
+                        warn!("Replacing __init__.py");
+                        generate_file(path, INIT_PY_TEMPLATE, language_name, &generate_opts)?;
+                    }
+                    Ok(())
+                },
+            )?;
 
             missing_path_else(
                 lang_path.join("__init__.pyi"),
@@ -844,7 +856,10 @@ pub fn generate_grammar_files(
                 |path| generate_file(path, INIT_PYI_TEMPLATE, language_name, &generate_opts),
                 |path| {
                     let mut contents = fs::read_to_string(path)?;
-                    if !contents.contains("CapsuleType") {
+                    if contents.contains("uncomment these to include any queries") {
+                        warn!("Replacing __init__.pyi");
+                        generate_file(path, INIT_PYI_TEMPLATE, language_name, &generate_opts)?;
+                    } else if !contents.contains("CapsuleType") {
                         contents = contents
                             .replace(
                                 "from typing import Final",
