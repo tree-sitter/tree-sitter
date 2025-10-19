@@ -18,7 +18,9 @@ will attempt to build the parser in the current working directory.
 
 ### `-w/--wasm`
 
-Compile the parser as a Wasm module.
+Compile the parser as a Wasm module. Firstly tries to compile using a local installation of emscripten using the
+[`emcc`](https://emscripten.org/docs/compiling/Building-Projects.html#manually-using-emcc) command, if the command
+is not found then it will try to to automatically install and use emscripten using docker, then podman.
 
 ### `-o/--output`
 

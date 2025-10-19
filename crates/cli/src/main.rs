@@ -173,7 +173,9 @@ struct Generate {
 #[derive(Args)]
 #[command(alias = "b")]
 struct Build {
-    /// Build a Wasm module instead of a dynamic library
+    /// Build a Wasm module instead of a dynamic library. Firstly it tries to compile using
+    /// a local installation of emscripten using the `emcc` command, if the command
+    /// is not found then it will try to to automatically install and use emscripten using docker, then podman.
     #[arg(short, long)]
     pub wasm: bool,
     /// The path to output the compiled file
