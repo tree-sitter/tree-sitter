@@ -12,7 +12,7 @@ pub struct Pattern {
     named: bool,
     field: Option<&'static str>,
     capture: Option<String>,
-    children: Vec<Pattern>,
+    children: Vec<Self>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

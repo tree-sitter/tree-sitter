@@ -65,7 +65,7 @@ static POINT_REGEX: LazyLock<Regex> =
 pub enum TestEntry {
     Group {
         name: String,
-        children: Vec<TestEntry>,
+        children: Vec<Self>,
         file_path: Option<PathBuf>,
     },
     Example {
