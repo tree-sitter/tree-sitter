@@ -20,7 +20,7 @@ cargo install --locked tree-sitter-cli
 or with `npm`:
 
 ```sh
-npm install tree-sitter-cli
+npm install -g tree-sitter-cli
 ```
 
 You can also download a pre-built binary for your platform from [the releases page].
