@@ -33,6 +33,12 @@ function blank() {
   };
 }
 
+function eof() {
+  return {
+    type: "EOF"
+  };
+}
+
 function field(name, rule) {
   return {
     type: "FIELD",
@@ -525,6 +531,7 @@ function getEnv(name) {
 
 globalThis.alias = alias;
 globalThis.blank = blank;
+globalThis.eof = eof;
 globalThis.choice = choice;
 globalThis.optional = optional;
 globalThis.prec = prec;

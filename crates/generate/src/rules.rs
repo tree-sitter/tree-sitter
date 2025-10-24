@@ -71,6 +71,7 @@ pub enum Rule {
         rule: Box<Rule>,
         context_name: String,
     },
+    Eof,
 }
 
 // Because tokens are represented as small (~400 max) unsigned integers,
@@ -181,13 +182,17 @@ impl Rule {
 
     pub fn is_empty(&self) -> bool {
         match self {
-            Self::Blank | Self::Pattern(..) | Self::NamedSymbol(_) | Self::Symbol(_) => false,
             Self::String(string) => string.is_empty(),
             Self::Metadata { rule, .. } | Self::Repeat(rule) | Self::Reserved { rule, .. } => {
                 rule.is_empty()
             }
             Self::Choice(rules) => rules.iter().any(Self::is_empty),
             Self::Seq(rules) => rules.iter().all(Self::is_empty),
+            Self::Blank
+            | Self::Pattern(..)
+            | Self::NamedSymbol(_)
+            | Self::Symbol(_)
+            | Self::Eof => false,
         }
     }
 }
@@ -240,6 +245,11 @@ impl Rule {
     #[must_use]
     pub fn pattern(value: &'static str, flags: &'static str) -> Self {
         Self::Pattern(value.to_string(), flags.to_string())
+    }
+
+    #[must_use]
+    pub const fn eof() -> Self {
+        Self::Eof
     }
 }
 

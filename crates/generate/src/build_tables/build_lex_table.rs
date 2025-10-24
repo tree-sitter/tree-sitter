@@ -180,7 +180,11 @@ impl<'a> LexTableBuilder<'a> {
                 "entry point state: {state_id}, tokens: {:?}",
                 tokens
                     .iter()
-                    .map(|t| &self.lexical_grammar.variables[t.index].name)
+                    .map(|t| self
+                        .lexical_grammar
+                        .variables
+                        .get(t.index)
+                        .map_or("EOF", |v| v.name.as_str()))
                     .collect::<Vec<_>>()
             );
         }

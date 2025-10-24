@@ -557,7 +557,20 @@ impl<'a> ParseTableBuilder<'a> {
                 .terminal_entries
                 .entry(symbol);
             if let Entry::Occupied(e) = &entry {
-                if !e.get().actions.is_empty() {
+                let actions = &e.get().actions;
+                let reduces_to_start = actions.len() == 1
+                    && matches!(
+                        actions[0],
+                        ParseAction::Reduce {
+                            symbol: Symbol {
+                                index: 0,
+                                kind: SymbolType::NonTerminal
+                            },
+                            ..
+                        }
+                    );
+
+                if !actions.is_empty() && !reduces_to_start {
                     lookaheads_with_conflicts.insert(symbol);
                 }
             }

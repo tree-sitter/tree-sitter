@@ -185,6 +185,25 @@ impl RuleFlattener {
                 });
                 Ok(true)
             }
+            Rule::Eof => {
+                self.production.steps.push(ProductionStep {
+                    symbol: Symbol::end(),
+                    precedence: self
+                        .precedence_stack
+                        .last()
+                        .cloned()
+                        .unwrap_or(Precedence::None),
+                    associativity: self.associativity_stack.last().copied(),
+                    reserved_word_set_id: self
+                        .reserved_word_stack
+                        .last()
+                        .copied()
+                        .unwrap_or(ReservedWordSetId::default()),
+                    alias: self.alias_stack.last().cloned(),
+                    field_name: self.field_name_stack.last().cloned(),
+                });
+                Ok(true)
+            }
             _ => Ok(false),
         }
     }

@@ -325,6 +325,7 @@ impl TokenExtractor {
                 rule: Box::new(self.extract_tokens_in_rule(rule)?),
                 context_name: context_name.clone(),
             }),
+            Rule::Eof => Ok(Symbol::end().into()),
             _ => Ok(input.clone()),
         }
     }
