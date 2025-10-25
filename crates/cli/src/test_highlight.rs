@@ -1,14 +1,13 @@
 use std::{fs, path::Path};
 
-use anstyle::AnsiColor;
 use anyhow::{anyhow, Result};
 use tree_sitter::Point;
 use tree_sitter_highlight::{Highlight, HighlightConfiguration, HighlightEvent, Highlighter};
 use tree_sitter_loader::{Config, Loader};
 
 use crate::{
-    logger::paint,
     query_testing::{parse_position_comments, to_utf8_point, Assertion, Utf8Point},
+    test::{TestInfo, TestOutcome, TestResult, TestSummary},
     util,
 };
 
@@ -48,19 +47,7 @@ pub fn test_highlights(
     loader_config: &Config,
     highlighter: &mut Highlighter,
     directory: &Path,
-    use_color: bool,
-) -> Result<()> {
-    println!("syntax highlighting:");
-    test_highlights_indented(loader, loader_config, highlighter, directory, use_color, 2)
-}
-
-fn test_highlights_indented(
-    loader: &Loader,
-    loader_config: &Config,
-    highlighter: &mut Highlighter,
-    directory: &Path,
-    use_color: bool,
-    indent_level: usize,
+    test_summary: &mut TestSummary,
 ) -> Result<()> {
     let mut failed = false;
 
@@ -68,25 +55,22 @@ fn test_highlights_indented(
         let highlight_test_file = highlight_test_file?;
         let test_file_path = highlight_test_file.path();
         let test_file_name = highlight_test_file.file_name();
-        print!(
-            "{indent:indent_level$}",
-            indent = "",
-            indent_level = indent_level * 2
-        );
         if test_file_path.is_dir() && test_file_path.read_dir()?.next().is_some() {
-            println!("{}:", test_file_name.to_string_lossy());
-            if test_highlights_indented(
+            test_summary
+                .highlight_results
+                .add_group(test_file_name.to_string_lossy().as_ref());
+            if test_highlights(
                 loader,
                 loader_config,
                 highlighter,
                 &test_file_path,
-                use_color,
-                indent_level + 1,
+                test_summary,
             )
             .is_err()
             {
                 failed = true;
             }
+            test_summary.highlight_results.pop_traversal();
         } else {
             let (language, language_config) = loader
                 .language_configuration_for_file_name(&test_file_path)?
@@ -111,30 +95,28 @@ fn test_highlights_indented(
                 fs::read(&test_file_path)?.as_slice(),
             ) {
                 Ok(assertion_count) => {
-                    println!(
-                        "✓ {} ({assertion_count} assertions)",
-                        paint(
-                            use_color.then_some(AnsiColor::Green),
-                            test_file_name.to_string_lossy().as_ref()
-                        ),
-                    );
+                    test_summary.highlight_results.add_case(TestResult {
+                        name: test_file_name.to_string_lossy().to_string(),
+                        info: TestInfo::AssertionTest {
+                            outcome: TestOutcome::AssertionPassed { assertion_count },
+                            test_num: test_summary.test_num,
+                        },
+                    });
                 }
                 Err(e) => {
-                    println!(
-                        "✗ {}",
-                        paint(
-                            use_color.then_some(AnsiColor::Red),
-                            test_file_name.to_string_lossy().as_ref()
-                        )
-                    );
-                    println!(
-                        "{indent:indent_level$}  {e}",
-                        indent = "",
-                        indent_level = indent_level * 2
-                    );
+                    test_summary.highlight_results.add_case(TestResult {
+                        name: test_file_name.to_string_lossy().to_string(),
+                        info: TestInfo::AssertionTest {
+                            outcome: TestOutcome::AssertionFailed {
+                                error: e.to_string(),
+                            },
+                            test_num: test_summary.test_num,
+                        },
+                    });
                     failed = true;
                 }
             }
+            test_summary.test_num += 1;
         }
     }
 
