@@ -32,12 +32,21 @@ pub const LANGUAGE: LanguageFn = unsafe { LanguageFn::from_raw(tree_sitter_PARSE
 /// [`node-types.json`]: https://tree-sitter.github.io/tree-sitter/using-parsers/6-static-node-types
 pub const NODE_TYPES: &str = include_str!("../../src/node-types.json");
 
-// NOTE: uncomment these to include any queries that this grammar contains:
+#[cfg(with_highlights_query)]
+/// The syntax highlighting query for this grammar.
+pub const HIGHLIGHTS_QUERY: &str = include_str!("../../HIGHLIGHTS_QUERY_PATH");
 
-// pub const HIGHLIGHTS_QUERY: &str = include_str!("../../queries/highlights.scm");
-// pub const INJECTIONS_QUERY: &str = include_str!("../../queries/injections.scm");
-// pub const LOCALS_QUERY: &str = include_str!("../../queries/locals.scm");
-// pub const TAGS_QUERY: &str = include_str!("../../queries/tags.scm");
+#[cfg(with_injections_query)]
+/// The language injection query for this grammar.
+pub const INJECTIONS_QUERY: &str = include_str!("../../INJECTIONS_QUERY_PATH");
+
+#[cfg(with_locals_query)]
+/// The local variable query for this grammar.
+pub const LOCALS_QUERY: &str = include_str!("../../LOCALS_QUERY_PATH");
+
+#[cfg(with_tags_query)]
+/// The symbol tagging query for this grammar.
+pub const TAGS_QUERY: &str = include_str!("../../TAGS_QUERY_PATH");
 
 #[cfg(test)]
 mod tests {
