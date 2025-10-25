@@ -1949,18 +1949,17 @@ dependencies = [
 name = "tree-sitter-config"
 version = "0.26.0"
 dependencies = [
- "anyhow",
  "etcetera",
  "log",
  "serde",
  "serde_json",
+ "thiserror 2.0.16",
 ]
 
 [[package]]
 name = "tree-sitter-generate"
 version = "0.26.0"
 dependencies = [
- "anyhow",
  "bitflags 2.9.4",
  "dunce",
  "indexmap",
@@ -1998,7 +1997,6 @@ version = "0.1.5"
 name = "tree-sitter-loader"
 version = "0.26.0"
 dependencies = [
- "anyhow",
  "cc",
  "etcetera",
  "fs4",
@@ -2011,6 +2009,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tempfile",
+ "thiserror 2.0.16",
  "tree-sitter",
  "tree-sitter-highlight",
  "tree-sitter-tags",
