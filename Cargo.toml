@@ -106,8 +106,8 @@ ansi_colours = "1.2.3"
 anstyle = "1.0.13"
 anyhow = "1.0.100"
 bstr = "1.12.0"
-cc = "1.2.41"
-clap = { version = "4.5.48", features = [
+cc = "1.2.42"
+clap = { version = "4.5.50", features = [
   "cargo",
   "derive",
   "env",
@@ -115,30 +115,30 @@ clap = { version = "4.5.48", features = [
   "string",
   "unstable-styles",
 ] }
-clap_complete = "4.5.58"
-clap_complete_nushell = "4.5.8"
+clap_complete = "4.5.59"
+clap_complete_nushell = "4.5.9"
 crc32fast = "1.5.0"
-ctor = "0.2.9"
+ctor = "0.6.0"
 ctrlc = { version = "3.5.0", features = ["termination"] }
 dialoguer = { version = "0.11.0", features = ["fuzzy-select"] }
 etcetera = "0.10.0"
-fs4 = "0.12.0"
+fs4 = "0.13.1"
 glob = "0.3.3"
 heck = "0.5.0"
 html-escape = "0.2.13"
-indexmap = "2.11.4"
-indoc = "2.0.6"
+indexmap = "2.12.0"
+indoc = "2.0.7"
 libloading = "0.8.9"
 log = { version = "0.4.28", features = ["std"] }
 memchr = "2.7.6"
 once_cell = "1.21.3"
 pretty_assertions = "1.4.1"
 rand = "0.8.5"
-regex = "1.11.3"
-regex-syntax = "0.8.6"
+regex = "1.12.2"
+regex-syntax = "0.8.8"
 rustc-hash = "2.1.1"
 semver = { version = "1.0.27", features = ["serde"] }
-serde = { version = "1.0.219", features = ["derive"] }
+serde = { version = "1.0.228", features = ["derive"] }
 serde_json = { version = "1.0.145", features = ["preserve_order"] }
 similar = "2.7.0"
 smallbitvec = "2.6.0"
@@ -149,8 +149,8 @@ tiny_http = "0.12.0"
 topological-sort = "0.2.2"
 unindent = "0.2.4"
 walkdir = "2.5.0"
-wasmparser = "0.229.0"
-webbrowser = "1.0.5"
+wasmparser = "0.240.0"
+webbrowser = "1.0.6"
 
 tree-sitter = { version = "0.26.0", path = "./lib" }
 tree-sitter-generate = { version = "0.26.0", path = "./crates/generate" }
