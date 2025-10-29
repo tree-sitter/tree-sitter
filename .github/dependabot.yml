@@ -14,6 +14,10 @@ updates:
     groups:
       cargo:
         patterns: ["*"]
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
@@ -28,6 +32,7 @@ updates:
     groups:
       actions:
         patterns: ["*"]
+
   - package-ecosystem: "npm"
     versioning-strategy: increase
     directories:
