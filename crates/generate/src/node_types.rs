@@ -829,12 +829,12 @@ fn extend_sorted<'a, T>(vec: &mut Vec<T>, values: impl IntoIterator<Item = &'a T
 where
     T: 'a + Clone + Eq + Ord,
 {
-    values.into_iter().any(|value| {
+    values.into_iter().fold(false, |acc, value| {
         if let Err(i) = vec.binary_search(value) {
             vec.insert(i, value.clone());
             true
         } else {
-            false
+            acc
         }
     })
 }
