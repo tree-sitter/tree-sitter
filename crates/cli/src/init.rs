@@ -14,7 +14,11 @@ use semver::Version;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use tree_sitter_generate::write_file;
-use tree_sitter_loader::{Author, Bindings, Grammar, Links, Metadata, PathsJSON, TreeSitterJSON};
+use tree_sitter_loader::{
+    Author, Bindings, Grammar, Links, Metadata, PathsJSON, TreeSitterJSON,
+    DEFAULT_HIGHLIGHTS_QUERY_FILE_NAME, DEFAULT_INJECTIONS_QUERY_FILE_NAME,
+    DEFAULT_LOCALS_QUERY_FILE_NAME, DEFAULT_TAGS_QUERY_FILE_NAME,
+};
 
 const CLI_VERSION: &str = env!("CARGO_PKG_VERSION");
 const CLI_VERSION_PLACEHOLDER: &str = "CLI_VERSION";
@@ -59,6 +63,11 @@ const AUTHOR_NAME_PLACEHOLDER_GRAMMAR: &str = "PARSER_AUTHOR_NAME";
 const AUTHOR_EMAIL_PLACEHOLDER_GRAMMAR: &str = " PARSER_AUTHOR_EMAIL";
 
 const FUNDING_URL_PLACEHOLDER: &str = "FUNDING_URL";
+
+const HIGHLIGHTS_QUERY_PATH_PLACEHOLDER: &str = "HIGHLIGHTS_QUERY_PATH";
+const INJECTIONS_QUERY_PATH_PLACEHOLDER: &str = "INJECTIONS_QUERY_PATH";
+const LOCALS_QUERY_PATH_PLACEHOLDER: &str = "LOCALS_QUERY_PATH";
+const TAGS_QUERY_PATH_PLACEHOLDER: &str = "TAGS_QUERY_PATH";
 
 const GRAMMAR_JS_TEMPLATE: &str = include_str!("./templates/grammar.js");
 const PACKAGE_JSON_TEMPLATE: &str = include_str!("./templates/package.json");
@@ -205,6 +214,10 @@ struct GenerateOpts<'a> {
     camel_parser_name: &'a str,
     title_parser_name: &'a str,
     class_name: &'a str,
+    highlights_query_path: &'a str,
+    injections_query_path: &'a str,
+    locals_query_path: &'a str,
+    tags_query_path: &'a str,
 }
 
 pub fn generate_grammar_files(
@@ -255,6 +268,20 @@ pub fn generate_grammar_files(
         .clone()
         .unwrap_or_else(|| format!("TreeSitter{}", language_name.to_upper_camel_case()));
 
+    fn pathsjson_to_variable<'a>(paths_json: &'a PathsJSON, default: &'a PathBuf) -> &'a str {
+        match paths_json {
+            PathsJSON::Empty => Some(default),
+            PathsJSON::Single(path_buf) => Some(path_buf),
+            PathsJSON::Multiple(paths) => paths.first(),
+        }
+        .map_or("", |path| path.as_os_str().to_str().unwrap_or(""))
+    }
+
+    let default_highlights_path = Path::new("queries").join(DEFAULT_HIGHLIGHTS_QUERY_FILE_NAME);
+    let default_injections_path = Path::new("queries").join(DEFAULT_INJECTIONS_QUERY_FILE_NAME);
+    let default_locals_path = Path::new("queries").join(DEFAULT_LOCALS_QUERY_FILE_NAME);
+    let default_tags_path = Path::new("queries").join(DEFAULT_TAGS_QUERY_FILE_NAME);
+
     let generate_opts = GenerateOpts {
         author_name: authors
             .map(|a| a.first().map(|a| a.name.as_str()))
@@ -281,6 +308,22 @@ pub fn generate_grammar_files(
         camel_parser_name: &camel_name,
         title_parser_name: &title_name,
         class_name: &class_name,
+        highlights_query_path: pathsjson_to_variable(
+            &tree_sitter_config.grammars[0].highlights,
+            &default_highlights_path,
+        ),
+        injections_query_path: pathsjson_to_variable(
+            &tree_sitter_config.grammars[0].injections,
+            &default_injections_path,
+        ),
+        locals_query_path: pathsjson_to_variable(
+            &tree_sitter_config.grammars[0].locals,
+            &default_locals_path,
+        ),
+        tags_query_path: pathsjson_to_variable(
+            &tree_sitter_config.grammars[0].tags,
+            &default_tags_path,
+        ),
     };
 
     // Create package.json
@@ -388,8 +431,47 @@ pub fn generate_grammar_files(
     // Generate Rust bindings
     if tree_sitter_config.bindings.rust {
         missing_path(bindings_dir.join("rust"), create_dir)?.apply(|path| {
-            missing_path(path.join("lib.rs"), |path| {
+            missing_path_else(path.join("lib.rs"), allow_update, |path| {
                 generate_file(path, LIB_RS_TEMPLATE, language_name, &generate_opts)
+            }, |path| {
+                let mut contents = fs::read_to_string(path)?;
+                if !contents.contains("#[cfg(with_highlights_query)]") {
+                let replacement = indoc! {r#"
+                    #[cfg(with_highlights_query)]
+                    /// The syntax highlighting query for this grammar.
+                    pub const HIGHLIGHTS_QUERY: &str = include_str!("../../HIGHLIGHTS_QUERY_PATH");
+
+                    #[cfg(with_injections_query)]
+                    /// The language injection query for this grammar.
+                    pub const INJECTIONS_QUERY: &str = include_str!("../../INJECTIONS_QUERY_PATH");
+
+                    #[cfg(with_locals_query)]
+                    /// The local variable query for this grammar.
+                    pub const LOCALS_QUERY: &str = include_str!("../../LOCALS_QUERY_PATH");
+
+                    #[cfg(with_tags_query)]
+                    /// The symbol tagging query for this grammar.
+                    pub const TAGS_QUERY: &str = include_str!("../../TAGS_QUERY_PATH");
+                    "#}
+                    .replace("HIGHLIGHTS_QUERY_PATH", generate_opts.highlights_query_path)
+                    .replace("INJECTIONS_QUERY_PATH", generate_opts.injections_query_path)
+                    .replace("LOCALS_QUERY_PATH", generate_opts.locals_query_path)
+                    .replace("TAGS_QUERY_PATH", generate_opts.tags_query_path);
+                contents = contents
+                    .replace(
+                        indoc! {r#"
+                        // NOTE: uncomment these to include any queries that this grammar contains:
+
+                        // pub const HIGHLIGHTS_QUERY: &str = include_str!("../../queries/highlights.scm");
+                        // pub const INJECTIONS_QUERY: &str = include_str!("../../queries/injections.scm");
+                        // pub const LOCALS_QUERY: &str = include_str!("../../queries/locals.scm");
+                        // pub const TAGS_QUERY: &str = include_str!("../../queries/tags.scm");
+                        "#},
+                        &replacement,
+                    );
+                }
+                write_file(path, contents)?;
+                Ok(())
             })?;
 
             missing_path_else(
@@ -397,27 +479,29 @@ pub fn generate_grammar_files(
                 allow_update,
                 |path| generate_file(path, BUILD_RS_TEMPLATE, language_name, &generate_opts),
                 |path| {
-                    let replacement = indoc!{r#"
-                        c_config.flag("-utf-8");
+                    let mut contents = fs::read_to_string(path)?;
+                    if !contents.contains("wasm32-unknown-unknown") {
+                        let replacement = indoc!{r#"
+                            c_config.flag("-utf-8");
 
-                        if std::env::var("TARGET").unwrap() == "wasm32-unknown-unknown" {
-                            let Ok(wasm_headers) = std::env::var("DEP_TREE_SITTER_LANGUAGE_WASM_HEADERS") else {
-                                panic!("Environment variable DEP_TREE_SITTER_LANGUAGE_WASM_HEADERS must be set by the language crate");
-                            };
-                            let Ok(wasm_src) =
-                                std::env::var("DEP_TREE_SITTER_LANGUAGE_WASM_SRC").map(std::path::PathBuf::from)
-                            else {
-                                panic!("Environment variable DEP_TREE_SITTER_LANGUAGE_WASM_SRC must be set by the language crate");
-                            };
+                            if std::env::var("TARGET").unwrap() == "wasm32-unknown-unknown" {
+                                let Ok(wasm_headers) = std::env::var("DEP_TREE_SITTER_LANGUAGE_WASM_HEADERS") else {
+                                    panic!("Environment variable DEP_TREE_SITTER_LANGUAGE_WASM_HEADERS must be set by the language crate");
+                                };
+                                let Ok(wasm_src) =
+                                    std::env::var("DEP_TREE_SITTER_LANGUAGE_WASM_SRC").map(std::path::PathBuf::from)
+                                else {
+                                    panic!("Environment variable DEP_TREE_SITTER_LANGUAGE_WASM_SRC must be set by the language crate");
+                                };
 
-                            c_config.include(&wasm_headers);
-                            c_config.files([
-                                wasm_src.join("stdio.c"),
-                                wasm_src.join("stdlib.c"),
-                                wasm_src.join("string.c"),
-                            ]);
-                        }
-                    "#};
+                                c_config.include(&wasm_headers);
+                                c_config.files([
+                                    wasm_src.join("stdio.c"),
+                                    wasm_src.join("stdlib.c"),
+                                    wasm_src.join("string.c"),
+                                ]);
+                            }
+                        "#};
 
                     let indented_replacement = replacement
                         .lines()
@@ -425,9 +509,46 @@ pub fn generate_grammar_files(
                         .collect::<Vec<_>>()
                         .join("\n");
 
-                    let mut contents = fs::read_to_string(path)?;
-                    if !contents.contains("wasm32-unknown-unknown") {
                         contents = contents.replace(r#"    c_config.flag("-utf-8");"#, &indented_replacement);
+                    }
+
+                    // Introduce configuration variables for dynamic query inclusion
+                    if !contents.contains("with_highlights_query") {
+                        let replaced = indoc! {r#"
+                                c_config.compile("tree-sitter-KEBAB_PARSER_NAME");
+                            }"#}
+                            .replace("KEBAB_PARSER_NAME", &language_name.to_kebab_case());
+
+                        let replacement = indoc! {r#"
+                                c_config.compile("tree-sitter-KEBAB_PARSER_NAME");
+
+                                println!("cargo:rustc-check-cfg=cfg(with_highlights_query)");
+                                if !"HIGHLIGHTS_QUERY_PATH".is_empty() && std::path::Path::new("HIGHLIGHTS_QUERY_PATH").exists() {
+                                    println!("cargo:rustc-cfg=with_highlights_query");
+                                }
+                                println!("cargo:rustc-check-cfg=cfg(with_injections_query)");
+                                if !"INJECTIONS_QUERY_PATH".is_empty() && std::path::Path::new("INJECTIONS_QUERY_PATH").exists() {
+                                    println!("cargo:rustc-cfg=with_injections_query");
+                                }
+                                println!("cargo:rustc-check-cfg=cfg(with_locals_query)");
+                                if !"LOCALS_QUERY_PATH".is_empty() && std::path::Path::new("LOCALS_QUERY_PATH").exists() {
+                                    println!("cargo:rustc-cfg=with_locals_query");
+                                }
+                                println!("cargo:rustc-check-cfg=cfg(with_tags_query)");
+                                if !"TAGS_QUERY_PATH".is_empty() && std::path::Path::new("TAGS_QUERY_PATH").exists() {
+                                    println!("cargo:rustc-cfg=with_tags_query");
+                                }
+                            }"#}
+                            .replace("KEBAB_PARSER_NAME", &language_name.to_kebab_case())
+                            .replace("HIGHLIGHTS_QUERY_PATH", generate_opts.highlights_query_path)
+                            .replace("INJECTIONS_QUERY_PATH", generate_opts.injections_query_path)
+                            .replace("LOCALS_QUERY_PATH", generate_opts.locals_query_path)
+                            .replace("TAGS_QUERY_PATH", generate_opts.tags_query_path);
+
+                        contents = contents.replace(
+                            &replaced,
+                            &replacement,
+                        );
                     }
 
                     write_file(path, contents)?;
@@ -468,7 +589,7 @@ pub fn generate_grammar_files(
                 |path| generate_file(path, INDEX_JS_TEMPLATE, language_name, &generate_opts),
                 |path| {
                     let contents = fs::read_to_string(path)?;
-                    if !contents.contains("new URL") {
+                    if !contents.contains("Object.defineProperty") {
                         warn!("Replacing index.js");
                         generate_file(path, INDEX_JS_TEMPLATE, language_name, &generate_opts)?;
                     }
@@ -476,9 +597,19 @@ pub fn generate_grammar_files(
                 },
             )?;
 
-            missing_path(path.join("index.d.ts"), |path| {
-                generate_file(path, INDEX_D_TS_TEMPLATE, language_name, &generate_opts)
-            })?;
+            missing_path_else(
+                path.join("index.d.ts"),
+                allow_update,
+                |path| generate_file(path, INDEX_D_TS_TEMPLATE, language_name, &generate_opts),
+                |path| {
+                    let contents = fs::read_to_string(path)?;
+                    if !contents.contains("export default binding") {
+                        warn!("Replacing index.d.ts");
+                        generate_file(path, INDEX_D_TS_TEMPLATE, language_name, &generate_opts)?;
+                    }
+                    Ok(())
+                },
+            )?;
 
             missing_path_else(
                 path.join("binding_test.js"),
@@ -717,9 +848,21 @@ pub fn generate_grammar_files(
                 },
             )?;
 
-            missing_path(lang_path.join("__init__.py"), |path| {
-                generate_file(path, INIT_PY_TEMPLATE, language_name, &generate_opts)
-            })?;
+            missing_path_else(
+                lang_path.join("__init__.py"),
+                allow_update,
+                |path| {
+                    generate_file(path, INIT_PY_TEMPLATE, language_name, &generate_opts)
+                },
+                |path| {
+                    let contents = fs::read_to_string(path)?;
+                    if !contents.contains("uncomment these to include any queries") {
+                        warn!("Replacing __init__.py");
+                        generate_file(path, INIT_PY_TEMPLATE, language_name, &generate_opts)?;
+                    }
+                    Ok(())
+                },
+            )?;
 
             missing_path_else(
                 lang_path.join("__init__.pyi"),
@@ -727,7 +870,10 @@ pub fn generate_grammar_files(
                 |path| generate_file(path, INIT_PYI_TEMPLATE, language_name, &generate_opts),
                 |path| {
                     let mut contents = fs::read_to_string(path)?;
-                    if !contents.contains("CapsuleType") {
+                    if contents.contains("uncomment these to include any queries") {
+                        warn!("Replacing __init__.pyi");
+                        generate_file(path, INIT_PYI_TEMPLATE, language_name, &generate_opts)?;
+                    } else if !contents.contains("CapsuleType") {
                         contents = contents
                             .replace(
                                 "from typing import Final",
@@ -990,7 +1136,20 @@ fn generate_file(
             PARSER_VERSION_PLACEHOLDER,
             &generate_opts.version.to_string(),
         )
-        .replace(PARSER_CLASS_NAME_PLACEHOLDER, generate_opts.class_name);
+        .replace(PARSER_CLASS_NAME_PLACEHOLDER, generate_opts.class_name)
+        .replace(
+            HIGHLIGHTS_QUERY_PATH_PLACEHOLDER,
+            generate_opts.highlights_query_path,
+        )
+        .replace(
+            INJECTIONS_QUERY_PATH_PLACEHOLDER,
+            generate_opts.injections_query_path,
+        )
+        .replace(
+            LOCALS_QUERY_PATH_PLACEHOLDER,
+            generate_opts.locals_query_path,
+        )
+        .replace(TAGS_QUERY_PATH_PLACEHOLDER, generate_opts.tags_query_path);
 
     if let Some(name) = generate_opts.author_name {
         replacement = replacement.replace(AUTHOR_NAME_PLACEHOLDER, name);

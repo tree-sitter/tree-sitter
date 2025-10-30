@@ -36,4 +36,21 @@ fn main() {
     }
 
     c_config.compile("tree-sitter-KEBAB_PARSER_NAME");
+
+    println!("cargo:rustc-check-cfg=cfg(with_highlights_query)");
+    if !"HIGHLIGHTS_QUERY_PATH".is_empty() && std::path::Path::new("HIGHLIGHTS_QUERY_PATH").exists() {
+        println!("cargo:rustc-cfg=with_highlights_query");
+    }
+    println!("cargo:rustc-check-cfg=cfg(with_injections_query)");
+    if !"INJECTIONS_QUERY_PATH".is_empty() && std::path::Path::new("INJECTIONS_QUERY_PATH").exists() {
+        println!("cargo:rustc-cfg=with_injections_query");
+    }
+    println!("cargo:rustc-check-cfg=cfg(with_locals_query)");
+    if !"LOCALS_QUERY_PATH".is_empty() && std::path::Path::new("LOCALS_QUERY_PATH").exists() {
+        println!("cargo:rustc-cfg=with_locals_query");
+    }
+    println!("cargo:rustc-check-cfg=cfg(with_tags_query)");
+    if !"TAGS_QUERY_PATH".is_empty() && std::path::Path::new("TAGS_QUERY_PATH").exists() {
+        println!("cargo:rustc-cfg=with_tags_query");
+    }
 }
