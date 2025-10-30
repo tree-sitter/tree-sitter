@@ -41,6 +41,7 @@ declare class RustRegex {
 }
 
 type RuleOrLiteral = Rule | RegExp | RustRegex | string;
+type RulesOrLiterals = [RuleOrLiteral, ...RuleOrLiteral[]];
 
 type GrammarSymbols<RuleName extends string> = {
   [name in RuleName]: SymbolRule<name>;
@@ -230,7 +231,7 @@ declare function field(name: string, rule: RuleOrLiteral): FieldRule;
  *
  * @param options possible rule choices
  */
-declare function choice(...options: RuleOrLiteral[]): ChoiceRule;
+declare function choice(...options: RulesOrLiterals): ChoiceRule;
 
 /**
  * Creates a rule that matches zero or one occurrence of a given rule.
@@ -346,7 +347,7 @@ declare function reserved(wordset: string, rule: RuleOrLiteral): ReservedRule;
  *
  * @param rules ordered rules that comprise the sequence
  */
-declare function seq(...rules: RuleOrLiteral[]): SeqRule;
+declare function seq(...rules: RulesOrLiterals): SeqRule;
 
 /**
  * Creates a symbol rule, representing another rule in the grammar by name.
