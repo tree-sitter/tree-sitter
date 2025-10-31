@@ -11,6 +11,7 @@ use anstyle::{AnsiColor, Color, RgbColor};
 use anyhow::{anyhow, Context, Result};
 use clap::ValueEnum;
 use log::info;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use tree_sitter::{
     ffi, InputEdit, Language, LogType, ParseOptions, ParseState, Parser, Point, Range, Tree,
@@ -19,7 +20,7 @@ use tree_sitter::{
 
 use crate::{fuzz::edits::Edit, logger::paint, util};
 
-#[derive(Debug, Default, Serialize)]
+#[derive(Debug, Default, Serialize, JsonSchema)]
 pub struct Stats {
     pub successful_parses: usize,
     pub total_parses: usize,

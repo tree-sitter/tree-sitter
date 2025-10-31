@@ -137,6 +137,7 @@ rand = "0.8.5"
 regex = "1.11.3"
 regex-syntax = "0.8.6"
 rustc-hash = "2.1.1"
+schemars = "1.0.4"
 semver = { version = "1.0.27", features = ["serde"] }
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = { version = "1.0.145", features = ["preserve_order"] }
