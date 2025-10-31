@@ -18,6 +18,7 @@ use regex::{
     bytes::{Regex as ByteRegex, RegexBuilder as ByteRegexBuilder},
     Regex,
 };
+use schemars::{JsonSchema, Schema, SchemaGenerator};
 use serde::Serialize;
 use similar::{ChangeTag, TextDiff};
 use tree_sitter::{format_sexp, Language, LogType, Parser, Query, Tree};
@@ -139,36 +140,47 @@ pub struct TestOptions<'a> {
 }
 
 /// A stateful object used to collect results from running a grammar's test suite
-#[derive(Debug, Default, Serialize)]
+#[derive(Debug, Default, Serialize, JsonSchema)]
 pub struct TestSummary {
     // Parse test results and associated data
+    #[schemars(schema_with = "schema_as_array")]
     #[serde(serialize_with = "serialize_as_array")]
     pub parse_results: TestResultHierarchy,
     pub parse_failures: Vec<TestFailure>,
     pub parse_stats: Stats,
+    #[schemars(skip)]
     #[serde(skip)]
     pub has_parse_errors: bool,
+    #[schemars(skip)]
     #[serde(skip)]
     pub parse_stat_display: TestStats,
 
     // Other test results
+    #[schemars(schema_with = "schema_as_array")]
     #[serde(serialize_with = "serialize_as_array")]
     pub highlight_results: TestResultHierarchy,
+    #[schemars(schema_with = "schema_as_array")]
     #[serde(serialize_with = "serialize_as_array")]
     pub tag_results: TestResultHierarchy,
+    #[schemars(schema_with = "schema_as_array")]
     #[serde(serialize_with = "serialize_as_array")]
     pub query_results: TestResultHierarchy,
 
     // Data used during construction
+    #[schemars(skip)]
     #[serde(skip)]
     pub test_num: usize,
     // Options passed in from the CLI which control how the summary is displayed
+    #[schemars(skip)]
     #[serde(skip)]
     pub color: bool,
+    #[schemars(skip)]
     #[serde(skip)]
     pub overview_only: bool,
+    #[schemars(skip)]
     #[serde(skip)]
     pub update: bool,
+    #[schemars(skip)]
     #[serde(skip)]
     pub json: bool,
 }
@@ -194,7 +206,7 @@ impl TestSummary {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, JsonSchema)]
 pub struct TestResultHierarchy {
     root_group: Vec<TestResult>,
     traversal_idxs: Vec<usize>,
@@ -205,6 +217,10 @@ where
     S: serde::Serializer,
 {
     results.root_group.serialize(serializer)
+}
+
+fn schema_as_array(gen: &mut SchemaGenerator) -> Schema {
+    gen.subschema_for::<Vec<TestResult>>()
 }
 
 /// Stores arbitrarily nested parent test groups and child cases. Supports creation
@@ -313,14 +329,16 @@ impl<'a> Iterator for TestResultIterWithDepth<'a> {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, JsonSchema)]
 pub struct TestResult {
     pub name: String,
+    #[schemars(flatten)]
     #[serde(flatten)]
     pub info: TestInfo,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, JsonSchema)]
+#[schemars(untagged)]
 #[serde(untagged)]
 pub enum TestInfo {
     Group {
@@ -329,6 +347,7 @@ pub enum TestInfo {
     ParseTest {
         outcome: TestOutcome,
         // True parse rate, adjusted parse rate
+        #[schemars(schema_with = "parse_rate_schema")]
         #[serde(serialize_with = "serialize_parse_rates")]
         parse_rate: Option<(f64, f64)>,
         test_num: usize,
@@ -352,7 +371,11 @@ where
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Serialize)]
+fn parse_rate_schema(gen: &mut SchemaGenerator) -> Schema {
+    gen.subschema_for::<Option<f64>>()
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, JsonSchema)]
 pub enum TestOutcome {
     // Parse outcomes
     Passed,
@@ -726,7 +749,7 @@ impl std::fmt::Display for TestDiff<'_> {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, JsonSchema)]
 pub struct TestFailure {
     name: String,
     actual: String,
