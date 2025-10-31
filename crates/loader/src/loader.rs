@@ -14,11 +14,9 @@ use std::{
     path::{Path, PathBuf},
     process::Command,
     sync::LazyLock,
-    time::SystemTime,
+    time::{SystemTime, SystemTimeError},
 };
 
-use anyhow::Error;
-use anyhow::{anyhow, Context, Result};
 use etcetera::BaseStrategy as _;
 use fs4::fs_std::FileExt;
 use libloading::{Library, Symbol};
@@ -27,11 +25,14 @@ use once_cell::unsync::OnceCell;
 use regex::{Regex, RegexBuilder};
 use semver::Version;
 use serde::{Deserialize, Deserializer, Serialize};
+use thiserror::Error;
 use tree_sitter::Language;
 #[cfg(any(feature = "tree-sitter-highlight", feature = "tree-sitter-tags"))]
 use tree_sitter::QueryError;
 #[cfg(feature = "tree-sitter-highlight")]
 use tree_sitter::QueryErrorKind;
+#[cfg(feature = "wasm")]
+use tree_sitter::WasmError;
 #[cfg(feature = "tree-sitter-highlight")]
 use tree_sitter_highlight::HighlightConfiguration;
 #[cfg(feature = "tree-sitter-tags")]
@@ -39,6 +40,210 @@ use tree_sitter_tags::{Error as TagsError, TagsConfiguration};
 
 static GRAMMAR_NAME_REGEX: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r#""name":\s*"(.*?)""#).unwrap());
+
+pub type LoaderResult<T> = Result<T, LoaderError>;
+
+#[derive(Debug, Error)]
+pub enum LoaderError {
+    #[error(transparent)]
+    Compiler(CompilerError),
+    #[error("Parser compilation failed.\nStdout: {0}\nStderr: {1}")]
+    Compilation(String, String),
+    #[error("Failed to execute curl for {0} -- {1}")]
+    Curl(String, std::io::Error),
+    #[error("Failed to load language in current directory:\n{0}")]
+    CurrentDirectoryLoad(Box<Self>),
+    #[error("External file path {0} is outside of parser directory {1}")]
+    ExternalFile(String, String),
+    #[error("Failed to extract archive {0} to {1}")]
+    Extraction(String, String),
+    #[error("Failed to load language for file name {0}:\n{1}")]
+    FileNameLoad(String, Box<Self>),
+    #[error("Failed to parse the language name from grammar.json at {0}")]
+    GrammarJSON(String),
+    #[error(transparent)]
+    HomeDir(#[from] etcetera::HomeDirError),
+    #[error(transparent)]
+    IO(IoError),
+    #[error(transparent)]
+    Library(LibraryError),
+    #[error("Failed to compare binary and source timestamps:\n{0}")]
+    ModifiedTime(Box<Self>),
+    #[error("No language found")]
+    NoLanguage,
+    #[error(transparent)]
+    Query(LoaderQueryError),
+    #[error(transparent)]
+    ScannerSymbols(ScannerSymbolError),
+    #[error("Failed to load language for scope '{0}':\n{1}")]
+    ScopeLoad(String, Box<Self>),
+    #[error(transparent)]
+    Serialization(#[from] serde_json::Error),
+    #[error(transparent)]
+    Symbol(SymbolError),
+    #[error(transparent)]
+    Tags(#[from] TagsError),
+    #[error("Failed to execute tar for {0} -- {1}")]
+    Tar(String, std::io::Error),
+    #[error(transparent)]
+    Time(#[from] SystemTimeError),
+    #[error("Unknown scope '{0}'")]
+    UnknownScope(String),
+    #[error("Failed to download wasi-sdk from {0}")]
+    WasiSDKDownload(String),
+    #[error(transparent)]
+    WasiSDKClang(#[from] WasiSDKClangError),
+    #[error("Unsupported platform for wasi-sdk")]
+    WasiSDKPlatform,
+    #[cfg(feature = "wasm")]
+    #[error(transparent)]
+    Wasm(#[from] WasmError),
+    #[error("Failed to run wasi-sdk clang -- {0}")]
+    WasmCompiler(std::io::Error),
+    #[error("wasi-sdk clang command failed: {0}")]
+    WasmCompilation(String),
+}
+
+#[derive(Debug, Error)]
+pub struct CompilerError {
+    pub error: std::io::Error,
+    pub command: Box<Command>,
+}
+
+impl std::fmt::Display for CompilerError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Failed to execute the C compiler with the following command:\n{:?}\nError: {}",
+            *self.command, self.error
+        )?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Error)]
+pub struct IoError {
+    pub error: std::io::Error,
+    pub path: Option<String>,
+}
+
+impl IoError {
+    fn new(error: std::io::Error, path: Option<&Path>) -> Self {
+        Self {
+            error,
+            path: path.map(|p| p.to_string_lossy().to_string()),
+        }
+    }
+}
+
+impl std::fmt::Display for IoError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.error)?;
+        if let Some(ref path) = self.path {
+            write!(f, " ({path})")?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Error)]
+pub struct LibraryError {
+    pub error: libloading::Error,
+    pub path: String,
+}
+
+impl std::fmt::Display for LibraryError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Error opening dynamic library {} -- {}",
+            self.path, self.error
+        )?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Error)]
+pub struct LoaderQueryError {
+    pub error: QueryError,
+    pub file: Option<String>,
+}
+
+impl std::fmt::Display for LoaderQueryError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Some(ref path) = self.file {
+            writeln!(f, "Error in query file {path}:")?;
+        }
+        write!(f, "{}", self.error)?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Error)]
+pub struct SymbolError {
+    pub error: libloading::Error,
+    pub symbol_name: String,
+    pub path: String,
+}
+
+impl std::fmt::Display for SymbolError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Failed to load symbol {} from {} -- {}",
+            self.symbol_name, self.path, self.error
+        )?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Error)]
+pub struct ScannerSymbolError {
+    pub missing: Vec<String>,
+}
+
+impl std::fmt::Display for ScannerSymbolError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(
+            f,
+            "Missing required functions in the external scanner, parsing won't work without these!\n"
+        )?;
+        for symbol in &self.missing {
+            writeln!(f, "  `{symbol}`")?;
+        }
+        writeln!(
+            f,
+            "You can read more about this at https://tree-sitter.github.io/tree-sitter/creating-parsers/4-external-scanners\n"
+        )?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Error)]
+pub struct WasiSDKClangError {
+    pub wasi_sdk_dir: String,
+    pub possible_executables: Vec<&'static str>,
+    download: bool,
+}
+
+impl std::fmt::Display for WasiSDKClangError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.download {
+            write!(
+                f,
+                "Failed to find clang executable in downloaded wasi-sdk at '{}'.",
+                self.wasi_sdk_dir
+            )?;
+        } else {
+            write!(f, "TREE_SITTER_WASI_SDK_PATH is set to '{}', but no clang executable found in 'bin/' directory.", self.wasi_sdk_dir)?;
+        }
+
+        let possible_exes = self.possible_executables.join(", ");
+        write!(f, " Looked for: {possible_exes}.")?;
+
+        Ok(())
+    }
+}
 
 #[derive(Default, Deserialize, Serialize)]
 pub struct Config {
@@ -143,9 +348,10 @@ pub struct TreeSitterJSON {
 }
 
 impl TreeSitterJSON {
-    pub fn from_file(path: &Path) -> Result<Self> {
-        Ok(serde_json::from_str(&fs::read_to_string(
-            path.join("tree-sitter.json"),
+    pub fn from_file(path: &Path) -> LoaderResult<Self> {
+        let path = path.join("tree-sitter.json");
+        Ok(serde_json::from_str(&fs::read_to_string(&path).map_err(
+            |e| LoaderError::IO(IoError::new(e, Some(path.as_path()))),
         )?)?)
     }
 
@@ -432,7 +638,7 @@ impl<'a> CompileConfig<'a> {
 unsafe impl Sync for Loader {}
 
 impl Loader {
-    pub fn new() -> Result<Self> {
+    pub fn new() -> LoaderResult<Self> {
         let parser_lib_path = if let Ok(path) = env::var("TREE_SITTER_LIBDIR") {
             PathBuf::from(path)
         } else {
@@ -441,7 +647,9 @@ impl Loader {
                     .cache_dir() // `$HOME/Library/Caches/`
                     .join("tree-sitter");
                 if legacy_apple_path.exists() && legacy_apple_path.is_dir() {
-                    std::fs::remove_dir_all(legacy_apple_path)?;
+                    std::fs::remove_dir_all(&legacy_apple_path).map_err(|e| {
+                        LoaderError::IO(IoError::new(e, Some(legacy_apple_path.as_path())))
+                    })?;
                 }
             }
 
@@ -491,7 +699,7 @@ impl Loader {
         self.highlight_names.lock().unwrap().clone()
     }
 
-    pub fn find_all_languages(&mut self, config: &Config) -> Result<()> {
+    pub fn find_all_languages(&mut self, config: &Config) -> LoaderResult<()> {
         if config.parser_directories.is_empty() {
             warn!(concat!(
                 "You have not configured any parser directories!\n",
@@ -503,7 +711,7 @@ impl Loader {
         for parser_container_dir in &config.parser_directories {
             if let Ok(entries) = fs::read_dir(parser_container_dir) {
                 for entry in entries {
-                    let entry = entry?;
+                    let entry = entry.map_err(|e| LoaderError::IO(IoError::new(e, None)))?;
                     if let Some(parser_dir_name) = entry.file_name().to_str() {
                         if parser_dir_name.starts_with("tree-sitter-") {
                             self.find_language_configurations_at_path(
@@ -519,7 +727,7 @@ impl Loader {
         Ok(())
     }
 
-    pub fn languages_at_path(&mut self, path: &Path) -> Result<Vec<(Language, String)>> {
+    pub fn languages_at_path(&mut self, path: &Path) -> LoaderResult<Vec<(Language, String)>> {
         if let Ok(configurations) = self.find_language_configurations_at_path(path, true) {
             let mut language_ids = configurations
                 .iter()
@@ -530,7 +738,7 @@ impl Loader {
             language_ids
                 .into_iter()
                 .map(|(id, name)| Ok((self.language_for_id(id)?, name)))
-                .collect::<Result<Vec<_>>>()
+                .collect::<LoaderResult<Vec<_>>>()
         } else {
             Ok(Vec::new())
         }
@@ -547,7 +755,7 @@ impl Loader {
     pub fn language_configuration_for_scope(
         &self,
         scope: &str,
-    ) -> Result<Option<(Language, &LanguageConfiguration)>> {
+    ) -> LoaderResult<Option<(Language, &LanguageConfiguration)>> {
         for configuration in &self.language_configurations {
             if configuration.scope.as_ref().is_some_and(|s| s == scope) {
                 let language = self.language_for_id(configuration.language_id)?;
@@ -560,14 +768,19 @@ impl Loader {
     pub fn language_configuration_for_first_line_regex(
         &self,
         path: &Path,
-    ) -> Result<Option<(Language, &LanguageConfiguration)>> {
+    ) -> LoaderResult<Option<(Language, &LanguageConfiguration)>> {
         self.language_configuration_ids_by_first_line_regex
             .iter()
             .try_fold(None, |_, (regex, ids)| {
                 if let Some(regex) = Self::regex(Some(regex)) {
-                    let file = fs::File::open(path)?;
+                    let file = fs::File::open(path)
+                        .map_err(|e| LoaderError::IO(IoError::new(e, Some(path))))?;
                     let reader = BufReader::new(file);
-                    let first_line = reader.lines().next().transpose()?;
+                    let first_line = reader
+                        .lines()
+                        .next()
+                        .transpose()
+                        .map_err(|e| LoaderError::IO(IoError::new(e, Some(path))))?;
                     if let Some(first_line) = first_line {
                         if regex.is_match(&first_line) && !ids.is_empty() {
                             let configuration = &self.language_configurations[ids[0]];
@@ -584,7 +797,7 @@ impl Loader {
     pub fn language_configuration_for_file_name(
         &self,
         path: &Path,
-    ) -> Result<Option<(Language, &LanguageConfiguration)>> {
+    ) -> LoaderResult<Option<(Language, &LanguageConfiguration)>> {
         // Find all the language configurations that match this file name
         // or a suffix of the file name.
         let configuration_ids = path
@@ -611,8 +824,8 @@ impl Loader {
                 // If multiple language configurations match, then determine which
                 // one to use by applying the configurations' content regexes.
                 else {
-                    let file_contents = fs::read(path)
-                        .with_context(|| format!("Failed to read path {}", path.display()))?;
+                    let file_contents =
+                        fs::read(path).map_err(|e| LoaderError::IO(IoError::new(e, Some(path))))?;
                     let file_contents = String::from_utf8_lossy(&file_contents);
                     let mut best_score = -2isize;
                     let mut best_configuration_id = None;
@@ -656,7 +869,7 @@ impl Loader {
     pub fn language_configuration_for_injection_string(
         &self,
         string: &str,
-    ) -> Result<Option<(Language, &LanguageConfiguration)>> {
+    ) -> LoaderResult<Option<(Language, &LanguageConfiguration)>> {
         let mut best_match_length = 0;
         let mut best_match_position = None;
         for (i, configuration) in self.language_configurations.iter().enumerate() {
@@ -683,11 +896,11 @@ impl Loader {
     pub fn language_for_configuration(
         &self,
         configuration: &LanguageConfiguration,
-    ) -> Result<Language> {
+    ) -> LoaderResult<Language> {
         self.language_for_id(configuration.language_id)
     }
 
-    fn language_for_id(&self, id: usize) -> Result<Language> {
+    fn language_for_id(&self, id: usize) -> LoaderResult<Language> {
         let (path, language, externals) = &self.languages_by_id[id];
         language
             .get_or_try_init(|| {
@@ -706,20 +919,23 @@ impl Loader {
         grammar_path: &Path,
         output_path: PathBuf,
         flags: &[&str],
-    ) -> Result<()> {
+    ) -> LoaderResult<()> {
         let src_path = grammar_path.join("src");
         let mut config = CompileConfig::new(&src_path, None, Some(output_path));
         config.flags = flags;
         self.load_language_at_path(config).map(|_| ())
     }
 
-    pub fn load_language_at_path(&self, mut config: CompileConfig) -> Result<Language> {
+    pub fn load_language_at_path(&self, mut config: CompileConfig) -> LoaderResult<Language> {
         let grammar_path = config.src_path.join("grammar.json");
         config.name = Self::grammar_json_name(&grammar_path)?;
         self.load_language_at_path_with_name(config)
     }
 
-    pub fn load_language_at_path_with_name(&self, mut config: CompileConfig) -> Result<Language> {
+    pub fn load_language_at_path_with_name(
+        &self,
+        mut config: CompileConfig,
+    ) -> LoaderResult<Language> {
         let mut lib_name = config.name.clone();
         let language_fn_name = format!("tree_sitter_{}", config.name.replace('-', "_"));
         if self.debug_build {
@@ -732,7 +948,9 @@ impl Loader {
         }
 
         if config.output_path.is_none() {
-            fs::create_dir_all(&self.parser_lib_path)?;
+            fs::create_dir_all(&self.parser_lib_path).map_err(|e| {
+                LoaderError::IO(IoError::new(e, Some(self.parser_lib_path.as_path())))
+            })?;
         }
 
         let mut recompile = self.force_rebuild || config.output_path.is_some(); // if specified, always recompile
@@ -766,8 +984,7 @@ impl Loader {
         );
 
         if !recompile {
-            recompile = needs_recompile(&output_path, &paths_to_check)
-                .with_context(|| "Failed to compare source and binary timestamps")?;
+            recompile = needs_recompile(&output_path, &paths_to_check)?;
         }
 
         #[cfg(feature = "wasm")]
@@ -784,7 +1001,8 @@ impl Loader {
                 )?;
             }
 
-            let wasm_bytes = fs::read(&output_path)?;
+            let wasm_bytes = fs::read(&output_path)
+                .map_err(|e| LoaderError::IO(IoError::new(e, Some(output_path.as_path()))))?;
             return Ok(wasm_store.load_language(&config.name, &wasm_bytes)?);
         }
 
@@ -808,33 +1026,42 @@ impl Loader {
             if lock_file.try_lock_exclusive().is_err() {
                 // if we can't acquire the lock, another process is compiling the parser, wait for
                 // it and don't recompile
-                lock_file.lock_exclusive()?;
+                lock_file
+                    .lock_exclusive()
+                    .map_err(|e| LoaderError::IO(IoError::new(e, Some(lock_path.as_path()))))?;
                 recompile = false;
             } else {
                 // if we can acquire the lock, check if the lock file is older than 30 seconds, a
                 // run that was interrupted and left the lock file behind should not block
                 // subsequent runs
-                let time = lock_file.metadata()?.modified()?.elapsed()?.as_secs();
+                let time = lock_file
+                    .metadata()
+                    .map_err(|e| LoaderError::IO(IoError::new(e, Some(lock_path.as_path()))))?
+                    .modified()
+                    .map_err(|e| LoaderError::IO(IoError::new(e, Some(lock_path.as_path()))))?
+                    .elapsed()?
+                    .as_secs();
                 if time > 30 {
-                    fs::remove_file(&lock_path)?;
+                    fs::remove_file(&lock_path)
+                        .map_err(|e| LoaderError::IO(IoError::new(e, Some(lock_path.as_path()))))?;
                     recompile = true;
                 }
             }
         }
 
         if recompile {
-            fs::create_dir_all(lock_path.parent().unwrap()).with_context(|| {
-                format!(
-                    "Failed to create directory {}",
-                    lock_path.parent().unwrap().display()
-                )
-            })?;
+            let parent_path = lock_path.parent().unwrap();
+            fs::create_dir_all(parent_path)
+                .map_err(|e| LoaderError::IO(IoError::new(e, Some(parent_path))))?;
             let lock_file = fs::OpenOptions::new()
                 .create(true)
                 .truncate(true)
                 .write(true)
-                .open(&lock_path)?;
-            lock_file.lock_exclusive()?;
+                .open(&lock_path)
+                .map_err(|e| LoaderError::IO(IoError::new(e, Some(lock_path.as_path()))))?;
+            lock_file
+                .lock_exclusive()
+                .map_err(|e| LoaderError::IO(IoError::new(e, Some(lock_path.as_path()))))?;
 
             self.compile_parser_to_dylib(&config, &lock_file, &lock_path)?;
 
@@ -846,17 +1073,22 @@ impl Loader {
         Self::load_language(&output_path, &language_fn_name)
     }
 
-    pub fn load_language(path: &Path, function_name: &str) -> Result<Language> {
-        let library = unsafe { Library::new(path) }
-            .with_context(|| format!("Error opening dynamic library {}", path.display()))?;
+    pub fn load_language(path: &Path, function_name: &str) -> LoaderResult<Language> {
+        let library = unsafe { Library::new(path) }.map_err(|e| {
+            LoaderError::Library(LibraryError {
+                error: e,
+                path: path.to_string_lossy().to_string(),
+            })
+        })?;
         let language = unsafe {
             let language_fn = library
                 .get::<Symbol<unsafe extern "C" fn() -> Language>>(function_name.as_bytes())
-                .with_context(|| {
-                    format!(
-                        "Failed to load symbol {function_name} from {}",
-                        path.display()
-                    )
+                .map_err(|e| {
+                    LoaderError::Symbol(SymbolError {
+                        error: e,
+                        symbol_name: function_name.to_string(),
+                        path: path.to_string_lossy().to_string(),
+                    })
                 })?;
             language_fn()
         };
@@ -869,7 +1101,7 @@ impl Loader {
         config: &CompileConfig,
         lock_file: &fs::File,
         lock_path: &Path,
-    ) -> Result<(), Error> {
+    ) -> LoaderResult<()> {
         let mut cc_config = cc::Build::new();
         cc_config
             .cargo_metadata(false)
@@ -940,30 +1172,34 @@ impl Loader {
             None
         };
 
-        let output = command.output().with_context(|| {
-            format!("Failed to execute the C compiler with the following command:\n{command:?}")
+        let output = command.output().map_err(|e| {
+            LoaderError::Compiler(CompilerError {
+                error: e,
+                command: Box::new(command),
+            })
         })?;
 
         if let Some(temp_dir) = temp_dir {
             let _ = fs::remove_dir_all(temp_dir);
         }
 
-        FileExt::unlock(lock_file)?;
-        fs::remove_file(lock_path)?;
+        FileExt::unlock(lock_file)
+            .map_err(|e| LoaderError::IO(IoError::new(e, Some(lock_path))))?;
+        fs::remove_file(lock_path)
+            .map_err(|e| LoaderError::IO(IoError::new(e, Some(lock_path))))?;
 
         if output.status.success() {
             Ok(())
         } else {
-            Err(anyhow!(
-                "Parser compilation failed.\nStdout: {}\nStderr: {}",
-                String::from_utf8_lossy(&output.stdout),
-                String::from_utf8_lossy(&output.stderr)
+            Err(LoaderError::Compilation(
+                String::from_utf8_lossy(&output.stdout).to_string(),
+                String::from_utf8_lossy(&output.stderr).to_string(),
             ))
         }
     }
 
     #[cfg(unix)]
-    fn check_external_scanner(&self, name: &str, library_path: &Path) -> Result<()> {
+    fn check_external_scanner(&self, name: &str, library_path: &Path) -> LoaderResult<()> {
         let prefix = if cfg!(any(target_os = "macos", target_os = "ios")) {
             "_"
         } else {
@@ -1015,22 +1251,9 @@ impl Loader {
                 }
 
                 if !must_have.is_empty() {
-                    let missing = must_have
-                        .iter()
-                        .map(|f| format!("  `{f}`"))
-                        .collect::<Vec<_>>()
-                        .join("\n");
-
-                    return Err(anyhow!(format!(
-                        indoc::indoc! {"
-                            Missing required functions in the external scanner, parsing won't work without these!
-
-                            {}
-
-                            You can read more about this at https://tree-sitter.github.io/tree-sitter/creating-parsers/4-external-scanners
-                        "},
-                        missing,
-                    )));
+                    return Err(LoaderError::ScannerSymbols(ScannerSymbolError {
+                        missing: must_have,
+                    }));
                 }
             }
         }
@@ -1039,7 +1262,7 @@ impl Loader {
     }
 
     #[cfg(windows)]
-    fn check_external_scanner(&self, _name: &str, _library_path: &Path) -> Result<()> {
+    fn check_external_scanner(&self, _name: &str, _library_path: &Path) -> LoaderResult<()> {
         // TODO: there's no nm command on windows, whoever wants to implement this can and should :)
 
         // let mut must_have = vec![
@@ -1059,7 +1282,7 @@ impl Loader {
         src_path: &Path,
         scanner_filename: Option<&Path>,
         output_path: &Path,
-    ) -> Result<(), Error> {
+    ) -> LoaderResult<()> {
         let clang_executable = self.ensure_wasi_sdk_exists()?;
 
         let output_name = "output.wasm";
@@ -1085,17 +1308,17 @@ impl Loader {
             command.arg(scanner_filename);
         }
 
-        let output = command.output().context("Failed to run wasi-sdk clang")?;
+        let output = command.output().map_err(LoaderError::WasmCompiler)?;
 
         if !output.status.success() {
-            return Err(anyhow!(
-                "wasi-sdk clang command failed: {}",
-                String::from_utf8_lossy(&output.stderr)
+            return Err(LoaderError::WasmCompilation(
+                String::from_utf8_lossy(&output.stderr).to_string(),
             ));
         }
 
-        fs::rename(src_path.join(output_name), output_path)
-            .context("failed to rename Wasm output file")?;
+        let current_path = src_path.join(output_name);
+        fs::rename(&current_path, output_path)
+            .map_err(|e| LoaderError::IO(IoError::new(e, Some(current_path.as_path()))))?;
 
         Ok(())
     }
@@ -1105,7 +1328,7 @@ impl Loader {
         &self,
         archive_path: &Path,
         destination: &Path,
-    ) -> Result<(), Error> {
+    ) -> LoaderResult<()> {
         let status = Command::new("tar")
             .arg("-xzf")
             .arg(archive_path)
@@ -1113,13 +1336,12 @@ impl Loader {
             .arg("-C")
             .arg(destination)
             .status()
-            .with_context(|| format!("Failed to execute tar for {}", archive_path.display()))?;
+            .map_err(|e| LoaderError::Tar(archive_path.to_string_lossy().to_string(), e))?;
 
         if !status.success() {
-            return Err(anyhow!(
-                "Failed to extract archive {} to {}",
-                archive_path.display(),
-                destination.display()
+            return Err(LoaderError::Extraction(
+                archive_path.to_string_lossy().to_string(),
+                destination.to_string_lossy().to_string(),
             ));
         }
 
@@ -1130,7 +1352,7 @@ impl Loader {
     /// and returns the path to the `clang` executable.
     ///
     /// If `TREE_SITTER_WASI_SDK_PATH` is set, it will use that path to look for the clang executable.
-    fn ensure_wasi_sdk_exists(&self) -> Result<PathBuf, Error> {
+    fn ensure_wasi_sdk_exists(&self) -> LoaderResult<PathBuf> {
         let possible_executables = if cfg!(windows) {
             vec![
                 "clang.exe",
@@ -1151,18 +1373,18 @@ impl Loader {
                 }
             }
 
-            return Err(anyhow!(
-                "TREE_SITTER_WASI_SDK_PATH is set to '{}', but no clang executable found in 'bin/' directory. \
-                 Looked for: {}",
-                wasi_sdk_dir.display(),
-                possible_executables.join(", ")
-            ));
+            return Err(LoaderError::WasiSDKClang(WasiSDKClangError {
+                wasi_sdk_dir: wasi_sdk_dir.to_string_lossy().to_string(),
+                possible_executables,
+                download: false,
+            }));
         }
 
         let cache_dir = etcetera::choose_base_strategy()?
             .cache_dir()
             .join("tree-sitter");
-        fs::create_dir_all(&cache_dir)?;
+        fs::create_dir_all(&cache_dir)
+            .map_err(|e| LoaderError::IO(IoError::new(e, Some(cache_dir.as_path()))))?;
 
         let wasi_sdk_dir = cache_dir.join("wasi-sdk");
 
@@ -1173,7 +1395,8 @@ impl Loader {
             }
         }
 
-        fs::create_dir_all(&wasi_sdk_dir)?;
+        fs::create_dir_all(&wasi_sdk_dir)
+            .map_err(|e| LoaderError::IO(IoError::new(e, Some(wasi_sdk_dir.as_path()))))?;
 
         let arch_os = if cfg!(target_os = "macos") {
             if cfg!(target_arch = "aarch64") {
@@ -1194,7 +1417,7 @@ impl Loader {
                 "x86_64-linux"
             }
         } else {
-            return Err(anyhow!("Unsupported platform for wasi-sdk"));
+            return Err(LoaderError::WasiSDKPlatform);
         };
 
         let sdk_filename = format!("wasi-sdk-25.0-{arch_os}.tar.gz");
@@ -1212,15 +1435,14 @@ impl Loader {
             .arg(&temp_tar_path)
             .arg(&sdk_url)
             .status()
-            .with_context(|| format!("Failed to execute curl for {sdk_url}"))?;
+            .map_err(|e| LoaderError::Curl(sdk_url.clone(), e))?;
 
         if !status.success() {
-            return Err(anyhow!("Failed to download wasi-sdk from {sdk_url}",));
+            return Err(LoaderError::WasiSDKDownload(sdk_url));
         }
 
         info!("Extracting wasi-sdk to {}...", wasi_sdk_dir.display());
-        self.extract_tar_gz_with_strip(&temp_tar_path, &wasi_sdk_dir)
-            .context("Failed to extract wasi-sdk archive")?;
+        self.extract_tar_gz_with_strip(&temp_tar_path, &wasi_sdk_dir)?;
 
         fs::remove_file(temp_tar_path).ok();
         for exe in &possible_executables {
@@ -1230,11 +1452,11 @@ impl Loader {
             }
         }
 
-        Err(anyhow!(
-            "Failed to find clang executable in downloaded wasi-sdk at '{}'. Looked for: {}",
-            wasi_sdk_dir.display(),
-            possible_executables.join(", ")
-        ))
+        Err(LoaderError::WasiSDKClang(WasiSDKClangError {
+            wasi_sdk_dir: wasi_sdk_dir.to_string_lossy().to_string(),
+            possible_executables,
+            download: true,
+        }))
     }
 
     #[must_use]
@@ -1274,115 +1496,121 @@ impl Loader {
         &mut self,
         parser_path: &Path,
         set_current_path_config: bool,
-    ) -> Result<&[LanguageConfiguration]> {
+    ) -> LoaderResult<&[LanguageConfiguration]> {
         let initial_language_configuration_count = self.language_configurations.len();
 
-        let ts_json = TreeSitterJSON::from_file(parser_path);
-        if let Ok(config) = ts_json {
-            let language_count = self.languages_by_id.len();
-            for grammar in config.grammars {
-                // Determine the path to the parser directory. This can be specified in
-                // the tree-sitter.json, but defaults to the directory containing the
-                // tree-sitter.json.
-                let language_path = parser_path.join(grammar.path.unwrap_or(PathBuf::from(".")));
+        match TreeSitterJSON::from_file(parser_path) {
+            Ok(config) => {
+                let language_count = self.languages_by_id.len();
+                for grammar in config.grammars {
+                    // Determine the path to the parser directory. This can be specified in
+                    // the tree-sitter.json, but defaults to the directory containing the
+                    // tree-sitter.json.
+                    let language_path =
+                        parser_path.join(grammar.path.unwrap_or(PathBuf::from(".")));
 
-                // Determine if a previous language configuration in this package.json file
-                // already uses the same language.
-                let mut language_id = None;
-                for (id, (path, _, _)) in
-                    self.languages_by_id.iter().enumerate().skip(language_count)
-                {
-                    if language_path == *path {
-                        language_id = Some(id);
+                    // Determine if a previous language configuration in this package.json file
+                    // already uses the same language.
+                    let mut language_id = None;
+                    for (id, (path, _, _)) in
+                        self.languages_by_id.iter().enumerate().skip(language_count)
+                    {
+                        if language_path == *path {
+                            language_id = Some(id);
+                        }
                     }
-                }
 
-                // If not, add a new language path to the list.
-                let language_id = if let Some(language_id) = language_id {
-                    language_id
-                } else {
-                    self.languages_by_id.push((
+                    // If not, add a new language path to the list.
+                    let language_id = if let Some(language_id) = language_id {
+                        language_id
+                    } else {
+                        self.languages_by_id.push((
                             language_path,
                             OnceCell::new(),
-                            grammar.external_files.clone().into_vec().map(|files| {
-                                files.into_iter()
-                                    .map(|path| {
-                                       let path = parser_path.join(path);
-                                        // prevent p being above/outside of parser_path
-                                        if path.starts_with(parser_path) {
-                                            Ok(path)
-                                        } else {
-                                            Err(anyhow!(
-                                                "External file path {} is outside of parser directory {}", path.display(), parser_path.display(),
-                                            ))
-                                        }
-                                    })
-                                    .collect::<Result<Vec<_>>>()
-                            }).transpose()?,
+                            grammar
+                                .external_files
+                                .clone()
+                                .into_vec()
+                                .map(|files| {
+                                    files
+                                        .into_iter()
+                                        .map(|path| {
+                                            let path = parser_path.join(path);
+                                            // prevent p being above/outside of parser_path
+                                            if path.starts_with(parser_path) {
+                                                Ok(path)
+                                            } else {
+                                                Err(LoaderError::ExternalFile(
+                                                    path.to_string_lossy().to_string(),
+                                                    parser_path.to_string_lossy().to_string(),
+                                                ))
+                                            }
+                                        })
+                                        .collect::<LoaderResult<Vec<_>>>()
+                                })
+                                .transpose()?,
                         ));
-                    self.languages_by_id.len() - 1
-                };
+                        self.languages_by_id.len() - 1
+                    };
 
-                let configuration = LanguageConfiguration {
-                    root_path: parser_path.to_path_buf(),
-                    language_name: grammar.name,
-                    scope: Some(grammar.scope),
-                    language_id,
-                    file_types: grammar.file_types.unwrap_or_default(),
-                    content_regex: Self::regex(grammar.content_regex.as_deref()),
-                    first_line_regex: Self::regex(grammar.first_line_regex.as_deref()),
-                    injection_regex: Self::regex(grammar.injection_regex.as_deref()),
-                    injections_filenames: grammar.injections.into_vec(),
-                    locals_filenames: grammar.locals.into_vec(),
-                    tags_filenames: grammar.tags.into_vec(),
-                    highlights_filenames: grammar.highlights.into_vec(),
-                    #[cfg(feature = "tree-sitter-highlight")]
-                    highlight_config: OnceCell::new(),
-                    #[cfg(feature = "tree-sitter-tags")]
-                    tags_config: OnceCell::new(),
-                    #[cfg(feature = "tree-sitter-highlight")]
-                    highlight_names: &self.highlight_names,
-                    #[cfg(feature = "tree-sitter-highlight")]
-                    use_all_highlight_names: self.use_all_highlight_names,
-                    _phantom: PhantomData,
-                };
+                    let configuration = LanguageConfiguration {
+                        root_path: parser_path.to_path_buf(),
+                        language_name: grammar.name,
+                        scope: Some(grammar.scope),
+                        language_id,
+                        file_types: grammar.file_types.unwrap_or_default(),
+                        content_regex: Self::regex(grammar.content_regex.as_deref()),
+                        first_line_regex: Self::regex(grammar.first_line_regex.as_deref()),
+                        injection_regex: Self::regex(grammar.injection_regex.as_deref()),
+                        injections_filenames: grammar.injections.into_vec(),
+                        locals_filenames: grammar.locals.into_vec(),
+                        tags_filenames: grammar.tags.into_vec(),
+                        highlights_filenames: grammar.highlights.into_vec(),
+                        #[cfg(feature = "tree-sitter-highlight")]
+                        highlight_config: OnceCell::new(),
+                        #[cfg(feature = "tree-sitter-tags")]
+                        tags_config: OnceCell::new(),
+                        #[cfg(feature = "tree-sitter-highlight")]
+                        highlight_names: &self.highlight_names,
+                        #[cfg(feature = "tree-sitter-highlight")]
+                        use_all_highlight_names: self.use_all_highlight_names,
+                        _phantom: PhantomData,
+                    };
 
-                for file_type in &configuration.file_types {
-                    self.language_configuration_ids_by_file_type
-                        .entry(file_type.clone())
-                        .or_default()
-                        .push(self.language_configurations.len());
-                }
-                if let Some(first_line_regex) = &configuration.first_line_regex {
-                    self.language_configuration_ids_by_first_line_regex
-                        .entry(first_line_regex.to_string())
-                        .or_default()
-                        .push(self.language_configurations.len());
-                }
+                    for file_type in &configuration.file_types {
+                        self.language_configuration_ids_by_file_type
+                            .entry(file_type.clone())
+                            .or_default()
+                            .push(self.language_configurations.len());
+                    }
+                    if let Some(first_line_regex) = &configuration.first_line_regex {
+                        self.language_configuration_ids_by_first_line_regex
+                            .entry(first_line_regex.to_string())
+                            .or_default()
+                            .push(self.language_configurations.len());
+                    }
 
-                self.language_configurations.push(unsafe {
-                    mem::transmute::<LanguageConfiguration<'_>, LanguageConfiguration<'static>>(
-                        configuration,
-                    )
-                });
+                    self.language_configurations.push(unsafe {
+                        mem::transmute::<LanguageConfiguration<'_>, LanguageConfiguration<'static>>(
+                            configuration,
+                        )
+                    });
 
-                if set_current_path_config && self.language_configuration_in_current_path.is_none()
-                {
-                    self.language_configuration_in_current_path =
-                        Some(self.language_configurations.len() - 1);
-                }
-            }
-        } else if let Err(e) = ts_json {
-            match e.downcast_ref::<std::io::Error>() {
-                // This is noisy, and not really an issue.
-                Some(e) if e.kind() == std::io::ErrorKind::NotFound => {}
-                _ => {
-                    warn!(
-                        "Failed to parse {} -- {e}",
-                        parser_path.join("tree-sitter.json").display()
-                    );
+                    if set_current_path_config
+                        && self.language_configuration_in_current_path.is_none()
+                    {
+                        self.language_configuration_in_current_path =
+                            Some(self.language_configurations.len() - 1);
+                    }
                 }
             }
+            Err(LoaderError::Serialization(e)) => {
+                warn!(
+                    "Failed to parse {} -- {e}",
+                    parser_path.join("tree-sitter.json").display()
+                );
+            }
+            _ => {}
         }
 
         // If we didn't find any language configurations in the tree-sitter.json file,
@@ -1432,32 +1660,21 @@ impl Loader {
         pattern.and_then(|r| RegexBuilder::new(r).multi_line(true).build().ok())
     }
 
-    fn grammar_json_name(grammar_path: &Path) -> Result<String> {
-        let file = fs::File::open(grammar_path).with_context(|| {
-            format!("Failed to open grammar.json at {}", grammar_path.display())
-        })?;
+    fn grammar_json_name(grammar_path: &Path) -> LoaderResult<String> {
+        let file = fs::File::open(grammar_path)
+            .map_err(|e| LoaderError::IO(IoError::new(e, Some(grammar_path))))?;
 
         let first_three_lines = BufReader::new(file)
             .lines()
             .take(3)
-            .collect::<Result<Vec<_>, _>>()
-            .with_context(|| {
-                format!(
-                    "Failed to read the first three lines of grammar.json at {}",
-                    grammar_path.display()
-                )
-            })?
+            .collect::<Result<Vec<_>, std::io::Error>>()
+            .map_err(|_| LoaderError::GrammarJSON(grammar_path.to_string_lossy().to_string()))?
             .join("\n");
 
         let name = GRAMMAR_NAME_REGEX
             .captures(&first_three_lines)
             .and_then(|c| c.get(1))
-            .ok_or_else(|| {
-                anyhow!(
-                    "Failed to parse the language name from grammar.json at {}",
-                    grammar_path.display()
-                )
-            })?;
+            .ok_or_else(|| LoaderError::GrammarJSON(grammar_path.to_string_lossy().to_string()))?;
 
         Ok(name.as_str().to_string())
     }
@@ -1469,34 +1686,34 @@ impl Loader {
         scope: Option<&str>,
         // path to dynamic library, name of language
         lib_info: Option<&(PathBuf, &str)>,
-    ) -> Result<Language> {
+    ) -> LoaderResult<Language> {
         if let Some((ref lib_path, language_name)) = lib_info {
             let language_fn_name = format!("tree_sitter_{}", language_name.replace('-', "_"));
             Self::load_language(lib_path, &language_fn_name)
         } else if let Some(scope) = scope {
             if let Some(config) = self
                 .language_configuration_for_scope(scope)
-                .with_context(|| format!("Failed to load language for scope '{scope}'"))?
+                .map_err(|e| LoaderError::ScopeLoad(scope.to_string(), Box::new(e)))?
             {
                 Ok(config.0)
             } else {
-                Err(anyhow!("Unknown scope '{scope}'"))
+                Err(LoaderError::UnknownScope(scope.to_string()))
             }
-        } else if let Some((lang, _)) = self
-            .language_configuration_for_file_name(path)
-            .with_context(|| {
-                format!(
-                    "Failed to load language for file name {}",
-                    path.file_name().unwrap().to_string_lossy()
-                )
-            })?
+        } else if let Some((lang, _)) =
+            self.language_configuration_for_file_name(path)
+                .map_err(|e| {
+                    LoaderError::FileNameLoad(
+                        path.file_name().unwrap().to_string_lossy().to_string(),
+                        Box::new(e),
+                    )
+                })?
         {
             Ok(lang)
         } else if let Some(id) = self.language_configuration_in_current_path {
             Ok(self.language_for_id(self.language_configurations[id].language_id)?)
         } else if let Some(lang) = self
             .languages_at_path(current_dir)
-            .with_context(|| "Failed to load language in current directory")?
+            .map_err(|e| LoaderError::CurrentDirectoryLoad(Box::new(e)))?
             .first()
             .cloned()
         {
@@ -1504,7 +1721,7 @@ impl Loader {
         } else if let Some(lang) = self.language_configuration_for_first_line_regex(path)? {
             Ok(lang.0)
         } else {
-            Err(anyhow!("No language found"))
+            Err(LoaderError::NoLanguage)
         }
     }
 
@@ -1539,7 +1756,7 @@ impl LanguageConfiguration<'_> {
         &self,
         language: Language,
         paths: Option<&[PathBuf]>,
-    ) -> Result<Option<&HighlightConfiguration>> {
+    ) -> LoaderResult<Option<&HighlightConfiguration>> {
         let (highlights_filenames, injections_filenames, locals_filenames) = match paths {
             Some(paths) => (
                 Some(
@@ -1604,7 +1821,9 @@ impl LanguageConfiguration<'_> {
                         &locals_query,
                     )
                     .map_err(|error| match error.kind {
-                        QueryErrorKind::Language => Error::from(error),
+                        QueryErrorKind::Language => {
+                            LoaderError::Query(LoaderQueryError { error, file: None })
+                        }
                         _ => {
                             if error.offset < injections_query.len() {
                                 Self::include_path_in_query_error(
@@ -1647,7 +1866,7 @@ impl LanguageConfiguration<'_> {
     }
 
     #[cfg(feature = "tree-sitter-tags")]
-    pub fn tags_config(&self, language: Language) -> Result<Option<&TagsConfiguration>> {
+    pub fn tags_config(&self, language: Language) -> LoaderResult<Option<&TagsConfiguration>> {
         self.tags_config
             .get_or_try_init(|| {
                 let (tags_query, tags_ranges) =
@@ -1691,7 +1910,7 @@ impl LanguageConfiguration<'_> {
         ranges: &[(PathBuf, Range<usize>)],
         source: &str,
         start_offset: usize,
-    ) -> Error {
+    ) -> LoaderError {
         let offset_within_section = error.offset - start_offset;
         let (path, range) = ranges
             .iter()
@@ -1701,7 +1920,10 @@ impl LanguageConfiguration<'_> {
         error.row = source[range.start..offset_within_section]
             .matches('\n')
             .count();
-        Error::from(error).context(format!("Error in query file {}", path.display()))
+        LoaderError::Query(LoaderQueryError {
+            error,
+            file: Some(path.to_string_lossy().to_string()),
+        })
     }
 
     #[allow(clippy::type_complexity)]
@@ -1710,7 +1932,7 @@ impl LanguageConfiguration<'_> {
         &self,
         paths: Option<&[PathBuf]>,
         default_path: &str,
-    ) -> Result<(String, Vec<(PathBuf, Range<usize>)>)> {
+    ) -> LoaderResult<(String, Vec<(PathBuf, Range<usize>)>)> {
         let mut query = String::new();
         let mut path_ranges = Vec::new();
         if let Some(paths) = paths {
@@ -1718,7 +1940,7 @@ impl LanguageConfiguration<'_> {
                 let abs_path = self.root_path.join(path);
                 let prev_query_len = query.len();
                 query += &fs::read_to_string(&abs_path)
-                    .with_context(|| format!("Failed to read query file {}", path.display()))?;
+                    .map_err(|e| LoaderError::IO(IoError::new(e, Some(abs_path.as_path()))))?;
                 path_ranges.push((path.clone(), prev_query_len..query.len()));
             }
         } else {
@@ -1738,7 +1960,7 @@ impl LanguageConfiguration<'_> {
             let path = queries_path.join(default_path);
             if path.exists() {
                 query = fs::read_to_string(&path)
-                    .with_context(|| format!("Failed to read query file {}", path.display()))?;
+                    .map_err(|e| LoaderError::IO(IoError::new(e, Some(path.as_path()))))?;
                 path_ranges.push((PathBuf::from(default_path), 0..query.len()));
             }
         }
@@ -1747,20 +1969,22 @@ impl LanguageConfiguration<'_> {
     }
 }
 
-fn needs_recompile(lib_path: &Path, paths_to_check: &[PathBuf]) -> Result<bool> {
+fn needs_recompile(lib_path: &Path, paths_to_check: &[PathBuf]) -> LoaderResult<bool> {
     if !lib_path.exists() {
         return Ok(true);
     }
-    let lib_mtime = mtime(lib_path)
-        .with_context(|| format!("Failed to read mtime of {}", lib_path.display()))?;
+    let lib_mtime = mtime(lib_path).map_err(|e| LoaderError::ModifiedTime(Box::new(e)))?;
     for path in paths_to_check {
-        if mtime(path)? > lib_mtime {
+        if mtime(path).map_err(|e| LoaderError::ModifiedTime(Box::new(e)))? > lib_mtime {
             return Ok(true);
         }
     }
     Ok(false)
 }
 
-fn mtime(path: &Path) -> Result<SystemTime> {
-    Ok(fs::metadata(path)?.modified()?)
+fn mtime(path: &Path) -> LoaderResult<SystemTime> {
+    fs::metadata(path)
+        .map_err(|e| LoaderError::IO(IoError::new(e, Some(path))))?
+        .modified()
+        .map_err(|e| LoaderError::IO(IoError::new(e, Some(path))))
 }
