@@ -44,7 +44,7 @@ Print the overview of states from the given rule. This is useful for debugging a
 item sets for all given states in a given rule. To solely view state count numbers for rules, pass in `-` for the rule argument.
 To view the overview of states for every rule, pass in `*` for the rule argument.
 
-### `--json`
+### `--json-summary`
 
 Report conflicts in a JSON format.
 
@@ -54,3 +54,7 @@ The path to the JavaScript runtime executable to use when generating the parser.
 Note that you can also set this with `TREE_SITTER_JS_RUNTIME`. Starting from version 0.26.0, you can
 also pass in `native` to use the native QuickJS runtime that comes bundled with the CLI. This avoids
 the dependency on a JavaScript runtime entirely.
+
+### `--disable-optimization`
+
+Disable optimizations when generating the parser. Currently, this only affects the merging of compatible parse states.

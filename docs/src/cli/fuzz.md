@@ -17,6 +17,18 @@ A list of test names to skip fuzzing.
 
 The directory containing the parser. This is primarily useful in multi-language repositories.
 
+### `-p/--grammar-path`
+
+The path to the directory containing the grammar.
+
+### `--lib-path`
+
+The path to the parser's dynamic library. This is used instead of the cached or automatically generated dynamic library.
+
+### `--lang-name`
+
+If `--lib-path` is used, the name of the language used to extract the library's language function
+
 ### `--edits <EDITS>`
 
 The maximum number of edits to perform. The default is 3.
