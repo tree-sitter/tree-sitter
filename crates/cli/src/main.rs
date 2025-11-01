@@ -88,17 +88,6 @@ struct Init {
     pub grammar_path: Option<PathBuf>,
 }
 
-#[derive(Clone, Debug, Default, ValueEnum, PartialEq, Eq)]
-enum GenerationEmit {
-    /// Generate `grammar.json` and `node-types.json`
-    Json,
-    /// Generate `parser.c` and related files
-    #[default]
-    Parser,
-    /// Compile to a library
-    Lib,
-}
-
 #[derive(Args)]
 #[command(alias = "gen", alias = "g")]
 struct Generate {
@@ -121,12 +110,11 @@ struct Generate {
                 )
     )]
     pub abi_version: Option<String>,
-    /// What generated files to emit
+    /// Only generate `grammar.json` and `node-types.json`
     #[arg(long)]
-    #[clap(value_enum, default_value_t=GenerationEmit::Parser)]
-    pub emit: GenerationEmit,
-    /// Deprecated: use --emit=lib.
-    #[arg(long, short = 'b', conflicts_with = "emit")]
+    pub no_parser: bool,
+    /// Compile all defined languages in the current dir
+    #[arg(long, short = 'b')]
     pub build: bool,
     /// Compile a parser in debug mode
     #[arg(long, short = '0')]
@@ -862,9 +850,6 @@ impl Generate {
                         version.parse().expect("invalid abi version flag")
                     }
                 });
-        if self.build {
-            warn!("--build is deprecated, use --emit=lib instead");
-        }
 
         if let Err(err) = tree_sitter_generate::generate_parser_in_directory(
             current_dir,
@@ -873,7 +858,7 @@ impl Generate {
             abi_version,
             self.report_states_for_rule.as_deref(),
             self.js_runtime.as_deref(),
-            self.emit != GenerationEmit::Json,
+            !self.no_parser,
             if self.disable_optimizations {
                 OptLevel::empty()
             } else {
@@ -889,7 +874,7 @@ impl Generate {
                 Err(anyhow!(err.to_string())).with_context(|| "Error when generating parser")?;
             }
         }
-        if self.emit == GenerationEmit::Lib || self.build {
+        if self.build {
             if let Some(path) = self.libdir {
                 loader = loader::Loader::with_parser_lib_path(path);
             }
