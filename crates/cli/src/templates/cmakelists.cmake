@@ -22,14 +22,14 @@ find_program(TREE_SITTER_CLI tree-sitter DOC "Tree-sitter CLI")
 add_custom_command(OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/src/grammar.json"
                    DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/grammar.js"
                    COMMAND "${TREE_SITTER_CLI}" generate grammar.js
-                            --emit=json
+                            --no-parser
                    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
                    COMMENT "Generating grammar.json")
 
 add_custom_command(OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/src/parser.c"
                    DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/grammar.json"
                    COMMAND "${TREE_SITTER_CLI}" generate src/grammar.json
-                            --emit=parser --abi=${TREE_SITTER_ABI_VERSION}
+                            --abi=${TREE_SITTER_ABI_VERSION}
                    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
                    COMMENT "Generating parser.c")
 

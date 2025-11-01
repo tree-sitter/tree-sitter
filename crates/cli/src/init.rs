@@ -572,14 +572,14 @@ pub fn generate_grammar_files(
                             .replace(
                                 indoc! {r"
                                 $(PARSER): $(SRC_DIR)/grammar.json
-                                	$(TS) generate $^
+                                        $(TS) generate $^
                                 "},
                                 indoc! {r"
                                 $(SRC_DIR)/grammar.json: grammar.js
-                                	$(TS) generate --emit=json $^
+                                        $(TS) generate --no-parser $^
 
                                 $(PARSER): $(SRC_DIR)/grammar.json
-                                	$(TS) generate --emit=parser $^
+                                        $(TS) generate $^
                                 "}
                             );
                         write_file(path, contents)?;
@@ -627,14 +627,14 @@ pub fn generate_grammar_files(
                             add_custom_command(OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/src/grammar.json"
                                                DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/grammar.js"
                                                COMMAND "${TREE_SITTER_CLI}" generate grammar.js
-                                                        --emit=json
+                                                        --no-parser
                                                WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
                                                COMMENT "Generating grammar.json")
 
                             add_custom_command(OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/src/parser.c"
                                                DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/grammar.json"
                                                COMMAND "${TREE_SITTER_CLI}" generate src/grammar.json
-                                                        --emit=parser --abi=${TREE_SITTER_ABI_VERSION}
+                                                        --abi=${TREE_SITTER_ABI_VERSION}
                                                WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
                                                COMMENT "Generating parser.c")
                             "#}
