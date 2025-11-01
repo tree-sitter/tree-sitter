@@ -42,3 +42,11 @@ tree-sitter version
 ### `-p/--grammar-path <PATH>`
 
 The path to the directory containing the grammar.
+
+### `--bump`
+
+Automatically bump the version. Possible values are:
+
+- `patch`: Bump the patch version.
+- `minor`: Bump the minor version.
+- `major`: Bump the major version.

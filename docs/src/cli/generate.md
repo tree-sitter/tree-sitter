@@ -38,6 +38,10 @@ What generated files to emit. Possible values:
 - `parser` (default): Generate `parser.c` and related files.
 - `lib`: Compile to a library (equivalent of the deprecated `--build` option)
 
+### `-b/--build`
+
+Compile all defined languages in the current directory. The cli will automatically compile the parsers after generation, and place them in the cache dir.
+
 ### `-0/--debug-build`
 
 Compile the parser with debug flags enabled. This is useful when debugging issues that require a debugger like `gdb` or `lldb`.
@@ -69,3 +73,7 @@ The path to the JavaScript runtime executable to use when generating the parser.
 Note that you can also set this with `TREE_SITTER_JS_RUNTIME`. Starting from version 0.26.0, you can
 also pass in `native` to use the native QuickJS runtime that comes bundled with the CLI. This avoids
 the dependency on a JavaScript runtime entirely.
+
+### `--disable-optimization`
+
+Disable optimizations when generating the parser. Currently, this only affects the merging of compatible parse states.
