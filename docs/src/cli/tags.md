@@ -36,3 +36,7 @@ The path to an alternative configuration (`config.json`) file. See [the init-con
 ### `-n/--test-number <TEST_NUMBER>`
 
 Generate tags from the contents of a specific test.
+
+### `-r/--rebuild`
+
+Force a rebuild of the parser before running the tags.

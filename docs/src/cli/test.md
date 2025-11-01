@@ -18,6 +18,14 @@ Skip tests whose names match this regex.
 
 ### `--file-name <NAME>`
 
+### `--lib-path`
+
+The path to the parser's dynamic library. This is used instead of the cached or automatically generated dynamic library.
+
+### `--lang-name`
+
+If `--lib-path` is used, the name of the language used to extract the library's language function
+
 Only run tests from the given filename in the corpus.
 
 ### `-p/--grammar-path <PATH>`
