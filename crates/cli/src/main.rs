@@ -261,15 +261,10 @@ struct Parse {
     #[arg(long)]
     pub open_log: bool,
     /// Deprecated: use --json-summary
-    #[arg(
-        long,
-        short = 'j',
-        conflicts_with = "json_summary",
-        conflicts_with = "stat"
-    )]
+    #[arg(long, conflicts_with = "json_summary", conflicts_with = "stat")]
     pub json: bool,
     /// Output parsing results in a JSON format
-    #[arg(long, conflicts_with = "json", conflicts_with = "stat")]
+    #[arg(long, short = 'j', conflicts_with = "json", conflicts_with = "stat")]
     pub json_summary: bool,
     /// The path to an alternative config.json file
     #[arg(long)]
@@ -348,7 +343,7 @@ struct Test {
     /// Show only the pass-fail overview tree
     #[arg(long)]
     pub overview_only: bool,
-    /// Output the test summary in a JSON output
+    /// Output the test summary in a JSON format
     #[arg(long)]
     pub json_summary: bool,
 }

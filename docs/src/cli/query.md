@@ -12,6 +12,14 @@ tree-sitter query [OPTIONS] <QUERY_PATH> [PATHS]... # Aliases: q
 
 The path to the directory containing the grammar.
 
+### `--lib-path`
+
+The path to the parser's dynamic library. This is used instead of the cached or automatically generated dynamic library.
+
+### `--lang-name`
+
+If `--lib-path` is used, the name of the language used to extract the library's language function
+
 ### `-t/--time`
 
 Print the time taken to execute the query on the file.
@@ -51,3 +59,7 @@ The path to an alternative configuration (`config.json`) file. See [the init-con
 ### `-n/--test-number <TEST_NUMBER>`
 
 Query the contents of a specific test.
+
+### `-r/--rebuild`
+
+Force a rebuild of the parser before executing the query.
