@@ -3,6 +3,7 @@ on:
   push:
     branches: [master]
     paths: [docs/**]
+  workflow_dispatch:
 
 jobs:
   deploy-docs:
