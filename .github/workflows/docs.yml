@@ -26,7 +26,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           jq_expr='.assets[] | select(.name | contains("x86_64-unknown-linux-gnu")) | .browser_download_url'
-          url=$(gh api repos/rust-lang/mdbook/releases/v0.4.52 --jq "$jq_expr")
+          url=$(gh api repos/rust-lang/mdbook/releases/tags/v0.4.52 --jq "$jq_expr")
           mkdir mdbook
           curl -sSL "$url" | tar -xz -C mdbook
           printf '%s/mdbook\n' "$PWD" >> "$GITHUB_PATH"
