@@ -114,13 +114,13 @@ struct Generate {
     /// Only generate `grammar.json` and `node-types.json`
     #[arg(long)]
     pub no_parser: bool,
-    /// Compile all defined languages in the current dir
+    /// Deprecated: use the `build` command
     #[arg(long, short = 'b')]
     pub build: bool,
-    /// Compile a parser in debug mode
+    /// Deprecated: use the `build` command
     #[arg(long, short = '0')]
     pub debug_build: bool,
-    /// The path to the directory containing the parser library
+    /// Deprecated: use the `build` command
     #[arg(long, value_name = "PATH")]
     pub libdir: Option<PathBuf>,
     /// The path to output the generated source files
@@ -905,6 +905,7 @@ impl Generate {
             }
         }
         if self.build {
+            warn!("--build is deprecated, use the `build` command");
             if let Some(path) = self.libdir {
                 loader = loader::Loader::with_parser_lib_path(path);
             }
