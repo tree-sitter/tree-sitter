@@ -355,7 +355,7 @@ struct Test {
 
 #[derive(Args)]
 #[command(alias = "publish")]
-/// Display or increment the version of a grammar
+/// Deprecated
 struct Version {
     /// The version to bump to
     #[arg(
@@ -1398,6 +1398,7 @@ impl Test {
 
 impl Version {
     fn run(self, current_dir: PathBuf) -> Result<()> {
+        warn!("The version command is deprecated. Version changes should be completed manually.");
         version::Version::new(self.version, current_dir, self.bump).run()
     }
 }
