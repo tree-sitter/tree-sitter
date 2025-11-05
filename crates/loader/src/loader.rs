@@ -284,6 +284,17 @@ impl PathsJSON {
     const fn is_empty(&self) -> bool {
         matches!(self, Self::Empty)
     }
+
+    /// Represent this set of paths as a string that can be included in templates
+    #[must_use]
+    pub fn to_variable_value<'a>(&'a self, default: &'a PathBuf) -> &'a str {
+        match self {
+            Self::Empty => Some(default),
+            Self::Single(path_buf) => Some(path_buf),
+            Self::Multiple(paths) => paths.first(),
+        }
+        .map_or("", |path| path.as_os_str().to_str().unwrap_or(""))
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone)]
