@@ -268,15 +268,6 @@ pub fn generate_grammar_files(
         .clone()
         .unwrap_or_else(|| format!("TreeSitter{}", language_name.to_upper_camel_case()));
 
-    fn pathsjson_to_variable<'a>(paths_json: &'a PathsJSON, default: &'a PathBuf) -> &'a str {
-        match paths_json {
-            PathsJSON::Empty => Some(default),
-            PathsJSON::Single(path_buf) => Some(path_buf),
-            PathsJSON::Multiple(paths) => paths.first(),
-        }
-        .map_or("", |path| path.as_os_str().to_str().unwrap_or(""))
-    }
-
     let default_highlights_path = Path::new("queries").join(DEFAULT_HIGHLIGHTS_QUERY_FILE_NAME);
     let default_injections_path = Path::new("queries").join(DEFAULT_INJECTIONS_QUERY_FILE_NAME);
     let default_locals_path = Path::new("queries").join(DEFAULT_LOCALS_QUERY_FILE_NAME);
@@ -308,22 +299,18 @@ pub fn generate_grammar_files(
         camel_parser_name: &camel_name,
         title_parser_name: &title_name,
         class_name: &class_name,
-        highlights_query_path: pathsjson_to_variable(
-            &tree_sitter_config.grammars[0].highlights,
-            &default_highlights_path,
-        ),
-        injections_query_path: pathsjson_to_variable(
-            &tree_sitter_config.grammars[0].injections,
-            &default_injections_path,
-        ),
-        locals_query_path: pathsjson_to_variable(
-            &tree_sitter_config.grammars[0].locals,
-            &default_locals_path,
-        ),
-        tags_query_path: pathsjson_to_variable(
-            &tree_sitter_config.grammars[0].tags,
-            &default_tags_path,
-        ),
+        highlights_query_path: tree_sitter_config.grammars[0]
+            .highlights
+            .to_variable_value(&default_highlights_path),
+        injections_query_path: tree_sitter_config.grammars[0]
+            .injections
+            .to_variable_value(&default_injections_path),
+        locals_query_path: tree_sitter_config.grammars[0]
+            .locals
+            .to_variable_value(&default_locals_path),
+        tags_query_path: tree_sitter_config.grammars[0]
+            .tags
+            .to_variable_value(&default_tags_path),
     };
 
     // Create package.json
@@ -503,11 +490,11 @@ pub fn generate_grammar_files(
                             }
                         "#};
 
-                    let indented_replacement = replacement
-                        .lines()
-                        .map(|line| if line.is_empty() { line.to_string() } else { format!("    {line}") })
-                        .collect::<Vec<_>>()
-                        .join("\n");
+                        let indented_replacement = replacement
+                            .lines()
+                            .map(|line| if line.is_empty() { line.to_string() } else { format!("    {line}") })
+                            .collect::<Vec<_>>()
+                            .join("\n");
 
                         contents = contents.replace(r#"    c_config.flag("-utf-8");"#, &indented_replacement);
                     }
