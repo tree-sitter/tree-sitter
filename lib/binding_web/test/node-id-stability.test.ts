@@ -24,9 +24,7 @@ describe("node id stability", () => {
   });
 
   it("node ID of existing variable_declarator is stable after inserting second declaration", () => {
-    const source1 = `
-      let name = "John Doe";
-    `;
+    const source1 = `let name = "John Doe";\n`;
     tree = parser.parse(source1);
 
     const variableDeclaratorsBefore = tree?.rootNode.descendantsOfType(
@@ -36,9 +34,7 @@ describe("node id stability", () => {
 
     expect(firstDeclarationIdBefore).toBeTypeOf("number");
 
-    const source2 = `
-      let age = 31;
-    `;
+    const source2 = `let age = 31;\n`;
 
     const startIndex = 0;
     const startPosition = { row: 0, column: 0 };
