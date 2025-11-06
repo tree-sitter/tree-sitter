@@ -19,3 +19,9 @@ Tree-sitter is a parser generator tool and an incremental parsing library. It ca
 
 [discord]: https://img.shields.io/discord/1063097320771698699?logo=discord&label=discord
 [matrix]: https://img.shields.io/matrix/tree-sitter-chat%3Amatrix.org?logo=matrix&label=matrix
+
+## License
+
+This project is licensed under the [MIT License](./LICENSE).
+
+You are free to use, modify, and distribute this software in accordance with the terms specified in the license file.
