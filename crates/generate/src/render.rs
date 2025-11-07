@@ -78,8 +78,7 @@ struct Generator {
     syntax_grammar: SyntaxGrammar,
     lexical_grammar: LexicalGrammar,
     default_aliases: AliasMap,
-    symbol_order: HashMap<Symbol, usize>,
-    symbol_ids: HashMap<Symbol, String>,
+    symbol_ids: HashMap<Symbol, (String, u16)>,
     alias_ids: HashMap<Alias, String>,
     unique_aliases: Vec<Alias>,
     symbol_map: HashMap<Symbol, Symbol>,
@@ -236,7 +235,7 @@ impl Generator {
                     // Some aliases match an existing symbol in the grammar.
                     let alias_id =
                         if let Some(existing_symbol) = self.symbols_for_alias(alias).first() {
-                            self.symbol_ids[&self.symbol_map[existing_symbol]].clone()
+                            self.symbol_ids[&self.symbol_map[existing_symbol]].0.clone()
                         }
                         // Other aliases don't match any existing symbol, and need their own
                         // identifiers.
@@ -264,7 +263,7 @@ impl Generator {
                 .count()
                 + 1;
             let constant_name = if let Some(symbol) = symbol {
-                format!("{}_character_set_{}", self.symbol_ids[symbol], count)
+                format!("{}_character_set_{}", self.symbol_ids[symbol].0, count)
             } else {
                 format!("extras_character_set_{count}")
             };
@@ -294,7 +293,7 @@ impl Generator {
             for (supertype, subtypes) in &self.supertype_symbol_map {
                 if let Some(supertype) = self.symbol_ids.get(supertype) {
                     self.supertype_map
-                        .entry(supertype.clone())
+                        .entry(supertype.0.clone())
                         .or_insert_with(|| subtypes.clone());
                 }
             }
@@ -416,18 +415,19 @@ impl Generator {
     fn add_symbol_enum(&mut self) {
         add_line!(self, "enum ts_symbol_identifiers {{");
         indent!(self);
-        self.symbol_order.insert(Symbol::end(), 0);
-        let mut i = 1;
+        // symbol_ids already contains both string ID and numeric ID
         for symbol in &self.parse_table.symbols {
-            if *symbol != Symbol::end() {
-                self.symbol_order.insert(*symbol, i);
-                add_line!(self, "{} = {i},", self.symbol_ids[symbol]);
-                i += 1;
+            if *symbol == Symbol::end() {
+                continue;
             }
+            let (string_id, numeric_id) = &self.symbol_ids[symbol];
+            add_line!(self, "{} = {numeric_id},", string_id);
         }
-        for alias in &self.unique_aliases {
+        // Add aliases after all symbols
+        let alias_start = self.parse_table.symbols.len();
+        for (idx, alias) in self.unique_aliases.iter().enumerate() {
+            let i = alias_start + idx;
             add_line!(self, "{} = {i},", self.alias_ids[alias]);
-            i += 1;
         }
         dedent!(self);
         add_line!(self, "}};");
@@ -445,7 +445,7 @@ impl Generator {
                         alias.value.as_str()
                     }),
             );
-            add_line!(self, "[{}] = \"{name}\",", self.symbol_ids[symbol]);
+            add_line!(self, "[{}] = \"{name}\",", self.symbol_ids[symbol].0);
         }
         for alias in &self.unique_aliases {
             add_line!(
@@ -467,8 +467,8 @@ impl Generator {
             add_line!(
                 self,
                 "[{}] = {},",
-                self.symbol_ids[symbol],
-                self.symbol_ids[&self.symbol_map[symbol]],
+                self.symbol_ids[symbol].0,
+                self.symbol_ids[&self.symbol_map[symbol]].0,
             );
         }
 
@@ -516,7 +516,7 @@ impl Generator {
         );
         indent!(self);
         for symbol in &self.parse_table.symbols {
-            add_line!(self, "[{}] = {{", self.symbol_ids[symbol]);
+            add_line!(self, "[{}] = {{", self.symbol_ids[symbol].0);
             indent!(self);
             if let Some(Alias { is_named, .. }) = self.default_aliases.get(symbol) {
                 add_line!(self, ".visible = true,");
@@ -623,8 +623,8 @@ impl Generator {
         );
         indent!(self);
         for (symbol, alias_ids) in alias_ids_by_symbol {
-            let symbol_id = &self.symbol_ids[symbol];
-            let public_symbol_id = &self.symbol_ids[&self.symbol_map[symbol]];
+            let symbol_id = &self.symbol_ids[symbol].0;
+            let public_symbol_id = &self.symbol_ids[&self.symbol_map[symbol]].0;
             add_line!(self, "{symbol_id}, {},", 1 + alias_ids.len());
             indent!(self);
             add_line!(self, "{public_symbol_id},");
@@ -761,13 +761,15 @@ impl Generator {
                 subtypes
                     .iter()
                     .flat_map(|s| match s {
-                        ChildType::Normal(symbol) => vec![self.symbol_ids.get(symbol).cloned()],
+                        ChildType::Normal(symbol) => {
+                            vec![self.symbol_ids.get(symbol).map(|t| t.0.clone())]
+                        }
                         ChildType::Aliased(alias) => {
                             self.alias_ids.get(alias).cloned().map_or_else(
                                 || {
                                     self.symbols_for_alias(alias)
                                         .into_iter()
-                                        .map(|s| self.symbol_ids.get(&s).cloned())
+                                        .map(|s| self.symbol_ids.get(&s).map(|t| t.0.clone()))
                                         .collect()
                                 },
                                 |a| vec![Some(a)],
@@ -846,7 +848,7 @@ impl Generator {
 
     fn add_lex_state(&mut self, _state_ix: usize, state: LexState) {
         if let Some(accept_action) = state.accept_action {
-            add_line!(self, "ACCEPT_TOKEN({});", self.symbol_ids[&accept_action]);
+            add_line!(self, "ACCEPT_TOKEN({});", self.symbol_ids[&accept_action].0);
         }
 
         if let Some(eof_action) = state.eof_action {
@@ -1190,7 +1192,7 @@ impl Generator {
             add_line!(self, "[{id}] = {{");
             indent!(self);
             for token in set.iter() {
-                add_line!(self, "{},", self.symbol_ids[&token]);
+                add_line!(self, "{},", self.symbol_ids[&token].0);
             }
             dedent!(self);
             add_line!(self, "}},");
@@ -1230,7 +1232,7 @@ impl Generator {
                 self,
                 "[{}] = {},",
                 self.external_token_id(token),
-                self.symbol_ids[&id_token],
+                self.symbol_ids[&id_token].0,
             );
         }
         dedent!(self);
@@ -1304,14 +1306,14 @@ impl Generator {
             nonterminal_entries.clear();
             terminal_entries.extend(state.terminal_entries.iter());
             nonterminal_entries.extend(state.nonterminal_entries.iter());
-            terminal_entries.sort_unstable_by_key(|e| self.symbol_order.get(e.0));
+            terminal_entries.sort_unstable_by_key(|e| self.symbol_ids.get(e.0).map(|t| &t.1));
             nonterminal_entries.sort_unstable_by_key(|k| k.0);
 
             for (symbol, action) in &nonterminal_entries {
                 add_line!(
                     self,
                     "[{}] = STATE({}),",
-                    self.symbol_ids[symbol],
+                    self.symbol_ids[symbol].0,
                     match action {
                         GotoAction::Goto(state) => *state,
                         GotoAction::ShiftExtra => i,
@@ -1325,7 +1327,11 @@ impl Generator {
                     &mut parse_table_entries,
                     &mut next_parse_action_list_index,
                 );
-                add_line!(self, "[{}] = ACTIONS({entry_id}),", self.symbol_ids[symbol]);
+                add_line!(
+                    self,
+                    "[{}] = ACTIONS({entry_id}),",
+                    self.symbol_ids[symbol].0
+                );
             }
 
             dedent!(self);
@@ -1354,7 +1360,7 @@ impl Generator {
 
                 terminal_entries.clear();
                 terminal_entries.extend(state.terminal_entries.iter());
-                terminal_entries.sort_unstable_by_key(|e| self.symbol_order.get(e.0));
+                terminal_entries.sort_unstable_by_key(|e| self.symbol_ids.get(e.0).map(|t| &t.1));
 
                 // In a given parse state, many lookahead symbols have the same actions.
                 // So in the "small state" representation, group symbols by their action
@@ -1407,7 +1413,7 @@ impl Generator {
                     symbols.sort_unstable();
                     indent!(self);
                     for symbol in symbols {
-                        add_line!(self, "{},", self.symbol_ids[symbol]);
+                        add_line!(self, "{},", self.symbol_ids[symbol].0);
                     }
                     dedent!(self);
                 }
@@ -1483,7 +1489,7 @@ impl Generator {
                         add!(
                             self,
                             "REDUCE({}, {child_count}, {dynamic_precedence}, {production_id})",
-                            self.symbol_ids[&symbol]
+                            self.symbol_ids[&symbol].0
                         );
                     }
                 }
@@ -1595,7 +1601,7 @@ impl Generator {
             add_line!(
                 self,
                 ".keyword_capture_token = {},",
-                self.symbol_ids[&keyword_capture_token]
+                self.symbol_ids[&keyword_capture_token].0
             );
         }
 
@@ -1898,8 +1904,9 @@ fn assign_symbol_id(
     symbol: Symbol,
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
-    symbol_ids: &mut HashMap<Symbol, String>,
+    symbol_ids: &mut HashMap<Symbol, (String, u16)>,
     used_identifiers: &mut HashSet<String>,
+    numeric_id: u16,
 ) {
     let mut id;
     if symbol == Symbol::end() {
@@ -1925,7 +1932,7 @@ fn assign_symbol_id(
     }
 
     used_identifiers.insert(id.clone());
-    symbol_ids.insert(symbol, id);
+    symbol_ids.insert(symbol, (id, numeric_id));
 }
 
 /// Generates symbol IDs and alias IDs for the given parse table and grammars.
@@ -1943,7 +1950,7 @@ fn assign_symbol_id(
 /// # Returns
 ///
 /// A tuple containing:
-/// * `symbol_ids` - HashMap mapping each Symbol to its C identifier string
+/// * `symbol_ids` - HashMap mapping each Symbol to (C identifier string, numeric ID)
 /// * `alias_ids` - HashMap mapping each Alias to its C identifier string
 /// * `unique_aliases` - Sorted vector of unique aliases
 pub fn generate_symbol_ids(
@@ -1951,21 +1958,29 @@ pub fn generate_symbol_ids(
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
     default_aliases: &AliasMap,
-) -> (HashMap<Symbol, String>, HashMap<Alias, String>, Vec<Alias>) {
+) -> (
+    HashMap<Symbol, (String, u16)>,
+    HashMap<Alias, String>,
+    Vec<Alias>,
+) {
     let mut symbol_ids = HashMap::new();
     let mut alias_ids = HashMap::new();
     let mut unique_aliases = Vec::new();
     let mut symbol_identifiers = HashSet::new();
 
-    // Generate symbol IDs
-    for i in 0..parse_table.symbols.len() {
+    // Generate symbol IDs with numeric IDs
+    // Symbol::end() gets 0, then other symbols get 1, 2, 3...
+    let mut numeric_id = 0u16;
+    for &symbol in &parse_table.symbols {
         assign_symbol_id(
-            parse_table.symbols[i],
+            symbol,
             syntax_grammar,
             lexical_grammar,
             &mut symbol_ids,
             &mut symbol_identifiers,
+            numeric_id,
         );
+        numeric_id += 1;
     }
 
     symbol_ids.insert(
@@ -2037,7 +2052,7 @@ pub fn generate_symbol_ids(
 
                 // Some aliases match an existing symbol in the grammar.
                 let alias_id = if let Some(existing_symbol) = matching_symbols.first() {
-                    symbol_ids[&symbol_map[existing_symbol]].clone()
+                    symbol_ids[&symbol_map[existing_symbol]].0.clone()
                 }
                 // Other aliases don't match any existing symbol, and need their own identifiers.
                 else {
@@ -2086,7 +2101,7 @@ pub fn render_c_code(
     syntax_grammar: SyntaxGrammar,
     lexical_grammar: LexicalGrammar,
     default_aliases: AliasMap,
-    symbol_ids: HashMap<Symbol, String>,
+    symbol_ids: HashMap<Symbol, (String, u16)>,
     alias_ids: HashMap<Alias, String>,
     unique_aliases: Vec<Alias>,
     abi_version: usize,

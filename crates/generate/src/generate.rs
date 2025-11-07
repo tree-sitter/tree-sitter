@@ -78,7 +78,7 @@ struct GrammarIntrospection {
     variable_info: Vec<VariableInfo>,
     supertype_symbol_map: BTreeMap<Symbol, Vec<ChildType>>,
     tables: Tables,
-    symbol_ids: HashMap<Symbol, String>,
+    symbol_ids: HashMap<Symbol, (String, u16)>,
     alias_ids: HashMap<Alias, String>,
     unique_aliases: Vec<Alias>,
 }
@@ -405,7 +405,7 @@ fn introspect_grammar(
         optimizations,
     )?;
 
-    // Generate symbol IDs before rendering C code
+    // Generate symbol IDs (both string and numeric) before rendering C code
     let (symbol_ids, alias_ids, unique_aliases) = generate_symbol_ids(
         &tables.parse_table,
         &syntax_grammar,

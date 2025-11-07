@@ -46,7 +46,7 @@ pub struct NodeInfoJSON {
     #[serde(skip_serializing_if = "Option::is_none")]
     subtypes: Option<Vec<NodeTypeJSON>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    symbol_id: Option<String>,
+    symbol_id: Option<u16>,
 }
 
 #[derive(Clone, Debug, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -475,7 +475,7 @@ pub fn generate_node_types_json(
     lexical_grammar: &LexicalGrammar,
     default_aliases: &AliasMap,
     variable_info: &[VariableInfo],
-    symbol_ids: &HashMap<Symbol, String>,
+    symbol_ids: &HashMap<Symbol, (String, u16)>,
 ) -> SuperTypeCycleResult<Vec<NodeInfoJSON>> {
     let mut node_types_json = BTreeMap::new();
 
@@ -575,7 +575,7 @@ pub fn generate_node_types_json(
                         fields: None,
                         children: None,
                         subtypes: None,
-                        symbol_id: symbol_ids.get(&symbol).cloned(),
+                        symbol_id: symbol_ids.get(&symbol).map(|t| t.1),
                     });
             let mut subtypes = info
                 .children
@@ -620,7 +620,7 @@ pub fn generate_node_types_json(
                         fields: Some(BTreeMap::new()),
                         children: None,
                         subtypes: None,
-                        symbol_id: symbol_ids.get(&symbol).cloned(),
+                        symbol_id: symbol_ids.get(&symbol).map(|t| t.1),
                     }
                 });
 
@@ -758,7 +758,7 @@ pub fn generate_node_types_json(
                             fields: None,
                             children: None,
                             subtypes: None,
-                            symbol_id: symbol_ids.get(&symbol).cloned(),
+                            symbol_id: symbol_ids.get(&symbol).map(|t| t.1),
                         });
                 if let Some(children) = &mut node_type_json.children {
                     children.required = false;
@@ -777,7 +777,7 @@ pub fn generate_node_types_json(
                 fields: None,
                 children: None,
                 subtypes: None,
-                symbol_id: symbol_ids.get(&symbol).cloned(),
+                symbol_id: symbol_ids.get(&symbol).map(|t| t.1),
             }),
             _ => {}
         }
