@@ -41,7 +41,7 @@ use parse_grammar::parse_grammar;
 pub use parse_grammar::ParseGrammarError;
 use prepare_grammar::prepare_grammar;
 pub use prepare_grammar::PrepareGrammarError;
-use render::render_c_code;
+use render::{generate_symbol_ids, render_c_code};
 pub use render::{ABI_VERSION_MAX, ABI_VERSION_MIN};
 
 static JSON_COMMENT_REGEX: LazyLock<Regex> = LazyLock::new(|| {
@@ -373,12 +373,24 @@ fn generate_parser_for_grammar_with_opts(
         report_symbol_name,
         optimizations,
     )?;
+
+    // Generate symbol IDs before rendering C code
+    let (symbol_ids, alias_ids, unique_aliases) = generate_symbol_ids(
+        &tables.parse_table,
+        &syntax_grammar,
+        &lexical_grammar,
+        &simple_aliases,
+    );
+
     let c_code = render_c_code(
         &input_grammar.name,
         tables,
         syntax_grammar,
         lexical_grammar,
         simple_aliases,
+        symbol_ids,
+        alias_ids,
+        unique_aliases,
         abi_version,
         semantic_version,
         supertype_symbol_map,
