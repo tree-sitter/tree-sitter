@@ -1,4 +1,7 @@
-use std::{collections::BTreeMap, sync::LazyLock};
+use std::{
+    collections::{BTreeMap, HashMap},
+    sync::LazyLock,
+};
 #[cfg(feature = "load")]
 use std::{
     env, fs,
@@ -44,6 +47,8 @@ pub use prepare_grammar::PrepareGrammarError;
 use render::{generate_symbol_ids, render_c_code};
 pub use render::{ABI_VERSION_MAX, ABI_VERSION_MIN};
 
+use crate::{build_tables::Tables, node_types::ChildType};
+
 static JSON_COMMENT_REGEX: LazyLock<Regex> = LazyLock::new(|| {
     RegexBuilder::new("^\\s*//.*")
         .multi_line(true)
@@ -65,6 +70,17 @@ struct GeneratedParser {
     c_code: String,
     #[cfg(feature = "load")]
     node_types_json: String,
+}
+struct GrammarIntrospection {
+    syntax_grammar: SyntaxGrammar,
+    lexical_grammar: LexicalGrammar,
+    simple_aliases: BTreeMap<Symbol, Alias>,
+    variable_info: Vec<VariableInfo>,
+    supertype_symbol_map: BTreeMap<Symbol, Vec<ChildType>>,
+    tables: Tables,
+    symbol_ids: HashMap<Symbol, String>,
+    alias_ids: HashMap<Alias, String>,
+    unique_aliases: Vec<Alias>,
 }
 
 // NOTE: This constant must be kept in sync with the definition of
@@ -262,9 +278,32 @@ where
     // If our job is only to generate `grammar.json` and not `parser.c`, stop here.
     let input_grammar = parse_grammar(&grammar_json)?;
 
+    let GrammarIntrospection {
+        syntax_grammar,
+        lexical_grammar,
+        simple_aliases,
+        variable_info,
+        supertype_symbol_map,
+        tables,
+        symbol_ids,
+        alias_ids,
+        unique_aliases,
+    } = introspect_grammar(&input_grammar, report_symbol_name, optimizations)?;
+
+    #[cfg(feature = "load")]
+    let node_types_json = node_types::generate_node_types_json(
+        &syntax_grammar,
+        &lexical_grammar,
+        &simple_aliases,
+        &variable_info,
+    )?;
+
+    write_file(
+        &src_path.join("node-types.json"),
+        &serde_json::to_string_pretty(&node_types_json).unwrap(),
+    )?;
+
     if !generate_parser {
-        let node_types_json = generate_node_types_from_grammar(&input_grammar)?.node_types_json;
-        write_file(&src_path.join("node-types.json"), node_types_json)?;
         return Ok(());
     }
 
@@ -285,19 +324,21 @@ where
     }
 
     // Generate the parser and related files.
-    let GeneratedParser {
-        c_code,
-        node_types_json,
-    } = generate_parser_for_grammar_with_opts(
-        &input_grammar,
+    let c_code = render_c_code(
+        &input_grammar.name,
+        tables,
+        syntax_grammar,
+        lexical_grammar,
+        simple_aliases,
+        symbol_ids,
+        alias_ids,
+        unique_aliases,
         abi_version,
         semantic_version.map(|v| (v.major as u8, v.minor as u8, v.patch as u8)),
-        report_symbol_name,
-        optimizations,
-    )?;
+        supertype_symbol_map,
+    );
 
     write_file(&src_path.join("parser.c"), c_code)?;
-    write_file(&src_path.join("node-types.json"), node_types_json)?;
     fs::create_dir_all(&header_path)?;
     write_file(&header_path.join("alloc.h"), ALLOC_HEADER)?;
     write_file(&header_path.join("array.h"), ARRAY_HEADER)?;
@@ -312,56 +353,45 @@ pub fn generate_parser_for_grammar(
 ) -> GenerateResult<(String, String)> {
     let grammar_json = JSON_COMMENT_REGEX.replace_all(grammar_json, "\n");
     let input_grammar = parse_grammar(&grammar_json)?;
-    let parser = generate_parser_for_grammar_with_opts(
-        &input_grammar,
+    let GrammarIntrospection {
+        syntax_grammar,
+        lexical_grammar,
+        simple_aliases,
+        variable_info: _,
+        supertype_symbol_map,
+        tables,
+        symbol_ids,
+        alias_ids,
+        unique_aliases,
+    } = introspect_grammar(&input_grammar, None, OptLevel::empty())?;
+
+    let c_code = render_c_code(
+        &input_grammar.name,
+        tables,
+        syntax_grammar,
+        lexical_grammar,
+        simple_aliases,
+        symbol_ids,
+        alias_ids,
+        unique_aliases,
         LANGUAGE_VERSION,
         semantic_version,
-        None,
-        OptLevel::empty(),
-    )?;
-    Ok((input_grammar.name, parser.c_code))
+        supertype_symbol_map,
+    );
+
+    Ok((input_grammar.name, c_code))
 }
 
-fn generate_node_types_from_grammar(input_grammar: &InputGrammar) -> GenerateResult<JSONOutput> {
+fn introspect_grammar(
+    input_grammar: &InputGrammar,
+    report_symbol_name: Option<&str>,
+    optimizations: OptLevel,
+) -> Result<GrammarIntrospection, GenerateError> {
     let (syntax_grammar, lexical_grammar, inlines, simple_aliases) =
         prepare_grammar(input_grammar)?;
     let variable_info =
         node_types::get_variable_info(&syntax_grammar, &lexical_grammar, &simple_aliases)?;
 
-    #[cfg(feature = "load")]
-    let node_types_json = node_types::generate_node_types_json(
-        &syntax_grammar,
-        &lexical_grammar,
-        &simple_aliases,
-        &variable_info,
-    )?;
-    Ok(JSONOutput {
-        #[cfg(feature = "load")]
-        node_types_json: serde_json::to_string_pretty(&node_types_json).unwrap(),
-        syntax_grammar,
-        lexical_grammar,
-        inlines,
-        simple_aliases,
-        variable_info,
-    })
-}
-
-fn generate_parser_for_grammar_with_opts(
-    input_grammar: &InputGrammar,
-    abi_version: usize,
-    semantic_version: Option<(u8, u8, u8)>,
-    report_symbol_name: Option<&str>,
-    optimizations: OptLevel,
-) -> GenerateResult<GeneratedParser> {
-    let JSONOutput {
-        syntax_grammar,
-        lexical_grammar,
-        inlines,
-        simple_aliases,
-        variable_info,
-        #[cfg(feature = "load")]
-        node_types_json,
-    } = generate_node_types_from_grammar(input_grammar)?;
     let supertype_symbol_map =
         node_types::get_supertype_symbol_map(&syntax_grammar, &simple_aliases, &variable_info);
     let tables = build_tables(
@@ -382,23 +412,16 @@ fn generate_parser_for_grammar_with_opts(
         &simple_aliases,
     );
 
-    let c_code = render_c_code(
-        &input_grammar.name,
-        tables,
+    Ok(GrammarIntrospection {
         syntax_grammar,
         lexical_grammar,
         simple_aliases,
+        variable_info,
+        supertype_symbol_map,
+        tables,
         symbol_ids,
         alias_ids,
         unique_aliases,
-        abi_version,
-        semantic_version,
-        supertype_symbol_map,
-    );
-    Ok(GeneratedParser {
-        c_code,
-        #[cfg(feature = "load")]
-        node_types_json,
     })
 }
 
