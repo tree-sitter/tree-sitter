@@ -1700,7 +1700,6 @@ impl Generator {
         )
     }
 
-
     fn field_id(&self, field_name: &str) -> String {
         format!("field_{field_name}")
     }

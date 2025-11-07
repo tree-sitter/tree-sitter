@@ -736,9 +736,11 @@ pub fn generate_node_types_json(
                     .unwrap_or(&empty)
                     .iter()
                     .map(move |alias| {
-                        alias.as_ref().map_or((&token.name, token.kind, symbol), |alias| {
-                            (&alias.value, alias.kind(), symbol)
-                        })
+                        alias
+                            .as_ref()
+                            .map_or((&token.name, token.kind, symbol), |alias| {
+                                (&alias.value, alias.kind(), symbol)
+                            })
                     })
             });
 
