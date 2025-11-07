@@ -56,21 +56,6 @@ static JSON_COMMENT_REGEX: LazyLock<Regex> = LazyLock::new(|| {
         .unwrap()
 });
 
-struct JSONOutput {
-    #[cfg(feature = "load")]
-    node_types_json: String,
-    syntax_grammar: SyntaxGrammar,
-    lexical_grammar: LexicalGrammar,
-    inlines: InlinedProductionMap,
-    simple_aliases: BTreeMap<Symbol, Alias>,
-    variable_info: Vec<VariableInfo>,
-}
-
-struct GeneratedParser {
-    c_code: String,
-    #[cfg(feature = "load")]
-    node_types_json: String,
-}
 struct GrammarIntrospection {
     syntax_grammar: SyntaxGrammar,
     lexical_grammar: LexicalGrammar,
