@@ -296,6 +296,7 @@ where
         &lexical_grammar,
         &simple_aliases,
         &variable_info,
+        &symbol_ids,
     )?;
 
     write_file(
