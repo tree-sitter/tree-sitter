@@ -2,7 +2,7 @@
 
 Parsers generated with tree-sitter have an associated ABI version. This version establishes hard compatibility boundaries between the generated parser and the tree-sitter library.
 
-A given version of tree-sitter is only able to load parsers which have certain ABI versions:
+A given version of the tree-sitter library is only able to load parsers which have certain ABI versions:
 
 | tree-sitter version | Min parser ABI version | Max parser ABI version |
 |---------------------|------------------------|------------------------|
@@ -14,7 +14,7 @@ A given version of tree-sitter is only able to load parsers which have certain A
 | >=0.20.3, <=0.24    | 13                     | 14                     |
 | >=0.25              | 13                     | 15                     |
 
-By default, parsers are generated using the latest available ABI. Grammar authors can specify an older ABI via the `--abi` option to the `generate` command:
+By default, the tree-sitter CLI will generate parser using the latest available ABI for that version. Grammar authors can specify an older ABI (within the constraints _of the CLI_, which may be stricter than the library!) via the `--abi` option to the `generate` command:
 ```
 tree-sitter generate --abi=<DESIRED-ABI>
 ```
