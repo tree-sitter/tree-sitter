@@ -858,7 +858,6 @@ mod tests {
             InputGrammar, LexicalVariable, Production, ProductionStep, SyntaxVariable, Variable,
         },
         introspect_grammar,
-        prepare_grammar::prepare_grammar,
         rules::Rule,
         GrammarIntrospection, OptLevel,
     };
@@ -931,7 +930,7 @@ mod tests {
                     .into_iter()
                     .collect()
                 ),
-                symbol_id: None,
+                symbol_id: Some(4),
             }
         );
         assert_eq!(
@@ -944,7 +943,7 @@ mod tests {
                 subtypes: None,
                 children: None,
                 fields: None,
-                symbol_id: None,
+                symbol_id: Some(1),
             }
         );
         assert_eq!(
@@ -957,7 +956,7 @@ mod tests {
                 subtypes: None,
                 children: None,
                 fields: None,
-                symbol_id: None,
+                symbol_id: Some(2),
             }
         );
     }
@@ -1034,7 +1033,7 @@ mod tests {
                     .into_iter()
                     .collect()
                 ),
-                symbol_id: None,
+                symbol_id: Some(4),
             }
         );
         assert_eq!(
@@ -1047,7 +1046,7 @@ mod tests {
                 subtypes: None,
                 children: None,
                 fields: None,
-                symbol_id: None,
+                symbol_id: Some(1),
             }
         );
         assert_eq!(
@@ -1060,7 +1059,7 @@ mod tests {
                 subtypes: None,
                 children: None,
                 fields: None,
-                symbol_id: None,
+                symbol_id: Some(2),
             }
         );
         assert_eq!(
@@ -1073,7 +1072,7 @@ mod tests {
                 subtypes: None,
                 children: None,
                 fields: None,
-                symbol_id: None,
+                symbol_id: Some(3),
             }
         );
     }
@@ -1150,7 +1149,7 @@ mod tests {
                     .into_iter()
                     .collect()
                 ),
-                symbol_id: None,
+                symbol_id: Some(5),
             }
         );
         assert_eq!(
@@ -1163,7 +1162,7 @@ mod tests {
                 subtypes: None,
                 children: None,
                 fields: Some(BTreeMap::default()),
-                symbol_id: None,
+                symbol_id: Some(6),
             }
         );
         assert_eq!(
@@ -1176,7 +1175,7 @@ mod tests {
                 subtypes: None,
                 children: None,
                 fields: None,
-                symbol_id: None,
+                symbol_id: Some(1),
             }
         );
         assert_eq!(
@@ -1189,7 +1188,7 @@ mod tests {
                 subtypes: None,
                 children: None,
                 fields: None,
-                symbol_id: None,
+                symbol_id: Some(2),
             }
         );
     }
@@ -1251,7 +1250,7 @@ mod tests {
                         named: true,
                     },
                 ]),
-                symbol_id: None,
+                symbol_id: Some(5),
             }
         );
         assert_eq!(
@@ -1278,7 +1277,7 @@ mod tests {
                     .into_iter()
                     .collect()
                 ),
-                symbol_id: None,
+                symbol_id: Some(4),
             }
         );
     }
@@ -1357,7 +1356,7 @@ mod tests {
                     .into_iter()
                     .collect()
                 ),
-                symbol_id: None,
+                symbol_id: Some(5),
             }
         );
         assert_eq!(
@@ -1377,7 +1376,7 @@ mod tests {
                     },]
                 }),
                 fields: Some(BTreeMap::new()),
-                symbol_id: None,
+                symbol_id: Some(6),
             }
         );
     }
@@ -1431,7 +1430,7 @@ mod tests {
                     ]
                 }),
                 fields: Some(BTreeMap::new()),
-                symbol_id: None,
+                symbol_id: Some(3),
             }
         );
     }
@@ -1496,7 +1495,7 @@ mod tests {
                 subtypes: None,
                 children: None,
                 fields: None,
-                symbol_id: None,
+                symbol_id: Some(2),
             })
         );
         assert_eq!(
@@ -1509,7 +1508,7 @@ mod tests {
                 subtypes: None,
                 children: None,
                 fields: None,
-                symbol_id: None,
+                symbol_id: Some(2),
             })
         );
     }
@@ -1575,7 +1574,7 @@ mod tests {
                     .into_iter()
                     .collect()
                 ),
-                symbol_id: None,
+                symbol_id: Some(3),
             }
         );
     }
@@ -1605,7 +1604,7 @@ mod tests {
                 fields: Some(BTreeMap::new()),
                 children: None,
                 subtypes: None,
-                symbol_id: None,
+                symbol_id: Some(3),
             }]
         );
     }
@@ -1713,7 +1712,7 @@ mod tests {
                         .into_iter()
                         .collect()
                     ),
-                    symbol_id: None,
+                    symbol_id: Some(7),
                 },
                 NodeInfoJSON {
                     kind: "script".to_string(),
@@ -1731,7 +1730,7 @@ mod tests {
                         }]
                     }),
                     fields: Some(BTreeMap::new()),
-                    symbol_id: None,
+                    symbol_id: Some(6),
                 }
             ]
         );
@@ -1788,7 +1787,7 @@ mod tests {
                     }]
                 }),
                 fields: Some(BTreeMap::new()),
-                symbol_id: None,
+                symbol_id: Some(5),
             }
         );
     }
@@ -2101,7 +2100,7 @@ mod tests {
             variable_info,
             supertype_symbol_map: _,
             tables: _,
-            symbol_ids: _,
+            symbol_ids,
             alias_ids: _,
             unique_aliases: _,
         } = introspect_grammar(grammar, None, OptLevel::default()).unwrap();
@@ -2111,8 +2110,7 @@ mod tests {
             &lexical_grammar,
             &simple_aliases,
             &variable_info,
-            // TODO: use `symbol_ids`
-            &HashMap::new(),
+            &symbol_ids,
         );
 
         return x;
