@@ -857,8 +857,10 @@ mod tests {
         grammars::{
             InputGrammar, LexicalVariable, Production, ProductionStep, SyntaxVariable, Variable,
         },
+        introspect_grammar,
         prepare_grammar::prepare_grammar,
         rules::Rule,
+        GrammarIntrospection, OptLevel,
     };
 
     #[test]
@@ -2091,17 +2093,28 @@ mod tests {
     }
 
     fn get_node_types(grammar: &InputGrammar) -> SuperTypeCycleResult<Vec<NodeInfoJSON>> {
-        let (syntax_grammar, lexical_grammar, _, default_aliases) =
-            prepare_grammar(grammar).unwrap();
-        let variable_info =
-            get_variable_info(&syntax_grammar, &lexical_grammar, &default_aliases).unwrap();
-        generate_node_types_json(
+        let GrammarIntrospection {
+            syntax_grammar,
+            lexical_grammar,
+            simple_aliases,
+            variable_info,
+            supertype_symbol_map: _,
+            tables: _,
+            symbol_ids: _,
+            alias_ids: _,
+            unique_aliases: _,
+        } = introspect_grammar(grammar, None, OptLevel::default()).unwrap();
+
+        let x = generate_node_types_json(
             &syntax_grammar,
             &lexical_grammar,
-            &default_aliases,
+            &simple_aliases,
             &variable_info,
+            // TODO: use `symbol_ids`
             &HashMap::new(),
-        )
+        );
+
+        return x;
     }
 
     fn build_syntax_grammar(

@@ -13,7 +13,6 @@ use std::{
 use anyhow::Result;
 use bitflags::bitflags;
 use log::warn;
-use node_types::VariableInfo;
 use regex::{Regex, RegexBuilder};
 use rules::{Alias, Symbol};
 #[cfg(feature = "load")]
@@ -26,6 +25,7 @@ use thiserror::Error;
 mod build_tables;
 mod dedup;
 mod grammars;
+mod introspect_grammar;
 mod nfa;
 mod node_types;
 pub mod parse_grammar;
@@ -36,15 +36,13 @@ mod render;
 mod rules;
 mod tables;
 
-use build_tables::build_tables;
 pub use build_tables::ParseTableBuilderError;
-use grammars::{InlinedProductionMap, InputGrammar, LexicalGrammar, SyntaxGrammar};
+use introspect_grammar::{introspect_grammar, GrammarIntrospection};
 pub use node_types::{SuperTypeCycleError, VariableInfoError};
 use parse_grammar::parse_grammar;
 pub use parse_grammar::ParseGrammarError;
-use prepare_grammar::prepare_grammar;
 pub use prepare_grammar::PrepareGrammarError;
-use render::{generate_symbol_ids, render_c_code};
+use render::render_c_code;
 pub use render::{ABI_VERSION_MAX, ABI_VERSION_MIN};
 
 use crate::{build_tables::Tables, node_types::ChildType};
@@ -55,18 +53,6 @@ static JSON_COMMENT_REGEX: LazyLock<Regex> = LazyLock::new(|| {
         .build()
         .unwrap()
 });
-
-struct GrammarIntrospection {
-    syntax_grammar: SyntaxGrammar,
-    lexical_grammar: LexicalGrammar,
-    simple_aliases: BTreeMap<Symbol, Alias>,
-    variable_info: Vec<VariableInfo>,
-    supertype_symbol_map: BTreeMap<Symbol, Vec<ChildType>>,
-    tables: Tables,
-    symbol_ids: HashMap<Symbol, (String, u16)>,
-    alias_ids: HashMap<Alias, String>,
-    unique_aliases: Vec<Alias>,
-}
 
 // NOTE: This constant must be kept in sync with the definition of
 // `TREE_SITTER_LANGUAGE_VERSION` in `lib/include/tree_sitter/api.h`.
@@ -366,49 +352,6 @@ pub fn generate_parser_for_grammar(
     );
 
     Ok((input_grammar.name, c_code))
-}
-
-fn introspect_grammar(
-    input_grammar: &InputGrammar,
-    report_symbol_name: Option<&str>,
-    optimizations: OptLevel,
-) -> Result<GrammarIntrospection, GenerateError> {
-    let (syntax_grammar, lexical_grammar, inlines, simple_aliases) =
-        prepare_grammar(input_grammar)?;
-    let variable_info =
-        node_types::get_variable_info(&syntax_grammar, &lexical_grammar, &simple_aliases)?;
-
-    let supertype_symbol_map =
-        node_types::get_supertype_symbol_map(&syntax_grammar, &simple_aliases, &variable_info);
-    let tables = build_tables(
-        &syntax_grammar,
-        &lexical_grammar,
-        &simple_aliases,
-        &variable_info,
-        &inlines,
-        report_symbol_name,
-        optimizations,
-    )?;
-
-    // Generate symbol IDs (both string and numeric) before rendering C code
-    let (symbol_ids, alias_ids, unique_aliases) = generate_symbol_ids(
-        &tables.parse_table,
-        &syntax_grammar,
-        &lexical_grammar,
-        &simple_aliases,
-    );
-
-    Ok(GrammarIntrospection {
-        syntax_grammar,
-        lexical_grammar,
-        simple_aliases,
-        variable_info,
-        supertype_symbol_map,
-        tables,
-        symbol_ids,
-        alias_ids,
-        unique_aliases,
-    })
 }
 
 /// This will read the `tree-sitter.json` config file and attempt to extract the version.
