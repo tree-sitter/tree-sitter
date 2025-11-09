@@ -1104,7 +1104,7 @@ mod tests {
                 Variable {
                     name: "v3".to_string(),
                     kind: VariableType::Named,
-                    rule: Rule::seq(vec![Rule::string("y"), Rule::repeat(Rule::string("z"))]),
+                    rule: Rule::seq(vec![Rule::string("y"), Rule::string("z")]),
                 },
             ],
             ..Default::default()
@@ -1480,6 +1480,7 @@ mod tests {
                     rule: Rule::pattern("[\\w-]+", ""),
                 },
             ],
+            expected_conflicts: vec![vec!["type".to_string(), "expression".to_string()]],
             ..Default::default()
         })
         .unwrap();
