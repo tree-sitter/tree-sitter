@@ -44,3 +44,28 @@ jobs:
 
   build:
     uses: ./.github/workflows/build.yml
+
+  c23-build-check:
+    runs-on: ubuntu-24.04
+    env:
+      CC: gcc-14
+      CXX: g++-14
+      CFLAGS: -std=c23
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install GCC 14
+        run: sudo apt-get update && sudo apt-get install -y gcc-14 g++-14
+
+      - name: Set up stable Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Build and test under C23
+        run: |
+          cargo build --release
+          cargo xtask fetch-fixtures
+          cargo xtask generate-fixtures
+          cargo xtask test
