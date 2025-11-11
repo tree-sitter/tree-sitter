@@ -37,6 +37,11 @@ To print the current version without bumping it, use:
 tree-sitter version
 ```
 
+Note that some of the binding updates require access to external tooling:
+
+* Updating Cargo.toml and Cargo.lock bindings requires that `cargo` is installed.
+* Updating package-lock.json requires that `npm` is installed.
+
 ## Options
 
 ### `-p/--grammar-path <PATH>`
