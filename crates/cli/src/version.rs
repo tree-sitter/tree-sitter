@@ -2,7 +2,7 @@ use std::{fs, path::PathBuf, process::Command};
 
 use anyhow::{anyhow, Context, Result};
 use clap::ValueEnum;
-use log::{info, warn};
+use log::{error, info, warn};
 use regex::Regex;
 use semver::Version as SemverVersion;
 use std::cmp::Ordering;
@@ -84,44 +84,57 @@ impl Version {
 
         let is_multigrammar = tree_sitter_json.grammars.len() > 1;
 
-        self.update_treesitter_json().with_context(|| {
+        let mut has_failure = false;
+        let mut record_failures = |result: anyhow::Result<()>| {
+            if let Err(e) = result {
+                has_failure = true;
+                error!("{e}");
+            }
+        };
+
+        record_failures(self.update_treesitter_json().with_context(|| {
             format!(
                 "Failed to update tree-sitter.json at {}",
                 self.current_dir.display()
             )
-        })?;
-        self.update_cargo_toml().with_context(|| {
+        }));
+        record_failures(self.update_cargo_toml().with_context(|| {
             format!(
                 "Failed to update Cargo.toml at {}",
                 self.current_dir.display()
             )
-        })?;
-        self.update_package_json().with_context(|| {
+        }));
+        record_failures(self.update_package_json().with_context(|| {
             format!(
                 "Failed to update package.json at {}",
                 self.current_dir.display()
             )
-        })?;
-        self.update_makefile(is_multigrammar).with_context(|| {
+        }));
+        record_failures(self.update_makefile(is_multigrammar).with_context(|| {
             format!(
                 "Failed to update Makefile at {}",
                 self.current_dir.display()
             )
-        })?;
-        self.update_cmakelists_txt().with_context(|| {
+        }));
+        record_failures(self.update_cmakelists_txt().with_context(|| {
             format!(
                 "Failed to update CMakeLists.txt at {}",
                 self.current_dir.display()
             )
-        })?;
-        self.update_pyproject_toml().with_context(|| {
+        }));
+        record_failures(self.update_pyproject_toml().with_context(|| {
             format!(
                 "Failed to update pyproject.toml at {}",
                 self.current_dir.display()
             )
-        })?;
+        }));
 
-        Ok(())
+        if has_failure {
+            // Return an empty error message to prevent double-reporting
+            Err(anyhow!(""))
+        } else {
+            Ok(())
+        }
     }
 
     fn update_treesitter_json(&self) -> Result<()> {
