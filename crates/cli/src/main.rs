@@ -1394,7 +1394,7 @@ impl Test {
 
 impl Version {
     fn run(self, current_dir: PathBuf) -> Result<()> {
-        version::Version::new(self.version, current_dir, self.bump).run()
+        Ok(version::Version::new(self.version, current_dir, self.bump).run()?)
     }
 }
 
