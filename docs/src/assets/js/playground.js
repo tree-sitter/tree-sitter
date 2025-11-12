@@ -146,8 +146,9 @@ window.initializePlayground = async (opts) => {
   });
 
   queryEditor.on('keydown', (_, event) => {
-    if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
-      event.stopPropagation(); // Prevent mdBook from going back/forward
+    const key = event.key;
+    if (key === 'ArrowLeft' || key === 'ArrowRight' || key === '?') {
+      event.stopPropagation(); // Prevent mdBook from going back/forward, or showing help
     }
   });
 
