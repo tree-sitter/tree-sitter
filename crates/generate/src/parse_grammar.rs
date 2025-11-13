@@ -18,7 +18,7 @@ use crate::{
 #[allow(clippy::upper_case_acronyms)]
 enum RuleJSON {
     ALIAS {
-        content: Box<RuleJSON>,
+        content: Box<Self>,
         named: bool,
         value: String,
     },
@@ -34,46 +34,46 @@ enum RuleJSON {
         name: String,
     },
     CHOICE {
-        members: Vec<RuleJSON>,
+        members: Vec<Self>,
     },
     FIELD {
         name: String,
-        content: Box<RuleJSON>,
+        content: Box<Self>,
     },
     SEQ {
-        members: Vec<RuleJSON>,
+        members: Vec<Self>,
     },
     REPEAT {
-        content: Box<RuleJSON>,
+        content: Box<Self>,
     },
     REPEAT1 {
-        content: Box<RuleJSON>,
+        content: Box<Self>,
     },
     PREC_DYNAMIC {
         value: i32,
-        content: Box<RuleJSON>,
+        content: Box<Self>,
     },
     PREC_LEFT {
         value: PrecedenceValueJSON,
-        content: Box<RuleJSON>,
+        content: Box<Self>,
     },
     PREC_RIGHT {
         value: PrecedenceValueJSON,
-        content: Box<RuleJSON>,
+        content: Box<Self>,
     },
     PREC {
         value: PrecedenceValueJSON,
-        content: Box<RuleJSON>,
+        content: Box<Self>,
     },
     TOKEN {
-        content: Box<RuleJSON>,
+        content: Box<Self>,
     },
     IMMEDIATE_TOKEN {
-        content: Box<RuleJSON>,
+        content: Box<Self>,
     },
     RESERVED {
         context_name: String,
-        content: Box<RuleJSON>,
+        content: Box<Self>,
     },
 }
 

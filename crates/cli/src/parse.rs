@@ -11,6 +11,7 @@ use anstyle::{AnsiColor, Color, RgbColor};
 use anyhow::{anyhow, Context, Result};
 use clap::ValueEnum;
 use log::info;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use tree_sitter::{
     ffi, InputEdit, Language, LogType, ParseOptions, ParseState, Parser, Point, Range, Tree,
@@ -19,7 +20,7 @@ use tree_sitter::{
 
 use crate::{fuzz::edits::Edit, logger::paint, util};
 
-#[derive(Debug, Default, Serialize)]
+#[derive(Debug, Default, Serialize, JsonSchema)]
 pub struct Stats {
     pub successful_parses: usize,
     pub total_parses: usize,
@@ -674,10 +675,9 @@ pub fn parse_file_at_path(
                 width = max_path_length
             )?;
             if let Some(node) = first_error {
-                let start = node.start_position();
-                let end = node.end_position();
-                let mut node_text = String::new();
-                for c in node.kind().chars() {
+                let node_kind = node.kind();
+                let mut node_text = String::with_capacity(node_kind.len());
+                for c in node_kind.chars() {
                     if let Some(escaped) = escape_invisible(c) {
                         node_text += escaped;
                     } else {
@@ -694,6 +694,9 @@ pub fn parse_file_at_path(
                 } else {
                     write!(&mut stdout, "{node_text}")?;
                 }
+
+                let start = node.start_position();
+                let end = node.end_position();
                 write!(
                     &mut stdout,
                     " [{}, {}] - [{}, {}])",

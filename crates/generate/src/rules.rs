@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt};
+use std::{collections::BTreeMap, fmt};
 
 use serde::Serialize;
 use smallbitvec::SmallBitVec;
@@ -34,7 +34,7 @@ pub enum Precedence {
     Name(String),
 }
 
-pub type AliasMap = HashMap<Symbol, Alias>;
+pub type AliasMap = BTreeMap<Symbol, Alias>;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Serialize)]
 pub struct MetadataParams {
@@ -60,15 +60,15 @@ pub enum Rule {
     Pattern(String, String),
     NamedSymbol(String),
     Symbol(Symbol),
-    Choice(Vec<Rule>),
+    Choice(Vec<Self>),
     Metadata {
         params: MetadataParams,
-        rule: Box<Rule>,
+        rule: Box<Self>,
     },
-    Repeat(Box<Rule>),
-    Seq(Vec<Rule>),
+    Repeat(Box<Self>),
+    Seq(Vec<Self>),
     Reserved {
-        rule: Box<Rule>,
+        rule: Box<Self>,
         context_name: String,
     },
 }

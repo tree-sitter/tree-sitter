@@ -41,7 +41,7 @@ jobs:
           - { platform: windows-x64     , target: x86_64-pc-windows-msvc        , os: windows-2025     }
           - { platform: windows-x86     , target: i686-pc-windows-msvc          , os: windows-2025     }
           - { platform: macos-arm64     , target: aarch64-apple-darwin          , os: macos-15         }
-          - { platform: macos-x64       , target: x86_64-apple-darwin           , os: macos-13         }
+          - { platform: macos-x64       , target: x86_64-apple-darwin           , os: macos-15-intel   }
           - { platform: wasm32          , target: wasm32-unknown-unknown        , os: ubuntu-24.04     }
 
           # Extra features
@@ -278,7 +278,7 @@ jobs:
 
     - name: Upload CLI artifact
       if: "!matrix.no-run"
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: tree-sitter.${{ matrix.platform }}
         path: target/${{ matrix.target }}/release/tree-sitter${{ contains(matrix.target, 'windows') && '.exe' || '' }}
@@ -287,7 +287,7 @@ jobs:
 
     - name: Upload Wasm artifacts
       if: matrix.platform == 'linux-x64'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: tree-sitter.wasm
         path: |

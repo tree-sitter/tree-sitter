@@ -90,7 +90,7 @@ fn detect_language_by_first_line_regex() {
 }
 
 #[test]
-fn detect_langauge_by_double_barrel_file_extension() {
+fn detect_language_by_double_barrel_file_extension() {
     let blade_dir = tree_sitter_dir(
         r#"{
   "grammars": [

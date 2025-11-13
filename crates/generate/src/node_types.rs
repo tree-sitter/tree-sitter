@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 use anyhow::Result;
 use serde::Serialize;
@@ -378,11 +378,11 @@ pub fn get_variable_info(
 fn get_aliases_by_symbol(
     syntax_grammar: &SyntaxGrammar,
     default_aliases: &AliasMap,
-) -> HashMap<Symbol, HashSet<Option<Alias>>> {
+) -> HashMap<Symbol, BTreeSet<Option<Alias>>> {
     let mut aliases_by_symbol = HashMap::new();
     for (symbol, alias) in default_aliases {
         aliases_by_symbol.insert(*symbol, {
-            let mut aliases = HashSet::new();
+            let mut aliases = BTreeSet::new();
             aliases.insert(Some(alias.clone()));
             aliases
         });
@@ -391,7 +391,7 @@ fn get_aliases_by_symbol(
         if !default_aliases.contains_key(extra_symbol) {
             aliases_by_symbol
                 .entry(*extra_symbol)
-                .or_insert_with(HashSet::new)
+                .or_insert_with(BTreeSet::new)
                 .insert(None);
         }
     }
@@ -400,7 +400,7 @@ fn get_aliases_by_symbol(
             for step in &production.steps {
                 aliases_by_symbol
                     .entry(step.symbol)
-                    .or_insert_with(HashSet::new)
+                    .or_insert_with(BTreeSet::new)
                     .insert(
                         step.alias
                             .as_ref()
@@ -531,7 +531,7 @@ pub fn generate_node_types_json(
 
     let aliases_by_symbol = get_aliases_by_symbol(syntax_grammar, default_aliases);
 
-    let empty = HashSet::new();
+    let empty = BTreeSet::new();
     let extra_names = syntax_grammar
         .extra_symbols
         .iter()
@@ -590,7 +590,7 @@ pub fn generate_node_types_json(
         } else if !syntax_grammar.variables_to_inline.contains(&symbol) {
             // If a rule is aliased under multiple names, then its information
             // contributes to multiple entries in the final JSON.
-            for alias in aliases_by_symbol.get(&symbol).unwrap_or(&HashSet::new()) {
+            for alias in aliases_by_symbol.get(&symbol).unwrap_or(&BTreeSet::new()) {
                 let kind;
                 let is_named;
                 if let Some(alias) = alias {
@@ -784,6 +784,9 @@ pub fn generate_node_types_json(
                 a_is_leaf.cmp(&b_is_leaf)
             })
             .then_with(|| a.kind.cmp(&b.kind))
+            .then_with(|| a.named.cmp(&b.named))
+            .then_with(|| a.root.cmp(&b.root))
+            .then_with(|| a.extra.cmp(&b.extra))
     });
     result.dedup();
     Ok(result)
@@ -826,12 +829,12 @@ fn extend_sorted<'a, T>(vec: &mut Vec<T>, values: impl IntoIterator<Item = &'a T
 where
     T: 'a + Clone + Eq + Ord,
 {
-    values.into_iter().any(|value| {
+    values.into_iter().fold(false, |acc, value| {
         if let Err(i) = vec.binary_search(value) {
             vec.insert(i, value.clone());
             true
         } else {
-            false
+            acc
         }
     })
 }

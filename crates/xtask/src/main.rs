@@ -7,6 +7,7 @@ mod embed_sources;
 mod fetch;
 mod generate;
 mod test;
+mod test_schema;
 mod upgrade_wasmtime;
 
 use std::{path::Path, process::Command};
@@ -40,6 +41,8 @@ enum Commands {
     GenerateBindings,
     /// Generates the fixtures for testing tree-sitter.
     GenerateFixtures(GenerateFixtures),
+    /// Generates the JSON schema for the test runner summary.
+    GenerateTestSchema,
     /// Generate the list of exports from Tree-sitter Wasm files.
     GenerateWasmExports,
     /// Run the test suite
@@ -94,8 +97,8 @@ struct BuildWasm {
 #[derive(Args)]
 struct BumpVersion {
     /// The version to bump to.
-    #[arg(long, short)]
-    version: Option<Version>,
+    #[arg(index = 1, required = true)]
+    version: Version,
 }
 
 #[derive(Args)]
@@ -236,6 +239,7 @@ fn run() -> Result<()> {
         Commands::GenerateFixtures(generate_fixtures_options) => {
             generate::run_fixtures(&generate_fixtures_options)?;
         }
+        Commands::GenerateTestSchema => test_schema::run_test_schema()?,
         Commands::GenerateWasmExports => generate::run_wasm_exports()?,
         Commands::Test(test_options) => test::run(&test_options)?,
         Commands::TestWasm => test::run_wasm()?,

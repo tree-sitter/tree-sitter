@@ -306,9 +306,7 @@ impl Minimizer<'_> {
             return true;
         }
 
-        for (i, action1) in actions1.iter().enumerate() {
-            let action2 = &actions2[i];
-
+        for (action1, action2) in actions1.iter().zip(actions2.iter()) {
             // Two shift actions are equivalent if their destinations are in the same group.
             if let (
                 ParseAction::Shift {

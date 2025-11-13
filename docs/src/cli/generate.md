@@ -30,24 +30,9 @@ what keywords were extracted, what states were split and why, and the entry poin
 
 The ABI to use for parser generation. The default is ABI 15, with ABI 14 being a supported target.
 
-### `--emit`
+### `--no-parser`
 
-What generated files to emit. Possible values:
-
-- `json`: Generate `grammar.json` and `node-types.json`
-- `parser` (default): Generate `parser.c` and related files.
-- `lib`: Compile to a library (equivalent of the deprecated `--build` option)
-
-### `-0/--debug-build`
-
-Compile the parser with debug flags enabled. This is useful when debugging issues that require a debugger like `gdb` or `lldb`.
-
-### `--libdir <PATH>`
-
-The directory to place the compiled parser(s) in.
-On Unix systems, the default path is `$XDG_CACHE_HOME/tree-sitter` if `$XDG_CACHE_HOME` is set,
-otherwise `$HOME/.config/tree-sitter` is used. On Windows, the default path is `%LOCALAPPDATA%\tree-sitter` if available,
-otherwise `$HOME\AppData\Local\tree-sitter` is used.
+Only generate `grammar.json` and `node-types.json`
 
 ### `-o/--output`
 
