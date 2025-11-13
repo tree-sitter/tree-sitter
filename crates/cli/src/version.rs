@@ -135,6 +135,7 @@ impl Version {
         push_err(self.update_makefile(is_multigrammar));
         push_err(self.update_cmakelists_txt());
         push_err(self.update_pyproject_toml());
+        push_err(self.update_zig_zon());
 
         if errors.is_empty() {
             Ok(())
@@ -341,6 +342,46 @@ impl Version {
                 .map(|line| {
                     if line.starts_with("version =") {
                         format!("version = \"{}\"", self.version.as_ref().unwrap())
+                    } else {
+                        line.to_string()
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join("\n")
+                + "\n"
+        })?;
+
+        Ok(())
+    }
+
+    fn update_zig_zon(&self) -> Result<(), UpdateError> {
+        let zig_zon_path = self.current_dir.join("build.zig.zon");
+        if !zig_zon_path.exists() {
+            return Ok(());
+        }
+
+        self.update_file_with(&zig_zon_path, |content| {
+            let zig_version_prefix = ".version =";
+            content
+                .lines()
+                .map(|line| {
+                    if line
+                        .trim_start_matches(|c: char| c.is_ascii_whitespace())
+                        .starts_with(zig_version_prefix)
+                    {
+                        let prefix_index =
+                            line.find(zig_version_prefix).unwrap() + zig_version_prefix.len();
+                        let start_quote =
+                            line[prefix_index..].find('"').unwrap() + prefix_index + 1;
+                        let end_quote =
+                            line[start_quote + 1..].find('"').unwrap() + start_quote + 1;
+
+                        format!(
+                            "{}{}{}",
+                            &line[..start_quote],
+                            self.version.as_ref().unwrap(),
+                            &line[end_quote..]
+                        )
                     } else {
                         line.to_string()
                     }
