@@ -261,6 +261,7 @@ pub fn execute_native_runtime(grammar_path: &Path) -> JSResult<String> {
     let context = Context::full(&runtime)?;
 
     let resolver = FileResolver::default()
+        .with_path("./node_modules")
         .with_path("./")
         .with_pattern("{}.mjs");
     let loader = ScriptLoader::default().with_extension("mjs");
