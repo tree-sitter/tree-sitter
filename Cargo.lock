@@ -2016,6 +2016,7 @@ dependencies = [
  "similar",
  "streaming-iterator",
  "tempfile",
+ "thiserror 2.0.17",
  "tiny_http",
  "tree-sitter",
  "tree-sitter-config",
