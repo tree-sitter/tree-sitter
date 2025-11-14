@@ -45,6 +45,8 @@ pub struct NodeInfoJSON {
     children: Option<FieldInfoJSON>,
     #[serde(skip_serializing_if = "Option::is_none")]
     subtypes: Option<Vec<NodeTypeJSON>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    symbol_id: Option<u16>,
 }
 
 #[derive(Clone, Debug, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -473,6 +475,7 @@ pub fn generate_node_types_json(
     lexical_grammar: &LexicalGrammar,
     default_aliases: &AliasMap,
     variable_info: &[VariableInfo],
+    symbol_ids: &HashMap<Symbol, (String, u16)>,
 ) -> SuperTypeCycleResult<Vec<NodeInfoJSON>> {
     let mut node_types_json = BTreeMap::new();
 
@@ -572,6 +575,7 @@ pub fn generate_node_types_json(
                         fields: None,
                         children: None,
                         subtypes: None,
+                        symbol_id: symbol_ids.get(&symbol).map(|t| t.1),
                     });
             let mut subtypes = info
                 .children
@@ -616,6 +620,7 @@ pub fn generate_node_types_json(
                         fields: Some(BTreeMap::new()),
                         children: None,
                         subtypes: None,
+                        symbol_id: symbol_ids.get(&symbol).map(|t| t.1),
                     }
                 });
 
@@ -706,15 +711,16 @@ pub fn generate_node_types_json(
         .iter()
         .enumerate()
         .flat_map(|(i, variable)| {
+            let symbol = Symbol::terminal(i);
             aliases_by_symbol
-                .get(&Symbol::terminal(i))
+                .get(&symbol)
                 .unwrap_or(&empty)
                 .iter()
                 .map(move |alias| {
                     alias
                         .as_ref()
-                        .map_or((&variable.name, variable.kind), |alias| {
-                            (&alias.value, alias.kind())
+                        .map_or((&variable.name, variable.kind, symbol), |alias| {
+                            (&alias.value, alias.kind(), symbol)
                         })
                 })
         });
@@ -724,18 +730,21 @@ pub fn generate_node_types_json(
             .iter()
             .enumerate()
             .flat_map(|(i, token)| {
+                let symbol = Symbol::external(i);
                 aliases_by_symbol
-                    .get(&Symbol::external(i))
+                    .get(&symbol)
                     .unwrap_or(&empty)
                     .iter()
                     .map(move |alias| {
-                        alias.as_ref().map_or((&token.name, token.kind), |alias| {
-                            (&alias.value, alias.kind())
-                        })
+                        alias
+                            .as_ref()
+                            .map_or((&token.name, token.kind, symbol), |alias| {
+                                (&alias.value, alias.kind(), symbol)
+                            })
                     })
             });
 
-    for (name, kind) in regular_tokens.chain(external_tokens) {
+    for (name, kind, symbol) in regular_tokens.chain(external_tokens) {
         match kind {
             VariableType::Named => {
                 let node_type_json =
@@ -749,6 +758,7 @@ pub fn generate_node_types_json(
                             fields: None,
                             children: None,
                             subtypes: None,
+                            symbol_id: symbol_ids.get(&symbol).map(|t| t.1),
                         });
                 if let Some(children) = &mut node_type_json.children {
                     children.required = false;
@@ -767,6 +777,7 @@ pub fn generate_node_types_json(
                 fields: None,
                 children: None,
                 subtypes: None,
+                symbol_id: symbol_ids.get(&symbol).map(|t| t.1),
             }),
             _ => {}
         }
@@ -846,8 +857,9 @@ mod tests {
         grammars::{
             InputGrammar, LexicalVariable, Production, ProductionStep, SyntaxVariable, Variable,
         },
-        prepare_grammar::prepare_grammar,
+        introspect_grammar,
         rules::Rule,
+        GrammarIntrospection, OptLevel,
     };
 
     #[test]
@@ -917,7 +929,8 @@ mod tests {
                     ]
                     .into_iter()
                     .collect()
-                )
+                ),
+                symbol_id: Some(4),
             }
         );
         assert_eq!(
@@ -929,7 +942,8 @@ mod tests {
                 extra: false,
                 subtypes: None,
                 children: None,
-                fields: None
+                fields: None,
+                symbol_id: Some(1),
             }
         );
         assert_eq!(
@@ -941,7 +955,8 @@ mod tests {
                 extra: false,
                 subtypes: None,
                 children: None,
-                fields: None
+                fields: None,
+                symbol_id: Some(2),
             }
         );
     }
@@ -1017,7 +1032,8 @@ mod tests {
                     ]
                     .into_iter()
                     .collect()
-                )
+                ),
+                symbol_id: Some(4),
             }
         );
         assert_eq!(
@@ -1029,7 +1045,8 @@ mod tests {
                 extra: false,
                 subtypes: None,
                 children: None,
-                fields: None
+                fields: None,
+                symbol_id: Some(1),
             }
         );
         assert_eq!(
@@ -1041,7 +1058,8 @@ mod tests {
                 extra: false,
                 subtypes: None,
                 children: None,
-                fields: None
+                fields: None,
+                symbol_id: Some(2),
             }
         );
         assert_eq!(
@@ -1053,7 +1071,8 @@ mod tests {
                 extra: true,
                 subtypes: None,
                 children: None,
-                fields: None
+                fields: None,
+                symbol_id: Some(3),
             }
         );
     }
@@ -1084,7 +1103,7 @@ mod tests {
                 Variable {
                     name: "v3".to_string(),
                     kind: VariableType::Named,
-                    rule: Rule::seq(vec![Rule::string("y"), Rule::repeat(Rule::string("z"))]),
+                    rule: Rule::seq(vec![Rule::string("y"), Rule::string("z")]),
                 },
             ],
             ..Default::default()
@@ -1129,7 +1148,8 @@ mod tests {
                     ]
                     .into_iter()
                     .collect()
-                )
+                ),
+                symbol_id: Some(5),
             }
         );
         assert_eq!(
@@ -1141,7 +1161,8 @@ mod tests {
                 extra: true,
                 subtypes: None,
                 children: None,
-                fields: Some(BTreeMap::default())
+                fields: Some(BTreeMap::default()),
+                symbol_id: Some(6),
             }
         );
         assert_eq!(
@@ -1153,7 +1174,8 @@ mod tests {
                 extra: false,
                 subtypes: None,
                 children: None,
-                fields: None
+                fields: None,
+                symbol_id: Some(1),
             }
         );
         assert_eq!(
@@ -1165,7 +1187,8 @@ mod tests {
                 extra: false,
                 subtypes: None,
                 children: None,
-                fields: None
+                fields: None,
+                symbol_id: Some(2),
             }
         );
     }
@@ -1227,6 +1250,7 @@ mod tests {
                         named: true,
                     },
                 ]),
+                symbol_id: Some(5),
             }
         );
         assert_eq!(
@@ -1252,7 +1276,8 @@ mod tests {
                     ),]
                     .into_iter()
                     .collect()
-                )
+                ),
+                symbol_id: Some(4),
             }
         );
     }
@@ -1330,7 +1355,8 @@ mod tests {
                     ),]
                     .into_iter()
                     .collect()
-                )
+                ),
+                symbol_id: Some(5),
             }
         );
         assert_eq!(
@@ -1350,6 +1376,7 @@ mod tests {
                     },]
                 }),
                 fields: Some(BTreeMap::new()),
+                symbol_id: Some(6),
             }
         );
     }
@@ -1403,6 +1430,7 @@ mod tests {
                     ]
                 }),
                 fields: Some(BTreeMap::new()),
+                symbol_id: Some(3),
             }
         );
     }
@@ -1451,6 +1479,7 @@ mod tests {
                     rule: Rule::pattern("[\\w-]+", ""),
                 },
             ],
+            expected_conflicts: vec![vec!["type".to_string(), "expression".to_string()]],
             ..Default::default()
         })
         .unwrap();
@@ -1466,6 +1495,7 @@ mod tests {
                 subtypes: None,
                 children: None,
                 fields: None,
+                symbol_id: Some(2),
             })
         );
         assert_eq!(
@@ -1478,6 +1508,7 @@ mod tests {
                 subtypes: None,
                 children: None,
                 fields: None,
+                symbol_id: Some(2),
             })
         );
     }
@@ -1543,6 +1574,7 @@ mod tests {
                     .into_iter()
                     .collect()
                 ),
+                symbol_id: Some(3),
             }
         );
     }
@@ -1571,7 +1603,8 @@ mod tests {
                 extra: false,
                 fields: Some(BTreeMap::new()),
                 children: None,
-                subtypes: None
+                subtypes: None,
+                symbol_id: Some(3),
             }]
         );
     }
@@ -1679,6 +1712,7 @@ mod tests {
                         .into_iter()
                         .collect()
                     ),
+                    symbol_id: Some(7),
                 },
                 NodeInfoJSON {
                     kind: "script".to_string(),
@@ -1696,6 +1730,7 @@ mod tests {
                         }]
                     }),
                     fields: Some(BTreeMap::new()),
+                    symbol_id: Some(6),
                 }
             ]
         );
@@ -1752,6 +1787,7 @@ mod tests {
                     }]
                 }),
                 fields: Some(BTreeMap::new()),
+                symbol_id: Some(5),
             }
         );
     }
@@ -2057,16 +2093,27 @@ mod tests {
     }
 
     fn get_node_types(grammar: &InputGrammar) -> SuperTypeCycleResult<Vec<NodeInfoJSON>> {
-        let (syntax_grammar, lexical_grammar, _, default_aliases) =
-            prepare_grammar(grammar).unwrap();
-        let variable_info =
-            get_variable_info(&syntax_grammar, &lexical_grammar, &default_aliases).unwrap();
-        generate_node_types_json(
+        let GrammarIntrospection {
+            syntax_grammar,
+            lexical_grammar,
+            simple_aliases,
+            variable_info,
+            supertype_symbol_map: _,
+            tables: _,
+            symbol_ids,
+            alias_ids: _,
+            unique_aliases: _,
+        } = introspect_grammar(grammar, None, OptLevel::default()).unwrap();
+
+        let x = generate_node_types_json(
             &syntax_grammar,
             &lexical_grammar,
-            &default_aliases,
+            &simple_aliases,
             &variable_info,
-        )
+            &symbol_ids,
+        );
+
+        return x;
     }
 
     fn build_syntax_grammar(
