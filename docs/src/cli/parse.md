@@ -1,8 +1,8 @@
 # `tree-sitter parse`
 
 The `parse` command parses source files using a Tree-sitter parser. You can pass any number of file paths and glob patterns
-to `tree-sitter parse`, and it will parse all the given files. The command will exit with a non-zero status code if any
-parse errors occurred.
+to `tree-sitter parse`, and it will parse all the given files. If no paths are provided, input will be parsed from stdin.
+The command will exit with a non-zero status code if any parse errors occurred.
 
 ```bash
 tree-sitter parse [OPTIONS] [PATHS]... # Aliases: p
@@ -17,6 +17,14 @@ The path to a file that contains paths to source files to parse.
 ### `-p/--grammar-path <PATH>`
 
 The path to the directory containing the grammar.
+
+### `-l/--lib-path`
+
+The path to the parser's dynamic library. This is used instead of the cached or automatically generated dynamic library.
+
+### `--lang-name`
+
+If `--lib-path` is used, the name of the language used to extract the library's language function
 
 ### `--scope <SCOPE>`
 
@@ -81,7 +89,7 @@ in `UTF-16BE` or `UTF-16LE`. If no `BOM` is present, `UTF-8` is the default. One
 
 When using the `--debug-graph` option, open the log file in the default browser.
 
-### `-j/--json`
+### `-j/--json-summary`
 
 Output parsing results in a JSON format.
 

@@ -24,6 +24,14 @@ Only run tests from the given filename in the corpus.
 
 The path to the directory containing the grammar.
 
+### `--lib-path`
+
+The path to the parser's dynamic library. This is used instead of the cached or automatically generated dynamic library.
+
+### `--lang-name`
+
+If `--lib-path` is used, the name of the language used to extract the library's language function
+
 ### `-u/--update`
 
 Update the expected output of tests.
@@ -78,3 +86,7 @@ Force a rebuild of the parser before running tests.
 ### `--overview-only`
 
 Only show the overview of the test results, and not the diff.
+
+### `--json-summary`
+
+Output the test summary in a JSON format.
