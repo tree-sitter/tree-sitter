@@ -557,7 +557,6 @@ impl Config {
 }
 
 const BUILD_TARGET: &str = env!("BUILD_TARGET");
-const BUILD_HOST: &str = env!("BUILD_HOST");
 
 pub struct LanguageConfiguration<'a> {
     pub scope: Option<String>,
@@ -1107,7 +1106,10 @@ impl Loader {
             .cargo_metadata(false)
             .cargo_warnings(false)
             .target(BUILD_TARGET)
-            .host(BUILD_HOST)
+            // BUILD_TARGET from the build environment becomes a runtime host for cc.
+            // Otherwise, when cross compiled, cc will keep looking for a cross-compiler
+            // on the target system instead of the native compiler.
+            .host(BUILD_TARGET)
             .debug(self.debug_build)
             .file(&config.parser_path)
             .includes(&config.header_paths)
