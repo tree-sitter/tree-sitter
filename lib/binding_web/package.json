@@ -72,7 +72,7 @@
     "@eslint/js": "^9.20.0",
     "@types/emscripten": "^1.40.0",
     "@types/node": "^24.3.0",
-    "@vitest/coverage-v8": "^3.0.5",
+    "@vitest/coverage-v8": "^4.0.10",
     "dts-buddy": "^0.6.2",
     "esbuild": "^0.25.0",
     "eslint": "^9.20.0",
