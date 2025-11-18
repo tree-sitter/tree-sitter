@@ -46,7 +46,7 @@ pub struct NodeInfoJSON {
     #[serde(skip_serializing_if = "Option::is_none")]
     subtypes: Option<Vec<NodeTypeJSON>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    symbol_id: Option<u16>,
+    symbol_ids: Option<Vec<u16>>,
 }
 
 #[derive(Clone, Debug, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -479,6 +479,40 @@ pub fn generate_node_types_json(
 ) -> SuperTypeCycleResult<Vec<NodeInfoJSON>> {
     let mut node_types_json = BTreeMap::new();
 
+    // Build a map from (kind, is_named) to all symbol IDs that map to that kind
+    let mut kind_to_symbol_ids: HashMap<(String, bool), Vec<u16>> = HashMap::new();
+    for (symbol, (_name, numeric_id)) in symbol_ids {
+        // Get the actual kind name for this symbol (considering aliases)
+        let (kind, is_named) = if let Some(alias) = default_aliases.get(symbol) {
+            (alias.value.clone(), alias.is_named)
+        } else {
+            match symbol.kind {
+                SymbolType::NonTerminal => {
+                    let variable = &syntax_grammar.variables[symbol.index];
+                    (variable.name.clone(), variable.kind == VariableType::Named)
+                }
+                SymbolType::Terminal => {
+                    let variable = &lexical_grammar.variables[symbol.index];
+                    (variable.name.clone(), variable.kind == VariableType::Named)
+                }
+                SymbolType::External => {
+                    let token = &syntax_grammar.external_tokens[symbol.index];
+                    (token.name.clone(), token.kind == VariableType::Named)
+                }
+                SymbolType::End | SymbolType::EndOfNonTerminalExtra => continue,
+            }
+        };
+        kind_to_symbol_ids
+            .entry((kind, is_named))
+            .or_insert_with(Vec::new)
+            .push(*numeric_id);
+    }
+
+    // Sort the symbol IDs for each kind to ensure consistent ordering
+    for ids in kind_to_symbol_ids.values_mut() {
+        ids.sort_unstable();
+    }
+
     let child_type_to_node_type = |child_type: &ChildType| match child_type {
         ChildType::Aliased(alias) => NodeTypeJSON {
             kind: alias.value.clone(),
@@ -575,7 +609,9 @@ pub fn generate_node_types_json(
                         fields: None,
                         children: None,
                         subtypes: None,
-                        symbol_id: symbol_ids.get(&symbol).map(|t| t.1),
+                        symbol_ids: kind_to_symbol_ids
+                            .get(&(variable.name.clone(), true))
+                            .cloned(),
                     });
             let mut subtypes = info
                 .children
@@ -620,7 +656,7 @@ pub fn generate_node_types_json(
                         fields: Some(BTreeMap::new()),
                         children: None,
                         subtypes: None,
-                        symbol_id: symbol_ids.get(&symbol).map(|t| t.1),
+                        symbol_ids: kind_to_symbol_ids.get(&(kind.clone(), true)).cloned(),
                     }
                 });
 
@@ -744,7 +780,7 @@ pub fn generate_node_types_json(
                     })
             });
 
-    for (name, kind, symbol) in regular_tokens.chain(external_tokens) {
+    for (name, kind, _symbol) in regular_tokens.chain(external_tokens) {
         match kind {
             VariableType::Named => {
                 let node_type_json =
@@ -758,7 +794,7 @@ pub fn generate_node_types_json(
                             fields: None,
                             children: None,
                             subtypes: None,
-                            symbol_id: symbol_ids.get(&symbol).map(|t| t.1),
+                            symbol_ids: kind_to_symbol_ids.get(&(name.clone(), true)).cloned(),
                         });
                 if let Some(children) = &mut node_type_json.children {
                     children.required = false;
@@ -777,7 +813,7 @@ pub fn generate_node_types_json(
                 fields: None,
                 children: None,
                 subtypes: None,
-                symbol_id: symbol_ids.get(&symbol).map(|t| t.1),
+                symbol_ids: kind_to_symbol_ids.get(&(name.clone(), false)).cloned(),
             }),
             _ => {}
         }
@@ -930,7 +966,7 @@ mod tests {
                     .into_iter()
                     .collect()
                 ),
-                symbol_id: Some(4),
+                symbol_ids: Some(vec![4]),
             }
         );
         assert_eq!(
@@ -943,7 +979,7 @@ mod tests {
                 subtypes: None,
                 children: None,
                 fields: None,
-                symbol_id: Some(1),
+                symbol_ids: Some(vec![1]),
             }
         );
         assert_eq!(
@@ -956,7 +992,7 @@ mod tests {
                 subtypes: None,
                 children: None,
                 fields: None,
-                symbol_id: Some(2),
+                symbol_ids: Some(vec![2]),
             }
         );
     }
@@ -1033,7 +1069,7 @@ mod tests {
                     .into_iter()
                     .collect()
                 ),
-                symbol_id: Some(4),
+                symbol_ids: Some(vec![4]),
             }
         );
         assert_eq!(
@@ -1046,7 +1082,7 @@ mod tests {
                 subtypes: None,
                 children: None,
                 fields: None,
-                symbol_id: Some(1),
+                symbol_ids: Some(vec![1]),
             }
         );
         assert_eq!(
@@ -1059,7 +1095,7 @@ mod tests {
                 subtypes: None,
                 children: None,
                 fields: None,
-                symbol_id: Some(2),
+                symbol_ids: Some(vec![2]),
             }
         );
         assert_eq!(
@@ -1072,7 +1108,7 @@ mod tests {
                 subtypes: None,
                 children: None,
                 fields: None,
-                symbol_id: Some(3),
+                symbol_ids: Some(vec![3]),
             }
         );
     }
@@ -1149,7 +1185,7 @@ mod tests {
                     .into_iter()
                     .collect()
                 ),
-                symbol_id: Some(5),
+                symbol_ids: Some(vec![5]),
             }
         );
         assert_eq!(
@@ -1162,7 +1198,7 @@ mod tests {
                 subtypes: None,
                 children: None,
                 fields: Some(BTreeMap::default()),
-                symbol_id: Some(6),
+                symbol_ids: Some(vec![6]),
             }
         );
         assert_eq!(
@@ -1175,7 +1211,7 @@ mod tests {
                 subtypes: None,
                 children: None,
                 fields: None,
-                symbol_id: Some(1),
+                symbol_ids: Some(vec![1]),
             }
         );
         assert_eq!(
@@ -1188,7 +1224,7 @@ mod tests {
                 subtypes: None,
                 children: None,
                 fields: None,
-                symbol_id: Some(2),
+                symbol_ids: Some(vec![2]),
             }
         );
     }
@@ -1250,7 +1286,7 @@ mod tests {
                         named: true,
                     },
                 ]),
-                symbol_id: Some(5),
+                symbol_ids: None,
             }
         );
         assert_eq!(
@@ -1277,7 +1313,7 @@ mod tests {
                     .into_iter()
                     .collect()
                 ),
-                symbol_id: Some(4),
+                symbol_ids: Some(vec![4]),
             }
         );
     }
@@ -1356,7 +1392,7 @@ mod tests {
                     .into_iter()
                     .collect()
                 ),
-                symbol_id: Some(5),
+                symbol_ids: Some(vec![5]),
             }
         );
         assert_eq!(
@@ -1376,7 +1412,7 @@ mod tests {
                     },]
                 }),
                 fields: Some(BTreeMap::new()),
-                symbol_id: Some(6),
+                symbol_ids: Some(vec![6]),
             }
         );
     }
@@ -1430,7 +1466,7 @@ mod tests {
                     ]
                 }),
                 fields: Some(BTreeMap::new()),
-                symbol_id: Some(3),
+                symbol_ids: Some(vec![3]),
             }
         );
     }
@@ -1495,7 +1531,7 @@ mod tests {
                 subtypes: None,
                 children: None,
                 fields: None,
-                symbol_id: Some(2),
+                symbol_ids: Some(vec![2, 3]),
             })
         );
         assert_eq!(
@@ -1508,7 +1544,7 @@ mod tests {
                 subtypes: None,
                 children: None,
                 fields: None,
-                symbol_id: Some(2),
+                symbol_ids: None,
             })
         );
     }
@@ -1574,7 +1610,7 @@ mod tests {
                     .into_iter()
                     .collect()
                 ),
-                symbol_id: Some(3),
+                symbol_ids: Some(vec![3]),
             }
         );
     }
@@ -1604,7 +1640,7 @@ mod tests {
                 fields: Some(BTreeMap::new()),
                 children: None,
                 subtypes: None,
-                symbol_id: Some(3),
+                symbol_ids: Some(vec![3]),
             }]
         );
     }
@@ -1712,7 +1748,7 @@ mod tests {
                         .into_iter()
                         .collect()
                     ),
-                    symbol_id: Some(7),
+                    symbol_ids: Some(vec![7, 8]),
                 },
                 NodeInfoJSON {
                     kind: "script".to_string(),
@@ -1730,7 +1766,7 @@ mod tests {
                         }]
                     }),
                     fields: Some(BTreeMap::new()),
-                    symbol_id: Some(6),
+                    symbol_ids: Some(vec![6]),
                 }
             ]
         );
@@ -1787,7 +1823,7 @@ mod tests {
                     }]
                 }),
                 fields: Some(BTreeMap::new()),
-                symbol_id: Some(5),
+                symbol_ids: Some(vec![3, 5]),
             }
         );
     }
