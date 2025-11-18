@@ -136,7 +136,7 @@ impl InputEdit {
             ffi::ts_point_edit(
                 core::ptr::addr_of_mut!(ts_point),
                 core::ptr::addr_of_mut!(ts_byte),
-                &edit,
+                &raw const edit,
             );
         }
 
@@ -155,7 +155,7 @@ impl InputEdit {
         let mut ts_range = (*range).into();
 
         unsafe {
-            ffi::ts_range_edit(core::ptr::addr_of_mut!(ts_range), &edit);
+            ffi::ts_range_edit(core::ptr::addr_of_mut!(ts_range), &raw const edit);
         }
 
         *range = ts_range.into();
@@ -1432,7 +1432,7 @@ impl Tree {
     #[doc(alias = "ts_tree_edit")]
     pub fn edit(&mut self, edit: &InputEdit) {
         let edit = edit.into();
-        unsafe { ffi::ts_tree_edit(self.0.as_ptr(), &edit) };
+        unsafe { ffi::ts_tree_edit(self.0.as_ptr(), &raw const edit) };
     }
 
     /// Create a new [`TreeCursor`] starting from the root of the tree.
@@ -2035,7 +2035,7 @@ impl<'tree> Node<'tree> {
     #[doc(alias = "ts_node_edit")]
     pub fn edit(&mut self, edit: &InputEdit) {
         let edit = edit.into();
-        unsafe { ffi::ts_node_edit(core::ptr::addr_of_mut!(self.0), &edit) }
+        unsafe { ffi::ts_node_edit(core::ptr::addr_of_mut!(self.0), &raw const edit) }
     }
 }
 
@@ -2088,7 +2088,7 @@ impl<'cursor> TreeCursor<'cursor> {
     #[must_use]
     pub fn node(&self) -> Node<'cursor> {
         Node(
-            unsafe { ffi::ts_tree_cursor_current_node(&self.0) },
+            unsafe { ffi::ts_tree_cursor_current_node(&raw const self.0) },
             PhantomData,
         )
     }
@@ -2099,7 +2099,7 @@ impl<'cursor> TreeCursor<'cursor> {
     #[doc(alias = "ts_tree_cursor_current_field_id")]
     #[must_use]
     pub fn field_id(&self) -> Option<FieldId> {
-        let id = unsafe { ffi::ts_tree_cursor_current_field_id(&self.0) };
+        let id = unsafe { ffi::ts_tree_cursor_current_field_id(&raw const self.0) };
         FieldId::new(id)
     }
 
@@ -2108,7 +2108,7 @@ impl<'cursor> TreeCursor<'cursor> {
     #[must_use]
     pub fn field_name(&self) -> Option<&'static str> {
         unsafe {
-            let ptr = ffi::ts_tree_cursor_current_field_name(&self.0);
+            let ptr = ffi::ts_tree_cursor_current_field_name(&raw const self.0);
             (!ptr.is_null()).then(|| CStr::from_ptr(ptr).to_str().unwrap())
         }
     }
@@ -2118,7 +2118,7 @@ impl<'cursor> TreeCursor<'cursor> {
     #[doc(alias = "ts_tree_cursor_current_depth")]
     #[must_use]
     pub fn depth(&self) -> u32 {
-        unsafe { ffi::ts_tree_cursor_current_depth(&self.0) }
+        unsafe { ffi::ts_tree_cursor_current_depth(&raw const self.0) }
     }
 
     /// Get the index of the cursor's current node out of all of the
@@ -2126,7 +2126,7 @@ impl<'cursor> TreeCursor<'cursor> {
     #[doc(alias = "ts_tree_cursor_current_descendant_index")]
     #[must_use]
     pub fn descendant_index(&self) -> usize {
-        unsafe { ffi::ts_tree_cursor_current_descendant_index(&self.0) as usize }
+        unsafe { ffi::ts_tree_cursor_current_descendant_index(&raw const self.0) as usize }
     }
 
     /// Move this cursor to the first child of its current node.
@@ -2135,7 +2135,7 @@ impl<'cursor> TreeCursor<'cursor> {
     /// `false` if there were no children.
     #[doc(alias = "ts_tree_cursor_goto_first_child")]
     pub fn goto_first_child(&mut self) -> bool {
-        unsafe { ffi::ts_tree_cursor_goto_first_child(&mut self.0) }
+        unsafe { ffi::ts_tree_cursor_goto_first_child(&raw mut self.0) }
     }
 
     /// Move this cursor to the last child of its current node.
@@ -2148,7 +2148,7 @@ impl<'cursor> TreeCursor<'cursor> {
     /// iterate through all the children to compute the child's position.
     #[doc(alias = "ts_tree_cursor_goto_last_child")]
     pub fn goto_last_child(&mut self) -> bool {
-        unsafe { ffi::ts_tree_cursor_goto_last_child(&mut self.0) }
+        unsafe { ffi::ts_tree_cursor_goto_last_child(&raw mut self.0) }
     }
 
     /// Move this cursor to the parent of its current node.
@@ -2161,7 +2161,7 @@ impl<'cursor> TreeCursor<'cursor> {
     /// of the cursor, and the cursor cannot walk outside this node.
     #[doc(alias = "ts_tree_cursor_goto_parent")]
     pub fn goto_parent(&mut self) -> bool {
-        unsafe { ffi::ts_tree_cursor_goto_parent(&mut self.0) }
+        unsafe { ffi::ts_tree_cursor_goto_parent(&raw mut self.0) }
     }
 
     /// Move this cursor to the next sibling of its current node.
@@ -2173,7 +2173,7 @@ impl<'cursor> TreeCursor<'cursor> {
     /// of the cursor, and the cursor cannot walk outside this node.
     #[doc(alias = "ts_tree_cursor_goto_next_sibling")]
     pub fn goto_next_sibling(&mut self) -> bool {
-        unsafe { ffi::ts_tree_cursor_goto_next_sibling(&mut self.0) }
+        unsafe { ffi::ts_tree_cursor_goto_next_sibling(&raw mut self.0) }
     }
 
     /// Move the cursor to the node that is the nth descendant of
@@ -2181,7 +2181,7 @@ impl<'cursor> TreeCursor<'cursor> {
     /// zero represents the original node itself.
     #[doc(alias = "ts_tree_cursor_goto_descendant")]
     pub fn goto_descendant(&mut self, descendant_index: usize) {
-        unsafe { ffi::ts_tree_cursor_goto_descendant(&mut self.0, descendant_index as u32) }
+        unsafe { ffi::ts_tree_cursor_goto_descendant(&raw mut self.0, descendant_index as u32) }
     }
 
     /// Move this cursor to the previous sibling of its current node.
@@ -2197,7 +2197,7 @@ impl<'cursor> TreeCursor<'cursor> {
     /// considered the root of the cursor, and the cursor cannot walk outside this node.
     #[doc(alias = "ts_tree_cursor_goto_previous_sibling")]
     pub fn goto_previous_sibling(&mut self) -> bool {
-        unsafe { ffi::ts_tree_cursor_goto_previous_sibling(&mut self.0) }
+        unsafe { ffi::ts_tree_cursor_goto_previous_sibling(&raw mut self.0) }
     }
 
     /// Move this cursor to the first child of its current node that contains or
@@ -2208,7 +2208,7 @@ impl<'cursor> TreeCursor<'cursor> {
     #[doc(alias = "ts_tree_cursor_goto_first_child_for_byte")]
     pub fn goto_first_child_for_byte(&mut self, index: usize) -> Option<usize> {
         let result =
-            unsafe { ffi::ts_tree_cursor_goto_first_child_for_byte(&mut self.0, index as u32) };
+            unsafe { ffi::ts_tree_cursor_goto_first_child_for_byte(&raw mut self.0, index as u32) };
         result.try_into().ok()
     }
 
@@ -2219,8 +2219,9 @@ impl<'cursor> TreeCursor<'cursor> {
     /// `None` if no such child was found.
     #[doc(alias = "ts_tree_cursor_goto_first_child_for_point")]
     pub fn goto_first_child_for_point(&mut self, point: Point) -> Option<usize> {
-        let result =
-            unsafe { ffi::ts_tree_cursor_goto_first_child_for_point(&mut self.0, point.into()) };
+        let result = unsafe {
+            ffi::ts_tree_cursor_goto_first_child_for_point(&raw mut self.0, point.into())
+        };
         result.try_into().ok()
     }
 
@@ -2228,7 +2229,7 @@ impl<'cursor> TreeCursor<'cursor> {
     /// cursor was constructed with.
     #[doc(alias = "ts_tree_cursor_reset")]
     pub fn reset(&mut self, node: Node<'cursor>) {
-        unsafe { ffi::ts_tree_cursor_reset(&mut self.0, node.0) };
+        unsafe { ffi::ts_tree_cursor_reset(&raw mut self.0, node.0) };
     }
 
     /// Re-initialize a tree cursor to the same position as another cursor.
@@ -2237,19 +2238,22 @@ impl<'cursor> TreeCursor<'cursor> {
     /// information and allows reusing already created cursors.
     #[doc(alias = "ts_tree_cursor_reset_to")]
     pub fn reset_to(&mut self, cursor: &Self) {
-        unsafe { ffi::ts_tree_cursor_reset_to(&mut self.0, &cursor.0) };
+        unsafe { ffi::ts_tree_cursor_reset_to(&raw mut self.0, &raw const cursor.0) };
     }
 }
 
 impl Clone for TreeCursor<'_> {
     fn clone(&self) -> Self {
-        TreeCursor(unsafe { ffi::ts_tree_cursor_copy(&self.0) }, PhantomData)
+        TreeCursor(
+            unsafe { ffi::ts_tree_cursor_copy(&raw const self.0) },
+            PhantomData,
+        )
     }
 }
 
 impl Drop for TreeCursor<'_> {
     fn drop(&mut self) {
-        unsafe { ffi::ts_tree_cursor_delete(&mut self.0) }
+        unsafe { ffi::ts_tree_cursor_delete(&raw mut self.0) }
     }
 }
 
@@ -3255,7 +3259,7 @@ impl<'tree> QueryMatch<'_, 'tree> {
             first_chunk: Option<T>,
         }
         impl<'a, T: AsRef<[u8]>> NodeText<'a, T> {
-            fn new(buffer: &'a mut Vec<u8>) -> Self {
+            const fn new(buffer: &'a mut Vec<u8>) -> Self {
                 Self {
                     buffer,
                     first_chunk: None,

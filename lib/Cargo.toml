@@ -4,7 +4,7 @@ version.workspace = true
 description = "Rust bindings to the Tree-sitter parsing library"
 authors.workspace = true
 edition.workspace = true
-rust-version = "1.77"
+rust-version = "1.86"
 readme = "binding_rust/README.md"
 homepage.workspace = true
 repository.workspace = true
@@ -53,7 +53,7 @@ tree-sitter-language.workspace = true
 streaming-iterator = "0.1.9"
 
 [dependencies.wasmtime-c-api]
-version = "33.0.2"
+version = "36.0.3"
 optional = true
 package = "wasmtime-c-api-impl"
 default-features = false
