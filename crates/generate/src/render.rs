@@ -231,32 +231,6 @@ impl Generator {
                     self.field_names.insert(i, field_name.clone());
                 }
             }
-
-            for alias in &production_info.alias_sequence {
-                // Generate a mapping from aliases to C identifiers.
-                if let Some(alias) = &alias {
-                    // Some aliases match an existing symbol in the grammar.
-                    let alias_id =
-                        if let Some(existing_symbol) = self.symbols_for_alias(alias).first() {
-                            self.symbol_ids[&self.symbol_map[existing_symbol]].0.clone()
-                        }
-                        // Other aliases don't match any existing symbol, and need their own
-                        // identifiers.
-                        else {
-                            if let Err(i) = self.unique_aliases.binary_search(alias) {
-                                self.unique_aliases.insert(i, alias.clone());
-                            }
-
-                            if alias.is_named {
-                                format!("alias_sym_{}", sanitize_identifier(&alias.value))
-                            } else {
-                                format!("anon_alias_sym_{}", sanitize_identifier(&alias.value))
-                            }
-                        };
-
-                    self.alias_ids.entry(alias.clone()).or_insert(alias_id);
-                }
-            }
         }
 
         for (ix, (symbol, _)) in self.large_character_sets.iter().enumerate() {
