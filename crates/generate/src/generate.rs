@@ -1,7 +1,4 @@
-use std::{
-    collections::{BTreeMap, HashMap},
-    sync::LazyLock,
-};
+use std::sync::LazyLock;
 #[cfg(feature = "load")]
 use std::{
     env, fs,
@@ -14,7 +11,6 @@ use anyhow::Result;
 use bitflags::bitflags;
 use log::warn;
 use regex::{Regex, RegexBuilder};
-use rules::{Alias, Symbol};
 #[cfg(feature = "load")]
 use semver::Version;
 #[cfg(feature = "load")]
@@ -44,8 +40,6 @@ pub use parse_grammar::ParseGrammarError;
 pub use prepare_grammar::PrepareGrammarError;
 use render::render_c_code;
 pub use render::{ABI_VERSION_MAX, ABI_VERSION_MIN};
-
-use crate::{build_tables::Tables, node_types::ChildType};
 
 static JSON_COMMENT_REGEX: LazyLock<Regex> = LazyLock::new(|| {
     RegexBuilder::new("^\\s*//.*")
