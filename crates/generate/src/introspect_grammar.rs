@@ -22,7 +22,7 @@ pub struct GrammarIntrospection {
     pub tables: Tables,
     pub symbol_ids: HashMap<Symbol, (String, u16)>,
     pub alias_ids: HashMap<Alias, String>,
-    pub unique_aliases: Vec<Alias>,
+    pub unique_aliases: Vec<(Alias, u16)>,
 }
 
 pub fn introspect_grammar(
@@ -94,7 +94,7 @@ pub fn generate_symbol_ids(
 ) -> (
     HashMap<Symbol, (String, u16)>,
     HashMap<Alias, String>,
-    Vec<Alias>,
+    Vec<(Alias, u16)>,
 ) {
     let mut symbol_ids = HashMap::new();
     let mut alias_ids = HashMap::new();
@@ -205,7 +205,18 @@ pub fn generate_symbol_ids(
         }
     }
 
-    (symbol_ids, alias_ids, unique_aliases)
+    (
+        symbol_ids,
+        alias_ids,
+        unique_aliases
+            .into_iter()
+            .map(|alias| {
+                let id = numeric_id;
+                numeric_id += 1;
+                (alias, id)
+            })
+            .collect(),
+    )
 }
 
 /// Helper function to sanitize identifiers for C code generation.

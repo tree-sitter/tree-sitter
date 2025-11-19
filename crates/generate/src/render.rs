@@ -83,7 +83,7 @@ struct Generator {
     default_aliases: AliasMap,
     symbol_ids: HashMap<Symbol, (String, u16)>,
     alias_ids: HashMap<Alias, String>,
-    unique_aliases: Vec<Alias>,
+    unique_aliases: Vec<(Alias, u16)>,
     symbol_map: HashMap<Symbol, Symbol>,
     reserved_word_sets: Vec<TokenSet>,
     reserved_word_set_ids_by_parse_state: Vec<usize>,
@@ -401,10 +401,8 @@ impl Generator {
             add_line!(self, "{} = {numeric_id},", string_id);
         }
         // Add aliases after all symbols
-        let alias_start = self.parse_table.symbols.len();
-        for (idx, alias) in self.unique_aliases.iter().enumerate() {
-            let i = alias_start + idx;
-            add_line!(self, "{} = {i},", self.alias_ids[alias]);
+        for (alias, numeric_id) in self.unique_aliases.iter() {
+            add_line!(self, "{} = {},", self.alias_ids[alias], numeric_id);
         }
         dedent!(self);
         add_line!(self, "}};");
@@ -428,8 +426,8 @@ impl Generator {
             add_line!(
                 self,
                 "[{}] = \"{}\",",
-                self.alias_ids[alias],
-                self.sanitize_string(&alias.value)
+                self.alias_ids[&alias.0],
+                self.sanitize_string(&alias.0.value)
             );
         }
         dedent!(self);
@@ -453,8 +451,8 @@ impl Generator {
             add_line!(
                 self,
                 "[{}] = {},",
-                self.alias_ids[alias],
-                self.alias_ids[alias],
+                self.alias_ids[&alias.0],
+                self.alias_ids[&alias.0],
             );
         }
 
@@ -525,10 +523,10 @@ impl Generator {
             add_line!(self, "}},");
         }
         for alias in &self.unique_aliases {
-            add_line!(self, "[{}] = {{", self.alias_ids[alias]);
+            add_line!(self, "[{}] = {{", self.alias_ids[&alias.0]);
             indent!(self);
             add_line!(self, ".visible = true,");
-            add_line!(self, ".named = {},", alias.is_named);
+            add_line!(self, ".named = {},", &alias.0.is_named);
             dedent!(self);
             add_line!(self, "}},");
         }
@@ -1778,7 +1776,7 @@ pub fn render_c_code(
     default_aliases: AliasMap,
     symbol_ids: HashMap<Symbol, (String, u16)>,
     alias_ids: HashMap<Alias, String>,
-    unique_aliases: Vec<Alias>,
+    unique_aliases: Vec<(Alias, u16)>,
     abi_version: usize,
     semantic_version: Option<(u8, u8, u8)>,
     supertype_symbol_map: BTreeMap<Symbol, Vec<ChildType>>,
