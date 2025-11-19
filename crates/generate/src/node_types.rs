@@ -474,6 +474,7 @@ pub fn generate_node_types_json(
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
     default_aliases: &AliasMap,
+    unique_aliases: &Vec<(Alias, u16)>,
     variable_info: &[VariableInfo],
     symbol_ids: &HashMap<Symbol, (String, u16)>,
 ) -> SuperTypeCycleResult<Vec<NodeInfoJSON>> {
@@ -506,6 +507,13 @@ pub fn generate_node_types_json(
             .entry((kind, is_named))
             .or_insert_with(Vec::new)
             .push(*numeric_id);
+    }
+
+    for unique_alias in unique_aliases {
+        kind_to_symbol_ids.insert(
+            (unique_alias.0.value.clone(), unique_alias.0.is_named),
+            vec![unique_alias.1],
+        );
     }
 
     // Sort the symbol IDs for each kind to ensure consistent ordering
@@ -2138,18 +2146,17 @@ mod tests {
             tables: _,
             symbol_ids,
             alias_ids: _,
-            unique_aliases: _,
+            unique_aliases,
         } = introspect_grammar(grammar, None, OptLevel::default()).unwrap();
 
-        let x = generate_node_types_json(
+        generate_node_types_json(
             &syntax_grammar,
             &lexical_grammar,
             &simple_aliases,
+            &unique_aliases,
             &variable_info,
             &symbol_ids,
         );
-
-        return x;
     }
 
     fn build_syntax_grammar(

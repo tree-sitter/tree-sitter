@@ -266,6 +266,7 @@ where
         &syntax_grammar,
         &lexical_grammar,
         &simple_aliases,
+        &unique_aliases,
         &variable_info,
         &symbol_ids,
     )?;
