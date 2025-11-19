@@ -114,13 +114,13 @@ struct Generate {
     /// Only generate `grammar.json` and `node-types.json`
     #[arg(long)]
     pub no_parser: bool,
-    /// Compile all defined languages in the current dir
+    /// Deprecated: use the `build` command
     #[arg(long, short = 'b')]
     pub build: bool,
-    /// Compile a parser in debug mode
+    /// Deprecated: use the `build` command
     #[arg(long, short = '0')]
     pub debug_build: bool,
-    /// The path to the directory containing the parser library
+    /// Deprecated: use the `build` command
     #[arg(long, value_name = "PATH")]
     pub libdir: Option<PathBuf>,
     /// The path to output the generated source files
@@ -261,15 +261,10 @@ struct Parse {
     #[arg(long)]
     pub open_log: bool,
     /// Deprecated: use --json-summary
-    #[arg(
-        long,
-        short = 'j',
-        conflicts_with = "json_summary",
-        conflicts_with = "stat"
-    )]
+    #[arg(long, conflicts_with = "json_summary", conflicts_with = "stat")]
     pub json: bool,
     /// Output parsing results in a JSON format
-    #[arg(long, conflicts_with = "json", conflicts_with = "stat")]
+    #[arg(long, short = 'j', conflicts_with = "json", conflicts_with = "stat")]
     pub json_summary: bool,
     /// The path to an alternative config.json file
     #[arg(long)]
@@ -348,7 +343,7 @@ struct Test {
     /// Show only the pass-fail overview tree
     #[arg(long)]
     pub overview_only: bool,
-    /// Output the test summary in a JSON output
+    /// Output the test summary in a JSON format
     #[arg(long)]
     pub json_summary: bool,
 }
@@ -905,6 +900,7 @@ impl Generate {
             }
         }
         if self.build {
+            warn!("--build is deprecated, use the `build` command");
             if let Some(path) = self.libdir {
                 loader = loader::Loader::with_parser_lib_path(path);
             }
