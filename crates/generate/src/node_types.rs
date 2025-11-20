@@ -5,6 +5,7 @@ use thiserror::Error;
 
 use super::{
     grammars::{LexicalGrammar, SyntaxGrammar, VariableType},
+    introspect_grammar::metadata_for_symbol,
     rules::{Alias, AliasMap, Symbol, SymbolType},
 };
 
@@ -487,19 +488,13 @@ pub fn generate_node_types_json(
             (alias.value.clone(), alias.is_named)
         } else {
             match symbol.kind {
-                SymbolType::NonTerminal => {
-                    let variable = &syntax_grammar.variables[symbol.index];
-                    (variable.name.clone(), variable.kind == VariableType::Named)
+                // TODO: check if `SymbolType::EndOfNonTerminalExtra` is correct
+                SymbolType::End => continue,
+                _ => {
+                    let (name, kind) =
+                        metadata_for_symbol(*symbol, syntax_grammar, lexical_grammar);
+                    (name.to_string(), kind == VariableType::Named)
                 }
-                SymbolType::Terminal => {
-                    let variable = &lexical_grammar.variables[symbol.index];
-                    (variable.name.clone(), variable.kind == VariableType::Named)
-                }
-                SymbolType::External => {
-                    let token = &syntax_grammar.external_tokens[symbol.index];
-                    (token.name.clone(), token.kind == VariableType::Named)
-                }
-                SymbolType::End | SymbolType::EndOfNonTerminalExtra => continue,
             }
         };
         kind_to_symbol_ids
