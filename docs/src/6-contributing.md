@@ -83,6 +83,18 @@ cargo xtask generate-fixtures --wasm
 cargo xtask test-wasm
 ```
 
+#### Wasm Stdlib
+
+The tree-sitter Wasm stdlib can be built via xtask:
+
+```sh
+cargo xtask build-wasm-stdlib
+```
+
+This command looks for the [Wasi SDK][wasi_sdk] indicated by the `TREE_SITTER_WASI_SDK_PATH`
+environment variable. If you don't have the binary, it can be downloaded from wasi-sdk's [releases][wasi-sdk-releases]
+page.
+
 ### Debugging
 
 The test script has a number of useful flags. You can list them all by running `cargo xtask test -h`.
@@ -220,4 +232,6 @@ and the tree-sitter module is fetched from [here][js url]. This, along with the 
 [pypi]: https://pypi.org
 [rust]: https://rustup.rs
 [ts repo]: https://github.com/tree-sitter/tree-sitter
+[wasi_sdk]: https://github.com/WebAssembly/wasi-sdk
+[wasi-sdk-releases]: https://github.com/WebAssembly/wasi-sdk/releases
 [web-ts]: https://www.npmjs.com/package/web-tree-sitter
