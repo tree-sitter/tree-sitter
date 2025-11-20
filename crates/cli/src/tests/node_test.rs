@@ -1278,7 +1278,9 @@ fn test_parser_and_node_types_compatibility(grammar_name: &str) {
         let kind = language.node_kind_for_id(i).unwrap();
         let named = language.node_kind_is_named(i);
 
-        // workaround maybe?
+        // TODO: find a better way
+        // In Go grammar, there is a node kind with an empty string.
+        // In node-types.json, it is "\u0000" but in parser.c, it is "\0" and not distinguishable from "".
         let kind = if kind.is_empty() {
             "\0".to_string()
         } else {
