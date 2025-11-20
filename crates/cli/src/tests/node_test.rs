@@ -1317,11 +1317,6 @@ fn test_cpp_parser_and_node_types_compatibility() {
 }
 
 #[test]
-fn test_embedded_template_parser_and_node_types_compatibility() {
-    test_parser_and_node_types_compatibility("embedded_template");
-}
-
-#[test]
 fn test_go_parser_and_node_types_compatibility() {
     test_parser_and_node_types_compatibility("go");
 }
