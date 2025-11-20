@@ -34,6 +34,8 @@ mod tables;
 pub use build_tables::ParseTableBuilderError;
 use introspect_grammar::{introspect_grammar, GrammarIntrospection};
 pub use node_types::{SuperTypeCycleError, VariableInfoError};
+#[cfg(feature = "load")]
+pub use node_types::{FieldInfoJSON, NodeInfoJSON, NodeTypeJSON};
 use parse_grammar::parse_grammar;
 pub use parse_grammar::ParseGrammarError;
 pub use prepare_grammar::PrepareGrammarError;

@@ -1,5 +1,7 @@
+use std::{collections::HashMap, fs};
+
 use tree_sitter::{InputEdit, Node, Parser, Point, Tree};
-use tree_sitter_generate::load_grammar_file;
+use tree_sitter_generate::{load_grammar_file, NodeInfoJSON};
 
 use super::{
     get_random_edit,
@@ -1242,4 +1244,112 @@ fn parse_json_example() -> Tree {
     let mut parser = Parser::new();
     parser.set_language(&get_language("json")).unwrap();
     parser.parse(JSON_EXAMPLE, None).unwrap()
+}
+
+fn test_parser_and_node_types_compatibility(grammar_name: &str) {
+    let language = get_language(grammar_name);
+    let node_types: Vec<NodeInfoJSON> = {
+        let node_types_path = fixtures_dir()
+            .join("grammars")
+            .join(grammar_name)
+            .join("src")
+            .join("node-types.json");
+
+        let node_types_content = fs::read_to_string(&node_types_path)
+            .unwrap_or_else(|_| panic!("Failed to read node-types.json at {:?}", node_types_path));
+
+        serde_json::from_str(&node_types_content)
+            .unwrap_or_else(|e| panic!("Failed to parse node-types.json: {}", e))
+    };
+
+    let symbol_ids_by_kind_from_node_types: HashMap<(String, bool), Option<&Vec<u16>>> = node_types
+        .iter()
+        .map(|node_type| {
+            (
+                (node_type.kind.clone(), node_type.named),
+                node_type.symbol_ids.as_ref(), // .unwrap_or(Vec::new()),
+            )
+        })
+        .collect();
+    let kind_count = language.node_kind_count();
+
+    let mut symbol_ids_by_kind_from_language: HashMap<(String, bool), Vec<u16>> = HashMap::new();
+    for i in 0..kind_count as u16 {
+        let kind = language.node_kind_for_id(i).unwrap().to_string();
+        let id = language.node_kind_is_named(i);
+
+        symbol_ids_by_kind_from_language
+            .entry((kind, id))
+            .or_insert_with(Vec::new)
+            .push(i);
+    }
+
+    for (key, symbol_ids) in symbol_ids_by_kind_from_node_types {
+        assert_eq!(symbol_ids_by_kind_from_language.get(&key), symbol_ids);
+    }
+}
+
+#[test]
+fn test_bash_parser_and_node_types_compatibility() {
+    test_parser_and_node_types_compatibility("bash");
+}
+
+#[test]
+fn test_c_parser_and_node_types_compatibility() {
+    test_parser_and_node_types_compatibility("c");
+}
+
+#[test]
+fn test_cpp_parser_and_node_types_compatibility() {
+    test_parser_and_node_types_compatibility("cpp");
+}
+
+#[test]
+fn test_embedded_template_parser_and_node_types_compatibility() {
+    test_parser_and_node_types_compatibility("embedded_template");
+}
+
+#[test]
+fn test_go_parser_and_node_types_compatibility() {
+    test_parser_and_node_types_compatibility("go");
+}
+
+#[test]
+fn test_html_parser_and_node_types_compatibility() {
+    test_parser_and_node_types_compatibility("html");
+}
+
+#[test]
+fn test_java_parser_and_node_types_compatibility() {
+    test_parser_and_node_types_compatibility("java");
+}
+
+#[test]
+fn test_javascript_parser_and_node_types_compatibility() {
+    test_parser_and_node_types_compatibility("javascript");
+}
+
+#[test]
+fn test_jsdoc_parser_and_node_types_compatibility() {
+    test_parser_and_node_types_compatibility("jsdoc");
+}
+
+#[test]
+fn test_json_parser_and_node_types_compatibility() {
+    test_parser_and_node_types_compatibility("json");
+}
+
+#[test]
+fn test_python_parser_and_node_types_compatibility() {
+    test_parser_and_node_types_compatibility("python");
+}
+
+#[test]
+fn test_ruby_parser_and_node_types_compatibility() {
+    test_parser_and_node_types_compatibility("ruby");
+}
+
+#[test]
+fn test_rust_parser_and_node_types_compatibility() {
+    test_parser_and_node_types_compatibility("rust");
 }

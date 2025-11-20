@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use super::{
@@ -28,40 +28,40 @@ pub struct VariableInfo {
     pub has_multi_step_production: bool,
 }
 
-#[derive(Debug, Serialize, PartialEq, Eq, Default, PartialOrd, Ord)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Default, PartialOrd, Ord)]
 #[cfg(feature = "load")]
 pub struct NodeInfoJSON {
     #[serde(rename = "type")]
-    kind: String,
-    named: bool,
-    #[serde(skip_serializing_if = "std::ops::Not::not")]
-    root: bool,
-    #[serde(skip_serializing_if = "std::ops::Not::not")]
-    extra: bool,
+    pub kind: String,
+    pub named: bool,
+    #[serde(skip_serializing_if = "std::ops::Not::not", default)]
+    pub root: bool,
+    #[serde(skip_serializing_if = "std::ops::Not::not", default)]
+    pub extra: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
-    fields: Option<BTreeMap<String, FieldInfoJSON>>,
+    pub fields: Option<BTreeMap<String, FieldInfoJSON>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    children: Option<FieldInfoJSON>,
+    pub children: Option<FieldInfoJSON>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    subtypes: Option<Vec<NodeTypeJSON>>,
+    pub subtypes: Option<Vec<NodeTypeJSON>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    symbol_ids: Option<Vec<u16>>,
+    pub symbol_ids: Option<Vec<u16>>,
 }
 
-#[derive(Clone, Debug, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg(feature = "load")]
 pub struct NodeTypeJSON {
     #[serde(rename = "type")]
-    kind: String,
-    named: bool,
+    pub kind: String,
+    pub named: bool,
 }
 
-#[derive(Debug, Serialize, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg(feature = "load")]
 pub struct FieldInfoJSON {
-    multiple: bool,
-    required: bool,
-    types: Vec<NodeTypeJSON>,
+    pub multiple: bool,
+    pub required: bool,
+    pub types: Vec<NodeTypeJSON>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -1551,7 +1551,7 @@ mod tests {
                 subtypes: None,
                 children: None,
                 fields: None,
-                symbol_ids: None,
+                symbol_ids: Some(vec![7]),
             })
         );
     }
