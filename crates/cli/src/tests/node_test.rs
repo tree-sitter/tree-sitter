@@ -1275,11 +1275,18 @@ fn test_parser_and_node_types_compatibility(grammar_name: &str) {
 
     let mut symbol_ids_by_kind_from_language: HashMap<(String, bool), Vec<u16>> = HashMap::new();
     for i in 0..kind_count as u16 {
-        let kind = language.node_kind_for_id(i).unwrap().to_string();
-        let id = language.node_kind_is_named(i);
+        let kind = language.node_kind_for_id(i).unwrap();
+        let named = language.node_kind_is_named(i);
+
+        // workaround maybe?
+        let kind = if kind.is_empty() {
+            "\0".to_string()
+        } else {
+            kind.to_string()
+        };
 
         symbol_ids_by_kind_from_language
-            .entry((kind, id))
+            .entry((kind, named))
             .or_insert_with(Vec::new)
             .push(i);
     }
