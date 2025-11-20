@@ -663,7 +663,7 @@ pub fn generate_node_types_json(
                         fields: Some(BTreeMap::new()),
                         children: None,
                         subtypes: None,
-                        symbol_ids: kind_to_symbol_ids.get(&(kind.clone(), true)).cloned(),
+                        symbol_ids: kind_to_symbol_ids.get(&(kind.clone(), is_named)).cloned(),
                     }
                 });
 
