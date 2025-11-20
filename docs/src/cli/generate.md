@@ -52,8 +52,9 @@ Report conflicts in a JSON format.
 
 The path to the JavaScript runtime executable to use when generating the parser. The default is `node`.
 Note that you can also set this with `TREE_SITTER_JS_RUNTIME`. Starting from version 0.26.0, you can
-also pass in `native` to use the native QuickJS runtime that comes bundled with the CLI. This avoids
-the dependency on a JavaScript runtime entirely.
+also pass in `native` to use the experimental native QuickJS runtime that comes bundled with the CLI.
+This avoids the dependency on a JavaScript runtime entirely. The native QuickJS runtime is compatible
+with ESM as well as with CommonJS in strict mode. If your grammar depends on `npm` to install dependencies such as base grammars, the native runtime can be used *after* running `npm install`.
 
 ### `--disable-optimization`
 
