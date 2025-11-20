@@ -2155,7 +2155,7 @@ mod tests {
             &unique_aliases,
             &variable_info,
             &symbol_ids,
-        );
+        )
     }
 
     fn build_syntax_grammar(
