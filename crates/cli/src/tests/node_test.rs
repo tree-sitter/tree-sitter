@@ -1292,7 +1292,12 @@ fn test_parser_and_node_types_compatibility(grammar_name: &str) {
     }
 
     for (key, symbol_ids) in symbol_ids_by_kind_from_node_types {
-        assert_eq!(symbol_ids_by_kind_from_language.get(&key), symbol_ids);
+        assert_eq!(
+            symbol_ids,
+            symbol_ids_by_kind_from_language.get(&key),
+            "{:?}",
+            key
+        );
     }
 }
 
