@@ -337,7 +337,7 @@ pub fn generate_grammar_files(
                     "tree-sitter-cli":"#},
                     indoc! {r#"
                     "prebuildify": "^6.0.1",
-                    "tree-sitter": "^0.22.4",
+                    "tree-sitter": "^0.25.0",
                     "tree-sitter-cli":"#},
                 );
             if !contents.contains("module") {
