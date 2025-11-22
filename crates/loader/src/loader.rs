@@ -1441,9 +1441,9 @@ impl Loader {
             return Err(LoaderError::WasiSDKPlatform);
         };
 
-        let sdk_filename = format!("wasi-sdk-25.0-{arch_os}.tar.gz");
+        let sdk_filename = format!("wasi-sdk-29.0-{arch_os}.tar.gz");
         let sdk_url = format!(
-            "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-25/{sdk_filename}",
+            "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-29/{sdk_filename}",
         );
 
         info!("Downloading wasi-sdk from {sdk_url}...");
