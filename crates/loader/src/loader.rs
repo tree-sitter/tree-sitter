@@ -1306,11 +1306,10 @@ impl Loader {
     ) -> LoaderResult<()> {
         let clang_executable = self.ensure_wasi_sdk_exists()?;
 
-        let output_name = "output.wasm";
         let mut command = Command::new(&clang_executable);
         command.current_dir(src_path).args([
             "-o",
-            output_name,
+            output_path.to_str().unwrap(),
             "-fPIC",
             "-shared",
             if self.debug_build { "-g" } else { "-Os" },
@@ -1336,10 +1335,6 @@ impl Loader {
                 String::from_utf8_lossy(&output.stderr).to_string(),
             ));
         }
-
-        let current_path = src_path.join(output_name);
-        fs::rename(&current_path, output_path)
-            .map_err(|e| LoaderError::IO(IoError::new(e, Some(current_path.as_path()))))?;
 
         Ok(())
     }
