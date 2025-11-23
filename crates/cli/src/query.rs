@@ -119,7 +119,7 @@ pub fn query_file_at_path(
             }
         }
     }
-    if !query_cursor.did_exceed_match_limit() {
+    if query_cursor.did_exceed_match_limit() {
         warn!("Query exceeded maximum number of in-progress captures!");
     }
     if should_test {
