@@ -5032,6 +5032,26 @@ fn test_query_quantified_captures() {
                 ("comment.documentation", "// quuz"),
             ],
         },
+        Row {
+            description: "multiple quantifiers should not hang query parsing",
+            language: get_language("c"),
+            code: indoc! {"
+            // foo
+            // bar
+            // baz
+        "},
+            pattern: r"
+                ((comment) ?+ @comment)
+            ",
+            // This should be identical to the `*` quantifier.
+            captures: &[
+                ("comment", "// foo"),
+                ("comment", "// foo"),
+                ("comment", "// foo"),
+                ("comment", "// bar"),
+                ("comment", "// baz"),
+            ],
+        },
     ];
 
     allocations::record(|| {
