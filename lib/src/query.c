@@ -2736,12 +2736,6 @@ static TSQueryError ts_query__parse_pattern(
 
       stream_advance(stream);
       stream_skip_whitespace(stream);
-
-      QueryStep repeat_step = query_step__new(WILDCARD_SYMBOL, depth, false);
-      repeat_step.alternative_index = starting_step_index;
-      repeat_step.is_pass_through = true;
-      repeat_step.alternative_is_immediate = true;
-      array_push(&self->steps, repeat_step);
     }
 
     // Parse the zero-or-more repetition operator.
@@ -2750,21 +2744,6 @@ static TSQueryError ts_query__parse_pattern(
 
       stream_advance(stream);
       stream_skip_whitespace(stream);
-
-      QueryStep repeat_step = query_step__new(WILDCARD_SYMBOL, depth, false);
-      repeat_step.alternative_index = starting_step_index;
-      repeat_step.is_pass_through = true;
-      repeat_step.alternative_is_immediate = true;
-      array_push(&self->steps, repeat_step);
-
-      // Stop when `step->alternative_index` is `NONE` or it points to
-      // `repeat_step` or beyond. Note that having just been pushed,
-      // `repeat_step` occupies slot `self->steps.size - 1`.
-      QueryStep *step = array_get(&self->steps, starting_step_index);
-      while (step->alternative_index != NONE && step->alternative_index < self->steps.size - 1) {
-        step = array_get(&self->steps, step->alternative_index);
-      }
-      step->alternative_index = self->steps.size;
     }
 
     // Parse the optional operator.
@@ -2773,12 +2752,6 @@ static TSQueryError ts_query__parse_pattern(
 
       stream_advance(stream);
       stream_skip_whitespace(stream);
-
-      QueryStep *step = array_get(&self->steps, starting_step_index);
-      while (step->alternative_index != NONE && step->alternative_index < self->steps.size) {
-        step = array_get(&self->steps, step->alternative_index);
-      }
-      step->alternative_index = self->steps.size;
     }
 
     // Parse an '@'-prefixed capture pattern
@@ -2820,6 +2793,43 @@ static TSQueryError ts_query__parse_pattern(
     else {
       break;
     }
+  }
+
+  QueryStep repeat_step;
+  QueryStep *step;
+  switch (quantifier) {
+    case TSQuantifierOneOrMore:
+      repeat_step = query_step__new(WILDCARD_SYMBOL, depth, false);
+      repeat_step.alternative_index = starting_step_index;
+      repeat_step.is_pass_through = true;
+      repeat_step.alternative_is_immediate = true;
+      array_push(&self->steps, repeat_step);
+      break;
+    case TSQuantifierZeroOrMore:
+      repeat_step = query_step__new(WILDCARD_SYMBOL, depth, false);
+      repeat_step.alternative_index = starting_step_index;
+      repeat_step.is_pass_through = true;
+      repeat_step.alternative_is_immediate = true;
+      array_push(&self->steps, repeat_step);
+
+      // Stop when `step->alternative_index` is `NONE` or it points to
+      // `repeat_step` or beyond. Note that having just been pushed,
+      // `repeat_step` occupies slot `self->steps.size - 1`.
+      step = array_get(&self->steps, starting_step_index);
+      while (step->alternative_index != NONE && step->alternative_index < self->steps.size - 1) {
+        step = array_get(&self->steps, step->alternative_index);
+      }
+      step->alternative_index = self->steps.size;
+      break;
+    case TSQuantifierZeroOrOne:
+      step = array_get(&self->steps, starting_step_index);
+      while (step->alternative_index != NONE && step->alternative_index < self->steps.size) {
+        step = array_get(&self->steps, step->alternative_index);
+      }
+      step->alternative_index = self->steps.size;
+      break;
+    default:
+      break;
   }
 
   capture_quantifiers_mul(capture_quantifiers, quantifier);
