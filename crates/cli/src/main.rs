@@ -223,7 +223,7 @@ struct Parse {
     #[arg(long, short = 'D')]
     pub debug_graph: bool,
     /// Compile parsers to Wasm instead of native dynamic libraries
-    #[arg(long)]
+    #[arg(long, hide = cfg!(not(feature = "wasm")))]
     pub wasm: bool,
     /// Output the parse data with graphviz dot
     #[arg(long = "dot")]
@@ -323,7 +323,7 @@ struct Test {
     #[arg(long, short = 'D')]
     pub debug_graph: bool,
     /// Compile parsers to Wasm instead of native dynamic libraries
-    #[arg(long)]
+    #[arg(long, hide = cfg!(not(feature = "wasm")))]
     pub wasm: bool,
     /// Open `log.html` in the default browser, if `--debug-graph` is supplied
     #[arg(long)]
@@ -587,6 +587,20 @@ pub enum Shell {
     PowerShell,
     Zsh,
     Nushell,
+}
+
+/// Complete `action` if the wasm feature is enabled, otherwise return an error
+macro_rules! checked_wasm {
+    ($action:block) => {
+        #[cfg(feature = "wasm")]
+        {
+            $action
+        }
+        #[cfg(not(feature = "wasm"))]
+        {
+            Err(anyhow!("--wasm flag specified, but this build of tree-sitter-cli does not include the wasm feature"))?;
+        }
+    };
 }
 
 impl InitConfig {
@@ -1005,13 +1019,14 @@ impl Parse {
         loader.debug_build(self.debug_build);
         loader.force_rebuild(self.rebuild || self.grammar_path.is_some());
 
-        #[cfg(feature = "wasm")]
         if self.wasm {
-            let engine = tree_sitter::wasmtime::Engine::default();
-            parser
-                .set_wasm_store(tree_sitter::WasmStore::new(&engine).unwrap())
-                .unwrap();
-            loader.use_wasm(&engine);
+            checked_wasm!({
+                let engine = tree_sitter::wasmtime::Engine::default();
+                parser
+                    .set_wasm_store(tree_sitter::WasmStore::new(&engine).unwrap())
+                    .unwrap();
+                loader.use_wasm(&engine);
+            });
         }
 
         let timeout = self.timeout.unwrap_or_default();
@@ -1215,13 +1230,14 @@ impl Test {
 
         let mut parser = Parser::new();
 
-        #[cfg(feature = "wasm")]
         if self.wasm {
-            let engine = tree_sitter::wasmtime::Engine::default();
-            parser
-                .set_wasm_store(tree_sitter::WasmStore::new(&engine).unwrap())
-                .unwrap();
-            loader.use_wasm(&engine);
+            checked_wasm!({
+                let engine = tree_sitter::wasmtime::Engine::default();
+                parser
+                    .set_wasm_store(tree_sitter::WasmStore::new(&engine).unwrap())
+                    .unwrap();
+                loader.use_wasm(&engine);
+            });
         }
 
         if self.lib_path.is_none() && self.lang_name.is_some() {
