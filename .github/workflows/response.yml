@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout script
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           sparse-checkout: .github/scripts/close_unresponsive.js
           sparse-checkout-cone-mode: false
@@ -35,7 +35,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout script
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           sparse-checkout: .github/scripts/remove_response_label.js
           sparse-checkout-cone-mode: false

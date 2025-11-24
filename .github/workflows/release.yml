@@ -20,7 +20,7 @@ jobs:
       contents: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Download build artifacts
         uses: actions/download-artifact@v6
@@ -61,7 +61,7 @@ jobs:
     needs: release
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Set up Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -81,7 +81,7 @@ jobs:
         directory: [crates/cli/npm, lib/binding_web]
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Set up Node
         uses: actions/setup-node@v6

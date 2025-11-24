@@ -16,7 +16,7 @@ jobs:
     if: github.event.label.name == 'spam'
     steps:
       - name: Checkout script
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           sparse-checkout: .github/scripts/close_spam.js
           sparse-checkout-cone-mode: false
