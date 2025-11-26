@@ -41,6 +41,8 @@ use tree_sitter_tags::{Error as TagsError, TagsConfiguration};
 static GRAMMAR_NAME_REGEX: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r#""name":\s*"(.*?)""#).unwrap());
 
+const WASI_SDK_VERSION: &str = include_str!("../wasi-sdk-version").trim_ascii();
+
 pub type LoaderResult<T> = Result<T, LoaderError>;
 
 #[derive(Debug, Error)]
@@ -223,7 +225,7 @@ impl std::fmt::Display for ScannerSymbolError {
 pub struct WasiSDKClangError {
     pub wasi_sdk_dir: String,
     pub possible_executables: Vec<&'static str>,
-    download: bool,
+    pub download: bool,
 }
 
 impl std::fmt::Display for WasiSDKClangError {
@@ -1436,9 +1438,12 @@ impl Loader {
             return Err(LoaderError::WasiSDKPlatform);
         };
 
-        let sdk_filename = format!("wasi-sdk-29.0-{arch_os}.tar.gz");
+        let sdk_filename = format!("wasi-sdk-{WASI_SDK_VERSION}-{arch_os}.tar.gz");
+        let wasi_sdk_major_version = WASI_SDK_VERSION
+            .trim_end_matches(char::is_numeric) // trim minor version...
+            .trim_end_matches('.'); // ...and '.' separator
         let sdk_url = format!(
-            "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-29/{sdk_filename}",
+            "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-{wasi_sdk_major_version}/{sdk_filename}",
         );
 
         info!("Downloading wasi-sdk from {sdk_url}...");

@@ -2812,6 +2812,7 @@ dependencies = [
  "anyhow",
  "bindgen",
  "clap",
+ "etcetera",
  "indoc",
  "notify",
  "notify-debouncer-full",
@@ -2820,6 +2821,7 @@ dependencies = [
  "semver",
  "serde_json",
  "tree-sitter-cli",
+ "tree-sitter-loader",
 ]
 
 [[package]]

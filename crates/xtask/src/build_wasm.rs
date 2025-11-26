@@ -8,13 +8,15 @@ use std::{
     time::Duration,
 };
 
-use anyhow::{anyhow, Error, Result};
+use anyhow::{anyhow, Result};
+use etcetera::BaseStrategy as _;
 use indoc::indoc;
 use notify::{
     event::{AccessKind, AccessMode},
     EventKind, RecursiveMode,
 };
 use notify_debouncer_full::new_debouncer;
+use tree_sitter_loader::{IoError, LoaderError, WasiSDKClangError};
 
 use crate::{
     bail_on_err, embed_sources::embed_sources_in_map, watch_wasm, BuildWasm, EMSCRIPTEN_TAG,
@@ -49,6 +51,8 @@ const EXPORTED_RUNTIME_METHODS: [&str; 20] = [
     "HEAPU64",
     "LE_HEAP_STORE_I64",
 ];
+
+const WASI_SDK_VERSION: &str = include_str!("../../loader/wasi-sdk-version").trim_ascii();
 
 pub fn run_wasm(args: &BuildWasm) -> Result<()> {
     let mut emscripten_flags = if args.debug {
@@ -309,9 +313,17 @@ fn build_wasm(cmd: &mut Command, edit_tsd: bool) -> Result<()> {
     Ok(())
 }
 
-/// This gets the path to the `clang` binary in the WASI SDK specified by the
-/// `TREE_SITTER_WASI_SDK_PATH` environment variable.
-fn get_wasi_binary() -> Result<PathBuf, Error> {
+/// This ensures that the wasi-sdk is available, downloading and extracting it if necessary,
+/// and returns the path to the `clang` executable.
+///
+/// If `TREE_SITTER_WASI_SDK_PATH` is set, it will use that path to look for the clang executable.
+///
+/// Note that this is just a minimially modified version of
+/// `tree_sitter_loader::ensure_wasi_sdk_exists`. In the loader, this functionality is implemented
+/// as a private method of `Loader`. Rather than add this to the public API, we just
+/// re-implement it. Any fixes and/or modifications made to the loader's copy should be reflected
+/// here.
+pub fn ensure_wasi_sdk_exists() -> Result<PathBuf> {
     let possible_executables = if cfg!(windows) {
         vec![
             "clang.exe",
@@ -332,19 +344,122 @@ fn get_wasi_binary() -> Result<PathBuf, Error> {
             }
         }
 
-        return Err(anyhow!(
-                "TREE_SITTER_WASI_SDK_PATH is set to '{}', but no clang executable found in 'bin/' directory. \
-                 Looked for: {}",
-                wasi_sdk_dir.display(),
-                possible_executables.join(", ")
-            ));
+        Err(LoaderError::WasiSDKClang(WasiSDKClangError {
+            wasi_sdk_dir: wasi_sdk_dir.to_string_lossy().to_string(),
+            possible_executables: possible_executables.clone(),
+            download: false,
+        }))?;
     }
 
-    Err(anyhow!(
-        "TREE_SITTER_WASI_SDK_PATH environment variable is not set. \
-         Please install the WASI SDK from https://github.com/WebAssembly/wasi-sdk/releases \
-         and set TREE_SITTER_WASI_SDK_PATH to the installation directory."
-    ))
+    let cache_dir = etcetera::choose_base_strategy()?
+        .cache_dir()
+        .join("tree-sitter");
+    fs::create_dir_all(&cache_dir).map_err(|error| {
+        LoaderError::IO(IoError {
+            error,
+            path: Some(cache_dir.to_string_lossy().to_string()),
+        })
+    })?;
+
+    let wasi_sdk_dir = cache_dir.join("wasi-sdk");
+
+    for exe in &possible_executables {
+        let clang_exe = wasi_sdk_dir.join("bin").join(exe);
+        if clang_exe.exists() {
+            return Ok(clang_exe);
+        }
+    }
+
+    fs::create_dir_all(&wasi_sdk_dir).map_err(|error| {
+        LoaderError::IO(IoError {
+            error,
+            path: Some(wasi_sdk_dir.to_string_lossy().to_string()),
+        })
+    })?;
+
+    let arch_os = if cfg!(target_os = "macos") {
+        if cfg!(target_arch = "aarch64") {
+            "arm64-macos"
+        } else {
+            "x86_64-macos"
+        }
+    } else if cfg!(target_os = "windows") {
+        if cfg!(target_arch = "aarch64") {
+            "arm64-windows"
+        } else {
+            "x86_64-windows"
+        }
+    } else if cfg!(target_os = "linux") {
+        if cfg!(target_arch = "aarch64") {
+            "arm64-linux"
+        } else {
+            "x86_64-linux"
+        }
+    } else {
+        Err(LoaderError::WasiSDKPlatform)?
+    };
+
+    let sdk_filename = format!("wasi-sdk-{WASI_SDK_VERSION}-{arch_os}.tar.gz");
+    let wasi_sdk_major_version = WASI_SDK_VERSION
+        .trim_end_matches(char::is_numeric) // trim minor version...
+        .trim_end_matches('.'); // ...and '.' separator
+    let sdk_url = format!(
+        "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-{wasi_sdk_major_version}/{sdk_filename}",
+    );
+
+    eprintln!("Downloading wasi-sdk from {sdk_url}...");
+    let temp_tar_path = cache_dir.join(sdk_filename);
+
+    let status = Command::new("curl")
+        .arg("-f")
+        .arg("-L")
+        .arg("-o")
+        .arg(&temp_tar_path)
+        .arg(&sdk_url)
+        .status()
+        .map_err(|e| LoaderError::Curl(sdk_url.clone(), e))?;
+
+    if !status.success() {
+        Err(LoaderError::WasiSDKDownload(sdk_url))?;
+    }
+
+    eprintln!("Extracting wasi-sdk to {}...", wasi_sdk_dir.display());
+    extract_tar_gz_with_strip(&temp_tar_path, &wasi_sdk_dir)?;
+
+    fs::remove_file(temp_tar_path).ok();
+    for exe in &possible_executables {
+        let clang_exe = wasi_sdk_dir.join("bin").join(exe);
+        if clang_exe.exists() {
+            return Ok(clang_exe);
+        }
+    }
+
+    Err(LoaderError::WasiSDKClang(WasiSDKClangError {
+        wasi_sdk_dir: wasi_sdk_dir.to_string_lossy().to_string(),
+        possible_executables,
+        download: true,
+    }))?
+}
+
+/// Extracts a tar.gz archive with `tar`, stripping the first path component.
+fn extract_tar_gz_with_strip(archive_path: &Path, destination: &Path) -> Result<()> {
+    let status = Command::new("tar")
+        .arg("-xzf")
+        .arg(archive_path)
+        .arg("--strip-components=1")
+        .arg("-C")
+        .arg(destination)
+        .status()
+        .map_err(|e| LoaderError::Tar(archive_path.to_string_lossy().to_string(), e))?;
+
+    if !status.success() {
+        Err(LoaderError::Extraction(
+            archive_path.to_string_lossy().to_string(),
+            destination.to_string_lossy().to_string(),
+        ))?;
+    }
+
+    Ok(())
 }
 
 pub fn run_wasm_stdlib() -> Result<()> {
@@ -353,7 +468,7 @@ pub fn run_wasm_stdlib() -> Result<()> {
         .map(|line| format!("-Wl,--export={}", &line[1..line.len() - 2]))
         .collect::<Vec<String>>();
 
-    let clang_exe = get_wasi_binary()?;
+    let clang_exe = ensure_wasi_sdk_exists()?;
 
     let output = Command::new(&clang_exe)
         .args([
