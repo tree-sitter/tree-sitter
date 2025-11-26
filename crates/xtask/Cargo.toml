@@ -19,11 +19,13 @@ anstyle.workspace = true
 anyhow.workspace = true
 bindgen = { version = "0.72.0" }
 clap.workspace = true
+etcetera.workspace = true
 indoc.workspace = true
 regex.workspace = true
 schemars.workspace = true
 semver.workspace = true
 serde_json.workspace = true
 tree-sitter-cli = { path = "../cli/" }
+tree-sitter-loader = { path = "../loader/" }
 notify = "8.2.0"
 notify-debouncer-full = "0.6.0"
