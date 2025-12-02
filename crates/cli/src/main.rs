@@ -1482,30 +1482,11 @@ impl Query {
         loader.find_all_languages(&loader_config)?;
         let query_path = Path::new(&self.query_path);
 
-        let byte_range = self.byte_range.as_ref().and_then(|range| {
-            let mut parts = range.split(':');
-            let start = parts.next()?.parse().ok()?;
-            let end = parts.next().unwrap().parse().ok()?;
-            Some(start..end)
-        });
-        let point_range = self.row_range.as_ref().and_then(|range| {
-            let mut parts = range.split(':');
-            let start = parts.next()?.parse().ok()?;
-            let end = parts.next().unwrap().parse().ok()?;
-            Some(Point::new(start, 0)..Point::new(end, 0))
-        });
-        let containing_byte_range = self.containing_byte_range.as_ref().and_then(|range| {
-            let mut parts = range.split(':');
-            let start = parts.next()?.parse().ok()?;
-            let end = parts.next().unwrap().parse().ok()?;
-            Some(start..end)
-        });
-        let containing_point_range = self.containing_row_range.as_ref().and_then(|range| {
-            let mut parts = range.split(':');
-            let start = parts.next()?.parse().ok()?;
-            let end = parts.next().unwrap().parse().ok()?;
-            Some(Point::new(start, 0)..Point::new(end, 0))
-        });
+        let byte_range = parse_range(&self.byte_range, |x| x)?;
+        let point_range = parse_range(&self.row_range, |row| Point::new(row, 0))?;
+        let containing_byte_range = parse_range(&self.containing_byte_range, |x| x)?;
+        let containing_point_range =
+            parse_range(&self.containing_row_range, |row| Point::new(row, 0))?;
 
         let cancellation_flag = util::cancel_on_signal();
 
@@ -2104,5 +2085,34 @@ fn get_lib_info<'a>(
         }
     } else {
         None
+    }
+}
+
+/// Parse a range string of the form "start:end" into an optional Range<T>.
+fn parse_range<T>(
+    range_str: &Option<String>,
+    make: impl Fn(usize) -> T,
+) -> Result<Option<std::ops::Range<T>>> {
+    if let Some(range) = range_str.as_ref() {
+        let err_msg = format!("Invalid range '{range}', expected 'start:end'");
+        let mut parts = range.split(':');
+
+        let Some(part) = parts.next() else {
+            Err(anyhow!(err_msg))?
+        };
+        let Ok(start) = part.parse::<usize>() else {
+            Err(anyhow!(err_msg))?
+        };
+
+        let Some(part) = parts.next() else {
+            Err(anyhow!(err_msg))?
+        };
+        let Ok(end) = part.parse::<usize>() else {
+            Err(anyhow!(err_msg))?
+        };
+
+        Ok(Some(make(start)..make(end)))
+    } else {
+        Ok(None)
     }
 }
