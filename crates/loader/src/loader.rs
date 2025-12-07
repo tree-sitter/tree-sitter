@@ -1702,7 +1702,7 @@ impl Loader {
 
     pub fn select_language(
         &mut self,
-        path: &Path,
+        path: Option<&Path>,
         current_dir: &Path,
         scope: Option<&str>,
         // path to dynamic library, name of language
@@ -1720,7 +1720,7 @@ impl Loader {
             } else {
                 Err(LoaderError::UnknownScope(scope.to_string()))
             }
-        } else if let Some((lang, _)) =
+        } else if let Some((lang, _)) = if let Some(path) = path {
             self.language_configuration_for_file_name(path)
                 .map_err(|e| {
                     LoaderError::FileNameLoad(
@@ -1728,7 +1728,9 @@ impl Loader {
                         Box::new(e),
                     )
                 })?
-        {
+        } else {
+            None
+        } {
             Ok(lang)
         } else if let Some(id) = self.language_configuration_in_current_path {
             Ok(self.language_for_id(self.language_configurations[id].language_id)?)
@@ -1739,7 +1741,11 @@ impl Loader {
             .cloned()
         {
             Ok(lang.0)
-        } else if let Some(lang) = self.language_configuration_for_first_line_regex(path)? {
+        } else if let Some(lang) = if let Some(path) = path {
+            self.language_configuration_for_first_line_regex(path)?
+        } else {
+            None
+        } {
             Ok(lang.0)
         } else {
             Err(LoaderError::NoLanguage)
