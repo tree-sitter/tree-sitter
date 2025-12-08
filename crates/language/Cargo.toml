@@ -1,7 +1,7 @@
 [package]
 name = "tree-sitter-language"
 description = "The tree-sitter Language type, used by the library and by language implementations"
-version = "0.1.5"
+version = "0.1.6"
 authors.workspace = true
 edition.workspace = true
 rust-version = "1.77"
