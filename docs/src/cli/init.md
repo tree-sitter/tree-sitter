@@ -115,11 +115,11 @@ Each key is a language name, and the value is a boolean.
 - `c` (default: `true`)
 - `go` (default: `true`)
 - `java` (default: `false`)
-- `kotlin` (default: `false`)
 - `node` (default: `true`)
 - `python` (default: `true`)
 - `rust` (default: `true`)
 - `swift` (default: `false`)
+- `zig` (default: `false`)
 
 ## Binding Files
 
@@ -153,6 +153,12 @@ if you have one.
 - `bindings/node/index.d.ts` — This file provides type hints for your parser when used in TypeScript.
 - `bindings/node/binding_test.js` — This file contains a test for the Node.js package.
 
+### Java
+
+- `pom.xml` - This file is the manifest of the Maven package.
+- `bindings/java/main/namespace/language/TreeSitterLanguage.java` - This file wraps your language in a Java class.
+- `bindings/java/test/namespace/language/TreeSitterLanguageTest.java` - This file contains a test for the Java package.
+
 ### Python
 
 - `pyproject.toml` — This file is the manifest of the Python package.
@@ -174,6 +180,13 @@ if you have one.
 - `Package.swift` — This file tells Swift how to compile your language.
 - `bindings/swift/TreeSitterLanguage/language.h` — This file wraps your language in a Swift module when used in Swift.
 - `bindings/swift/TreeSitterLanguageTests/TreeSitterLanguageTests.swift` — This file contains a test for the Swift package.
+
+### Zig
+
+- `build.zig` - This file tells Zig how to compile your language.
+- `build.zig.zon` - This file is the manifest of the Zig package.
+- `bindings/zig/root.zig` - This file wraps your language in a Zig module.
+- `bindings/zig/test.zig` - This file contains a test for the Zig package.
 
 ### Additional Files
 
