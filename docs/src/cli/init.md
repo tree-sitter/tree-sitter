@@ -157,7 +157,7 @@ if you have one.
 
 - `pom.xml` - This file is the manifest of the Maven package.
 - `bindings/java/main/namespace/language/TreeSitterLanguage.java` - This file wraps your language in a Java class.
-- `bindings/java/test/namespace/language/TreeSitterLanguageTest.java` - This file contains a test for the Java package.
+- `bindings/java/test/TreeSitterLanguageTest.java` - This file contains a test for the Java package.
 
 ### Python
 
