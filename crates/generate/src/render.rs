@@ -1,11 +1,14 @@
 use std::{
     cmp,
-    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
+    collections::{BTreeMap, BTreeSet, HashMap},
     fmt::Write,
     mem::swap,
 };
 
-use crate::LANGUAGE_VERSION;
+use crate::{
+    introspect_grammar::{metadata_for_symbol, sanitize_identifier},
+    LANGUAGE_VERSION,
+};
 use indoc::indoc;
 
 use super::{
@@ -78,10 +81,9 @@ struct Generator {
     syntax_grammar: SyntaxGrammar,
     lexical_grammar: LexicalGrammar,
     default_aliases: AliasMap,
-    symbol_order: HashMap<Symbol, usize>,
-    symbol_ids: HashMap<Symbol, String>,
+    symbol_ids: HashMap<Symbol, (String, u16)>,
     alias_ids: HashMap<Alias, String>,
-    unique_aliases: Vec<Alias>,
+    unique_aliases: Vec<(Alias, u16)>,
     symbol_map: HashMap<Symbol, Symbol>,
     reserved_word_sets: Vec<TokenSet>,
     reserved_word_set_ids_by_parse_state: Vec<usize>,
@@ -175,15 +177,7 @@ impl Generator {
     }
 
     fn init(&mut self) {
-        let mut symbol_identifiers = HashSet::new();
-        for i in 0..self.parse_table.symbols.len() {
-            self.assign_symbol_id(self.parse_table.symbols[i], &mut symbol_identifiers);
-        }
-        self.symbol_ids.insert(
-            Symbol::end_of_nonterminal_extra(),
-            self.symbol_ids[&Symbol::end()].clone(),
-        );
-
+        // symbol_ids and alias_ids are now passed in from the constructor
         self.symbol_map = HashMap::new();
 
         for symbol in &self.parse_table.symbols {
@@ -237,32 +231,6 @@ impl Generator {
                     self.field_names.insert(i, field_name.clone());
                 }
             }
-
-            for alias in &production_info.alias_sequence {
-                // Generate a mapping from aliases to C identifiers.
-                if let Some(alias) = &alias {
-                    // Some aliases match an existing symbol in the grammar.
-                    let alias_id =
-                        if let Some(existing_symbol) = self.symbols_for_alias(alias).first() {
-                            self.symbol_ids[&self.symbol_map[existing_symbol]].clone()
-                        }
-                        // Other aliases don't match any existing symbol, and need their own
-                        // identifiers.
-                        else {
-                            if let Err(i) = self.unique_aliases.binary_search(alias) {
-                                self.unique_aliases.insert(i, alias.clone());
-                            }
-
-                            if alias.is_named {
-                                format!("alias_sym_{}", self.sanitize_identifier(&alias.value))
-                            } else {
-                                format!("anon_alias_sym_{}", self.sanitize_identifier(&alias.value))
-                            }
-                        };
-
-                    self.alias_ids.entry(alias.clone()).or_insert(alias_id);
-                }
-            }
         }
 
         for (ix, (symbol, _)) in self.large_character_sets.iter().enumerate() {
@@ -272,7 +240,7 @@ impl Generator {
                 .count()
                 + 1;
             let constant_name = if let Some(symbol) = symbol {
-                format!("{}_character_set_{}", self.symbol_ids[symbol], count)
+                format!("{}_character_set_{}", self.symbol_ids[symbol].0, count)
             } else {
                 format!("extras_character_set_{count}")
             };
@@ -302,7 +270,7 @@ impl Generator {
             for (supertype, subtypes) in &self.supertype_symbol_map {
                 if let Some(supertype) = self.symbol_ids.get(supertype) {
                     self.supertype_map
-                        .entry(supertype.clone())
+                        .entry(supertype.0.clone())
                         .or_insert_with(|| subtypes.clone());
                 }
             }
@@ -424,18 +392,17 @@ impl Generator {
     fn add_symbol_enum(&mut self) {
         add_line!(self, "enum ts_symbol_identifiers {{");
         indent!(self);
-        self.symbol_order.insert(Symbol::end(), 0);
-        let mut i = 1;
+        // symbol_ids already contains both string ID and numeric ID
         for symbol in &self.parse_table.symbols {
-            if *symbol != Symbol::end() {
-                self.symbol_order.insert(*symbol, i);
-                add_line!(self, "{} = {i},", self.symbol_ids[symbol]);
-                i += 1;
+            if *symbol == Symbol::end() {
+                continue;
             }
+            let (string_id, numeric_id) = &self.symbol_ids[symbol];
+            add_line!(self, "{} = {numeric_id},", string_id);
         }
-        for alias in &self.unique_aliases {
-            add_line!(self, "{} = {i},", self.alias_ids[alias]);
-            i += 1;
+        // Add aliases after all symbols
+        for (alias, numeric_id) in self.unique_aliases.iter() {
+            add_line!(self, "{} = {},", self.alias_ids[alias], numeric_id);
         }
         dedent!(self);
         add_line!(self, "}};");
@@ -453,14 +420,14 @@ impl Generator {
                         alias.value.as_str()
                     }),
             );
-            add_line!(self, "[{}] = \"{name}\",", self.symbol_ids[symbol]);
+            add_line!(self, "[{}] = \"{name}\",", self.symbol_ids[symbol].0);
         }
         for alias in &self.unique_aliases {
             add_line!(
                 self,
                 "[{}] = \"{}\",",
-                self.alias_ids[alias],
-                self.sanitize_string(&alias.value)
+                self.alias_ids[&alias.0],
+                self.sanitize_string(&alias.0.value)
             );
         }
         dedent!(self);
@@ -475,8 +442,8 @@ impl Generator {
             add_line!(
                 self,
                 "[{}] = {},",
-                self.symbol_ids[symbol],
-                self.symbol_ids[&self.symbol_map[symbol]],
+                self.symbol_ids[symbol].0,
+                self.symbol_ids[&self.symbol_map[symbol]].0,
             );
         }
 
@@ -484,8 +451,8 @@ impl Generator {
             add_line!(
                 self,
                 "[{}] = {},",
-                self.alias_ids[alias],
-                self.alias_ids[alias],
+                self.alias_ids[&alias.0],
+                self.alias_ids[&alias.0],
             );
         }
 
@@ -524,7 +491,7 @@ impl Generator {
         );
         indent!(self);
         for symbol in &self.parse_table.symbols {
-            add_line!(self, "[{}] = {{", self.symbol_ids[symbol]);
+            add_line!(self, "[{}] = {{", self.symbol_ids[symbol].0);
             indent!(self);
             if let Some(Alias { is_named, .. }) = self.default_aliases.get(symbol) {
                 add_line!(self, ".visible = true,");
@@ -556,10 +523,10 @@ impl Generator {
             add_line!(self, "}},");
         }
         for alias in &self.unique_aliases {
-            add_line!(self, "[{}] = {{", self.alias_ids[alias]);
+            add_line!(self, "[{}] = {{", self.alias_ids[&alias.0]);
             indent!(self);
             add_line!(self, ".visible = true,");
-            add_line!(self, ".named = {},", alias.is_named);
+            add_line!(self, ".named = {},", &alias.0.is_named);
             dedent!(self);
             add_line!(self, "}},");
         }
@@ -631,8 +598,8 @@ impl Generator {
         );
         indent!(self);
         for (symbol, alias_ids) in alias_ids_by_symbol {
-            let symbol_id = &self.symbol_ids[symbol];
-            let public_symbol_id = &self.symbol_ids[&self.symbol_map[symbol]];
+            let symbol_id = &self.symbol_ids[symbol].0;
+            let public_symbol_id = &self.symbol_ids[&self.symbol_map[symbol]].0;
             add_line!(self, "{symbol_id}, {},", 1 + alias_ids.len());
             indent!(self);
             add_line!(self, "{public_symbol_id},");
@@ -769,13 +736,15 @@ impl Generator {
                 subtypes
                     .iter()
                     .flat_map(|s| match s {
-                        ChildType::Normal(symbol) => vec![self.symbol_ids.get(symbol).cloned()],
+                        ChildType::Normal(symbol) => {
+                            vec![self.symbol_ids.get(symbol).map(|t| t.0.clone())]
+                        }
                         ChildType::Aliased(alias) => {
                             self.alias_ids.get(alias).cloned().map_or_else(
                                 || {
                                     self.symbols_for_alias(alias)
                                         .into_iter()
-                                        .map(|s| self.symbol_ids.get(&s).cloned())
+                                        .map(|s| self.symbol_ids.get(&s).map(|t| t.0.clone()))
                                         .collect()
                                 },
                                 |a| vec![Some(a)],
@@ -854,7 +823,7 @@ impl Generator {
 
     fn add_lex_state(&mut self, _state_ix: usize, state: LexState) {
         if let Some(accept_action) = state.accept_action {
-            add_line!(self, "ACCEPT_TOKEN({});", self.symbol_ids[&accept_action]);
+            add_line!(self, "ACCEPT_TOKEN({});", self.symbol_ids[&accept_action].0);
         }
 
         if let Some(eof_action) = state.eof_action {
@@ -1198,7 +1167,7 @@ impl Generator {
             add_line!(self, "[{id}] = {{");
             indent!(self);
             for token in set.iter() {
-                add_line!(self, "{},", self.symbol_ids[&token]);
+                add_line!(self, "{},", self.symbol_ids[&token].0);
             }
             dedent!(self);
             add_line!(self, "}},");
@@ -1238,7 +1207,7 @@ impl Generator {
                 self,
                 "[{}] = {},",
                 self.external_token_id(token),
-                self.symbol_ids[&id_token],
+                self.symbol_ids[&id_token].0,
             );
         }
         dedent!(self);
@@ -1312,14 +1281,14 @@ impl Generator {
             nonterminal_entries.clear();
             terminal_entries.extend(state.terminal_entries.iter());
             nonterminal_entries.extend(state.nonterminal_entries.iter());
-            terminal_entries.sort_unstable_by_key(|e| self.symbol_order.get(e.0));
+            terminal_entries.sort_unstable_by_key(|e| self.symbol_ids.get(e.0).map(|t| &t.1));
             nonterminal_entries.sort_unstable_by_key(|k| k.0);
 
             for (symbol, action) in &nonterminal_entries {
                 add_line!(
                     self,
                     "[{}] = STATE({}),",
-                    self.symbol_ids[symbol],
+                    self.symbol_ids[symbol].0,
                     match action {
                         GotoAction::Goto(state) => *state,
                         GotoAction::ShiftExtra => i,
@@ -1333,7 +1302,11 @@ impl Generator {
                     &mut parse_table_entries,
                     &mut next_parse_action_list_index,
                 );
-                add_line!(self, "[{}] = ACTIONS({entry_id}),", self.symbol_ids[symbol]);
+                add_line!(
+                    self,
+                    "[{}] = ACTIONS({entry_id}),",
+                    self.symbol_ids[symbol].0
+                );
             }
 
             dedent!(self);
@@ -1362,7 +1335,7 @@ impl Generator {
 
                 terminal_entries.clear();
                 terminal_entries.extend(state.terminal_entries.iter());
-                terminal_entries.sort_unstable_by_key(|e| self.symbol_order.get(e.0));
+                terminal_entries.sort_unstable_by_key(|e| self.symbol_ids.get(e.0).map(|t| &t.1));
 
                 // In a given parse state, many lookahead symbols have the same actions.
                 // So in the "small state" representation, group symbols by their action
@@ -1415,7 +1388,7 @@ impl Generator {
                     symbols.sort_unstable();
                     indent!(self);
                     for symbol in symbols {
-                        add_line!(self, "{},", self.symbol_ids[symbol]);
+                        add_line!(self, "{},", self.symbol_ids[symbol].0);
                     }
                     dedent!(self);
                 }
@@ -1491,7 +1464,7 @@ impl Generator {
                         add!(
                             self,
                             "REDUCE({}, {child_count}, {dynamic_precedence}, {production_id})",
-                            self.symbol_ids[&symbol]
+                            self.symbol_ids[&symbol].0
                         );
                     }
                 }
@@ -1603,7 +1576,7 @@ impl Generator {
             add_line!(
                 self,
                 ".keyword_capture_token = {},",
-                self.symbol_ids[&keyword_capture_token]
+                self.symbol_ids[&keyword_capture_token].0
             );
         }
 
@@ -1702,38 +1675,7 @@ impl Generator {
     }
 
     fn external_token_id(&self, token: &ExternalToken) -> String {
-        format!(
-            "ts_external_token_{}",
-            self.sanitize_identifier(&token.name)
-        )
-    }
-
-    fn assign_symbol_id(&mut self, symbol: Symbol, used_identifiers: &mut HashSet<String>) {
-        let mut id;
-        if symbol == Symbol::end() {
-            id = "ts_builtin_sym_end".to_string();
-        } else {
-            let (name, kind) = self.metadata_for_symbol(symbol);
-            id = match kind {
-                VariableType::Auxiliary => format!("aux_sym_{}", self.sanitize_identifier(name)),
-                VariableType::Anonymous => format!("anon_sym_{}", self.sanitize_identifier(name)),
-                VariableType::Hidden | VariableType::Named => {
-                    format!("sym_{}", self.sanitize_identifier(name))
-                }
-            };
-
-            let mut suffix_number = 1;
-            let mut suffix = String::new();
-            while used_identifiers.contains(&id) {
-                id.drain(id.len() - suffix.len()..);
-                suffix_number += 1;
-                suffix = suffix_number.to_string();
-                id += &suffix;
-            }
-        }
-
-        used_identifiers.insert(id.clone());
-        self.symbol_ids.insert(symbol, id);
+        format!("ts_external_token_{}", sanitize_identifier(&token.name))
     }
 
     fn field_id(&self, field_name: &str) -> String {
@@ -1741,21 +1683,7 @@ impl Generator {
     }
 
     fn metadata_for_symbol(&self, symbol: Symbol) -> (&str, VariableType) {
-        match symbol.kind {
-            SymbolType::End | SymbolType::EndOfNonTerminalExtra => ("end", VariableType::Hidden),
-            SymbolType::NonTerminal => {
-                let variable = &self.syntax_grammar.variables[symbol.index];
-                (&variable.name, variable.kind)
-            }
-            SymbolType::Terminal => {
-                let variable = &self.lexical_grammar.variables[symbol.index];
-                (&variable.name, variable.kind)
-            }
-            SymbolType::External => {
-                let token = &self.syntax_grammar.external_tokens[symbol.index];
-                (&token.name, token.kind)
-            }
-        }
+        metadata_for_symbol(symbol, &self.syntax_grammar, &self.lexical_grammar)
     }
 
     fn symbols_for_alias(&self, alias: &Alias) -> Vec<Symbol> {
@@ -1773,101 +1701,6 @@ impl Generator {
                 )
             })
             .collect()
-    }
-
-    fn sanitize_identifier(&self, name: &str) -> String {
-        let mut result = String::with_capacity(name.len());
-        for c in name.chars() {
-            if c.is_ascii_alphanumeric() || c == '_' {
-                result.push(c);
-            } else {
-                'special_chars: {
-                    let replacement = match c {
-                        ' ' if name.len() == 1 => "SPACE",
-                        '~' => "TILDE",
-                        '`' => "BQUOTE",
-                        '!' => "BANG",
-                        '@' => "AT",
-                        '#' => "POUND",
-                        '$' => "DOLLAR",
-                        '%' => "PERCENT",
-                        '^' => "CARET",
-                        '&' => "AMP",
-                        '*' => "STAR",
-                        '(' => "LPAREN",
-                        ')' => "RPAREN",
-                        '-' => "DASH",
-                        '+' => "PLUS",
-                        '=' => "EQ",
-                        '{' => "LBRACE",
-                        '}' => "RBRACE",
-                        '[' => "LBRACK",
-                        ']' => "RBRACK",
-                        '\\' => "BSLASH",
-                        '|' => "PIPE",
-                        ':' => "COLON",
-                        ';' => "SEMI",
-                        '"' => "DQUOTE",
-                        '\'' => "SQUOTE",
-                        '<' => "LT",
-                        '>' => "GT",
-                        ',' => "COMMA",
-                        '.' => "DOT",
-                        '?' => "QMARK",
-                        '/' => "SLASH",
-                        '\n' => "LF",
-                        '\r' => "CR",
-                        '\t' => "TAB",
-                        '\0' => "NULL",
-                        '\u{0001}' => "SOH",
-                        '\u{0002}' => "STX",
-                        '\u{0003}' => "ETX",
-                        '\u{0004}' => "EOT",
-                        '\u{0005}' => "ENQ",
-                        '\u{0006}' => "ACK",
-                        '\u{0007}' => "BEL",
-                        '\u{0008}' => "BS",
-                        '\u{000b}' => "VTAB",
-                        '\u{000c}' => "FF",
-                        '\u{000e}' => "SO",
-                        '\u{000f}' => "SI",
-                        '\u{0010}' => "DLE",
-                        '\u{0011}' => "DC1",
-                        '\u{0012}' => "DC2",
-                        '\u{0013}' => "DC3",
-                        '\u{0014}' => "DC4",
-                        '\u{0015}' => "NAK",
-                        '\u{0016}' => "SYN",
-                        '\u{0017}' => "ETB",
-                        '\u{0018}' => "CAN",
-                        '\u{0019}' => "EM",
-                        '\u{001a}' => "SUB",
-                        '\u{001b}' => "ESC",
-                        '\u{001c}' => "FS",
-                        '\u{001d}' => "GS",
-                        '\u{001e}' => "RS",
-                        '\u{001f}' => "US",
-                        '\u{007F}' => "DEL",
-                        '\u{FEFF}' => "BOM",
-                        '\u{0080}'..='\u{FFFF}' => {
-                            write!(result, "u{:04x}", c as u32).unwrap();
-                            break 'special_chars;
-                        }
-                        '\u{10000}'..='\u{10FFFF}' => {
-                            write!(result, "U{:08x}", c as u32).unwrap();
-                            break 'special_chars;
-                        }
-                        '0'..='9' | 'a'..='z' | 'A'..='Z' | '_' => unreachable!(),
-                        ' ' => break 'special_chars,
-                    };
-                    if !result.is_empty() && !result.ends_with('_') {
-                        result.push('_');
-                    }
-                    result += replacement;
-                }
-            }
-        }
-        result
     }
 
     fn sanitize_string(&self, name: &str) -> String {
@@ -1920,18 +1753,20 @@ impl Generator {
 /// # Arguments
 ///
 /// * `name` - A string slice containing the name of the language
-/// * `parse_table` - The generated parse table for the language
-/// * `main_lex_table` - The generated lexing table for the language
-/// * `keyword_lex_table` - The generated keyword lexing table for the language
-/// * `keyword_capture_token` - A symbol indicating which token is used for keyword capture, if any.
+/// * `tables` - The generated tables for the language
 /// * `syntax_grammar` - The syntax grammar extracted from the language's grammar
 /// * `lexical_grammar` - The lexical grammar extracted from the language's grammar
 /// * `default_aliases` - A map describing the global rename rules that should apply. the keys are
 ///   symbols that are *always* aliased in the same way, and the values are the aliases that are
 ///   applied to those symbols.
+/// * `symbol_ids` - HashMap mapping each Symbol to its C identifier string
+/// * `alias_ids` - HashMap mapping each Alias to its C identifier string
+/// * `unique_aliases` - Sorted vector of unique aliases
 /// * `abi_version` - The language ABI version that should be generated. Usually you want
 ///   Tree-sitter's current version, but right after making an ABI change, it may be useful to
 ///   generate code with the previous ABI.
+/// * `semantic_version` - Optional semantic version of the parser
+/// * `supertype_symbol_map` - Map of supertype symbols
 #[allow(clippy::too_many_arguments)]
 pub fn render_c_code(
     name: &str,
@@ -1939,6 +1774,9 @@ pub fn render_c_code(
     syntax_grammar: SyntaxGrammar,
     lexical_grammar: LexicalGrammar,
     default_aliases: AliasMap,
+    symbol_ids: HashMap<Symbol, (String, u16)>,
+    alias_ids: HashMap<Alias, String>,
+    unique_aliases: Vec<(Alias, u16)>,
     abi_version: usize,
     semantic_version: Option<(u8, u8, u8)>,
     supertype_symbol_map: BTreeMap<Symbol, Vec<ChildType>>,
@@ -1958,6 +1796,9 @@ pub fn render_c_code(
         syntax_grammar,
         lexical_grammar,
         default_aliases,
+        symbol_ids,
+        alias_ids,
+        unique_aliases,
         abi_version,
         metadata: semantic_version.map(|(major_version, minor_version, patch_version)| Metadata {
             major_version,
