@@ -10,34 +10,54 @@ Contributors to Tree-sitter should abide by the [Contributor Covenant][covenant]
 
 To make changes to Web-tree-sitter, you should have:
 
-1. A [Rust toolchain][rust], for running the xtasks necessary to build the library.
-2. Node.js and NPM (or an equivalent package manager).
-3. Either [Emscripten][emscripten], [Docker][docker], or [podman][podman] for
-compiling the library to Wasm.
+1. Install [Rust](https://www.rust-lang.org/tools/install)
+2. Install [Node.js](https://nodejs.org/en/download)
+3. Install [Docker](https://www.docker.com/products/docker-desktop) or [podman](https://podman.io)
 
 ### Building
 
-Clone the repository:
+1. Clone and open the repository:
 
 ```sh
 git clone https://github.com/tree-sitter/tree-sitter
+cd ./tree-sitter
+```
+
+2. Fetch and build the grammars that are used for testing:
+
+```sh
+cargo xtask fetch-fixtures
+```
+
+3. Update the generated parser.c files:
+
+```sh
+cargo xtask generate-fixtures
+```
+
+4. Build the Wasm modules:
+
+```sh
+cargo xtask generate-fixtures --wasm
+```
+
+5. Navigate to the web binding directory
+
+```
 cd tree-sitter/lib/binding_web
 ```
 
-Install the necessary dependencies:
+6. Install the dependencies:
 
 ```sh
 npm install
 ```
 
-Build the library:
+7. Build the library:
 
 ```sh
 npm run build
 ```
-
-Note that the build process requires a Rust toolchain to be installed. If you don't have one installed, you can install it
-by visiting the [Rust website][rust] and following the instructions there.
 
 > [!NOTE]
 > By default, the build process will emit an ES6 module. If you need a CommonJS module, export `CJS` to `true`, or just
@@ -47,12 +67,27 @@ by visiting the [Rust website][rust] and following the instructions there.
 > To build the library with debug information, you can run `npm run build:debug`. The `CJS` environment variable is still
 > taken into account.
 
+8. Run the tests
+
+```sh
+npm test
+```
+
+> [!NOTE]
+> We use `vitest` to run the tests. If you want to run a specific test, you can use the `-t` flag to pass in a pattern.
+> If you want to run a specific file, you can just pass the name of the file as is. For example, to run the `parser` tests
+> in `test/parser.test.ts`, you can run `npm test parser`. To run tests that have the name `descendant` somewhere, run
+> `npm test -- -t descendant`.
+>
+> For coverage information, you can run `npm test -- --coverage`.
+
+
 ### Putting it together
 
 #### The C side
 
 There are several components that come together to build the final JS and Wasm files. First, we use `emscripten` in our
-xtask located at `xtask/src/build_wasm.rs` from the root directory to compile the Wasm files. This Wasm module is output into the
+xtask located at `xtask/src/build_wasm.rs` from the root directory to compile the Wasm files. Note that it's also possible to use a local version of Emscripten, the build script will check if you [have it installed](https://emscripten.org/docs/getting_started/index.html) before falling back to Dockeror Podman. This Wasm module is output into the
 local `lib` folder, and is used only in [`src/bindings.ts`][bindings.ts] to handle loading the Wasm module. The C code that
 is compiled into the Wasm module is located in at [`lib/tree-sitter.c`][tree-sitter.c], and contains all the necessary
 glue code to interact with the JS environment. If you need to update the imported functions from the tree-sitter library,
@@ -82,40 +117,7 @@ This TypeScript code is then compiled into a single JavaScript file with `esbuil
 be found in [`script/build.js`][build.js], but this shouldn't need to be updated. This step is responsible for emitting
 the final JS and Wasm files that are shipped with the library, as well as their sourcemaps.
 
-### Testing
 
-Before you can run the tests, you need to fetch and build some upstream grammars that are used for testing.
-Run this in the root of the repository:
-
-```sh
-cargo xtask fetch-fixtures
-```
-
-Optionally, to update the generated parser.c files:
-
-```sh
-cargo xtask generate-fixtures
-```
-
-Then you can build the Wasm modules:
-
-```sh
-cargo xtask generate-fixtures --wasm
-```
-
-Now, you can run the tests. In the `lib/binding_web` directory, run:
-
-```sh
-npm test
-```
-
-> [!NOTE]
-> We use `vitest` to run the tests. If you want to run a specific test, you can use the `-t` flag to pass in a pattern.
-> If you want to run a specific file, you can just pass the name of the file as is. For example, to run the `parser` tests
-> in `test/parser.test.ts`, you can run `npm test parser`. To run tests that have the name `descendant` somewhere, run
-> `npm test -- -t descendant`.
->
-> For coverage information, you can run `npm test -- --coverage`.
 
 ### Debugging
 
@@ -131,12 +133,8 @@ file mentioned earlier, namely in the `run_wasm` function.
 [bindings.ts]: src/bindings.ts
 [build.js]: script/build.js
 [covenant]: https://www.contributor-covenant.org/version/1/4/code-of-conduct
-[docker]: https://www.docker.com
 [dts-buddy]: https://github.com/Rich-Harris/dts-buddy
-[emscripten]: https://emscripten.org
 [exports.txt]: lib/exports.txt
-[podman]: https://podman.io
-[rust]: https://www.rust-lang.org/tools/install
 [sourcemap]: https://developer.mozilla.org/en-US/docs/Glossary/Source_map
 [tree-sitter.c]: lib/tree-sitter.c
 [tree-sitter.d.ts]: lib/tree-sitter.d.ts
