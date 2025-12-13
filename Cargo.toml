@@ -14,7 +14,7 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "0.26.0"
+version = "0.27.0"
 authors = [
   "Max Brunsfeld <maxbrunsfeld@gmail.com>",
   "Amaan Qureshi <amaanq12@gmail.com>",
@@ -150,14 +150,14 @@ tiny_http = "0.12.0"
 topological-sort = "0.2.2"
 unindent = "0.2.4"
 walkdir = "2.5.0"
-wasmparser = "0.242.0"
+wasmparser = "0.243.0"
 webbrowser = "1.0.5"
 
-tree-sitter = { version = "0.26.0", path = "./lib" }
-tree-sitter-generate = { version = "0.26.0", path = "./crates/generate" }
-tree-sitter-loader = { version = "0.26.0", path = "./crates/loader" }
-tree-sitter-config = { version = "0.26.0", path = "./crates/config" }
-tree-sitter-highlight = { version = "0.26.0", path = "./crates/highlight" }
-tree-sitter-tags = { version = "0.26.0", path = "./crates/tags" }
+tree-sitter = { version = "0.27.0", path = "./lib" }
+tree-sitter-generate = { version = "0.27.0", path = "./crates/generate" }
+tree-sitter-loader = { version = "0.27.0", path = "./crates/loader" }
+tree-sitter-config = { version = "0.27.0", path = "./crates/config" }
+tree-sitter-highlight = { version = "0.27.0", path = "./crates/highlight" }
+tree-sitter-tags = { version = "0.27.0", path = "./crates/tags" }
 
-tree-sitter-language = { version = "0.1.5", path = "./crates/language" }
+tree-sitter-language = { version = "0.1", path = "./crates/language" }

@@ -187,9 +187,9 @@ checksum = "b35204fbdc0b3f4446b89fc1ac2cf84a8a68971995d0bf2e925ec7cd960f9cb3"
 
 [[package]]
 name = "cc"
-version = "1.2.48"
+version = "1.2.49"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c481bdbf0ed3b892f6f806287d72acd515b352a4ec27a208489b8c1bc839633a"
+checksum = "90583009037521a116abf44494efecd645ba48b6622457080f080b85544e2215"
 dependencies = [
  "find-msvc-tools",
  "shlex",
@@ -853,9 +853,9 @@ checksum = "7aedcccd01fc5fe81e6b489c15b247b8b0690feb23304303a9e560f37efc560a"
 
 [[package]]
 name = "icu_properties"
-version = "2.1.1"
+version = "2.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e93fcd3157766c0c8da2f8cff6ce651a31f0810eaa1c51ec363ef790bbb5fb99"
+checksum = "020bfc02fe870ec3a66d93e677ccca0562506e5872c650f893269e08615d74ec"
 dependencies = [
  "icu_collections",
  "icu_locale_core",
@@ -867,9 +867,9 @@ dependencies = [
 
 [[package]]
 name = "icu_properties_data"
-version = "2.1.1"
+version = "2.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "02845b3647bb045f1100ecd6480ff52f34c35f82d9880e029d329c21d1054899"
+checksum = "616c294cf8d725c6afcd8f55abc17c56464ef6211f9ed59cccffe534129c77af"
 
 [[package]]
 name = "icu_provider"
@@ -1721,9 +1721,9 @@ dependencies = [
 
 [[package]]
 name = "shell-words"
-version = "1.1.0"
+version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "24188a676b6ae68c3b2cb3a01be17fbf7240ce009799bb56d5b1409051e78fde"
+checksum = "dc6fe69c597f9c37bfeeeeeb33da3530379845f10be461a66d16d03eca2ded77"
 
 [[package]]
 name = "shlex"
@@ -1914,9 +1914,9 @@ dependencies = [
 
 [[package]]
 name = "toml_edit"
-version = "0.23.8"
+version = "0.23.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5a9b7ac41d92f2d2803f233e297127bac397df7b337e0460a1cc39d6c006dee4"
+checksum = "5d7cbc3b4b49633d57a0509303158ca50de80ae32c265093b24c414705807832"
 dependencies = [
  "indexmap",
  "toml_datetime",
@@ -1972,7 +1972,7 @@ dependencies = [
 
 [[package]]
 name = "tree-sitter"
-version = "0.26.0"
+version = "0.27.0"
 dependencies = [
  "bindgen",
  "cc",
@@ -1986,7 +1986,7 @@ dependencies = [
 
 [[package]]
 name = "tree-sitter-cli"
-version = "0.26.0"
+version = "0.27.0"
 dependencies = [
  "ansi_colours",
  "anstyle",
@@ -2027,14 +2027,14 @@ dependencies = [
  "tree-sitter-tests-proc-macro",
  "unindent",
  "walkdir",
- "wasmparser 0.242.0",
+ "wasmparser 0.243.0",
  "webbrowser",
  "widestring",
 ]
 
 [[package]]
 name = "tree-sitter-config"
-version = "0.26.0"
+version = "0.27.0"
 dependencies = [
  "etcetera",
  "log",
@@ -2045,7 +2045,7 @@ dependencies = [
 
 [[package]]
 name = "tree-sitter-generate"
-version = "0.26.0"
+version = "0.27.0"
 dependencies = [
  "bitflags 2.10.0",
  "dunce",
@@ -2068,7 +2068,7 @@ dependencies = [
 
 [[package]]
 name = "tree-sitter-highlight"
-version = "0.26.0"
+version = "0.27.0"
 dependencies = [
  "regex",
  "streaming-iterator",
@@ -2078,11 +2078,11 @@ dependencies = [
 
 [[package]]
 name = "tree-sitter-language"
-version = "0.1.5"
+version = "0.1.7"
 
 [[package]]
 name = "tree-sitter-loader"
-version = "0.26.0"
+version = "0.27.0"
 dependencies = [
  "cc",
  "etcetera",
@@ -2104,7 +2104,7 @@ dependencies = [
 
 [[package]]
 name = "tree-sitter-tags"
-version = "0.26.0"
+version = "0.27.0"
 dependencies = [
  "memchr",
  "regex",
@@ -2271,9 +2271,9 @@ dependencies = [
 
 [[package]]
 name = "wasmparser"
-version = "0.242.0"
+version = "0.243.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ed3c6e611f4cd748d85c767815823b777dc56afca793fcda27beae4e85028849"
+checksum = "f6d8db401b0528ec316dfbe579e6ab4152d61739cfe076706d2009127970159d"
 dependencies = [
  "bitflags 2.10.0",
  "hashbrown 0.15.5",
