@@ -132,11 +132,6 @@ to be used from different language. Here is a list of these bindings files that 
 - `CMakeLists.txt` — This file tells [`cmake`][cmake] how to compile your language.
 - `bindings/c/tree_sitter/tree-sitter-language.h` — This file provides the C interface of your language.
 - `bindings/c/tree-sitter-language.pc` — This file provides [pkg-config][pkg-config] metadata about your language's C library.
-- `src/tree_sitter/parser.h` — This file provides some basic C definitions that are used in your generated `parser.c` file.
-- `src/tree_sitter/alloc.h` — This file provides some memory allocation macros that are to be used in your external scanner,
-if you have one.
-- `src/tree_sitter/array.h` — This file provides some array macros that are to be used in your external scanner,
-if you have one.
 
 ### Go
 
