@@ -9,6 +9,8 @@ int iswlower(wint_t wch);
 
 int iswupper(wint_t wch);
 
+int iswpunct(wint_t wch);
+
 static inline bool iswalpha(wint_t wch) {
   switch (wch) {
   case L'a':

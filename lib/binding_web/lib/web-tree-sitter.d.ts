@@ -182,6 +182,7 @@ interface WasmModule {
   _memmove(_0: number, _1: number, _2: number): number;
   _iswalpha(_0: number): number;
   _iswblank(_0: number): number;
+  _iswpunct(_0: number): number;
   _iswdigit(_0: number): number;
   _iswlower(_0: number): number;
   _iswupper(_0: number): number;
