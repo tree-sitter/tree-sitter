@@ -36,6 +36,10 @@ zig-out/
 # Example dirs
 /examples/*/
 
+# Generated files
+src/parser.c
+src/tree_sitter/*
+
 # Grammar volatiles
 *.wasm
 *.obj
