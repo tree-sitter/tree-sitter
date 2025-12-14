@@ -51,7 +51,7 @@ cargo install --path crates/cli
 If you're going to be in a fast iteration cycle and would like the CLI to build faster, you can use the `release-dev` profile:
 
 ```sh
-cargo build --release --profile release-dev
+cargo build --profile release-dev
 # or
 cargo install --path crates/cli --profile release-dev
 ```
