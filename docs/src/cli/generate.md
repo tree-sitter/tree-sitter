@@ -1,29 +1,35 @@
 # `tree-sitter generate`
 
-The most important command you'll use is `tree-sitter generate`. This command reads the `grammar.js` file in your current
-working directory and creates a file called `src/parser.c`, which implements the parser. After making changes to your grammar,
-just run `tree-sitter generate` again.
+The most important command for grammar development is `tree-sitter generate`, which reads the grammar in structured form and outputs C files that can be compiled into a shared or static library (e.g., using the [`build`](./build,md) command).
 
 ```bash
 tree-sitter generate [OPTIONS] [GRAMMAR_PATH] # Aliases: gen, g
 ```
 
-The grammar path argument allows you to specify a path to a `grammar.js` JavaScript file, or `grammar.json` JSON file.
-In case your `grammar.js` file is in a non-standard path, you can specify it yourself. But, if you are using a parser
-where `grammar.json` was already generated, or it was hand-written, you can tell the CLI to generate the parser *based*
-on this JSON file. This avoids relying on a JavaScript file and avoids the dependency on a JavaScript runtime.
+The optional `GRAMMAR_PATH` argument should point to the structured grammar, in one of two forms:
+- `grammar.js` a (ESM or CJS) JavaScript file; if the argument is omitted, it defaults to `./grammar.js`.
+- `grammar.json` a structured representation of the grammar that is created as a byproduct of `generate`; this can be used to regenerate a missing `parser.c` without requiring a JavaScript runtime (useful when distributing parsers to consumers).
 
 If there is an ambiguity or *local ambiguity* in your grammar, Tree-sitter will detect it during parser generation, and
-it will exit with a `Unresolved conflict` error message. To learn more about conflicts and how to handle them, check out
+it will exit with a `Unresolved conflict` error message. To learn more about conflicts and how to handle them, see
 the section on [`Structuring Rules Well`](../creating-parsers/3-writing-the-grammar.md#structuring-rules-well)
 in the user guide.
+
+## Generated files
+
+- `src/parser.c` implements the parser logic specified in the grammar.
+- `src/tree_sitter/parser.h` provides basic C definitions that are used in the generated `parser.c` file.
+- `src/tree_sitter/alloc.h` provides memory allocation macros that can be used in an external scanner.
+- `src/tree_sitter/array.h` provides array macros that can be used in an external scanner.
+- `src/grammar.json` contains a structured representation of the grammar; can be used to regenerate the parser without having to re-evaluate the `grammar.js`.
+- `src/node-types.json` provides type information about individual syntax nodes; see the section on [`Static Node Types`](../using-parsers/6-static-node-types.md).
+
 
 ## Options
 
 ### `-l/--log`
 
-Print the log of the parser generation process. This is really only useful if you know what you're doing, or are investigating
-a bug in the CLI itself. It logs info such as what tokens are included in the error recovery state,
+Print the log of the parser generation process. This includes information such as what tokens are included in the error recovery state,
 what keywords were extracted, what states were split and why, and the entry point state.
 
 ### `--abi <VERSION>`
