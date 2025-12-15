@@ -3076,6 +3076,41 @@ fn test_query_matches_with_deeply_nested_patterns_with_fields() {
 }
 
 #[test]
+fn test_query_alternation_with_inner_quantifier() {
+    let language = get_language("c");
+    let source_code = "#include <foo>
+#include <bar>
+#include <baz>
+
+// comment";
+    let matches = &[
+        (
+            0,
+            vec![
+                ("capture", "#include <foo>\n"),
+                ("capture", "#include <bar>\n"),
+                ("capture", "#include <baz>\n"),
+            ],
+        ),
+        (0, vec![("capture", "// comment")]),
+    ];
+
+    let query = "[
+       (preproc_include)+
+       (comment)
+    ] @capture";
+    let query = Query::new(&language, query).unwrap();
+    assert_query_matches(&language, &query, source_code, matches);
+
+    let query = "[
+       (comment)
+       (preproc_include)+
+    ] @capture";
+    let query = Query::new(&language, query).unwrap();
+    assert_query_matches(&language, &query, source_code, matches);
+}
+
+#[test]
 fn test_query_matches_with_alternations_and_predicates() {
     allocations::record(|| {
         let language = get_language("java");
