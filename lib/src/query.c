@@ -2958,6 +2958,53 @@ TSQuery *ts_query_new(
         break;
       }
     }
+
+    // Fix up quantifier loop-backs within alternations. When a branch of an
+    // alternation has a + or * quantifier, the quantifier's pass_through step
+    // loops back to the branch's first step. However, the alternation linking
+    // assigns that same step's `alternative_index` to point to the _next_ branch.
+    // This causes the quantifier loop to incorrectly explore other alternation branches,
+    // when a quantified branch matches, loops back, and then fails to match. To correct
+    // this, we create "clean" copies of the branches' first steps without the link to the
+    // next branch. After a quantified branch matches, it loops back to the cleaned copy.
+    {
+      uint32_t pat_start = pattern->steps.offset;
+      uint32_t pat_end = pat_start + pattern->steps.length - 1; // exclude DONE
+
+      for (uint32_t i = pat_start; i < pat_end; i++) {
+        QueryStep *s = array_get(&self->steps, i);
+        // Ensure this step is a pass_through with a _backward_ alternative (a quantifier loop-back)
+        if (!s->is_pass_through
+            || s->alternative_index == NONE || s->alternative_index >= i) continue;
+
+        uint32_t target_idx = s->alternative_index;
+        QueryStep *target = array_get(&self->steps, target_idx);
+
+        // Check if the target has a forward alternative from alternation linking
+        uint16_t target_alt_index = target->alternative_index;
+        if (target_alt_index == NONE 
+            || target_alt_index <= target_idx || target_alt_index >= pat_end) continue;
+
+        // Create a clean copy of the target step without the alternation alternative.
+        uint32_t copy_idx = self->steps.size;
+        QueryStep copy = *target;
+        copy.alternative_index = NONE;
+        uint16_t target_depth = target->depth;
+        array_push(&self->steps, copy);
+
+        // Add a dead_end that redirects to the pass through step after the target,
+        // so the pattern continues correctly after the cleaned copy matches.
+        QueryStep redirect = query_step__new(0, target_depth, false);
+        redirect.is_dead_end = true;
+        redirect.alternative_index = target_idx + 1;
+        array_push(&self->steps, redirect);
+
+        // Update the pass_through to loop back to the copy. Reacquire `s` since
+        // `self->steps` may have been reallocated.
+        s = array_get(&self->steps, i);
+        s->alternative_index = copy_idx;
+      }
+    }
   }
 
   if (!ts_query__analyze_patterns(self, error_offset)) {
