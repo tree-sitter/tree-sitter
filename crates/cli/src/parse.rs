@@ -883,35 +883,24 @@ fn write_node_text(
                     0
                 };
             let formatted_line = render_line_feed(line, opts);
-            if !opts.no_ranges {
-                write!(
-                    out,
-                    "{}{}{}{}{}{}",
-                    if multiline { "\n" } else { " " },
-                    if multiline {
-                        render_node_range(opts, cursor, is_named, true, total_width, node_range)
-                    } else {
-                        String::new()
-                    },
-                    if multiline {
-                        "  ".repeat(indent_level + 1)
-                    } else {
-                        String::new()
-                    },
-                    paint(quote_color, &String::from(quote)),
-                    &paint(color, &render_node_text(&formatted_line)),
-                    paint(quote_color, &String::from(quote)),
-                )?;
-            } else {
-                write!(
-                    out,
-                    "\n{}{}{}{}",
-                    "  ".repeat(indent_level + 1),
-                    paint(quote_color, &String::from(quote)),
-                    &paint(color, &render_node_text(&formatted_line)),
-                    paint(quote_color, &String::from(quote)),
-                )?;
-            }
+            write!(
+                out,
+                "{}{}{}{}{}{}",
+                if multiline { "\n" } else { " " },
+                if multiline && !opts.no_ranges {
+                    render_node_range(opts, cursor, is_named, true, total_width, node_range)
+                } else {
+                    String::new()
+                },
+                if multiline {
+                    "  ".repeat(indent_level + 1)
+                } else {
+                    String::new()
+                },
+                paint(quote_color, &String::from(quote)),
+                paint(color, &render_node_text(&formatted_line)),
+                paint(quote_color, &String::from(quote)),
+            )?;
         }
     }
 
