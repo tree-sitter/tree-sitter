@@ -42,3 +42,18 @@ The `tree-sitter` binary itself has no dependencies, but specific commands have 
 
 [the documentation]: https://tree-sitter.github.io/tree-sitter/creating-parsers
 [the releases page]: https://github.com/tree-sitter/tree-sitter/releases/latest
+
+### Troubleshooting
+
+Run the following commands to diagnose Tree-sitter issues.
+
+**In Neovim:**
+- `:checkhealth tree-sitter`  
+  Checks Tree-sitter integration in Neovim, including parser status, CLI availability, and compiler support.
+
+**In your terminal:**
+- `which tree-sitter`  
+  Verifies that the Tree-sitter CLI is installed and available in your `$PATH`.
+
+- `tree-sitter --version`  
+  Confirms that the Tree-sitter CLI is executable and shows the installed version.
