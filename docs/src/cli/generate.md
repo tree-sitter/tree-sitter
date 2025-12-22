@@ -1,6 +1,6 @@
 # `tree-sitter generate`
 
-The most important command for grammar development is `tree-sitter generate`, which reads the grammar in structured form and outputs C files that can be compiled into a shared or static library (e.g., using the [`build`](./build,md) command).
+The most important command for grammar development is `tree-sitter generate`, which reads the grammar in structured form and outputs C files that can be compiled into a shared or static library (e.g., using the [`build`](./build.md) command).
 
 ```bash
 tree-sitter generate [OPTIONS] [GRAMMAR_PATH] # Aliases: gen, g
