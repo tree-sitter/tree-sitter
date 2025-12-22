@@ -106,7 +106,7 @@ ansi_colours = "1.2.3"
 anstyle = "1.0.13"
 anyhow = "1.0.100"
 bstr = "1.12.0"
-cc = "1.2.48"
+cc = "1.2.50"
 clap = { version = "4.5.53", features = [
   "cargo",
   "derive",
@@ -115,7 +115,7 @@ clap = { version = "4.5.53", features = [
   "string",
   "unstable-styles",
 ] }
-clap_complete = "4.5.61"
+clap_complete = "4.5.62"
 clap_complete_nushell = "4.5.10"
 crc32fast = "1.5.0"
 ctor = "0.2.9"
