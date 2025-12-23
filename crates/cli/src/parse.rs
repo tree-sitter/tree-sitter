@@ -515,7 +515,6 @@ pub fn parse_file_at_path(
 
         if opts.output == ParseOutput::Cst {
             render_cst(&source_code, &tree, &mut cursor, opts, &mut stdout)?;
-            println!();
         }
 
         if opts.output == ParseOutput::Xml {
