@@ -109,15 +109,16 @@ pub struct Range {
     pub end_point: Point,
 }
 
-impl std::ops::BitOr for Range {
+impl core::ops::BitOr for Range {
     type Output = Self;
 
     fn bitor(self, rhs: Self) -> Self::Output {
+        use core::cmp::{max, min};
         Self {
-            start_byte: std::cmp::min(self.start_byte, rhs.start_byte),
-            end_byte: std::cmp::max(self.end_byte, rhs.end_byte),
-            start_point: std::cmp::min(self.start_point, rhs.start_point),
-            end_point: std::cmp::max(self.end_point, rhs.end_point),
+            start_byte: min(self.start_byte, rhs.start_byte),
+            end_byte: max(self.end_byte, rhs.end_byte),
+            start_point: min(self.start_point, rhs.start_point),
+            end_point: max(self.end_point, rhs.end_point),
         }
     }
 }
