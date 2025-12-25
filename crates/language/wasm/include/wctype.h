@@ -165,4 +165,44 @@ static inline bool iswspace(wint_t wch) {
   }
 }
 
+static inline bool iswpunct(wint_t wch) {
+  switch (wch) {
+  case L'!':
+  case L'"':
+  case L'#':
+  case L'$':
+  case L'%':
+  case L'&':
+  case L'\'':
+  case L'(':
+  case L')':
+  case L'*':
+  case L'+':
+  case L',':
+  case L'-':
+  case L'.':
+  case L'/':
+  case L':':
+  case L';':
+  case L'<':
+  case L'=':
+  case L'>':
+  case L'?':
+  case L'@':
+  case L'[':
+  case L'\\':
+  case L']':
+  case L'^':
+  case L'_':
+  case L'`':
+  case L'{':
+  case L'|':
+  case L'}':
+  case L'~':
+    return true;
+  default:
+    return false;
+  }
+}
+
 #endif // TREE_SITTER_WASM_WCTYPE_H_
