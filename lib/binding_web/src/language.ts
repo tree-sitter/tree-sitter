@@ -270,7 +270,7 @@ export class Language {
     // Early version compatibility check
     const version = language.abiVersion;
     if (version < MIN_COMPATIBLE_VERSION || LANGUAGE_VERSION < version) {
-      throw new Error(
+      throw new RangeError(
         `Incompatible language version ${version}. ` +
         `Compatibility range ${MIN_COMPATIBLE_VERSION} through ${LANGUAGE_VERSION}. ` +
         `The WASM file may have been built with an incompatible version of tree-sitter-cli. ` +
