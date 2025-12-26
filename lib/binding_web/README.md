@@ -193,6 +193,19 @@ npx tree-sitter build --wasm node_modules/tree-sitter-javascript
 
 If everything is fine, file `tree-sitter-javascript.wasm` should be generated in current directory.
 
+### Wasm compatibility
+
+`web-tree-sitter` supports the same parser ABI versions as the corresponding tree-sitter library:
+
+| web-tree-sitter version | Min parser ABI version | Max parser ABI version |
+|-------------------------|------------------------|------------------------|
+| 0.24.x                  | 13                     | 14                     |
+| >= 0.25.0               | 13                     | 15                     |
+
+> [!WARNING]
+> Some prebuilt `.wasm` files use an older dynamic-linking format that newer versions of `web-tree-sitter` cannot
+> load, even if their parser ABI is supported. Rebuild these files using a current tree-sitter CLI.
+
 ### Running .wasm in Node.js
 
 Notice that executing `.wasm` files in Node.js is considerably slower than running [Node.js bindings][node bindings].
