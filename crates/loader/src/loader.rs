@@ -8,6 +8,7 @@ use std::sync::Mutex;
 use std::{
     collections::HashMap,
     env, fs,
+    hash::{Hash as _, Hasher as _},
     io::{BufRead, BufReader},
     marker::PhantomData,
     mem,
@@ -1025,20 +1026,26 @@ impl Loader {
             return Ok(wasm_store.load_language(&config.name, &wasm_bytes)?);
         }
 
+        // Create a unique lock path based on the output path hash to prevent
+        // interference when multiple processes build the same grammar (by name)
+        // to different output locations
+        let lock_hash = {
+            let mut hasher = std::hash::DefaultHasher::new();
+            output_path.hash(&mut hasher);
+            format!("{:x}", hasher.finish())
+        };
+
         let lock_path = if env::var("CROSS_RUNNER").is_ok() {
             tempfile::tempdir()
-                .unwrap()
+                .expect("create a temp dir")
                 .path()
-                .join("tree-sitter")
-                .join("lock")
-                .join(format!("{}.lock", config.name))
+                .to_path_buf()
         } else {
-            etcetera::choose_base_strategy()?
-                .cache_dir()
-                .join("tree-sitter")
-                .join("lock")
-                .join(format!("{}.lock", config.name))
-        };
+            etcetera::choose_base_strategy()?.cache_dir()
+        }
+        .join("tree-sitter")
+        .join("lock")
+        .join(format!("{}-{lock_hash}.lock", config.name));
 
         if let Ok(lock_file) = fs::OpenOptions::new().write(true).open(&lock_path) {
             recompile = false;
