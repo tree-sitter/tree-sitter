@@ -227,7 +227,7 @@ export class Language {
    * Load a language from a WebAssembly module.
    * The module can be provided as a path to a file or as a buffer.
    *
-   * @throws {Error} If the WASM file was built with an incompatible version of tree-sitter-cli.
+   * @throws {RangeError} If the Wasm file was built with an incompatible version of tree-sitter-cli.
    */
   static async load(input: string | Uint8Array): Promise<Language> {
     let binary: Uint8Array | WebAssembly.Module;
