@@ -191,6 +191,29 @@ npx tree-sitter build --wasm node_modules/tree-sitter-javascript
 
 If everything is fine, file `tree-sitter-javascript.wasm` should be generated in current directory.
 
+### WASM Version Compatibility
+
+> [!IMPORTANT]
+> WASM language files must be generated with a compatible version of `tree-sitter-cli`.
+
+The WASM binary format includes ABI (Application Binary Interface) information that must match between `web-tree-sitter` and the generated `.wasm` files. Using incompatible versions will cause `Language.load()` to fail.
+
+| web-tree-sitter | Compatible tree-sitter-cli |
+|-----------------|---------------------------|
+| 0.26.x          | 0.26.x                    |
+| 0.25.x          | 0.20.x - 0.25.x           |
+| 0.24.x          | 0.20.x - 0.24.x           |
+
+**If you're using pre-built WASM files** from third-party packages (e.g., `tree-sitter-wasms`), ensure they were built with a compatible `tree-sitter-cli` version.
+
+**Recommended**: Generate WASM files with the same major.minor version of `tree-sitter-cli` as your `web-tree-sitter` version:
+
+```sh
+# For web-tree-sitter@0.26.x, use tree-sitter-cli@0.26.x
+npm install tree-sitter-cli@0.26
+npx tree-sitter build --wasm node_modules/tree-sitter-javascript
+```
+
 ### Running .wasm in Node.js
 
 Notice that executing `.wasm` files in Node.js is considerably slower than running [Node.js bindings][node bindings].
