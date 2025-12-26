@@ -273,8 +273,7 @@ export class Language {
       throw new RangeError(
         `Incompatible language version ${version}. ` +
         `Compatibility range ${MIN_COMPATIBLE_VERSION} through ${LANGUAGE_VERSION}. ` +
-        `The WASM file may have been built with an incompatible version of tree-sitter-cli. ` +
-        `Please regenerate the WASM file using a compatible tree-sitter-cli version.`
+        `The Wasm file may have been built with an incompatible version of tree-sitter-cli. `
       );
     }
 
