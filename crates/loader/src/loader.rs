@@ -1089,6 +1089,26 @@ impl Loader {
             }
         }
 
+        // Ensure the dynamic library exists before trying to load it. This can
+        // happen in race conditions where we couldn't acquire the lock because
+        // another process was compiling but it still haven't finished by the
+        // time we reach this point, so the output file still doesn't exist.
+        //
+        // Instead of complaining about library load failure in `load_language`,
+        // inform the user about the precise issue.
+        if !output_path.exists() {
+            let msg = format!(
+                "Dynamic library `{}` not found after build attempt. \
+                Are you running multiple processes building to the same output location?",
+                output_path.display()
+            );
+
+            return Err(LoaderError::IO(IoError::new(
+                std::io::Error::new(std::io::ErrorKind::NotFound, msg),
+                Some(output_path.as_path()),
+            )));
+        }
+
         Self::load_language(&output_path, &language_fn_name)
     }
 
