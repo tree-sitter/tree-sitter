@@ -87,6 +87,11 @@ The recommendation is to be comprehensive in adding tests. If it's a visible nod
 directory. It's typically a good idea to test all the permutations of each language construct. This increases test coverage,
 but doubly acquaints readers with a way to examine expected outputs and understand the "edges" of a language.
 
+```admonish tip
+After modifying the grammar, you can run `tree-sitter test -u`
+to update all syntax trees in corpus files with current parser output.
+```
+
 ## Attributes
 
 Tests can be annotated with a few `attributes`. Attributes must be put in the header, below the test name, and start with
