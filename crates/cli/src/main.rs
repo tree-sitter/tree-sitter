@@ -1622,6 +1622,7 @@ impl Highlight {
         let loader_config = config.get()?;
         loader.find_all_languages(&loader_config)?;
         loader.force_rebuild(self.rebuild || self.grammar_path.is_some());
+        let languages = loader.languages_at_path(current_dir)?;
 
         let cancellation_flag = util::cancel_on_signal();
 
@@ -1702,7 +1703,6 @@ impl Highlight {
             } => {
                 let path = get_tmp_source_file(&contents)?;
 
-                let languages = loader.languages_at_path(current_dir)?;
                 let language = languages
                     .iter()
                     .find(|(_, n)| language_names.contains(&Box::from(n.as_str())))
@@ -1733,7 +1733,6 @@ impl Highlight {
                     if let (Some(l), Some(lc)) = (language.clone(), language_configuration) {
                         (l, lc)
                     } else {
-                        let languages = loader.languages_at_path(current_dir)?;
                         let language = languages
                             .first()
                             .map(|(l, _)| l.clone())
