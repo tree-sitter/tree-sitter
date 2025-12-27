@@ -70,12 +70,13 @@ impl InlinedProductionMapBuilder {
         let production_map = production_indices_by_step_id
             .into_iter()
             .map(|(step_id, production_indices)| {
-                let production = step_id.variable_index.map_or_else(
-                    || &productions[step_id.production_index],
-                    |variable_index| {
-                        &grammar.variables[variable_index].productions[step_id.production_index]
-                    },
-                ) as *const Production;
+                let production =
+                    core::ptr::from_ref::<Production>(step_id.variable_index.map_or_else(
+                        || &productions[step_id.production_index],
+                        |variable_index| {
+                            &grammar.variables[variable_index].productions[step_id.production_index]
+                        },
+                    ));
                 ((production, step_id.step_index as u32), production_indices)
             })
             .collect();
