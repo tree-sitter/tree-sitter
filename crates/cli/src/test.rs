@@ -1066,7 +1066,6 @@ fn run_tests(
                 return Ok(true);
             }
 
-            let failure_count = test_summary.parse_failures.len();
             let mut ran_test_in_group = false;
 
             let matches_filter = |name: &str, file_name: &Option<String>, opts: &TestOptions| {
@@ -1130,7 +1129,7 @@ fn run_tests(
             test_summary.parse_results.pop_traversal();
 
             if let Some(file_path) = file_path {
-                if opts.update && test_summary.parse_failures.len() - failure_count > 0 {
+                if opts.update {
                     write_tests(&file_path, corrected_entries)?;
                 }
                 corrected_entries.clear();
