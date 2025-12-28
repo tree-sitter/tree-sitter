@@ -955,11 +955,21 @@ impl Build {
         } else {
             let output_path = if let Some(ref path) = self.output {
                 let path = Path::new(path);
-                if path.is_absolute() {
+                let full_path = if path.is_absolute() {
                     path.to_path_buf()
                 } else {
                     current_dir.join(path)
-                }
+                };
+                let parent_path = full_path
+                    .parent()
+                    .context("Output path must have a parent")?;
+                let name = full_path
+                    .file_name()
+                    .context("Ouput path must have a filename")?;
+                fs::create_dir_all(parent_path).context("Failed to create output path")?;
+                let mut canon_path = parent_path.canonicalize().context("Invalid output path")?;
+                canon_path.push(name);
+                canon_path
             } else {
                 let file_name = grammar_path
                     .file_stem()
