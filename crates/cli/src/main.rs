@@ -984,7 +984,7 @@ impl Build {
 
             loader
                 .compile_parser_at_path(&grammar_path, output_path, flags)
-                .unwrap();
+                .context("Failed to compile parser")?;
         }
         Ok(())
     }
