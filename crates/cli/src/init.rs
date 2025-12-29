@@ -123,7 +123,7 @@ const BUILD_ZIG_ZON_TEMPLATE: &str = include_str!("./templates/build.zig.zon");
 const ROOT_ZIG_TEMPLATE: &str = include_str!("./templates/root.zig");
 const TEST_ZIG_TEMPLATE: &str = include_str!("./templates/test.zig");
 
-const TREE_SITTER_JSON_SCHEMA: &str =
+pub const TREE_SITTER_JSON_SCHEMA: &str =
     "https://tree-sitter.github.io/tree-sitter/assets/schemas/config.schema.json";
 
 #[derive(Serialize, Deserialize, Clone)]
