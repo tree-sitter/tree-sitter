@@ -20,7 +20,7 @@ use tree_sitter_cli::{
         LOG_GRAPH_ENABLED, START_SEED,
     },
     highlight::{self, HighlightOptions},
-    init::{generate_grammar_files, JsonConfigOpts},
+    init::{generate_grammar_files, JsonConfigOpts, TREE_SITTER_JSON_SCHEMA},
     input::{get_input, get_tmp_source_file, CliInput},
     logger,
     parse::{self, ParseDebugType, ParseFileOptions, ParseOutput, ParseTheme},
@@ -867,10 +867,26 @@ impl Init {
 
             (opts.name.clone(), Some(opts))
         } else {
-            let mut json = serde_json::from_str::<TreeSitterJSON>(
-                &fs::read_to_string(current_dir.join("tree-sitter.json"))
-                    .with_context(|| "Failed to read tree-sitter.json")?,
-            )?;
+            let old_config = fs::read_to_string(current_dir.join("tree-sitter.json"))
+                .with_context(|| "Failed to read tree-sitter.json")?;
+
+            let mut json = serde_json::from_str::<TreeSitterJSON>(&old_config)?;
+            if json.schema.is_none() {
+                json.schema = Some(TREE_SITTER_JSON_SCHEMA.to_string());
+            }
+
+            let new_config = format!("{}\n", serde_json::to_string_pretty(&json)?);
+            // Write the re-serialized config back, as newly added optional boolean fields
+            // will be included with explicit `false`s rather than implict `null`s
+            if self.update && !old_config.trim().eq(new_config.trim()) {
+                info!("Updating tree-sitter.json");
+                fs::write(
+                    current_dir.join("tree-sitter.json"),
+                    serde_json::to_string_pretty(&json)?,
+                )
+                .with_context(|| "Failed to write tree-sitter.json")?;
+            }
+
             (json.grammars.swap_remove(0).name, None)
         };
 
