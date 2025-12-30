@@ -97,6 +97,7 @@ impl Console {
                 Type::Unknown => "unknown".to_string(),
                 Type::Symbol
                 | Type::Object
+                | Type::Proxy
                 | Type::Array
                 | Type::Function
                 | Type::Constructor
