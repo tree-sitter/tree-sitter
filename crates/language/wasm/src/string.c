@@ -1,5 +1,13 @@
 #include <string.h>
 
+// Derived from musl (MIT): https://git.musl-libc.org/cgit/musl/tree/src/string/memchr.c
+void *memchr(const void *src, int c, size_t n) {
+	const unsigned char *s = src;
+	c = (unsigned char)c;
+	for (; n && *s != c; s++, n--);
+	return n ? (void *)s : 0;
+}
+
 int memcmp(const void *lhs, const void *rhs, size_t count) {
   const unsigned char *l = lhs;
   const unsigned char *r = rhs;
@@ -57,4 +65,14 @@ int strncmp(const char *left, const char *right, size_t n) {
     right++;
   }
   return 0;
+}
+
+char *strchr(const char *str, int c) {
+  while (*str != (char)c) {
+    if (*str == '\0') {
+      return 0;
+    }
+    str++;
+  }
+  return (char *)str;
 }
