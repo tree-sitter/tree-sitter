@@ -95,10 +95,27 @@ impl Console {
                 Type::Module => "module".to_string(),
                 Type::BigInt => v.get::<String>().unwrap_or_else(|_| "BigInt".to_string()),
                 Type::Unknown => "unknown".to_string(),
+                Type::Array => {
+                    let js_vals = v
+                        .as_array()
+                        .unwrap()
+                        .iter::<Value<'_>>()
+                        .filter_map(|x| x.ok())
+                        .map(|x| {
+                            if x.is_string() {
+                                format!("'{}'", Self::format_args(&[x]))
+                            } else {
+                                Self::format_args(&[x])
+                            }
+                        })
+                        .collect::<Vec<_>>()
+                        .join(", ");
+
+                    format!("[ {js_vals} ]")
+                }
                 Type::Symbol
                 | Type::Object
                 | Type::Proxy
-                | Type::Array
                 | Type::Function
                 | Type::Constructor
                 | Type::Promise
