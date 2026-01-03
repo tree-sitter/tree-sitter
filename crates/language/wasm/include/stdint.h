@@ -27,12 +27,16 @@ typedef long unsigned int uintptr_t;
 
 #define UINT32_MAX 4294967295U
 
+#define UINT64_MAX 18446744073709551615ULL
+
 #if defined(__wasm32__)
 
+#define UINTPTR_MAX UINT32_MAX
 #define SIZE_MAX 4294967295UL
 
 #elif defined(__wasm64__)
 
+#define UINTPTR_MAX UINT64_MAX
 #define SIZE_MAX 18446744073709551615UL
 
 #endif
