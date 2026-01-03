@@ -13,7 +13,7 @@
 #endif
 
 #if !defined(TS_PTR_SIZE)
-#if UINTPTR_MAX == 0xFFFFFFFF
+#if UINTPTR_MAX == UINT64_MAX
 #define TS_PTR_SIZE 32
 #else
 #define TS_PTR_SIZE 64

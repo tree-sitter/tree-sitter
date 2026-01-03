@@ -276,7 +276,6 @@ static wasm_trap_t *callback__debug_message(
   uint32_t string_address = args_and_results[0].i32;
   uint32_t value = args_and_results[1].i32;
   uint8_t *memory = wasmtime_memory_data(context, &store->memory);
-  printf("DEBUG: %s %u\n", &memory[string_address], value);
   return NULL;
 }
 
