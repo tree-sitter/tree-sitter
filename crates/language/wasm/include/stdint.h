@@ -23,6 +23,8 @@ typedef long unsigned int size_t;
 
 typedef long unsigned int uintptr_t;
 
+#define UINT8_MAX 255
+
 #define UINT16_MAX 65535
 
 #define UINT32_MAX 4294967295U
