@@ -595,6 +595,8 @@ impl std::fmt::Display for TestSummary {
             render_assertion_results("queries", &self.query_results)?;
         }
 
+        write!(f, "{}", self.parse_stats)?;
+
         Ok(())
     }
 }
