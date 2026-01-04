@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 
 typedef struct {
   bool left_justify;   // -
@@ -103,12 +104,6 @@ static int ptr_to_str(void *ptr, char *buffer) {
   buffer[1] = 'x';
   int len = int_to_str((uintptr_t)ptr, buffer + 2, 16, 0, 0);
   return 2 + len;
-}
-
-size_t strlen(const char *str) {
-  const char *s = str;
-  while (*s) s++;
-  return s - str;
 }
 
 char *strncpy(char *dest, const char *src, size_t n) {
