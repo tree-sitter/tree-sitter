@@ -42,7 +42,7 @@ static inline CursorChildIterator ts_tree_cursor_iterate_children(const TreeCurs
   );
 
   uint32_t descendant_index = last_entry->descendant_index;
-  if (ts_tree_cursor_is_entry_visible(self, self->stack.size - 1)) {
+  if (ts_tree_cursor_is_entry_visible(self, self->stack.meta.size - 1)) {
     descendant_index += 1;
   }
 
@@ -262,7 +262,7 @@ static inline int64_t ts_tree_cursor_goto_first_child_for_byte_and_point(
   TSPoint goal_point
 ) {
   TreeCursor *self = (TreeCursor *)_self;
-  uint32_t initial_size = self->stack.size;
+  uint32_t initial_size = self->stack.meta.size;
   uint32_t visible_child_index = 0;
 
   bool did_descend;
@@ -294,7 +294,7 @@ static inline int64_t ts_tree_cursor_goto_first_child_for_byte_and_point(
     }
   } while (did_descend);
 
-  self->stack.size = initial_size;
+  self->stack.meta.size = initial_size;
   return -1;
 }
 
@@ -311,9 +311,9 @@ TreeCursorStep ts_tree_cursor_goto_sibling_internal(
   bool (*advance)(CursorChildIterator *, TreeCursorEntry *, bool *)
 ) {
   TreeCursor *self = (TreeCursor *)_self;
-  uint32_t initial_size = self->stack.size;
+  uint32_t initial_size = self->stack.meta.size;
 
-  while (self->stack.size > 1) {
+  while (self->stack.meta.size > 1) {
     TreeCursorEntry entry = array_pop(&self->stack);
     CursorChildIterator iterator = ts_tree_cursor_iterate_children(self);
     iterator.child_index = entry.child_index;
@@ -323,7 +323,7 @@ TreeCursorStep ts_tree_cursor_goto_sibling_internal(
 
     bool visible = false;
     advance(&iterator, &entry, &visible);
-    if (visible && self->stack.size + 1 < initial_size) break;
+    if (visible && self->stack.meta.size + 1 < initial_size) break;
 
     while (advance(&iterator, &entry, &visible)) {
       if (visible) {
@@ -338,7 +338,7 @@ TreeCursorStep ts_tree_cursor_goto_sibling_internal(
     }
   }
 
-  self->stack.size = initial_size;
+  self->stack.meta.size = initial_size;
   return TreeCursorStepNone;
 }
 
@@ -374,7 +374,7 @@ TreeCursorStep ts_tree_cursor_goto_previous_sibling_internal(TSTreeCursor *_self
     return step;
 
   // restore position from the parent node
-  const TreeCursorEntry *parent = array_get(&self->stack, self->stack.size - 2);
+  const TreeCursorEntry *parent = array_get(&self->stack, self->stack.meta.size - 2);
   Length position = parent->position;
   uint32_t child_index = array_back(&self->stack)->child_index;
   const Subtree *children = ts_subtree_children((*(parent->subtree)));
@@ -407,9 +407,9 @@ bool ts_tree_cursor_goto_previous_sibling(TSTreeCursor *self) {
 
 bool ts_tree_cursor_goto_parent(TSTreeCursor *_self) {
   TreeCursor *self = (TreeCursor *)_self;
-  for (unsigned i = self->stack.size - 2; i + 1 > 0; i--) {
+  for (unsigned i = self->stack.meta.size - 2; i + 1 > 0; i--) {
     if (ts_tree_cursor_is_entry_visible(self, i)) {
-      self->stack.size = i + 1;
+      self->stack.meta.size = i + 1;
       return true;
     }
   }
@@ -424,7 +424,7 @@ void ts_tree_cursor_goto_descendant(
 
   // Ascend to the lowest ancestor that contains the goal node.
   for (;;) {
-    uint32_t i = self->stack.size - 1;
+    uint32_t i = self->stack.meta.size - 1;
     TreeCursorEntry *entry = array_get(&self->stack, i);
     uint32_t next_descendant_index =
       entry->descendant_index +
@@ -435,10 +435,10 @@ void ts_tree_cursor_goto_descendant(
       (next_descendant_index > goal_descendant_index)
     ) {
       break;
-    } else if (self->stack.size <= 1) {
+    } else if (self->stack.meta.size <= 1) {
       return;
     } else {
-      self->stack.size--;
+      self->stack.meta.size--;
     }
   }
 
@@ -478,8 +478,8 @@ TSNode ts_tree_cursor_current_node(const TSTreeCursor *_self) {
   TreeCursorEntry *last_entry = array_back(&self->stack);
   bool is_extra = ts_subtree_extra(*last_entry->subtree);
   TSSymbol alias_symbol = is_extra ? 0 : self->root_alias_symbol;
-  if (self->stack.size > 1 && !is_extra) {
-    TreeCursorEntry *parent_entry = array_get(&self->stack, self->stack.size - 2);
+  if (self->stack.meta.size > 1 && !is_extra) {
+    TreeCursorEntry *parent_entry = array_get(&self->stack, self->stack.meta.size - 2);
     alias_symbol = ts_language_alias_at(
       self->tree->language,
       parent_entry->subtree->ptr->production_id,
@@ -515,7 +515,7 @@ void ts_tree_cursor_current_status(
 
   // Walk up the tree, visiting the current node and its invisible ancestors,
   // because fields can refer to nodes through invisible *wrapper* nodes,
-  for (unsigned i = self->stack.size - 1; i > 0; i--) {
+  for (unsigned i = self->stack.meta.size - 1; i > 0; i--) {
     TreeCursorEntry *entry = array_get(&self->stack, i);
     TreeCursorEntry *parent_entry = array_get(&self->stack, i - 1);
 
@@ -542,7 +542,7 @@ void ts_tree_cursor_current_status(
       self->tree->language,
       entry_symbol
     );
-    if (i != self->stack.size - 1 && entry_metadata.visible) break;
+    if (i != self->stack.meta.size - 1 && entry_metadata.visible) break;
 
     // Record any supertypes
     if (entry_metadata.supertype && *supertype_count < max_supertypes) {
@@ -619,7 +619,7 @@ void ts_tree_cursor_current_status(
 uint32_t ts_tree_cursor_current_depth(const TSTreeCursor *_self) {
   const TreeCursor *self = (const TreeCursor *)_self;
   uint32_t depth = 0;
-  for (unsigned i = 1; i < self->stack.size; i++) {
+  for (unsigned i = 1; i < self->stack.meta.size; i++) {
     if (ts_tree_cursor_is_entry_visible(self, i)) {
       depth++;
     }
@@ -629,7 +629,7 @@ uint32_t ts_tree_cursor_current_depth(const TSTreeCursor *_self) {
 
 TSNode ts_tree_cursor_parent_node(const TSTreeCursor *_self) {
   const TreeCursor *self = (const TreeCursor *)_self;
-  for (int i = (int)self->stack.size - 2; i >= 0; i--) {
+  for (int i = (int)self->stack.meta.size - 2; i >= 0; i--) {
     TreeCursorEntry *entry = array_get(&self->stack, i);
     bool is_visible = true;
     TSSymbol alias_symbol = 0;
@@ -658,13 +658,13 @@ TSFieldId ts_tree_cursor_current_field_id(const TSTreeCursor *_self) {
   const TreeCursor *self = (const TreeCursor *)_self;
 
   // Walk up the tree, visiting the current node and its invisible ancestors.
-  for (unsigned i = self->stack.size - 1; i > 0; i--) {
+  for (unsigned i = self->stack.meta.size - 1; i > 0; i--) {
     TreeCursorEntry *entry = array_get(&self->stack, i);
     TreeCursorEntry *parent_entry = array_get(&self->stack, i - 1);
 
     // Stop walking up when another visible node is found.
     if (
-      i != self->stack.size - 1 &&
+      i != self->stack.meta.size - 1 &&
       ts_tree_cursor_is_entry_visible(self, i)
     ) break;
 
