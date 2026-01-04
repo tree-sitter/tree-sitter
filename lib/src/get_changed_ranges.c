@@ -12,7 +12,7 @@ static void ts_range_array_add(
   Length start,
   Length end
 ) {
-  if (self->size > 0) {
+  if (self->meta.size > 0) {
     TSRange *last_range = array_back(self);
     if (start.bytes <= last_range->end_byte) {
       last_range->end_byte = end.bytes;
@@ -33,7 +33,7 @@ bool ts_range_array_intersects(
   uint32_t start_byte,
   uint32_t end_byte
 ) {
-  for (unsigned i = start_index; i < self->size; i++) {
+  for (unsigned i = start_index; i < self->meta.size; i++) {
     TSRange *range = array_get(self, i);
     if (range->end_byte > start_byte) {
       if (range->start_byte >= end_byte) break;
@@ -167,7 +167,7 @@ static Iterator iterator_new(
 }
 
 static bool iterator_done(Iterator *self) {
-  return self->cursor.stack.size == 0;
+  return self->cursor.stack.meta.size == 0;
 }
 
 static Length iterator_start_position(Iterator *self) {
@@ -192,8 +192,8 @@ static Length iterator_end_position(Iterator *self) {
 static bool iterator_tree_is_visible(const Iterator *self) {
   TreeCursorEntry entry = *array_back(&self->cursor.stack);
   if (ts_subtree_visible(*entry.subtree)) return true;
-  if (self->cursor.stack.size > 1) {
-    Subtree parent = *array_get(&self->cursor.stack, self->cursor.stack.size - 2)->subtree;
+  if (self->cursor.stack.meta.size > 1) {
+    Subtree parent = *array_get(&self->cursor.stack, self->cursor.stack.meta.size - 2)->subtree;
     return ts_language_alias_at(
       self->language,
       parent.ptr->production_id,
@@ -209,7 +209,7 @@ static void iterator_get_visible_state(
   TSSymbol *alias_symbol,
   uint32_t *start_byte
 ) {
-  uint32_t i = self->cursor.stack.size - 1;
+  uint32_t i = self->cursor.stack.meta.size - 1;
 
   if (self->in_padding) {
     if (i == 0) return;
@@ -240,7 +240,7 @@ static void iterator_ascend(Iterator *self) {
   if (iterator_done(self)) return;
   if (iterator_tree_is_visible(self) && !self->in_padding) self->visible_depth--;
   if (array_back(&self->cursor.stack)->child_index > 0) self->in_padding = false;
-  self->cursor.stack.size--;
+  self->cursor.stack.meta.size--;
 }
 
 static bool iterator_descend(Iterator *self, uint32_t goal_position) {
@@ -530,7 +530,7 @@ unsigned ts_subtree_get_changed_ranges(
 
     // Keep track of the current position in the included range differences
     // array in order to avoid scanning the entire array on each iteration.
-    while (included_range_difference_index < included_range_differences->size) {
+    while (included_range_difference_index < included_range_differences->meta.size) {
       const TSRange *range = array_get(included_range_differences,
         included_range_difference_index
       );
@@ -553,5 +553,5 @@ unsigned ts_subtree_get_changed_ranges(
   *cursor1 = old_iter.cursor;
   *cursor2 = new_iter.cursor;
   *ranges = results.contents;
-  return results.size;
+  return results.meta.size;
 }

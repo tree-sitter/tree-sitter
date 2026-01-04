@@ -21,14 +21,14 @@ static inline void reusable_node_clear(ReusableNode *self) {
 }
 
 static inline Subtree reusable_node_tree(ReusableNode *self) {
-  return self->stack.size > 0
-    ? self->stack.contents[self->stack.size - 1].tree
+  return self->stack.meta.size > 0
+    ? self->stack.contents[self->stack.meta.size - 1].tree
     : NULL_SUBTREE;
 }
 
 static inline uint32_t reusable_node_byte_offset(ReusableNode *self) {
-  return self->stack.size > 0
-    ? self->stack.contents[self->stack.size - 1].byte_offset
+  return self->stack.meta.size > 0
+    ? self->stack.contents[self->stack.meta.size - 1].byte_offset
     : UINT32_MAX;
 }
 
@@ -48,7 +48,7 @@ static inline void reusable_node_advance(ReusableNode *self) {
   do {
     StackEntry popped_entry = array_pop(&self->stack);
     next_index = popped_entry.child_index + 1;
-    if (self->stack.size == 0) return;
+    if (self->stack.meta.size == 0) return;
     tree = array_back(&self->stack)->tree;
   } while (ts_subtree_child_count(tree) <= next_index);
 

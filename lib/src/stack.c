@@ -109,7 +109,7 @@ recur:
     first_predecessor = self->links[0].node;
   }
 
-  if (pool->size < MAX_NODE_POOL_SIZE) {
+  if (pool->meta.size < MAX_NODE_POOL_SIZE) {
     array_push(pool, self);
   } else {
     ts_free(self);
@@ -142,7 +142,7 @@ static StackNode *stack_node_new(
   TSStateId state,
   StackNodeArray *pool
 ) {
-  StackNode *node = pool->size > 0
+  StackNode *node = pool->meta.size > 0
     ? array_pop(pool)
     : ts_malloc(sizeof(StackNode));
   *node = (StackNode) {
@@ -298,7 +298,7 @@ static StackVersion ts_stack__add_version(
   array_push(&self->heads, head);
   stack_node_retain(node);
   if (head.last_external_token.ptr) ts_subtree_retain(head.last_external_token);
-  return (StackVersion)(self->heads.size - 1);
+  return (StackVersion)(self->heads.meta.size - 1);
 }
 
 static void ts_stack__add_slice(
@@ -307,7 +307,7 @@ static void ts_stack__add_slice(
   StackNode *node,
   SubtreeArray *subtrees
 ) {
-  for (uint32_t i = self->slices.size - 1; i + 1 > 0; i--) {
+  for (uint32_t i = self->slices.meta.size - 1; i + 1 > 0; i--) {
     StackVersion version = array_get(&self->slices, i)->version;
     if (array_get(&self->heads, version)->node == node) {
       StackSlice slice = {*subtrees, version};
@@ -347,8 +347,8 @@ static StackSliceArray stack__iter(
 
   array_push(&self->iterators, new_iterator);
 
-  while (self->iterators.size > 0) {
-    for (uint32_t i = 0, size = self->iterators.size; i < size; i++) {
+  while (self->iterators.meta.size > 0) {
+    for (uint32_t i = 0, size = self->iterators.meta.size; i < size; i++) {
       StackIterator *iterator = array_get(&self->iterators, i);
       StackNode *node = iterator->node;
 
@@ -386,7 +386,7 @@ static StackSliceArray stack__iter(
           link = node->links[0];
           next_iterator = array_get(&self->iterators, i);
         } else {
-          if (self->iterators.size >= MAX_ITERATOR_COUNT) continue;
+          if (self->iterators.meta.size >= MAX_ITERATOR_COUNT) continue;
           link = node->links[j];
           StackIterator current_iterator = *array_get(&self->iterators, i);
           array_push(&self->iterators, current_iterator);
@@ -443,12 +443,12 @@ void ts_stack_delete(Stack *self) {
   if (self->iterators.contents)
     array_delete(&self->iterators);
   stack_node_release(self->base_node, &self->node_pool, self->subtree_pool);
-  for (uint32_t i = 0; i < self->heads.size; i++) {
+  for (uint32_t i = 0; i < self->heads.meta.size; i++) {
     stack_head_delete(array_get(&self->heads, i), &self->node_pool, self->subtree_pool);
   }
   array_clear(&self->heads);
   if (self->node_pool.contents) {
-    for (uint32_t i = 0; i < self->node_pool.size; i++)
+    for (uint32_t i = 0; i < self->node_pool.meta.size; i++)
       ts_free(*array_get(&self->node_pool, i));
     array_delete(&self->node_pool);
   }
@@ -457,12 +457,12 @@ void ts_stack_delete(Stack *self) {
 }
 
 uint32_t ts_stack_version_count(const Stack *self) {
-  return self->heads.size;
+  return self->heads.meta.size;
 }
 
 uint32_t ts_stack_halted_version_count(Stack *self) {
   uint32_t count = 0;
-  for (uint32_t i = 0; i < self->heads.size; i++) {
+  for (uint32_t i = 0; i < self->heads.meta.size; i++) {
     StackHead *head = array_get(&self->heads, i);
     if (head->status == StackStatusHalted) {
       count++;
@@ -551,7 +551,7 @@ forceinline StackAction pop_pending_callback(void *payload, const StackIterator 
 
 StackSliceArray ts_stack_pop_pending(Stack *self, StackVersion version) {
   StackSliceArray pop = stack__iter(self, version, pop_pending_callback, NULL, 0);
-  if (pop.size > 0) {
+  if (pop.meta.size > 0) {
     ts_stack_renumber_version(self, array_get(&pop, 0)->version, version);
     array_get(&pop, 0)->version = version;
   }
@@ -559,7 +559,7 @@ StackSliceArray ts_stack_pop_pending(Stack *self, StackVersion version) {
 }
 
 forceinline StackAction pop_error_callback(void *payload, const StackIterator *iterator) {
-  if (iterator->subtrees.size > 0) {
+  if (iterator->subtrees.meta.size > 0) {
     bool *found_error = payload;
     if (!*found_error && ts_subtree_is_error(*array_get(&iterator->subtrees, 0))) {
       *found_error = true;
@@ -578,15 +578,15 @@ SubtreeArray ts_stack_pop_error(Stack *self, StackVersion version) {
     if (node->links[i].subtree.ptr && ts_subtree_is_error(node->links[i].subtree)) {
       bool found_error = false;
       StackSliceArray pop = stack__iter(self, version, pop_error_callback, &found_error, 1);
-      if (pop.size > 0) {
-        ts_assert(pop.size == 1);
+      if (pop.meta.size > 0) {
+        ts_assert(pop.meta.size == 1);
         ts_stack_renumber_version(self, array_get(&pop, 0)->version, version);
         return array_get(&pop, 0)->subtrees;
       }
       break;
     }
   }
-  return (SubtreeArray) {.size = 0};
+  return (SubtreeArray) {.meta = {.size = 0}};
 }
 
 forceinline StackAction pop_all_callback(void *payload, const StackIterator *iterator) {
@@ -608,7 +608,7 @@ forceinline StackAction summarize_stack_callback(void *payload, const StackItera
   TSStateId state = iterator->node->state;
   unsigned depth = iterator->subtree_count;
   if (depth > session->max_depth) return StackActionStop;
-  for (unsigned i = session->summary->size - 1; i + 1 > 0; i--) {
+  for (unsigned i = session->summary->meta.size - 1; i + 1 > 0; i--) {
     StackSummaryEntry entry = *array_get(session->summary, i);
     if (entry.depth < depth) break;
     if (entry.depth == depth && entry.state == state) return StackActionNone;
@@ -676,7 +676,7 @@ void ts_stack_remove_version(Stack *self, StackVersion version) {
 void ts_stack_renumber_version(Stack *self, StackVersion v1, StackVersion v2) {
   if (v1 == v2) return;
   ts_assert(v2 < v1);
-  ts_assert((uint32_t)v1 < self->heads.size);
+  ts_assert((uint32_t)v1 < self->heads.meta.size);
   StackHead *source_head = array_get(&self->heads, v1);
   StackHead *target_head = array_get(&self->heads, v2);
   if (target_head->summary && !source_head->summary) {
@@ -695,14 +695,14 @@ void ts_stack_swap_versions(Stack *self, StackVersion v1, StackVersion v2) {
 }
 
 StackVersion ts_stack_copy_version(Stack *self, StackVersion version) {
-  ts_assert(version < self->heads.size);
+  ts_assert(version < self->heads.meta.size);
   StackHead version_head = *array_get(&self->heads, version);
   array_push(&self->heads, version_head);
   StackHead *head = array_back(&self->heads);
   stack_node_retain(head->node);
   if (head->last_external_token.ptr) ts_subtree_retain(head->last_external_token);
   head->summary = NULL;
-  return self->heads.size - 1;
+  return self->heads.meta.size - 1;
 }
 
 bool ts_stack_merge(Stack *self, StackVersion version1, StackVersion version2) {
@@ -765,7 +765,7 @@ Subtree ts_stack_resume(Stack *self, StackVersion version) {
 
 void ts_stack_clear(Stack *self) {
   stack_node_retain(self->base_node);
-  for (uint32_t i = 0; i < self->heads.size; i++) {
+  for (uint32_t i = 0; i < self->heads.meta.size; i++) {
     stack_head_delete(array_get(&self->heads, i), &self->node_pool, self->subtree_pool);
   }
   array_clear(&self->heads);
@@ -788,7 +788,7 @@ bool ts_stack_print_dot_graph(Stack *self, const TSLanguage *language, FILE *f) 
   Array(StackNode *) visited_nodes = array_new();
 
   array_clear(&self->iterators);
-  for (uint32_t i = 0; i < self->heads.size; i++) {
+  for (uint32_t i = 0; i < self->heads.meta.size; i++) {
     StackHead *head = array_get(&self->heads, i);
     if (head->status == StackStatusHalted) continue;
 
@@ -807,7 +807,7 @@ bool ts_stack_print_dot_graph(Stack *self, const TSLanguage *language, FILE *f) 
 
     if (head->summary) {
       fprintf(f, "\nsummary:");
-      for (uint32_t j = 0; j < head->summary->size; j++) fprintf(f, " %u", array_get(head->summary, j)->state);
+      for (uint32_t j = 0; j < head->summary->meta.size; j++) fprintf(f, " %u", array_get(head->summary, j)->state);
     }
 
     if (head->last_external_token.ptr) {
@@ -827,11 +827,11 @@ bool ts_stack_print_dot_graph(Stack *self, const TSLanguage *language, FILE *f) 
   while (!all_iterators_done) {
     all_iterators_done = true;
 
-    for (uint32_t i = 0; i < self->iterators.size; i++) {
+    for (uint32_t i = 0; i < self->iterators.meta.size; i++) {
       StackIterator iterator = *array_get(&self->iterators, i);
       StackNode *node = iterator.node;
 
-      for (uint32_t j = 0; j < visited_nodes.size; j++) {
+      for (uint32_t j = 0; j < visited_nodes.meta.size; j++) {
         if (*array_get(&visited_nodes, j) == node) {
           node = NULL;
           break;

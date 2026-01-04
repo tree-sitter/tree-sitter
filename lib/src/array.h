@@ -21,34 +21,38 @@ extern "C" {
 #pragma GCC diagnostic ignored "-Wunused-variable"
 #endif
 
-#define Array(T)       \
-  struct {             \
-    T *contents;       \
-    uint32_t size;     \
-    uint32_t capacity; \
+typedef struct {
+  uint32_t size;
+  uint32_t capacity;
+} _ArrayMeta;
+
+#define Array(T)    \
+  struct {          \
+    T *contents;    \
+    _ArrayMeta meta; \
   }
 
 /// Initialize an array.
 #define array_init(self) \
-  ((self)->size = 0, (self)->capacity = 0, (self)->contents = NULL)
+  ((self)->meta.size = 0, (self)->meta.capacity = 0, (self)->contents = NULL)
 
 /// Create an empty array.
 #define array_new() \
-  { NULL, 0, 0 }
+  { NULL, { 0, 0 } }
 
 /// Get a pointer to the element at a given `index` in the array.
 #define array_get(self, _index) \
-  (ts_assert((uint32_t)(_index) < (self)->size), &(self)->contents[_index])
+  (ts_assert((uint32_t)(_index) < (self)->meta.size), &(self)->contents[_index])
 
 /// Get a pointer to the first element in the array.
 #define array_front(self) array_get(self, 0)
 
 /// Get a pointer to the last element in the array.
-#define array_back(self) array_get(self, (self)->size - 1)
+#define array_back(self) array_get(self, (self)->meta.size - 1)
 
 /// Clear the array, setting its size to zero. Note that this does not free any
 /// memory allocated for the array's contents.
-#define array_clear(self) ((self)->size = 0)
+#define array_clear(self) ((self)->meta.size = 0)
 
 /// Reserve `new_capacity` elements of space in the array. If `new_capacity` is
 /// less than the array's current capacity, this function has no effect.
@@ -62,7 +66,7 @@ extern "C" {
 /// Push a new `element` onto the end of the array.
 #define array_push(self, element)                            \
   (_array__grow((Array *)(self), 1, array_elem_size(self)), \
-   (self)->contents[(self)->size++] = (element))
+   (self)->contents[(self)->meta.size++] = (element))
 
 /// Increase the array's size by `count` elements.
 /// New elements are zero-initialized.
@@ -70,19 +74,19 @@ extern "C" {
   do { \
     if ((count) == 0) break; \
     _array__grow((Array *)(self), count, array_elem_size(self)); \
-    memset((self)->contents + (self)->size, 0, (count) * array_elem_size(self)); \
-    (self)->size += (count); \
+    memset((self)->contents + (self)->meta.size, 0, (count) * array_elem_size(self)); \
+    (self)->meta.size += (count); \
   } while (0)
 
 /// Append all elements from one array to the end of another.
 #define array_push_all(self, other)                                       \
-  array_extend((self), (other)->size, (other)->contents)
+  array_extend((self), (other)->meta.size, (other)->contents)
 
 /// Append `count` elements to the end of the array, reading their values from the
 /// `contents` pointer.
 #define array_extend(self, count, contents)                    \
   _array__splice(                                               \
-    (Array *)(self), array_elem_size(self), (self)->size, \
+    (Array *)(self), array_elem_size(self), (self)->meta.size, \
     0, count,  contents                                        \
   )
 
@@ -104,7 +108,7 @@ extern "C" {
   _array__erase((Array *)(self), array_elem_size(self), _index)
 
 /// Pop the last element off the array, returning the element by value.
-#define array_pop(self) ((self)->contents[--(self)->size])
+#define array_pop(self) ((self)->contents[--(self)->meta.size])
 
 /// Assign the contents of one array to another, reallocating if necessary.
 #define array_assign(self, other) \
@@ -164,38 +168,38 @@ static inline void _array__delete(Array *self) {
   if (self->contents) {
     ts_free(self->contents);
     self->contents = NULL;
-    self->size = 0;
-    self->capacity = 0;
+    self->meta.size = 0;
+    self->meta.capacity = 0;
   }
 }
 
 /// This is not what you're looking for, see `array_erase`.
 static inline void _array__erase(Array *self, size_t element_size,
                                 uint32_t index) {
-  ts_assert(index < self->size);
+  ts_assert(index < self->meta.size);
   char *contents = (char *)self->contents;
   memmove(contents + index * element_size, contents + (index + 1) * element_size,
-          (self->size - index - 1) * element_size);
-  self->size--;
+          (self->meta.size - index - 1) * element_size);
+  self->meta.size--;
 }
 
 /// This is not what you're looking for, see `array_reserve`.
 static inline void _array__reserve(Array *self, size_t element_size, uint32_t new_capacity) {
-  if (new_capacity > self->capacity) {
+  if (new_capacity > self->meta.capacity) {
     if (self->contents) {
       self->contents = ts_realloc(self->contents, new_capacity * element_size);
     } else {
       self->contents = ts_malloc(new_capacity * element_size);
     }
-    self->capacity = new_capacity;
+    self->meta.capacity = new_capacity;
   }
 }
 
 /// This is not what you're looking for, see `array_assign`.
 static inline void _array__assign(Array *self, const Array *other, size_t element_size) {
-  _array__reserve(self, element_size, other->size);
-  self->size = other->size;
-  memcpy(self->contents, other->contents, self->size * element_size);
+  _array__reserve(self, element_size, other->meta.size);
+  self->meta.size = other->meta.size;
+  memcpy(self->contents, other->contents, self->meta.size * element_size);
 }
 
 /// This is not what you're looking for, see `array_swap`.
@@ -207,9 +211,9 @@ static inline void _array__swap(Array *self, Array *other) {
 
 /// This is not what you're looking for, see `array_push` or `array_grow_by`.
 static inline void _array__grow(Array *self, uint32_t count, size_t element_size) {
-  uint32_t new_size = self->size + count;
-  if (new_size > self->capacity) {
-    uint32_t new_capacity = self->capacity * 2;
+  uint32_t new_size = self->meta.size + count;
+  if (new_size > self->meta.capacity) {
+    uint32_t new_capacity = self->meta.capacity * 2;
     if (new_capacity < 8) new_capacity = 8;
     if (new_capacity < new_size) new_capacity = new_size;
     _array__reserve(self, element_size, new_capacity);
@@ -220,19 +224,19 @@ static inline void _array__grow(Array *self, uint32_t count, size_t element_size
 static inline void _array__splice(Array *self, size_t element_size,
                                  uint32_t index, uint32_t old_count,
                                  uint32_t new_count, const void *elements) {
-  uint32_t new_size = self->size + new_count - old_count;
+  uint32_t new_size = self->meta.size + new_count - old_count;
   uint32_t old_end = index + old_count;
   uint32_t new_end = index + new_count;
-  ts_assert(old_end <= self->size);
+  ts_assert(old_end <= self->meta.size);
 
   _array__reserve(self, element_size, new_size);
 
   char *contents = (char *)self->contents;
-  if (self->size > old_end) {
+  if (self->meta.size > old_end) {
     memmove(
       contents + new_end * element_size,
       contents + old_end * element_size,
-      (self->size - old_end) * element_size
+      (self->meta.size - old_end) * element_size
     );
   }
   if (new_count > 0) {
@@ -250,7 +254,7 @@ static inline void _array__splice(Array *self, size_t element_size,
       );
     }
   }
-  self->size += new_count - old_count;
+  self->meta.size += new_count - old_count;
 }
 
 /// A binary search routine, based on Rust's `std::slice::binary_search_by`.
@@ -259,7 +263,7 @@ static inline void _array__splice(Array *self, size_t element_size,
   do { \
     *(_index) = start; \
     *(_exists) = false; \
-    uint32_t size = (self)->size - *(_index); \
+    uint32_t size = (self)->meta.size - *(_index); \
     if (size == 0) break; \
     int comparison; \
     while (size > 1) { \
