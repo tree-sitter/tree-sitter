@@ -18,6 +18,3 @@ links = "tree-sitter-language"
 
 [lints]
 workspace = true
-
-[lib]
-path = "src/language.rs"

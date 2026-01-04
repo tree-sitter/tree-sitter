@@ -1,4 +1,3 @@
-#![no_std]
 /// `LanguageFn` wraps a C function that returns a pointer to a tree-sitter grammar.
 #[repr(transparent)]
 #[derive(Clone, Copy)]
