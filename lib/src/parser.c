@@ -182,11 +182,11 @@ static bool ts_parser__breakdown_top_of_stack(
 
   do {
     StackSliceArray pop = ts_stack_pop_pending(self->stack, version);
-    if (!pop.size) break;
+    if (!pop.meta.size) break;
 
     did_break_down = true;
     pending = false;
-    for (uint32_t i = 0; i < pop.size; i++) {
+    for (uint32_t i = 0; i < pop.meta.size; i++) {
       StackSlice slice = *array_get(&pop, i);
       TSStateId state = ts_stack_state(self->stack, slice.version);
       Subtree parent = *array_front(&slice.subtrees);
@@ -205,7 +205,7 @@ static bool ts_parser__breakdown_top_of_stack(
         ts_stack_push(self->stack, slice.version, child, pending, state);
       }
 
-      for (uint32_t j = 1; j < slice.subtrees.size; j++) {
+      for (uint32_t j = 1; j < slice.subtrees.meta.size; j++) {
         Subtree tree = *array_get(&slice.subtrees, j);
         ts_stack_push(self->stack, slice.version, tree, false, state);
       }
@@ -948,7 +948,7 @@ static StackVersion ts_parser__reduce(
   StackSliceArray pop = ts_stack_pop_count(self->stack, version, count);
   uint32_t removed_version_count = 0;
   uint32_t halted_version_count = ts_stack_halted_version_count(self->stack);
-  for (uint32_t i = 0; i < pop.size; i++) {
+  for (uint32_t i = 0; i < pop.meta.size; i++) {
     StackSlice slice = *array_get(&pop, i);
     StackVersion slice_version = slice.version - removed_version_count;
 
@@ -960,7 +960,7 @@ static StackVersion ts_parser__reduce(
       ts_stack_remove_version(self->stack, slice_version);
       ts_subtree_array_delete(&self->tree_pool, &slice.subtrees);
       removed_version_count++;
-      while (i + 1 < pop.size) {
+      while (i + 1 < pop.meta.size) {
         LOG("aborting reduce with too many versions")
         StackSlice next_slice = *array_get(&pop, i + 1);
         if (next_slice.version != slice.version) break;
@@ -984,7 +984,7 @@ static StackVersion ts_parser__reduce(
     // into one, because they all diverged from a common state. In that case,
     // choose one of the arrays of trees to be the parent node's children, and
     // delete the rest of the tree arrays.
-    while (i + 1 < pop.size) {
+    while (i + 1 < pop.meta.size) {
       StackSlice next_slice = *array_get(&pop, i + 1);
       if (next_slice.version != slice.version) break;
       i++;
@@ -1014,7 +1014,7 @@ static StackVersion ts_parser__reduce(
     if (end_of_non_terminal_extra && next_state == state) {
       parent.ptr->extra = true;
     }
-    if (is_fragile || pop.size > 1 || initial_version_count > 1) {
+    if (is_fragile || pop.meta.size > 1 || initial_version_count > 1) {
       parent.ptr->fragile_left = true;
       parent.ptr->fragile_right = true;
       parent.ptr->parse_state = TS_TREE_STATE_NONE;
@@ -1026,7 +1026,7 @@ static StackVersion ts_parser__reduce(
     // Push the parent node onto the stack, along with any extra tokens that
     // were previously on top of the stack.
     ts_stack_push(self->stack, slice_version, ts_subtree_from_mut(parent), false, next_state);
-    for (uint32_t j = 0; j < self->trailing_extras.size; j++) {
+    for (uint32_t j = 0; j < self->trailing_extras.meta.size; j++) {
       ts_stack_push(self->stack, slice_version, *array_get(&self->trailing_extras, j), false, next_state);
     }
 
@@ -1054,11 +1054,11 @@ static void ts_parser__accept(
   ts_stack_push(self->stack, version, lookahead, false, 1);
 
   StackSliceArray pop = ts_stack_pop_all(self->stack, version);
-  for (uint32_t i = 0; i < pop.size; i++) {
+  for (uint32_t i = 0; i < pop.meta.size; i++) {
     SubtreeArray trees = array_get(&pop, i)->subtrees;
 
     Subtree root = NULL_SUBTREE;
-    for (uint32_t j = trees.size - 1; j + 1 > 0; j--) {
+    for (uint32_t j = trees.meta.size - 1; j + 1 > 0; j--) {
       Subtree tree = *array_get(&trees, j);
       if (!ts_subtree_extra(tree)) {
         ts_assert(!tree.data.is_inline);
@@ -1159,7 +1159,7 @@ static bool ts_parser__do_all_potential_reductions(
     }
 
     StackVersion reduction_version = STACK_VERSION_NONE;
-    for (uint32_t j = 0; j < self->reduce_actions.size; j++) {
+    for (uint32_t j = 0; j < self->reduce_actions.meta.size; j++) {
       ReduceAction action = *array_get(&self->reduce_actions, j);
 
       reduction_version = ts_parser__reduce(
@@ -1197,7 +1197,7 @@ static bool ts_parser__recover_to_state(
   StackSliceArray pop = ts_stack_pop_count(self->stack, version, depth);
   StackVersion previous_version = STACK_VERSION_NONE;
 
-  for (unsigned i = 0; i < pop.size; i++) {
+  for (unsigned i = 0; i < pop.meta.size; i++) {
     StackSlice slice = *array_get(&pop, i);
 
     if (slice.version == previous_version) {
@@ -1214,8 +1214,8 @@ static bool ts_parser__recover_to_state(
     }
 
     SubtreeArray error_trees = ts_stack_pop_error(self->stack, slice.version);
-    if (error_trees.size > 0) {
-      ts_assert(error_trees.size == 1);
+    if (error_trees.meta.size > 0) {
+      ts_assert(error_trees.meta.size == 1);
       Subtree error_tree = *array_get(&error_trees, 0);
       uint32_t error_child_count = ts_subtree_child_count(error_tree);
       if (error_child_count > 0) {
@@ -1229,14 +1229,14 @@ static bool ts_parser__recover_to_state(
 
     ts_subtree_array_remove_trailing_extras(&slice.subtrees, &self->trailing_extras);
 
-    if (slice.subtrees.size > 0) {
+    if (slice.subtrees.meta.size > 0) {
       Subtree error = ts_subtree_new_error_node(&slice.subtrees, true, self->language);
       ts_stack_push(self->stack, slice.version, error, false, goal_state);
     } else {
       array_delete(&slice.subtrees);
     }
 
-    for (unsigned j = 0; j < self->trailing_extras.size; j++) {
+    for (unsigned j = 0; j < self->trailing_extras.meta.size; j++) {
       Subtree tree = *array_get(&self->trailing_extras, j);
       ts_stack_push(self->stack, slice.version, tree, false, goal_state);
     }
@@ -1272,7 +1272,7 @@ static void ts_parser__recover(
   // of the previous parse states and their depths. Look at each state in the summary, to see
   // if the current lookahead token would be valid in that state.
   if (summary && !ts_subtree_is_error(lookahead)) {
-    for (unsigned i = 0; i < summary->size; i++) {
+    for (unsigned i = 0; i < summary->meta.size; i++) {
       StackSummaryEntry entry = *array_get(summary, i);
 
       if (entry.state == ERROR_STATE) continue;
@@ -1398,8 +1398,8 @@ static void ts_parser__recover(
     // See https://github.com/atom/atom/issues/18450#issuecomment-439579778
     // If multiple stack versions have merged at this point, just pick one of the errors
     // arbitrarily and discard the rest.
-    if (pop.size > 1) {
-      for (unsigned i = 1; i < pop.size; i++) {
+    if (pop.meta.size > 1) {
+      for (unsigned i = 1; i < pop.meta.size; i++) {
         ts_subtree_array_delete(&self->tree_pool, &array_get(&pop, i)->subtrees);
       }
       while (ts_stack_version_count(self->stack) > array_get(&pop, 0)->version + 1) {
@@ -1877,13 +1877,13 @@ static bool ts_parser__balance_subtree(TSParser *self) {
     }
   }
 
-  while (self->tree_pool.tree_stack.size > 0) {
+  while (self->tree_pool.tree_stack.meta.size > 0) {
     if (!ts_parser__check_progress(self, NULL, NULL, 1)) {
       return false;
     }
 
     MutableSubtree tree = *array_get(&self->tree_pool.tree_stack, 
-      self->tree_pool.tree_stack.size - 1
+      self->tree_pool.tree_stack.meta.size - 1
     );
 
     if (tree.ptr->repeat_depth > 0) {
@@ -2108,7 +2108,7 @@ TSTree *ts_parser_parse(
       reusable_node_reset(&self->reusable_node, old_tree->root);
       LOG("parse_after_edit");
       LOG_TREE(self->old_tree);
-      for (unsigned i = 0; i < self->included_range_differences.size; i++) {
+      for (unsigned i = 0; i < self->included_range_differences.meta.size; i++) {
         TSRange *range = array_get(&self->included_range_differences, i);
         LOG("different_included_range %u - %u", range->start_byte, range->end_byte);
       }
@@ -2165,7 +2165,7 @@ TSTree *ts_parser_parse(
       break;
     }
 
-    while (self->included_range_difference_index < self->included_range_differences.size) {
+    while (self->included_range_difference_index < self->included_range_differences.meta.size) {
       TSRange *range = array_get(&self->included_range_differences, self->included_range_difference_index);
       if (range->end_byte <= position) {
         self->included_range_difference_index++;
