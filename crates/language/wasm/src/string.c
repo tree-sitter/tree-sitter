@@ -58,3 +58,9 @@ int strncmp(const char *left, const char *right, size_t n) {
   }
   return 0;
 }
+
+size_t strlen(const char *str) {
+  const char *s = str;
+  while (*s) s++;
+  return s - str;
+}
