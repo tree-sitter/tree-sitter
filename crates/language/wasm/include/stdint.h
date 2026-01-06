@@ -23,9 +23,15 @@ typedef long unsigned int size_t;
 
 typedef long unsigned int uintptr_t;
 
-#define UINT16_MAX 65535
+#define INT8_MAX 127
+#define INT16_MAX 32767
+#define INT32_MAX 2147483647L
+#define INT64_MAX 9223372036854775807LL
 
+#define UINT8_MAX 255
+#define UINT16_MAX 65535
 #define UINT32_MAX 4294967295U
+#define UINT64_MAX 18446744073709551615ULL
 
 #if defined(__wasm32__)
 

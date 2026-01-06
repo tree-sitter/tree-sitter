@@ -13,4 +13,6 @@ void *memset(void *dst, int value, size_t count);
 
 int strncmp(const char *left, const char *right, size_t n);
 
+size_t strlen(const char *str);
+
 #endif // TREE_SITTER_WASM_STRING_H_
