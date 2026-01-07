@@ -959,10 +959,18 @@ pub fn generate_grammar_files(
                 allow_update,
                 |path| generate_file(path, SETUP_PY_TEMPLATE, language_name, &generate_opts),
                 |path| {
-                    let contents = fs::read_to_string(path)?;
+                    let mut contents = fs::read_to_string(path)?;
                     if !contents.contains("build_ext") {
                         info!("Replacing setup.py");
                         generate_file(path, SETUP_PY_TEMPLATE, language_name, &generate_opts)?;
+                    }
+                    if !contents.contains(" and not get_config_var") {
+                        info!("Updating Python free-threading support in setup.py");
+                        contents = contents.replace(
+                            r#"startswith("cp"):"#,
+                            r#"startswith("cp") and not get_config_var("Py_GIL_DISABLED"):"#
+                        );
+                        write_file(path, contents)?;
                     }
                     Ok(())
                 },
