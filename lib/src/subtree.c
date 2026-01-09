@@ -66,20 +66,19 @@ bool ts_external_scanner_state_eq(const ExternalScannerState *self, const char *
 // SubtreeArray
 
 void ts_subtree_array_copy(SubtreeArray self, SubtreeArray *dest) {
-  dest->size = self.size;
-  dest->capacity = self.capacity;
+  dest->meta = self.meta;
   dest->contents = self.contents;
-  if (self.capacity > 0) {
-    dest->contents = ts_calloc(self.capacity, sizeof(Subtree));
-    memcpy(dest->contents, self.contents, self.size * sizeof(Subtree));
-    for (uint32_t i = 0; i < self.size; i++) {
+  if (self.meta.capacity > 0) {
+    dest->contents = ts_calloc(self.meta.capacity, sizeof(Subtree));
+    memcpy(dest->contents, self.contents, self.meta.size * sizeof(Subtree));
+    for (uint32_t i = 0; i < self.meta.size; i++) {
       ts_subtree_retain(*array_get(dest, i));
     }
   }
 }
 
 void ts_subtree_array_clear(SubtreePool *pool, SubtreeArray *self) {
-  for (uint32_t i = 0; i < self->size; i++) {
+  for (uint32_t i = 0; i < self->meta.size; i++) {
     ts_subtree_release(pool, *array_get(self, i));
   }
   array_clear(self);
@@ -95,10 +94,10 @@ void ts_subtree_array_remove_trailing_extras(
   SubtreeArray *destination
 ) {
   array_clear(destination);
-  while (self->size > 0) {
-    Subtree last = *array_get(self, self->size - 1);
+  while (self->meta.size > 0) {
+    Subtree last = *array_back(self);
     if (ts_subtree_extra(last)) {
-      self->size--;
+      self->meta.size--;
       array_push(destination, last);
     } else {
       break;
@@ -108,8 +107,8 @@ void ts_subtree_array_remove_trailing_extras(
 }
 
 void ts_subtree_array_reverse(SubtreeArray *self) {
-  for (uint32_t i = 0, limit = self->size / 2; i < limit; i++) {
-    size_t reverse_index = self->size - 1 - i;
+  for (uint32_t i = 0, limit = self->meta.size / 2; i < limit; i++) {
+    size_t reverse_index = self->meta.size - 1 - i;
     Subtree swap = *array_get(self, i);
     *array_get(self, i) = *array_get(self, reverse_index);
     *array_get(self, reverse_index) = swap;
@@ -126,7 +125,7 @@ SubtreePool ts_subtree_pool_new(uint32_t capacity) {
 
 void ts_subtree_pool_delete(SubtreePool *self) {
   if (self->free_trees.contents) {
-    for (unsigned i = 0; i < self->free_trees.size; i++) {
+    for (unsigned i = 0; i < self->free_trees.meta.size; i++) {
       ts_free(array_get(&self->free_trees, i)->ptr);
     }
     array_delete(&self->free_trees);
@@ -135,7 +134,7 @@ void ts_subtree_pool_delete(SubtreePool *self) {
 }
 
 static SubtreeHeapData *ts_subtree_pool_allocate(SubtreePool *self) {
-  if (self->free_trees.size > 0) {
+  if (self->free_trees.meta.size > 0) {
     return array_pop(&self->free_trees).ptr;
   } else {
     return ts_malloc(sizeof(SubtreeHeapData));
@@ -143,7 +142,7 @@ static SubtreeHeapData *ts_subtree_pool_allocate(SubtreePool *self) {
 }
 
 static void ts_subtree_pool_free(SubtreePool *self, SubtreeHeapData *tree) {
-  if (self->free_trees.capacity > 0 && self->free_trees.size + 1 <= TS_MAX_TREE_POOL_SIZE) {
+  if (self->free_trees.meta.capacity > 0 && self->free_trees.meta.size + 1 <= TS_MAX_TREE_POOL_SIZE) {
     array_push(&self->free_trees, (MutableSubtree) {.ptr = tree});
   } else {
     ts_free(tree);
@@ -295,7 +294,7 @@ void ts_subtree_compress(
   const TSLanguage *language,
   MutableSubtreeArray *stack
 ) {
-  unsigned initial_stack_size = stack->size;
+  unsigned initial_stack_size = stack->meta.size;
 
   MutableSubtree tree = self;
   TSSymbol symbol = tree.ptr->symbol;
@@ -325,7 +324,7 @@ void ts_subtree_compress(
     tree = grandchild;
   }
 
-  while (stack->size > initial_stack_size) {
+  while (stack->meta.size > initial_stack_size) {
     tree = array_pop(stack);
     MutableSubtree child = ts_subtree_to_mut_unsafe(ts_subtree_children(tree)[0]);
     MutableSubtree grandchild = ts_subtree_to_mut_unsafe(ts_subtree_children(child)[child.ptr->child_count - 1]);
@@ -487,17 +486,17 @@ MutableSubtree ts_subtree_new_node(
   bool fragile = symbol == ts_builtin_sym_error || symbol == ts_builtin_sym_error_repeat;
 
   // Allocate the node's data at the end of the array of children.
-  size_t new_byte_size = ts_subtree_alloc_size(children->size);
-  if (children->capacity * sizeof(Subtree) < new_byte_size) {
+  size_t new_byte_size = ts_subtree_alloc_size(children->meta.size);
+  if (children->meta.capacity * sizeof(Subtree) < new_byte_size) {
     children->contents = ts_realloc(children->contents, new_byte_size);
-    children->capacity = (uint32_t)(new_byte_size / sizeof(Subtree));
+    children->meta.capacity = (uint32_t)(new_byte_size / sizeof(Subtree));
   }
-  SubtreeHeapData *data = (SubtreeHeapData *)&children->contents[children->size];
+  SubtreeHeapData *data = (SubtreeHeapData *)&children->contents[children->meta.size];
 
   *data = (SubtreeHeapData) {
     .ref_count = 1,
     .symbol = symbol,
-    .child_count = children->size,
+    .child_count = children->meta.size,
     .visible = metadata.visible,
     .named = metadata.named,
     .has_changes = false,
@@ -571,7 +570,7 @@ void ts_subtree_release(SubtreePool *pool, Subtree self) {
     array_push(&pool->tree_stack, ts_subtree_to_mut_unsafe(self));
   }
 
-  while (pool->tree_stack.size > 0) {
+  while (pool->tree_stack.meta.size > 0) {
     MutableSubtree tree = array_pop(&pool->tree_stack);
     if (tree.ptr->child_count > 0) {
       Subtree *children = ts_subtree_children(tree);
@@ -597,7 +596,7 @@ int ts_subtree_compare(Subtree left, Subtree right, SubtreePool *pool) {
   array_push(&pool->tree_stack, ts_subtree_to_mut_unsafe(left));
   array_push(&pool->tree_stack, ts_subtree_to_mut_unsafe(right));
 
-  while (pool->tree_stack.size > 0) {
+  while (pool->tree_stack.meta.size > 0) {
     right = ts_subtree_from_mut(array_pop(&pool->tree_stack));
     left = ts_subtree_from_mut(array_pop(&pool->tree_stack));
 
@@ -646,7 +645,7 @@ Subtree ts_subtree_edit(Subtree self, const TSInputEdit *input_edit, SubtreePool
     },
   }));
 
-  while (stack.size) {
+  while (stack.meta.size) {
     EditEntry entry = array_pop(&stack);
     Edit edit = entry.edit;
     bool is_noop = edit.old_end.bytes == edit.start.bytes && edit.new_end.bytes == edit.start.bytes;

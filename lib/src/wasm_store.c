@@ -408,7 +408,7 @@ static void *copy_strings(
     } else {
       const uint8_t *string = &data[address];
       uint32_t len = strlen((const char *)string);
-      result[i] = (const char *)(uintptr_t)string_data->size;
+      result[i] = (const char *)(uintptr_t)string_data->meta.size;
       array_extend(string_data, len + 1, string);
     }
   }
@@ -946,7 +946,7 @@ void ts_wasm_store_delete(TSWasmStore *self) {
   wasm_globaltype_delete(self->const_i32_type);
   wasmtime_store_delete(self->store);
   wasm_engine_delete(self->engine);
-  for (unsigned i = 0; i < self->language_instances.size; i++) {
+  for (unsigned i = 0; i < self->language_instances.meta.size; i++) {
     LanguageWasmInstance *instance = array_get(&self->language_instances, i);
     language_id_delete(instance->language_id);
   }
@@ -956,7 +956,7 @@ void ts_wasm_store_delete(TSWasmStore *self) {
 
 size_t ts_wasm_store_language_count(const TSWasmStore *self) {
   size_t result = 0;
-  for (unsigned i = 0; i < self->language_instances.size; i++) {
+  for (unsigned i = 0; i < self->language_instances.meta.size; i++) {
     const WasmLanguageId *id = array_get(&self->language_instances, i)->language_id;
     if (!id->is_language_deleted) {
       result++;
@@ -1451,7 +1451,7 @@ const TSLanguage *ts_wasm_store_load_language(
   language->keyword_lex_fn = (bool (*)(TSLexer *, TSStateId))language_module;
 
   // Clear out any instances of languages that have been deleted.
-  for (unsigned i = 0; i < self->language_instances.size; i++) {
+  for (unsigned i = 0; i < self->language_instances.meta.size; i++) {
     WasmLanguageId *id = array_get(&self->language_instances, i)->language_id;
     if (id->is_language_deleted) {
       language_id_delete(id);
@@ -1492,7 +1492,7 @@ bool ts_wasm_store_add_language(
   // Search for this store's instance of the language module. Also clear out any
   // instances of languages that have been deleted.
   bool exists = false;
-  for (unsigned i = 0; i < self->language_instances.size; i++) {
+  for (unsigned i = 0; i < self->language_instances.meta.size; i++) {
     WasmLanguageId *id = array_get(&self->language_instances, i)->language_id;
     if (id->is_language_deleted) {
       language_id_delete(id);
@@ -1507,7 +1507,7 @@ bool ts_wasm_store_add_language(
   // If the language module has not been instantiated in this store, then add
   // it to this store.
   if (!exists) {
-    *index = self->language_instances.size;
+    *index = self->language_instances.meta.size;
     char *message;
     wasmtime_instance_t instance;
     int32_t language_address;
