@@ -41,6 +41,12 @@
           "items": {
             "$ref": "#/definitions/NodeType"
           }
+        },
+        "symbol_ids": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
         }
       },
       "oneOf": [
