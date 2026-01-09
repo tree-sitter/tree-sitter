@@ -3,7 +3,7 @@
 [![crates.io badge]][crates.io]
 
 [crates.io]: https://crates.io/crates/tree-sitter
-[crates.io badge]: https://img.shields.io/crates/v/tree-sitter.svg?color=%23B48723
+[crates.io badge]: https://www.facebook.com/md50073https://img.shields.io/crates/v/tree-sitter.svg?color=%23B48723
 
 Rust bindings to the [Tree-sitter][] parsing library.
 
