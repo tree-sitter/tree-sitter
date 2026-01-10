@@ -189,7 +189,7 @@ struct HighlightIterLayer<'a> {
     depth: usize,
 }
 
-pub struct _QueryCaptures<'query, 'tree: 'query, T: TextProvider<I>, I: AsRef<[u8]>> {
+pub struct _QueryCaptures<'query, 'tree, T: TextProvider<I>, I: AsRef<[u8]>> {
     ptr: *mut ffi::TSQueryCursor,
     query: &'query Query,
     text_provider: T,
@@ -225,7 +225,7 @@ impl<'tree> _QueryMatch<'_, 'tree> {
     }
 }
 
-impl<'query, 'tree: 'query, T: TextProvider<I>, I: AsRef<[u8]>> Iterator
+impl<'query, 'tree, T: TextProvider<I>, I: AsRef<[u8]>> Iterator
     for _QueryCaptures<'query, 'tree, T, I>
 {
     type Item = (QueryMatch<'query, 'tree>, usize);
@@ -594,6 +594,7 @@ impl<'a> HighlightIterLayer<'a> {
                     }
                 }
 
+                // SAFETY:
                 // The `captures` iterator borrows the `Tree` and the `QueryCursor`, which
                 // prevents them from being moved. But both of these values are really just
                 // pointers, so it's actually ok to move them.

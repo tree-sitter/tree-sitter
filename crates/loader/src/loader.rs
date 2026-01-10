@@ -765,7 +765,7 @@ impl Loader {
     }
 
     #[must_use]
-    pub fn get_all_language_configurations(&self) -> Vec<(&LanguageConfiguration, &Path)> {
+    pub fn get_all_language_configurations(&self) -> Vec<(&LanguageConfiguration<'static>, &Path)> {
         self.language_configurations
             .iter()
             .map(|c| (c, self.languages_by_id[c.language_id].0.as_ref()))
@@ -775,7 +775,7 @@ impl Loader {
     pub fn language_configuration_for_scope(
         &self,
         scope: &str,
-    ) -> LoaderResult<Option<(Language, &LanguageConfiguration)>> {
+    ) -> LoaderResult<Option<(Language, &LanguageConfiguration<'static>)>> {
         for configuration in &self.language_configurations {
             if configuration.scope.as_ref().is_some_and(|s| s == scope) {
                 let language = self.language_for_id(configuration.language_id)?;
@@ -788,7 +788,7 @@ impl Loader {
     pub fn language_configuration_for_first_line_regex(
         &self,
         path: &Path,
-    ) -> LoaderResult<Option<(Language, &LanguageConfiguration)>> {
+    ) -> LoaderResult<Option<(Language, &LanguageConfiguration<'static>)>> {
         self.language_configuration_ids_by_first_line_regex
             .iter()
             .try_fold(None, |_, (regex, ids)| {
@@ -817,7 +817,7 @@ impl Loader {
     pub fn language_configuration_for_file_name(
         &self,
         path: &Path,
-    ) -> LoaderResult<Option<(Language, &LanguageConfiguration)>> {
+    ) -> LoaderResult<Option<(Language, &LanguageConfiguration<'static>)>> {
         // Find all the language configurations that match this file name
         // or a suffix of the file name.
         let configuration_ids = path
@@ -889,7 +889,7 @@ impl Loader {
     pub fn language_configuration_for_injection_string(
         &self,
         string: &str,
-    ) -> LoaderResult<Option<(Language, &LanguageConfiguration)>> {
+    ) -> LoaderResult<Option<(Language, &LanguageConfiguration<'static>)>> {
         let mut best_match_length = 0;
         let mut best_match_position = None;
         for (i, configuration) in self.language_configurations.iter().enumerate() {
@@ -1534,7 +1534,9 @@ impl Loader {
     }
 
     #[must_use]
-    pub fn get_language_configuration_in_current_path(&self) -> Option<&LanguageConfiguration> {
+    pub fn get_language_configuration_in_current_path(
+        &self,
+    ) -> Option<&LanguageConfiguration<'static>> {
         self.language_configuration_in_current_path
             .map(|i| &self.language_configurations[i])
     }
@@ -1543,7 +1545,7 @@ impl Loader {
         &mut self,
         parser_path: &Path,
         set_current_path_config: bool,
-    ) -> LoaderResult<&[LanguageConfiguration]> {
+    ) -> LoaderResult<&[LanguageConfiguration<'static>]> {
         let initial_language_configuration_count = self.language_configurations.len();
 
         match TreeSitterJSON::from_file(parser_path) {
