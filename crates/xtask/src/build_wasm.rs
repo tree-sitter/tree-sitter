@@ -199,6 +199,7 @@ pub fn run_wasm(args: &BuildWasm) -> Result<()> {
         "-D", "NDEBUG=",
         "-D", "_POSIX_C_SOURCE=200112L",
         "-D", "_DEFAULT_SOURCE=",
+        "-D", "_BSD_SOURCE=",
         "-D", "_DARWIN_C_SOURCE=",
         "-I", "lib/src",
         "-I", "lib/include",
