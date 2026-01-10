@@ -15,11 +15,11 @@ use super::{IoError, JSError, JSResult};
 const DSL: &[u8] = include_bytes!("dsl.js");
 
 trait JSResultExt<T> {
-    fn or_js_error(self, ctx: &Ctx) -> JSResult<T>;
+    fn or_js_error(self, ctx: &Ctx<'_>) -> JSResult<T>;
 }
 
 impl<T> JSResultExt<T> for Result<T, rquickjs::Error> {
-    fn or_js_error(self, ctx: &Ctx) -> JSResult<T> {
+    fn or_js_error(self, ctx: &Ctx<'_>) -> JSResult<T> {
         match self {
             Ok(v) => Ok(v),
             Err(rquickjs::Error::Exception) => Err(format_js_exception(ctx.catch())),
@@ -28,7 +28,7 @@ impl<T> JSResultExt<T> for Result<T, rquickjs::Error> {
     }
 }
 
-fn format_js_exception(v: Value) -> JSError {
+fn format_js_exception(v: Value<'_>) -> JSError {
     let Some(exception) = v.into_exception() else {
         return JSError::QuickJS("Expected a JS exception".to_string());
     };
@@ -215,11 +215,11 @@ fn try_resolve_path(path: &Path) -> rquickjs::Result<PathBuf> {
 }
 
 #[allow(clippy::needless_pass_by_value)]
-fn require_from_module<'a>(
-    ctx: Ctx<'a>,
+fn require_from_module<'js>(
+    ctx: Ctx<'js>,
     module_path: String,
     from_module: &str,
-) -> rquickjs::Result<Value<'a>> {
+) -> rquickjs::Result<Value<'js>> {
     let current_module = PathBuf::from(from_module);
     let current_dir = if current_module.is_file() {
         current_module.parent().unwrap_or(Path::new("."))
@@ -234,13 +234,13 @@ fn require_from_module<'a>(
     load_module_from_content(&ctx, &resolved_path, &contents)
 }
 
-fn load_module_from_content<'a>(
-    ctx: &Ctx<'a>,
+fn load_module_from_content<'js>(
+    ctx: &Ctx<'js>,
     path: &Path,
     contents: &str,
-) -> rquickjs::Result<Value<'a>> {
+) -> rquickjs::Result<Value<'js>> {
     if path.extension().is_some_and(|ext| ext == "json") {
-        return ctx.eval::<Value, _>(format!("JSON.parse({contents:?})"));
+        return ctx.eval::<Value<'js>, _>(format!("JSON.parse({contents:?})"));
     }
 
     let exports = Object::new(ctx.clone())?;
@@ -256,7 +256,7 @@ fn load_module_from_content<'a>(
     let module_path = filename.clone();
     let require = Function::new(
         ctx.clone(),
-        move |ctx_inner: Ctx<'a>, target_path: String| -> rquickjs::Result<Value<'a>> {
+        move |ctx_inner: Ctx<'js>, target_path: String| -> rquickjs::Result<Value<'js>> {
             require_from_module(ctx_inner, target_path, &module_path)
         },
     )?;
@@ -264,8 +264,8 @@ fn load_module_from_content<'a>(
     let wrapper =
         format!("(function(exports, require, module, __filename, __dirname) {{ {contents} }})");
 
-    let module_func = ctx.eval::<Function, _>(wrapper)?;
-    module_func.call::<_, Value>((exports, require, module_obj.clone(), filename, dirname))?;
+    let module_func = ctx.eval::<Function<'js>, _>(wrapper)?;
+    module_func.call::<_, Value<'js>>((exports, require, module_obj.clone(), filename, dirname))?;
 
     module_obj.get("exports")
 }
@@ -318,7 +318,7 @@ pub fn execute_native_runtime(grammar_path: &Path) -> JSResult<String> {
         let grammar_path_string = grammar_path.to_string_lossy().to_string();
         let main_require = Function::new(
             ctx.clone(),
-            move |ctx_inner, target_path: String| -> rquickjs::Result<Value> {
+            move |ctx_inner, target_path: String| -> rquickjs::Result<Value<'_>> {
                 require_from_module(ctx_inner, target_path, &grammar_path_string)
             },
         )?;
@@ -328,7 +328,7 @@ pub fn execute_native_runtime(grammar_path: &Path) -> JSResult<String> {
         promise.finish::<()>().or_js_error(&ctx)?;
 
         let grammar_json = ctx
-            .eval::<rquickjs::String, _>("globalThis.output")
+            .eval::<rquickjs::String<'_>, _>("globalThis.output")
             .map(|s| s.to_string())
             .or_js_error(&ctx)?
             .or_js_error(&ctx)?;
@@ -437,8 +437,8 @@ mod tests {
                 const pkg = require('./package.json');
                 module.exports = grammar({
                   name: 'json_test',
-                  rules: { 
-                    source_file: $ => 'version_' + pkg.version.replace(/\./g, '_') 
+                  rules: {
+                    source_file: $ => 'version_' + pkg.version.replace(/\./g, '_')
                   }
                 });
             ",

@@ -19,7 +19,7 @@ pub fn minimize_parse_table(
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
     simple_aliases: &AliasMap,
-    token_conflict_map: &TokenConflictMap,
+    token_conflict_map: &TokenConflictMap<'_>,
     keywords: &TokenSet,
     optimizations: OptLevel,
 ) {

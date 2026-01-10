@@ -79,7 +79,7 @@ unused_self = "allow"
 used_underscore_items = "allow"
 
 [workspace.lints.rust]
-mismatched_lifetime_syntaxes = "allow"
+rust_2018_idioms = "deny"
 
 [profile.optimize]
 inherits = "release"

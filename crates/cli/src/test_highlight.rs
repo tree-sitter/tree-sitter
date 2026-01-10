@@ -22,7 +22,7 @@ pub struct Failure {
 impl std::error::Error for Failure {}
 
 impl std::fmt::Display for Failure {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             "Failure - row: {}, column: {}, expected highlight '{}', actual highlights: ",

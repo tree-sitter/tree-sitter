@@ -1188,7 +1188,7 @@ fn generate_file(
     path: &Path,
     template: &str,
     language_name: &str,
-    generate_opts: &GenerateOpts,
+    generate_opts: &GenerateOpts<'_>,
 ) -> Result<()> {
     let filename = path.file_name().unwrap().to_str().unwrap();
 

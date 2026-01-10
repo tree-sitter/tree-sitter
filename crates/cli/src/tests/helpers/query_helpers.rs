@@ -75,7 +75,7 @@ impl Pattern {
         (pattern, pattern_start..pattern_end)
     }
 
-    fn random_pattern_for_node(cursor: &mut TreeCursor, rng: &mut impl Rng) -> Self {
+    fn random_pattern_for_node(cursor: &mut TreeCursor<'_>, rng: &mut impl Rng) -> Self {
         let node = cursor.node();
 
         // Sometimes specify the node's type, sometimes use a wildcard.
@@ -225,7 +225,7 @@ impl Pattern {
         }
 
         // Find every matching combination of child patterns and child nodes.
-        let mut finished_matches = Vec::<Match>::new();
+        let mut finished_matches = Vec::<Match<'_, 'tree>>::new();
         if cursor.goto_first_child() {
             let mut match_states = vec![(0, mat)];
             loop {
@@ -306,7 +306,7 @@ impl Ord for Match<'_, '_> {
     }
 }
 
-fn compare_depth_first(a: Node, b: Node) -> Ordering {
+fn compare_depth_first(a: Node<'_>, b: Node<'_>) -> Ordering {
     let a = a.byte_range();
     let b = b.byte_range();
     a.start.cmp(&b.start).then_with(|| b.end.cmp(&a.end))

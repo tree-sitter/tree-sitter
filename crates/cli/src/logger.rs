@@ -11,11 +11,11 @@ pub fn paint(color: Option<impl Into<Color>>, text: &str) -> String {
 struct Logger;
 
 impl Log for Logger {
-    fn enabled(&self, _: &Metadata) -> bool {
+    fn enabled(&self, _: &Metadata<'_>) -> bool {
         true
     }
 
-    fn log(&self, record: &Record) {
+    fn log(&self, record: &Record<'_>) {
         match record.level() {
             Level::Error => eprintln!(
                 "{} {}",

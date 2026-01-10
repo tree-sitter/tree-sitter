@@ -189,7 +189,7 @@ struct HighlightIterLayer<'a> {
     depth: usize,
 }
 
-pub struct _QueryCaptures<'query, 'tree: 'query, T: TextProvider<I>, I: AsRef<[u8]>> {
+pub struct _QueryCaptures<'query, 'tree, T: TextProvider<I>, I: AsRef<[u8]>> {
     ptr: *mut ffi::TSQueryCursor,
     query: &'query Query,
     text_provider: T,
@@ -225,7 +225,7 @@ impl<'tree> _QueryMatch<'_, 'tree> {
     }
 }
 
-impl<'query, 'tree: 'query, T: TextProvider<I>, I: AsRef<[u8]>> Iterator
+impl<'query, 'tree, T: TextProvider<I>, I: AsRef<[u8]>> Iterator
     for _QueryCaptures<'query, 'tree, T, I>
 {
     type Item = (QueryMatch<'query, 'tree>, usize);
@@ -240,7 +240,10 @@ impl<'query, 'tree: 'query, T: TextProvider<I>, I: AsRef<[u8]>> Iterator
                     m.as_mut_ptr(),
                     core::ptr::addr_of_mut!(capture_index),
                 ) {
-                    let result = std::mem::transmute::<_QueryMatch, QueryMatch>(_QueryMatch::new(
+                    let result = std::mem::transmute::<
+                        _QueryMatch<'query, 'tree>,
+                        QueryMatch<'query, 'tree>,
+                    >(_QueryMatch::new(
                         &m.assume_init(),
                         self.ptr,
                     ));
@@ -594,6 +597,7 @@ impl<'a> HighlightIterLayer<'a> {
                     }
                 }
 
+                // SAFETY:
                 // The `captures` iterator borrows the `Tree` and the `QueryCursor`, which
                 // prevents them from being moved. But both of these values are really just
                 // pointers, so it's actually ok to move them.
@@ -601,12 +605,18 @@ impl<'a> HighlightIterLayer<'a> {
                 let cursor_ref = unsafe {
                     mem::transmute::<&mut QueryCursor, &'static mut QueryCursor>(&mut cursor)
                 };
-                let captures = unsafe {
-                    std::mem::transmute::<QueryCaptures<_, _>, _QueryCaptures<_, _>>(
-                        cursor_ref.captures(&config.query, tree_ref.root_node(), source),
-                    )
-                }
-                .peekable();
+                let captures =
+                    unsafe {
+                        std::mem::transmute::<
+                            QueryCaptures<'_, '_, _, _>,
+                            _QueryCaptures<'_, '_, _, _>,
+                        >(cursor_ref.captures(
+                            &config.query,
+                            tree_ref.root_node(),
+                            source,
+                        ))
+                    }
+                    .peekable();
 
                 result.push(HighlightIterLayer {
                     highlight_end_stack: Vec::new(),
@@ -648,7 +658,7 @@ impl<'a> HighlightIterLayer<'a> {
     //   of their children.
     fn intersect_ranges(
         parent_ranges: &[Range],
-        nodes: &[Node],
+        nodes: &[Node<'_>],
         includes_children: bool,
     ) -> Vec<Range> {
         let mut cursor = nodes[0].walk();

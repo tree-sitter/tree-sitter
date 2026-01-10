@@ -409,7 +409,7 @@ impl PartialOrd for CharacterSet {
 }
 
 impl fmt::Debug for CharacterSet {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "CharacterSet [")?;
         let mut set = self.clone();
         if self.contains(char::MAX) {
@@ -440,7 +440,7 @@ impl Nfa {
 }
 
 impl fmt::Debug for Nfa {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "Nfa {{ states: {{")?;
         for (i, state) in self.states.iter().enumerate() {
             writeln!(f, "  {i}: {state:?},")?;

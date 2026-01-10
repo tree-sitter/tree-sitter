@@ -4,7 +4,7 @@ use super::{scope_sequence::ScopeSequence, LOG_ENABLED, LOG_GRAPH_ENABLED};
 use crate::util;
 
 pub fn check_consistent_sizes(tree: &Tree, input: &[u8]) {
-    fn check(node: Node, line_offsets: &[usize]) {
+    fn check(node: Node<'_>, line_offsets: &[usize]) {
         let start_byte = node.start_byte();
         let end_byte = node.end_byte();
         let start_point = node.start_position();

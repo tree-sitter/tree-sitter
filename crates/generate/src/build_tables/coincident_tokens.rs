@@ -56,7 +56,7 @@ impl<'a> CoincidentTokenIndex<'a> {
 }
 
 impl fmt::Debug for CoincidentTokenIndex<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "CoincidentTokenIndex {{")?;
 
         writeln!(f, "  entries: {{")?;

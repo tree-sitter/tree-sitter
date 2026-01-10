@@ -1219,7 +1219,7 @@ private:
     );
 }
 
-fn get_all_nodes(tree: &Tree) -> Vec<Node> {
+fn get_all_nodes(tree: &Tree) -> Vec<Node<'_>> {
     let mut result = Vec::new();
     let mut visited_children = false;
     let mut cursor = tree.walk();
