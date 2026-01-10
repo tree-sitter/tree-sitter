@@ -49,6 +49,7 @@ fn main() {
         .include(&include_path)
         .define("_POSIX_C_SOURCE", "200112L")
         .define("_DEFAULT_SOURCE", None)
+        .define("_BSD_SOURCE", None)
         .define("_DARWIN_C_SOURCE", None)
         .warnings(false)
         .file(src_path.join("lib.c"))
