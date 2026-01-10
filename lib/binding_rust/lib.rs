@@ -317,7 +317,7 @@ pub trait Decode {
 
 /// A stateful object for walking a syntax [`Tree`] efficiently.
 #[doc(alias = "TSTreeCursor")]
-pub struct TreeCursor<'cursor>(ffi::TSTreeCursor, PhantomData<&'cursor ()>);
+pub struct TreeCursor<'tree>(ffi::TSTreeCursor, PhantomData<&'tree ()>);
 
 /// A set of patterns that match nodes in a syntax tree.
 #[doc(alias = "TSQuery")]
@@ -2082,11 +2082,11 @@ impl fmt::Display for Node<'_> {
     }
 }
 
-impl<'cursor> TreeCursor<'cursor> {
+impl<'tree> TreeCursor<'tree> {
     /// Get the tree cursor's current [`Node`].
     #[doc(alias = "ts_tree_cursor_current_node")]
     #[must_use]
-    pub fn node(&self) -> Node<'cursor> {
+    pub fn node(&self) -> Node<'tree> {
         Node(
             unsafe { ffi::ts_tree_cursor_current_node(&self.0) },
             PhantomData,
@@ -2227,7 +2227,7 @@ impl<'cursor> TreeCursor<'cursor> {
     /// Re-initialize this tree cursor to start at the original node that the
     /// cursor was constructed with.
     #[doc(alias = "ts_tree_cursor_reset")]
-    pub fn reset(&mut self, node: Node<'cursor>) {
+    pub fn reset(&mut self, node: Node<'tree>) {
         unsafe { ffi::ts_tree_cursor_reset(&mut self.0, node.0) };
     }
 
