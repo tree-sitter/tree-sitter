@@ -27,8 +27,8 @@ pub fn build_lex_table(
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
     keywords: &TokenSet,
-    coincident_token_index: &CoincidentTokenIndex,
-    token_conflict_map: &TokenConflictMap,
+    coincident_token_index: &CoincidentTokenIndex<'_>,
+    token_conflict_map: &TokenConflictMap<'_>,
 ) -> LexTables {
     let keyword_lex_table = if syntax_grammar.word_token.is_some() {
         let mut builder = LexTableBuilder::new(lexical_grammar);
@@ -284,8 +284,8 @@ fn merge_token_set(
     tokens: &mut TokenSet,
     other: &TokenSet,
     lexical_grammar: &LexicalGrammar,
-    token_conflict_map: &TokenConflictMap,
-    coincident_token_index: &CoincidentTokenIndex,
+    token_conflict_map: &TokenConflictMap<'_>,
+    coincident_token_index: &CoincidentTokenIndex<'_>,
 ) -> bool {
     for i in 0..lexical_grammar.variables.len() {
         let symbol = Symbol::terminal(i);

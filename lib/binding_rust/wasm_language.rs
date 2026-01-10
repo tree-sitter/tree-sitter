@@ -133,7 +133,7 @@ impl Drop for WasmStore {
 }
 
 impl fmt::Display for WasmError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let kind = match self.kind {
             WasmErrorKind::Parse => "Failed to parse Wasm",
             WasmErrorKind::Compile => "Failed to compile Wasm",

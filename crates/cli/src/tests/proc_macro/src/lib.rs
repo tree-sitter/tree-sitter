@@ -44,7 +44,7 @@ pub fn test_with_seed(args: TokenStream, input: TokenStream) -> TokenStream {
     }
 
     impl Parse for Args {
-        fn parse(input: ParseStream) -> syn::Result<Self> {
+        fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
             let mut retry = None;
             let mut seed = None;
             let mut seed_fn = None;

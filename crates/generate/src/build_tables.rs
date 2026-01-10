@@ -119,7 +119,7 @@ fn get_following_tokens(
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
     inlines: &InlinedProductionMap,
-    builder: &ParseItemSetBuilder,
+    builder: &ParseItemSetBuilder<'_>,
 ) -> Vec<TokenSet> {
     let mut result = vec![TokenSet::new(); lexical_grammar.variables.len()];
     let productions = syntax_grammar
@@ -160,8 +160,8 @@ fn populate_error_state(
     parse_table: &mut ParseTable,
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
-    coincident_token_index: &CoincidentTokenIndex,
-    token_conflict_map: &TokenConflictMap,
+    coincident_token_index: &CoincidentTokenIndex<'_>,
+    token_conflict_map: &TokenConflictMap<'_>,
     keywords: &TokenSet,
 ) {
     let state = &mut parse_table.states[0];
@@ -323,8 +323,8 @@ fn identify_keywords(
     lexical_grammar: &LexicalGrammar,
     parse_table: &ParseTable,
     word_token: Option<Symbol>,
-    token_conflict_map: &TokenConflictMap,
-    coincident_token_index: &CoincidentTokenIndex,
+    token_conflict_map: &TokenConflictMap<'_>,
+    coincident_token_index: &CoincidentTokenIndex<'_>,
 ) -> TokenSet {
     if word_token.is_none() {
         return TokenSet::new();
@@ -429,7 +429,7 @@ fn identify_keywords(
 fn mark_fragile_tokens(
     parse_table: &mut ParseTable,
     lexical_grammar: &LexicalGrammar,
-    token_conflict_map: &TokenConflictMap,
+    token_conflict_map: &TokenConflictMap<'_>,
 ) {
     let n = lexical_grammar.variables.len();
     let mut valid_tokens_mask = Vec::with_capacity(n);
@@ -543,7 +543,7 @@ fn report_state_info<'a>(
     }
 }
 
-fn all_chars_are_alphabetical(cursor: &NfaCursor) -> bool {
+fn all_chars_are_alphabetical(cursor: &NfaCursor<'_>) -> bool {
     cursor.transition_chars().all(|(chars, is_sep)| {
         if is_sep {
             true

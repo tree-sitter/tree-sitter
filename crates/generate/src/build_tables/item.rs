@@ -185,7 +185,7 @@ impl<'a> ParseItemSet<'a> {
 }
 
 impl fmt::Display for ParseItemDisplay<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         if self.0.is_augmented() {
             write!(f, "START →")?;
         } else {
@@ -281,7 +281,7 @@ fn display_variable_name(source: &str) -> String {
 }
 
 impl fmt::Display for TokenSetDisplay<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(f, "[")?;
         for (i, symbol) in self.0.iter().enumerate() {
             if i > 0 {
@@ -306,7 +306,7 @@ impl fmt::Display for TokenSetDisplay<'_> {
 }
 
 impl fmt::Display for ParseItemSetDisplay<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         for entry in &self.0.entries {
             write!(
                 f,

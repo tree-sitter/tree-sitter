@@ -264,7 +264,7 @@ impl InlinedProductionMap {
 }
 
 impl fmt::Display for PrecedenceEntry {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Name(n) => write!(f, "'{n}'"),
             Self::Symbol(s) => write!(f, "$.{s}"),

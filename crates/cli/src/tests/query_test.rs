@@ -3971,7 +3971,7 @@ fn test_query_text_callback_returns_chunks() {
         parser.set_language(&language).unwrap();
         let tree = parser.parse(source, None).unwrap();
         let mut cursor = QueryCursor::new();
-        let captures = cursor.captures(&query, tree.root_node(), |node: Node| {
+        let captures = cursor.captures(&query, tree.root_node(), |node: Node<'_>| {
             chunks_in_range(node.byte_range())
         });
 

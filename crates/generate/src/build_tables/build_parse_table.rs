@@ -114,7 +114,7 @@ pub struct AmbiguousExtraError {
 }
 
 impl std::fmt::Display for ConflictError {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for symbol in &self.symbol_sequence {
             write!(f, "  {symbol}")?;
         }
@@ -171,7 +171,7 @@ impl std::fmt::Display for ConflictError {
 }
 
 impl std::fmt::Display for Interpretation {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for symbol in &self.preceding_symbols {
             write!(f, "  {symbol}")?;
         }
@@ -191,7 +191,7 @@ impl std::fmt::Display for Interpretation {
 }
 
 impl std::fmt::Display for Resolution {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Precedence { symbols } => {
                 write!(f, "Specify a higher precedence in ")?;
@@ -227,7 +227,7 @@ impl std::fmt::Display for Resolution {
 }
 
 impl std::fmt::Display for AmbiguousExtraError {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for (i, symbol) in self.parent_symbols.iter().enumerate() {
             if i > 0 {
                 write!(f, ", ")?;
@@ -695,7 +695,7 @@ impl<'a> ParseTableBuilder<'a> {
 
     fn handle_conflict(
         &mut self,
-        item_set: &ParseItemSet,
+        item_set: &ParseItemSet<'_>,
         state_id: ParseStateId,
         preceding_symbols: &SymbolSequence,
         preceding_auxiliary_symbols: &[AuxiliarySymbolInfo],
@@ -917,7 +917,7 @@ impl<'a> ParseTableBuilder<'a> {
         shift_items.sort_unstable();
         reduce_items.sort_unstable();
 
-        let get_rule_names = |items: &[&ParseItem]| -> Vec<String> {
+        let get_rule_names = |items: &[&ParseItem<'_>]| -> Vec<String> {
             let mut last_rule_id = None;
             let mut result = Vec::with_capacity(items.len());
             for item in items {
@@ -1030,7 +1030,7 @@ impl<'a> ParseTableBuilder<'a> {
 
     fn get_auxiliary_node_info(
         &self,
-        item_set: &ParseItemSet,
+        item_set: &ParseItemSet<'_>,
         symbol: Symbol,
     ) -> AuxiliarySymbolInfo {
         let parent_symbols = item_set
@@ -1053,7 +1053,7 @@ impl<'a> ParseTableBuilder<'a> {
         }
     }
 
-    fn get_production_id(&mut self, item: &ParseItem) -> ProductionInfoId {
+    fn get_production_id(&mut self, item: &ParseItem<'_>) -> ProductionInfoId {
         let mut production_info = ProductionInfo {
             alias_sequence: Vec::new(),
             field_map: BTreeMap::new(),
