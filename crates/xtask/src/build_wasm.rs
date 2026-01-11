@@ -294,9 +294,19 @@ fn build_wasm(cmd: &mut Command, edit_tsd: bool) -> Result<()> {
                     "undefined, localScope?: any | undefined, handle?: number | undefined): any"
                 ),
                 concat!(
-                    "loadWebAssemblyModule(binary: Uint8Array | WebAssembly.Module, flags: Record<string, boolean>,",
-                    " libName?: string, localScope?: Record<string, unknown>, handle?: number):",
-                    " Promise<Record<string, () => number>>"
+                    "type WasmExports = Record<string, () => number>;\n",
+                    "    type LoadWebAssemblyModuleFlags = { loadAsync: boolean } & Record<string, boolean>;\n",
+                    "    type LoadWebAssemblyModuleResult<F extends LoadWebAssemblyModuleFlags> =",
+                    " F extends { loadAsync: true } ? Promise<WasmExports> :",
+                    " F extends { loadAsync: false } ? WasmExports : Promise<WasmExports> | WasmExports;\n",
+                    "    /**\n",
+                    "     * @param {string=} libName\n",
+                    "     * @param {Object=} localScope\n",
+                    "     * @param {number=} handle\n",
+                    "     */\n",
+                    "    function loadWebAssemblyModule<F extends LoadWebAssemblyModuleFlags>(",
+                    "binary: Uint8Array | WebAssembly.Module, flags: F, libName?: string,",
+                    " localScope?: Record<string, unknown>, handle?: number): LoadWebAssemblyModuleResult<F>"
                 ),
             )
             .replace(

@@ -18,12 +18,15 @@ declare namespace RuntimeExports {
     function UTF8ToString(ptr: number, maxBytesToRead?: number | undefined, ignoreNul?: boolean | undefined): string;
     function lengthBytesUTF8(str: string): number;
     function stringToUTF16(str: string, outPtr: number, maxBytesToWrite: number): number;
+    type WasmExports = Record<string, () => number>;
+    type LoadWebAssemblyModuleFlags = { loadAsync: boolean } & Record<string, boolean>;
+    type LoadWebAssemblyModuleResult<F extends LoadWebAssemblyModuleFlags> = F extends { loadAsync: true } ? Promise<WasmExports> : F extends { loadAsync: false } ? WasmExports : Promise<WasmExports> | WasmExports;
     /**
      * @param {string=} libName
      * @param {Object=} localScope
      * @param {number=} handle
      */
-    function loadWebAssemblyModule(binary: Uint8Array | WebAssembly.Module, flags: Record<string, boolean>, libName?: string, localScope?: Record<string, unknown>, handle?: number): Promise<Record<string, () => number>>;
+    function loadWebAssemblyModule<F extends LoadWebAssemblyModuleFlags>(binary: Uint8Array | WebAssembly.Module, flags: F, libName?: string, localScope?: Record<string, unknown>, handle?: number): LoadWebAssemblyModuleResult<F>;
     /**
      * @param {number} ptr
      * @param {string} type
