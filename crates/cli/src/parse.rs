@@ -284,7 +284,7 @@ pub fn parse_file_at_path(
     path: &Path,
     name: &str,
     max_path_length: usize,
-    opts: &mut ParseFileOptions,
+    opts: &mut ParseFileOptions<'_>,
 ) -> Result<()> {
     let mut _log_session = None;
     parser.set_language(language)?;
@@ -774,7 +774,7 @@ pub fn render_cst<'a, 'b: 'a>(
     source_code: &[u8],
     tree: &'b Tree,
     cursor: &mut TreeCursor<'a>,
-    opts: &ParseFileOptions,
+    opts: &ParseFileOptions<'_>,
     out: &mut impl Write,
 ) -> Result<()> {
     let lossy_source_code = String::from_utf8_lossy(source_code);
@@ -841,9 +841,9 @@ fn render_node_text(source: &str) -> String {
 }
 
 fn write_node_text(
-    opts: &ParseFileOptions,
+    opts: &ParseFileOptions<'_>,
     out: &mut impl Write,
-    cursor: &TreeCursor,
+    cursor: &TreeCursor<'_>,
     is_named: bool,
     source: &str,
     color: Option<impl Into<Color> + Copy>,
@@ -906,7 +906,7 @@ fn write_node_text(
     Ok(())
 }
 
-fn render_line_feed(source: &str, opts: &ParseFileOptions) -> String {
+fn render_line_feed(source: &str, opts: &ParseFileOptions<'_>) -> String {
     if cfg!(windows) {
         source.replace("\r\n", &paint(opts.parse_theme.line_feed, "\r\n"))
     } else {
@@ -915,8 +915,8 @@ fn render_line_feed(source: &str, opts: &ParseFileOptions) -> String {
 }
 
 fn render_node_range(
-    opts: &ParseFileOptions,
-    cursor: &TreeCursor,
+    opts: &ParseFileOptions<'_>,
+    cursor: &TreeCursor<'_>,
     is_named: bool,
     is_multiline: bool,
     total_width: usize,
@@ -952,8 +952,8 @@ fn render_node_range(
 }
 
 fn cst_render_node(
-    opts: &ParseFileOptions,
-    cursor: &mut TreeCursor,
+    opts: &ParseFileOptions<'_>,
+    cursor: &TreeCursor<'_>,
     source_code: &[u8],
     out: &mut impl Write,
     total_width: usize,

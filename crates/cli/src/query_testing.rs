@@ -14,7 +14,7 @@ pub struct Utf8Point {
 }
 
 impl std::fmt::Display for Utf8Point {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "({}, {})", self.row, self.column)
     }
 }

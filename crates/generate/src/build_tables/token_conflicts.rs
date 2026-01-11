@@ -146,7 +146,7 @@ impl<'a> TokenConflictMap<'a> {
 }
 
 impl fmt::Debug for TokenConflictMap<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "TokenConflictMap {{")?;
 
         let syntax_grammar = SyntaxGrammar::default();
@@ -205,7 +205,7 @@ const fn matrix_index(variable_count: usize, i: usize, j: usize) -> usize {
     variable_count * i + j
 }
 
-fn get_starting_chars(cursor: &mut NfaCursor, grammar: &LexicalGrammar) -> Vec<CharacterSet> {
+fn get_starting_chars(cursor: &mut NfaCursor<'_>, grammar: &LexicalGrammar) -> Vec<CharacterSet> {
     let mut result = Vec::with_capacity(grammar.variables.len());
     for variable in &grammar.variables {
         cursor.reset(vec![variable.start_state]);
@@ -237,7 +237,7 @@ fn get_following_chars(
 }
 
 fn compute_conflict_status(
-    cursor: &mut NfaCursor,
+    cursor: &mut NfaCursor<'_>,
     grammar: &LexicalGrammar,
     following_chars: &[CharacterSet],
     i: usize,

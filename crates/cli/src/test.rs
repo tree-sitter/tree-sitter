@@ -603,7 +603,7 @@ impl std::fmt::Display for TestSummary {
 
 pub fn run_tests_at_path(
     parser: &mut Parser,
-    opts: &TestOptions,
+    opts: &TestOptions<'_>,
     test_summary: &mut TestSummary,
 ) -> Result<()> {
     let test_entry = parse_tests(&opts.path)?;
@@ -814,7 +814,7 @@ impl TestCorrection {
 fn run_tests(
     parser: &mut Parser,
     test_entry: TestEntry,
-    opts: &TestOptions,
+    opts: &TestOptions<'_>,
     test_summary: &mut TestSummary,
     corrected_entries: &mut Vec<TestCorrection>,
     is_root: bool,
@@ -1070,7 +1070,9 @@ fn run_tests(
 
             let mut ran_test_in_group = false;
 
-            let matches_filter = |name: &str, file_name: &Option<String>, opts: &TestOptions| {
+            let matches_filter = |name: &str,
+                                  file_name: &Option<String>,
+                                  opts: &TestOptions<'_>| {
                 if let (Some(test_file_path), Some(filter_file_name)) = (file_name, &opts.file_name)
                 {
                     if !filter_file_name.eq(test_file_path) {
