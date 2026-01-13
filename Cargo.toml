@@ -106,7 +106,7 @@ ansi_colours = "1.2.3"
 anstyle = "1.0.13"
 anyhow = "1.0.100"
 bstr = "1.12.0"
-cc = "1.2.51"
+cc = "1.2.52"
 clap = { version = "4.5.54", features = [
   "cargo",
   "derive",
@@ -115,7 +115,7 @@ clap = { version = "4.5.54", features = [
   "string",
   "unstable-styles",
 ] }
-clap_complete = "4.5.62"
+clap_complete = "4.5.65"
 clap_complete_nushell = "4.5.10"
 crc32fast = "1.5.0"
 ctor = "0.2.9"
@@ -140,7 +140,7 @@ rustc-hash = "2.1.1"
 schemars = "1.0.5"
 semver = { version = "1.0.27", features = ["serde"] }
 serde = { version = "1.0.219", features = ["derive"] }
-serde_json = { version = "1.0.147", features = ["preserve_order"] }
+serde_json = { version = "1.0.149", features = ["preserve_order"] }
 similar = "2.7.0"
 smallbitvec = "2.6.0"
 streaming-iterator = "0.1.9"
