@@ -17,8 +17,8 @@ DSL through the `RustRegex` class. Simply pass your regex pattern as a string:
   ```
 
   Unlike JavaScript's builtin `RegExp` class, which takes a pattern and flags as separate arguments, `RustRegex` only
-  accepts a single pattern string. While it doesn't support separate flags, you can use inline flags within the pattern itself.
-  For more details about Rust's regex syntax and capabilities, check out the [Rust regex documentation][rust regex].
+  accepts a single pattern string. While it doesn't support separate flags, you can use inline flags within the pattern
+  itself. For more details about Rust's regex syntax and capabilities, check out the [Rust regex documentation][rust regex].
 
   ```admonish note 
   Only a subset of the Regex engine is actually supported. This is due to certain features like lookahead and lookaround
@@ -50,10 +50,10 @@ The previous `repeat` rule is implemented in `repeat1` but is included because i
 - **Options : `optional(rule)`** — This function creates a rule that matches *zero or one* occurrence of a given rule.
 It is analogous to the `[x]` (square bracket) syntax in EBNF notation.
 
-- **Precedence : `prec(number, rule)`** — This function marks the given rule with a numerical precedence, which will be used
-to resolve [*LR(1) Conflicts*][lr-conflict] at parser-generation time. When two rules overlap in a way that represents either
-a true ambiguity or a *local* ambiguity given one token of lookahead, Tree-sitter will try to resolve the conflict by matching
-the rule with the higher precedence. The default precedence of all rules is zero. This works similarly to the
+- **Precedence : `prec(number, rule)`** — This function marks the given rule with a numerical precedence, which will be
+used to resolve [*LR(1) Conflicts*][lr-conflict] at parser-generation time. When two rules overlap in a way that represents
+either a true ambiguity or a *local* ambiguity given one token of lookahead, Tree-sitter will try to resolve the conflict
+by matching the rule with the higher precedence. The default precedence of all rules is zero. This works similarly to the
 [precedence directives][yacc-prec] in Yacc grammars.
 
   This function can also be used to assign lexical precedence to a given
@@ -115,8 +115,8 @@ want to create syntax tree nodes at runtime.
 
 - **`conflicts`** — an array of arrays of rule names. Each inner array represents a set of rules that's involved in an
 *LR(1) conflict* that is *intended to exist* in the grammar. When these conflicts occur at runtime, Tree-sitter will use
-the GLR algorithm to explore all the possible interpretations. If *multiple* parses end up succeeding, Tree-sitter will pick
-the subtree whose corresponding rule has the highest total *dynamic precedence*.
+the GLR algorithm to explore all the possible interpretations. If *multiple* parses end up succeeding, Tree-sitter will
+pick the subtree whose corresponding rule has the highest total *dynamic precedence*.
 
 - **`externals`** — an array of token names which can be returned by an
 [*external scanner*][external-scanners]. External scanners allow you to write custom C code which runs during the lexing
@@ -139,10 +139,10 @@ for more details.
 array of reserved rules. The reserved rule in the array must be a terminal token meaning it must be a string, regex, token,
 or terminal rule. The reserved rule must also exist and be used in the grammar, specifying arbitrary tokens will not work.
 The *first* reserved word set in the object is the global word set, meaning it applies to every rule in every parse state.
-However, certain keywords are contextual, depending on the rule. For example, in JavaScript, keywords are typically not allowed
-as ordinary variables, however, they *can* be used as a property name. In this situation, the `reserved` function would be used,
-and the word set to pass in would be the name of the word set that is declared in the `reserved` object that corresponds to an
-empty array, signifying *no* keywords are reserved.
+However, certain keywords are contextual, depending on the rule. For example, in JavaScript, keywords are typically not
+allowed as ordinary variables, however, they *can* be used as a property name. In this situation, the `reserved` function
+would be used, and the word set to pass in would be the name of the word set that is declared in the `reserved` object that
+corresponds to an empty array, signifying *no* keywords are reserved.
 
 [bison-dprec]: https://www.gnu.org/software/bison/manual/html_node/Generalized-LR-Parsing.html
 [ebnf]: https://en.wikipedia.org/wiki/Extended_Backus%E2%80%93Naur_form

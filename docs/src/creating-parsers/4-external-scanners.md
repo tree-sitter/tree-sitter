@@ -143,10 +143,10 @@ the second argument, the current character will be treated as whitespace; whites
 associated with tokens emitted by the external scanner.
 
 - **`void (*mark_end)(TSLexer *)`** — A function for marking the end of the recognized token. This allows matching tokens
-that require multiple characters of lookahead. By default, (if you don't call `mark_end`), any character that you moved past
-using the `advance` function will be included in the size of the token. But once you call `mark_end`, then any later calls
-to `advance` will _not_ increase the size of the returned token. You can call `mark_end` multiple times to increase the size
-of the token.
+that require multiple characters of lookahead. By default, (if you don't call `mark_end`), any character that you moved
+past using the `advance` function will be included in the size of the token. But once you call `mark_end`, then any later
+calls to `advance` will _not_ increase the size of the returned token. You can call `mark_end` multiple times to increase
+the size of the token.
 
 - **`uint32_t (*get_column)(TSLexer *)`** — A function for querying the current column position of the lexer. It returns
 the number of codepoints since the start of the current line. The codepoint position is recalculated on every call to this
@@ -185,9 +185,9 @@ if (valid_symbols[INDENT] || valid_symbols[DEDENT]) {
 
 ### Allocator
 
-Instead of using libc's `malloc`, `calloc`, `realloc`, and `free`, you should use the versions prefixed with `ts_` from `tree_sitter/alloc.h`.
-These macros can allow a potential consumer to override the default allocator with their own implementation, but by default
-will use the libc functions.
+Instead of using libc's `malloc`, `calloc`, `realloc`, and `free`, you should use the versions prefixed with `ts_` from
+`tree_sitter/alloc.h`. These macros can allow a potential consumer to override the default allocator with their own implementation,
+but by default will use the libc functions.
 
 As a consumer of the tree-sitter core library as well as any parser libraries that might use allocations, you can enable
 overriding the default allocator and have it use the same one as the library allocator, of which you can set with `ts_set_allocator`.
@@ -195,7 +195,8 @@ To enable this overriding in scanners, you must compile them with the `TREE_SITT
 the library must be linked into your final app dynamically, since it needs to resolve the internal functions at runtime.
 If you are compiling an executable binary that uses the core library, but want to load parsers dynamically at runtime, then
 you will have to use a special linker flag on Unix. For non-Darwin systems, that would be `--dynamic-list` and for Darwin
-systems, that would be `-exported_symbols_list`. The CLI does exactly this, so you can use it as a reference (check out `cli/build.rs`).
+systems, that would be `-exported_symbols_list`. The CLI does exactly this, so you can use it as a reference (check out
+`cli/build.rs`).
 
 For example, assuming you wanted to allocate 100 bytes for your scanner, you'd do so like the following example:
 
@@ -293,9 +294,10 @@ bool tree_sitter_my_language_external_scanner_scan(
 
 ## Other External Scanner Details
 
-External scanners have priority over Tree-sitter's normal lexing process. When a token listed in the externals array is valid
-at a given position, the external scanner is called first. This makes external scanners a powerful way to override Tree-sitter's
-default lexing behavior, especially for cases that can't be handled with regular lexical rules, parsing, or dynamic precedence.
+External scanners have priority over Tree-sitter's normal lexing process. When a token listed in the externals array is
+valid at a given position, the external scanner is called first. This makes external scanners a powerful way to override
+Tree-sitter's default lexing behavior, especially for cases that can't be handled with regular lexical rules, parsing, or
+dynamic precedence.
 
 During error recovery, Tree-sitter's first step is to call the external scanner's scan function with all tokens marked as
 valid. Your scanner should detect and handle this case appropriately. One simple approach is to add an unused "sentinel"
