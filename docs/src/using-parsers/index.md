@@ -6,8 +6,8 @@ the core concepts remain the same.
 
 Tree-sitter's parsing functionality is implemented through its C API, with all functions documented in the [tree_sitter/api.h][api.h]
 header file, but if you're working in another language, you can use one of the following bindings found [here](../index.md#language-bindings),
-each providing idiomatic access to Tree-sitter's functionality. Of these bindings, the official ones have their own API docs
-hosted online at the following pages:
+each providing idiomatic access to Tree-sitter's functionality. Of these bindings, the official ones have their own API
+doc hosted online at the following pages:
 
 - [Go][go]
 - [Java]

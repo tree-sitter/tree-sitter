@@ -19,8 +19,8 @@ typedef struct {
 void ts_tree_edit(TSTree *, const TSInputEdit *);
 ```
 
-Then, you can call `ts_parser_parse` again, passing in the old tree. This will create a new tree that internally shares structure
-with the old tree.
+Then, you can call `ts_parser_parse` again, passing in the old tree. This will create a new tree that internally shares
+structure with the old tree.
 
 When you edit a syntax tree, the positions of its nodes will change. If you have stored any `TSNode` instances outside of
 the `TSTree`, you must update their positions separately, using the same `TSInputEdit` value, in order to update their

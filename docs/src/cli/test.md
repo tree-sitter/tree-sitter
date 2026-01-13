@@ -63,7 +63,8 @@ When using the `--debug-graph` option, open the log file in the default browser.
 
 ### `--config-path <CONFIG_PATH>`
 
-The path to an alternative configuration (`config.json`) file. See [the init-config command](./init-config.md) for more information.
+The path to an alternative configuration (`config.json`) file. See [the init-config command](./init-config.md) for more
+information.
 
 ### `--show-fields`
 
