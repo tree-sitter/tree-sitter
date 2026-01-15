@@ -14,7 +14,6 @@ extern void tree_sitter_debug_message(const char *, size_t);
 
 #define PAGESIZE 0x10000
 #define MAX_HEAP_SIZE (4 * 1024 * 1024)
-#define MIN(a, b) ((a) < (b) ? (a) : (b))
 
 typedef struct {
   size_t size;
@@ -151,7 +150,7 @@ void *realloc(void *ptr, size_t new_size) {
     return NULL;
   }
 
-  size_t copy_size = MIN(region->size, new_size);
+  size_t copy_size = (region->size < new_size) ? region->size : new_size;
   memcpy(result, &region->data, copy_size);
   free(ptr);
   return result;

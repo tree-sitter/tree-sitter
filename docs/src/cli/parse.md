@@ -78,7 +78,8 @@ Suppress main output.
 
 ### `--edits <EDITS>...`
 
-Apply edits after parsing the file. Edits are in the form of `row,col|position delcount insert_text` where row and col, or position are 0-indexed.
+Apply edits after parsing the file. Edits are in the form of `row,col|position delcount insert_text` where row and col,
+or position are 0-indexed.
 
 ### `--encoding <ENCODING>`
 
@@ -95,7 +96,8 @@ Output parsing results in a JSON format.
 
 ### `--config-path <CONFIG_PATH>`
 
-The path to an alternative configuration (`config.json`) file. See [the init-config command](./init-config.md) for more information.
+The path to an alternative configuration (`config.json`) file. See [the init-config command](./init-config.md) for more
+information.
 
 ### `-n/--test-number <TEST_NUMBER>`
 

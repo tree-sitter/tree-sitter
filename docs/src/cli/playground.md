@@ -7,8 +7,8 @@ tree-sitter playground [OPTIONS] # Aliases: play, pg, web-ui
 ```
 
 ```admonish note
-For this to work, you must have already built the parser as a Wasm module. This can be done with the [`build`](./build.md) subcommand
-(`tree-sitter build --wasm`).
+For this to work, you must have already built the parser as a Wasm module. This can be done with the [`build`](./build.md)
+subcommand (`tree-sitter build --wasm`).
 ```
 
 ## Options

@@ -19,8 +19,8 @@ will attempt to build the parser in the current working directory.
 ### `-w/--wasm`
 
 Compile the parser as a Wasm module. This command looks for the [Wasi SDK][wasi_sdk] indicated by the `TREE_SITTER_WASI_SDK_PATH`
-environment variable. If you don't have the binary, the CLI will attempt to download it for you to `<CACHE_DIR>/tree-sitter/wasi-sdk/`, where
-`<CACHE_DIR>` is resolved according to the [XDG base directory][XDG] or Window's [Known_Folder_Locations][Known_Folder].
+environment variable. If you don't have the binary, the CLI will attempt to download it for you to `<CACHE_DIR>/tree-sitter/wasi-sdk/`,
+where `<CACHE_DIR>` is resolved according to the [XDG base directory][XDG] or Window's [Known_Folder_Locations][Known_Folder].
 
 ### `-o/--output`
 
@@ -37,7 +37,8 @@ in the external scanner does so using their allocator.
 
 ### `-0/--debug`
 
-Compile the parser with debug flags enabled. This is useful when debugging issues that require a debugger like `gdb` or `lldb`.
+Compile the parser with debug flags enabled. This is useful when debugging issues that require a debugger like `gdb` or
+`lldb`.
 
 [Known_Folder]: https://learn.microsoft.com/en-us/windows/win32/shell/knownfolderid
 [wasi_sdk]: https://github.com/WebAssembly/wasi-sdk

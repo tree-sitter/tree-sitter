@@ -93,7 +93,8 @@ cargo xtask build-wasm-stdlib
 
 This command looks for the [Wasi SDK][wasi_sdk] indicated by the `TREE_SITTER_WASI_SDK_PATH`
 environment variable. If you don't have the binary, it can be downloaded from wasi-sdk's [releases][wasi-sdk-releases]
-page.
+page. Note that any changes to `crates/language/wasm/**` requires rebuilding the tree-sitter Wasm stdlib via
+`cargo xtask build-wasm-stdlib`.
 
 ### Debugging
 

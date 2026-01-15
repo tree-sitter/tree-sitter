@@ -14,8 +14,11 @@ tree-sitter init [OPTIONS] # Aliases: i
 
 The following required files are always created if missing:
 
-- `tree-sitter.json` - The main configuration file that determines how `tree-sitter` interacts with the grammar. If missing, the `init` command will prompt the user for the required fields. See [below](./init.md#structure-of-tree-sitterjson) for the full documentation of the structure of this file.
-- `package.json` - The `npm` manifest for the parser. This file is required for some `tree-sitter` subcommands, and if the grammar has dependencies (e.g., another published base grammar that this grammar extends).
+- `tree-sitter.json` - The main configuration file that determines how `tree-sitter` interacts with the grammar. If missing,
+the `init` command will prompt the user for the required fields. See [below](./init.md#structure-of-tree-sitterjson) for
+the full documentation of the structure of this file.
+- `package.json` - The `npm` manifest for the parser. This file is required for some `tree-sitter` subcommands, and if the
+grammar has dependencies (e.g., another published base grammar that this grammar extends).
 - `grammar.js` - An empty template for the main grammar file; see [the section on creating parsers](../2-creating-parser).
 
 ### Language bindings
@@ -130,8 +133,8 @@ be picked up by the cli.
 
 These keys help to decide whether the language applies to a given file:
 
-- `file-types` — An array of filename suffix strings (not including the dot). The grammar will be used for files whose names end with one of
-these suffixes. Note that the suffix may match an *entire* filename.
+- `file-types` — An array of filename suffix strings (not including the dot). The grammar will be used for files whose names
+end with one of these suffixes. Note that the suffix may match an *entire* filename.
 
 - `first-line-regex` — A regex pattern that will be tested against the first line of a file
 to determine whether this language applies to the file. If present, this regex will be used for any file whose
@@ -188,7 +191,8 @@ Each key is a language name, and the value is a boolean.
 
 Update outdated generated files, if possible.
 
-**Note:** Existing files that may have been edited manually are _not_ updated in general. To force an update to such files, remove them and call `tree-sitter init -u` again.
+**Note:** Existing files that may have been edited manually are _not_ updated in general. To force an update to such files,
+remove them and call `tree-sitter init -u` again.
 
 ### `-p/--grammar-path <PATH>`
 

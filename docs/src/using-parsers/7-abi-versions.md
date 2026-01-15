@@ -15,8 +15,11 @@ A given version of the tree-sitter library is only able to load parsers generate
 | >=0.20.3, <=0.24    | 13                     | 14                     |
 | >=0.25              | 13                     | 15                     |
 
-By default, the tree-sitter CLI will generate parsers using the latest available ABI for that version, but an older ABI (supported by the CLI) can be selected by passing the [`--abi` option][abi_option] to the `generate` command.
+By default, the tree-sitter CLI will generate parsers using the latest available ABI for that version, but an older ABI
+(supported by the CLI) can be selected by passing the [`--abi` option][abi_option] to the `generate` command.
 
-Note that the ABI version range supported by the CLI can be smaller than for the library: When a new ABI version is released, older versions will be phased out over a deprecation period, which starts with no longer being able to generate parsers with the oldest ABI version.
+Note that the ABI version range supported by the CLI can be smaller than for the library: When a new ABI version is released,
+older versions will be phased out over a deprecation period, which starts with no longer being able to generate parsers
+with the oldest ABI version.
 
 [abi_option]: ../cli/generate.md#--abi-version
