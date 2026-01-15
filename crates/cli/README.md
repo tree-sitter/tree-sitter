@@ -36,10 +36,10 @@ The `tree-sitter` binary itself has no dependencies, but specific commands have 
 ### Commands
 
 * `generate` - The `tree-sitter generate` command will generate a Tree-sitter parser based on the grammar in the current
-working directory. See [the documentation] for more information.
+  working directory. See [the documentation] for more information.
 
 * `test` - The `tree-sitter test` command will run the unit tests for the Tree-sitter parser in the current working directory.
-See [the documentation] for more information.
+  See [the documentation] for more information.
 
 * `parse` - The `tree-sitter parse` command will parse a file (or list of files) using Tree-sitter parsers.
 
