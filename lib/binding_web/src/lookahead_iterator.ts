@@ -1,5 +1,10 @@
 import { C, Internal, assertInternal } from './constants';
 import { Language } from './language';
+import { newFinalizer } from './finalization_registry';
+
+const finalizer = newFinalizer((address: number) => {
+  C._ts_lookahead_iterator_delete(address);
+});
 
 export class LookaheadIterator implements Iterable<string> {
   /** @internal */
@@ -13,6 +18,7 @@ export class LookaheadIterator implements Iterable<string> {
     assertInternal(internal);
     this[0] = address;
     this.language = language;
+    finalizer?.register(this, address, this);
   }
 
   /** Get the current symbol of the lookahead iterator. */
@@ -27,6 +33,7 @@ export class LookaheadIterator implements Iterable<string> {
 
   /** Delete the lookahead iterator, freeing its resources. */
   delete(): void {
+    finalizer?.unregister(this);
     C._ts_lookahead_iterator_delete(this[0]);
     this[0] = 0;
   }

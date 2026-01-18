@@ -3,6 +3,7 @@ import { Language } from './language';
 import { marshalRange, unmarshalRange } from './marshal';
 import { checkModule, initializeBinding } from './bindings';
 import { Tree } from './tree';
+import { newFinalizer } from './finalization_registry';
 
 /**
  * Options for parsing
@@ -82,6 +83,11 @@ export let LANGUAGE_VERSION: number;
  */
 export let MIN_COMPATIBLE_VERSION: number;
 
+const finalizer = newFinalizer((addresses: number[]) => {
+  C._ts_parser_delete(addresses[0]);
+  C._free(addresses[1]);
+});
+
 /**
  * A stateful object that is used to produce a {@link Tree} based on some
  * source code.
@@ -117,6 +123,7 @@ export class Parser {
    */
   constructor() {
     this.initialize();
+    finalizer?.register(this, [this[0], this[1]], this);
   }
 
   /** @internal */
@@ -131,6 +138,7 @@ export class Parser {
 
   /** Delete the parser, freeing its resources. */
   delete() {
+    finalizer?.unregister(this);
     C._ts_parser_delete(this[0]);
     C._free(this[1]);
     this[0] = 0;

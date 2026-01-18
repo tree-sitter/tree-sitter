@@ -3,6 +3,7 @@ import { Node } from './node';
 import { marshalNode, unmarshalCaptures } from './marshal';
 import { TRANSFER_BUFFER } from './parser';
 import { Language } from './language';
+import { newFinalizer } from './finalization_registry';
 
 const PREDICATE_STEP_TYPE_CAPTURE = 1;
 
@@ -506,6 +507,10 @@ function parsePattern(
   }
 }
 
+const finalizer = newFinalizer((address: number) => {
+  C._ts_query_delete(address);
+});
+
 export class Query {
   /** @internal */
   private [0] = 0; // Internal handle for Wasm
@@ -687,10 +692,12 @@ export class Query {
     this.assertedProperties = assertedProperties;
     this.refutedProperties = refutedProperties;
     this.exceededMatchLimit = false;
+    finalizer?.register(this, address, this);
   }
 
   /** Delete the query, freeing its resources. */
   delete(): void {
+    finalizer?.unregister(this);
     C._ts_query_delete(this[0]);
     this[0] = 0;
   }
