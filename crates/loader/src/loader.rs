@@ -1305,6 +1305,11 @@ impl Loader {
                     }));
                 }
             }
+        } else {
+            warn!(
+                "Failed to run `nm` to verify symbols in {}",
+                library_path.display()
+            );
         }
 
         Ok(())
