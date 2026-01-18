@@ -34,6 +34,7 @@ fs4.workspace = true
 indoc.workspace = true
 libloading.workspace = true
 log.workspace = true
+object.workspace = true
 once_cell.workspace = true
 regex.workspace = true
 semver.workspace = true

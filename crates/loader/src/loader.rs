@@ -7,7 +7,9 @@ use std::ops::Range;
 use std::sync::Mutex;
 use std::{
     collections::HashMap,
-    env, fs,
+    env,
+    fmt::Write as _,
+    fs,
     hash::{Hash as _, Hasher as _},
     io::{BufRead, BufReader},
     marker::PhantomData,
@@ -22,6 +24,7 @@ use etcetera::BaseStrategy as _;
 use fs4::fs_std::FileExt;
 use libloading::{Library, Symbol};
 use log::{error, info, warn};
+use object::{Object as _, ObjectSymbol as _};
 use once_cell::unsync::OnceCell;
 use regex::{Regex, RegexBuilder};
 use semver::Version;
@@ -1288,17 +1291,11 @@ impl Loader {
         }
     }
 
-    #[cfg(unix)]
     fn check_external_scanner(&self, name: &str, library_path: &Path) -> LoaderResult<()> {
         let prefix = if cfg!(any(target_os = "macos", target_os = "ios")) {
             "_"
         } else {
             ""
-        };
-        let section = if cfg!(all(target_arch = "powerpc64", target_os = "linux")) {
-            " D "
-        } else {
-            " T "
         };
         let mut must_have = vec![
             format!("{prefix}tree_sitter_{name}_external_scanner_create"),
@@ -1308,65 +1305,52 @@ impl Loader {
             format!("{prefix}tree_sitter_{name}_external_scanner_scan"),
         ];
 
-        let nm_cmd = env::var("NM").unwrap_or_else(|_| "nm".to_owned());
-        let command = Command::new(nm_cmd)
-            .arg("--defined-only")
-            .arg(library_path)
-            .output();
-        if let Ok(output) = command {
-            if output.status.success() {
-                let mut found_non_static = false;
-                for line in String::from_utf8_lossy(&output.stdout).lines() {
-                    if line.contains(section) {
-                        if let Some(function_name) =
-                            line.split_whitespace().collect::<Vec<_>>().get(2)
-                        {
-                            if !line.contains("tree_sitter_") {
-                                if !found_non_static {
-                                    found_non_static = true;
-                                    warn!("Found non-static non-tree-sitter functions in the external scanner");
-                                }
-                                warn!("  `{function_name}`");
-                            } else {
-                                must_have.retain(|f| f != function_name);
-                            }
-                        }
-                    }
-                }
-                if found_non_static {
-                    warn!(concat!(
-                        "Consider making these functions static, they can cause conflicts ",
-                        "when another tree-sitter project uses the same function name."
-                    ));
-                }
+        let library_bytes = fs::read(library_path)
+            .map_err(|e| LoaderError::IO(IoError::new(e, Some(library_path))))?;
 
-                if !must_have.is_empty() {
-                    return Err(LoaderError::ScannerSymbols(ScannerSymbolError {
-                        missing: must_have,
-                    }));
-                }
+        let file = match object::File::parse(&*library_bytes) {
+            Ok(f) => f,
+            Err(e) => {
+                warn!("Failed to parse library {}: {e}", library_path.display(),);
+                return Ok(());
             }
-        } else {
+        };
+
+        let mut non_static_symbols = String::new();
+        for symbol in file.symbols() {
+            if symbol.is_undefined()
+                || symbol.kind() != object::SymbolKind::Text
+                || !symbol.is_global()
+            {
+                continue;
+            }
+
+            let Ok(function_name) = symbol.name() else {
+                continue;
+            };
+
+            if !function_name.starts_with("tree_sitter_") {
+                writeln!(&mut non_static_symbols, "  `{function_name}`").unwrap();
+            } else {
+                must_have.retain(|f| f != function_name);
+            }
+        }
+
+        if !non_static_symbols.is_empty() {
             warn!(
-                "Failed to run `nm` to verify symbols in {}",
-                library_path.display()
+                "Found non-static non-tree-sitter functions in the external scanner\n{non_static_symbols}\n{}",
+                concat!(
+                    "Consider making these functions static, they can cause conflicts ",
+                    "when another tree-sitter project uses the same function name."
+                )
             );
         }
 
-        Ok(())
-    }
-
-    #[cfg(windows)]
-    fn check_external_scanner(&self, _name: &str, _library_path: &Path) -> LoaderResult<()> {
-        // TODO: there's no nm command on windows, whoever wants to implement this can and should :)
-
-        // let mut must_have = vec![
-        //     format!("tree_sitter_{name}_external_scanner_create"),
-        //     format!("tree_sitter_{name}_external_scanner_destroy"),
-        //     format!("tree_sitter_{name}_external_scanner_serialize"),
-        //     format!("tree_sitter_{name}_external_scanner_deserialize"),
-        //     format!("tree_sitter_{name}_external_scanner_scan"),
-        // ];
+        if !must_have.is_empty() {
+            return Err(LoaderError::ScannerSymbols(ScannerSymbolError {
+                missing: must_have,
+            }));
+        }
 
         Ok(())
     }
