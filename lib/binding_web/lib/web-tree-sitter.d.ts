@@ -23,7 +23,8 @@ declare namespace RuntimeExports {
      * @param {Object=} localScope
      * @param {number=} handle
      */
-    function loadWebAssemblyModule(binary: Uint8Array | WebAssembly.Module, flags: Record<string, boolean>, libName?: string, localScope?: Record<string, unknown>, handle?: number): Promise<Record<string, () => number>>;
+    function loadWebAssemblyModule(binary: Uint8Array | WebAssembly.Module, flags: { loadAsync: true } & Record<string, boolean>, libName?: string, localScope?: Record<string, unknown>, handle?: number): Promise<Record<string, () => number>>;
+    function loadWebAssemblyModule(binary: Uint8Array | WebAssembly.Module, flags: { loadAsync: false } & Record<string, boolean>, libName?: string, localScope?: Record<string, unknown>, handle?: number): Record<string, () => number>;
     /**
      * @param {number} ptr
      * @param {string} type
