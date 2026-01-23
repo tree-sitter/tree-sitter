@@ -1387,6 +1387,7 @@ impl Loader {
             output_path,
             "-fPIC",
             "-shared",
+            "--no-wasm-opt",
             if self.debug_build { "-g" } else { "-Os" },
             format!("-Wl,--export=tree_sitter_{language_name}").as_str(),
             "-Wl,--allow-undefined",
