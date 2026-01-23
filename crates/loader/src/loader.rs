@@ -1566,10 +1566,10 @@ impl Loader {
             })
         })?;
 
-        let tool_dir = cache_dir.join(tool_name);
+        let tool_dir = cache_dir.join(toolchain).join("bin");
 
         for exe in possible_exes {
-            let tool_exe = tool_dir.join("bin").join(exe);
+            let tool_exe = tool_dir.join(exe);
             if tool_exe.exists() {
                 return Ok(Some(tool_exe));
             }
