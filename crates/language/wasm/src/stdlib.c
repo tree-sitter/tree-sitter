@@ -77,14 +77,14 @@ void *malloc(size_t size) {
   while (curr != NULL) {
     if (curr->size >= size) {
       if (prev == NULL) {
-        free_list = curr->next;
+        free_list = (Region *)curr->next;
       } else {
         prev->next = curr->next;
       }
       return &curr->data;
     }
     prev = curr;
-    curr = curr->next;
+    curr = (Region *)curr->next;
   }
 
   Region *region_end = region_after(next, size);
@@ -109,7 +109,7 @@ void free(void *ptr) {
   if (region_end == next) {
     next = region;
   } else {
-    region->next = free_list;
+    region->next = (struct Region *)free_list;
     free_list = region;
   }
 }
