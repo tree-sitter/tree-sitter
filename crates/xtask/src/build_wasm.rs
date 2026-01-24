@@ -593,6 +593,7 @@ pub fn run_wasm_stdlib() -> Result<()> {
         ])
         .args(&export_flags)
         .arg("crates/language/wasm/src/stdlib.c")
+        .arg("crates/language/wasm/src/wctype.c")
         .output()?;
 
     bail_on_err(
