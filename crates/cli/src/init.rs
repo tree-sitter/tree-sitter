@@ -468,10 +468,10 @@ pub fn generate_grammar_files(
                         /// The symbol tagging query for this grammar.
                         pub const TAGS_QUERY: &str = include_str!("../../TAGS_QUERY_PATH");
                         "#}
-                        .replace("HIGHLIGHTS_QUERY_PATH", generate_opts.highlights_query_path)
-                        .replace("INJECTIONS_QUERY_PATH", generate_opts.injections_query_path)
-                        .replace("LOCALS_QUERY_PATH", generate_opts.locals_query_path)
-                        .replace("TAGS_QUERY_PATH", generate_opts.tags_query_path);
+                        .replace(HIGHLIGHTS_QUERY_PATH_PLACEHOLDER, &generate_opts.highlights_query_path.replace('\\', "/"))
+                        .replace(INJECTIONS_QUERY_PATH_PLACEHOLDER, &generate_opts.injections_query_path.replace('\\', "/"))
+                        .replace(LOCALS_QUERY_PATH_PLACEHOLDER, &generate_opts.locals_query_path.replace('\\', "/"))
+                        .replace(TAGS_QUERY_PATH_PLACEHOLDER, &generate_opts.tags_query_path.replace('\\', "/"));
                     contents = contents
                         .replace(
                             indoc! {r#"
@@ -555,10 +555,10 @@ pub fn generate_grammar_files(
                                 }
                             }"#}
                             .replace("KEBAB_PARSER_NAME", &language_name.to_kebab_case())
-                            .replace("HIGHLIGHTS_QUERY_PATH", generate_opts.highlights_query_path)
-                            .replace("INJECTIONS_QUERY_PATH", generate_opts.injections_query_path)
-                            .replace("LOCALS_QUERY_PATH", generate_opts.locals_query_path)
-                            .replace("TAGS_QUERY_PATH", generate_opts.tags_query_path);
+                            .replace(HIGHLIGHTS_QUERY_PATH_PLACEHOLDER, &generate_opts.highlights_query_path.replace('\\', "/"))
+                            .replace(INJECTIONS_QUERY_PATH_PLACEHOLDER, &generate_opts.injections_query_path.replace('\\', "/"))
+                            .replace(LOCALS_QUERY_PATH_PLACEHOLDER, &generate_opts.locals_query_path.replace('\\', "/"))
+                            .replace(TAGS_QUERY_PATH_PLACEHOLDER, &generate_opts.tags_query_path.replace('\\', "/"));
 
                         contents = contents.replace(
                             &replaced,
@@ -1230,17 +1230,20 @@ fn generate_file(
         .replace(PARSER_CLASS_NAME_PLACEHOLDER, generate_opts.class_name)
         .replace(
             HIGHLIGHTS_QUERY_PATH_PLACEHOLDER,
-            generate_opts.highlights_query_path,
+            &generate_opts.highlights_query_path.replace('\\', "/"),
         )
         .replace(
             INJECTIONS_QUERY_PATH_PLACEHOLDER,
-            generate_opts.injections_query_path,
+            &generate_opts.injections_query_path.replace('\\', "/"),
         )
         .replace(
             LOCALS_QUERY_PATH_PLACEHOLDER,
-            generate_opts.locals_query_path,
+            &generate_opts.locals_query_path.replace('\\', "/"),
         )
-        .replace(TAGS_QUERY_PATH_PLACEHOLDER, generate_opts.tags_query_path);
+        .replace(
+            TAGS_QUERY_PATH_PLACEHOLDER,
+            &generate_opts.tags_query_path.replace('\\', "/"),
+        );
 
     if let Some(name) = generate_opts.author_name {
         replacement = replacement.replace(AUTHOR_NAME_PLACEHOLDER, name);
