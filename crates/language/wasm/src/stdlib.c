@@ -127,24 +127,6 @@ void *realloc(void *ptr, size_t new_size) {
   Region *region = region_for_ptr(ptr);
   Region *region_end = region_after(region, region->size);
 
-  // When reallocating the last allocated region, return
-  // the same pointer, and skip copying the data.
-  if (region_end == next) {
-    // grow the heap and update last region's size so we do not need to copy data
-    Region *new_region_end = region_after(region, new_size);
-    if (new_region_end > heap_end) {
-      if ((char *)new_region_end - (char *)heap_start > MAX_HEAP_SIZE) {
-        return NULL;
-      }
-      if (!grow_heap(new_size)) return NULL;
-      heap_end = get_heap_end();
-    }
-
-    region->size = new_size;
-    next = new_region_end;
-    return ptr;
-  }
-
   void *result = malloc(new_size);
   if (result == NULL) {
     return NULL;
