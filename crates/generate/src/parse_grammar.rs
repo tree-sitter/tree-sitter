@@ -274,9 +274,7 @@ pub(crate) fn parse_grammar(input: &str) -> ParseGrammarResult<InputGrammar> {
             };
             let matches_empty = match inner_rule {
                 Rule::String(rule_str) => rule_str.is_empty(),
-                Rule::Pattern(ref value, _) => Regex::new(value)
-                    .map(|reg| reg.is_match(""))
-                    .unwrap_or(false),
+                Rule::Pattern(ref value, _) => Regex::new(value).is_ok_and(|reg| reg.is_match("")),
                 _ => false,
             };
             if matches_empty {
