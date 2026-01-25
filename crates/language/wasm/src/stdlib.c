@@ -126,7 +126,6 @@ void *realloc(void *ptr, size_t new_size) {
   }
 
   Region *region = region_for_ptr(ptr);
-  Region *region_end = region_after(region, region->size);
 
   void *result = malloc(new_size);
   if (result == NULL) {
