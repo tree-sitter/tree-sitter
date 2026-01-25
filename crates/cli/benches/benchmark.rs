@@ -19,9 +19,7 @@ static LANGUAGE_FILTER: LazyLock<Option<String>> =
 static EXAMPLE_FILTER: LazyLock<Option<String>> =
     LazyLock::new(|| env::var("TREE_SITTER_BENCHMARK_EXAMPLE_FILTER").ok());
 static REPETITION_COUNT: LazyLock<usize> = LazyLock::new(|| {
-    env::var("TREE_SITTER_BENCHMARK_REPETITION_COUNT")
-        .map(|s| s.parse::<usize>().unwrap())
-        .unwrap_or(5)
+    env::var("TREE_SITTER_BENCHMARK_REPETITION_COUNT").map_or(5, |s| s.parse::<usize>().unwrap())
 });
 static TEST_LOADER: LazyLock<Loader> =
     LazyLock::new(|| Loader::with_parser_lib_path(SCRATCH_DIR.clone()));
