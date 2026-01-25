@@ -14,6 +14,17 @@ minimum supported version.
 The path argument allows you to specify the directory of the parser to build. If you don't supply this argument, the CLI
 will attempt to build the parser in the current working directory.
 
+On Unix platforms, the CLI will attempt to use `nm` to validate the symbols included in your parser library. Note that this
+safety check is _not_ performed on Windows. If performed, this check ensures that:
+
+- All non tree-sitter functions are marked static, to avoid conflicts when building with another tree-sitter project
+- If an external scanner is used by your parser, all of the following symbols are present:
+  - `tree_sitter_<name>_external_scanner_create`
+  - `tree_sitter_<name>_external_scanner_destroy`
+  - `tree_sitter_<name>_external_scanner_serialize`
+  - `tree_sitter_<name>_external_scanner_deserialize`
+  - `tree_sitter_<name>_external_scanner_scan`
+
 ## Options
 
 ### `-w/--wasm`
