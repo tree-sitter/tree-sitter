@@ -313,6 +313,7 @@ impl TagsContext {
             )
             .ok_or(Error::Cancelled)?;
 
+        // SAFETY:
         // The `matches` iterator borrows the `Tree`, which prevents it from being
         // moved. But the tree is really just a pointer, so it's actually ok to
         // move it.

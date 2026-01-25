@@ -43,6 +43,40 @@ static GRAMMAR_NAME_REGEX: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r#""name":\s*"(.*?)""#).unwrap());
 
 const WASI_SDK_VERSION: &str = include_str!("../wasi-sdk-version").trim_ascii();
+const BINARYEN_VERSION: &str = include_str!("../binaryen-version").trim_ascii();
+
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+const ARCH_OS: Result<&str, LoaderError> = Ok("arm64-macos");
+#[cfg(all(target_os = "macos", target_arch = "x86_64"))]
+const ARCH_OS: Result<&str, LoaderError> = Ok("x86_64-macos");
+#[cfg(all(
+    target_os = "macos",
+    not(any(target_arch = "aarch64", target_arch = "x86_64"))
+))]
+const ARCH_OS: Result<&str, LoaderError> = Err(LoaderError::WasiSDKPlatform);
+
+#[cfg(all(target_os = "windows", target_arch = "aarch64"))]
+const ARCH_OS: Result<&str, LoaderError> = Ok("arm64-windows");
+#[cfg(all(target_os = "windows", target_arch = "x86_64"))]
+const ARCH_OS: Result<&str, LoaderError> = Ok("x86_64-windows");
+#[cfg(all(
+    target_os = "windows",
+    not(any(target_arch = "aarch64", target_arch = "x86_64"))
+))]
+const ARCH_OS: Result<&str, LoaderError> = Err(LoaderError::WasiSDKPlatform);
+
+#[cfg(all(target_os = "linux", target_arch = "aarch64"))]
+const ARCH_OS: Result<&str, LoaderError> = Ok("arm64-linux");
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+const ARCH_OS: Result<&str, LoaderError> = Ok("x86_64-linux");
+#[cfg(all(
+    target_os = "linux",
+    not(any(target_arch = "aarch64", target_arch = "x86_64"))
+))]
+const ARCH_OS: Result<&str, LoaderError> = Err(LoaderError::WasiSDKPlatform);
+
+#[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
+const ARCH_OS: Result<&str, LoaderError> = Err(LoaderError::WasiSDKPlatform);
 
 pub type LoaderResult<T> = Result<T, LoaderError>;
 
@@ -92,10 +126,10 @@ pub enum LoaderError {
     Time(#[from] SystemTimeError),
     #[error("Unknown scope '{0}'")]
     UnknownScope(String),
-    #[error("Failed to download wasi-sdk from {0}")]
-    WasiSDKDownload(String),
+    #[error("Failed to download {tool} from {url}")]
+    WasmToolDownload { tool: &'static str, url: String },
     #[error(transparent)]
-    WasiSDKClang(#[from] WasiSDKClangError),
+    WasmTool(#[from] WasmToolError),
     #[error("Unsupported platform for wasi-sdk")]
     WasiSDKPlatform,
     #[cfg(feature = "wasm")]
@@ -103,8 +137,12 @@ pub enum LoaderError {
     Wasm(#[from] WasmError),
     #[error("Failed to run wasi-sdk clang -- {0}")]
     WasmCompiler(std::io::Error),
+    #[error("Failed to run wasm-opt -- {0}")]
+    WasmOptimizer(std::io::Error),
     #[error("wasi-sdk clang command failed: {0}")]
     WasmCompilation(String),
+    #[error("wasm-opt command failed: {0}")]
+    WasmOptimization(String),
 }
 
 #[derive(Debug, Error)]
@@ -223,22 +261,25 @@ impl std::fmt::Display for ScannerSymbolError {
 }
 
 #[derive(Debug, Error)]
-pub struct WasiSDKClangError {
-    pub wasi_sdk_dir: String,
+pub struct WasmToolError {
+    pub exe: &'static str,
+    pub toolchain: &'static str,
+    pub tool_dir: String,
     pub possible_executables: Vec<&'static str>,
     pub download: bool,
 }
 
-impl std::fmt::Display for WasiSDKClangError {
+impl std::fmt::Display for WasmToolError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.download {
             write!(
                 f,
-                "Failed to find clang executable in downloaded wasi-sdk at '{}'.",
-                self.wasi_sdk_dir
+                "Failed to find {} executable in downloaded {} at '{}'.",
+                self.exe, self.toolchain, self.tool_dir
             )?;
         } else {
-            write!(f, "TREE_SITTER_WASI_SDK_PATH is set to '{}', but no clang executable found in 'bin/' directory.", self.wasi_sdk_dir)?;
+            let toolchain_upper = self.toolchain.replace('-', "_").to_ascii_uppercase();
+            write!(f, "TREE_SITTER_{toolchain_upper}_PATH is set to '{}', but no clang executable found in 'bin/' directory.", self.tool_dir)?;
         }
 
         let possible_exes = self.possible_executables.join(", ");
@@ -765,7 +806,7 @@ impl Loader {
     }
 
     #[must_use]
-    pub fn get_all_language_configurations(&self) -> Vec<(&LanguageConfiguration, &Path)> {
+    pub fn get_all_language_configurations(&self) -> Vec<(&LanguageConfiguration<'static>, &Path)> {
         self.language_configurations
             .iter()
             .map(|c| (c, self.languages_by_id[c.language_id].0.as_ref()))
@@ -775,7 +816,7 @@ impl Loader {
     pub fn language_configuration_for_scope(
         &self,
         scope: &str,
-    ) -> LoaderResult<Option<(Language, &LanguageConfiguration)>> {
+    ) -> LoaderResult<Option<(Language, &LanguageConfiguration<'static>)>> {
         for configuration in &self.language_configurations {
             if configuration.scope.as_ref().is_some_and(|s| s == scope) {
                 let language = self.language_for_id(configuration.language_id)?;
@@ -788,7 +829,7 @@ impl Loader {
     pub fn language_configuration_for_first_line_regex(
         &self,
         path: &Path,
-    ) -> LoaderResult<Option<(Language, &LanguageConfiguration)>> {
+    ) -> LoaderResult<Option<(Language, &LanguageConfiguration<'static>)>> {
         self.language_configuration_ids_by_first_line_regex
             .iter()
             .try_fold(None, |_, (regex, ids)| {
@@ -817,7 +858,7 @@ impl Loader {
     pub fn language_configuration_for_file_name(
         &self,
         path: &Path,
-    ) -> LoaderResult<Option<(Language, &LanguageConfiguration)>> {
+    ) -> LoaderResult<Option<(Language, &LanguageConfiguration<'static>)>> {
         // Find all the language configurations that match this file name
         // or a suffix of the file name.
         let configuration_ids = path
@@ -889,7 +930,7 @@ impl Loader {
     pub fn language_configuration_for_injection_string(
         &self,
         string: &str,
-    ) -> LoaderResult<Option<(Language, &LanguageConfiguration)>> {
+    ) -> LoaderResult<Option<(Language, &LanguageConfiguration<'static>)>> {
         let mut best_match_length = 0;
         let mut best_match_position = None;
         for (i, configuration) in self.language_configurations.iter().enumerate() {
@@ -1305,6 +1346,11 @@ impl Loader {
                     }));
                 }
             }
+        } else {
+            warn!(
+                "Failed to run `nm` to verify symbols in {}",
+                library_path.display()
+            );
         }
 
         Ok(())
@@ -1332,12 +1378,13 @@ impl Loader {
         scanner_filename: Option<&Path>,
         output_path: &Path,
     ) -> LoaderResult<()> {
-        let clang_executable = self.ensure_wasi_sdk_exists()?;
+        let clang_exe = self.ensure_wasi_sdk_exists()?;
+        let output_path = output_path.to_str().unwrap();
 
-        let mut command = Command::new(&clang_executable);
+        let mut command = Command::new(&clang_exe);
         command.current_dir(src_path).args([
             "-o",
-            output_path.to_str().unwrap(),
+            output_path,
             "-fPIC",
             "-shared",
             if self.debug_build { "-g" } else { "-Os" },
@@ -1356,11 +1403,24 @@ impl Loader {
             command.arg(scanner_filename);
         }
 
-        let output = command.output().map_err(LoaderError::WasmCompiler)?;
+        let compile_output = command.output().map_err(LoaderError::WasmCompiler)?;
 
-        if !output.status.success() {
+        if !compile_output.status.success() {
             return Err(LoaderError::WasmCompilation(
-                String::from_utf8_lossy(&output.stderr).to_string(),
+                String::from_utf8_lossy(&compile_output.stderr).to_string(),
+            ));
+        }
+
+        let wasm_opt_exe = self.ensure_binaryen_exists()?;
+
+        let opt_output = Command::new(&wasm_opt_exe)
+            .args([output_path, "-Os", "-o", output_path])
+            .output()
+            .map_err(LoaderError::WasmOptimizer)?;
+
+        if !opt_output.status.success() {
+            return Err(LoaderError::WasmOptimization(
+                String::from_utf8_lossy(&opt_output.stderr).to_string(),
             ));
         }
 
@@ -1392,7 +1452,7 @@ impl Loader {
         Ok(())
     }
 
-    /// This ensures that the wasi-sdk is available, downloading and extracting it if necessary,
+    /// This ensures that wasi-sdk is available, downloading and extracting it if necessary,
     /// and returns the path to the `clang` executable.
     ///
     /// If `TREE_SITTER_WASI_SDK_PATH` is set, it will use that path to look for the clang executable.
@@ -1407,63 +1467,16 @@ impl Loader {
             vec!["clang", "wasm32-unknown-wasi-clang", "wasm32-wasi-clang"]
         };
 
-        if let Ok(wasi_sdk_path) = std::env::var("TREE_SITTER_WASI_SDK_PATH") {
-            let wasi_sdk_dir = PathBuf::from(wasi_sdk_path);
-
-            for exe in &possible_executables {
-                let clang_exe = wasi_sdk_dir.join("bin").join(exe);
-                if clang_exe.exists() {
-                    return Ok(clang_exe);
-                }
-            }
-
-            return Err(LoaderError::WasiSDKClang(WasiSDKClangError {
-                wasi_sdk_dir: wasi_sdk_dir.to_string_lossy().to_string(),
-                possible_executables,
-                download: false,
-            }));
+        if let Some(path) = self.get_existing_tool(
+            "clang",
+            "wasi-sdk",
+            &possible_executables,
+            "TREE_SITTER_WASI_SDK_PATH",
+        )? {
+            return Ok(path);
         }
 
-        let cache_dir = etcetera::choose_base_strategy()?
-            .cache_dir()
-            .join("tree-sitter");
-        fs::create_dir_all(&cache_dir)
-            .map_err(|e| LoaderError::IO(IoError::new(e, Some(cache_dir.as_path()))))?;
-
-        let wasi_sdk_dir = cache_dir.join("wasi-sdk");
-
-        for exe in &possible_executables {
-            let clang_exe = wasi_sdk_dir.join("bin").join(exe);
-            if clang_exe.exists() {
-                return Ok(clang_exe);
-            }
-        }
-
-        fs::create_dir_all(&wasi_sdk_dir)
-            .map_err(|e| LoaderError::IO(IoError::new(e, Some(wasi_sdk_dir.as_path()))))?;
-
-        let arch_os = if cfg!(target_os = "macos") {
-            if cfg!(target_arch = "aarch64") {
-                "arm64-macos"
-            } else {
-                "x86_64-macos"
-            }
-        } else if cfg!(target_os = "windows") {
-            if cfg!(target_arch = "aarch64") {
-                "arm64-windows"
-            } else {
-                "x86_64-windows"
-            }
-        } else if cfg!(target_os = "linux") {
-            if cfg!(target_arch = "aarch64") {
-                "arm64-linux"
-            } else {
-                "x86_64-linux"
-            }
-        } else {
-            return Err(LoaderError::WasiSDKPlatform);
-        };
-
+        let arch_os = ARCH_OS?;
         let sdk_filename = format!("wasi-sdk-{WASI_SDK_VERSION}-{arch_os}.tar.gz");
         let wasi_sdk_major_version = WASI_SDK_VERSION
             .trim_end_matches(char::is_numeric) // trim minor version...
@@ -1471,39 +1484,157 @@ impl Loader {
         let sdk_url = format!(
             "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-{wasi_sdk_major_version}/{sdk_filename}",
         );
+        self.download_tool(
+            "clang",
+            "wasi-sdk",
+            &sdk_filename,
+            &sdk_url,
+            &possible_executables,
+        )
+    }
 
-        info!("Downloading wasi-sdk from {sdk_url}...");
-        let temp_tar_path = cache_dir.join(sdk_filename);
+    /// This ensures that binaryen is available, downloading and extracting it if necessary,
+    /// and returns the path to the `wasm-opt` executable.
+    ///
+    /// If `TREE_SITTER_BINARYEN_PATH` is set, it will use that path to look for the wasm-opt executable.
+    fn ensure_binaryen_exists(&self) -> LoaderResult<PathBuf> {
+        let possible_executables = if cfg!(windows) {
+            vec![
+                "wasm-opt.exe",
+                "wasm32-unknown-wasm-opt.exe",
+                "wasm32-wasm-opt.exe",
+            ]
+        } else {
+            vec!["wasm-opt", "wasm32-unknown-wasm-opt", "wasm32-wasm-opt"]
+        };
+        if let Some(path) = self.get_existing_tool(
+            "wasm-opt",
+            "binaryen",
+            &possible_executables,
+            "TREE_SITTER_BINARYEN_PATH",
+        )? {
+            return Ok(path);
+        }
+
+        let arch_os = ARCH_OS?.replace("arm64-linux", "aarch64-linux");
+        let binaryen_filename = format!("binaryen-version_{BINARYEN_VERSION}-{arch_os}.tar.gz");
+        let binaryen_url = format!(
+            "https://github.com/WebAssembly/binaryen/releases/download/version_{BINARYEN_VERSION}/{binaryen_filename}"
+        );
+        self.download_tool(
+            "wasm-opt",
+            "binaryen",
+            &binaryen_filename,
+            &binaryen_url,
+            &possible_executables,
+        )
+    }
+
+    fn get_existing_tool(
+        &self,
+        tool_name: &'static str,
+        toolchain: &'static str,
+        possible_exes: &[&'static str],
+        env_var: &str,
+    ) -> LoaderResult<Option<PathBuf>> {
+        if let Ok(tool_path) = std::env::var(env_var) {
+            let tool_dir = PathBuf::from(tool_path).join("bin");
+
+            for exe in possible_exes {
+                let tool_exe = tool_dir.join(exe);
+                if tool_exe.exists() {
+                    return Ok(Some(tool_exe));
+                }
+            }
+
+            Err(LoaderError::WasmTool(WasmToolError {
+                exe: tool_name,
+                toolchain,
+                tool_dir: tool_dir.to_string_lossy().to_string(),
+                possible_executables: possible_exes.to_vec(),
+                download: false,
+            }))?;
+        }
+
+        let cache_dir = etcetera::choose_base_strategy()?
+            .cache_dir()
+            .join("tree-sitter");
+        fs::create_dir_all(&cache_dir).map_err(|error| {
+            LoaderError::IO(IoError {
+                error,
+                path: Some(cache_dir.to_string_lossy().to_string()),
+            })
+        })?;
+
+        let tool_dir = cache_dir.join(toolchain).join("bin");
+
+        for exe in possible_exes {
+            let tool_exe = tool_dir.join(exe);
+            if tool_exe.exists() {
+                return Ok(Some(tool_exe));
+            }
+        }
+
+        Ok(None)
+    }
+
+    fn download_tool(
+        &self,
+        tool_name: &'static str,
+        toolchain: &'static str,
+        filename: &str,
+        url: &str,
+        possible_exes: &[&'static str],
+    ) -> LoaderResult<PathBuf> {
+        let cache_dir = etcetera::choose_base_strategy()?
+            .cache_dir()
+            .join("tree-sitter");
+        let tool_dir = cache_dir.join(toolchain);
+
+        fs::create_dir_all(&tool_dir).map_err(|error| {
+            LoaderError::IO(IoError {
+                error,
+                path: Some(tool_dir.to_string_lossy().to_string()),
+            })
+        })?;
+
+        info!("Downloading {tool_name} from {url}...");
+        let temp_tar_path = cache_dir.join(filename);
 
         let status = Command::new("curl")
             .arg("-f")
             .arg("-L")
             .arg("-o")
             .arg(&temp_tar_path)
-            .arg(&sdk_url)
+            .arg(url)
             .status()
-            .map_err(|e| LoaderError::Curl(sdk_url.clone(), e))?;
+            .map_err(|e| LoaderError::Curl(url.to_string(), e))?;
 
         if !status.success() {
-            return Err(LoaderError::WasiSDKDownload(sdk_url));
+            Err(LoaderError::WasmToolDownload {
+                tool: tool_name,
+                url: url.to_string(),
+            })?;
         }
 
-        info!("Extracting wasi-sdk to {}...", wasi_sdk_dir.display());
-        self.extract_tar_gz_with_strip(&temp_tar_path, &wasi_sdk_dir)?;
+        info!("Extracting {tool_name} to {}...", tool_dir.display());
+        self.extract_tar_gz_with_strip(&temp_tar_path, &tool_dir)?;
 
         fs::remove_file(temp_tar_path).ok();
-        for exe in &possible_executables {
-            let clang_exe = wasi_sdk_dir.join("bin").join(exe);
-            if clang_exe.exists() {
-                return Ok(clang_exe);
+        for exe in possible_exes {
+            let tool_exe = tool_dir.join("bin").join(exe);
+            if tool_exe.exists() {
+                return Ok(tool_exe);
             }
         }
 
-        Err(LoaderError::WasiSDKClang(WasiSDKClangError {
-            wasi_sdk_dir: wasi_sdk_dir.to_string_lossy().to_string(),
-            possible_executables,
+        Err(LoaderError::WasmTool(WasmToolError {
+            exe: tool_name,
+            toolchain,
+            tool_dir: tool_dir.to_string_lossy().to_string(),
+            possible_executables: possible_exes.to_vec(),
             download: true,
-        }))
+        }))?
     }
 
     #[must_use]
@@ -1534,7 +1665,9 @@ impl Loader {
     }
 
     #[must_use]
-    pub fn get_language_configuration_in_current_path(&self) -> Option<&LanguageConfiguration> {
+    pub fn get_language_configuration_in_current_path(
+        &self,
+    ) -> Option<&LanguageConfiguration<'static>> {
         self.language_configuration_in_current_path
             .map(|i| &self.language_configurations[i])
     }
@@ -1543,7 +1676,7 @@ impl Loader {
         &mut self,
         parser_path: &Path,
         set_current_path_config: bool,
-    ) -> LoaderResult<&[LanguageConfiguration]> {
+    ) -> LoaderResult<&[LanguageConfiguration<'static>]> {
         let initial_language_configuration_count = self.language_configurations.len();
 
         match TreeSitterJSON::from_file(parser_path) {

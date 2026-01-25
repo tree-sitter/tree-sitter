@@ -93,8 +93,9 @@ cargo xtask build-wasm-stdlib
 
 This command looks for the [Wasi SDK][wasi_sdk] indicated by the `TREE_SITTER_WASI_SDK_PATH`
 environment variable. If you don't have the binary, it can be downloaded from wasi-sdk's [releases][wasi-sdk-releases]
-page. Note that any changes to `crates/language/wasm/**` requires rebuilding the tree-sitter Wasm stdlib via
-`cargo xtask build-wasm-stdlib`.
+page. Similarly, this command also looks for [ the `wasm-opt` tool from binaryen][binaryen] indicated by the `TREE_SITTER_BINARYEN_PATH`
+environment variable. `wasm-opt` and the rest of the binaryen tool suite can be downloaded from the project's [releases][binaryen-releases]
+page. Note that any changes to `crates/language/wasm/**` requires rebuilding the tree-sitter Wasm stdlib via `cargo xtask build-wasm-stdlib`.
 
 ### Debugging
 
@@ -204,6 +205,8 @@ and the tree-sitter module is fetched from [here][js url]. This, along with the 
 
 [admonish]: https://github.com/tommilligan/mdbook-admonish
 [admonish reference]: https://tommilligan.github.io/mdbook-admonish/reference.html
+[binaryen]: https://github.com/WebAssembly/binaryen
+[binaryen-releases]: https://github.com/WebAssembly/binaryen/releases
 [cli crate]: https://crates.io/crates/tree-sitter-cli
 [cli package]: https://www.npmjs.com/package/tree-sitter-cli
 [codemirror]: https://codemirror.net

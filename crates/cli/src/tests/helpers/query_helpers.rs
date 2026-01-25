@@ -225,7 +225,7 @@ impl Pattern {
         }
 
         // Find every matching combination of child patterns and child nodes.
-        let mut finished_matches = Vec::<Match>::new();
+        let mut finished_matches = Vec::<Match<'_, 'tree>>::new();
         if cursor.goto_first_child() {
             let mut match_states = vec![(0, mat)];
             loop {

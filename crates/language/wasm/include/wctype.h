@@ -1,7 +1,15 @@
 #ifndef TREE_SITTER_WASM_WCTYPE_H_
 #define TREE_SITTER_WASM_WCTYPE_H_
 
+#include <stdbool.h>
+
 typedef int wint_t;
+
+int iswlower(wint_t wch);
+
+int iswupper(wint_t wch);
+
+int iswpunct(wint_t wch);
 
 static inline bool iswalpha(wint_t wch) {
   switch (wch) {

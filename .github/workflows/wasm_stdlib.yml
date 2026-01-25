@@ -1,0 +1,19 @@
+name: Check Wasm Stdlib build
+
+on:
+  workflow_call:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Check directory changes
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const scriptPath = `${process.env.GITHUB_WORKSPACE}/.github/scripts/wasm_stdlib.js`;
+            const script = require(scriptPath);
+            return script({ github, context, core });

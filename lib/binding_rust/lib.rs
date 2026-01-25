@@ -317,7 +317,7 @@ pub trait Decode {
 
 /// A stateful object for walking a syntax [`Tree`] efficiently.
 #[doc(alias = "TSTreeCursor")]
-pub struct TreeCursor<'cursor>(ffi::TSTreeCursor, PhantomData<&'cursor ()>);
+pub struct TreeCursor<'tree>(ffi::TSTreeCursor, PhantomData<&'tree ()>);
 
 /// A set of patterns that match nodes in a syntax tree.
 #[doc(alias = "TSQuery")]
@@ -392,7 +392,7 @@ pub struct QueryMatch<'cursor, 'tree> {
 }
 
 /// A sequence of [`QueryMatch`]es associated with a given [`QueryCursor`].
-pub struct QueryMatches<'query, 'tree: 'query, T: TextProvider<I>, I: AsRef<[u8]>> {
+pub struct QueryMatches<'query, 'tree, T: TextProvider<I>, I: AsRef<[u8]>> {
     ptr: *mut ffi::TSQueryCursor,
     query: &'query Query,
     text_provider: T,
@@ -407,7 +407,7 @@ pub struct QueryMatches<'query, 'tree: 'query, T: TextProvider<I>, I: AsRef<[u8]
 ///
 /// During iteration, each element contains a [`QueryMatch`] and index. The index can
 /// be used to access the new capture inside of the [`QueryMatch::captures`]'s [`captures`].
-pub struct QueryCaptures<'query, 'tree: 'query, T: TextProvider<I>, I: AsRef<[u8]>> {
+pub struct QueryCaptures<'query, 'tree, T: TextProvider<I>, I: AsRef<[u8]>> {
     ptr: *mut ffi::TSQueryCursor,
     query: &'query Query,
     text_provider: T,
@@ -1581,7 +1581,7 @@ impl<'tree> Node<'tree> {
     /// Get the [`Language`] that was used to parse this node's syntax tree.
     #[doc(alias = "ts_node_language")]
     #[must_use]
-    pub fn language(&self) -> LanguageRef {
+    pub fn language(&self) -> LanguageRef<'tree> {
         LanguageRef(unsafe { ffi::ts_node_language(self.0) }, PhantomData)
     }
 
@@ -2082,11 +2082,11 @@ impl fmt::Display for Node<'_> {
     }
 }
 
-impl<'cursor> TreeCursor<'cursor> {
+impl<'tree> TreeCursor<'tree> {
     /// Get the tree cursor's current [`Node`].
     #[doc(alias = "ts_tree_cursor_current_node")]
     #[must_use]
-    pub fn node(&self) -> Node<'cursor> {
+    pub fn node(&self) -> Node<'tree> {
         Node(
             unsafe { ffi::ts_tree_cursor_current_node(&self.0) },
             PhantomData,
@@ -2227,7 +2227,7 @@ impl<'cursor> TreeCursor<'cursor> {
     /// Re-initialize this tree cursor to start at the original node that the
     /// cursor was constructed with.
     #[doc(alias = "ts_tree_cursor_reset")]
-    pub fn reset(&mut self, node: Node<'cursor>) {
+    pub fn reset(&mut self, node: Node<'tree>) {
         unsafe { ffi::ts_tree_cursor_reset(&mut self.0, node.0) };
     }
 
@@ -3404,7 +3404,7 @@ impl QueryProperty {
 /// Provide a `StreamingIterator` instead of the traditional `Iterator`, as the
 /// underlying object in the C library gets updated on each iteration. Copies would
 /// have their internal state overwritten, leading to Undefined Behavior
-impl<'query, 'tree: 'query, T: TextProvider<I>, I: AsRef<[u8]>> StreamingIterator
+impl<'query, 'tree, T: TextProvider<I>, I: AsRef<[u8]>> StreamingIterator
     for QueryMatches<'query, 'tree, T, I>
 {
     type Item = QueryMatch<'query, 'tree>;
@@ -3435,15 +3435,13 @@ impl<'query, 'tree: 'query, T: TextProvider<I>, I: AsRef<[u8]>> StreamingIterato
     }
 }
 
-impl<'query, 'tree: 'query, T: TextProvider<I>, I: AsRef<[u8]>> StreamingIteratorMut
-    for QueryMatches<'query, 'tree, T, I>
-{
+impl<T: TextProvider<I>, I: AsRef<[u8]>> StreamingIteratorMut for QueryMatches<'_, '_, T, I> {
     fn get_mut(&mut self) -> Option<&mut Self::Item> {
         self.current_match.as_mut()
     }
 }
 
-impl<'query, 'tree: 'query, T: TextProvider<I>, I: AsRef<[u8]>> StreamingIterator
+impl<'query, 'tree, T: TextProvider<I>, I: AsRef<[u8]>> StreamingIterator
     for QueryCaptures<'query, 'tree, T, I>
 {
     type Item = (QueryMatch<'query, 'tree>, usize);
@@ -3480,9 +3478,7 @@ impl<'query, 'tree: 'query, T: TextProvider<I>, I: AsRef<[u8]>> StreamingIterato
     }
 }
 
-impl<'query, 'tree: 'query, T: TextProvider<I>, I: AsRef<[u8]>> StreamingIteratorMut
-    for QueryCaptures<'query, 'tree, T, I>
-{
+impl<T: TextProvider<I>, I: AsRef<[u8]>> StreamingIteratorMut for QueryCaptures<'_, '_, T, I> {
     fn get_mut(&mut self) -> Option<&mut Self::Item> {
         self.current_match.as_mut()
     }
@@ -3622,8 +3618,8 @@ impl From<ffi::TSRange> for Range {
     }
 }
 
-impl From<&'_ InputEdit> for ffi::TSInputEdit {
-    fn from(val: &'_ InputEdit) -> Self {
+impl From<&InputEdit> for ffi::TSInputEdit {
+    fn from(val: &InputEdit) -> Self {
         Self {
             start_byte: val.start_byte as u32,
             old_end_byte: val.old_end_byte as u32,

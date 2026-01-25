@@ -953,7 +953,7 @@ fn render_node_range(
 
 fn cst_render_node(
     opts: &ParseFileOptions,
-    cursor: &mut TreeCursor,
+    cursor: &TreeCursor,
     source_code: &[u8],
     out: &mut impl Write,
     total_width: usize,
