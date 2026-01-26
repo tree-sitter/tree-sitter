@@ -106,7 +106,7 @@ ansi_colours = "1.2.3"
 anstyle = "1.0.13"
 anyhow = "1.0.100"
 bstr = "1.12.0"
-cc = "1.2.53"
+cc = "1.2.54"
 clap = { version = "4.5.54", features = [
   "cargo",
   "derive",
@@ -145,7 +145,7 @@ similar = "2.7.0"
 smallbitvec = "2.6.0"
 streaming-iterator = "0.1.9"
 tempfile = "3.23.0"
-thiserror = "2.0.17"
+thiserror = "2.0.18"
 tiny_http = "0.12.0"
 topological-sort = "0.2.2"
 unindent = "0.2.4"
