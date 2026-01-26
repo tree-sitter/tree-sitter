@@ -109,6 +109,7 @@ void free(void *ptr) {
 
 void *calloc(size_t count, size_t size) {
   void *result = malloc(count * size);
+  if (!result) return NULL;
   memset(result, 0, count * size);
   return result;
 }
