@@ -117,6 +117,11 @@ void *realloc(void *ptr, size_t new_size) {
   if (ptr == NULL) {
     return malloc(new_size);
   }
+  if (new_size == 0) {
+    free(ptr);
+    return NULL;
+  }
+
 
   Region *region = region_for_ptr(ptr);
   Region *region_end = region_after(region, region->size);
@@ -129,7 +134,12 @@ void *realloc(void *ptr, size_t new_size) {
   }
 
   void *result = malloc(new_size);
-  memcpy(result, &region->data, region->size);
+  if (!result) return NULL;
+
+  size_t copy_size = region->size < new_size ? region->size : new_size;
+  memcpy(result, &region->data, copy_size);
+
+  free(ptr);
   return result;
 }
 

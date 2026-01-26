@@ -255,7 +255,7 @@ static bool wasm_dylink_info__parse(
  * Native callbacks exposed to Wasm modules
  *******************************************/
 
- static wasm_trap_t *callback__abort(
+static wasm_trap_t *callback__abort(
   void *env,
   wasmtime_caller_t* caller,
   wasmtime_val_raw_t *args_and_results,
