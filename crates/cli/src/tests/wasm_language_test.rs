@@ -119,6 +119,19 @@ fn test_load_fixture_language_wasm() {
 }
 
 #[test]
+fn test_wasm_realloc_smaller_size() {
+    allocations::record(|| {
+        let store = WasmStore::new(&ENGINE).unwrap();
+        let mut parser = Parser::new();
+        let language = get_test_fixture_language_wasm("wasm_realloc");
+        parser.set_wasm_store(store).unwrap();
+        parser.set_language(&language).unwrap();
+        let tree = parser.parse("hello", None).unwrap();
+        assert_eq!(tree.root_node().to_sexp(), "(document (zero_width))");
+    });
+}
+
+#[test]
 fn test_load_multiple_wasm_languages() {
     allocations::record(|| {
         let mut store = WasmStore::new(&ENGINE).unwrap();
