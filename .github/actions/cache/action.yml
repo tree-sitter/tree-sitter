@@ -21,5 +21,6 @@ runs:
           'lib/src/parser.h',
           'lib/src/array.h',
           'lib/src/alloc.h',
+          'lib/src/wasm/wasm-stdlib.h',
           'test/fixtures/grammars/*/**/src/*.c',
           '.github/actions/cache/action.yml') }}
