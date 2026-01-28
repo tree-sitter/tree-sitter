@@ -1295,10 +1295,13 @@ impl Loader {
         } else {
             ""
         };
-        let section = if cfg!(all(target_arch = "powerpc64", target_os = "linux")) {
-            " D "
+        let section = " T ";
+        // Older ppc toolchains incorrectly report functions in the Data section. This bug has been
+        // fixed, but we still need to account for older systems.
+        let old_ppc_section = if cfg!(all(target_arch = "powerpc64", target_os = "linux")) {
+            Some(" D ")
         } else {
-            " T "
+            None
         };
         let mut must_have = vec![
             format!("{prefix}tree_sitter_{name}_external_scanner_create"),
@@ -1317,7 +1320,7 @@ impl Loader {
             if output.status.success() {
                 let mut found_non_static = false;
                 for line in String::from_utf8_lossy(&output.stdout).lines() {
-                    if line.contains(section) {
+                    if line.contains(section) || old_ppc_section.is_some_and(|s| line.contains(s)) {
                         if let Some(function_name) =
                             line.split_whitespace().collect::<Vec<_>>().get(2)
                         {
