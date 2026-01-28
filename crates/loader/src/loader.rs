@@ -1,6 +1,8 @@
 #![cfg_attr(not(any(test, doctest)), doc = include_str!("../README.md"))]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
+#[cfg(unix)]
+use std::fmt::Write as _;
 #[cfg(any(feature = "tree-sitter-highlight", feature = "tree-sitter-tags"))]
 use std::ops::Range;
 #[cfg(feature = "tree-sitter-highlight")]
@@ -76,8 +78,6 @@ pub enum LoaderError {
     NoLanguage,
     #[error(transparent)]
     Query(LoaderQueryError),
-    #[error(transparent)]
-    ScannerSymbols(ScannerSymbolError),
     #[error("Failed to load language for scope '{0}':\n{1}")]
     ScopeLoad(String, Box<Self>),
     #[error(transparent)]
@@ -195,28 +195,6 @@ impl std::fmt::Display for SymbolError {
             f,
             "Failed to load symbol {} from {} -- {}",
             self.symbol_name, self.path, self.error
-        )?;
-        Ok(())
-    }
-}
-
-#[derive(Debug, Error)]
-pub struct ScannerSymbolError {
-    pub missing: Vec<String>,
-}
-
-impl std::fmt::Display for ScannerSymbolError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(
-            f,
-            "Missing required functions in the external scanner, parsing won't work without these!\n"
-        )?;
-        for symbol in &self.missing {
-            writeln!(f, "  `{symbol}`")?;
-        }
-        writeln!(
-            f,
-            "You can read more about this at https://tree-sitter.github.io/tree-sitter/creating-parsers/4-external-scanners\n"
         )?;
         Ok(())
     }
@@ -1092,7 +1070,7 @@ impl Loader {
             self.compile_parser_to_dylib(&config, &lock_file, &lock_path)?;
 
             if config.scanner_path.is_some() {
-                self.check_external_scanner(&config.name, &output_path)?;
+                self.check_external_scanner(&output_path)?;
             }
         }
 
@@ -1214,6 +1192,7 @@ impl Loader {
                 command.arg("-UTREE_SITTER_REUSE_ALLOCATOR");
             } else {
                 command.arg("-shared");
+                command.arg("-Wl,--no-undefined");
             }
             command.args(cc_config.get_files());
             command.arg("-o").arg(output_path);
@@ -1248,12 +1227,7 @@ impl Loader {
     }
 
     #[cfg(unix)]
-    fn check_external_scanner(&self, name: &str, library_path: &Path) -> LoaderResult<()> {
-        let prefix = if cfg!(any(target_os = "macos", target_os = "ios")) {
-            "_"
-        } else {
-            ""
-        };
+    fn check_external_scanner(&self, library_path: &Path) -> LoaderResult<()> {
         let section = " T ";
         // Older ppc toolchains incorrectly report functions in the Data section. This bug has been
         // fixed, but we still need to account for older systems.
@@ -1262,14 +1236,6 @@ impl Loader {
         } else {
             None
         };
-        let mut must_have = vec![
-            format!("{prefix}tree_sitter_{name}_external_scanner_create"),
-            format!("{prefix}tree_sitter_{name}_external_scanner_destroy"),
-            format!("{prefix}tree_sitter_{name}_external_scanner_serialize"),
-            format!("{prefix}tree_sitter_{name}_external_scanner_deserialize"),
-            format!("{prefix}tree_sitter_{name}_external_scanner_scan"),
-        ];
-
         let nm_cmd = env::var("NM").unwrap_or_else(|_| "nm".to_owned());
         let command = Command::new(nm_cmd)
             .arg("--defined-only")
@@ -1277,35 +1243,26 @@ impl Loader {
             .output();
         if let Ok(output) = command {
             if output.status.success() {
-                let mut found_non_static = false;
+                let mut non_static_symbols = String::new();
                 for line in String::from_utf8_lossy(&output.stdout).lines() {
                     if line.contains(section) || old_ppc_section.is_some_and(|s| line.contains(s)) {
                         if let Some(function_name) =
                             line.split_whitespace().collect::<Vec<_>>().get(2)
                         {
                             if !line.contains("tree_sitter_") {
-                                if !found_non_static {
-                                    found_non_static = true;
-                                    warn!("Found non-static non-tree-sitter functions in the external scanner");
-                                }
-                                warn!("  `{function_name}`");
-                            } else {
-                                must_have.retain(|f| f != function_name);
+                                writeln!(&mut non_static_symbols, "  `{function_name}`").unwrap();
                             }
                         }
                     }
                 }
-                if found_non_static {
-                    warn!(concat!(
-                        "Consider making these functions static, they can cause conflicts ",
-                        "when another tree-sitter project uses the same function name."
-                    ));
-                }
-
-                if !must_have.is_empty() {
-                    return Err(LoaderError::ScannerSymbols(ScannerSymbolError {
-                        missing: must_have,
-                    }));
+                if !non_static_symbols.is_empty() {
+                    warn!(
+                        "Found non-static non-tree-sitter functions in the external scanner\n{non_static_symbols}\n{}",
+                        concat!(
+                            "Consider making these functions static, they can cause conflicts ",
+                            "when another tree-sitter project uses the same function name."
+                        )
+                    );
                 }
             }
         } else {
@@ -1319,17 +1276,8 @@ impl Loader {
     }
 
     #[cfg(windows)]
-    fn check_external_scanner(&self, _name: &str, _library_path: &Path) -> LoaderResult<()> {
+    fn check_external_scanner(&self, _library_path: &Path) -> LoaderResult<()> {
         // TODO: there's no nm command on windows, whoever wants to implement this can and should :)
-
-        // let mut must_have = vec![
-        //     format!("tree_sitter_{name}_external_scanner_create"),
-        //     format!("tree_sitter_{name}_external_scanner_destroy"),
-        //     format!("tree_sitter_{name}_external_scanner_serialize"),
-        //     format!("tree_sitter_{name}_external_scanner_deserialize"),
-        //     format!("tree_sitter_{name}_external_scanner_scan"),
-        // ];
-
         Ok(())
     }
 
