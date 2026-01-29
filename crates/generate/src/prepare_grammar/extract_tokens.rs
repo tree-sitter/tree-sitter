@@ -21,6 +21,8 @@ unless they are used only as the grammar's start rule.
 "
     )]
     EmptyString(String),
+    #[error("Terminal rule '{0}' cannot be used as a supertype")]
+    SupertypeTerminal(String),
     #[error("Rule '{0}' cannot be used as both an external token and a non-terminal rule")]
     ExternalTokenNonTerminal(String),
     #[error("Non-symbol rules cannot be used as external tokens")]
@@ -128,11 +130,18 @@ pub(super) fn extract_tokens(
         })
         .collect();
 
-    let supertype_symbols = grammar
+    let supertype_symbols: Vec<Symbol> = grammar
         .supertype_symbols
         .into_iter()
         .map(|symbol| symbol_replacer.replace_symbol(symbol))
         .collect();
+    for supertype_symbol in &supertype_symbols {
+        if supertype_symbol.is_terminal() {
+            Err(ExtractTokensError::SupertypeTerminal(
+                lexical_variables[supertype_symbol.index].name.clone(),
+            ))?;
+        }
+    }
 
     let variables_to_inline = grammar
         .variables_to_inline
