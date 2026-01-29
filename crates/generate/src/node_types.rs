@@ -650,6 +650,71 @@ pub fn generate_node_types_json(
         }
     }
 
+    // Handle aliases that don't correspond to any existing named type.
+    // These are aliases that are only used as aliases and never as direct references.
+    for (symbol, aliases) in &aliases_by_symbol {
+        for alias_opt in aliases {
+            if let Some(alias) = alias_opt {
+                // Check if this alias name already exists in node_types_json
+                if !node_types_json.contains_key(&alias.value) {
+                    // This alias doesn't correspond to any existing type, so we need to create one
+                    let is_extra = extra_names.contains(&alias.value);
+                    
+                    // Check if this is a non-terminal with structure we should preserve
+                    let is_non_terminal_with_structure = symbol.is_non_terminal() 
+                        && !syntax_grammar.supertype_symbols.contains(symbol)
+                        && !syntax_grammar.variables_to_inline.contains(symbol)
+                        && symbol.index < variable_info.len();
+                    
+                    // Determine if we should create fields/children based on the symbol type
+                    let (fields, children) = if is_non_terminal_with_structure {
+                        let info = &variable_info[symbol.index];
+                        // Create empty fields map and children info that will be populated
+                        let fields = Some(BTreeMap::new());
+                        let children = if info.children_without_fields.types.is_empty() {
+                            None
+                        } else {
+                            Some(FieldInfoJSON::default())
+                        };
+                        (fields, children)
+                    } else {
+                        (None, None)
+                    };
+                    
+                    node_types_json.insert(
+                        alias.value.clone(),
+                        NodeInfoJSON {
+                            kind: alias.value.clone(),
+                            named: alias.is_named,
+                            root: false,
+                            extra: is_extra,
+                            fields,
+                            children,
+                            subtypes: None,
+                        },
+                    );
+                    
+                    // If this alias corresponds to a non-terminal with field/children info, populate it
+                    if is_non_terminal_with_structure {
+                        let info = &variable_info[symbol.index];
+                        let node_type_json = node_types_json.get_mut(&alias.value).unwrap();
+                        
+                        if let Some(fields_json) = node_type_json.fields.as_mut() {
+                            for (field_name, field_info) in &info.fields {
+                                let field_json = fields_json.entry(field_name.clone()).or_insert_with(FieldInfoJSON::default);
+                                populate_field_info_json(field_json, field_info);
+                            }
+                        }
+                        
+                        if let Some(children_json) = node_type_json.children.as_mut() {
+                            populate_field_info_json(children_json, &info.children_without_fields);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     // Sort the subtype map topologically so that subtypes are listed before their supertypes.
     let mut sorted_kinds = Vec::with_capacity(subtype_map.len());
     let mut top_sort = topological_sort::TopologicalSort::<String>::new();
