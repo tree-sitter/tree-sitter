@@ -657,60 +657,54 @@ pub fn generate_node_types_json(
             // Check if this alias name already exists in node_types_json
             if !node_types_json.contains_key(&alias.value) {
                 // This alias doesn't correspond to any existing type, so we need to create one
-                let is_extra = extra_names.contains(&alias.value);
 
-                // Check if this is a non-terminal with structure we should preserve
-                let is_non_terminal_with_structure = symbol.is_non_terminal()
-                    && !syntax_grammar.supertype_symbols.contains(symbol)
-                    && !syntax_grammar.variables_to_inline.contains(symbol)
-                    && symbol.index < variable_info.len();
+                let info = &variable_info[symbol.index];
 
-                // Determine if we should create fields/children based on the symbol type
-                let (fields, children) = if is_non_terminal_with_structure {
-                    let info = &variable_info[symbol.index];
-                    // Create empty fields map and children info that will be populated
-                    let fields = Some(BTreeMap::new());
-                    let children = if info.children_without_fields.types.is_empty() {
-                        None
-                    } else {
-                        Some(FieldInfoJSON::default())
-                    };
-                    (fields, children)
-                } else {
-                    (None, None)
-                };
+                let mut node_type_existed = true;
+                let node_type_json =
+                    node_types_json
+                        .entry(alias.value.clone())
+                        .or_insert_with(|| {
+                            node_type_existed = false;
+                            NodeInfoJSON {
+                                kind: alias.value.clone(),
+                                named: alias.is_named,
+                                root: false,
+                                extra: false,
+                                fields: Some(BTreeMap::new()),
+                                children: None,
+                                subtypes: None,
+                            }
+                        });
 
-                node_types_json.insert(
-                    alias.value.clone(),
-                    NodeInfoJSON {
-                        kind: alias.value.clone(),
-                        named: alias.is_named,
-                        root: false,
-                        extra: is_extra,
-                        fields,
-                        children,
-                        subtypes: None,
-                    },
-                );
-
-                // If this alias corresponds to a non-terminal with field/children info, populate it
-                if is_non_terminal_with_structure {
-                    let info = &variable_info[symbol.index];
-                    let node_type_json = node_types_json.get_mut(&alias.value).unwrap();
-
-                    if let Some(fields_json) = node_type_json.fields.as_mut() {
-                        for (field_name, field_info) in &info.fields {
-                            let field_json = fields_json
-                                .entry(field_name.clone())
-                                .or_insert_with(FieldInfoJSON::default);
-                            populate_field_info_json(field_json, field_info);
+                let fields_json = node_type_json.fields.as_mut().unwrap();
+                for (new_field, field_info) in &info.fields {
+                    let field_json = fields_json.entry(new_field.clone()).or_insert_with(|| {
+                        // If another rule is aliased with the same name, and does *not* have this
+                        // field, then this field cannot be required.
+                        let mut field_json = FieldInfoJSON::default();
+                        if node_type_existed {
+                            field_json.required = false;
                         }
-                    }
+                        field_json
+                    });
+                    populate_field_info_json(field_json, field_info);
+                }
 
-                    if let Some(children_json) = node_type_json.children.as_mut() {
-                        populate_field_info_json(children_json, &info.children_without_fields);
+                // If another rule is aliased with the same name, any fields that aren't present in
+                // this cannot be required.
+                for (existing_field, field_json) in fields_json.iter_mut() {
+                    if !info.fields.contains_key(existing_field) {
+                        field_json.required = false;
                     }
                 }
+
+                populate_field_info_json(
+                    node_type_json
+                        .children
+                        .get_or_insert(FieldInfoJSON::default()),
+                    &info.children_without_fields,
+                );
             }
         }
     }
