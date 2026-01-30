@@ -125,14 +125,7 @@ void *realloc(void *ptr, size_t new_size) {
 
 
   Region *region = region_for_ptr(ptr);
-  Region *region_end = region_after(region, region->size);
 
-  // When reallocating the last allocated region, return
-  // the same pointer, and skip copying the data.
-  if (region_end == next) {
-    next = region;
-    return malloc(new_size);
-  }
 
   void *result = malloc(new_size);
   if (!result) return NULL;
