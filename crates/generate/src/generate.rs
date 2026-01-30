@@ -41,7 +41,7 @@ pub use parse_grammar::ParseGrammarError;
 use prepare_grammar::prepare_grammar;
 pub use prepare_grammar::PrepareGrammarError;
 use render::render_c_code;
-pub use render::{ABI_VERSION_MAX, ABI_VERSION_MIN};
+pub use render::{RenderError, ABI_VERSION_MAX, ABI_VERSION_MIN};
 
 static JSON_COMMENT_REGEX: LazyLock<Regex> = LazyLock::new(|| {
     RegexBuilder::new("^\\s*//.*")
@@ -93,6 +93,8 @@ pub enum GenerateError {
     VariableInfo(#[from] VariableInfoError),
     #[error(transparent)]
     BuildTables(#[from] ParseTableBuilderError),
+    #[error(transparent)]
+    Render(#[from] RenderError),
     #[cfg(feature = "load")]
     #[error(transparent)]
     ParseVersion(#[from] ParseVersionError),
@@ -398,7 +400,7 @@ fn generate_parser_for_grammar_with_opts(
         abi_version,
         semantic_version,
         supertype_symbol_map,
-    );
+    )?;
     Ok(GeneratedParser {
         c_code,
         #[cfg(feature = "load")]
