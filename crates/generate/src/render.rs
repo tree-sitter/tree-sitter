@@ -33,6 +33,8 @@ pub type RenderResult<T> = Result<T, RenderError>;
 pub enum RenderError {
     #[error("Parse table action count {0} exceeds maximum value of {max}", max=u16::MAX)]
     ParseTable(usize),
+    #[error("This version of Tree-sitter can only generate parsers with ABI version {ABI_VERSION_MIN} - {ABI_VERSION_MAX}, not {0}")]
+    ABI(usize),
 }
 
 #[clippy::format_args]
@@ -1957,11 +1959,10 @@ pub fn render_c_code(
     abi_version: usize,
     semantic_version: Option<(u8, u8, u8)>,
     supertype_symbol_map: BTreeMap<Symbol, Vec<ChildType>>,
-    assert!(
-        (ABI_VERSION_MIN..=ABI_VERSION_MAX).contains(&abi_version),
-        "This version of Tree-sitter can only generate parsers with ABI version {ABI_VERSION_MIN} - {ABI_VERSION_MAX}, not {abi_version}",
-    );
 ) -> RenderResult<String> {
+    if !(ABI_VERSION_MIN..=ABI_VERSION_MAX).contains(&abi_version) {
+        Err(RenderError::ABI(abi_version))?;
+    }
 
     Generator {
         language_name: name.to_string(),
