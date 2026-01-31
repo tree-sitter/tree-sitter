@@ -326,7 +326,7 @@
               clippy
               rust-analyzer
               rustfmt
-              cargo-llvm-cov
+              # cargo-llvm-cov
 
               cmake
               gnumake
