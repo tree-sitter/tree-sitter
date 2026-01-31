@@ -123,7 +123,7 @@ fn test_wasm_realloc_smaller_size() {
     allocations::record(|| {
         let store = WasmStore::new(&ENGINE).unwrap();
         let mut parser = Parser::new();
-        let language = get_test_fixture_language_wasm("wasm_realloc");
+        let language = get_test_fixture_language_wasm("wasm_realloc_overflow_heap");
         parser.set_wasm_store(store).unwrap();
         parser.set_language(&language).unwrap();
         let tree = parser.parse("hello", None).unwrap();
