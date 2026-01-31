@@ -8,7 +8,7 @@ enum TokenType {
   ZERO_WIDTH_TOKEN
 };
 
-void *tree_sitter_wasm_realloc_external_scanner_create(void) {
+void *tree_sitter_wasm_realloc_overflow_heap_external_scanner_create(void) {
   size_t large_size = MAX_HEAP_SIZE - 64;
   void *p = malloc(large_size);
   void *q = malloc(4);
@@ -18,7 +18,7 @@ void *tree_sitter_wasm_realloc_external_scanner_create(void) {
   return NULL;
 }
 
-bool tree_sitter_wasm_realloc_external_scanner_scan(
+bool tree_sitter_wasm_realloc_overflow_heap_external_scanner_scan(
   void *payload,
   TSLexer *lexer,
   const bool *valid_symbols
@@ -27,17 +27,17 @@ bool tree_sitter_wasm_realloc_external_scanner_scan(
   return true;
 }
 
-unsigned tree_sitter_wasm_realloc_external_scanner_serialize(
+unsigned tree_sitter_wasm_realloc_overflow_heap_external_scanner_serialize(
   void *payload,
   char *buffer
 ) {
   return 0;
 }
 
-void tree_sitter_wasm_realloc_external_scanner_deserialize(
+void tree_sitter_wasm_realloc_overflow_heap_external_scanner_deserialize(
   void *payload,
   const char *buffer,
   unsigned length
 ) {}
 
-void tree_sitter_wasm_realloc_external_scanner_destroy(void *payload) {}
+void tree_sitter_wasm_realloc_overflow_heap_external_scanner_destroy(void *payload) {}
