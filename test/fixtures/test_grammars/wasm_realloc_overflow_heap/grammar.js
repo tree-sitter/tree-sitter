@@ -1,5 +1,5 @@
 export default grammar({
-    name: 'wasm_realloc',
+    name: 'wasm_realloc_overflow_heap',
 
     extras: _ => [/\s/],
     externals: $ => [$.zero_width],
