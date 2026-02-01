@@ -44,11 +44,13 @@ pub static EXAMPLE_EXCLUDE: LazyLock<Option<Regex>> =
 
 pub static START_SEED: LazyLock<usize> = LazyLock::new(new_seed);
 
+pub const DEFAULT_EDIT_COUNT: usize = 3;
 pub static EDIT_COUNT: LazyLock<usize> =
-    LazyLock::new(|| int_env_var("TREE_SITTER_EDITS").unwrap_or(3));
+    LazyLock::new(|| int_env_var("TREE_SITTER_EDITS").unwrap_or(DEFAULT_EDIT_COUNT));
 
+pub const DEFAULT_ITERATION_COUNT: usize = 10;
 pub static ITERATION_COUNT: LazyLock<usize> =
-    LazyLock::new(|| int_env_var("TREE_SITTER_ITERATIONS").unwrap_or(10));
+    LazyLock::new(|| int_env_var("TREE_SITTER_ITERATIONS").unwrap_or(DEFAULT_ITERATION_COUNT));
 
 fn int_env_var(name: &'static str) -> Option<usize> {
     env::var(name).ok().and_then(|e| e.parse().ok())
