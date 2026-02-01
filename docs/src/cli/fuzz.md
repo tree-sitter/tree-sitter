@@ -31,11 +31,13 @@ If `--lib-path` is used, the name of the language used to extract the library's 
 
 ### `--edits <EDITS>`
 
-The maximum number of edits to perform. The default is 3.
+The maximum number of edits to perform. The default is 3. This value can also be set via the `TREE_SITTER_EDITS` environment
+variable.
 
 ### `--iterations <ITERATIONS>`
 
-The number of iterations to run. The default is 10.
+The number of iterations to run. The default is 10. This value can also be set via the `TREE_SITTER_ITERATIONS` environment
+variable.
 
 ### `-i/--include <INCLUDE>`
 
