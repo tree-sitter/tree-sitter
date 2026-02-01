@@ -16,8 +16,8 @@ use semver::Version as SemverVersion;
 use tree_sitter::{ffi, Parser, Point};
 use tree_sitter_cli::{
     fuzz::{
-        fuzz_language_corpus, FuzzOptions, EDIT_COUNT, ITERATION_COUNT, LOG_ENABLED,
-        LOG_GRAPH_ENABLED, START_SEED,
+        fuzz_language_corpus, FuzzOptions, DEFAULT_EDIT_COUNT, DEFAULT_ITERATION_COUNT, EDIT_COUNT,
+        ITERATION_COUNT, LOG_ENABLED, LOG_GRAPH_ENABLED, START_SEED,
     },
     highlight::{self, HighlightOptions},
     init::{generate_grammar_files, JsonConfigOpts, TREE_SITTER_JSON_SCHEMA},
@@ -391,11 +391,15 @@ struct Fuzz {
     /// library's language function
     #[arg(long)]
     pub lang_name: Option<String>,
-    /// Maximum number of edits to perform per fuzz test
-    #[arg(long)]
+    #[arg(
+        long,
+        help=format!("Maximum number of edits to perform per fuzz test (Default: {DEFAULT_EDIT_COUNT})")
+    )]
     pub edits: Option<usize>,
-    /// Number of fuzzing iterations to run per test
-    #[arg(long)]
+    #[arg(
+        long,
+        help=format!("Number of fuzzing iterations to run per test (Default: {DEFAULT_ITERATION_COUNT})")
+    )]
     pub iterations: Option<usize>,
     /// Only fuzz corpus test cases whose name matches the given regex
     #[arg(long, short)]
