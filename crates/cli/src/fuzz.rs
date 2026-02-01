@@ -221,7 +221,7 @@ pub fn fuzz_language_corpus(
                 }
 
                 // Perform a random series of edits and reparse.
-                let edit_count = rand.unsigned(*EDIT_COUNT);
+                let edit_count = rand.unsigned(options.edits);
                 let mut undo_stack = Vec::with_capacity(edit_count);
                 for _ in 0..=edit_count {
                     let edit = get_random_edit(&mut rand, &input);
