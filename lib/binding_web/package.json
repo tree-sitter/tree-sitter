@@ -1,6 +1,6 @@
 {
   "name": "web-tree-sitter",
-  "version": "0.26.4",
+  "version": "0.26.5",
   "description": "Tree-sitter bindings for the web",
   "repository": {
     "type": "git",

@@ -17,7 +17,7 @@
       eachSystem = lib.genAttrs systems;
       pkgsFor = inputs.nixpkgs.legacyPackages;
 
-      version = "0.26.4";
+      version = "0.26.5";
 
       fs = lib.fileset;
       src = fs.toSource {
