@@ -1,6 +1,6 @@
 {
   "name": "tree-sitter-cli",
-  "version": "0.26.4",
+  "version": "0.26.5",
   "author": {
     "name": "Max Brunsfeld",
     "email": "maxbrunsfeld@gmail.com"
