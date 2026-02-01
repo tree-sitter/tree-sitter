@@ -188,6 +188,9 @@ struct Build {
     /// Compile a parser in debug mode
     #[arg(long, short = '0')]
     pub debug: bool,
+    /// Display verbose build information
+    #[arg(short, long)]
+    pub verbose: bool,
 }
 
 #[derive(Args)]
@@ -968,6 +971,7 @@ impl Build {
         let grammar_path = current_dir.join(self.path.unwrap_or_default());
 
         loader.debug_build(self.debug);
+        loader.verbose_build(self.verbose);
 
         if self.wasm {
             let output_path = self.output.map(|path| current_dir.join(path));

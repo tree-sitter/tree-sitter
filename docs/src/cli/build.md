@@ -51,6 +51,10 @@ in the external scanner does so using their allocator.
 Compile the parser with debug flags enabled. This is useful when debugging issues that require a debugger like `gdb` or
 `lldb`.
 
+### `-v/--verbose`
+
+Display verbose build information including working directory (if present), compiler, arguments, and environment variables.
+
 [Known_Folder]: https://learn.microsoft.com/en-us/windows/win32/shell/knownfolderid
 [wasi_sdk]: https://github.com/WebAssembly/wasi-sdk
 [XDG]: https://specifications.freedesktop.org/basedir/latest/
