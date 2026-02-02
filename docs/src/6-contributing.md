@@ -152,6 +152,27 @@ published as [`tree-sitter`][py package] on [PyPI.org][pypi].
 * [`tree-sitter/go-tree-sitter`][go ts] — Go bindings to the core library,
 published as [`tree_sitter`][go package] on [pkg.go.dev][go.dev].
 
+### Publishing a Release
+
+Tree-sitter's develoment follows two main release schedules. Primary development of the project is conducted on the `master`
+branch. Non-breaking fixes are backported to the `release-<previous-major-version>` branch, aka the "release branch". Minor
+releases are created off of the `master` branch and patch releases are created off fo the release branch. In order to create
+a release, you should:
+
+1. Ensure all version numbers within the repository match the version(s) being released. All Rust crates except `tree-sitter-language`
+are versioned in lockstep with one another. The `tree-sitter-language` crate is bumped as necessary.
+    - For a minor release, all versions should already be bumped to the correct minor version (see Step 4 below regarding
+    starting a new release cycle) _except_ potentially the `tree-sitter-language` crate. If changes have been made to the
+    crate since its last release to [crates.io][crates], its patch version must be bumped independently.
+    - For a patch release, all versions should be bumped to the next patch version, with the same caveat as above for the
+    `tree-sitter-language` crate.
+2. Any version bumps made to satisfy Step 1 should be completed through a pull request with the `ci:check release` label
+applied. This triggers a workflow to ensure there are no conflicts with existing published packages on [crates.io][crates].
+If it appears that no versions require bumping via a PR, this workflow should be triggered manually.
+3. Create and push a `v<version>` tag to the repository.
+4. After a successful minor release, the next release cycle begins. To do this, bump all versions (except potentially `tree-sitter-language`'s
+version, if no new release was published) on the `master` branch to the next minor version.
+
 ## Developing Documentation
 
 Our current static site generator for documentation is [`mdBook`][mdBook], with a little bit of custom JavaScript to handle
