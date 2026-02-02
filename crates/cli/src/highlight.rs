@@ -474,7 +474,7 @@ mod tests {
         assert_eq!(style.css, None);
 
         // darkcyan is an ANSI color and is preserved
-        env::set_var("COLORTERM", "");
+        unsafe { env::set_var("COLORTERM", "") };
         parse_style(&mut style, Value::String(DARK_CYAN.to_string()));
         assert_eq!(
             style.ansi.get_fg_color(),
@@ -483,7 +483,7 @@ mod tests {
         assert_eq!(style.css, Some("color: #00af87".to_string()));
 
         // junglegreen is not an ANSI color and is preserved when the terminal supports it
-        env::set_var("COLORTERM", "truecolor");
+        unsafe { env::set_var("COLORTERM", "truecolor") };
         parse_style(&mut style, Value::String(JUNGLE_GREEN.to_string()));
         assert_eq!(
             style.ansi.get_fg_color(),
@@ -492,7 +492,7 @@ mod tests {
         assert_eq!(style.css, Some("color: #26a69a".to_string()));
 
         // junglegreen gets approximated as cadetblue when the terminal does not support it
-        env::set_var("COLORTERM", "");
+        unsafe { env::set_var("COLORTERM", "") };
         parse_style(&mut style, Value::String(JUNGLE_GREEN.to_string()));
         assert_eq!(
             style.ansi.get_fg_color(),
@@ -501,9 +501,9 @@ mod tests {
         assert_eq!(style.css, Some("color: #26a69a".to_string()));
 
         if let Ok(environment_variable) = original_environment_variable {
-            env::set_var("COLORTERM", environment_variable);
+            unsafe { env::set_var("COLORTERM", environment_variable) };
         } else {
-            env::remove_var("COLORTERM");
+            unsafe { env::remove_var("COLORTERM") };
         }
     }
 }
