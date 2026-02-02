@@ -80,6 +80,7 @@ used_underscore_items = "allow"
 
 [workspace.lints.rust]
 mismatched_lifetime_syntaxes = "allow"
+deprecated_safe_2024 = "deny"
 
 [profile.optimize]
 inherits = "release"

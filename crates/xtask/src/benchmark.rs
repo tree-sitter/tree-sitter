@@ -4,18 +4,20 @@ use crate::{bail_on_err, Benchmark};
 
 pub fn run(args: &Benchmark) -> Result<()> {
     if let Some(ref example) = args.example_file_name {
-        std::env::set_var("TREE_SITTER_BENCHMARK_EXAMPLE_FILTER", example);
+        unsafe { std::env::set_var("TREE_SITTER_BENCHMARK_EXAMPLE_FILTER", example) };
     }
 
     if let Some(ref language) = args.language {
-        std::env::set_var("TREE_SITTER_BENCHMARK_LANGUAGE_FILTER", language);
+        unsafe { std::env::set_var("TREE_SITTER_BENCHMARK_LANGUAGE_FILTER", language) };
     }
 
     if args.repetition_count != 5 {
-        std::env::set_var(
-            "TREE_SITTER_BENCHMARK_REPETITION_COUNT",
-            args.repetition_count.to_string(),
-        );
+        unsafe {
+            std::env::set_var(
+                "TREE_SITTER_BENCHMARK_REPETITION_COUNT",
+                args.repetition_count.to_string(),
+            );
+        };
     }
 
     if args.debug {

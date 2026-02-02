@@ -11,7 +11,7 @@ use crate::{bail_on_err, Test};
 
 pub fn run(args: &Test) -> Result<()> {
     let test_flags = if args.address_sanitizer {
-        env::set_var("CFLAGS", "-fsanitize=undefined,address");
+        unsafe { env::set_var("CFLAGS", "-fsanitize=undefined,address") };
 
         // When the Tree-sitter C library is compiled with the address sanitizer, the address
         // sanitizer runtime library needs to be linked into the final test executable. When
@@ -21,12 +21,14 @@ pub fn run(args: &Test) -> Result<()> {
         bail_on_err(&output, "Failed to get clang runtime dir")?;
         let runtime_dir = String::from_utf8(output.stdout)?;
         if runtime_dir.contains("/Xcode.app/") {
-            env::set_var(
-                "RUSTFLAGS",
-                format!(
-                    "-C link-arg=-L{runtime_dir} -C link-arg=-lclang_rt.asan_osx_dynamic -C link-arg=-Wl,-rpath,{runtime_dir}"
-                ),
-            );
+            unsafe {
+                env::set_var(
+                    "RUSTFLAGS",
+                    format!(
+                        "-C link-arg=-L{runtime_dir} -C link-arg=-lclang_rt.asan_osx_dynamic -C link-arg=-Wl,-rpath,{runtime_dir}"
+                    ),
+                );
+            };
         }
 
         // Specify a `--target` explicitly. This is required for address sanitizer support.
@@ -46,22 +48,34 @@ pub fn run(args: &Test) -> Result<()> {
         String::new()
     };
     if let Some(language) = &args.language {
-        env::set_var("TREE_SITTER_LANGUAGE", language);
+        unsafe {
+            env::set_var("TREE_SITTER_LANGUAGE", language);
+        }
     }
     if let Some(example) = &args.example {
-        env::set_var("TREE_SITTER_EXAMPLE_INCLUDE", example);
+        unsafe {
+            env::set_var("TREE_SITTER_EXAMPLE_INCLUDE", example);
+        }
     }
     if let Some(seed) = args.seed {
-        env::set_var("TREE_SITTER_SEED", seed.to_string());
+        unsafe {
+            env::set_var("TREE_SITTER_SEED", seed.to_string());
+        }
     }
     if let Some(iterations) = args.iterations {
-        env::set_var("TREE_SITTER_ITERATIONS", iterations.to_string());
+        unsafe {
+            env::set_var("TREE_SITTER_ITERATIONS", iterations.to_string());
+        }
     }
     if args.debug {
-        env::set_var("TREE_SITTER_LOG", "1");
+        unsafe {
+            env::set_var("TREE_SITTER_LOG", "1");
+        }
     }
     if args.debug_graph {
-        env::set_var("TREE_SITTER_LOG_GRAPHS", "1");
+        unsafe {
+            env::set_var("TREE_SITTER_LOG_GRAPHS", "1");
+        }
     }
 
     if args.g {
