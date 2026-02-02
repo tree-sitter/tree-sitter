@@ -296,9 +296,9 @@ const TSRange *ts_parser_included_ranges(
  *    `TSInputEncodingUTF8` or `TSInputEncodingUTF16`.
  *
  * This function returns a syntax tree on success, and `NULL` on failure. There
- * are four possible reasons for failure:
+ * are two possible reasons for failure:
  * 1. The parser does not have a language assigned. Check for this using the
-      [`ts_parser_language`] function.
+ *    [`ts_parser_language`] function.
  * 2. Parsing was cancelled due to the progress callback returning true. This callback
  *    is passed in [`ts_parser_parse_with_options`] inside the [`TSParseOptions`] struct.
  *
