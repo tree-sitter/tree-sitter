@@ -136,8 +136,13 @@ several packages that are published to package registries for different language
 
 * Rust crates on [crates.io][crates]:
   * [`tree-sitter`][lib crate] — A Rust binding to the core library
-  * [`tree-sitter-highlight`][highlight crate] — The syntax-highlighting library
+  * [`tree-sitter-config`][config crate] — User configuration of the command-line tool
   * [`tree-sitter-cli`][cli crate] — The command-line tool
+  * [`tree-sitter-generate`][generate crate] — The parser-generation library
+  * [`tree-sitter-highlight`][highlight crate] — The syntax-highlighting library
+  * [`tree-sitter-language`][language crate] — A language type for grammars to interact with the core library
+  * [`tree-sitter-loader`][loader crate] — The parser building and loading library
+  * [`tree-sitter-tags`][tags crate] — The syntax-tagging library
 
 * JavaScript modules on [npmjs.com][npmjs]:
   * [`web-tree-sitter`][web-ts] — A Wasm-based JavaScript binding to the core library
@@ -151,6 +156,37 @@ published as [`tree-sitter`][node package] on npmjs.com
 published as [`tree-sitter`][py package] on [PyPI.org][pypi].
 * [`tree-sitter/go-tree-sitter`][go ts] — Go bindings to the core library,
 published as [`tree_sitter`][go package] on [pkg.go.dev][go.dev].
+
+## Release workflow
+
+Treesitter follows [semver](https://semver.org) (pre-1.0.0) with a dual development strategy:
+* All development happens on the **`master` branch**, i.e., any new PR (bugfix or feature) must target `master`.
+* Applicable bugfixes and minor improvements are backported to the latest **`release-0.x` branch**, where `x` is the latest minor version. This can be automated by adding the `ci:backport release-0.x` lable to the PR. _No new features or breaking changes should be backported_; this is important to make sure that patch releases are drop-in replacements that are always safe to update to (i.e., downstream users should never have to check patch versions for input or output changes)!
+
+**Important:** All crates within the project (see above) are versioned in lockstep with the exception of [`tree-sitter-language`][language crate], which is versioned independently and only bumped when necessary.
+
+### Minor releases
+
+Minor releases (`0.x.0`) are made from the **`master` branch** following these steps:
+1. Create a "release `v0.x.0`" PR on `master` and apply the `ci:check release` label to check for possible issues, in particular whether the language crate needs to be bumped.
+2. If the check release workflow indicates, bump the **patch** version of the language crate. Important: This must be higher than the last published version on `crates.io`, which may be from a patch release! (I.e., the version may need to be bumped by two or more.)
+3. Once the PR is merged, tag the commit accordingly: `tag v0.x.0` and push via `git push --tags` (maintainers only). This will trigger the release and publish workflows.
+4. Edit the Github release to include release notes (auto-generated, if nothing else).
+5. Create a new `release-0.x` branch and push to Github.
+6. Bump all version numbers (except for the language crate) to `0.{x+1}.0`, e.g., via `cargo xtask bump-version 0.{x+1}.0` and committing as "release: start working on `0.{x+1}.0`". (This is important to be able to distinguish prerelease nightly builds from the last release by the `--version` output.) Note: this requires tooling for all involved languages, including `npm` and `zig`. Double-check that all versions are bumped correctly by grepping for the old version!
+
+On average, minor releases should happen 1-3 times a year.
+
+### Patch releases
+
+Patch releases (`0.x.y`) are made from the **`release-0.x` branch** following these steps:
+1. Bump all version numbers (except for the language crate) to `0.x.y` as described above.
+2. Create a "release `v0.x.y` PR on `release-0.x` and apply the `ci:check release` label.
+3. If the check release workflow indicates, bump the patch version of the language crate.
+4. Once the PR is merged, tag the commit accordingly: `tag v0.x.y` and push via `git push --tags` (maintainers only). This will trigger the release and publish workflows.
+5. Edit the Github release to include release notes (auto-generated, if nothing else).
+
+On average, minor releases should happen every six weeks.
 
 ## Developing Documentation
 
@@ -207,6 +243,7 @@ and the tree-sitter module is fetched from [here][js url]. This, along with the 
 [admonish reference]: https://tommilligan.github.io/mdbook-admonish/reference.html
 [binaryen]: https://github.com/WebAssembly/binaryen
 [binaryen-releases]: https://github.com/WebAssembly/binaryen/releases
+[config crate]: https://crates.io/crates/tree-sitter-config
 [cli crate]: https://crates.io/crates/tree-sitter-cli
 [cli package]: https://www.npmjs.com/package/tree-sitter-cli
 [codemirror]: https://codemirror.net
@@ -215,13 +252,16 @@ and the tree-sitter module is fetched from [here][js url]. This, along with the 
 [docker]: https://www.docker.com
 [docs src]: https://github.com/tree-sitter/tree-sitter/tree/master/docs/src
 [emscripten]: https://emscripten.org
+[generate crate]: https://crates.io/crates/tree-sitter-generate
 [gh.io repo]: https://github.com/tree-sitter/tree-sitter.github.io
 [go.dev]: https://pkg.go.dev
 [go package]: https://pkg.go.dev/github.com/tree-sitter/go-tree-sitter
 [go ts]: https://github.com/tree-sitter/go-tree-sitter
 [highlight crate]: https://crates.io/crates/tree-sitter-highlight
 [js url]: https://tree-sitter.github.io/web-tree-sitter.js
+[language crate]: https://crates.io/crates/tree-sitter-language
 [lib crate]: https://crates.io/crates/tree-sitter
+[loader crate]: https://crates.io/crates/tree-sitter-loader
 [mdBook]: https://rust-lang.github.io/mdBook
 [mdbook cli]: https://rust-lang.github.io/mdBook/guide/installation.html
 [node package]: https://www.npmjs.com/package/tree-sitter
@@ -235,6 +275,7 @@ and the tree-sitter module is fetched from [here][js url]. This, along with the 
 [py ts]: https://github.com/tree-sitter/py-tree-sitter
 [pypi]: https://pypi.org
 [rust]: https://rustup.rs
+[tags crate]: https://crates.io/crates/tree-sitter-tags
 [ts repo]: https://github.com/tree-sitter/tree-sitter
 [wasi_sdk]: https://github.com/WebAssembly/wasi-sdk
 [wasi-sdk-releases]: https://github.com/WebAssembly/wasi-sdk/releases
