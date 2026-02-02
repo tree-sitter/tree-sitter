@@ -136,8 +136,13 @@ several packages that are published to package registries for different language
 
 * Rust crates on [crates.io][crates]:
   * [`tree-sitter`][lib crate] — A Rust binding to the core library
-  * [`tree-sitter-highlight`][highlight crate] — The syntax-highlighting library
+  * [`tree-sitter-config`][config crate] — User configuration of the command-line tool
   * [`tree-sitter-cli`][cli crate] — The command-line tool
+  * [`tree-sitter-generate`][generate crate] — The parser-generation library
+  * [`tree-sitter-highlight`][highlight crate] — The syntax-highlighting library
+  * [`tree-sitter-language`][language crate] — A language type for grammars to interact with the core library
+  * [`tree-sitter-loader`][loader crate] — The parser building and loading library
+  * [`tree-sitter-tags`][tags crate] — The syntax-tagging library
 
 * JavaScript modules on [npmjs.com][npmjs]:
   * [`web-tree-sitter`][web-ts] — A Wasm-based JavaScript binding to the core library
@@ -228,6 +233,7 @@ and the tree-sitter module is fetched from [here][js url]. This, along with the 
 [admonish reference]: https://tommilligan.github.io/mdbook-admonish/reference.html
 [binaryen]: https://github.com/WebAssembly/binaryen
 [binaryen-releases]: https://github.com/WebAssembly/binaryen/releases
+[config crate]: https://crates.io/crates/tree-sitter-config
 [cli crate]: https://crates.io/crates/tree-sitter-cli
 [cli package]: https://www.npmjs.com/package/tree-sitter-cli
 [codemirror]: https://codemirror.net
@@ -236,13 +242,16 @@ and the tree-sitter module is fetched from [here][js url]. This, along with the 
 [docker]: https://www.docker.com
 [docs src]: https://github.com/tree-sitter/tree-sitter/tree/master/docs/src
 [emscripten]: https://emscripten.org
+[generate crate]: https://crates.io/crates/tree-sitter-generate
 [gh.io repo]: https://github.com/tree-sitter/tree-sitter.github.io
 [go.dev]: https://pkg.go.dev
 [go package]: https://pkg.go.dev/github.com/tree-sitter/go-tree-sitter
 [go ts]: https://github.com/tree-sitter/go-tree-sitter
 [highlight crate]: https://crates.io/crates/tree-sitter-highlight
 [js url]: https://tree-sitter.github.io/web-tree-sitter.js
+[language crate]: https://crates.io/crates/tree-sitter-language
 [lib crate]: https://crates.io/crates/tree-sitter
+[loader crate]: https://crates.io/crates/tree-sitter-loader
 [mdBook]: https://rust-lang.github.io/mdBook
 [mdbook cli]: https://rust-lang.github.io/mdBook/guide/installation.html
 [node package]: https://www.npmjs.com/package/tree-sitter
@@ -256,6 +265,7 @@ and the tree-sitter module is fetched from [here][js url]. This, along with the 
 [py ts]: https://github.com/tree-sitter/py-tree-sitter
 [pypi]: https://pypi.org
 [rust]: https://rustup.rs
+[tags crate]: https://crates.io/crates/tree-sitter-tags
 [ts repo]: https://github.com/tree-sitter/tree-sitter
 [wasi_sdk]: https://github.com/WebAssembly/wasi-sdk
 [wasi-sdk-releases]: https://github.com/WebAssembly/wasi-sdk/releases
