@@ -44,6 +44,8 @@ use tree_sitter_tags::{Error as TagsError, TagsConfiguration};
 static GRAMMAR_NAME_REGEX: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r#""name":\s*"(.*?)""#).unwrap());
 
+static WASM_TOOL_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
+
 const WASI_SDK_VERSION: &str = include_str!("../wasi-sdk-version").trim_ascii();
 const BINARYEN_VERSION: &str = include_str!("../binaryen-version").trim_ascii();
 
@@ -1378,7 +1380,11 @@ impl Loader {
         scanner_filename: Option<&Path>,
         output_path: &Path,
     ) -> LoaderResult<()> {
+        let tool_lock = WASM_TOOL_LOCK.lock().expect("Wasm tool mutex poisoned");
         let clang_exe = self.ensure_wasi_sdk_exists()?;
+        let wasm_opt_exe = self.ensure_binaryen_exists()?;
+        drop(tool_lock);
+
         let output_path = output_path.to_str().unwrap();
 
         let mut compile_command = Command::new(&clang_exe);
@@ -1425,8 +1431,6 @@ impl Loader {
                 String::from_utf8_lossy(&compile_output.stderr).to_string(),
             ));
         }
-
-        let wasm_opt_exe = self.ensure_binaryen_exists()?;
 
         let mut opt_command = Command::new(&wasm_opt_exe);
         opt_command
