@@ -1632,7 +1632,13 @@ impl Loader {
         })?;
 
         info!("Downloading {tool_name} from {url}...");
-        let temp_tar_path = cache_dir.join(filename);
+        let temp_tar_dir = tempfile::tempdir_in(&cache_dir).map_err(|e| {
+            LoaderError::IO(IoError {
+                error: e,
+                path: Some(cache_dir.to_string_lossy().to_string()),
+            })
+        })?;
+        let temp_tar_path = temp_tar_dir.path().join(filename);
 
         let status = Command::new("curl")
             .arg("-f")
@@ -1653,7 +1659,6 @@ impl Loader {
         info!("Extracting {tool_name} to {}...", tool_dir.display());
         self.extract_tar_gz_with_strip(&temp_tar_path, &tool_dir)?;
 
-        fs::remove_file(temp_tar_path).ok();
         for exe in possible_exes {
             let tool_exe = tool_dir.join("bin").join(exe);
             if tool_exe.exists() {
