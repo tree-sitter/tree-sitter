@@ -1,0 +1,22 @@
+name: Crate Versions Check
+
+on:
+  pull_request_target:
+    types: [labeled]
+  workflow_dispatch:
+
+jobs:
+  check-crates:
+    runs-on: ubuntu-latest
+    if: github.event.label.name == 'ci:check release'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - name: Publishing dry run
+        uses: katyo/publish-crates@v2
+        with:
+          dry-run: true
