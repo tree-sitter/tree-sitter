@@ -219,9 +219,11 @@ pub fn get_highlight_positions(
     let mut highlight_stack = Vec::new();
     let source = String::from_utf8_lossy(source);
     let mut char_indices = source.char_indices();
-    for event in highlighter.highlight(highlight_config, source.as_bytes(), None, |string| {
-        loader.highlight_config_for_injection_string(string)
-    })? {
+    for event in
+        highlighter.highlight(highlight_config, source.as_bytes(), None, None, |string| {
+            loader.highlight_config_for_injection_string(string)
+        })?
+    {
         match event? {
             HighlightEvent::HighlightStart(h) => highlight_stack.push(h),
             HighlightEvent::HighlightEnd => {

@@ -544,6 +544,9 @@ struct Highlight {
     /// Force rebuild the parser
     #[arg(short, long)]
     pub rebuild: bool,
+    /// The encoding of the input files
+    #[arg(long)]
+    pub encoding: Option<Encoding>,
 }
 
 #[derive(Args)]
@@ -1686,6 +1689,12 @@ impl Highlight {
             }
         }
 
+        let encoding = self.encoding.map(|e| match e {
+            Encoding::Utf8 => ffi::TSInputEncodingUTF8,
+            Encoding::Utf16LE => ffi::TSInputEncodingUTF16LE,
+            Encoding::Utf16BE => ffi::TSInputEncodingUTF16BE,
+        });
+
         let options = HighlightOptions {
             theme: theme_config.theme,
             check: self.check,
@@ -1695,6 +1704,7 @@ impl Highlight {
             quiet: self.quiet,
             print_time: self.time,
             cancellation_flag: cancellation_flag.clone(),
+            encoding,
         };
 
         let input = get_input(
