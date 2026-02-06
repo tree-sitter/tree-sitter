@@ -485,6 +485,7 @@ fn test_highlighting_cancellation() {
         .highlight(
             &HTML_HIGHLIGHT,
             source.as_bytes(),
+            None,
             Some(&cancellation_flag),
             injection_callback,
         )
@@ -727,6 +728,7 @@ fn to_html<'a>(
         language_config,
         src,
         None,
+        None,
         &test_language_for_injection_string,
     )?;
 
@@ -763,6 +765,7 @@ fn to_token_vector<'a>(
     let events = highlighter.highlight(
         language_config,
         src,
+        None,
         None,
         &test_language_for_injection_string,
     )?;

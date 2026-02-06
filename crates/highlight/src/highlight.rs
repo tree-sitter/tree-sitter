@@ -19,8 +19,8 @@ pub use c_lib as c;
 use streaming_iterator::StreamingIterator;
 use thiserror::Error;
 use tree_sitter::{
-    Language, LossyUtf8, Node, ParseOptions, Parser, Point, Query, QueryCapture, QueryCaptures,
-    QueryCursor, QueryError, QueryMatch, Range, TextProvider, Tree, ffi,
+    Language, LossyUtf8, Node, ParseOptions, ParseState, Parser, Point, Query, QueryCapture,
+    QueryCaptures, QueryCursor, QueryError, QueryMatch, Range, TextProvider, Tree, ffi,
 };
 
 const CANCELLATION_CHECK_INTERVAL: usize = 100;
@@ -167,6 +167,7 @@ where
     F: FnMut(&str) -> Option<&'a HighlightConfiguration> + 'a,
 {
     source: &'a [u8],
+    encoding: Option<u32>,
     language_name: &'a str,
     byte_offset: usize,
     highlighter: &'a mut Highlighter,
@@ -295,11 +296,13 @@ impl Highlighter {
         &'a mut self,
         config: &'a HighlightConfiguration,
         source: &'a [u8],
+        encoding: Option<u32>,
         cancellation_flag: Option<&'a AtomicUsize>,
         mut injection_callback: impl FnMut(&str) -> Option<&'a HighlightConfiguration> + 'a,
     ) -> Result<impl Iterator<Item = Result<HighlightEvent, Error>> + 'a, Error> {
         let layers = HighlightIterLayer::new(
             source,
+            encoding,
             None,
             self,
             cancellation_flag,
@@ -316,6 +319,7 @@ impl Highlighter {
         assert_ne!(layers.len(), 0);
         let mut result = HighlightIter {
             source,
+            encoding,
             language_name: &config.language_name,
             byte_offset: 0,
             injection_callback,
@@ -524,6 +528,7 @@ impl<'a> HighlightIterLayer<'a> {
     )]
     fn new<F: FnMut(&str) -> Option<&'a HighlightConfiguration> + 'a>(
         source: &'a [u8],
+        encoding: Option<u32>,
         parent_name: Option<&str>,
         highlighter: &mut Highlighter,
         cancellation_flag: Option<&'a AtomicUsize>,
@@ -541,26 +546,71 @@ impl<'a> HighlightIterLayer<'a> {
                     .set_language(&config.language)
                     .map_err(|_| Error::InvalidLanguage)?;
 
-                let tree = highlighter
-                    .parser
-                    .parse_with_options(
-                        &mut |i, _| {
-                            if i < source.len() { &source[i..] } else { &[] }
-                        },
-                        None,
-                        Some(ParseOptions::new().progress_callback(&mut |_| {
-                            if let Some(cancellation_flag) = cancellation_flag {
-                                if cancellation_flag.load(Ordering::SeqCst) != 0 {
-                                    ControlFlow::Break(())
-                                } else {
-                                    ControlFlow::Continue(())
-                                }
-                            } else {
-                                ControlFlow::Continue(())
-                            }
-                        })),
-                    )
-                    .ok_or(Error::Cancelled)?;
+                let progress_callack = &mut |_: &ParseState| {
+                    if let Some(cancellation_flag) = cancellation_flag {
+                        if cancellation_flag.load(Ordering::SeqCst) != 0 {
+                            ControlFlow::Break(())
+                        } else {
+                            ControlFlow::Continue(())
+                        }
+                    } else {
+                        ControlFlow::Continue(())
+                    }
+                };
+                let parse_opts = ParseOptions::new().progress_callback(progress_callack);
+
+                let tree = match encoding {
+                    Some(encoding) if encoding == ffi::TSInputEncodingUTF16LE => {
+                        let source_code_utf16 = source
+                            .chunks_exact(2)
+                            .map(|chunk| u16::from_le_bytes([chunk[0], chunk[1]]))
+                            .collect::<Vec<_>>();
+                        highlighter
+                            .parser
+                            .parse_utf16_le_with_options(
+                                &mut |i, _| {
+                                    if i < source_code_utf16.len() {
+                                        &source_code_utf16[i..]
+                                    } else {
+                                        &[]
+                                    }
+                                },
+                                None,
+                                Some(parse_opts),
+                            )
+                            .ok_or(Error::Cancelled)?
+                    }
+                    Some(encoding) if encoding == ffi::TSInputEncodingUTF16BE => {
+                        let source_code_utf16 = source
+                            .chunks_exact(2)
+                            .map(|chunk| u16::from_be_bytes([chunk[0], chunk[1]]))
+                            .collect::<Vec<_>>();
+                        highlighter
+                            .parser
+                            .parse_utf16_be_with_options(
+                                &mut |i, _| {
+                                    if i < source_code_utf16.len() {
+                                        &source_code_utf16[i..]
+                                    } else {
+                                        &[]
+                                    }
+                                },
+                                None,
+                                Some(parse_opts),
+                            )
+                            .ok_or(Error::Cancelled)?
+                    }
+                    _ => highlighter
+                        .parser
+                        .parse_with_options(
+                            &mut |i, _| {
+                                if i < source.len() { &source[i..] } else { &[] }
+                            },
+                            None,
+                            Some(parse_opts),
+                        )
+                        .ok_or(Error::Cancelled)?,
+                };
                 let mut cursor = highlighter.cursors.pop().unwrap_or_default();
 
                 // Process combined injections.
@@ -929,6 +979,7 @@ where
                     if !ranges.is_empty() {
                         match HighlightIterLayer::new(
                             self.source,
+                            self.encoding,
                             Some(self.language_name),
                             self.highlighter,
                             self.cancellation_flag,

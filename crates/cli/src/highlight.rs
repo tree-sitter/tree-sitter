@@ -15,6 +15,7 @@ use anyhow::Result;
 use log::{info, warn};
 use serde::{Deserialize, Deserializer, Serialize, Serializer, ser::SerializeMap};
 use serde_json::{Value, json};
+use tree_sitter::ffi::{self, TSInputEncoding};
 use tree_sitter_highlight::{HighlightConfiguration, HighlightEvent, Highlighter, HtmlRenderer};
 use tree_sitter_loader::Loader;
 
@@ -322,6 +323,7 @@ pub struct HighlightOptions {
     pub quiet: bool,
     pub print_time: bool,
     pub cancellation_flag: Arc<AtomicUsize>,
+    pub encoding: Option<TSInputEncoding>,
 }
 
 pub fn highlight(
@@ -364,14 +366,39 @@ pub fn highlight(
     }
 
     let source = fs::read(path)?;
+
+    fn is_utf16_le_bom(bom_bytes: &[u8]) -> bool {
+        bom_bytes == [0xFF, 0xFE]
+    }
+
+    fn is_utf16_be_bom(bom_bytes: &[u8]) -> bool {
+        bom_bytes == [0xFE, 0xFF]
+    }
+
+    let encoding = match opts.encoding {
+        None if source.len() >= 2 => {
+            if is_utf16_le_bom(&source[0..2]) {
+                Some(ffi::TSInputEncodingUTF16LE)
+            } else if is_utf16_be_bom(&source[0..2]) {
+                Some(ffi::TSInputEncodingUTF16BE)
+            } else {
+                None
+            }
+        }
+        _ => opts.encoding,
+    };
+
     let stdout = io::stdout();
     let mut stdout = stdout.lock();
     let time = Instant::now();
     let mut highlighter = Highlighter::new();
-    let events =
-        highlighter.highlight(config, &source, Some(&opts.cancellation_flag), |string| {
-            loader.highlight_config_for_injection_string(string)
-        })?;
+    let events = highlighter.highlight(
+        config,
+        &source,
+        encoding,
+        Some(&opts.cancellation_flag),
+        |string| loader.highlight_config_for_injection_string(string),
+    )?;
     let theme = &opts.theme;
 
     if !opts.quiet && print_name {

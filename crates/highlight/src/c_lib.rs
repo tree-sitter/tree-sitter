@@ -4,7 +4,7 @@ use std::{
 };
 
 use regex::Regex;
-use tree_sitter::Language;
+use tree_sitter::{Language, ffi};
 
 use super::{Error, Highlight, HighlightConfiguration, Highlighter, HtmlRenderer};
 
@@ -279,7 +279,75 @@ pub unsafe extern "C" fn ts_highlighter_highlight(
         let scope_name = unwrap(CStr::from_ptr(scope_name).to_str());
         let source_code = slice::from_raw_parts(source_code.cast::<u8>(), source_code_len as usize);
         let cancellation_flag = cancellation_flag.as_ref();
-        this.highlight(source_code, scope_name, output, cancellation_flag)
+        this.highlight(source_code, None, scope_name, output, cancellation_flag)
+    }
+}
+
+/// Highlight a UTF-16 LE encoded string of source code.
+///
+/// # Safety
+///
+/// The caller must ensure that `scope_name`, `source_code`, `output`, and `cancellation_flag` are
+/// valid for the lifetime of the [`TSHighlighter`] instance, and are non-null.
+///
+/// `this` must be a non-null pointer to a [`TSHighlighter`] instance created by
+/// [`ts_highlighter_new`]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn ts_highlighter_highlight_utf16_le(
+    this: *const TSHighlighter,
+    scope_name: *const c_char,
+    source_code: *const c_char,
+    source_code_len: u32,
+    output: *mut TSHighlightBuffer,
+    cancellation_flag: *const AtomicUsize,
+) -> ErrorCode {
+    unsafe {
+        let this = unwrap_ptr(this);
+        let output = unwrap_mut_ptr(output);
+        let scope_name = unwrap(CStr::from_ptr(scope_name).to_str());
+        let source_code = slice::from_raw_parts(source_code.cast::<u8>(), source_code_len as usize);
+        let cancellation_flag = cancellation_flag.as_ref();
+        this.highlight(
+            source_code,
+            Some(ffi::TSInputEncodingUTF16LE),
+            scope_name,
+            output,
+            cancellation_flag,
+        )
+    }
+}
+
+/// Highlight a UTF-16 BE encoded string of source code.
+///
+/// # Safety
+///
+/// The caller must ensure that `scope_name`, `source_code`, `output`, and `cancellation_flag` are
+/// valid for the lifetime of the [`TSHighlighter`] instance, and are non-null.
+///
+/// `this` must be a non-null pointer to a [`TSHighlighter`] instance created by
+/// [`ts_highlighter_new`]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn ts_highlighter_highlight_utf16_be(
+    this: *const TSHighlighter,
+    scope_name: *const c_char,
+    source_code: *const c_char,
+    source_code_len: u32,
+    output: *mut TSHighlightBuffer,
+    cancellation_flag: *const AtomicUsize,
+) -> ErrorCode {
+    unsafe {
+        let this = unwrap_ptr(this);
+        let output = unwrap_mut_ptr(output);
+        let scope_name = unwrap(CStr::from_ptr(scope_name).to_str());
+        let source_code = slice::from_raw_parts(source_code.cast::<u8>(), source_code_len as usize);
+        let cancellation_flag = cancellation_flag.as_ref();
+        this.highlight(
+            source_code,
+            Some(ffi::TSInputEncodingUTF16BE),
+            scope_name,
+            output,
+            cancellation_flag,
+        )
     }
 }
 
@@ -287,6 +355,7 @@ impl TSHighlighter {
     fn highlight(
         &self,
         source_code: &[u8],
+        encoding: Option<tree_sitter::ffi::TSInputEncoding>,
         scope_name: &str,
         output: &mut TSHighlightBuffer,
         cancellation_flag: Option<&AtomicUsize>,
@@ -298,9 +367,31 @@ impl TSHighlighter {
         let (_, configuration) = entry.unwrap();
         let languages = &self.languages;
 
+        fn is_utf16_le_bom(bom_bytes: &[u8]) -> bool {
+            bom_bytes == [0xFF, 0xFE]
+        }
+
+        fn is_utf16_be_bom(bom_bytes: &[u8]) -> bool {
+            bom_bytes == [0xFE, 0xFF]
+        }
+
+        let encoding = match encoding {
+            None if source_code.len() >= 2 => {
+                if is_utf16_le_bom(&source_code[0..2]) {
+                    Some(tree_sitter::ffi::TSInputEncodingUTF16LE)
+                } else if is_utf16_be_bom(&source_code[0..2]) {
+                    Some(tree_sitter::ffi::TSInputEncodingUTF16BE)
+                } else {
+                    None
+                }
+            }
+            _ => encoding,
+        };
+
         let highlights = output.highlighter.highlight(
             configuration,
             source_code,
+            encoding,
             cancellation_flag,
             move |injection_string| {
                 languages.values().find_map(|(injection_regex, config)| {
