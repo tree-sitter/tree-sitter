@@ -333,6 +333,7 @@
               pkg-config
               llvm
               clang
+              clang-tools
               libclang
 
               nodejs_22
@@ -348,6 +349,7 @@
             ];
 
             shellHook = ''
+              export PATH="${pkgs.clang-tools}/bin:$PATH"
               echo "Tree-sitter Dev Environment"
               echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
               echo ""
