@@ -752,6 +752,10 @@ pub fn generate_grammar_files(
                     let replaced_contents = contents
                         .replace("add_custom_target(test", "add_custom_target(ts-test")
                         .replace(
+                            "find_program(TREE_SITTER_CLI tree-sitter DOC \"Tree-sitter CLI\")",
+                            "find_program(TREE_SITTER_CLI tree-sitter DOC \"Tree-sitter CLI\" REQUIRED)",
+                        )
+                        .replace(
                             &formatdoc! {r#"
                             install(FILES bindings/c/tree-sitter-{language_name}.h
                                     DESTINATION "${{CMAKE_INSTALL_INCLUDEDIR}}/tree_sitter")
