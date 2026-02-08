@@ -46,8 +46,8 @@ jobs:
 
           # Extra features
           - { platform: linux-arm64     , features: wasm }
-          - { platform: linux-x64       , features: wasm }
-          - { platform: macos-arm64     , features: wasm }
+          - { platform: linux-x64       , features: wasm , run-wasm-test: true }
+          - { platform: macos-arm64     , features: wasm , run-wasm-test: true }
           - { platform: macos-x64       , features: wasm }
 
           # Cross-compilation
@@ -85,11 +85,11 @@ jobs:
         } >> $GITHUB_ENV
 
     - name: Get emscripten version
-      if: contains(matrix.features, 'wasm')
+      if: contains(matrix.features, 'wasm') && (matrix.run-wasm-test || !inputs.run-test)
       run: printf 'EMSCRIPTEN_VERSION=%s\n' "$(<crates/loader/emscripten-version)" >> $GITHUB_ENV
 
     - name: Install Emscripten
-      if: contains(matrix.features, 'wasm')
+      if: contains(matrix.features, 'wasm') && (matrix.run-wasm-test || !inputs.run-test)
       uses: mymindstorm/setup-emsdk@v14
       with:
         version: ${{ env.EMSCRIPTEN_VERSION }}
@@ -174,7 +174,7 @@ jobs:
     # TODO: Remove RUSTFLAGS="--cap-lints allow" once we use a wasmtime release that addresses
     # the `mismatched-lifetime-syntaxes` lint
     - name: Build wasmtime library
-      if: contains(matrix.features, 'wasm')
+      if: contains(matrix.features, 'wasm') && (matrix.run-wasm-test || !inputs.run-test)
       run: |
         mkdir -p target
         WASMTIME_VERSION=$(cargo metadata --format-version=1 --locked --features wasm | \
@@ -227,10 +227,10 @@ jobs:
         cmake --build build/shared --verbose
       env:
         CC: ${{ contains(matrix.platform, 'linux') && 'clang' || '' }}
-        WASM: ${{ contains(matrix.features, 'wasm') && 'ON' || 'OFF' }}
+        WASM: ${{ contains(matrix.features, 'wasm') && (matrix.run-wasm-test || !inputs.run-test) && 'ON' || 'OFF' }}
 
     - name: Build Wasm library
-      if: contains(matrix.features, 'wasm')
+      if: contains(matrix.features, 'wasm') && (matrix.run-wasm-test || !inputs.run-test)
       shell: bash
       run: |
         cd lib/binding_web
@@ -247,7 +247,7 @@ jobs:
       run: cargo check --no-default-features --target='${{ matrix.target }}'
 
     - name: Build target
-      run: cargo build --release --target='${{ matrix.target }}' --features='${{ matrix.features }}' $PACKAGE
+      run: cargo build --release --target='${{ matrix.target }}' --features='${{ (matrix.run-wasm-test || !inputs.run-test) && matrix.features || '' }}' $PACKAGE
       env:
         PACKAGE: ${{ matrix.platform == 'wasm32' && '-p tree-sitter' || '' }}
 
@@ -265,15 +265,15 @@ jobs:
       run: cargo run -p xtask --target='${{ matrix.target }}' -- generate-fixtures
 
     - name: Generate Wasm fixtures
-      if: inputs.run-test && !matrix.no-run && contains(matrix.features, 'wasm') && steps.cache.outputs.cache-hit != 'true'
+      if: inputs.run-test && !matrix.no-run && contains(matrix.features, 'wasm') && matrix.run-wasm-test && steps.cache.outputs.cache-hit != 'true'
       run: cargo run -p xtask --target='${{ matrix.target }}' -- generate-fixtures --wasm
 
     - name: Run main tests
       if: inputs.run-test && !matrix.no-run
-      run: cargo test --target='${{ matrix.target }}' --features='${{ matrix.features }}'
+      run: cargo test --target='${{ matrix.target }}' --features='${{ (matrix.run-wasm-test || !inputs.run-test) && matrix.features || '' }}'
 
     - name: Run Wasm tests
-      if: inputs.run-test && !matrix.no-run && contains(matrix.features, 'wasm')
+      if: inputs.run-test && !matrix.no-run && contains(matrix.features, 'wasm') && matrix.run-wasm-test
       run: cargo run -p xtask --target='${{ matrix.target }}' -- test-wasm
 
     - name: Upload CLI artifact
