@@ -2817,8 +2817,10 @@ dependencies = [
  "schemars",
  "semver",
  "serde_json",
+ "tempfile",
  "tree-sitter-cli",
  "tree-sitter-loader",
+ "walkdir",
 ]
 
 [[package]]

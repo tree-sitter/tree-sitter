@@ -136,8 +136,13 @@ several packages that are published to package registries for different language
 
 * Rust crates on [crates.io][crates]:
   * [`tree-sitter`][lib crate] — A Rust binding to the core library
-  * [`tree-sitter-highlight`][highlight crate] — The syntax-highlighting library
+  * [`tree-sitter-config`][config crate] — User configuration of the command-line tool
   * [`tree-sitter-cli`][cli crate] — The command-line tool
+  * [`tree-sitter-generate`][generate crate] — The parser-generation library
+  * [`tree-sitter-highlight`][highlight crate] — The syntax-highlighting library
+  * [`tree-sitter-language`][language crate] — A language type for grammars to interact with the core library
+  * [`tree-sitter-loader`][loader crate] — The parser building and loading library
+  * [`tree-sitter-tags`][tags crate] — The syntax-tagging library
 
 * JavaScript modules on [npmjs.com][npmjs]:
   * [`web-tree-sitter`][web-ts] — A Wasm-based JavaScript binding to the core library
@@ -151,6 +156,27 @@ published as [`tree-sitter`][node package] on npmjs.com
 published as [`tree-sitter`][py package] on [PyPI.org][pypi].
 * [`tree-sitter/go-tree-sitter`][go ts] — Go bindings to the core library,
 published as [`tree_sitter`][go package] on [pkg.go.dev][go.dev].
+
+### Publishing a Release
+
+Tree-sitter's develoment follows two main release schedules. Primary development of the project is conducted on the `master`
+branch. Non-breaking fixes are backported to the `release-<previous-major-version>` branch, aka the "release branch". Minor
+releases are created off of the `master` branch and patch releases are created off fo the release branch. In order to create
+a release, you should:
+
+1. Ensure all version numbers within the repository match the version(s) being released. All Rust crates except `tree-sitter-language`
+are versioned in lockstep with one another. The `tree-sitter-language` crate is bumped as necessary.
+    - For a minor release, all versions should already be bumped to the correct minor version (see Step 4 below regarding
+    starting a new release cycle) _except_ potentially the `tree-sitter-language` crate. If changes have been made to the
+    crate since its last release to [crates.io][crates], its patch version must be bumped independently.
+    - For a patch release, all versions should be bumped to the next patch version, with the same caveat as above for the
+    `tree-sitter-language` crate.
+2. Any version bumps made to satisfy Step 1 should be completed through a pull request with the `ci:check release` label
+applied. This triggers a workflow to ensure there are no conflicts with existing published packages on [crates.io][crates].
+If it appears that no versions require bumping via a PR, this workflow should be triggered manually.
+3. Create and push a `v<version>` tag to the repository.
+4. After a successful minor release, the next release cycle begins. To do this, bump all versions (except potentially `tree-sitter-language`'s
+version, if no new release was published) on the `master` branch to the next minor version.
 
 ## Developing Documentation
 
@@ -207,6 +233,7 @@ and the tree-sitter module is fetched from [here][js url]. This, along with the 
 [admonish reference]: https://tommilligan.github.io/mdbook-admonish/reference.html
 [binaryen]: https://github.com/WebAssembly/binaryen
 [binaryen-releases]: https://github.com/WebAssembly/binaryen/releases
+[config crate]: https://crates.io/crates/tree-sitter-config
 [cli crate]: https://crates.io/crates/tree-sitter-cli
 [cli package]: https://www.npmjs.com/package/tree-sitter-cli
 [codemirror]: https://codemirror.net
@@ -215,13 +242,16 @@ and the tree-sitter module is fetched from [here][js url]. This, along with the 
 [docker]: https://www.docker.com
 [docs src]: https://github.com/tree-sitter/tree-sitter/tree/master/docs/src
 [emscripten]: https://emscripten.org
+[generate crate]: https://crates.io/crates/tree-sitter-generate
 [gh.io repo]: https://github.com/tree-sitter/tree-sitter.github.io
 [go.dev]: https://pkg.go.dev
 [go package]: https://pkg.go.dev/github.com/tree-sitter/go-tree-sitter
 [go ts]: https://github.com/tree-sitter/go-tree-sitter
 [highlight crate]: https://crates.io/crates/tree-sitter-highlight
 [js url]: https://tree-sitter.github.io/web-tree-sitter.js
+[language crate]: https://crates.io/crates/tree-sitter-language
 [lib crate]: https://crates.io/crates/tree-sitter
+[loader crate]: https://crates.io/crates/tree-sitter-loader
 [mdBook]: https://rust-lang.github.io/mdBook
 [mdbook cli]: https://rust-lang.github.io/mdBook/guide/installation.html
 [node package]: https://www.npmjs.com/package/tree-sitter
@@ -235,6 +265,7 @@ and the tree-sitter module is fetched from [here][js url]. This, along with the 
 [py ts]: https://github.com/tree-sitter/py-tree-sitter
 [pypi]: https://pypi.org
 [rust]: https://rustup.rs
+[tags crate]: https://crates.io/crates/tree-sitter-tags
 [ts repo]: https://github.com/tree-sitter/tree-sitter
 [wasi_sdk]: https://github.com/WebAssembly/wasi-sdk
 [wasi-sdk-releases]: https://github.com/WebAssembly/wasi-sdk/releases
