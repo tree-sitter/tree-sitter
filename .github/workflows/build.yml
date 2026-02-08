@@ -124,27 +124,6 @@ jobs:
           mingw-w64-x86_64-make
           mingw-w64-x86_64-cmake
 
-    # TODO: Remove RUSTFLAGS="--cap-lints allow" once we use a wasmtime release that addresses
-    # the `mismatched-lifetime-syntaxes` lint
-    - name: Build wasmtime library (Windows x64 MSYS2)
-      if: contains(matrix.features, 'wasm') && matrix.platform == 'windows-x64'
-      run: |
-        mkdir -p target
-        WASMTIME_VERSION=$(cargo metadata --format-version=1 --locked --features wasm | \
-                           jq -r '.packages[] | select(.name == "wasmtime-c-api-impl") | .version')
-        curl -LSs "$WASMTIME_REPO/archive/refs/tags/v${WASMTIME_VERSION}.tar.gz" | tar xzf - -C target
-        cd target/wasmtime-${WASMTIME_VERSION}
-        cmake -S crates/c-api -B target/c-api \
-          -DCMAKE_INSTALL_PREFIX="$PWD/artifacts" \
-          -DWASMTIME_DISABLE_ALL_FEATURES=ON \
-          -DWASMTIME_FEATURE_CRANELIFT=ON \
-          -DWASMTIME_TARGET='x86_64-pc-windows-gnu'
-        cmake --build target/c-api && cmake --install target/c-api
-        printf 'CMAKE_PREFIX_PATH=%s\n' "$PWD/artifacts" >> $GITHUB_ENV
-      env:
-        WASMTIME_REPO: https://github.com/bytecodealliance/wasmtime
-        RUSTFLAGS: ${{ env.RUSTFLAGS }} --cap-lints allow
-
     - name: Build C library (Windows x64 MSYS2 CMake)
       if: matrix.platform == 'windows-x64'
       shell: msys2 {0}
@@ -171,26 +150,23 @@ jobs:
       env:
         WASM: ${{ contains(matrix.features, 'wasm') && 'ON' || 'OFF' }}
 
-    # TODO: Remove RUSTFLAGS="--cap-lints allow" once we use a wasmtime release that addresses
-    # the `mismatched-lifetime-syntaxes` lint
-    - name: Build wasmtime library
+    - name: Download wasmtime C API
       if: contains(matrix.features, 'wasm') && (matrix.run-wasm-test || !inputs.run-test)
       run: |
         mkdir -p target
         WASMTIME_VERSION=$(cargo metadata --format-version=1 --locked --features wasm | \
                            jq -r '.packages[] | select(.name == "wasmtime-c-api-impl") | .version')
-        curl -LSs "$WASMTIME_REPO/archive/refs/tags/v${WASMTIME_VERSION}.tar.gz" | tar xzf - -C target
-        cd target/wasmtime-${WASMTIME_VERSION}
-        cmake -S crates/c-api -B target/c-api \
-          -DCMAKE_INSTALL_PREFIX="$PWD/artifacts" \
-          -DWASMTIME_DISABLE_ALL_FEATURES=ON \
-          -DWASMTIME_FEATURE_CRANELIFT=ON \
-          -DWASMTIME_TARGET='${{ matrix.target }}'
-        cmake --build target/c-api && cmake --install target/c-api
-        printf 'CMAKE_PREFIX_PATH=%s\n' "$PWD/artifacts" >> $GITHUB_ENV
+        case '${{ matrix.target }}' in
+          x86_64-unknown-linux-gnu)  WT_TARGET=x86_64-linux ;;
+          aarch64-unknown-linux-gnu) WT_TARGET=aarch64-linux ;;
+          x86_64-apple-darwin)       WT_TARGET=x86_64-macos ;;
+          aarch64-apple-darwin)      WT_TARGET=aarch64-macos ;;
+        esac
+        curl -LSs "$WASMTIME_REPO/releases/download/v${WASMTIME_VERSION}/wasmtime-v${WASMTIME_VERSION}-${WT_TARGET}-c-api.tar.xz" \
+          | tar xJf - -C target
+        printf 'CMAKE_PREFIX_PATH=%s\n' "$PWD/target/wasmtime-v${WASMTIME_VERSION}-${WT_TARGET}-c-api" >> $GITHUB_ENV
       env:
         WASMTIME_REPO: https://github.com/bytecodealliance/wasmtime
-        RUSTFLAGS: ${{ env.RUSTFLAGS }} --cap-lints allow
 
     - name: Build C library (make)
       if: runner.os != 'Windows'
