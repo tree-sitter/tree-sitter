@@ -132,7 +132,6 @@ jobs:
       if: matrix.platform == 'windows-x64'
       uses: msys2/setup-msys2@v2
       with:
-        update: true
         install: |
           mingw-w64-x86_64-toolchain
           mingw-w64-x86_64-clang
