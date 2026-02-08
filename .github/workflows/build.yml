@@ -237,6 +237,7 @@ jobs:
       run: cargo check --no-default-features --target='${{ matrix.target }}'
 
     - name: Build target
+      if: "!inputs.run-test"
       run: cargo build --release --target='${{ matrix.target }}' --features='${{ (matrix.run-wasm-test || !inputs.run-test) && matrix.features || '' }}' $PACKAGE
       env:
         PACKAGE: ${{ matrix.platform == 'wasm32' && '-p tree-sitter' || '' }}
@@ -267,7 +268,7 @@ jobs:
       run: cargo run -p xtask --target='${{ matrix.target }}' -- test-wasm
 
     - name: Upload CLI artifact
-      if: "!matrix.no-run"
+      if: "!inputs.run-test && !matrix.no-run"
       uses: actions/upload-artifact@v6
       with:
         name: tree-sitter.${{ matrix.platform }}
@@ -276,7 +277,7 @@ jobs:
         retention-days: 7
 
     - name: Upload Wasm artifacts
-      if: matrix.platform == 'linux-x64'
+      if: "!inputs.run-test && matrix.platform == 'linux-x64'"
       uses: actions/upload-artifact@v6
       with:
         name: tree-sitter.wasm
