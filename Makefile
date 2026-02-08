@@ -122,7 +122,6 @@ test-wasm:
 
 lint:
 	cargo update --workspace --locked --quiet
-	cargo check --workspace --all-targets
 	cargo fmt --all --check
 	cargo clippy --workspace --all-targets -- -D warnings
 
