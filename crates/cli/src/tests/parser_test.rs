@@ -995,9 +995,9 @@ fn test_parsing_with_timeout_during_balancing() {
         let mut parser = Parser::new();
         parser.set_language(&get_language("javascript")).unwrap();
 
-        let function_count = 100;
+        let function_count: u32 = 100;
 
-        let code = "function() {}\n".repeat(function_count);
+        let code = "function() {}\n".repeat(function_count as usize);
         let mut current_byte_offset = 0;
         let mut in_balancing = false;
         let tree = parser.parse_with_options(
