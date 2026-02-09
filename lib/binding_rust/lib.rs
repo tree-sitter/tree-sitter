@@ -1717,8 +1717,8 @@ impl<'tree> Node<'tree> {
     /// Get this node's number of children.
     #[doc(alias = "ts_node_child_count")]
     #[must_use]
-    pub fn child_count(&self) -> usize {
-        unsafe { ffi::ts_node_child_count(self.0) as usize }
+    pub fn child_count(&self) -> u32 {
+        unsafe { ffi::ts_node_child_count(self.0) }
     }
 
     /// Get this node's *named* child at the given index.
