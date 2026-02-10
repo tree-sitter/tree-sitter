@@ -1,5 +1,5 @@
 [workspace]
-default-members = ["crates/cli"]
+default-members = [ "crates/cli" ]
 members = [
   "crates/cli",
   "crates/config",
@@ -14,25 +14,22 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "0.27.0"
-authors = [
-  "Max Brunsfeld <maxbrunsfeld@gmail.com>",
-  "Amaan Qureshi <amaanq12@gmail.com>",
-]
-edition = "2024"
+authors      = [ "Max Brunsfeld <maxbrunsfeld@gmail.com>", "Amaan Qureshi <amaanq12@gmail.com>" ]
+categories   = [ "command-line-utilities", "parsing" ]
+edition      = "2024"
+homepage     = "https://tree-sitter.github.io/tree-sitter"
+keywords     = [ "incremental", "parsing" ]
+license      = "MIT"
+repository   = "https://github.com/tree-sitter/tree-sitter"
 rust-version = "1.90"
-homepage = "https://tree-sitter.github.io/tree-sitter"
-repository = "https://github.com/tree-sitter/tree-sitter"
-license = "MIT"
-keywords = ["incremental", "parsing"]
-categories = ["command-line-utilities", "parsing"]
+version      = "0.27.0"
 
 [workspace.lints.clippy]
+cargo     = { level = "warn", priority = -1 }
 dbg_macro = "deny"
-todo = "deny"
-pedantic = { level = "warn", priority = -1 }
-nursery = { level = "warn", priority = -1 }
-cargo = { level = "warn", priority = -1 }
+nursery   = { level = "warn", priority = -1 }
+pedantic  = { level = "warn", priority = -1 }
+todo      = "deny"
 
 # The lints below are a specific subset of the pedantic+nursery lints
 # that we explicitly allow in the tree-sitter codebase because they either:
@@ -42,42 +39,42 @@ cargo = { level = "warn", priority = -1 }
 # 3. Worsen the code
 
 cast_possible_truncation = "allow"
-cast_possible_wrap = "allow"
-cast_precision_loss = "allow"
-cast_sign_loss = "allow"
-if_not_else = "allow"
-items_after_statements = "allow"
-missing_errors_doc = "allow"
-missing_panics_doc = "allow"
-multiple_crate_versions = "allow"
-option_if_let_else = "allow"
-similar_names = "allow"
-string_lit_as_bytes = "allow"
-struct_excessive_bools = "allow"
-too_many_lines = "allow"
+cast_possible_wrap       = "allow"
+cast_precision_loss      = "allow"
+cast_sign_loss           = "allow"
+if_not_else              = "allow"
+items_after_statements   = "allow"
+missing_errors_doc       = "allow"
+missing_panics_doc       = "allow"
+multiple_crate_versions  = "allow"
+option_if_let_else       = "allow"
+similar_names            = "allow"
+string_lit_as_bytes      = "allow"
+struct_excessive_bools   = "allow"
+too_many_lines           = "allow"
 
 [workspace.lints.rust]
 mismatched_lifetime_syntaxes = "allow"
 
 [profile.optimize]
-inherits = "release"
-strip = true         # Automatically strip symbols from the binary.
-lto = true           # Link-time optimization.
-opt-level = 3        # Optimization level 3.
-codegen-units = 1    # Maximum size reduction optimizations.
+inherits      = "release"
+codegen-units = 1         # Maximum size reduction optimizations.
+lto           = true      # Link-time optimization.
+opt-level     = 3         # Optimization level 3.
+strip         = true      # Automatically strip symbols from the binary.
 
 [profile.size]
-inherits = "optimize"
-opt-level = "s"       # Optimize for size.
+inherits  = "optimize"
+opt-level = "s"        # Optimize for size.
 
 [profile.release-dev]
-inherits = "release"
-lto = false
-debug = true
+inherits         = "release"
+codegen-units    = 256
+debug            = true
 debug-assertions = true
-overflow-checks = true
-incremental = true
-codegen-units = 256
+incremental      = true
+lto              = false
+overflow-checks  = true
 
 [workspace.dependencies]
 ansi_colours = "1.2.3"
@@ -85,20 +82,20 @@ anstyle = "1.0.13"
 anyhow = "1.0.101"
 bstr = "1.12.0"
 cc = "1.2.56"
-clap = { version = "4.5.58", features = [
+clap = { features = [
   "cargo",
   "derive",
   "env",
   "help",
   "string",
   "unstable-styles",
-] }
+], version = "4.5.58" }
 clap_complete = "4.5.66"
 clap_complete_nushell = "4.5.10"
 crc32fast = "1.5.0"
 ctor = "0.2.9"
-ctrlc = { version = "3.5.2", features = ["termination"] }
-dialoguer = { version = "0.11.0", features = ["fuzzy-select"] }
+ctrlc    = { features = [ "termination" ], version = "3.5.2" }
+dialoguer = { features = [ "fuzzy-select" ], version = "0.11.0" }
 etcetera = "0.11.0"
 fs4 = "0.12.0"
 glob = "0.3.3"
@@ -107,7 +104,7 @@ html-escape = "0.2.13"
 indexmap = "2.12.1"
 indoc = "2.0.6"
 libloading = "0.9.0"
-log = { version = "0.4.28", features = ["std"] }
+log = { features = [ "std" ], version = "0.4.28" }
 memchr = "2.7.6"
 once_cell = "1.21.3"
 pretty_assertions = "1.4.1"
@@ -115,10 +112,10 @@ rand = "0.8.5"
 regex = "1.12.3"
 regex-syntax = "0.8.9"
 rustc-hash = "2.1.1"
-schemars = "1.2.1"
-semver = { version = "1.0.27", features = ["serde"] }
-serde = { version = "1.0.219", features = ["derive"] }
-serde_json = { version = "1.0.149", features = ["preserve_order"] }
+schemars   = "1.2.1"
+semver     = { features = [ "serde" ], version = "1.0.27" }
+serde      = { features = [ "derive" ], version = "1.0.228" }
+serde_json = { features = [ "preserve_order" ], version = "1.0.149" }
 similar = "2.7.0"
 smallbitvec = "2.6.0"
 streaming-iterator = "0.1.9"
@@ -131,11 +128,11 @@ walkdir = "2.5.0"
 wasmparser = "0.243.0"
 webbrowser = "1.0.5"
 
-tree-sitter = { version = "0.27.0", path = "./lib" }
-tree-sitter-generate = { version = "0.27.0", path = "./crates/generate" }
-tree-sitter-loader = { version = "0.27.0", path = "./crates/loader" }
-tree-sitter-config = { version = "0.27.0", path = "./crates/config" }
-tree-sitter-highlight = { version = "0.27.0", path = "./crates/highlight" }
-tree-sitter-tags = { version = "0.27.0", path = "./crates/tags" }
+tree-sitter           = { path = "./lib", version = "0.27.0" }
+tree-sitter-config    = { path = "./crates/config", version = "0.27.0" }
+tree-sitter-generate  = { path = "./crates/generate", version = "0.27.0" }
+tree-sitter-highlight = { path = "./crates/highlight", version = "0.27.0" }
+tree-sitter-loader    = { path = "./crates/loader", version = "0.27.0" }
+tree-sitter-tags      = { path = "./crates/tags", version = "0.27.0" }
 
-tree-sitter-language = { version = "0.1", path = "./crates/language" }
+tree-sitter-language = { path = "./crates/language", version = "0.1" }

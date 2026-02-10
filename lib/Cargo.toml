@@ -1,22 +1,17 @@
 [package]
-name = "tree-sitter"
-version.workspace = true
-description = "Rust bindings to the Tree-sitter parsing library"
-authors.workspace = true
-edition.workspace = true
-rust-version = "1.90"
-readme = "binding_rust/README.md"
-homepage.workspace = true
+name                 = "tree-sitter"
+version.workspace    = true
+description          = "Rust bindings to the Tree-sitter parsing library"
+authors.workspace    = true
+edition.workspace    = true
+rust-version         = "1.90"
+readme               = "binding_rust/README.md"
+homepage.workspace   = true
 repository.workspace = true
-documentation = "https://docs.rs/tree-sitter"
-license.workspace = true
-keywords.workspace = true
-categories = [
-  "api-bindings",
-  "external-ffi-bindings",
-  "parsing",
-  "text-editors",
-]
+documentation        = "https://docs.rs/tree-sitter"
+license.workspace    = true
+keywords.workspace   = true
+categories           = [ "api-bindings", "external-ffi-bindings", "parsing", "text-editors" ]
 
 build = "binding_rust/build.rs"
 links = "tree-sitter"
@@ -35,33 +30,33 @@ include = [
 
 [package.metadata.docs.rs]
 all-features = true
-rustdoc-args = ["--cfg", "docsrs"]
-targets = ["x86_64-unknown-linux-gnu", "x86_64-pc-windows-gnu"]
+rustdoc-args = [ "--cfg", "docsrs" ]
+targets      = [ "x86_64-unknown-linux-gnu", "x86_64-pc-windows-gnu" ]
 
 [lints]
 workspace = true
 
 [features]
-default = ["std"]
-std = ["regex/std", "regex/perf", "regex-syntax/unicode"]
-wasm = ["std", "wasmtime-c-api"]
+default = [ "std" ]
+std     = [ "regex/std", "regex/perf", "regex-syntax/unicode" ]
+wasm    = [ "std", "wasmtime-c-api" ]
 
 [dependencies]
-regex = { version = "1.12.3", default-features = false, features = ["unicode"] }
-regex-syntax = { version = "0.8.9", default-features = false }
+regex                          = { default-features = false, features = [ "unicode" ], version = "1.12.3" }
+regex-syntax                   = { default-features = false, version = "0.8.9" }
+streaming-iterator             = "0.1.9"
 tree-sitter-language.workspace = true
-streaming-iterator = "0.1.9"
 
 [dependencies.wasmtime-c-api]
-version = "33.0.2"
-optional = true
-package = "wasmtime-c-api-impl"
 default-features = false
-features = ["cranelift", "gc-drc"]
+features         = [ "cranelift", "gc-drc" ]
+optional         = true
+package          = "wasmtime-c-api-impl"
+version          = "33.0.2"
 
 [build-dependencies]
-bindgen = { version = "0.72.0", optional = true }
-cc.workspace = true
+bindgen              = { optional = true, version = "0.72.1" }
+cc.workspace         = true
 serde_json.workspace = true
 
 [lib]

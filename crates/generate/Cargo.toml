@@ -1,17 +1,17 @@
 [package]
-name = "tree-sitter-generate"
-version.workspace = true
-description = "Library for generating C source code from a tree-sitter grammar"
-authors.workspace = true
-edition.workspace = true
+name                   = "tree-sitter-generate"
+version.workspace      = true
+description            = "Library for generating C source code from a tree-sitter grammar"
+authors.workspace      = true
+edition.workspace      = true
 rust-version.workspace = true
-readme = "README.md"
-homepage.workspace = true
-repository.workspace = true
-documentation = "https://docs.rs/tree-sitter-generate"
-license.workspace = true
-keywords.workspace = true
-categories.workspace = true
+readme                 = "README.md"
+homepage.workspace     = true
+repository.workspace   = true
+documentation          = "https://docs.rs/tree-sitter-generate"
+license.workspace      = true
+keywords.workspace     = true
+categories.workspace   = true
 
 [lib]
 path = "src/generate.rs"
@@ -20,9 +20,9 @@ path = "src/generate.rs"
 workspace = true
 
 [features]
-default = ["qjs-rt"]
-load = ["dep:semver"]
-qjs-rt = ["load", "rquickjs", "pathdiff"]
+default = [ "qjs-rt" ]
+load    = [ "dep:semver" ]
+qjs-rt  = [ "load", "rquickjs", "pathdiff" ]
 
 [dependencies]
 bitflags = "2.9.4"
@@ -30,17 +30,17 @@ dunce = "1.0.5"
 indexmap.workspace = true
 indoc.workspace = true
 log.workspace = true
-pathdiff = { version = "0.2.3", optional = true }
+pathdiff = { optional = true, version = "0.2.3" }
 regex.workspace = true
 regex-syntax.workspace = true
-rquickjs = { version = "0.11.0", optional = true, features = [
+rquickjs = { features = [
   "bindgen",
   "loader",
   "macro",
   "phf",
-] }
+], optional = true, version = "0.11.0" }
 rustc-hash.workspace = true
-semver = { workspace = true, optional = true }
+semver = { optional = true, workspace = true }
 serde.workspace = true
 serde_json.workspace = true
 smallbitvec.workspace = true
