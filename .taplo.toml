@@ -1,0 +1,13 @@
+[formatting]
+align_entries         = true
+column_width          = 100
+compact_arrays        = false
+reorder_inline_tables = true
+reorder_keys          = true
+
+[[rule]]
+include = [ "**/Cargo.toml" ]
+keys    = [ "package" ]
+
+[rule.formatting]
+reorder_keys = false

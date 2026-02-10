@@ -36,9 +36,11 @@ fn test_lookahead_iterator() {
     assert!(lookahead.iter_names().eq(expected_symbols));
 
     lookahead.reset(&language, next_state);
-    assert!(lookahead
-        .map(|s| language.node_kind_for_id(s).unwrap())
-        .eq(expected_symbols));
+    assert!(
+        lookahead
+            .map(|s| language.node_kind_for_id(s).unwrap())
+            .eq(expected_symbols)
+    );
 }
 
 #[test]
@@ -110,7 +112,7 @@ fn test_supertypes() {
         supertypes
             .iter()
             .filter_map(|&s| language.node_kind_for_id(s))
-            .map(|s| s.to_string())
+            .map(std::string::ToString::to_string)
             .collect::<Vec<String>>(),
         vec![
             "_expression",

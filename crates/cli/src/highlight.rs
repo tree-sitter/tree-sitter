@@ -5,7 +5,7 @@ use std::{
     io::{self, Write as _},
     path::{self, Path, PathBuf},
     str,
-    sync::{atomic::AtomicUsize, Arc},
+    sync::{Arc, atomic::AtomicUsize},
     time::Instant,
 };
 
@@ -13,8 +13,8 @@ use ansi_colours::{ansi256_from_rgb, rgb_from_ansi256};
 use anstyle::{Ansi256Color, AnsiColor, Color, Effects, RgbColor};
 use anyhow::Result;
 use log::{info, warn};
-use serde::{ser::SerializeMap, Deserialize, Deserializer, Serialize, Serializer};
-use serde_json::{json, Value};
+use serde::{Deserialize, Deserializer, Serialize, Serializer, ser::SerializeMap};
+use serde_json::{Value, json};
 use tree_sitter_highlight::{HighlightConfiguration, HighlightEvent, Highlighter, HtmlRenderer};
 use tree_sitter_loader::Loader;
 
@@ -221,11 +221,11 @@ fn parse_style(style: &mut Style, json: Value) {
         style.css = None;
     }
 
-    if let Some(Color::Rgb(RgbColor(red, green, blue))) = style.ansi.get_fg_color() {
-        if !terminal_supports_truecolor() {
-            let ansi256 = Color::Ansi256(Ansi256Color(ansi256_from_rgb((red, green, blue))));
-            style.ansi = style.ansi.fg_color(Some(ansi256));
-        }
+    if let Some(Color::Rgb(RgbColor(red, green, blue))) = style.ansi.get_fg_color()
+        && !terminal_supports_truecolor()
+    {
+        let ansi256 = Color::Ansi256(Ansi256Color(ansi256_from_rgb((red, green, blue))));
+        style.ansi = style.ansi.fg_color(Some(ansi256));
     }
 }
 
@@ -403,7 +403,6 @@ pub fn highlight(
                         .as_ref()
                         .map_or_else(|| "".as_bytes(), |css_style| css_style.as_bytes()),
                 );
-                output.extend(b"'");
             } else {
                 output.extend(b"class='");
                 let mut parts = theme.highlight_names[highlight.0].split('.').peekable();
@@ -413,8 +412,8 @@ pub fn highlight(
                         output.extend(b" ");
                     }
                 }
-                output.extend(b"'");
             }
+            output.extend(b"'");
         })?;
 
         if !opts.quiet {

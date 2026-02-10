@@ -27,7 +27,7 @@ impl Expander {
         // another auxiliary rule.
         if let (VariableType::Hidden, Rule::Repeat(repeated_content)) = (variable.kind, &rule) {
             let inner_rule = self.expand_rule(repeated_content);
-            variable.rule = self.wrap_rule_in_binary_tree(Symbol::non_terminal(index), inner_rule);
+            variable.rule = Self::wrap_rule_in_binary_tree(Symbol::non_terminal(index), inner_rule);
             variable.kind = VariableType::Auxiliary;
             return true;
         }
@@ -81,7 +81,7 @@ impl Expander {
                 self.auxiliary_variables.push(Variable {
                     name: rule_name,
                     kind: VariableType::Auxiliary,
-                    rule: self.wrap_rule_in_binary_tree(repeat_symbol, inner_rule),
+                    rule: Self::wrap_rule_in_binary_tree(repeat_symbol, inner_rule),
                 });
 
                 Rule::Symbol(repeat_symbol)
@@ -92,7 +92,7 @@ impl Expander {
         }
     }
 
-    fn wrap_rule_in_binary_tree(&self, symbol: Symbol, rule: Rule) -> Rule {
+    fn wrap_rule_in_binary_tree(symbol: Symbol, rule: Rule) -> Rule {
         Rule::choice(vec![
             Rule::Seq(vec![Rule::Symbol(symbol), Rule::Symbol(symbol)]),
             rule,

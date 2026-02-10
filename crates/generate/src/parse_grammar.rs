@@ -13,8 +13,14 @@ use crate::{
 
 #[derive(Deserialize)]
 #[serde(tag = "type")]
-#[allow(non_camel_case_types)]
-#[allow(clippy::upper_case_acronyms)]
+#[expect(
+    non_camel_case_types,
+    reason = "variant names match JSON grammar format"
+)]
+#[expect(
+    clippy::upper_case_acronyms,
+    reason = "variant names match JSON grammar format"
+)]
 enum RuleJSON {
     ALIAS {
         content: Box<Self>,
@@ -199,10 +205,10 @@ pub(crate) fn parse_grammar(input: &str) -> ParseGrammarResult<InputGrammar> {
             .into_iter()
             .try_fold(Vec::<Rule>::new(), |mut acc, item| {
                 let rule = parse_rule(item, false)?;
-                if let Rule::String(ref value) = rule {
-                    if value.is_empty() {
-                        Err(ParseGrammarError::InvalidExtra)?;
-                    }
+                if let Rule::String(ref value) = rule
+                    && value.is_empty()
+                {
+                    Err(ParseGrammarError::InvalidExtra)?;
                 }
                 acc.push(rule);
                 ParseGrammarResult::Ok(acc)
@@ -274,7 +280,7 @@ pub(crate) fn parse_grammar(input: &str) -> ParseGrammarResult<InputGrammar> {
             };
             let matches_empty = match inner_rule {
                 Rule::String(rule_str) => rule_str.is_empty(),
-                Rule::Pattern(ref value, _) => Regex::new(value).is_ok_and(|reg| reg.is_match("")),
+                Rule::Pattern(value, _) => Regex::new(value).is_ok_and(|reg| reg.is_match("")),
                 _ => false,
             };
             if matches_empty {

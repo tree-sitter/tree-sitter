@@ -1,10 +1,10 @@
 use std::{cmp::Ordering, path::Path};
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use indoc::indoc;
 use semver::{Prerelease, Version};
 
-use crate::{create_commit, BumpVersion};
+use crate::{BumpVersion, create_commit};
 
 pub fn get_latest_tag() -> Result<String> {
     let output = std::process::Command::new("git")
@@ -289,7 +289,7 @@ fn fetch_workspace_version() -> Result<String> {
         .and_then(|line| {
             line.split_terminator('"')
                 .next_back()
-                .map(|s| s.to_string())
+                .map(std::string::ToString::to_string)
         })
         .ok_or_else(|| anyhow!("No version found in Cargo.toml"))
 }

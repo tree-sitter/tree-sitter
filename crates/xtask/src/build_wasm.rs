@@ -8,18 +8,18 @@ use std::{
     time::Duration,
 };
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use etcetera::BaseStrategy as _;
 use indoc::indoc;
 use notify::{
-    event::{AccessKind, AccessMode},
     EventKind, RecursiveMode,
+    event::{AccessKind, AccessMode},
 };
 use notify_debouncer_full::new_debouncer;
 use tree_sitter_loader::{IoError, LoaderError, WasmToolError};
 
 use crate::{
-    bail_on_err, embed_sources::embed_sources_in_map, watch_wasm, BuildWasm, EMSCRIPTEN_TAG,
+    BuildWasm, EMSCRIPTEN_TAG, bail_on_err, embed_sources::embed_sources_in_map, watch_wasm,
 };
 
 #[derive(PartialEq, Eq)]
@@ -131,7 +131,7 @@ pub fn run_wasm(args: &BuildWasm) -> Result<()> {
             let mut command = match source {
                 EmccSource::Docker => Command::new("docker"),
                 EmccSource::Podman => Command::new("podman"),
-                _ => unreachable!(),
+                EmccSource::Native => unreachable!(),
             };
             command.args(["run", "--rm"]);
 
@@ -153,7 +153,7 @@ pub fn run_wasm(args: &BuildWasm) -> Result<()> {
             #[cfg(unix)]
             {
                 #[link(name = "c")]
-                extern "C" {
+                unsafe extern "C" {
                     fn getuid() -> u32;
                 }
                 // don't need to set user for podman since PODMAN_USERNS=keep-id is already set
@@ -339,10 +339,10 @@ fn build_wasm(cmd: &mut Command, edit_tsd: bool) -> Result<()> {
         .join("binding_web")
         .join("lib")
         .join("web-tree-sitter.wasm.map");
-    if map_path.exists() {
-        if let Err(e) = embed_sources_in_map(&map_path) {
-            eprintln!("Warning: Failed to embed sources in source map: {e}");
-        }
+    if map_path.exists()
+        && let Err(e) = embed_sources_in_map(&map_path)
+    {
+        eprintln!("Warning: Failed to embed sources in source map: {e}");
     }
 
     Ok(())
@@ -427,7 +427,7 @@ pub fn ensure_binaryen_exists() -> Result<PathBuf> {
     let arch_os = ARCH_OS?.replace("arm64-linux", "aarch64-linux");
     let binaryen_filename = format!("binaryen-version_{BINARYEN_VERSION}-{arch_os}.tar.gz");
     let binaryen_url = format!(
-       "https://github.com/WebAssembly/binaryen/releases/download/version_{BINARYEN_VERSION}/{binaryen_filename}"
+        "https://github.com/WebAssembly/binaryen/releases/download/version_{BINARYEN_VERSION}/{binaryen_filename}"
     );
     download_tool(
         "wasm-opt",

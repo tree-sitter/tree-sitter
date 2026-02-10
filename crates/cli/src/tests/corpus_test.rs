@@ -6,20 +6,20 @@ use tree_sitter_proc_macro::test_with_seed;
 
 use crate::{
     fuzz::{
+        EDIT_COUNT, EXAMPLE_EXCLUDE, EXAMPLE_INCLUDE, ITERATION_COUNT, LANGUAGE_FILTER,
+        LOG_GRAPH_ENABLED, START_SEED,
         corpus_test::{
             check_changed_ranges, check_consistent_sizes, get_parser, set_included_ranges,
         },
         edits::{get_random_edit, invert_edit},
         flatten_tests, new_seed,
         random::Rand,
-        EDIT_COUNT, EXAMPLE_EXCLUDE, EXAMPLE_INCLUDE, ITERATION_COUNT, LANGUAGE_FILTER,
-        LOG_GRAPH_ENABLED, START_SEED,
     },
     parse::perform_edit,
-    test::{parse_tests, strip_sexp_fields, DiffKey, TestDiff},
+    test::{DiffKey, TestDiff, parse_tests, strip_sexp_fields},
     tests::{
         allocations,
-        helpers::fixtures::{fixtures_dir, get_language, get_test_language, SCRATCH_BASE_DIR},
+        helpers::fixtures::{SCRATCH_BASE_DIR, fixtures_dir, get_language, get_test_language},
     },
 };
 
@@ -120,10 +120,10 @@ pub fn test_language_corpus(
     skipped: Option<&[&str]>,
     language_dir: Option<&str>,
 ) {
-    if let Some(filter) = LANGUAGE_FILTER.as_ref() {
-        if language_name != filter {
-            return;
-        }
+    if let Some(filter) = LANGUAGE_FILTER.as_ref()
+        && language_name != filter
+    {
+        return;
     }
 
     let language_dir = language_dir.unwrap_or_default();
@@ -185,12 +185,12 @@ pub fn test_language_corpus(
     println!();
     for (test_index, test) in tests.iter().enumerate() {
         let test_name = format!("{language_name} - {}", test.name);
-        if let Some(skipped) = skipped.as_mut() {
-            if let Some(counter) = skipped.get_mut(test_name.as_str()) {
-                println!("  {test_index}. {test_name} - SKIPPED");
-                *counter += 1;
-                continue;
-            }
+        if let Some(skipped) = skipped.as_mut()
+            && let Some(counter) = skipped.get_mut(test_name.as_str())
+        {
+            println!("  {test_index}. {test_name} - SKIPPED");
+            *counter += 1;
+            continue;
         }
 
         println!("  {test_index}. {test_name}");
@@ -274,7 +274,9 @@ pub fn test_language_corpus(
                 // Check that the new tree is consistent.
                 check_consistent_sizes(&tree2, &input);
                 if let Err(message) = check_changed_ranges(&tree, &tree2, &input) {
-                    println!("\nUnexpected scope change in seed {seed} with start seed {start_seed}\n{message}\n\n",);
+                    println!(
+                        "\nUnexpected scope change in seed {seed} with start seed {start_seed}\n{message}\n\n",
+                    );
                     return false;
                 }
 
@@ -306,7 +308,9 @@ pub fn test_language_corpus(
                 // Check that the edited tree is consistent.
                 check_consistent_sizes(&tree3, &input);
                 if let Err(message) = check_changed_ranges(&tree2, &tree3, &input) {
-                    println!("Unexpected scope change in seed {seed} with start seed {start_seed}\n{message}\n\n");
+                    println!(
+                        "Unexpected scope change in seed {seed} with start seed {start_seed}\n{message}\n\n"
+                    );
                     return false;
                 }
 
@@ -351,10 +355,10 @@ fn test_feature_corpus_files() {
         let language_name = entry.file_name();
         let language_name = language_name.to_str().unwrap();
 
-        if let Some(filter) = LANGUAGE_FILTER.as_ref() {
-            if language_name != filter {
-                continue;
-            }
+        if let Some(filter) = LANGUAGE_FILTER.as_ref()
+            && language_name != filter
+        {
+            continue;
         }
 
         let test_path = entry.path();

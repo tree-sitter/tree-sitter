@@ -4,10 +4,10 @@ use std::{
     process::{Command, Stdio},
 };
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use regex::Regex;
 
-use crate::{bail_on_err, Test};
+use crate::{Test, bail_on_err};
 
 pub fn run(args: &Test) -> Result<()> {
     let test_flags = if args.address_sanitizer {

@@ -7,11 +7,11 @@ use log::debug;
 
 use super::token_conflicts::TokenConflictMap;
 use crate::{
+    OptLevel,
     dedup::split_state_id_groups,
     grammars::{LexicalGrammar, SyntaxGrammar, VariableType},
     rules::{AliasMap, Symbol, TokenSet},
     tables::{GotoAction, ParseAction, ParseState, ParseStateId, ParseTable, ParseTableEntry},
-    OptLevel,
 };
 
 pub fn minimize_parse_table(
@@ -97,10 +97,10 @@ impl Minimizer<'_> {
                 }
             }
 
-            if let Some(symbol) = unit_reduction_symbol {
-                if only_unit_reductions {
-                    unit_reduction_symbols_by_state.insert(i, *symbol);
-                }
+            if let Some(symbol) = unit_reduction_symbol
+                && only_unit_reductions
+            {
+                unit_reduction_symbols_by_state.insert(i, *symbol);
             }
         }
 
@@ -242,21 +242,20 @@ impl Minimizer<'_> {
         group_ids_by_state_id: &[ParseStateId],
     ) -> bool {
         for (token, entry1) in &state1.terminal_entries {
-            if let ParseAction::Shift { state: s1, .. } = entry1.actions.last().unwrap() {
-                if let Some(entry2) = state2.terminal_entries.get(token) {
-                    if let ParseAction::Shift { state: s2, .. } = entry2.actions.last().unwrap() {
-                        let group1 = group_ids_by_state_id[*s1];
-                        let group2 = group_ids_by_state_id[*s2];
-                        if group1 != group2 {
-                            debug!(
-                                "split states {} {} - successors for {} are split: {s1} {s2}",
-                                state1.id,
-                                state2.id,
-                                self.symbol_name(token),
-                            );
-                            return true;
-                        }
-                    }
+            if let ParseAction::Shift { state: s1, .. } = entry1.actions.last().unwrap()
+                && let Some(entry2) = state2.terminal_entries.get(token)
+                && let ParseAction::Shift { state: s2, .. } = entry2.actions.last().unwrap()
+            {
+                let group1 = group_ids_by_state_id[*s1];
+                let group2 = group_ids_by_state_id[*s2];
+                if group1 != group2 {
+                    debug!(
+                        "split states {} {} - successors for {} are split: {s1} {s2}",
+                        state1.id,
+                        state2.id,
+                        self.symbol_name(token),
+                    );
+                    return true;
                 }
             }
         }

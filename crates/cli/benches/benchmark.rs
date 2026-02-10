@@ -24,7 +24,10 @@ static REPETITION_COUNT: LazyLock<usize> = LazyLock::new(|| {
 static TEST_LOADER: LazyLock<Loader> =
     LazyLock::new(|| Loader::with_parser_lib_path(SCRATCH_DIR.clone()));
 
-#[allow(clippy::type_complexity)]
+#[expect(
+    clippy::type_complexity,
+    reason = "complex map type reflects benchmark data structure"
+)]
 static EXAMPLE_AND_QUERY_PATHS_BY_LANGUAGE_DIR: LazyLock<
     BTreeMap<PathBuf, (Vec<PathBuf>, Vec<PathBuf>)>,
 > = LazyLock::new(|| {
@@ -36,22 +39,14 @@ static EXAMPLE_AND_QUERY_PATHS_BY_LANGUAGE_DIR: LazyLock<
             if let Ok(example_files) = fs::read_dir(dir.join("examples")) {
                 example_paths.extend(example_files.filter_map(|p| {
                     let p = p.unwrap().path();
-                    if p.is_file() {
-                        Some(p)
-                    } else {
-                        None
-                    }
+                    if p.is_file() { Some(p) } else { None }
                 }));
             }
 
             if let Ok(query_files) = fs::read_dir(dir.join("queries")) {
                 query_paths.extend(query_files.filter_map(|p| {
                     let p = p.unwrap().path();
-                    if p.is_file() {
-                        Some(p)
-                    } else {
-                        None
-                    }
+                    if p.is_file() { Some(p) } else { None }
                 }));
             }
         } else {
@@ -93,10 +88,10 @@ fn main() {
     {
         let language_name = language_path.file_name().unwrap().to_str().unwrap();
 
-        if let Some(filter) = LANGUAGE_FILTER.as_ref() {
-            if language_name != filter.as_str() {
-                continue;
-            }
+        if let Some(filter) = LANGUAGE_FILTER.as_ref()
+            && language_name != filter.as_str()
+        {
+            continue;
         }
 
         info!("\nLanguage: {language_name}");
@@ -105,10 +100,10 @@ fn main() {
 
         info!("  Constructing Queries");
         for path in query_paths {
-            if let Some(filter) = EXAMPLE_FILTER.as_ref() {
-                if !path.to_str().unwrap().contains(filter.as_str()) {
-                    continue;
-                }
+            if let Some(filter) = EXAMPLE_FILTER.as_ref()
+                && !path.to_str().unwrap().contains(filter.as_str())
+            {
+                continue;
             }
 
             parse(path, max_path_length, |source| {
@@ -121,10 +116,10 @@ fn main() {
         info!("  Parsing Valid Code:");
         let mut normal_speeds = Vec::new();
         for example_path in example_paths {
-            if let Some(filter) = EXAMPLE_FILTER.as_ref() {
-                if !example_path.to_str().unwrap().contains(filter.as_str()) {
-                    continue;
-                }
+            if let Some(filter) = EXAMPLE_FILTER.as_ref()
+                && !example_path.to_str().unwrap().contains(filter.as_str())
+            {
+                continue;
             }
 
             normal_speeds.push(parse(example_path, max_path_length, |code| {
@@ -139,10 +134,10 @@ fn main() {
         {
             if other_language_path != language_path {
                 for example_path in example_paths {
-                    if let Some(filter) = EXAMPLE_FILTER.as_ref() {
-                        if !example_path.to_str().unwrap().contains(filter.as_str()) {
-                            continue;
-                        }
+                    if let Some(filter) = EXAMPLE_FILTER.as_ref()
+                        && !example_path.to_str().unwrap().contains(filter.as_str())
+                    {
+                        continue;
                     }
 
                     error_speeds.push(parse(example_path, max_path_length, |code| {

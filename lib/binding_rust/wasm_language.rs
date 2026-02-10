@@ -8,18 +8,18 @@ use std::{
 
 pub use wasmtime_c_api::wasmtime;
 
-use crate::{ffi, Language, LanguageError, Parser, FREE_FN};
+use crate::{FREE_FN, Language, LanguageError, Parser, ffi};
 
 // Force Cargo to include wasmtime-c-api as a dependency of this crate,
 // even though it is only used by the C code.
-#[allow(unused)]
+#[expect(unused, reason = "forces Cargo to link wasmtime-c-api")]
 fn _use_wasmtime() {
     wasmtime_c_api::wasm_engine_new();
 }
 
 #[repr(C)]
 #[derive(Clone)]
-#[allow(non_camel_case_types)]
+#[expect(non_camel_case_types, reason = "C FFI type name")]
 pub struct wasm_engine_t {
     pub(crate) engine: wasmtime::Engine,
 }
@@ -88,8 +88,11 @@ impl WasmStore {
 
 impl WasmError {
     unsafe fn new(error: ffi::TSWasmError) -> Self {
-        let message = CStr::from_ptr(error.message).to_str().unwrap().to_string();
-        (FREE_FN)(error.message.cast());
+        let message = unsafe { CStr::from_ptr(error.message) }
+            .to_str()
+            .unwrap()
+            .to_string();
+        unsafe { (FREE_FN)(error.message.cast()) };
         Self {
             kind: match error.kind {
                 ffi::TSWasmErrorKindParse => WasmErrorKind::Parse,

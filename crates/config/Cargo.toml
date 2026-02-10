@@ -1,17 +1,17 @@
 [package]
-name = "tree-sitter-config"
-version.workspace = true
-description = "User configuration of tree-sitter's command line programs"
-authors.workspace = true
-edition.workspace = true
+name                   = "tree-sitter-config"
+version.workspace      = true
+description            = "User configuration of tree-sitter's command line programs"
+authors.workspace      = true
+edition.workspace      = true
 rust-version.workspace = true
-readme = "README.md"
-homepage.workspace = true
-repository.workspace = true
-documentation = "https://docs.rs/tree-sitter-config"
-license.workspace = true
-keywords.workspace = true
-categories.workspace = true
+readme                 = "README.md"
+homepage.workspace     = true
+repository.workspace   = true
+documentation          = "https://docs.rs/tree-sitter-config"
+license.workspace      = true
+keywords.workspace     = true
+categories.workspace   = true
 
 [lib]
 path = "src/tree_sitter_config.rs"
@@ -20,8 +20,8 @@ path = "src/tree_sitter_config.rs"
 workspace = true
 
 [dependencies]
-etcetera.workspace = true
-log.workspace = true
-serde.workspace = true
+etcetera.workspace   = true
+log.workspace        = true
+serde.workspace      = true
 serde_json.workspace = true
-thiserror.workspace = true
+thiserror.workspace  = true

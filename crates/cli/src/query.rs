@@ -79,14 +79,14 @@ pub fn query_file_at_path(
             let capture_name = &query.capture_names()[capture.index as usize];
             if !opts.quiet && !should_test {
                 writeln!(
-                        &mut stdout,
-                        "    pattern: {:>2}, capture: {} - {capture_name}, start: {}, end: {}, text: `{}`",
-                        mat.pattern_index,
-                        capture.index,
-                        capture.node.start_position(),
-                        capture.node.end_position(),
-                        capture.node.utf8_text(&source_code).unwrap_or("")
-                    )?;
+                    &mut stdout,
+                    "    pattern: {:>2}, capture: {} - {capture_name}, start: {}, end: {}, text: `{}`",
+                    mat.pattern_index,
+                    capture.index,
+                    capture.node.start_position(),
+                    capture.node.end_position(),
+                    capture.node.utf8_text(&source_code).unwrap_or("")
+                )?;
             }
             if should_test {
                 results.push(query_testing::CaptureInfo {
@@ -109,11 +109,11 @@ pub fn query_file_at_path(
                 if !opts.quiet && !should_test {
                     if end.row == start.row {
                         writeln!(
-                                &mut stdout,
-                                "    capture: {} - {capture_name}, start: {start}, end: {end}, text: `{}`",
-                                capture.index,
-                                capture.node.utf8_text(&source_code).unwrap_or("")
-                            )?;
+                            &mut stdout,
+                            "    capture: {} - {capture_name}, start: {start}, end: {end}, text: `{}`",
+                            capture.index,
+                            capture.node.utf8_text(&source_code).unwrap_or("")
+                        )?;
                     } else {
                         writeln!(
                             &mut stdout,

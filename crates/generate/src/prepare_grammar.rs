@@ -8,7 +8,7 @@ mod process_inlines;
 
 use std::{
     cmp::Ordering,
-    collections::{hash_map, BTreeSet, HashMap, HashSet},
+    collections::{BTreeSet, HashMap, HashSet, hash_map},
     mem,
 };
 
@@ -264,13 +264,13 @@ fn validate_precedences(grammar: &InputGrammar) -> ValidatePrecedenceResult<()> 
                 .iter()
                 .try_for_each(|e| validate(rule_name, e, names)),
             Rule::Metadata { rule, params } => {
-                if let Precedence::Name(n) = &params.precedence {
-                    if !names.contains(n) {
-                        Err(UndeclaredPrecedenceError {
-                            precedence: n.clone(),
-                            rule: rule_name.to_string(),
-                        })?;
-                    }
+                if let Precedence::Name(n) = &params.precedence
+                    && !names.contains(n)
+                {
+                    Err(UndeclaredPrecedenceError {
+                        precedence: n.clone(),
+                        rule: rule_name.to_string(),
+                    })?;
                 }
                 validate(rule_name, rule, names)?;
                 Ok(())

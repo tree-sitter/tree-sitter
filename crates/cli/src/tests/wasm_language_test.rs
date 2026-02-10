@@ -5,7 +5,7 @@ use tree_sitter::{Parser, Query, QueryCursor, WasmError, WasmErrorKind, WasmStor
 
 use crate::tests::helpers::{
     allocations,
-    fixtures::{get_test_fixture_language_wasm, ENGINE, WASM_DIR},
+    fixtures::{ENGINE, WASM_DIR, get_test_fixture_language_wasm},
 };
 
 #[test]
@@ -73,7 +73,10 @@ fn test_load_wasm_rust_language() {
         parser.set_wasm_store(store).unwrap();
         parser.set_language(&language).unwrap();
         let tree = parser.parse("fn main() {}", None).unwrap();
-        assert_eq!(tree.root_node().to_sexp(), "(source_file (function_item name: (identifier) parameters: (parameters) body: (block)))");
+        assert_eq!(
+            tree.root_node().to_sexp(),
+            "(source_file (function_item name: (identifier) parameters: (parameters) body: (block)))"
+        );
     });
 }
 
@@ -87,7 +90,10 @@ fn test_load_wasm_javascript_language() {
         parser.set_wasm_store(store).unwrap();
         parser.set_language(&language).unwrap();
         let tree = parser.parse("const a = b\nconst c = d", None).unwrap();
-        assert_eq!(tree.root_node().to_sexp(), "(program (lexical_declaration (variable_declarator name: (identifier) value: (identifier))) (lexical_declaration (variable_declarator name: (identifier) value: (identifier))))");
+        assert_eq!(
+            tree.root_node().to_sexp(),
+            "(program (lexical_declaration (variable_declarator name: (identifier) value: (identifier))) (lexical_declaration (variable_declarator name: (identifier) value: (identifier))))"
+        );
     });
 }
 
@@ -101,7 +107,10 @@ fn test_load_wasm_python_language() {
         parser.set_wasm_store(store).unwrap();
         parser.set_language(&language).unwrap();
         let tree = parser.parse("a = b\nc = d", None).unwrap();
-        assert_eq!(tree.root_node().to_sexp(), "(module (expression_statement (assignment left: (identifier) right: (identifier))) (expression_statement (assignment left: (identifier) right: (identifier))))");
+        assert_eq!(
+            tree.root_node().to_sexp(),
+            "(module (expression_statement (assignment left: (identifier) right: (identifier))) (expression_statement (assignment left: (identifier) right: (identifier))))"
+        );
     });
 }
 
@@ -258,12 +267,18 @@ fn test_reset_wasm_store() {
         parser.set_wasm_store(parser_store).unwrap();
         parser.set_language(&language).unwrap();
         let tree = parser.parse("fn main() {}", None).unwrap();
-        assert_eq!(tree.root_node().to_sexp(), "(source_file (function_item name: (identifier) parameters: (parameters) body: (block)))");
+        assert_eq!(
+            tree.root_node().to_sexp(),
+            "(source_file (function_item name: (identifier) parameters: (parameters) body: (block)))"
+        );
 
         let parser_store = WasmStore::new(&ENGINE).unwrap();
         parser.set_wasm_store(parser_store).unwrap();
         let tree = parser.parse("fn main() {}", None).unwrap();
-        assert_eq!(tree.root_node().to_sexp(), "(source_file (function_item name: (identifier) parameters: (parameters) body: (block)))");
+        assert_eq!(
+            tree.root_node().to_sexp(),
+            "(source_file (function_item name: (identifier) parameters: (parameters) body: (block)))"
+        );
     });
 }
 

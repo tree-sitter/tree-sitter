@@ -132,7 +132,7 @@ impl Interner<'_> {
     fn intern_rule(&self, rule: &Rule, name: Option<&str>) -> InternSymbolsResult<Rule> {
         match rule {
             Rule::Choice(elements) => {
-                self.check_single(elements, name, "choice");
+                Self::check_single(elements, name, "choice");
                 let mut result = Vec::with_capacity(elements.len());
                 for element in elements {
                     result.push(self.intern_rule(element, name)?);
@@ -140,7 +140,7 @@ impl Interner<'_> {
                 Ok(Rule::Choice(result))
             }
             Rule::Seq(elements) => {
-                self.check_single(elements, name, "seq");
+                Self::check_single(elements, name, "seq");
                 let mut result = Vec::with_capacity(elements.len());
                 for element in elements {
                     result.push(self.intern_rule(element, name)?);
@@ -172,10 +172,10 @@ impl Interner<'_> {
         }
 
         for (i, external_token) in self.grammar.external_tokens.iter().enumerate() {
-            if let Rule::NamedSymbol(name) = external_token {
-                if name == symbol {
-                    return Some(Symbol::external(i));
-                }
+            if let Rule::NamedSymbol(name) = external_token
+                && name == symbol
+            {
+                return Some(Symbol::external(i));
             }
         }
 
@@ -184,7 +184,7 @@ impl Interner<'_> {
 
     // In the case of a seq or choice rule of 1 element in a hidden rule, weird
     // inconsistent behavior with queries can occur. So we should warn the user about it.
-    fn check_single(&self, elements: &[Rule], name: Option<&str>, kind: &str) {
+    fn check_single(elements: &[Rule], name: Option<&str>, kind: &str) {
         if elements.len() == 1 && matches!(elements[0], Rule::String(_) | Rule::Pattern(_, _)) {
             warn!(
                 "rule {} contains a `{kind}` rule with a single element. This is unnecessary.",

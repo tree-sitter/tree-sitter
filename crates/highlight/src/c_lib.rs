@@ -38,29 +38,31 @@ pub enum ErrorCode {
 ///
 /// The caller must ensure that the `highlight_names` and `attribute_strings` arrays are valid for
 /// the lifetime of the returned [`TSHighlighter`] instance, and are non-null.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn ts_highlighter_new(
     highlight_names: *const *const c_char,
     attribute_strings: *const *const c_char,
     highlight_count: u32,
 ) -> *mut TSHighlighter {
-    let highlight_names = slice::from_raw_parts(highlight_names, highlight_count as usize);
-    let attribute_strings = slice::from_raw_parts(attribute_strings, highlight_count as usize);
-    let highlight_names = highlight_names
-        .iter()
-        .map(|s| CStr::from_ptr(*s).to_string_lossy().to_string())
-        .collect::<Vec<_>>();
-    let attribute_strings = attribute_strings
-        .iter()
-        .map(|s| CStr::from_ptr(*s).to_bytes())
-        .collect();
-    let carriage_return_index = highlight_names.iter().position(|s| s == "carriage-return");
-    Box::into_raw(Box::new(TSHighlighter {
-        languages: HashMap::new(),
-        attribute_strings,
-        highlight_names,
-        carriage_return_index,
-    }))
+    unsafe {
+        let highlight_names = slice::from_raw_parts(highlight_names, highlight_count as usize);
+        let attribute_strings = slice::from_raw_parts(attribute_strings, highlight_count as usize);
+        let highlight_names = highlight_names
+            .iter()
+            .map(|s| CStr::from_ptr(*s).to_string_lossy().to_string())
+            .collect::<Vec<_>>();
+        let attribute_strings = attribute_strings
+            .iter()
+            .map(|s| CStr::from_ptr(*s).to_bytes())
+            .collect();
+        let carriage_return_index = highlight_names.iter().position(|s| s == "carriage-return");
+        Box::into_raw(Box::new(TSHighlighter {
+            languages: HashMap::new(),
+            attribute_strings,
+            highlight_names,
+            carriage_return_index,
+        }))
+    }
 }
 
 /// Add a language to a [`TSHighlighter`] instance.
@@ -74,7 +76,7 @@ pub unsafe extern "C" fn ts_highlighter_new(
 ///
 /// The caller must ensure that any `*const c_char` (C-style string) parameters are valid for the
 /// lifetime of the [`TSHighlighter`] instance, and are non-null.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn ts_highlighter_add_language(
     this: *mut TSHighlighter,
     language_name: *const c_char,
@@ -88,7 +90,7 @@ pub unsafe extern "C" fn ts_highlighter_add_language(
     injection_query_len: u32,
     locals_query_len: u32,
 ) -> ErrorCode {
-    let f = move || {
+    let f = move || unsafe {
         let this = unwrap_mut_ptr(this);
         let scope_name = CStr::from_ptr(scope_name);
         let scope_name = scope_name
@@ -147,7 +149,7 @@ pub unsafe extern "C" fn ts_highlighter_add_language(
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn ts_highlight_buffer_new() -> *mut TSHighlightBuffer {
     Box::into_raw(Box::new(TSHighlightBuffer {
         highlighter: Highlighter::new(),
@@ -163,9 +165,11 @@ pub extern "C" fn ts_highlight_buffer_new() -> *mut TSHighlightBuffer {
 /// created by [`ts_highlighter_new`].
 ///
 /// It cannot be used after this function is called.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn ts_highlighter_delete(this: *mut TSHighlighter) {
-    drop(Box::from_raw(this));
+    unsafe {
+        drop(Box::from_raw(this));
+    }
 }
 
 /// Deletes a [`TSHighlightBuffer`] instance.
@@ -176,9 +180,11 @@ pub unsafe extern "C" fn ts_highlighter_delete(this: *mut TSHighlighter) {
 /// created by [`ts_highlight_buffer_new`]
 ///
 /// It cannot be used after this function is called.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn ts_highlight_buffer_delete(this: *mut TSHighlightBuffer) {
-    drop(Box::from_raw(this));
+    unsafe {
+        drop(Box::from_raw(this));
+    }
 }
 
 /// Get the HTML content of a [`TSHighlightBuffer`] instance as a raw pointer.
@@ -192,10 +198,12 @@ pub unsafe extern "C" fn ts_highlight_buffer_delete(this: *mut TSHighlightBuffer
 /// else the data will point to garbage.
 ///
 /// To get the length of the HTML content, use [`ts_highlight_buffer_len`].
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn ts_highlight_buffer_content(this: *const TSHighlightBuffer) -> *const u8 {
-    let this = unwrap_ptr(this);
-    this.renderer.html.as_slice().as_ptr()
+    unsafe {
+        let this = unwrap_ptr(this);
+        this.renderer.html.as_slice().as_ptr()
+    }
 }
 
 /// Get the line offsets of a [`TSHighlightBuffer`] instance as a C-style array.
@@ -209,12 +217,14 @@ pub unsafe extern "C" fn ts_highlight_buffer_content(this: *const TSHighlightBuf
 /// instance, else the data will point to garbage.
 ///
 /// To get the length of the array, use [`ts_highlight_buffer_line_count`].
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn ts_highlight_buffer_line_offsets(
     this: *const TSHighlightBuffer,
 ) -> *const u32 {
-    let this = unwrap_ptr(this);
-    this.renderer.line_offsets.as_slice().as_ptr()
+    unsafe {
+        let this = unwrap_ptr(this);
+        this.renderer.line_offsets.as_slice().as_ptr()
+    }
 }
 
 /// Get the length of the HTML content of a [`TSHighlightBuffer`] instance.
@@ -223,10 +233,12 @@ pub unsafe extern "C" fn ts_highlight_buffer_line_offsets(
 ///
 /// `this` must be non-null and must be a valid pointer to a [`TSHighlightBuffer`] instance
 /// created by [`ts_highlight_buffer_new`].
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn ts_highlight_buffer_len(this: *const TSHighlightBuffer) -> u32 {
-    let this = unwrap_ptr(this);
-    this.renderer.html.len() as u32
+    unsafe {
+        let this = unwrap_ptr(this);
+        this.renderer.html.len() as u32
+    }
 }
 
 /// Get the number of lines in a [`TSHighlightBuffer`] instance.
@@ -235,10 +247,12 @@ pub unsafe extern "C" fn ts_highlight_buffer_len(this: *const TSHighlightBuffer)
 ///
 /// `this` must be non-null and must be a valid pointer to a [`TSHighlightBuffer`] instance
 /// created by [`ts_highlight_buffer_new`].
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn ts_highlight_buffer_line_count(this: *const TSHighlightBuffer) -> u32 {
-    let this = unwrap_ptr(this);
-    this.renderer.line_offsets.len() as u32
+    unsafe {
+        let this = unwrap_ptr(this);
+        this.renderer.line_offsets.len() as u32
+    }
 }
 
 /// Highlight a string of source code.
@@ -250,7 +264,7 @@ pub unsafe extern "C" fn ts_highlight_buffer_line_count(this: *const TSHighlight
 ///
 /// `this` must be a non-null pointer to a [`TSHighlighter`] instance created by
 /// [`ts_highlighter_new`]
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn ts_highlighter_highlight(
     this: *const TSHighlighter,
     scope_name: *const c_char,
@@ -259,12 +273,14 @@ pub unsafe extern "C" fn ts_highlighter_highlight(
     output: *mut TSHighlightBuffer,
     cancellation_flag: *const AtomicUsize,
 ) -> ErrorCode {
-    let this = unwrap_ptr(this);
-    let output = unwrap_mut_ptr(output);
-    let scope_name = unwrap(CStr::from_ptr(scope_name).to_str());
-    let source_code = slice::from_raw_parts(source_code.cast::<u8>(), source_code_len as usize);
-    let cancellation_flag = cancellation_flag.as_ref();
-    this.highlight(source_code, scope_name, output, cancellation_flag)
+    unsafe {
+        let this = unwrap_ptr(this);
+        let output = unwrap_mut_ptr(output);
+        let scope_name = unwrap(CStr::from_ptr(scope_name).to_str());
+        let source_code = slice::from_raw_parts(source_code.cast::<u8>(), source_code_len as usize);
+        let cancellation_flag = cancellation_flag.as_ref();
+        this.highlight(source_code, scope_name, output, cancellation_flag)
+    }
 }
 
 impl TSHighlighter {
@@ -319,17 +335,21 @@ impl TSHighlighter {
 }
 
 unsafe fn unwrap_ptr<'a, T>(result: *const T) -> &'a T {
-    result.as_ref().unwrap_or_else(|| {
-        eprintln!("{}:{} - pointer must not be null", file!(), line!());
-        abort();
-    })
+    unsafe {
+        result.as_ref().unwrap_or_else(|| {
+            eprintln!("{}:{} - pointer must not be null", file!(), line!());
+            abort();
+        })
+    }
 }
 
 unsafe fn unwrap_mut_ptr<'a, T>(result: *mut T) -> &'a mut T {
-    result.as_mut().unwrap_or_else(|| {
-        eprintln!("{}:{} - pointer must not be null", file!(), line!());
-        abort();
-    })
+    unsafe {
+        result.as_mut().unwrap_or_else(|| {
+            eprintln!("{}:{} - pointer must not be null", file!(), line!());
+            abort();
+        })
+    }
 }
 
 fn unwrap<T, E: fmt::Display>(result: Result<T, E>) -> T {

@@ -3,7 +3,7 @@ use std::{
     io::{self, Write},
     path::Path,
     str,
-    sync::{atomic::AtomicUsize, Arc},
+    sync::{Arc, atomic::AtomicUsize},
     time::Instant,
 };
 
