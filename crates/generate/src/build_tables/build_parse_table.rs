@@ -4,7 +4,7 @@ use std::{
     hash::BuildHasherDefault,
 };
 
-use indexmap::{map::Entry, IndexMap};
+use indexmap::{IndexMap, map::Entry};
 use log::warn;
 use rustc_hash::FxHasher;
 use serde::Serialize;
@@ -553,10 +553,10 @@ impl<'a> ParseTableBuilder<'a> {
             let entry = self.parse_table.states[state_id]
                 .terminal_entries
                 .entry(symbol);
-            if let Entry::Occupied(e) = &entry {
-                if !e.get().actions.is_empty() {
-                    lookaheads_with_conflicts.insert(symbol);
-                }
+            if let Entry::Occupied(e) = &entry
+                && !e.get().actions.is_empty()
+            {
+                lookaheads_with_conflicts.insert(symbol);
             }
 
             entry

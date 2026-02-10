@@ -1,6 +1,6 @@
 use regex_syntax::{
-    hir::{Class, Hir, HirKind},
     ParserBuilder,
+    hir::{Class, Hir, HirKind},
 };
 use serde::Serialize;
 use thiserror::Error;
@@ -67,10 +67,10 @@ fn get_implicit_precedence(rule: &Rule) -> i32 {
 }
 
 const fn get_completion_precedence(rule: &Rule) -> i32 {
-    if let Rule::Metadata { params, .. } = rule {
-        if let Precedence::Integer(p) = params.precedence {
-            return p;
-        }
+    if let Rule::Metadata { params, .. } = rule
+        && let Precedence::Integer(p) = params.precedence
+    {
+        return p;
     }
     0
 }

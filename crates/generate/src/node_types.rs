@@ -139,7 +139,9 @@ pub type VariableInfoResult<T> = Result<T, VariableInfoError>;
 
 #[derive(Debug, Error, Serialize)]
 pub enum VariableInfoError {
-    #[error("Grammar error: Supertype symbols must always have a single visible child, but `{0}` can have multiple")]
+    #[error(
+        "Grammar error: Supertype symbols must always have a single visible child, but `{0}` can have multiple"
+    )]
     InvalidSupertype(String),
 }
 
@@ -540,8 +542,8 @@ pub fn generate_node_types_json(
                 .unwrap_or(&empty)
                 .iter()
                 .map(|alias| {
-                    alias.as_ref().map_or(
-                        match symbol.kind {
+                    alias.as_ref().map_or_else(
+                        || match symbol.kind {
                             SymbolType::NonTerminal => &syntax_grammar.variables[symbol.index].name,
                             SymbolType::Terminal => &lexical_grammar.variables[symbol.index].name,
                             SymbolType::External => {
@@ -643,7 +645,7 @@ pub fn generate_node_types_json(
                 populate_field_info_json(
                     node_type_json
                         .children
-                        .get_or_insert(FieldInfoJSON::default()),
+                        .get_or_insert_with(FieldInfoJSON::default),
                     &info.children_without_fields,
                 );
             }
@@ -1867,8 +1869,10 @@ mod tests {
                         productions: vec![
                             Production {
                                 dynamic_precedence: 0,
-                                steps: vec![ProductionStep::new(Symbol::non_terminal(1))
-                                    .with_field_name("field1")],
+                                steps: vec![
+                                    ProductionStep::new(Symbol::non_terminal(1))
+                                        .with_field_name("field1"),
+                                ],
                             },
                             Production {
                                 dynamic_precedence: 0,

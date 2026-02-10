@@ -1,6 +1,6 @@
 use std::{
     char,
-    cmp::{max, Ordering},
+    cmp::{Ordering, max},
     fmt,
     iter::ExactSizeIterator,
     mem::{self, swap},
@@ -57,7 +57,10 @@ impl CharacterSet {
     }
 
     /// Create a character set with a given *inclusive* range of characters.
-    #[allow(clippy::single_range_in_vec_init)]
+    #[expect(
+        clippy::single_range_in_vec_init,
+        reason = "Vec is the backing store for CharacterSet"
+    )]
     #[cfg(test)]
     fn from_range(mut first: char, mut last: char) -> Self {
         if first > last {
@@ -69,7 +72,10 @@ impl CharacterSet {
     }
 
     /// Create a character set with a single character.
-    #[allow(clippy::single_range_in_vec_init)]
+    #[expect(
+        clippy::single_range_in_vec_init,
+        reason = "Vec is the backing store for CharacterSet"
+    )]
     pub fn from_char(c: char) -> Self {
         Self {
             ranges: vec![(c as u32)..(c as u32 + 1)],
@@ -301,7 +307,7 @@ impl CharacterSet {
         self.char_codes().filter_map(char::from_u32)
     }
 
-    pub fn range_count(&self) -> usize {
+    pub const fn range_count(&self) -> usize {
         self.ranges.len()
     }
 
@@ -313,7 +319,7 @@ impl CharacterSet {
         })
     }
 
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.ranges.is_empty()
     }
 
@@ -333,13 +339,12 @@ impl CharacterSet {
                             return None;
                         }
 
-                        if let Some(prev_range) = &mut prev_range {
-                            if ruled_out_characters
+                        if let Some(prev_range) = &mut prev_range
+                            && ruled_out_characters
                                 .contains_codepoint_range(prev_range.end..range.start)
-                            {
-                                prev_range.end = range.end;
-                                return None;
-                            }
+                        {
+                            prev_range.end = range.end;
+                            return None;
                         }
                     }
 
@@ -1061,7 +1066,10 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::single_range_in_vec_init)]
+    #[expect(
+        clippy::single_range_in_vec_init,
+        reason = "test data intentionally uses single-element ranges"
+    )]
     fn test_character_set_simplify_ignoring() {
         struct Row {
             chars: Vec<char>,

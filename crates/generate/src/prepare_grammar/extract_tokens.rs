@@ -96,17 +96,17 @@ pub(super) fn extract_tokens(
             kind: SymbolType::Terminal,
             index,
         }) = variable.rule
+            && i > 0
+            && extractor.extracted_usage_counts[index] == 1
         {
-            if i > 0 && extractor.extracted_usage_counts[index] == 1 {
-                let lexical_variable = &mut lexical_variables[index];
-                if lexical_variable.kind == VariableType::Auxiliary
-                    || variable.kind != VariableType::Hidden
-                {
-                    lexical_variable.kind = variable.kind;
-                    lexical_variable.name = variable.name;
-                    symbol_replacer.replacements.insert(i, index);
-                    continue;
-                }
+            let lexical_variable = &mut lexical_variables[index];
+            if lexical_variable.kind == VariableType::Auxiliary
+                || variable.kind != VariableType::Hidden
+            {
+                lexical_variable.kind = variable.kind;
+                lexical_variable.name = variable.name;
+                symbol_replacer.replacements.insert(i, index);
+                continue;
             }
         }
         variables.push(variable);
@@ -636,11 +636,13 @@ mod test {
 
     #[test]
     fn test_extraction_with_empty_string() {
-        assert!(extract_tokens(build_grammar(vec![
-            Variable::named("rule_0", Rule::non_terminal(1)),
-            Variable::hidden("_rule_1", Rule::string("")),
-        ]))
-        .is_err());
+        assert!(
+            extract_tokens(build_grammar(vec![
+                Variable::named("rule_0", Rule::non_terminal(1)),
+                Variable::hidden("_rule_1", Rule::string("")),
+            ]))
+            .is_err()
+        );
     }
 
     fn build_grammar(variables: Vec<Variable>) -> InternedGrammar {
