@@ -1,21 +1,21 @@
 [package]
-name = "tree-sitter-loader"
-version.workspace = true
-description = "Locates, builds, and loads tree-sitter grammars at runtime"
-authors.workspace = true
-edition.workspace = true
+name                   = "tree-sitter-loader"
+version.workspace      = true
+description            = "Locates, builds, and loads tree-sitter grammars at runtime"
+authors.workspace      = true
+edition.workspace      = true
 rust-version.workspace = true
-readme = "README.md"
-homepage.workspace = true
-repository.workspace = true
-documentation = "https://docs.rs/tree-sitter-loader"
-license.workspace = true
-keywords.workspace = true
-categories.workspace = true
+readme                 = "README.md"
+homepage.workspace     = true
+repository.workspace   = true
+documentation          = "https://docs.rs/tree-sitter-loader"
+license.workspace      = true
+keywords.workspace     = true
+categories.workspace   = true
 
 [package.metadata.docs.rs]
 all-features = true
-rustdoc-args = ["--cfg", "docsrs"]
+rustdoc-args = [ "--cfg", "docsrs" ]
 
 [lib]
 path = "src/loader.rs"
@@ -24,24 +24,24 @@ path = "src/loader.rs"
 workspace = true
 
 [features]
-wasm = ["tree-sitter/wasm"]
-default = ["tree-sitter-highlight", "tree-sitter-tags"]
+default = [ "tree-sitter-highlight", "tree-sitter-tags" ]
+wasm    = [ "tree-sitter/wasm" ]
 
 [dependencies]
-cc.workspace = true
-etcetera.workspace = true
-fs4.workspace = true
-indoc.workspace = true
+cc.workspace         = true
+etcetera.workspace   = true
+fs4.workspace        = true
+indoc.workspace      = true
 libloading.workspace = true
-log.workspace = true
-once_cell.workspace = true
-regex.workspace = true
-semver.workspace = true
-serde.workspace = true
+log.workspace        = true
+once_cell.workspace  = true
+regex.workspace      = true
+semver.workspace     = true
+serde.workspace      = true
 serde_json.workspace = true
-tempfile.workspace = true
-thiserror.workspace = true
+tempfile.workspace   = true
+thiserror.workspace  = true
 
-tree-sitter = { workspace = true }
-tree-sitter-highlight = { workspace = true, optional = true }
-tree-sitter-tags = { workspace = true, optional = true }
+tree-sitter           = { workspace = true }
+tree-sitter-highlight = { optional = true, workspace = true }
+tree-sitter-tags      = { optional = true, workspace = true }

@@ -1,31 +1,31 @@
 [package]
-name = "xtask"
-version = "0.1.0"
-authors.workspace = true
-edition.workspace = true
+name                   = "xtask"
+version                = "0.1.0"
+authors.workspace      = true
+edition.workspace      = true
 rust-version.workspace = true
-homepage.workspace = true
-repository.workspace = true
-license.workspace = true
-keywords.workspace = true
-categories.workspace = true
-publish = false
+homepage.workspace     = true
+repository.workspace   = true
+license.workspace      = true
+keywords.workspace     = true
+categories.workspace   = true
+publish                = false
 
 [lints]
 workspace = true
 
 [dependencies]
-anstyle.workspace = true
-anyhow.workspace = true
-bindgen = { version = "0.72.0" }
-clap.workspace = true
-etcetera.workspace = true
-indoc.workspace = true
-regex.workspace = true
-schemars.workspace = true
-semver.workspace = true
-serde_json.workspace = true
-tree-sitter-cli = { path = "../cli/" }
-tree-sitter-loader = { path = "../loader/" }
-notify = "8.2.0"
+anstyle.workspace     = true
+anyhow.workspace      = true
+bindgen               = { version = "0.72.1" }
+clap.workspace        = true
+etcetera.workspace    = true
+indoc.workspace       = true
+notify                = "8.2.0"
 notify-debouncer-full = "0.6.0"
+regex.workspace       = true
+schemars.workspace    = true
+semver.workspace      = true
+serde_json.workspace  = true
+tree-sitter-cli       = { path = "../cli/" }
+tree-sitter-loader    = { path = "../loader/" }
