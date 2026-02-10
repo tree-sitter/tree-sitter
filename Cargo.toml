@@ -19,8 +19,8 @@ authors = [
   "Max Brunsfeld <maxbrunsfeld@gmail.com>",
   "Amaan Qureshi <amaanq12@gmail.com>",
 ]
-edition = "2021"
-rust-version = "1.85"
+edition = "2024"
+rust-version = "1.90"
 homepage = "https://tree-sitter.github.io/tree-sitter"
 repository = "https://github.com/tree-sitter/tree-sitter"
 license = "MIT"
@@ -41,46 +41,23 @@ cargo = { level = "warn", priority = -1 }
 # 2. Are unnecessary, or
 # 3. Worsen the code
 
-branches_sharing_code = "allow"
-cast_lossless = "allow"
 cast_possible_truncation = "allow"
 cast_possible_wrap = "allow"
 cast_precision_loss = "allow"
 cast_sign_loss = "allow"
-checked_conversions = "allow"
-cognitive_complexity = "allow"
-collection_is_never_read = "allow"
-fallible_impl_from = "allow"
-fn_params_excessive_bools = "allow"
-inline_always = "allow"
 if_not_else = "allow"
 items_after_statements = "allow"
-match_wildcard_for_single_variants = "allow"
 missing_errors_doc = "allow"
 missing_panics_doc = "allow"
-module_name_repetitions = "allow"
 multiple_crate_versions = "allow"
-needless_for_each = "allow"
-obfuscated_if_else = "allow"
 option_if_let_else = "allow"
-or_fun_call = "allow"
-range_plus_one = "allow"
-redundant_clone = "allow"
-redundant_closure_for_method_calls = "allow"
-ref_option = "allow"
 similar_names = "allow"
 string_lit_as_bytes = "allow"
 struct_excessive_bools = "allow"
-struct_field_names = "allow"
-transmute_undefined_repr = "allow"
 too_many_lines = "allow"
-unnecessary_wraps = "allow"
-unused_self = "allow"
-used_underscore_items = "allow"
 
 [workspace.lints.rust]
 mismatched_lifetime_syntaxes = "allow"
-deprecated_safe_2024 = "deny"
 
 [profile.optimize]
 inherits = "release"
