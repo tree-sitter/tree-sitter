@@ -83,14 +83,17 @@ pub fn compile_language_to_wasm(
     let wasm_bytes = fs::read(&output_filename)?;
     let parser = Parser::new(0);
     for payload in parser.parse_all(&wasm_bytes) {
-        if let wasmparser::Payload::ImportSection(imports) = payload? {
-            for import in imports {
-                let import = import?.name;
-                if !builtin_symbols.contains(&import)
-                    && !stdlib_symbols.contains(&import)
-                    && !dylink_symbols.contains(&import)
-                {
-                    missing_symbols.push(import);
+        if let wasmparser::Payload::ImportSection(reader) = payload? {
+            for imports in reader {
+                for import in imports? {
+                    let (_, import) = import?;
+                    let name = import.name;
+                    if !builtin_symbols.contains(&name)
+                        && !stdlib_symbols.contains(&name)
+                        && !dylink_symbols.contains(&name)
+                    {
+                        missing_symbols.push(name);
+                    }
                 }
             }
         }

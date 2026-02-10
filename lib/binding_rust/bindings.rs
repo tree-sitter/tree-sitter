@@ -731,7 +731,7 @@ unsafe extern "C" {
 unsafe extern "C" {
     #[doc = " Advance to the next match of the currently running query.\n\n If there is a match, write it to `*match` and return `true`.\n Otherwise, return `false`."]
     pub fn ts_query_cursor_next_match(self_: *mut TSQueryCursor, match_: *mut TSQueryMatch)
-        -> bool;
+    -> bool;
 }
 unsafe extern "C" {
     pub fn ts_query_cursor_remove_match(self_: *mut TSQueryCursor, match_id: u32);

@@ -25,7 +25,7 @@ load    = [ "dep:semver" ]
 qjs-rt  = [ "load", "rquickjs", "pathdiff" ]
 
 [dependencies]
-bitflags = "2.9.4"
+bitflags = "2.10.0"
 dunce = "1.0.5"
 indexmap.workspace = true
 indoc.workspace = true

@@ -1,6 +1,6 @@
 use std::{cmp::Ordering, fmt::Write, ops::Range};
 
-use rand::prelude::Rng;
+use rand::{Rng, RngExt};
 use streaming_iterator::{IntoStreamingIterator, StreamingIterator};
 use tree_sitter::{
     Language, Node, Parser, Point, Query, QueryCapture, QueryCursor, QueryMatch, Tree, TreeCursor,
@@ -31,11 +31,11 @@ impl Pattern {
 
         // Descend to the node at a random byte offset and depth.
         let mut max_depth = 0;
-        let byte_offset = rng.gen_range(0..cursor.node().end_byte());
+        let byte_offset = rng.random_range(0..cursor.node().end_byte());
         while cursor.goto_first_child_for_byte(byte_offset).is_some() {
             max_depth += 1;
         }
-        let depth = rng.gen_range(0..=max_depth);
+        let depth = rng.random_range(0..=max_depth);
         for _ in 0..depth {
             cursor.goto_parent();
         }
@@ -45,7 +45,7 @@ impl Pattern {
         let pattern_start = cursor.node().start_position();
         let mut roots = vec![Self::random_pattern_for_node(&mut cursor, rng)];
         while roots.len() < 5 && cursor.goto_next_sibling() {
-            if rng.gen_bool(0.2) {
+            if rng.random_bool(0.2) {
                 roots.push(Self::random_pattern_for_node(&mut cursor, rng));
             }
         }
@@ -79,22 +79,22 @@ impl Pattern {
         let node = cursor.node();
 
         // Sometimes specify the node's type, sometimes use a wildcard.
-        let (kind, named) = if rng.gen_bool(0.9) {
+        let (kind, named) = if rng.random_bool(0.9) {
             (Some(node.kind()), node.is_named())
         } else {
-            (Some("_"), node.is_named() && rng.gen_bool(0.8))
+            (Some("_"), node.is_named() && rng.random_bool(0.8))
         };
 
         // Sometimes specify the node's field.
-        let field = if rng.gen_bool(0.75) {
+        let field = if rng.random_bool(0.75) {
             cursor.field_name()
         } else {
             None
         };
 
         // Sometimes capture the node.
-        let capture = if rng.gen_bool(0.7) {
-            Some(CAPTURE_NAMES[rng.gen_range(0..CAPTURE_NAMES.len())].to_string())
+        let capture = if rng.random_bool(0.7) {
+            Some(CAPTURE_NAMES[rng.random_range(0..CAPTURE_NAMES.len())].to_string())
         } else {
             None
         };
@@ -102,9 +102,9 @@ impl Pattern {
         // Walk the children and include child patterns for some of them.
         let mut children = Vec::new();
         if named && cursor.goto_first_child() {
-            let max_children = rng.gen_range(0..4);
+            let max_children = rng.random_range(0..4);
             while cursor.goto_next_sibling() {
-                if rng.gen_bool(0.6) {
+                if rng.random_bool(0.6) {
                     let child_ast = Self::random_pattern_for_node(cursor, rng);
                     children.push(child_ast);
                     if children.len() >= max_children {

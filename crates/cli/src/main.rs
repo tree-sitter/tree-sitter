@@ -806,7 +806,7 @@ impl Init {
 
                 let enabled = MultiSelect::new()
                     .with_prompt("Bindings")
-                    .items_checked(&languages)
+                    .items_checked(languages.iter().copied())
                     .interact()?
                     .into_iter()
                     .map(|i| languages[i].0);
@@ -880,7 +880,7 @@ impl Init {
 
                 let idx = FuzzySelect::with_theme(&ColorfulTheme::default())
                     .with_prompt("Which field would you like to change?")
-                    .items(&choices)
+                    .items(choices)
                     .interact()?;
 
                 set_choice!(choices[idx]);

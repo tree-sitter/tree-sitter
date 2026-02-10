@@ -80,8 +80,8 @@ overflow-checks  = true
 ansi_colours = "1.2.3"
 anstyle = "1.0.13"
 anyhow = "1.0.101"
-bstr = "1.12.0"
-cc = "1.2.56"
+bstr   = "1.12.1"
+cc     = "1.2.56"
 clap = { features = [
   "cargo",
   "derive",
@@ -93,23 +93,23 @@ clap = { features = [
 clap_complete = "4.5.66"
 clap_complete_nushell = "4.5.10"
 crc32fast = "1.5.0"
-ctor = "0.2.9"
-ctrlc    = { features = [ "termination" ], version = "3.5.2" }
-dialoguer = { features = [ "fuzzy-select" ], version = "0.11.0" }
+ctor      = "0.6.3"
+ctrlc     = { features = [ "termination" ], version = "3.5.2" }
+dialoguer = { features = [ "fuzzy-select" ], version = "0.12.0" }
 etcetera = "0.11.0"
-fs4 = "0.12.0"
+fs4 = "0.13.0"
 glob = "0.3.3"
 heck = "0.5.0"
 html-escape = "0.2.13"
-indexmap = "2.12.1"
-indoc = "2.0.6"
+indexmap = "2.13.0"
+indoc = "2.0.7"
 libloading = "0.9.0"
-log = { features = [ "std" ], version = "0.4.28" }
-memchr = "2.7.6"
+log = { features = [ "std" ], version = "0.4.29" }
+memchr = "2.8.0"
 once_cell = "1.21.3"
 pretty_assertions = "1.4.1"
-rand = "0.8.5"
-regex = "1.12.3"
+rand         = "0.10.0"
+regex        = "1.12.3"
 regex-syntax = "0.8.9"
 rustc-hash = "2.1.1"
 schemars   = "1.2.1"
@@ -119,14 +119,14 @@ serde_json = { features = [ "preserve_order" ], version = "1.0.149" }
 similar = "2.7.0"
 smallbitvec = "2.6.0"
 streaming-iterator = "0.1.9"
-tempfile = "3.23.0"
+tempfile = "3.25.0"
 thiserror = "2.0.18"
 tiny_http = "0.12.0"
 topological-sort = "0.2.2"
 unindent = "0.2.4"
 walkdir = "2.5.0"
-wasmparser = "0.243.0"
-webbrowser = "1.0.5"
+wasmparser = "0.244.0"
+webbrowser = "1.1.0"
 
 tree-sitter           = { path = "./lib", version = "0.27.0" }
 tree-sitter-config    = { path = "./crates/config", version = "0.27.0" }
