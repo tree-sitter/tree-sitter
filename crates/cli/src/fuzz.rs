@@ -25,7 +25,7 @@ use crate::{
         random::Rand,
     },
     parse::perform_edit,
-    test::{parse_tests, strip_sexp_fields, DiffKey, TestDiff, TestEntry},
+    test::{DiffKey, TestDiff, TestEntry, parse_tests, strip_sexp_fields},
 };
 
 pub static LOG_ENABLED: LazyLock<bool> = LazyLock::new(|| env::var("TREE_SITTER_LOG").is_ok());
@@ -64,7 +64,7 @@ fn regex_env_var(name: &'static str) -> Option<Regex> {
 pub fn new_seed() -> usize {
     int_env_var("TREE_SITTER_SEED").unwrap_or_else(|| {
         let mut rng = rand::thread_rng();
-        let seed = rng.gen::<usize>();
+        let seed = rng.r#gen::<usize>();
         info!("Seed: {seed}");
         seed
     })
@@ -97,9 +97,7 @@ pub fn fuzz_language_corpus(
                         .iter()
                         .any(|lang| lang.as_ref() == language_name)
             }
-            TestEntry::Group {
-                ref mut children, ..
-            } => {
+            TestEntry::Group { children, .. } => {
                 children.retain_mut(|child| retain(child, language_name));
                 !children.is_empty()
             }
@@ -111,12 +109,16 @@ pub fn fuzz_language_corpus(
     let corpus_dir = grammar_dir.join(subdir).join("test").join("corpus");
 
     if !corpus_dir.exists() || !corpus_dir.is_dir() {
-        error!("No corpus directory found, ensure that you have a `test/corpus` directory in your grammar directory with at least one test file.");
+        error!(
+            "No corpus directory found, ensure that you have a `test/corpus` directory in your grammar directory with at least one test file."
+        );
         return;
     }
 
     if std::fs::read_dir(&corpus_dir).unwrap().count() == 0 {
-        error!("No corpus files found in `test/corpus`, ensure that you have at least one test file in your corpus directory.");
+        error!(
+            "No corpus files found in `test/corpus`, ensure that you have at least one test file in your corpus directory."
+        );
         return;
     }
 
@@ -362,10 +364,10 @@ pub fn flatten_tests(
                     if !include.is_match(&name) {
                         return;
                     }
-                } else if let Some(exclude) = exclude {
-                    if exclude.is_match(&name) {
-                        return;
-                    }
+                } else if let Some(exclude) = exclude
+                    && exclude.is_match(&name)
+                {
+                    return;
                 }
 
                 result.push(FlattenedTest {

@@ -2,9 +2,8 @@ use tree_sitter::{InputEdit, Node, Parser, Point, Tree};
 use tree_sitter_generate::load_grammar_file;
 
 use super::{
-    get_random_edit,
+    Rand, get_random_edit,
     helpers::fixtures::{fixtures_dir, get_language, get_test_language},
-    Rand,
 };
 use crate::{
     parse::perform_edit,
@@ -286,7 +285,10 @@ fn test_parent_of_zero_width_node() {
 
     assert_eq!(block.to_string(), "(block)");
     assert_eq!(block_parent.kind(), "function_definition");
-    assert_eq!(block_parent.to_string(), "(function_definition name: (identifier) parameters: (parameters (identifier)) body: (block))");
+    assert_eq!(
+        block_parent.to_string(),
+        "(function_definition name: (identifier) parameters: (parameters (identifier)) body: (block))"
+    );
 
     assert_eq!(
         root.child_with_descendant(block).unwrap(),

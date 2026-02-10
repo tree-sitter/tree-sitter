@@ -11,24 +11,24 @@ use std::{
 };
 
 use anstyle::AnsiColor;
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use clap::ValueEnum;
 use indoc::indoc;
 use regex::{
-    bytes::{Regex as ByteRegex, RegexBuilder as ByteRegexBuilder},
     Regex,
+    bytes::{Regex as ByteRegex, RegexBuilder as ByteRegexBuilder},
 };
 use schemars::{JsonSchema, Schema, SchemaGenerator};
 use serde::Serialize;
 use similar::{ChangeTag, TextDiff};
-use tree_sitter::{format_sexp, Language, LogType, Parser, Query, Tree};
+use tree_sitter::{Language, LogType, Parser, Query, Tree, format_sexp};
 use walkdir::WalkDir;
 
 use super::util;
 use crate::{
     logger::paint,
     parse::{
-        render_cst, ParseDebugType, ParseFileOptions, ParseOutput, ParseStats, ParseTheme, Stats,
+        ParseDebugType, ParseFileOptions, ParseOutput, ParseStats, ParseTheme, Stats, render_cst,
     },
 };
 
@@ -187,6 +187,10 @@ pub struct TestSummary {
 
 impl TestSummary {
     #[must_use]
+    #[expect(
+        clippy::fn_params_excessive_bools,
+        reason = "these map directly to CLI flags"
+    )]
     pub fn new(
         color: bool,
         stat_display: TestStats,
@@ -219,8 +223,8 @@ where
     results.root_group.serialize(serializer)
 }
 
-fn schema_as_array(gen: &mut SchemaGenerator) -> Schema {
-    gen.subschema_for::<Vec<TestResult>>()
+fn schema_as_array(schema_gen: &mut SchemaGenerator) -> Schema {
+    schema_gen.subschema_for::<Vec<TestResult>>()
 }
 
 /// Stores arbitrarily nested parent test groups and child cases. Supports creation
@@ -266,7 +270,10 @@ impl TestResultHierarchy {
             return;
         }
 
-        #[allow(clippy::manual_let_else)]
+        #[expect(
+            clippy::manual_let_else,
+            reason = "mutable borrow in match arm prevents let-else"
+        )]
         let mut curr_group = match self.root_group[self.traversal_idxs[0]].info {
             TestInfo::Group { ref mut children } => children,
             _ => unreachable!(),
@@ -286,7 +293,10 @@ impl TestResultHierarchy {
             return self.root_group.len();
         }
 
-        #[allow(clippy::manual_let_else)]
+        #[expect(
+            clippy::manual_let_else,
+            reason = "destructuring borrow in match arm prevents let-else"
+        )]
         let mut curr_group = match self.root_group[self.traversal_idxs[0]].info {
             TestInfo::Group { ref children } => children,
             _ => unreachable!(),
@@ -300,7 +310,10 @@ impl TestResultHierarchy {
         curr_group.len()
     }
 
-    #[allow(clippy::iter_without_into_iter)]
+    #[expect(
+        clippy::iter_without_into_iter,
+        reason = "IntoIterator not needed for this internal type"
+    )]
     #[must_use]
     pub fn iter(&self) -> TestResultIterWithDepth<'_> {
         let mut stack = Vec::with_capacity(self.root_group.len());
@@ -358,6 +371,10 @@ pub enum TestInfo {
     },
 }
 
+#[expect(
+    clippy::ref_option,
+    reason = "signature required by serde serialize_with"
+)]
 fn serialize_parse_rates<S>(
     parse_rate: &Option<(f64, f64)>,
     serializer: S,
@@ -371,8 +388,8 @@ where
     }
 }
 
-fn parse_rate_schema(gen: &mut SchemaGenerator) -> Schema {
-    gen.subschema_for::<Option<f64>>()
+fn parse_rate_schema(schema_gen: &mut SchemaGenerator) -> Schema {
+    schema_gen.subschema_for::<Option<f64>>()
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, JsonSchema)]
@@ -397,7 +414,7 @@ impl TestSummary {
             .filter_map(|(_, result)| match result.info {
                 TestInfo::Group { .. } => None,
                 TestInfo::ParseTest { parse_rate, .. } => parse_rate,
-                _ => unreachable!(),
+                TestInfo::AssertionTest { .. } => unreachable!(),
             })
             .fold((0usize, 0.0f64), |(count, rate_accum), (_, adj_rate)| {
                 (count + 1, rate_accum + adj_rate)
@@ -411,7 +428,7 @@ impl TestSummary {
                 .filter_map(|(_, result)| match result.info {
                     TestInfo::Group { .. } => None,
                     TestInfo::ParseTest { parse_rate, .. } => parse_rate,
-                    _ => unreachable!(),
+                    TestInfo::AssertionTest { .. } => unreachable!(),
                 })
                 .map(|(_, rate_i)| (rate_i - avg).powi(2))
                 .sum::<f64>()
@@ -835,7 +852,7 @@ fn run_tests(
         } => {
             if attributes.skip {
                 test_summary.parse_results.add_case(TestResult {
-                    name: name.clone(),
+                    name,
                     info: TestInfo::ParseTest {
                         outcome: TestOutcome::Skipped,
                         parse_rate: None,
@@ -848,7 +865,7 @@ fn run_tests(
 
             if !attributes.platform {
                 test_summary.parse_results.add_case(TestResult {
-                    name: name.clone(),
+                    name,
                     info: TestInfo::ParseTest {
                         outcome: TestOutcome::Platform,
                         parse_rate: None,
@@ -1074,10 +1091,9 @@ fn run_tests(
 
             let matches_filter = |name: &str, file_name: &Option<String>, opts: &TestOptions| {
                 if let (Some(test_file_path), Some(filter_file_name)) = (file_name, &opts.file_name)
+                    && !filter_file_name.eq(test_file_path)
                 {
-                    if !filter_file_name.eq(test_file_path) {
-                        return false;
-                    }
+                    return false;
                 }
                 if let Some(include) = &opts.include {
                     include.is_match(name)
@@ -1099,24 +1115,23 @@ fn run_tests(
                     divider_delim_len,
                     ..
                 } = child
+                    && !matches_filter(name, file_name, opts)
                 {
-                    if !matches_filter(name, file_name, opts) {
-                        if opts.update {
-                            let input = String::from_utf8(input.clone()).unwrap();
-                            let output = format_sexp(output, 0);
-                            corrected_entries.push(TestCorrection::new(
-                                name,
-                                input,
-                                output,
-                                attributes_str,
-                                header_delim_len,
-                                divider_delim_len,
-                            ));
-                        }
-
-                        test_summary.test_num += 1;
-                        continue;
+                    if opts.update {
+                        let input = String::from_utf8(input.clone()).unwrap();
+                        let output = format_sexp(output, 0);
+                        corrected_entries.push(TestCorrection::new(
+                            name,
+                            input,
+                            output,
+                            attributes_str,
+                            header_delim_len,
+                            divider_delim_len,
+                        ));
                     }
+
+                    test_summary.test_num += 1;
+                    continue;
                 }
 
                 if !ran_test_in_group && !is_root {
@@ -1415,53 +1430,53 @@ fn parse_test_content(name: String, content: &str, file_path: Option<PathBuf>) -
                 })
                 .max_by_key(|(_, range)| range.len());
 
-            if let Some((divider_delim_len, divider_range)) = divider_range {
-                if let Ok(output) = str::from_utf8(&bytes[divider_range.end..header_range.start]) {
-                    let mut input = bytes[prev_header_end..divider_range.start].to_vec();
+            if let Some((divider_delim_len, divider_range)) = divider_range
+                && let Ok(output) = str::from_utf8(&bytes[divider_range.end..header_range.start])
+            {
+                let mut input = bytes[prev_header_end..divider_range.start].to_vec();
 
-                    // Remove trailing newline from the input.
+                // Remove trailing newline from the input.
+                input.pop();
+                if input.last() == Some(&b'\r') {
                     input.pop();
-                    if input.last() == Some(&b'\r') {
-                        input.pop();
-                    }
-
-                    let (output, has_fields) = if prev_attributes.cst {
-                        (output.trim().to_string(), false)
-                    } else {
-                        // Remove all comments
-                        let output = COMMENT_REGEX.replace_all(output, "").to_string();
-
-                        // Normalize the whitespace in the expected output.
-                        let output = WHITESPACE_REGEX.replace_all(output.trim(), " ");
-                        let output = output.replace(" )", ")");
-
-                        // Identify if the expected output has fields indicated. If not, then
-                        // fields will not be checked.
-                        let has_fields = SEXP_FIELD_REGEX.is_match(&output);
-
-                        (output, has_fields)
-                    };
-
-                    let file_name = if let Some(ref path) = file_path {
-                        path.file_name().map(|n| n.to_string_lossy().to_string())
-                    } else {
-                        None
-                    };
-
-                    let t = TestEntry::Example {
-                        name: prev_name,
-                        input,
-                        output,
-                        header_delim_len: prev_header_len,
-                        divider_delim_len,
-                        has_fields,
-                        attributes_str: prev_attributes_str,
-                        attributes: prev_attributes,
-                        file_name,
-                    };
-
-                    children.push(t);
                 }
+
+                let (output, has_fields) = if prev_attributes.cst {
+                    (output.trim().to_string(), false)
+                } else {
+                    // Remove all comments
+                    let output = COMMENT_REGEX.replace_all(output, "").to_string();
+
+                    // Normalize the whitespace in the expected output.
+                    let output = WHITESPACE_REGEX.replace_all(output.trim(), " ");
+                    let output = output.replace(" )", ")");
+
+                    // Identify if the expected output has fields indicated. If not, then
+                    // fields will not be checked.
+                    let has_fields = SEXP_FIELD_REGEX.is_match(&output);
+
+                    (output, has_fields)
+                };
+
+                let file_name = if let Some(ref path) = file_path {
+                    path.file_name().map(|n| n.to_string_lossy().to_string())
+                } else {
+                    None
+                };
+
+                let t = TestEntry::Example {
+                    name: prev_name,
+                    input,
+                    output,
+                    header_delim_len: prev_header_len,
+                    divider_delim_len,
+                    has_fields,
+                    attributes_str: prev_attributes_str,
+                    attributes: prev_attributes,
+                    file_name,
+                };
+
+                children.push(t);
             }
         }
         prev_attributes = attributes;
@@ -2144,9 +2159,7 @@ Test with cst marker
     fn clear_parse_rate(result: &mut TestResult) {
         let test_case_info = &mut result.info;
         match test_case_info {
-            TestInfo::ParseTest {
-                ref mut parse_rate, ..
-            } => {
+            TestInfo::ParseTest { parse_rate, .. } => {
                 assert!(parse_rate.is_some());
                 *parse_rate = None;
             }
@@ -2344,18 +2357,14 @@ Test with cst marker
             {
                 let test_group_1_info = &mut test_summary.parse_results.root_group[0].info;
                 match test_group_1_info {
-                    TestInfo::Group {
-                        ref mut children, ..
-                    } => clear_parse_rate(&mut children[0]),
+                    TestInfo::Group { children, .. } => clear_parse_rate(&mut children[0]),
                     TestInfo::ParseTest { .. } | TestInfo::AssertionTest { .. } => {
                         panic!("Unexpected test result");
                     }
                 }
                 let test_group_2_info = &mut test_summary.parse_results.root_group[1].info;
                 match test_group_2_info {
-                    TestInfo::Group {
-                        ref mut children, ..
-                    } => {
+                    TestInfo::Group { children, .. } => {
                         clear_parse_rate(&mut children[0]);
                         clear_parse_rate(&mut children[1]);
                     }
