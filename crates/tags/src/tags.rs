@@ -79,7 +79,9 @@ pub enum Error {
     Cancelled,
     #[error("Invalid language")]
     InvalidLanguage,
-    #[error("Invalid capture @{0}. Expected one of: @definition.*, @reference.*, @doc, @name, @local.(scope|definition|reference).")]
+    #[error(
+        "Invalid capture @{0}. Expected one of: @definition.*, @reference.*, @doc, @name, @local.(scope|definition|reference)."
+    )]
     InvalidCapture(String),
 }
 
@@ -292,11 +294,7 @@ impl TagsContext {
             .parser
             .parse_with_options(
                 &mut |i, _| {
-                    if i < source.len() {
-                        &source[i..]
-                    } else {
-                        &[]
-                    }
+                    if i < source.len() { &source[i..] } else { &[] }
                 },
                 None,
                 Some(ParseOptions::new().progress_callback(&mut |_| {
@@ -364,16 +362,15 @@ where
 
             // If there is a queued tag for an earlier node in the syntax tree, then pop
             // it off of the queue and return it.
-            if let Some(last_entry) = self.tag_queue.last() {
-                if self.tag_queue.len() > 1
-                    && self.tag_queue[0].0.name_range.end < last_entry.0.name_range.start
-                {
-                    let tag = self.tag_queue.remove(0).0;
-                    if tag.is_ignored() {
-                        continue;
-                    }
-                    return Some(Ok(tag));
+            if let Some(last_entry) = self.tag_queue.last()
+                && self.tag_queue.len() > 1
+                && self.tag_queue[0].0.name_range.end < last_entry.0.name_range.start
+            {
+                let tag = self.tag_queue.remove(0).0;
+                if tag.is_ignored() {
+                    continue;
                 }
+                return Some(Ok(tag));
             }
 
             // If there is another match, then compute its tag and add it to the
@@ -391,14 +388,14 @@ where
                                 inherits: pattern_info.local_scope_inherits,
                                 local_defs: Vec::new(),
                             });
-                        } else if index == self.config.local_definition_capture_index {
-                            if let Some(scope) = self.scopes.iter_mut().rev().find(|scope| {
+                        } else if index == self.config.local_definition_capture_index
+                            && let Some(scope) = self.scopes.iter_mut().rev().find(|scope| {
                                 scope.range.start <= range.start && scope.range.end >= range.end
-                            }) {
-                                scope.local_defs.push(LocalDef {
-                                    name: &self.source[range.clone()],
-                                });
-                            }
+                            })
+                        {
+                            scope.local_defs.push(LocalDef {
+                                name: &self.source[range.clone()],
+                            });
                         }
                     }
                     continue;
