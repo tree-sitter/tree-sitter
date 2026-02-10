@@ -1,11 +1,11 @@
 use std::{fs, path::Path};
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use tree_sitter_loader::{Config, Loader};
 use tree_sitter_tags::{TagsConfiguration, TagsContext};
 
 use crate::{
-    query_testing::{parse_position_comments, to_utf8_point, Assertion, Utf8Point},
+    query_testing::{Assertion, Utf8Point, parse_position_comments, to_utf8_point},
     test::{TestInfo, TestOutcome, TestResult, TestSummary},
     util,
 };
@@ -113,11 +113,7 @@ pub fn test_tags(
         }
     }
 
-    if failed {
-        Err(anyhow!(""))
-    } else {
-        Ok(())
-    }
+    if failed { Err(anyhow!("")) } else { Ok(()) }
 }
 
 pub fn test_tag(

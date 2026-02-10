@@ -126,9 +126,11 @@ fn test_text_provider_callback_with_str_slice() {
     check_parsing(text, |_node: Node<'_>| iter::once(text));
     check_parsing_callback(
         &mut |offset, _point| {
-            (offset < text.len())
-                .then_some(text.as_bytes())
-                .unwrap_or_default()
+            if offset < text.len() {
+                text.as_bytes()
+            } else {
+                Default::default()
+            }
         },
         |_node: Node<'_>| iter::once(text),
     );
@@ -140,9 +142,11 @@ fn test_text_provider_callback_with_owned_string_slice() {
 
     check_parsing_callback(
         &mut |offset, _point| {
-            (offset < text.len())
-                .then_some(text.as_bytes())
-                .unwrap_or_default()
+            if offset < text.len() {
+                text.as_bytes()
+            } else {
+                Default::default()
+            }
         },
         |_node: Node<'_>| {
             let slice: String = text.to_owned();
@@ -157,9 +161,11 @@ fn test_text_provider_callback_with_owned_bytes_vec_slice() {
 
     check_parsing_callback(
         &mut |offset, _point| {
-            (offset < text.len())
-                .then_some(text.as_bytes())
-                .unwrap_or_default()
+            if offset < text.len() {
+                text.as_bytes()
+            } else {
+                Default::default()
+            }
         },
         |_node: Node<'_>| {
             let slice = text.to_owned().into_bytes();
@@ -174,9 +180,11 @@ fn test_text_provider_callback_with_owned_arc_of_bytes_slice() {
 
     check_parsing_callback(
         &mut |offset, _point| {
-            (offset < text.len())
-                .then_some(text.as_bytes())
-                .unwrap_or_default()
+            if offset < text.len() {
+                text.as_bytes()
+            } else {
+                Default::default()
+            }
         },
         |_node: Node<'_>| {
             let slice: Arc<[u8]> = text.to_owned().into_bytes().into();

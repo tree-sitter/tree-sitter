@@ -1,6 +1,6 @@
 use tree_sitter::{LogType, Node, Parser, Point, Range, Tree};
 
-use super::{scope_sequence::ScopeSequence, LOG_ENABLED, LOG_GRAPH_ENABLED};
+use super::{LOG_ENABLED, LOG_GRAPH_ENABLED, scope_sequence::ScopeSequence};
 use crate::util;
 
 pub fn check_consistent_sizes(tree: &Tree, input: &[u8]) {

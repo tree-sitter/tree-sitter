@@ -204,10 +204,10 @@ impl Pattern {
         }
 
         // If a field is specified, check that it matches the node.
-        if let Some(field) = self.field {
-            if cursor.field_name() != Some(field) {
-                return Vec::new();
-            }
+        if let Some(field) = self.field
+            && cursor.field_name() != Some(field)
+        {
+            return Vec::new();
         }
 
         // Create a match for the current node.

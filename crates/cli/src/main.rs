@@ -5,23 +5,23 @@ use std::{
 };
 
 use anstyle::{AnsiColor, Color, Style};
-use anyhow::{anyhow, Context, Result};
-use clap::{crate_authors, Args, Command, FromArgMatches as _, Subcommand, ValueEnum};
+use anyhow::{Context, Result, anyhow};
+use clap::{Args, Command, FromArgMatches as _, Subcommand, ValueEnum, crate_authors};
 use clap_complete::generate;
-use dialoguer::{theme::ColorfulTheme, Confirm, FuzzySelect, Input, MultiSelect};
+use dialoguer::{Confirm, FuzzySelect, Input, MultiSelect, theme::ColorfulTheme};
 use heck::ToUpperCamelCase;
 use log::{error, info, warn};
 use regex::Regex;
 use semver::Version as SemverVersion;
-use tree_sitter::{ffi, Parser, Point};
+use tree_sitter::{Parser, Point, ffi};
 use tree_sitter_cli::{
     fuzz::{
-        fuzz_language_corpus, FuzzOptions, DEFAULT_EDIT_COUNT, DEFAULT_ITERATION_COUNT, EDIT_COUNT,
-        ITERATION_COUNT, LOG_ENABLED, LOG_GRAPH_ENABLED, START_SEED,
+        DEFAULT_EDIT_COUNT, DEFAULT_ITERATION_COUNT, EDIT_COUNT, FuzzOptions, ITERATION_COUNT,
+        LOG_ENABLED, LOG_GRAPH_ENABLED, START_SEED, fuzz_language_corpus,
     },
     highlight::{self, HighlightOptions},
-    init::{generate_grammar_files, JsonConfigOpts, TREE_SITTER_JSON_SCHEMA},
-    input::{get_input, get_tmp_source_file, CliInput},
+    init::{JsonConfigOpts, TREE_SITTER_JSON_SCHEMA, generate_grammar_files},
+    input::{CliInput, get_input, get_tmp_source_file},
     logger,
     parse::{self, ParseDebugType, ParseFileOptions, ParseOutput, ParseTheme},
     playground,
@@ -217,7 +217,10 @@ struct Parse {
     pub scope: Option<String>,
     /// Show parsing debug log
     #[arg(long, short = 'd')] // TODO: Rework once clap adds `default_missing_value_t`
-    #[allow(clippy::option_option)]
+    #[expect(
+        clippy::option_option,
+        reason = "required by clap for optional flag with optional value"
+    )]
     pub debug: Option<Option<ParseDebugType>>,
     /// Compile a parser in debug mode
     #[arg(long, short = '0')]
@@ -249,7 +252,10 @@ struct Parse {
     /// Suppress main output
     #[arg(long, short)]
     pub quiet: bool,
-    #[allow(clippy::doc_markdown)]
+    #[expect(
+        clippy::doc_markdown,
+        reason = "doc string contains format syntax, not code identifiers"
+    )]
     /// Apply edits in the format: \"row,col|position delcount insert_text\", can be supplied
     /// multiple times
     #[arg(
@@ -353,6 +359,10 @@ struct Test {
 
 #[derive(Args)]
 #[command(alias = "publish")]
+#[expect(
+    clippy::struct_field_names,
+    reason = "field names map to CLI arguments"
+)]
 /// Display or increment the version of a grammar
 struct Version {
     /// The version to bump to
@@ -423,6 +433,10 @@ struct Fuzz {
 
 #[derive(Args)]
 #[command(alias = "q")]
+#[expect(
+    clippy::struct_field_names,
+    reason = "field names map to CLI arguments"
+)]
 struct Query {
     /// Path to a file with queries
     #[arg(index = 1, required = true)]
@@ -1409,7 +1423,7 @@ impl Test {
         // For the rest of the queries, find their tests and run them
         for entry in walkdir::WalkDir::new(&query_dir)
             .into_iter()
-            .filter_map(|e| e.ok())
+            .filter_map(std::result::Result::ok)
             .filter(|e| e.file_type().is_file())
         {
             let stem = entry
@@ -1535,11 +1549,12 @@ impl Query {
         loader.find_all_languages(&loader_config)?;
         let query_path = Path::new(&self.query_path);
 
-        let byte_range = parse_range(&self.byte_range, |x| x)?;
-        let point_range = parse_range(&self.row_range, |row| Point::new(row, 0))?;
-        let containing_byte_range = parse_range(&self.containing_byte_range, |x| x)?;
-        let containing_point_range =
-            parse_range(&self.containing_row_range, |row| Point::new(row, 0))?;
+        let byte_range = parse_range(self.byte_range.as_deref(), |x| x)?;
+        let point_range = parse_range(self.row_range.as_deref(), |row| Point::new(row, 0))?;
+        let containing_byte_range = parse_range(self.containing_byte_range.as_deref(), |x| x)?;
+        let containing_point_range = parse_range(self.containing_row_range.as_deref(), |row| {
+            Point::new(row, 0)
+        })?;
 
         let cancellation_flag = util::cancel_on_signal();
 
@@ -1764,7 +1779,7 @@ impl Highlight {
                 let path = get_tmp_source_file(&contents)?;
 
                 let (language, language_config) =
-                    if let (Some(l), Some(lc)) = (language.clone(), language_configuration) {
+                    if let (Some(l), Some(lc)) = (language, language_configuration) {
                         (l, lc)
                     } else {
                         let language = languages
@@ -1906,7 +1921,7 @@ impl Tags {
                 let path = get_tmp_source_file(&contents)?;
 
                 let (language, language_config) =
-                    if let (Some(l), Some(lc)) = (language.clone(), language_configuration) {
+                    if let (Some(l), Some(lc)) = (language, language_configuration) {
                         (l, lc)
                     } else {
                         let languages = loader.languages_at_path(current_dir)?;
@@ -2001,10 +2016,10 @@ fn main() {
     let result = run();
     if let Err(err) = &result {
         // Ignore BrokenPipe errors
-        if let Some(error) = err.downcast_ref::<std::io::Error>() {
-            if error.kind() == std::io::ErrorKind::BrokenPipe {
-                return;
-            }
+        if let Some(error) = err.downcast_ref::<std::io::Error>()
+            && error.kind() == std::io::ErrorKind::BrokenPipe
+        {
+            return;
         }
         if !err.to_string().is_empty() {
             error!("{err:?}");
@@ -2057,7 +2072,7 @@ fn run() -> Result<()> {
         | Commands::Complete(_) => &None,
     }
     .as_ref()
-    .map_or_else(|| env::current_dir().unwrap(), |p| p.clone());
+    .map_or_else(|| env::current_dir().unwrap(), std::clone::Clone::clone);
 
     let loader = loader::Loader::new()?;
 
@@ -2129,7 +2144,7 @@ fn get_lib_info<'a>(
         // Use the user-specified name if present, otherwise try to derive it from
         // the lib path
         match (
-            language_name.map(|s| s.as_str()),
+            language_name.map(std::string::String::as_str),
             lib_path.file_stem().and_then(|s| s.to_str()),
         ) {
             (Some(name), _) | (None, Some(name)) => Some((absolute_lib_path, name)),
@@ -2142,10 +2157,10 @@ fn get_lib_info<'a>(
 
 /// Parse a range string of the form "start:end" into an optional Range<T>.
 fn parse_range<T>(
-    range_str: &Option<String>,
+    range_str: Option<&str>,
     make: impl Fn(usize) -> T,
 ) -> Result<Option<std::ops::Range<T>>> {
-    if let Some(range) = range_str.as_ref() {
+    if let Some(range) = range_str {
         let err_msg = format!("Invalid range '{range}', expected 'start:end'");
         let mut parts = range.split(':');
 

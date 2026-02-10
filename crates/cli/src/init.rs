@@ -4,20 +4,20 @@ use std::{
     str::{self, FromStr},
 };
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use crc32fast::hash as crc32;
 use heck::{ToKebabCase, ToShoutySnakeCase, ToSnakeCase, ToUpperCamelCase};
 use indoc::{formatdoc, indoc};
 use log::info;
-use rand::{thread_rng, Rng};
+use rand::RngExt;
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use tree_sitter_generate::write_file;
 use tree_sitter_loader::{
-    Author, Bindings, Grammar, Links, Metadata, PathsJSON, TreeSitterJSON,
-    DEFAULT_HIGHLIGHTS_QUERY_FILE_NAME, DEFAULT_INJECTIONS_QUERY_FILE_NAME,
-    DEFAULT_LOCALS_QUERY_FILE_NAME, DEFAULT_TAGS_QUERY_FILE_NAME,
+    Author, Bindings, DEFAULT_HIGHLIGHTS_QUERY_FILE_NAME, DEFAULT_INJECTIONS_QUERY_FILE_NAME,
+    DEFAULT_LOCALS_QUERY_FILE_NAME, DEFAULT_TAGS_QUERY_FILE_NAME, Grammar, Links, Metadata,
+    PathsJSON, TreeSitterJSON,
 };
 
 const CLI_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -1319,23 +1319,21 @@ fn generate_file(
     {
         match filename {
             "package.json" => {
-                if let Some(start_idx) = replacement.find(AUTHOR_BLOCK_JS) {
-                    if let Some(end_idx) = replacement[start_idx..]
+                if let Some(start_idx) = replacement.find(AUTHOR_BLOCK_JS)
+                    && let Some(end_idx) = replacement[start_idx..]
                         .find("},")
                         .map(|i| i + start_idx + 2)
-                    {
-                        replacement.replace_range(start_idx..end_idx, "");
-                    }
+                {
+                    replacement.replace_range(start_idx..end_idx, "");
                 }
             }
             "pom.xml" => {
-                if let Some(start_idx) = replacement.find(AUTHOR_BLOCK_JAVA) {
-                    if let Some(end_idx) = replacement[start_idx..]
+                if let Some(start_idx) = replacement.find(AUTHOR_BLOCK_JAVA)
+                    && let Some(end_idx) = replacement[start_idx..]
                         .find("</developer>")
                         .map(|i| i + start_idx + 12)
-                    {
-                        replacement.replace_range(start_idx..end_idx, "");
-                    }
+                {
+                    replacement.replace_range(start_idx..end_idx, "");
                 }
             }
             _ => {}
@@ -1343,33 +1341,30 @@ fn generate_file(
     } else if generate_opts.author_name.is_none() && generate_opts.author_email.is_none() {
         match filename {
             "pyproject.toml" => {
-                if let Some(start_idx) = replacement.find(AUTHOR_BLOCK_PY) {
-                    if let Some(end_idx) = replacement[start_idx..]
+                if let Some(start_idx) = replacement.find(AUTHOR_BLOCK_PY)
+                    && let Some(end_idx) = replacement[start_idx..]
                         .find("}]")
                         .map(|i| i + start_idx + 2)
-                    {
-                        replacement.replace_range(start_idx..end_idx, "");
-                    }
+                {
+                    replacement.replace_range(start_idx..end_idx, "");
                 }
             }
             "grammar.js" => {
-                if let Some(start_idx) = replacement.find(AUTHOR_BLOCK_GRAMMAR) {
-                    if let Some(end_idx) = replacement[start_idx..]
+                if let Some(start_idx) = replacement.find(AUTHOR_BLOCK_GRAMMAR)
+                    && let Some(end_idx) = replacement[start_idx..]
                         .find(" \n")
                         .map(|i| i + start_idx + 1)
-                    {
-                        replacement.replace_range(start_idx..end_idx, "");
-                    }
+                {
+                    replacement.replace_range(start_idx..end_idx, "");
                 }
             }
             "Cargo.toml" => {
-                if let Some(start_idx) = replacement.find(AUTHOR_BLOCK_RS) {
-                    if let Some(end_idx) = replacement[start_idx..]
+                if let Some(start_idx) = replacement.find(AUTHOR_BLOCK_RS)
+                    && let Some(end_idx) = replacement[start_idx..]
                         .find("\"]")
                         .map(|i| i + start_idx + 2)
-                    {
-                        replacement.replace_range(start_idx..end_idx, "");
-                    }
+                {
+                    replacement.replace_range(start_idx..end_idx, "");
                 }
             }
             _ => {}
@@ -1481,7 +1476,7 @@ where
     Missing(P),
 }
 
-#[allow(dead_code)]
+#[expect(dead_code, reason = "provides complete API for path state handling")]
 impl<P> PathState<P>
 where
     P: AsRef<Path>,

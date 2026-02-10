@@ -1,7 +1,7 @@
 use std::{env, fmt::Write, ops::ControlFlow, sync::LazyLock};
 
 use indoc::indoc;
-use rand::{prelude::StdRng, SeedableRng};
+use rand::{SeedableRng, prelude::StdRng};
 use streaming_iterator::StreamingIterator;
 use tree_sitter::{
     CaptureQuantifier, InputEdit, Language, Node, Parser, Point, Query, QueryCursor,
@@ -14,15 +14,14 @@ use unindent::Unindent;
 use super::helpers::{
     allocations,
     fixtures::{get_language, get_test_language},
-    query_helpers::{assert_query_matches, Match, Pattern},
+    query_helpers::{Match, Pattern, assert_query_matches},
 };
 use crate::tests::{
-    generate_parser,
+    ITERATION_COUNT, generate_parser,
     helpers::{
         fixtures::get_test_fixture_language,
         query_helpers::{collect_captures, collect_matches},
     },
-    ITERATION_COUNT,
 };
 
 static EXAMPLE_FILTER: LazyLock<Option<String>> =
@@ -34,11 +33,13 @@ fn test_query_errors_on_invalid_syntax() {
         let language = get_language("javascript");
 
         assert!(Query::new(&language, "(if_statement)").is_ok());
-        assert!(Query::new(
-            &language,
-            "(if_statement condition:(parenthesized_expression (identifier)))"
-        )
-        .is_ok());
+        assert!(
+            Query::new(
+                &language,
+                "(if_statement condition:(parenthesized_expression (identifier)))"
+            )
+            .is_ok()
+        );
 
         // Mismatched parens
         assert_eq!(
@@ -2167,7 +2168,7 @@ fn test_query_matches_with_supertypes() {
 }
 
 #[test]
-#[allow(clippy::reversed_empty_ranges)]
+#[expect(clippy::reversed_empty_ranges, reason = "testing empty range behavior")]
 fn test_query_matches_within_byte_range() {
     allocations::record(|| {
         let language = get_language("javascript");
@@ -4120,13 +4121,13 @@ fn test_query_lifetime_is_separate_from_nodes_lifetime() {
             let language = get_language("javascript");
             let query = Query::new(&language, query).unwrap();
             let mut cursor = QueryCursor::new();
-            let node = cursor
+
+            cursor
                 .matches(&query, node, source.as_bytes())
                 .next()
                 .unwrap()
                 .captures[0]
-                .node;
-            node
+                .node
         }
 
         let node = take_first_node_from_captures(source, query, tree.root_node());
@@ -4140,14 +4141,14 @@ fn test_query_lifetime_is_separate_from_nodes_lifetime() {
             let language = get_language("javascript");
             let query = Query::new(&language, query).unwrap();
             let mut cursor = QueryCursor::new();
-            let node = cursor
+
+            cursor
                 .captures(&query, node, source.as_bytes())
                 .next()
                 .unwrap()
                 .0
                 .captures[0]
-                .node;
-            node
+                .node
         }
 
         let node = take_first_node_from_matches(source, query, tree.root_node());
@@ -4611,10 +4612,10 @@ fn test_query_is_pattern_guaranteed_at_step() {
         eprintln!();
 
         for row in rows {
-            if let Some(filter) = EXAMPLE_FILTER.as_ref() {
-                if !row.description.contains(filter.as_str()) {
-                    continue;
-                }
+            if let Some(filter) = EXAMPLE_FILTER.as_ref()
+                && !row.description.contains(filter.as_str())
+            {
+                continue;
             }
             eprintln!("  query example: {:?}", row.description);
             let query = Query::new(&row.language, row.pattern).unwrap();
@@ -4707,10 +4708,10 @@ fn test_query_is_pattern_rooted() {
 
         let language = get_language("python");
         for row in &rows {
-            if let Some(filter) = EXAMPLE_FILTER.as_ref() {
-                if !row.description.contains(filter.as_str()) {
-                    continue;
-                }
+            if let Some(filter) = EXAMPLE_FILTER.as_ref()
+                && !row.description.contains(filter.as_str())
+            {
+                continue;
             }
             eprintln!("  query example: {:?}", row.description);
             let query = Query::new(&language, row.pattern).unwrap();
@@ -4804,10 +4805,10 @@ fn test_query_is_pattern_non_local() {
         eprintln!();
 
         for row in &rows {
-            if let Some(filter) = EXAMPLE_FILTER.as_ref() {
-                if !row.description.contains(filter.as_str()) {
-                    continue;
-                }
+            if let Some(filter) = EXAMPLE_FILTER.as_ref()
+                && !row.description.contains(filter.as_str())
+            {
+                continue;
             }
             eprintln!("  query example: {:?}", row.description);
             let query = Query::new(&row.language, row.pattern).unwrap();
@@ -5034,10 +5035,10 @@ fn test_capture_quantifiers() {
         eprintln!();
 
         for row in rows {
-            if let Some(filter) = EXAMPLE_FILTER.as_ref() {
-                if !row.description.contains(filter.as_str()) {
-                    continue;
-                }
+            if let Some(filter) = EXAMPLE_FILTER.as_ref()
+                && !row.description.contains(filter.as_str())
+            {
+                continue;
             }
             eprintln!("  query example: {:?}", row.description);
             let query = Query::new(&row.language, row.pattern).unwrap();
@@ -5594,7 +5595,10 @@ fn test_query_execution_with_points_causing_underflow() {
     let mut parser = Parser::new();
     parser.set_language(&language).unwrap();
 
-    #[allow(clippy::literal_string_with_formatting_args)]
+    #[expect(
+        clippy::literal_string_with_formatting_args,
+        reason = "raw string contains format syntax as literal code"
+    )]
     let code = r#"fn main() {
     println!("{:?}", foo());
 }"#;

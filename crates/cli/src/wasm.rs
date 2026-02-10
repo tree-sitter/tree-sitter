@@ -3,7 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use tree_sitter::wasm_stdlib_symbols;
 use tree_sitter_generate::{load_grammar_file, parse_grammar::GrammarJSON};
 use tree_sitter_loader::Loader;

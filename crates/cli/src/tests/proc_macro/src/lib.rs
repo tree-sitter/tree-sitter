@@ -2,8 +2,9 @@ use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::quote;
 use syn::{
+    Error, Expr, Ident, ItemFn, LitInt, Token,
     parse::{Parse, ParseStream},
-    parse_macro_input, Error, Expr, Ident, ItemFn, LitInt, Token,
+    parse_macro_input,
 };
 
 #[proc_macro_attribute]
@@ -68,7 +69,7 @@ pub fn test_with_seed(args: TokenStream, input: TokenStream) -> TokenStream {
                         return Err(Error::new(
                             name.span(),
                             format!("Unsupported parameter `{x}`"),
-                        ))
+                        ));
                     }
                 }
 
