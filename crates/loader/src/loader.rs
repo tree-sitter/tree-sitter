@@ -259,7 +259,11 @@ impl std::fmt::Display for WasmToolError {
             )?;
         } else {
             let toolchain_upper = self.toolchain.replace('-', "_").to_ascii_uppercase();
-            write!(f, "TREE_SITTER_{toolchain_upper}_PATH is set to '{}', but no clang executable found in 'bin/' directory.", self.tool_dir)?;
+            write!(
+                f,
+                "TREE_SITTER_{toolchain_upper}_PATH is set to '{}', but no clang executable found in 'bin/' directory.",
+                self.tool_dir
+            )?;
         }
 
         let possible_exes = self.possible_executables.join(", ");
@@ -399,7 +403,7 @@ impl TreeSitterJSON {
     }
 
     #[must_use]
-    pub fn has_multiple_language_configs(&self) -> bool {
+    pub const fn has_multiple_language_configs(&self) -> bool {
         self.grammars.len() > 1
     }
 }
@@ -789,14 +793,14 @@ impl Loader {
             if let Ok(entries) = fs::read_dir(parser_container_dir) {
                 for entry in entries {
                     let entry = entry.map_err(|e| LoaderError::IO(IoError::new(e, None)))?;
-                    if let Some(parser_dir_name) = entry.file_name().to_str() {
-                        if parser_dir_name.starts_with("tree-sitter-") {
-                            self.find_language_configurations_at_path(
-                                &parser_container_dir.join(parser_dir_name),
-                                false,
-                            )
-                            .ok();
-                        }
+                    if let Some(parser_dir_name) = entry.file_name().to_str()
+                        && parser_dir_name.starts_with("tree-sitter-")
+                    {
+                        self.find_language_configurations_at_path(
+                            &parser_container_dir.join(parser_dir_name),
+                            false,
+                        )
+                        .ok();
                     }
                 }
             }
@@ -858,12 +862,13 @@ impl Loader {
                         .next()
                         .transpose()
                         .map_err(|e| LoaderError::IO(IoError::new(e, Some(path))))?;
-                    if let Some(first_line) = first_line {
-                        if regex.is_match(&first_line) && !ids.is_empty() {
-                            let configuration = &self.language_configurations[ids[0]];
-                            let language = self.language_for_id(configuration.language_id)?;
-                            return Ok(Some((language, configuration)));
-                        }
+                    if let Some(first_line) = first_line
+                        && regex.is_match(&first_line)
+                        && !ids.is_empty()
+                    {
+                        let configuration = &self.language_configurations[ids[0]];
+                        let language = self.language_for_id(configuration.language_id)?;
+                        return Ok(Some((language, configuration)));
                     }
                 }
 
@@ -893,51 +898,51 @@ impl Loader {
                     .get(&extensions.join("."))
             });
 
-        if let Some(configuration_ids) = configuration_ids {
-            if !configuration_ids.is_empty() {
-                let configuration = if configuration_ids.len() == 1 {
-                    &self.language_configurations[configuration_ids[0]]
-                }
-                // If multiple language configurations match, then determine which
-                // one to use by applying the configurations' content regexes.
-                else {
-                    let file_contents =
-                        fs::read(path).map_err(|e| LoaderError::IO(IoError::new(e, Some(path))))?;
-                    let file_contents = String::from_utf8_lossy(&file_contents);
-                    let mut best_score = -2isize;
-                    let mut best_configuration_id = None;
-                    for configuration_id in configuration_ids {
-                        let config = &self.language_configurations[*configuration_id];
-
-                        // If the language configuration has a content regex, assign
-                        // a score based on the length of the first match.
-                        let score;
-                        if let Some(content_regex) = &config.content_regex {
-                            if let Some(mat) = content_regex.find(&file_contents) {
-                                score = (mat.end() - mat.start()) as isize;
-                            }
-                            // If the content regex does not match, then *penalize* this
-                            // language configuration, so that language configurations
-                            // without content regexes are preferred over those with
-                            // non-matching content regexes.
-                            else {
-                                score = -1;
-                            }
-                        } else {
-                            score = 0;
-                        }
-                        if score > best_score {
-                            best_configuration_id = Some(*configuration_id);
-                            best_score = score;
-                        }
-                    }
-
-                    &self.language_configurations[best_configuration_id.unwrap()]
-                };
-
-                let language = self.language_for_id(configuration.language_id)?;
-                return Ok(Some((language, configuration)));
+        if let Some(configuration_ids) = configuration_ids
+            && !configuration_ids.is_empty()
+        {
+            let configuration = if configuration_ids.len() == 1 {
+                &self.language_configurations[configuration_ids[0]]
             }
+            // If multiple language configurations match, then determine which
+            // one to use by applying the configurations' content regexes.
+            else {
+                let file_contents =
+                    fs::read(path).map_err(|e| LoaderError::IO(IoError::new(e, Some(path))))?;
+                let file_contents = String::from_utf8_lossy(&file_contents);
+                let mut best_score = -2isize;
+                let mut best_configuration_id = None;
+                for configuration_id in configuration_ids {
+                    let config = &self.language_configurations[*configuration_id];
+
+                    // If the language configuration has a content regex, assign
+                    // a score based on the length of the first match.
+                    let score;
+                    if let Some(content_regex) = &config.content_regex {
+                        if let Some(mat) = content_regex.find(&file_contents) {
+                            score = (mat.end() - mat.start()) as isize;
+                        }
+                        // If the content regex does not match, then *penalize* this
+                        // language configuration, so that language configurations
+                        // without content regexes are preferred over those with
+                        // non-matching content regexes.
+                        else {
+                            score = -1;
+                        }
+                    } else {
+                        score = 0;
+                    }
+                    if score > best_score {
+                        best_configuration_id = Some(*configuration_id);
+                        best_score = score;
+                    }
+                }
+
+                &self.language_configurations[best_configuration_id.unwrap()]
+            };
+
+            let language = self.language_for_id(configuration.language_id)?;
+            return Ok(Some((language, configuration)));
         }
 
         Ok(None)
@@ -950,13 +955,13 @@ impl Loader {
         let mut best_match_length = 0;
         let mut best_match_position = None;
         for (i, configuration) in self.language_configurations.iter().enumerate() {
-            if let Some(injection_regex) = &configuration.injection_regex {
-                if let Some(mat) = injection_regex.find(string) {
-                    let length = mat.end() - mat.start();
-                    if length > best_match_length {
-                        best_match_position = Some(i);
-                        best_match_length = length;
-                    }
+            if let Some(injection_regex) = &configuration.injection_regex
+                && let Some(mat) = injection_regex.find(string)
+            {
+                let length = mat.end() - mat.start();
+                if length > best_match_length {
+                    best_match_position = Some(i);
+                    best_match_length = length;
                 }
             }
         }
@@ -1149,7 +1154,7 @@ impl Loader {
             self.compile_parser_to_dylib(&config, &lock_file, &lock_path)?;
 
             if config.scanner_path.is_some() {
-                self.check_external_scanner(&output_path)?;
+                Self::check_external_scanner(&output_path);
             }
         }
 
@@ -1319,7 +1324,7 @@ impl Loader {
     }
 
     #[cfg(unix)]
-    fn check_external_scanner(&self, library_path: &Path) -> LoaderResult<()> {
+    fn check_external_scanner(library_path: &Path) {
         let section = " T ";
         // Older ppc toolchains incorrectly report functions in the Data section. This bug has been
         // fixed, but we still need to account for older systems.
@@ -1333,29 +1338,26 @@ impl Loader {
             .arg("--defined-only")
             .arg(library_path)
             .output();
-        if let Ok(output) = command {
-            if output.status.success() {
-                let mut non_static_symbols = String::new();
-                for line in String::from_utf8_lossy(&output.stdout).lines() {
-                    if line.contains(section) || old_ppc_section.is_some_and(|s| line.contains(s)) {
-                        if let Some(function_name) =
-                            line.split_whitespace().collect::<Vec<_>>().get(2)
-                        {
-                            if !line.contains("tree_sitter_") {
-                                writeln!(&mut non_static_symbols, "  `{function_name}`").unwrap();
-                            }
-                        }
-                    }
+        if let Ok(output) = command
+            && output.status.success()
+        {
+            let mut non_static_symbols = String::new();
+            for line in String::from_utf8_lossy(&output.stdout).lines() {
+                if (line.contains(section) || old_ppc_section.is_some_and(|s| line.contains(s)))
+                    && let Some(function_name) = line.split_whitespace().collect::<Vec<_>>().get(2)
+                    && !line.contains("tree_sitter_")
+                {
+                    writeln!(&mut non_static_symbols, "  `{function_name}`").unwrap();
                 }
-                if !non_static_symbols.is_empty() {
-                    warn!(
-                        "Found non-static non-tree-sitter functions in the external scanner\n{non_static_symbols}\n{}",
-                        concat!(
-                            "Consider making these functions static, they can cause conflicts ",
-                            "when another tree-sitter project uses the same function name."
-                        )
-                    );
-                }
+            }
+            if !non_static_symbols.is_empty() {
+                warn!(
+                    "Found non-static non-tree-sitter functions in the external scanner\n{non_static_symbols}\n{}",
+                    concat!(
+                        "Consider making these functions static, they can cause conflicts ",
+                        "when another tree-sitter project uses the same function name."
+                    )
+                );
             }
         } else {
             warn!(
@@ -1363,14 +1365,11 @@ impl Loader {
                 library_path.display()
             );
         }
-
-        Ok(())
     }
 
     #[cfg(windows)]
-    fn check_external_scanner(&self, _library_path: &Path) -> LoaderResult<()> {
+    fn check_external_scanner(_library_path: &Path) {
         // TODO: there's no nm command on windows, whoever wants to implement this can and should :)
-        Ok(())
     }
 
     pub fn compile_parser_to_wasm(
@@ -1381,8 +1380,8 @@ impl Loader {
         output_path: &Path,
     ) -> LoaderResult<()> {
         let tool_lock = WASM_TOOL_LOCK.lock().expect("Wasm tool mutex poisoned");
-        let clang_exe = self.ensure_wasi_sdk_exists()?;
-        let wasm_opt_exe = self.ensure_binaryen_exists()?;
+        let clang_exe = Self::ensure_wasi_sdk_exists()?;
+        let wasm_opt_exe = Self::ensure_binaryen_exists()?;
         drop(tool_lock);
 
         let output_path = output_path.to_str().unwrap();
@@ -1461,11 +1460,7 @@ impl Loader {
     }
 
     /// Extracts a tar.gz archive with `tar`, stripping the first path component.
-    fn extract_tar_gz_with_strip(
-        &self,
-        archive_path: &Path,
-        destination: &Path,
-    ) -> LoaderResult<()> {
+    fn extract_tar_gz_with_strip(archive_path: &Path, destination: &Path) -> LoaderResult<()> {
         let status = Command::new("tar")
             .arg("-xzf")
             .arg(archive_path)
@@ -1489,7 +1484,7 @@ impl Loader {
     /// and returns the path to the `clang` executable.
     ///
     /// If `TREE_SITTER_WASI_SDK_PATH` is set, it will use that path to look for the clang executable.
-    fn ensure_wasi_sdk_exists(&self) -> LoaderResult<PathBuf> {
+    fn ensure_wasi_sdk_exists() -> LoaderResult<PathBuf> {
         let possible_executables = if cfg!(windows) {
             vec![
                 "clang.exe",
@@ -1500,7 +1495,7 @@ impl Loader {
             vec!["clang", "wasm32-unknown-wasi-clang", "wasm32-wasi-clang"]
         };
 
-        if let Some(path) = self.get_existing_tool(
+        if let Some(path) = Self::get_existing_tool(
             "clang",
             "wasi-sdk",
             &possible_executables,
@@ -1517,7 +1512,7 @@ impl Loader {
         let sdk_url = format!(
             "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-{wasi_sdk_major_version}/{sdk_filename}",
         );
-        self.download_tool(
+        Self::download_tool(
             "clang",
             "wasi-sdk",
             &sdk_filename,
@@ -1530,7 +1525,7 @@ impl Loader {
     /// and returns the path to the `wasm-opt` executable.
     ///
     /// If `TREE_SITTER_BINARYEN_PATH` is set, it will use that path to look for the wasm-opt executable.
-    fn ensure_binaryen_exists(&self) -> LoaderResult<PathBuf> {
+    fn ensure_binaryen_exists() -> LoaderResult<PathBuf> {
         let possible_executables = if cfg!(windows) {
             vec![
                 "wasm-opt.exe",
@@ -1540,7 +1535,7 @@ impl Loader {
         } else {
             vec!["wasm-opt", "wasm32-unknown-wasm-opt", "wasm32-wasm-opt"]
         };
-        if let Some(path) = self.get_existing_tool(
+        if let Some(path) = Self::get_existing_tool(
             "wasm-opt",
             "binaryen",
             &possible_executables,
@@ -1554,7 +1549,7 @@ impl Loader {
         let binaryen_url = format!(
             "https://github.com/WebAssembly/binaryen/releases/download/version_{BINARYEN_VERSION}/{binaryen_filename}"
         );
-        self.download_tool(
+        Self::download_tool(
             "wasm-opt",
             "binaryen",
             &binaryen_filename,
@@ -1564,7 +1559,6 @@ impl Loader {
     }
 
     fn get_existing_tool(
-        &self,
         tool_name: &'static str,
         toolchain: &'static str,
         possible_exes: &[&'static str],
@@ -1612,7 +1606,6 @@ impl Loader {
     }
 
     fn download_tool(
-        &self,
         tool_name: &'static str,
         toolchain: &'static str,
         filename: &str,
@@ -1657,7 +1650,7 @@ impl Loader {
         }
 
         info!("Extracting {tool_name} to {}...", tool_dir.display());
-        self.extract_tar_gz_with_strip(&temp_tar_path, &tool_dir)?;
+        Self::extract_tar_gz_with_strip(&temp_tar_path, &tool_dir)?;
 
         for exe in possible_exes {
             let tool_exe = tool_dir.join("bin").join(exe);
@@ -1725,7 +1718,7 @@ impl Loader {
                     // the tree-sitter.json, but defaults to the directory containing the
                     // tree-sitter.json.
                     let language_path =
-                        parser_path.join(grammar.path.unwrap_or(PathBuf::from(".")));
+                        parser_path.join(grammar.path.unwrap_or_else(|| PathBuf::from(".")));
 
                     // Determine if a previous language configuration in this package.json file
                     // already uses the same language.
@@ -1905,7 +1898,7 @@ impl Loader {
         // path to dynamic library, name of language
         lib_info: Option<&(PathBuf, &str)>,
     ) -> LoaderResult<Language> {
-        if let Some((ref lib_path, language_name)) = lib_info {
+        if let Some((lib_path, language_name)) = lib_info {
             let language_fn_name = format!("tree_sitter_{}", language_name.replace('-', "_"));
             Self::load_language(lib_path, &language_fn_name)
         } else if let Some(scope) = scope {
@@ -2156,7 +2149,10 @@ impl LanguageConfiguration<'_> {
         })
     }
 
-    #[allow(clippy::type_complexity)]
+    #[expect(
+        clippy::type_complexity,
+        reason = "return type pairs query text with source file ranges"
+    )]
     #[cfg(any(feature = "tree-sitter-highlight", feature = "tree-sitter-tags"))]
     fn read_queries(
         &self,
