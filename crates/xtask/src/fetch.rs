@@ -1,4 +1,4 @@
-use crate::{bail_on_err, root_dir, EMSCRIPTEN_VERSION};
+use crate::{EMSCRIPTEN_VERSION, bail_on_err, root_dir};
 use anyhow::Result;
 use std::{fs, path::Path, process::Command};
 
@@ -8,7 +8,10 @@ enum FixtureRef<'a> {
 }
 
 impl<'a> FixtureRef<'a> {
-    #[allow(clippy::use_self)]
+    #[expect(
+        clippy::use_self,
+        reason = "explicit lifetime needed in const fn return type"
+    )]
     const fn new(tag: &'a str, branch: Option<&'a str>) -> FixtureRef<'a> {
         if let Some(b) = branch {
             Self::Branch(b)

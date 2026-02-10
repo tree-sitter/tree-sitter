@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use crate::{bail_on_err, Benchmark};
+use crate::{Benchmark, bail_on_err};
 
 pub fn run(args: &Benchmark) -> Result<()> {
     if let Some(ref example) = args.example_file_name {

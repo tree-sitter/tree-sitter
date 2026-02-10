@@ -3,7 +3,7 @@ use std::{collections::BTreeSet, ffi::OsStr, fs, path::Path, process::Command, s
 use anyhow::{Context, Result};
 use bindgen::RustTarget;
 
-use crate::{bail_on_err, GenerateFixtures};
+use crate::{GenerateFixtures, bail_on_err};
 
 const HEADER_PATH: &str = "lib/include/tree_sitter/api.h";
 
@@ -183,7 +183,11 @@ fn find_grammar_files(
         .flat_map(|entry| {
             let path = entry.path();
             if path.is_dir() && !path.to_string_lossy().contains("node_modules") {
-                Box::new(find_grammar_files(path.to_str().unwrap())) as Box<dyn Iterator<Item = _>>
+                Box::new(
+                    find_grammar_files(path.to_str().unwrap())
+                        .collect::<Vec<_>>()
+                        .into_iter(),
+                ) as Box<dyn Iterator<Item = _>>
             } else if path.is_file() && path.file_name() == Some(OsStr::new("grammar.js")) {
                 Box::new(std::iter::once(Ok(path))) as _
             } else {
