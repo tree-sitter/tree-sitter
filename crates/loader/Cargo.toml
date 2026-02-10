@@ -30,7 +30,6 @@ wasm    = [ "tree-sitter/wasm" ]
 [dependencies]
 cc.workspace         = true
 etcetera.workspace   = true
-fs4.workspace        = true
 indoc.workspace      = true
 libloading.workspace = true
 log.workspace        = true

@@ -21,7 +21,6 @@ use std::{
 };
 
 use etcetera::BaseStrategy as _;
-use fs4::fs_std::FileExt;
 use libloading::{Library, Symbol};
 use log::{error, info, warn};
 use once_cell::unsync::OnceCell;
@@ -1111,11 +1110,11 @@ impl Loader {
 
         if let Ok(lock_file) = fs::OpenOptions::new().write(true).open(&lock_path) {
             recompile = false;
-            if lock_file.try_lock_exclusive().is_err() {
+            if lock_file.try_lock().is_err() {
                 // if we can't acquire the lock, another process is compiling the parser, wait for
                 // it and don't recompile
                 lock_file
-                    .lock_exclusive()
+                    .lock()
                     .map_err(|e| LoaderError::IO(IoError::new(e, Some(lock_path.as_path()))))?;
                 recompile = false;
             } else {
@@ -1148,7 +1147,7 @@ impl Loader {
                 .open(&lock_path)
                 .map_err(|e| LoaderError::IO(IoError::new(e, Some(lock_path.as_path()))))?;
             lock_file
-                .lock_exclusive()
+                .lock()
                 .map_err(|e| LoaderError::IO(IoError::new(e, Some(lock_path.as_path()))))?;
 
             self.compile_parser_to_dylib(&config, &lock_file, &lock_path)?;
@@ -1308,7 +1307,8 @@ impl Loader {
             let _ = fs::remove_dir_all(temp_dir);
         }
 
-        FileExt::unlock(lock_file)
+        lock_file
+            .unlock()
             .map_err(|e| LoaderError::IO(IoError::new(e, Some(lock_path))))?;
         fs::remove_file(lock_path)
             .map_err(|e| LoaderError::IO(IoError::new(e, Some(lock_path))))?;
