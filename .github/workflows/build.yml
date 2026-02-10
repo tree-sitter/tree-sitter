@@ -109,6 +109,14 @@ jobs:
         echo "EMSDK=$PWD" >> "$GITHUB_ENV"
         echo "EMSDK_NODE=$PWD/node/$(ls node)/bin/node" >> "$GITHUB_ENV"
 
+    - name: Set up Node.js
+      if: contains(matrix.features, 'wasm') && (matrix.run-wasm-test || !inputs.run-test)
+      uses: actions/setup-node@v4
+      with:
+        node-version: 24
+        cache: npm
+        cache-dependency-path: lib/binding_web/package-lock.json
+
     - name: Set up Rust
       uses: actions-rust-lang/setup-rust-toolchain@v1
       with:
