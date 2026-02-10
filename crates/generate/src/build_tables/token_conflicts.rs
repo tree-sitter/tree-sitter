@@ -375,7 +375,7 @@ mod tests {
     use super::*;
     use crate::{
         grammars::{Variable, VariableType},
-        prepare_grammar::{expand_tokens, ExtractedLexicalGrammar},
+        prepare_grammar::{ExtractedLexicalGrammar, expand_tokens},
         rules::{Precedence, Rule, Symbol},
     };
 

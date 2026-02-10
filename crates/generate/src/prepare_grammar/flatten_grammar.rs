@@ -178,7 +178,7 @@ impl RuleFlattener {
                         .reserved_word_stack
                         .last()
                         .copied()
-                        .unwrap_or(ReservedWordSetId::default()),
+                        .unwrap_or_default(),
                     alias: self.alias_stack.last().cloned(),
                     field_name: self.field_name_stack.last().cloned(),
                 });
@@ -464,8 +464,10 @@ mod tests {
             result.productions,
             vec![Production {
                 dynamic_precedence: 0,
-                steps: vec![ProductionStep::new(Symbol::non_terminal(1))
-                    .with_prec(Precedence::Integer(101), Some(Associativity::Left)),]
+                steps: vec![
+                    ProductionStep::new(Symbol::non_terminal(1))
+                        .with_prec(Precedence::Integer(101), Some(Associativity::Left)),
+                ]
             }]
         );
     }

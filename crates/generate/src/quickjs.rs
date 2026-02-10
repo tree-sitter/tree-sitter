@@ -6,8 +6,8 @@ use std::{
 
 use log::{error, info, warn};
 use rquickjs::{
-    loader::{FileResolver, ScriptLoader},
     Context, Ctx, Function, Module, Object, Runtime, Type, Value,
+    loader::{FileResolver, ScriptLoader},
 };
 
 use super::{IoError, JSError, JSResult};
@@ -100,7 +100,7 @@ impl Console {
                         .as_array()
                         .unwrap()
                         .iter::<Value<'_>>()
-                        .filter_map(|x| x.ok())
+                        .filter_map(std::result::Result::ok)
                         .map(|x| {
                             if x.is_string() {
                                 format!("'{}'", Self::format_args(&[x]))
@@ -133,19 +133,34 @@ impl Console {
         Console {}
     }
 
-    #[allow(clippy::needless_pass_by_value)]
+    #[expect(
+        clippy::needless_pass_by_value,
+        clippy::unused_self,
+        clippy::unnecessary_wraps,
+        reason = "signature required by rquickjs"
+    )]
     pub fn log(&self, args: rquickjs::function::Rest<Value<'_>>) -> rquickjs::Result<()> {
         info!("{}", Self::format_args(&args));
         Ok(())
     }
 
-    #[allow(clippy::needless_pass_by_value)]
+    #[expect(
+        clippy::needless_pass_by_value,
+        clippy::unused_self,
+        clippy::unnecessary_wraps,
+        reason = "signature required by rquickjs"
+    )]
     pub fn warn(&self, args: rquickjs::function::Rest<Value<'_>>) -> rquickjs::Result<()> {
         warn!("{}", Self::format_args(&args));
         Ok(())
     }
 
-    #[allow(clippy::needless_pass_by_value)]
+    #[expect(
+        clippy::needless_pass_by_value,
+        clippy::unused_self,
+        clippy::unnecessary_wraps,
+        reason = "signature required by rquickjs"
+    )]
     pub fn error(&self, args: rquickjs::function::Rest<Value<'_>>) -> rquickjs::Result<()> {
         error!("Error: {}", Self::format_args(&args));
         Ok(())
@@ -214,7 +229,10 @@ fn try_resolve_path(path: &Path) -> rquickjs::Result<PathBuf> {
     ))
 }
 
-#[allow(clippy::needless_pass_by_value)]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "signature required by rquickjs"
+)]
 fn require_from_module<'js>(
     ctx: Ctx<'js>,
     module_path: String,
@@ -222,7 +240,7 @@ fn require_from_module<'js>(
 ) -> rquickjs::Result<Value<'js>> {
     let current_module = PathBuf::from(from_module);
     let current_dir = if current_module.is_file() {
-        current_module.parent().unwrap_or(Path::new("."))
+        current_module.parent().unwrap_or_else(|| Path::new("."))
     } else {
         current_module.as_path()
     };

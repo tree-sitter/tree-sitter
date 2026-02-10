@@ -13,9 +13,9 @@ struct ProductionStepId {
     // A `None` value here means that the production itself was produced via inlining,
     // and is stored in the builder's `productions` vector, as opposed to being
     // stored in one of the grammar's variables.
-    variable_index: Option<usize>,
-    production_index: usize,
-    step_index: usize,
+    variable: Option<usize>,
+    production: usize,
+    step: usize,
 }
 
 struct InlinedProductionMapBuilder {
@@ -29,9 +29,9 @@ impl InlinedProductionMapBuilder {
         for (variable_index, variable) in grammar.variables.iter().enumerate() {
             for production_index in 0..variable.productions.len() {
                 step_ids_to_process.push(ProductionStepId {
-                    variable_index: Some(variable_index),
-                    production_index,
-                    step_index: 0,
+                    variable: Some(variable_index),
+                    production: production_index,
+                    step: 0,
                 });
                 while !step_ids_to_process.is_empty() {
                     let mut i = 0;
@@ -44,16 +44,16 @@ impl InlinedProductionMapBuilder {
                                     .iter()
                                     .copied()
                                     .map(|production_index| ProductionStepId {
-                                        variable_index: None,
-                                        production_index,
-                                        step_index: step_id.step_index,
+                                        variable: None,
+                                        production: production_index,
+                                        step: step_id.step,
                                     });
                                 step_ids_to_process.splice(i..=i, inlined_step_ids);
                             } else {
                                 step_ids_to_process[i] = ProductionStepId {
-                                    variable_index: step_id.variable_index,
-                                    production_index: step_id.production_index,
-                                    step_index: step_id.step_index + 1,
+                                    variable: step_id.variable,
+                                    production: step_id.production,
+                                    step: step_id.step + 1,
                                 };
                                 i += 1;
                             }
@@ -70,14 +70,13 @@ impl InlinedProductionMapBuilder {
         let production_map = production_indices_by_step_id
             .into_iter()
             .map(|(step_id, production_indices)| {
-                let production =
-                    core::ptr::from_ref::<Production>(step_id.variable_index.map_or_else(
-                        || &productions[step_id.production_index],
-                        |variable_index| {
-                            &grammar.variables[variable_index].productions[step_id.production_index]
-                        },
-                    ));
-                ((production, step_id.step_index as u32), production_indices)
+                let production = core::ptr::from_ref::<Production>(step_id.variable.map_or_else(
+                    || &productions[step_id.production],
+                    |variable_index| {
+                        &grammar.variables[variable_index].productions[step_id.production]
+                    },
+                ));
+                ((production, step_id.step as u32), production_indices)
             })
             .collect();
 
@@ -94,7 +93,7 @@ impl InlinedProductionMapBuilder {
     ) -> &'a [usize] {
         // Build a list of productions produced by inlining rules.
         let mut i = 0;
-        let step_index = step_id.step_index;
+        let step_index = step_id.step;
         let mut productions_to_add = vec![self.production_for_id(step_id, grammar).clone()];
         while i < productions_to_add.len() {
             if let Some(step) = productions_to_add[i].steps.get(step_index) {
@@ -174,9 +173,9 @@ impl InlinedProductionMapBuilder {
         id: ProductionStepId,
         grammar: &'a SyntaxGrammar,
     ) -> &'a Production {
-        id.variable_index.map_or_else(
-            || &self.productions[id.production_index],
-            |variable_index| &grammar.variables[variable_index].productions[id.production_index],
+        id.variable.map_or_else(
+            || &self.productions[id.production],
+            |variable_index| &grammar.variables[variable_index].productions[id.production],
         )
     }
 
@@ -185,7 +184,7 @@ impl InlinedProductionMapBuilder {
         id: ProductionStepId,
         grammar: &'a SyntaxGrammar,
     ) -> Option<&'a ProductionStep> {
-        self.production_for_id(id, grammar).steps.get(id.step_index)
+        self.production_for_id(id, grammar).steps.get(id.step)
     }
 }
 
@@ -282,9 +281,11 @@ mod tests {
         let inline_map = process_inlines(&grammar, &LexicalGrammar::default()).unwrap();
 
         // Nothing to inline at step 0.
-        assert!(inline_map
-            .inlined_productions(&grammar.variables[0].productions[0], 0)
-            .is_none());
+        assert!(
+            inline_map
+                .inlined_productions(&grammar.variables[0].productions[0], 0)
+                .is_none()
+        );
 
         // Inlining variable 1 yields two productions.
         assert_eq!(

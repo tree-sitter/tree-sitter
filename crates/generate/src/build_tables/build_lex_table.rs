@@ -1,5 +1,5 @@
 use std::{
-    collections::{hash_map::Entry, HashMap, VecDeque},
+    collections::{HashMap, VecDeque, hash_map::Entry},
     mem,
 };
 
@@ -223,14 +223,14 @@ impl<'a> LexTableBuilder<'a> {
         // The EOF state is represented as an empty list of NFA states.
         let mut completion = None;
         for (id, prec) in self.cursor.completions() {
-            if let Some((prev_id, prev_precedence)) = completion {
-                if TokenConflictMap::prefer_token(
+            if let Some((prev_id, prev_precedence)) = completion
+                && TokenConflictMap::prefer_token(
                     self.lexical_grammar,
                     (prev_precedence, prev_id),
                     (prec, id),
-                ) {
-                    continue;
-                }
+                )
+            {
+                continue;
             }
             completion = Some((id, prec));
         }
@@ -249,16 +249,16 @@ impl<'a> LexTableBuilder<'a> {
         }
 
         for transition in transitions {
-            if let Some((completed_id, completed_precedence)) = completion {
-                if !TokenConflictMap::prefer_transition(
+            if let Some((completed_id, completed_precedence)) = completion
+                && !TokenConflictMap::prefer_transition(
                     self.lexical_grammar,
                     &transition,
                     completed_id,
                     completed_precedence,
                     has_sep,
-                ) {
-                    continue;
-                }
+                )
+            {
+                continue;
             }
 
             let (next_state_id, _) =

@@ -15,19 +15,19 @@ use log::{debug, info};
 
 use self::{
     build_lex_table::build_lex_table,
-    build_parse_table::{build_parse_table, ParseStateInfo},
+    build_parse_table::{ParseStateInfo, build_parse_table},
     coincident_tokens::CoincidentTokenIndex,
     item_set_builder::ParseItemSetBuilder,
     minimize_parse_table::minimize_parse_table,
     token_conflicts::TokenConflictMap,
 };
 use crate::{
+    OptLevel,
     grammars::{InlinedProductionMap, LexicalGrammar, SyntaxGrammar},
     nfa::{CharacterSet, NfaCursor},
     node_types::VariableInfo,
     rules::{AliasMap, Symbol, SymbolType, TokenSet},
     tables::{LexTable, ParseAction, ParseTable, ParseTableEntry},
-    OptLevel,
 };
 
 pub struct Tables {
@@ -200,17 +200,16 @@ fn populate_error_state(
         if !conflict_free_tokens.contains(&symbol)
             && !keywords.contains(&symbol)
             && syntax_grammar.word_token != Some(symbol)
-        {
-            if let Some(t) = conflict_free_tokens.iter().find(|t| {
+            && let Some(t) = conflict_free_tokens.iter().find(|t| {
                 !coincident_token_index.contains(symbol, *t)
                     && token_conflict_map.does_conflict(symbol.index, t.index)
-            }) {
-                debug!(
-                    "error recovery - exclude token {} because of conflict with {}",
-                    lexical_grammar.variables[i].name, lexical_grammar.variables[t.index].name
-                );
-                continue;
-            }
+            })
+        {
+            debug!(
+                "error recovery - exclude token {} because of conflict with {}",
+                lexical_grammar.variables[i].name, lexical_grammar.variables[t.index].name
+            );
+            continue;
         }
         debug!(
             "error recovery - include token {}",
@@ -299,12 +298,11 @@ fn populate_external_lex_states(parse_table: &mut ParseTable, syntax_grammar: &S
         for token in parse_table.states[i].terminal_entries.keys() {
             if token.is_external() {
                 external_tokens.insert(*token);
-            } else if token.is_terminal() {
-                if let Some(index) =
+            } else if token.is_terminal()
+                && let Some(index) =
                     external_tokens_by_corresponding_internal_token.get(&token.index)
-                {
-                    external_tokens.insert(Symbol::external(*index));
-                }
+            {
+                external_tokens.insert(Symbol::external(*index));
             }
         }
 
@@ -378,7 +376,8 @@ fn identify_keywords(
 
     // Exclude keyword candidates for which substituting the keyword capture
     // token would introduce new lexical conflicts with other tokens.
-    let keywords = keywords
+
+    keywords
         .iter()
         .filter(|token| {
             for other_index in 0..lexical_grammar.variables.len() {
@@ -421,9 +420,7 @@ fn identify_keywords(
             );
             true
         })
-        .collect();
-
-    keywords
+        .collect()
 }
 
 fn mark_fragile_tokens(

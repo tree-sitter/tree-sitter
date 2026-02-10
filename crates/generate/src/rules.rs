@@ -411,7 +411,7 @@ impl TokenSet {
                     true
                 } else {
                     false
-                }
+                };
             }
             SymbolType::EndOfNonTerminalExtra => {
                 return if self.end_of_nonterminal_extra {
@@ -440,8 +440,8 @@ impl TokenSet {
     }
 
     pub fn len(&self) -> usize {
-        self.eof as usize
-            + self.end_of_nonterminal_extra as usize
+        usize::from(self.eof)
+            + usize::from(self.end_of_nonterminal_extra)
             + self.terminal_bits.iter().filter(|b| *b).count()
             + self.external_bits.iter().filter(|b| *b).count()
     }
