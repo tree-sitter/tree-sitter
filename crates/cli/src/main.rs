@@ -337,6 +337,9 @@ struct Test {
     /// Force showing fields in test diffs
     #[arg(long)]
     pub show_fields: bool,
+    /// Force showing '+' and '-' in test diffs
+    #[arg(long)]
+    pub show_diff_symbols: bool,
     /// Show parsing statistics
     #[arg(long)]
     pub stat: Option<TestStats>,
@@ -1284,6 +1287,7 @@ impl Test {
     fn run(self, mut loader: loader::Loader, current_dir: &Path) -> Result<()> {
         let config = Config::load(self.config_path)?;
         let color = env::var("NO_COLOR").map_or(true, |v| v != "1");
+        let use_symbols = !color || self.show_diff_symbols;
         let stat = self.stat.unwrap_or_default();
 
         loader.debug_build(self.debug_build);
@@ -1332,6 +1336,7 @@ impl Test {
             self.overview_only,
             self.json_summary,
         );
+        test_summary.use_symbols = use_symbols;
 
         // Run the corpus tests. Look for them in `test/corpus`.
         let test_corpus_dir = test_dir.join("corpus");
@@ -1347,6 +1352,7 @@ impl Test {
                 open_log: self.open_log,
                 languages: languages.iter().map(|(l, n)| (n.as_str(), l)).collect(),
                 color,
+                use_symbols,
                 show_fields: self.show_fields,
                 overview_only: self.overview_only,
             };
