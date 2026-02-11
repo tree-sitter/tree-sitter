@@ -44,6 +44,8 @@ use tree_sitter_tags::{Error as TagsError, TagsConfiguration};
 static GRAMMAR_NAME_REGEX: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r#""name":\s*"(.*?)""#).unwrap());
 
+static WASM_TOOL_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
+
 const WASI_SDK_VERSION: &str = include_str!("../wasi-sdk-version").trim_ascii();
 const BINARYEN_VERSION: &str = include_str!("../binaryen-version").trim_ascii();
 
@@ -1378,7 +1380,11 @@ impl Loader {
         scanner_filename: Option<&Path>,
         output_path: &Path,
     ) -> LoaderResult<()> {
+        let tool_lock = WASM_TOOL_LOCK.lock().expect("Wasm tool mutex poisoned");
         let clang_exe = self.ensure_wasi_sdk_exists()?;
+        let wasm_opt_exe = self.ensure_binaryen_exists()?;
+        drop(tool_lock);
+
         let output_path = output_path.to_str().unwrap();
 
         let mut compile_command = Command::new(&clang_exe);
@@ -1425,8 +1431,6 @@ impl Loader {
                 String::from_utf8_lossy(&compile_output.stderr).to_string(),
             ));
         }
-
-        let wasm_opt_exe = self.ensure_binaryen_exists()?;
 
         let mut opt_command = Command::new(&wasm_opt_exe);
         opt_command
@@ -1628,7 +1632,13 @@ impl Loader {
         })?;
 
         info!("Downloading {tool_name} from {url}...");
-        let temp_tar_path = cache_dir.join(filename);
+        let temp_tar_dir = tempfile::tempdir_in(&cache_dir).map_err(|e| {
+            LoaderError::IO(IoError {
+                error: e,
+                path: Some(cache_dir.to_string_lossy().to_string()),
+            })
+        })?;
+        let temp_tar_path = temp_tar_dir.path().join(filename);
 
         let status = Command::new("curl")
             .arg("-f")
@@ -1649,7 +1659,6 @@ impl Loader {
         info!("Extracting {tool_name} to {}...", tool_dir.display());
         self.extract_tar_gz_with_strip(&temp_tar_path, &tool_dir)?;
 
-        fs::remove_file(temp_tar_path).ok();
         for exe in possible_exes {
             let tool_exe = tool_dir.join("bin").join(exe);
             if tool_exe.exists() {

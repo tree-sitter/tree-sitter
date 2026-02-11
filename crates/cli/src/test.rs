@@ -614,11 +614,13 @@ pub fn run_tests_at_path(
     test_summary: &mut TestSummary,
 ) -> Result<()> {
     let test_entry = parse_tests(&opts.path)?;
-    let mut _log_session = None;
 
-    if opts.debug_graph {
-        _log_session = Some(util::log_graphs(parser, "log.html", opts.open_log)?);
-    } else if opts.debug {
+    let _log_session = if opts.debug_graph {
+        Some(util::log_graphs(parser, "log.html", opts.open_log)?)
+    } else {
+        None
+    };
+    if opts.debug {
         parser.set_logger(Some(Box::new(|log_type, message| {
             if log_type == LogType::Lex {
                 io::stderr().write_all(b"  ").unwrap();
