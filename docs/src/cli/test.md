@@ -70,6 +70,10 @@ information.
 
 Force showing fields in test diffs.
 
+### `--show-diff-markers`
+
+Force showing '+' and '-' in test diffs.
+
 ### `--stat <STAT>`
 
 Show parsing statistics when tests are being run. One of `all`, `outliers-and-total`, or `total-only`.

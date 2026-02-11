@@ -207,6 +207,9 @@ pub struct TestSummary {
     // Options passed in from the CLI which control how the summary is displayed
     #[schemars(skip)]
     #[serde(skip)]
+    pub use_markers: bool,
+    #[schemars(skip)]
+    #[serde(skip)]
     pub overview_only: bool,
     #[schemars(skip)]
     #[serde(skip)]
@@ -567,12 +570,17 @@ impl TestSummary {
                 } else {
                     writeln!(f, "\n  {}. {name}:", i + 1)?;
                     if *is_cst {
-                        writeln!(f, "{}", TestDiff::new(actual, expected))?;
+                        writeln!(
+                            f,
+                            "{}",
+                            TestDiff::new(actual, expected).with_markers(self.use_markers)
+                        )?;
                     } else {
                         writeln!(
                             f,
                             "{}",
                             TestDiff::new(&format_sexp(actual, 2), &format_sexp(expected, 2))
+                                .with_markers(self.use_markers)
                         )?;
                     }
                 }
@@ -725,51 +733,48 @@ impl DiffKey {
 pub struct TestDiff<'a> {
     pub actual: &'a str,
     pub expected: &'a str,
+    /// Force `+`/`-` markers even when color is enabled. Markers are always
+    /// shown when color is disabled, regardless of this flag.
+    pub use_markers: bool,
 }
 
 impl<'a> TestDiff<'a> {
     #[must_use]
     pub const fn new(actual: &'a str, expected: &'a str) -> Self {
-        Self { actual, expected }
+        Self {
+            actual,
+            expected,
+            use_markers: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn with_markers(mut self, use_markers: bool) -> Self {
+        self.use_markers = use_markers;
+        self
     }
 }
 
 impl std::fmt::Display for TestDiff<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let diff = TextDiff::from_lines(self.actual, self.expected);
-        for diff in diff.iter_all_changes() {
-            match diff.tag() {
-                ChangeTag::Equal => {
-                    if color_enabled() {
-                        write!(f, "{diff}")?;
-                    } else {
-                        write!(f, " {diff}")?;
-                    }
+        let use_markers = !color_enabled() || self.use_markers;
+        let text_diff = TextDiff::from_lines(self.actual, self.expected);
+        for diff in text_diff.iter_all_changes() {
+            let tag = diff.tag();
+            let (symbol, color) = match tag {
+                ChangeTag::Equal => (' ', None),
+                ChangeTag::Insert => ('+', Some(AnsiColor::Green)),
+                ChangeTag::Delete => ('-', Some(AnsiColor::Red)),
+            };
+            match (color, use_markers) {
+                (Some(color), true) => {
+                    write!(f, "{}", paint(Some(color), format!("{symbol}{diff}")))?;
                 }
-                ChangeTag::Insert => {
-                    if color_enabled() {
-                        write!(
-                            f,
-                            "{}",
-                            paint(Some(AnsiColor::Green), diff.as_str().unwrap())
-                        )?;
-                    } else {
-                        write!(f, "+{diff}")?;
-                    }
-                    if diff.missing_newline() {
-                        writeln!(f)?;
-                    }
+                (Some(color), false) => {
+                    write!(f, "{}", paint(Some(color), diff))?;
                 }
-                ChangeTag::Delete => {
-                    if color_enabled() {
-                        write!(f, "{}", paint(Some(AnsiColor::Red), diff.as_str().unwrap()))?;
-                    } else {
-                        write!(f, "-{diff}")?;
-                    }
-                    if diff.missing_newline() {
-                        writeln!(f)?;
-                    }
-                }
+                (None, true) => write!(f, "{symbol}{diff}")?,
+                (None, false) => write!(f, "{diff}")?,
             }
         }
 
