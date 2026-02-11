@@ -343,6 +343,9 @@ struct Test {
     /// Force showing fields in test diffs
     #[arg(long)]
     pub show_fields: bool,
+    /// Force showing '+' and '-' in test diffs
+    #[arg(long)]
+    pub show_diff_markers: bool,
     /// Show parsing statistics
     #[arg(long)]
     pub stat: Option<TestStats>,
@@ -1342,6 +1345,7 @@ impl Test {
         let test_dir = current_dir.join("test");
         let mut test_summary =
             TestSummary::new(stat, self.update, self.overview_only, self.json_summary);
+        test_summary.use_markers = self.show_diff_markers;
 
         // Run the corpus tests. Look for them in `test/corpus`.
         let test_corpus_dir = test_dir.join("corpus");
