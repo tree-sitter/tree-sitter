@@ -134,7 +134,8 @@ pub struct TestOptions<'a> {
     pub update: bool,
     pub open_log: bool,
     pub languages: BTreeMap<&'a str, &'a Language>,
-    pub color: bool,
+    pub use_color: bool,
+    pub use_symbols: bool,
     pub show_fields: bool,
     pub overview_only: bool,
 }
@@ -173,7 +174,10 @@ pub struct TestSummary {
     // Options passed in from the CLI which control how the summary is displayed
     #[schemars(skip)]
     #[serde(skip)]
-    pub color: bool,
+    pub use_color: bool,
+    #[schemars(skip)]
+    #[serde(skip)]
+    pub use_symbols: bool,
     #[schemars(skip)]
     #[serde(skip)]
     pub overview_only: bool,
@@ -188,14 +192,14 @@ pub struct TestSummary {
 impl TestSummary {
     #[must_use]
     pub fn new(
-        color: bool,
+        use_color: bool,
         stat_display: TestStats,
         parse_update: bool,
         overview_only: bool,
         json_summary: bool,
     ) -> Self {
         Self {
-            color,
+            use_color,
             parse_stat_display: stat_display,
             update: parse_update,
             overview_only,
@@ -447,7 +451,7 @@ impl TestSummary {
                             // 3 standard deviations below the mean, aka the "Empirical Rule"
                             if *adj_rate < 3.0f64.mul_add(-std_dev, avg) {
                                 stats += &paint(
-                                    self.color.then_some(AnsiColor::Yellow),
+                                    self.use_color.then_some(AnsiColor::Yellow),
                                     &format!(
                                         " -- Warning: Slow parse rate ({true_rate:.3} bytes/ms)"
                                     ),
@@ -459,7 +463,7 @@ impl TestSummary {
                     writeln!(
                         f,
                         "{test_num:>3}. {result_char} {}{stat_display}",
-                        paint(self.color.then_some(color), &entry.name),
+                        paint(self.use_color.then_some(color), &entry.name),
                     )?;
                 }
                 TestInfo::AssertionTest { .. } => unreachable!(),
@@ -496,7 +500,7 @@ impl TestSummary {
                 )?;
             }
 
-            if self.color {
+            if self.use_color {
                 DiffKey.fmt(f)?;
             }
             for (
@@ -520,7 +524,7 @@ impl TestSummary {
                     writeln!(
                         f,
                         "  {}",
-                        paint(self.color.then_some(AnsiColor::Red), actual)
+                        paint(self.use_color.then_some(AnsiColor::Red), actual)
                     )?;
                 } else {
                     writeln!(f, "\n  {}. {name}:", i + 1)?;
@@ -528,14 +532,17 @@ impl TestSummary {
                         writeln!(
                             f,
                             "{}",
-                            TestDiff::new(actual, expected).with_color(self.color)
+                            TestDiff::new(actual, expected)
+                                .with_use_color(self.use_color)
+                                .with_use_symbols(self.use_symbols)
                         )?;
                     } else {
                         writeln!(
                             f,
                             "{}",
                             TestDiff::new(&format_sexp(actual, 2), &format_sexp(expected, 2))
-                                .with_color(self.color,)
+                                .with_use_color(self.use_color)
+                                .with_use_symbols(self.use_symbols)
                         )?;
                     }
                 }
@@ -564,14 +571,14 @@ impl std::fmt::Display for TestSummary {
                                 f,
                                 "{:>3}. ✓ {} ({assertion_count} assertions)",
                                 test_num,
-                                paint(self.color.then_some(AnsiColor::Green), &entry.name)
+                                paint(self.use_color.then_some(AnsiColor::Green), &entry.name)
                             )?,
                             TestOutcome::AssertionFailed { error } => {
                                 writeln!(
                                     f,
                                     "{:>3}. ✗ {}",
                                     test_num,
-                                    paint(self.color.then_some(AnsiColor::Red), &entry.name)
+                                    paint(self.use_color.then_some(AnsiColor::Red), &entry.name)
                                 )?;
                                 writeln!(f, "{}  {error}", "  ".repeat(depth + 1))?;
                             }
@@ -670,9 +677,9 @@ impl std::fmt::Display for DiffKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "\ncorrect / {} / {}",
-            paint(Some(AnsiColor::Green), "expected"),
-            paint(Some(AnsiColor::Red), "unexpected")
+            "\nmatching / {} / {}",
+            paint(Some(AnsiColor::Green), "unexpected"),
+            paint(Some(AnsiColor::Red), "missing")
         )?;
         Ok(())
     }
@@ -688,7 +695,8 @@ impl DiffKey {
 pub struct TestDiff<'a> {
     pub actual: &'a str,
     pub expected: &'a str,
-    pub color: bool,
+    pub use_color: bool,
+    pub use_symbols: bool,
 }
 
 impl<'a> TestDiff<'a> {
@@ -697,13 +705,20 @@ impl<'a> TestDiff<'a> {
         Self {
             actual,
             expected,
-            color: true,
+            use_color: true,
+            use_symbols: false,
         }
     }
 
     #[must_use]
-    pub const fn with_color(mut self, color: bool) -> Self {
-        self.color = color;
+    pub const fn with_use_color(mut self, use_color: bool) -> Self {
+        self.use_color = use_color;
+        self
+    }
+
+    #[must_use]
+    pub const fn with_use_symbols(mut self, use_symbols: bool) -> Self {
+        self.use_symbols = use_symbols;
         self
     }
 }
@@ -712,38 +727,30 @@ impl std::fmt::Display for TestDiff<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let diff = TextDiff::from_lines(self.actual, self.expected);
         for diff in diff.iter_all_changes() {
-            match diff.tag() {
-                ChangeTag::Equal => {
-                    if self.color {
-                        write!(f, "{diff}")?;
-                    } else {
-                        write!(f, " {diff}")?;
-                    }
+            let tag = diff.tag();
+            let color: Option<AnsiColor> = match tag {
+                _ if !self.use_color => None,
+                ChangeTag::Equal => None,
+                ChangeTag::Delete => Some(AnsiColor::Red),
+                ChangeTag::Insert => Some(AnsiColor::Green),
+            };
+            let symbol: Option<char> = match tag {
+                _ if !self.use_symbols => None,
+                ChangeTag::Equal => Some(' '),
+                ChangeTag::Delete => Some('-'),
+                ChangeTag::Insert => Some('+'),
+            };
+
+            match (color, symbol) {
+                (None, None) => write!(f, " {diff}")?,
+                (None, Some(symbol)) => write!(f, " {symbol}{diff}")?,
+                (color, None) => write!(f, " {}", paint(color, diff.as_str().unwrap()))?,
+                (color, Some(symbol)) => {
+                    write!(f, "{}", paint(color, format!(" {symbol}{diff}").as_str()))?
                 }
-                ChangeTag::Insert => {
-                    if self.color {
-                        write!(
-                            f,
-                            "{}",
-                            paint(Some(AnsiColor::Green), diff.as_str().unwrap())
-                        )?;
-                    } else {
-                        write!(f, "+{diff}")?;
-                    }
-                    if diff.missing_newline() {
-                        writeln!(f)?;
-                    }
-                }
-                ChangeTag::Delete => {
-                    if self.color {
-                        write!(f, "{}", paint(Some(AnsiColor::Red), diff.as_str().unwrap()))?;
-                    } else {
-                        write!(f, "-{diff}")?;
-                    }
-                    if diff.missing_newline() {
-                        writeln!(f)?;
-                    }
-                }
+            };
+            if tag != ChangeTag::Equal && diff.missing_newline() {
+                writeln!(f)?;
             }
         }
 
@@ -2173,7 +2180,8 @@ Test with cst marker
             update: false,
             open_log: false,
             languages,
-            color: true,
+            use_color: true,
+            use_symbols: false,
             show_fields: false,
             overview_only: false,
         };
