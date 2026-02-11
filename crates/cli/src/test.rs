@@ -748,9 +748,9 @@ impl std::fmt::Display for TestDiff<'_> {
                 (None, Some(symbol)) => write!(f, " {symbol}{diff}")?,
                 (color, None) => write!(f, " {}", paint(color, diff.as_str().unwrap()))?,
                 (color, Some(symbol)) => {
-                    write!(f, "{}", paint(color, format!(" {symbol}{diff}").as_str()))?
+                    write!(f, "{}", paint(color, format!(" {symbol}{diff}").as_str()))?;
                 }
-            };
+            }
             if tag != ChangeTag::Equal && diff.missing_newline() {
                 writeln!(f)?;
             }

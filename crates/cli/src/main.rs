@@ -1337,7 +1337,6 @@ impl Test {
             self.json_summary,
         );
         test_summary.use_symbols = use_symbols;
-        
 
         // Run the corpus tests. Look for them in `test/corpus`.
         let test_corpus_dir = test_dir.join("corpus");
