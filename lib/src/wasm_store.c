@@ -80,15 +80,15 @@ typedef struct {
 } LanguageWasmInstance;
 
 typedef struct {
-  uint32_t reset_heap;
-  uint32_t proc_exit;
-  uint32_t abort;
-  uint32_t assert_fail;
-  uint32_t notify_memory_growth;
-  uint32_t debug_message;
-  uint32_t at_exit;
-  uint32_t args_get;
-  uint32_t args_sizes_get;
+  wasmtime_func_t reset_heap;
+  wasmtime_func_t proc_exit;
+  wasmtime_func_t abort;
+  wasmtime_func_t assert_fail;
+  wasmtime_func_t notify_memory_growth;
+  wasmtime_func_t debug_message;
+  wasmtime_func_t at_exit;
+  wasmtime_func_t args_get;
+  wasmtime_func_t args_sizes_get;
 } BuiltinFunctionIndices;
 
 // TSWasmStore - A struct that allows a given `Parser` to use Wasm-backed
@@ -104,7 +104,7 @@ struct TSWasmStore {
   Array(LanguageWasmInstance) language_instances;
   uint32_t current_memory_offset;
   uint32_t current_function_table_offset;
-  uint32_t *stdlib_fn_indices;
+  wasmtime_func_t *stdlib_fn_indices;
   BuiltinFunctionIndices builtin_fn_indices;
   wasmtime_global_t stack_pointer_global;
   wasm_globaltype_t *const_i32_type;
@@ -360,7 +360,7 @@ static wasm_trap_t *callback__lexer_eof(
 }
 
 typedef struct {
-  uint32_t *storage_location;
+  void *storage_location;
   wasmtime_func_unchecked_callback_t callback;
   wasm_functype_t *type;
 } FunctionDefinition;
@@ -476,15 +476,11 @@ void language_id_delete(WasmLanguageId *self) {
 }
 
 static wasmtime_extern_t get_builtin_extern(
-  wasmtime_table_t *table,
-  unsigned index
+  wasmtime_func_t *func
 ) {
   return (wasmtime_extern_t) {
     .kind = WASMTIME_EXTERN_FUNC,
-    .of.func = (wasmtime_func_t) {
-      .store_id = table->store_id,
-      .__private = index
-    }
+    .of.func = *func
   };
 }
 
@@ -519,21 +515,21 @@ static bool ts_wasm_store__provide_builtin_import(
 
   // Builtin functions
   else if (name_eq(import_name, "__assert_fail")) {
-    *import = get_builtin_extern(&self->function_table, self->builtin_fn_indices.assert_fail);
+    *import = get_builtin_extern(&self->builtin_fn_indices.assert_fail);
   } else if (name_eq(import_name, "__cxa_atexit")) {
-    *import = get_builtin_extern(&self->function_table, self->builtin_fn_indices.at_exit);
+    *import = get_builtin_extern(&self->builtin_fn_indices.at_exit);
   } else if (name_eq(import_name, "args_get")) {
-    *import = get_builtin_extern(&self->function_table, self->builtin_fn_indices.args_get);
+    *import = get_builtin_extern(&self->builtin_fn_indices.args_get);
   } else if (name_eq(import_name, "args_sizes_get")) {
-    *import = get_builtin_extern(&self->function_table, self->builtin_fn_indices.args_sizes_get);
+    *import = get_builtin_extern(&self->builtin_fn_indices.args_sizes_get);
   } else if (name_eq(import_name, "abort")) {
-    *import = get_builtin_extern(&self->function_table, self->builtin_fn_indices.abort);
+    *import = get_builtin_extern(&self->builtin_fn_indices.abort);
   } else if (name_eq(import_name, "proc_exit")) {
-    *import = get_builtin_extern(&self->function_table, self->builtin_fn_indices.proc_exit);
+    *import = get_builtin_extern(&self->builtin_fn_indices.proc_exit);
   } else if (name_eq(import_name, "emscripten_notify_memory_growth")) {
-    *import = get_builtin_extern(&self->function_table, self->builtin_fn_indices.notify_memory_growth);
+    *import = get_builtin_extern(&self->builtin_fn_indices.notify_memory_growth);
   } else if (name_eq(import_name, "tree_sitter_debug_message")) {
-    *import = get_builtin_extern(&self->function_table, self->builtin_fn_indices.debug_message);
+    *import = get_builtin_extern(&self->builtin_fn_indices.debug_message);
   } else {
     return false;
   }
@@ -657,18 +653,16 @@ TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine, TSWasmError *wasm_error) {
   // Create all of the Wasm functions.
   unsigned builtin_definitions_len = array_len(builtin_definitions);
   unsigned lexer_definitions_len = array_len(lexer_definitions);
+  wasmtime_func_t *lexer_funcs = ts_calloc(lexer_definitions_len, sizeof(wasmtime_func_t));
   for (unsigned i = 0; i < builtin_definitions_len; i++) {
     FunctionDefinition *definition = &builtin_definitions[i];
-    wasmtime_func_t func;
-    wasmtime_func_new_unchecked(context, definition->type, definition->callback, self, NULL, &func);
-    *definition->storage_location = func.__private;
+    wasmtime_func_t *func = (wasmtime_func_t *)definition->storage_location;
+    wasmtime_func_new_unchecked(context, definition->type, definition->callback, self, NULL, func);
     wasm_functype_delete(definition->type);
   }
   for (unsigned i = 0; i < lexer_definitions_len; i++) {
     FunctionDefinition *definition = &lexer_definitions[i];
-    wasmtime_func_t func;
-    wasmtime_func_new_unchecked(context, definition->type, definition->callback, self, NULL, &func);
-    *definition->storage_location = func.__private;
+    wasmtime_func_new_unchecked(context, definition->type, definition->callback, self, NULL, &lexer_funcs[i]);
     wasm_functype_delete(definition->type);
   }
 
@@ -763,7 +757,7 @@ TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine, TSWasmError *wasm_error) {
     .memory = memory,
     .function_table = function_table,
     .language_instances = array_new(),
-    .stdlib_fn_indices = ts_calloc(stdlib_symbols_len, sizeof(uint32_t)),
+    .stdlib_fn_indices = ts_calloc(stdlib_symbols_len, sizeof(wasmtime_func_t)),
     .builtin_fn_indices = builtin_fn_indices,
     .stack_pointer_global = stack_pointer_global,
     .current_memory_offset = 0,
@@ -816,7 +810,7 @@ TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine, TSWasmError *wasm_error) {
 
   // Process the stdlib module's exports.
   for (unsigned i = 0; i < stdlib_symbols_len; i++) {
-    self->stdlib_fn_indices[i] = UINT32_MAX;
+    self->stdlib_fn_indices[i] = (wasmtime_func_t){.store_id = 0};
   }
   wasmtime_module_exports(stdlib_module, &export_types);
   for (unsigned i = 0; i < export_types.size; i++) {
@@ -851,20 +845,20 @@ TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine, TSWasmError *wasm_error) {
       }
 
       if (name_eq(name, "reset_heap")) {
-        self->builtin_fn_indices.reset_heap = export.of.func.__private;
+        self->builtin_fn_indices.reset_heap = export.of.func;
         continue;
       }
 
       for (unsigned j = 0; j < stdlib_symbols_len; j++) {
         if (name_eq(name, STDLIB_SYMBOLS[j])) {
-          self->stdlib_fn_indices[j] = export.of.func.__private;
+          self->stdlib_fn_indices[j] = export.of.func;
           break;
         }
       }
     }
   }
 
-  if (self->builtin_fn_indices.reset_heap == UINT32_MAX) {
+  if (self->builtin_fn_indices.reset_heap.store_id == 0) {
     wasm_error->kind = TSWasmErrorKindInstantiate;
     format(
       &wasm_error->message,
@@ -874,7 +868,7 @@ TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine, TSWasmError *wasm_error) {
   }
 
   for (unsigned i = 0; i < stdlib_symbols_len; i++) {
-    if (self->stdlib_fn_indices[i] == UINT32_MAX) {
+    if (self->stdlib_fn_indices[i].store_id == 0) {
       wasm_error->kind = TSWasmErrorKindInstantiate;
       format(
         &wasm_error->message,
@@ -904,13 +898,13 @@ TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine, TSWasmError *wasm_error) {
   }
   for (unsigned i = 0; i < lexer_definitions_len; i++) {
     FunctionDefinition *definition = &lexer_definitions[i];
-    wasmtime_func_t func = {function_table.store_id, *definition->storage_location};
-    wasmtime_val_t func_val = {.kind = WASMTIME_FUNCREF, .of.funcref = func};
+    wasmtime_val_t func_val = {.kind = WASMTIME_FUNCREF, .of.funcref = lexer_funcs[i]};
     error = wasmtime_table_set(context, &function_table, table_index, &func_val);
     ts_assert(!error);
     *(int32_t *)(definition->storage_location) = table_index;
     table_index++;
   }
+  ts_free(lexer_funcs);
 
   self->current_function_table_offset = table_index;
   self->lexer_address = initial_memory_pages * MEMORY_PAGE_SIZE;
@@ -1016,8 +1010,6 @@ static bool ts_wasm_store__instantiate(
   // Construct the language function name as string.
   format(&language_function_name, "tree_sitter_%s", language_name);
 
-  const uint64_t store_id = self->function_table.store_id;
-
   // Build the imports list for the module.
   wasm_importtype_vec_t import_types = WASM_EMPTY_VEC;
   wasmtime_module_imports(module, &import_types);
@@ -1038,8 +1030,7 @@ static bool ts_wasm_store__instantiate(
     bool defined_in_stdlib = false;
     for (unsigned j = 0; j < array_len(STDLIB_SYMBOLS); j++) {
       if (name_eq(import_name, STDLIB_SYMBOLS[j])) {
-        uint16_t address = self->stdlib_fn_indices[j];
-        imports[i] = (wasmtime_extern_t) {.kind = WASMTIME_EXTERN_FUNC, .of.func = {store_id, address}};
+        imports[i] = (wasmtime_extern_t) {.kind = WASMTIME_EXTERN_FUNC, .of.func = self->stdlib_fn_indices[j]};
         defined_in_stdlib = true;
         break;
       }
@@ -1546,16 +1537,13 @@ bool ts_wasm_store_add_language(
 
 void ts_wasm_store_reset_heap(TSWasmStore *self) {
   wasmtime_context_t *context = wasmtime_store_context(self->store);
-  wasmtime_func_t func = {
-    self->function_table.store_id,
-    self->builtin_fn_indices.reset_heap
-  };
+  wasmtime_func_t *func = &self->builtin_fn_indices.reset_heap;
   wasm_trap_t *trap = NULL;
   wasmtime_val_t args[1] = {
     {.of.i32 = ts_wasm_store__heap_address(self), .kind = WASMTIME_I32},
   };
 
-  wasmtime_error_t *error = wasmtime_func_call(context, &func, args, 1, NULL, 0, &trap);
+  wasmtime_error_t *error = wasmtime_func_call(context, func, args, 1, NULL, 0, &trap);
   ts_assert(!error);
   ts_assert(!trap);
 }

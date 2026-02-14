@@ -161,3 +161,13 @@ void *realloc(void *ptr, size_t new_size) {
 __attribute__((noreturn))  void abort(void) {
   __builtin_trap();
 }
+
+// Required for assert() in external scanners
+__attribute__((noreturn)) void __assert_fail(
+  const char *assertion,
+  const char *file,
+  unsigned int line,
+  const char *function
+) {
+  __builtin_trap();
+}
