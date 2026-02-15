@@ -25,7 +25,9 @@ regex.workspace = true
 schemars.workspace = true
 semver.workspace = true
 serde_json.workspace = true
+tempfile.workspace = true
 tree-sitter-cli = { path = "../cli/" }
 tree-sitter-loader = { path = "../loader/" }
 notify = "8.2.0"
 notify-debouncer-full = "0.6.0"
+walkdir.workspace = true
