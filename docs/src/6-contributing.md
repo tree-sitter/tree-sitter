@@ -157,26 +157,36 @@ published as [`tree-sitter`][py package] on [PyPI.org][pypi].
 * [`tree-sitter/go-tree-sitter`][go ts] — Go bindings to the core library,
 published as [`tree_sitter`][go package] on [pkg.go.dev][go.dev].
 
-### Publishing a Release
+## Release workflow
 
-Tree-sitter's develoment follows two main release schedules. Primary development of the project is conducted on the `master`
-branch. Non-breaking fixes are backported to the `release-<previous-major-version>` branch, aka the "release branch". Minor
-releases are created off of the `master` branch and patch releases are created off fo the release branch. In order to create
-a release, you should:
+Treesitter follows [semver](https://semver.org) (pre-1.0.0) with a dual development strategy:
+* All development happens on the **`master` branch**, i.e., any new PR (bugfix or feature) must target `master`.
+* Applicable bugfixes and minor improvements are backported to the latest **`release-0.x` branch**, where `x` is the latest minor version. This can be automated by adding the `ci:backport release-0.x` lable to the PR. _No new features or breaking changes should be backported_; this is important to make sure that patch releases are drop-in replacements that are always safe to update to (i.e., downstream users should never have to check patch versions for input or output changes)!
 
-1. Ensure all version numbers within the repository match the version(s) being released. All Rust crates except `tree-sitter-language`
-are versioned in lockstep with one another. The `tree-sitter-language` crate is bumped as necessary.
-    - For a minor release, all versions should already be bumped to the correct minor version (see Step 4 below regarding
-    starting a new release cycle) _except_ potentially the `tree-sitter-language` crate. If changes have been made to the
-    crate since its last release to [crates.io][crates], its patch version must be bumped independently.
-    - For a patch release, all versions should be bumped to the next patch version, with the same caveat as above for the
-    `tree-sitter-language` crate.
-2. Any version bumps made to satisfy Step 1 should be completed through a pull request with the `ci:check release` label
-applied. This triggers a workflow to ensure there are no conflicts with existing published packages on [crates.io][crates].
-If it appears that no versions require bumping via a PR, this workflow should be triggered manually.
-3. Create and push a `v<version>` tag to the repository.
-4. After a successful minor release, the next release cycle begins. To do this, bump all versions (except potentially `tree-sitter-language`'s
-version, if no new release was published) on the `master` branch to the next minor version.
+**Important:** All crates within the project (see above) are versioned in lockstep with the exception of [`tree-sitter-language`][language crate], which is versioned independently and only bumped when necessary.
+
+### Minor releases
+
+Minor releases (`0.x.0`) are made from the **`master` branch** following these steps:
+1. Create a "release `v0.x.0`" PR on `master` and apply the `ci:check release` label to check for possible issues, in particular whether the language crate needs to be bumped.
+2. If the check release workflow indicates, bump the **patch** version of the language crate. Important: This must be higher than the last published version on `crates.io`, which may be from a patch release! (I.e., the version may need to be bumped by two or more.)
+3. Once the PR is merged, tag the commit accordingly: `tag v0.x.0` and push via `git push --tags` (maintainers only). This will trigger the release and publish workflows.
+4. Edit the Github release to include release notes (auto-generated, if nothing else).
+5. Create a new `release-0.x` branch and push to Github.
+6. Bump all version numbers (except for the language crate) to `0.{x+1}.0`, e.g., via `cargo xtask bump-version 0.{x+1}.0` and committing as "release: start working on `0.{x+1}.0`". (This is important to be able to distinguish prerelease nightly builds from the last release by the `--version` output.) Note: this requires tooling for all involved languages, including `npm` and `zig`. Double-check that all versions are bumped correctly by grepping for the old version!
+
+On average, minor releases should happen 1-3 times a year.
+
+### Patch releases
+
+Patch releases (`0.x.y`) are made from the **`release-0.x` branch** following these steps:
+1. Bump all version numbers (except for the language crate) to `0.x.y` as described above.
+2. Create a "release `v0.x.y` PR on `release-0.x` and apply the `ci:check release` label.
+3. If the check release workflow indicates, bump the patch version of the language crate.
+4. Once the PR is merged, tag the commit accordingly: `tag v0.x.y` and push via `git push --tags` (maintainers only). This will trigger the release and publish workflows.
+5. Edit the Github release to include release notes (auto-generated, if nothing else).
+
+On average, minor releases should happen every six weeks.
 
 ## Developing Documentation
 
