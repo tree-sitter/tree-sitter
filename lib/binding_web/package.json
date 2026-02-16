@@ -69,17 +69,17 @@
     "web-tree-sitter.d.cts.map"
   ],
   "devDependencies": {
-    "@eslint/js": "^9.39.1",
+    "@eslint/js": "^10.0.1",
     "@types/emscripten": "^1.41.5",
-    "@types/node": "^24.10.1",
+    "@types/node": "^25.2.3",
     "@vitest/coverage-v8": "^3.0.5",
     "dts-buddy": "^0.6.2",
-    "esbuild": "^0.27.1",
-    "eslint": "^9.39.1",
+    "esbuild": "^0.27.3",
+    "eslint": "^10.0.0",
     "source-map": "^0.7.4",
     "tsx": "^4.21.0",
     "typescript": "^5.7.3",
-    "typescript-eslint": "^8.48.1",
+    "typescript-eslint": "^8.55.0",
     "vitest": "^3.0.5"
   },
   "scripts": {
