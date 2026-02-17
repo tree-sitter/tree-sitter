@@ -17,6 +17,13 @@ impl BitVec {
         }
     }
 
+    pub fn with_capacity(n_bits: usize) -> Self {
+        Self {
+            data: Vec::with_capacity((n_bits + 63) / 64),
+            num_bits: 0,
+        }
+    }
+
     pub fn len(&self) -> usize {
         self.num_bits
     }

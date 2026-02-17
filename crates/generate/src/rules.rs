@@ -321,6 +321,15 @@ impl TokenSet {
         }
     }
 
+    pub fn with_capacity(n_terminals: usize, n_externals: usize) -> Self {
+        Self {
+            terminal_bits: BitVec::with_capacity(n_terminals),
+            external_bits: BitVec::with_capacity(n_externals),
+            eof: false,
+            end_of_nonterminal_extra: false,
+        }
+    }
+
     pub fn iter(&self) -> impl Iterator<Item = Symbol> + '_ {
         SetBitsIter::new(&self.terminal_bits.data)
             .map(Symbol::terminal)
