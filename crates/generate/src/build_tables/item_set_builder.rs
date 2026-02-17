@@ -59,9 +59,12 @@ impl<'a> ParseItemSetBuilder<'a> {
         // respectively.
         // For a terminal symbol, the FIRST and LAST sets just consist of the
         // terminal itself.
-        for i in 0..lexical_grammar.variables.len() {
+        let n_terminals = lexical_grammar.variables.len();
+        let n_externals = syntax_grammar.external_tokens.len();
+
+        for i in 0..n_terminals {
             let symbol = Symbol::terminal(i);
-            let mut set = TokenSet::new();
+            let mut set = TokenSet::with_capacity(n_terminals, n_externals);
             set.insert(symbol);
             result.first_sets.insert(symbol, set.clone());
             result.last_sets.insert(symbol, set);
@@ -70,9 +73,9 @@ impl<'a> ParseItemSetBuilder<'a> {
                 .insert(symbol, ReservedWordSetId::default());
         }
 
-        for i in 0..syntax_grammar.external_tokens.len() {
+        for i in 0..n_externals {
             let symbol = Symbol::external(i);
-            let mut set = TokenSet::new();
+            let mut set = TokenSet::with_capacity(n_terminals, n_externals);
             set.insert(symbol);
             result.first_sets.insert(symbol, set.clone());
             result.last_sets.insert(symbol, set);

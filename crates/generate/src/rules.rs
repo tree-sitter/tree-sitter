@@ -93,6 +93,13 @@ impl BitVec {
         }
     }
 
+    fn with_capacity(n_bits: usize) -> Self {
+        Self {
+            data: Vec::with_capacity((n_bits + 63) / 64),
+            num_bits: 0,
+        }
+    }
+
     fn len(&self) -> usize {
         self.num_bits
     }
@@ -504,6 +511,15 @@ impl TokenSet {
         Self {
             terminal_bits: BitVec::new(),
             external_bits: BitVec::new(),
+            eof: false,
+            end_of_nonterminal_extra: false,
+        }
+    }
+
+    pub fn with_capacity(n_terminals: usize, n_externals: usize) -> Self {
+        Self {
+            terminal_bits: BitVec::with_capacity(n_terminals),
+            external_bits: BitVec::with_capacity(n_externals),
             eof: false,
             end_of_nonterminal_extra: false,
         }
