@@ -331,9 +331,9 @@ impl TokenSet {
     }
 
     pub fn iter(&self) -> impl Iterator<Item = Symbol> + '_ {
-        SetBitsIter::new(&self.terminal_bits.data)
+        SetBitsIter::new(self.terminal_bits.as_slice())
             .map(Symbol::terminal)
-            .chain(SetBitsIter::new(&self.external_bits.data).map(Symbol::external))
+            .chain(SetBitsIter::new(self.external_bits.as_slice()).map(Symbol::external))
             .chain(if self.eof { Some(Symbol::end()) } else { None })
             .chain(if self.end_of_nonterminal_extra {
                 Some(Symbol::end_of_nonterminal_extra())
@@ -343,7 +343,7 @@ impl TokenSet {
     }
 
     pub fn terminals(&self) -> impl Iterator<Item = Symbol> + '_ {
-        SetBitsIter::new(&self.terminal_bits.data).map(Symbol::terminal)
+        SetBitsIter::new(self.terminal_bits.as_slice()).map(Symbol::terminal)
     }
 
     pub fn contains(&self, symbol: &Symbol) -> bool {
@@ -415,8 +415,8 @@ impl TokenSet {
     pub fn is_empty(&self) -> bool {
         !self.eof
             && !self.end_of_nonterminal_extra
-            && self.terminal_bits.data.iter().all(|&w| w == 0)
-            && self.external_bits.data.iter().all(|&w| w == 0)
+            && self.terminal_bits.as_slice().iter().all(|&w| w == 0)
+            && self.external_bits.as_slice().iter().all(|&w| w == 0)
     }
 
     pub fn len(&self) -> usize {
@@ -424,13 +424,13 @@ impl TokenSet {
             + usize::from(self.end_of_nonterminal_extra)
             + self
                 .terminal_bits
-                .data
+                .as_slice()
                 .iter()
                 .map(|w| w.count_ones() as usize)
                 .sum::<usize>()
             + self
                 .external_bits
-                .data
+                .as_slice()
                 .iter()
                 .map(|w| w.count_ones() as usize)
                 .sum::<usize>()
