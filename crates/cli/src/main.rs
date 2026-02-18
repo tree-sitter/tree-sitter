@@ -292,9 +292,9 @@ struct Parse {
 
 #[derive(ValueEnum, Clone)]
 pub enum Encoding {
-    Utf8,
-    Utf16LE,
-    Utf16BE,
+    Utf8 = 0,
+    Utf16LE = 1,
+    Utf16BE = 2,
 }
 
 #[derive(Args)]
