@@ -20,6 +20,7 @@
     defined(__GNU__) || \
     defined(__HAIKU__) || \
     defined(__illumos__) || \
+    defined(__redox__) || \
     defined(__NetBSD__) || \
     defined(__OpenBSD__) || \
     defined(__CYGWIN__) || \
