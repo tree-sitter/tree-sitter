@@ -252,7 +252,7 @@ static inline size_t ts_subtree_alloc_size(uint32_t child_count) {
 // Get a subtree's children, which are allocated immediately before the
 // tree's own heap data.
 #define ts_subtree_children(self) \
-  ((self).data.is_inline ? NULL : (Subtree *)((self).ptr) - (self).ptr->child_count)
+  ((self).data.is_inline ? (Subtree *)NULL : (Subtree *)((self).ptr) - (self).ptr->child_count)
 
 static inline void ts_subtree_set_extra(MutableSubtree *self, bool is_extra) {
   if (self->data.is_inline) {
