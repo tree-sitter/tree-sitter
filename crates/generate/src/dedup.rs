@@ -1,3 +1,4 @@
+#[inline]
 pub fn split_state_id_groups<S>(
     states: &[S],
     state_ids_by_group_id: &mut Vec<Vec<usize>>,

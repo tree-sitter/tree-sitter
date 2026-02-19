@@ -48,8 +48,6 @@ macro_rules! add {
 
 macro_rules! add_whitespace {
     ($this:tt) => {{
-        // 4 bytes per char, 2 spaces per indent level
-        $this.buffer.reserve(4 * 2 * $this.indent_level);
         for _ in 0..$this.indent_level {
             write!(&mut $this.buffer, "  ").unwrap();
         }
