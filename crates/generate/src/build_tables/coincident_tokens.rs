@@ -30,8 +30,8 @@ impl<'a> CoincidentTokenIndex<'a> {
                     .filter(|s| s.is_terminal())
                     .map(|s| s.index),
             );
-            for &a in &terminal_indices {
-                for &b in &terminal_indices {
+            for (j, &a) in terminal_indices.iter().enumerate() {
+                for &b in &terminal_indices[j..] {
                     let index = result.index(a, b);
                     if result.entries[index].last().copied() != Some(i) {
                         result.entries[index].push(i);

@@ -744,6 +744,7 @@ impl TokenSet {
         SetBitsIter::new(self.terminal_bits.as_slice()).map(Symbol::terminal)
     }
 
+    #[inline]
     pub fn contains(&self, symbol: &Symbol) -> bool {
         match symbol.kind {
             SymbolType::NonTerminal => panic!("Cannot store non-terminals in a TokenSet"),
@@ -754,6 +755,7 @@ impl TokenSet {
         }
     }
 
+    #[inline]
     pub fn contains_terminal(&self, index: usize) -> bool {
         self.terminal_bits.get(index).unwrap_or(false)
     }
