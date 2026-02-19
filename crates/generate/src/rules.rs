@@ -82,6 +82,9 @@ const ARENA_CHUNK_WORDS: usize = 128 * 1024 / std::mem::size_of::<u64>();
 struct WordArena {
     chunks: Vec<Vec<u64>>,
     offset: usize,
+    /// Freed blocks grouped by size (number of words). Checked before
+    /// bump-allocating so that dropped `BitVec`s can be reused immediately.
+    free_list: Vec<(usize, Vec<*mut u64>)>,
 }
 
 impl WordArena {
@@ -89,12 +92,20 @@ impl WordArena {
         Self {
             chunks: Vec::new(),
             offset: ARENA_CHUNK_WORDS, // forces first alloc to create a chunk
+            free_list: Vec::new(),
         }
     }
 
+    #[inline]
     fn alloc(&mut self, n_words: usize) -> *mut u64 {
         if n_words == 0 {
             return std::ptr::NonNull::<u64>::dangling().as_ptr();
+        }
+        // Check the free list before bump-allocating.
+        if let Some((_, bucket)) = self.free_list.iter_mut().find(|(s, _)| *s == n_words)
+            && let Some(ptr) = bucket.pop()
+        {
+            return ptr;
         }
         if self.offset + n_words > ARENA_CHUNK_WORDS {
             let size = ARENA_CHUNK_WORDS.max(n_words);
@@ -108,32 +119,39 @@ impl WordArena {
         self.offset += n_words;
         ptr
     }
+
+    #[inline]
+    fn free(&mut self, ptr: *mut u64, n_words: usize, used_words: usize) {
+        if n_words == 0 {
+            return;
+        }
+        // Zero only the in-use words; the rest are already zero by the BitVec
+        // invariant (data[words_in_use..capacity] is always zero).
+        // SAFETY: ptr was returned by alloc(n_words) and is valid for n_words
+        // words; used_words <= n_words.
+        if used_words > 0 {
+            unsafe { std::slice::from_raw_parts_mut(ptr, used_words).fill(0) };
+        }
+        if let Some((_, bucket)) = self.free_list.iter_mut().find(|(s, _)| *s == n_words) {
+            bucket.push(ptr);
+        } else {
+            self.free_list.push((n_words, vec![ptr]));
+        }
+    }
 }
 
-#[cfg(not(test))]
-static mut WORD_ARENA: WordArena = const { WordArena::new() };
-
-#[cfg(test)]
 thread_local! {
     static WORD_ARENA: std::cell::RefCell<WordArena> = const { std::cell::RefCell::new(WordArena::new()) };
 }
 
-#[cfg(not(test))]
-#[inline]
-#[expect(
-    static_mut_refs,
-    reason = "single-threaded non-test builds; no aliasing references to WORD_ARENA exist"
-)]
-fn arena_alloc(n_words: usize) -> *mut u64 {
-    // SAFETY: non-test builds are single-threaded; no aliasing references to
-    // WORD_ARENA exist.
-    unsafe { WORD_ARENA.alloc(n_words) }
-}
-
-#[cfg(test)]
 #[inline]
 fn arena_alloc(n_words: usize) -> *mut u64 {
     WORD_ARENA.with(|a| a.borrow_mut().alloc(n_words))
+}
+
+#[inline]
+fn arena_free(ptr: *mut u64, n_words: usize, used_words: usize) {
+    WORD_ARENA.with(|a| a.borrow_mut().free(ptr, n_words, used_words));
 }
 
 /// A bit vector whose backing `u64` words are bump-allocated from a global
@@ -231,8 +249,11 @@ impl BitVec {
                 let dst = unsafe { std::slice::from_raw_parts_mut(new_data, old) };
                 dst.copy_from_slice(self.as_slice());
             }
+            let old_cap = self.capacity;
+            let old_data = self.data;
             self.data = new_data;
             self.capacity = new_cap as u32;
+            arena_free(old_data, old_cap as usize, old);
         }
     }
 
@@ -294,8 +315,11 @@ impl BitVec {
                 dst.copy_from_slice(self.as_slice());
             }
             // Arena memory is pre-zeroed, so words self_words..other_words are already 0.
+            let old_cap = self.capacity;
+            let old_data = self.data;
             self.data = new_data;
             self.capacity = other_words as u32;
+            arena_free(old_data, old_cap as usize, self_words);
         } else if other_words > self_words {
             // Have capacity, but clear any stale data in the region we're about to OR into.
             self.as_full_slice_mut()[self_words..other_words].fill(0);
@@ -312,6 +336,14 @@ impl BitVec {
             any_new |= new_bits;
         }
         any_new != 0
+    }
+}
+
+impl Drop for BitVec {
+    fn drop(&mut self) {
+        if self.capacity > 0 {
+            arena_free(self.data, self.capacity as usize, self.words_in_use());
+        }
     }
 }
 
