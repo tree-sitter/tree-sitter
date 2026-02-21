@@ -1,14 +1,14 @@
 name: Crate Versions Check
 
 on:
-  pull_request_target:
-    types: [labeled]
+  pull_request:
+    types: [labeled, opened, synchronize, reopened]
   workflow_dispatch:
 
 jobs:
   check-crates:
     runs-on: ubuntu-latest
-    if: github.event.label.name == 'ci:check release'
+    if: contains(github.event.pull_request.labels.*.name, 'ci:check release') || github.event_name == 'workflow_dispatch'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -16,7 +16,7 @@ jobs:
       - name: Set up Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
 
-      - name: Publishing dry run
+      - name: Check crates against crates.io
         uses: katyo/publish-crates@v2
         with:
           dry-run: true
