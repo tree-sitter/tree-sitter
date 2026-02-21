@@ -1529,7 +1529,7 @@ impl Generator {
         let external_scanner_name = format!("{language_function_name}_external_scanner");
 
         add_line!(self, "#ifdef __cplusplus");
-        add_line!(self, r#"unsafe extern "C" {{"#);
+        add_line!(self, r#"extern "C" {{"#);
         add_line!(self, "#endif");
 
         if !self.syntax_grammar.external_tokens.is_empty() {
