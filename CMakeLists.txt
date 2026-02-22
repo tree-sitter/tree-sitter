@@ -10,6 +10,9 @@ option(BUILD_SHARED_LIBS "Build using shared libraries" ON)
 option(TREE_SITTER_FEATURE_WASM "Enable the Wasm feature" OFF)
 option(AMALGAMATED "Build using an amalgamated source" OFF)
 
+# Exports all symbols by default for MSVC.
+set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
+
 if(AMALGAMATED)
   set(TS_SOURCE_FILES "${PROJECT_SOURCE_DIR}/lib/src/lib.c")
 else()
