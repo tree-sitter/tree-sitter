@@ -1,7 +1,7 @@
 import { C, INTERNAL, Internal, assertInternal, SIZE_OF_INT, SIZE_OF_SHORT } from './constants';
 import { LookaheadIterator } from './lookahead_iterator';
 import { unmarshalLanguageMetadata } from './marshal';
-import { TRANSFER_BUFFER } from './parser';
+import { TRANSFER_BUFFER, LANGUAGE_VERSION, MIN_COMPATIBLE_VERSION } from './parser';
 
 const LANGUAGE_FUNCTION_REGEX = /^tree_sitter_\w+$/;
 
@@ -226,6 +226,8 @@ export class Language {
   /**
    * Load a language from a WebAssembly module.
    * The module can be provided as a path to a file or as a buffer.
+   *
+   * @throws {RangeError} If the Wasm file was built with an incompatible version of tree-sitter-cli.
    */
   static async load(input: string | Uint8Array): Promise<Language> {
     let binary: Uint8Array | WebAssembly.Module;
@@ -263,6 +265,18 @@ export class Language {
         throw new Error('Language.load failed: no language function found in Wasm file');
     }
     const languageAddress = mod[functionName]();
-    return new Language(INTERNAL, languageAddress);
+    const language = new Language(INTERNAL, languageAddress);
+
+    // Early version compatibility check
+    const version = language.abiVersion;
+    if (version < MIN_COMPATIBLE_VERSION || LANGUAGE_VERSION < version) {
+      throw new RangeError(
+        `Incompatible language version ${version}. ` +
+        `Compatibility range ${MIN_COMPATIBLE_VERSION} through ${LANGUAGE_VERSION}. ` +
+        `The Wasm file may have been built with an incompatible version of tree-sitter-cli. `
+      );
+    }
+
+    return language;
   }
 }
