@@ -1498,6 +1498,7 @@ impl Loader {
         if let Some(path) = Self::get_existing_tool(
             "clang",
             "wasi-sdk",
+            WASI_SDK_VERSION,
             &possible_executables,
             "TREE_SITTER_WASI_SDK_PATH",
         )? {
@@ -1515,6 +1516,7 @@ impl Loader {
         Self::download_tool(
             "clang",
             "wasi-sdk",
+            WASI_SDK_VERSION,
             &sdk_filename,
             &sdk_url,
             &possible_executables,
@@ -1538,6 +1540,7 @@ impl Loader {
         if let Some(path) = Self::get_existing_tool(
             "wasm-opt",
             "binaryen",
+            BINARYEN_VERSION,
             &possible_executables,
             "TREE_SITTER_BINARYEN_PATH",
         )? {
@@ -1552,6 +1555,7 @@ impl Loader {
         Self::download_tool(
             "wasm-opt",
             "binaryen",
+            BINARYEN_VERSION,
             &binaryen_filename,
             &binaryen_url,
             &possible_executables,
@@ -1561,6 +1565,7 @@ impl Loader {
     fn get_existing_tool(
         tool_name: &'static str,
         toolchain: &'static str,
+        version: &str,
         possible_exes: &[&'static str],
         env_var: &str,
     ) -> LoaderResult<Option<PathBuf>> {
@@ -1593,7 +1598,23 @@ impl Loader {
             })
         })?;
 
-        let tool_dir = cache_dir.join(toolchain).join("bin");
+        let toolchain_dir = cache_dir.join(toolchain);
+        let version_file = toolchain_dir.join(".version");
+
+        // If a cached toolchain exists but the version doesn't match, remove it
+        if toolchain_dir.exists() {
+            let cached_version = fs::read_to_string(&version_file).unwrap_or_default();
+            if cached_version.trim() != version {
+                info!(
+                    "Cached {toolchain} version ({}) doesn't match expected version ({version}), re-downloading",
+                    cached_version.trim(),
+                );
+                fs::remove_dir_all(&toolchain_dir).ok();
+                return Ok(None);
+            }
+        }
+
+        let tool_dir = toolchain_dir.join("bin");
 
         for exe in possible_exes {
             let tool_exe = tool_dir.join(exe);
@@ -1608,6 +1629,7 @@ impl Loader {
     fn download_tool(
         tool_name: &'static str,
         toolchain: &'static str,
+        version: &str,
         filename: &str,
         url: &str,
         possible_exes: &[&'static str],
@@ -1651,6 +1673,8 @@ impl Loader {
 
         info!("Extracting {tool_name} to {}...", tool_dir.display());
         Self::extract_tar_gz_with_strip(&temp_tar_path, &tool_dir)?;
+
+        fs::write(tool_dir.join(".version"), version).ok();
 
         for exe in possible_exes {
             let tool_exe = tool_dir.join("bin").join(exe);
