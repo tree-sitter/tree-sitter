@@ -652,6 +652,65 @@ pub fn generate_node_types_json(
         }
     }
 
+    // Handle aliases that don't correspond to any existing named type.
+    // These are aliases that are only used as aliases and never as direct references.
+    for (symbol, aliases) in &aliases_by_symbol {
+        for alias in aliases.iter().flatten() {
+            // Check if this alias name already exists in node_types_json
+            if !node_types_json.contains_key(&alias.value) {
+                // This alias doesn't correspond to any existing type, so we need to create one
+
+                let info = &variable_info[symbol.index];
+
+                let mut node_type_existed = true;
+                let node_type_json =
+                    node_types_json
+                        .entry(alias.value.clone())
+                        .or_insert_with(|| {
+                            node_type_existed = false;
+                            NodeInfoJSON {
+                                kind: alias.value.clone(),
+                                named: alias.is_named,
+                                root: false,
+                                extra: false,
+                                fields: Some(BTreeMap::new()),
+                                children: None,
+                                subtypes: None,
+                            }
+                        });
+
+                let fields_json = node_type_json.fields.as_mut().unwrap();
+                for (new_field, field_info) in &info.fields {
+                    let field_json = fields_json.entry(new_field.clone()).or_insert_with(|| {
+                        // If another rule is aliased with the same name, and does *not* have this
+                        // field, then this field cannot be required.
+                        let mut field_json = FieldInfoJSON::default();
+                        if node_type_existed {
+                            field_json.required = false;
+                        }
+                        field_json
+                    });
+                    populate_field_info_json(field_json, field_info);
+                }
+
+                // If another rule is aliased with the same name, any fields that aren't present in
+                // this cannot be required.
+                for (existing_field, field_json) in fields_json.iter_mut() {
+                    if !info.fields.contains_key(existing_field) {
+                        field_json.required = false;
+                    }
+                }
+
+                populate_field_info_json(
+                    node_type_json
+                        .children
+                        .get_or_insert(FieldInfoJSON::default()),
+                    &info.children_without_fields,
+                );
+            }
+        }
+    }
+
     // Sort the subtype map topologically so that subtypes are listed before their supertypes.
     let mut sorted_kinds = Vec::with_capacity(subtype_map.len());
     let mut top_sort = topological_sort::TopologicalSort::<String>::new();
