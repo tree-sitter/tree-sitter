@@ -209,6 +209,18 @@ const Parser = require('web-tree-sitter');
 })();
 ```
 
+### Loading a pre-compiled WebAssembly module
+
+In some environments, such as Cloudflare Workers and Vercel Edge Functions, you can import WebAssembly modules directly. 
+Modules can be loaded synchronously using the `Language.loadSync` method:
+
+```javascript
+import treeSitterJavaScript from 'tree-sitter-javascript.wasm';
+// treeSitterJavaScript is of type `WebAssembly.Module`
+const JavaScript = Language.loadSync(treeSitterJavaScript);
+parser.setLanguage(JavaScript);
+```
+
 ### Running .wasm in browser
 
 `web-tree-sitter` can run in the browser, but there are some common pitfalls.
