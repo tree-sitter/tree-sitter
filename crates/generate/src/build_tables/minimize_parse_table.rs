@@ -340,6 +340,7 @@ impl Minimizer<'_> {
         false
     }
 
+    #[inline]
     fn token_conflicts(
         &self,
         left_id: ParseStateId,
@@ -396,9 +397,6 @@ impl Minimizer<'_> {
             if self
                 .token_conflict_map
                 .does_conflict(new_token.index, token.index)
-                || self
-                    .token_conflict_map
-                    .does_match_same_string(new_token.index, token.index)
             {
                 debug!(
                     "split states {} {} - token {} conflicts with {}",

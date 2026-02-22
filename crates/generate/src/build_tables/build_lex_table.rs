@@ -65,7 +65,6 @@ pub fn build_lex_table(
             if merge_token_set(
                 &mut entry.0,
                 &tokens,
-                lexical_grammar,
                 token_conflict_map,
                 coincident_token_index,
             ) {
@@ -280,34 +279,49 @@ impl<'a> LexTableBuilder<'a> {
     }
 }
 
-fn merge_token_set(
-    tokens: &mut TokenSet,
-    other: &TokenSet,
-    lexical_grammar: &LexicalGrammar,
+fn check_token_conflicts(
+    i: usize,
+    set_without_terminal: &TokenSet,
     token_conflict_map: &TokenConflictMap,
     coincident_token_index: &CoincidentTokenIndex,
 ) -> bool {
-    for i in 0..lexical_grammar.variables.len() {
-        let symbol = Symbol::terminal(i);
-        let set_without_terminal = match (tokens.contains_terminal(i), other.contains_terminal(i)) {
-            (true, false) => other,
-            (false, true) => tokens,
-            _ => continue,
-        };
-
-        for existing_token in set_without_terminal.terminals() {
-            if token_conflict_map.does_conflict(i, existing_token.index)
-                || token_conflict_map.does_match_prefix(i, existing_token.index)
-            {
-                return false;
-            }
-            if !coincident_token_index.contains(symbol, existing_token)
-                && (token_conflict_map.does_overlap(existing_token.index, i)
-                    || token_conflict_map.does_overlap(i, existing_token.index))
-            {
-                return false;
-            }
+    let symbol = Symbol::terminal(i);
+    for existing_token in set_without_terminal.terminals() {
+        if token_conflict_map.does_conflict(i, existing_token.index)
+            || token_conflict_map.does_match_prefix(i, existing_token.index)
+        {
+            return true;
         }
+        if !coincident_token_index.contains(symbol, existing_token)
+            && (token_conflict_map.does_overlap(existing_token.index, i)
+                || token_conflict_map.does_overlap(i, existing_token.index))
+        {
+            return true;
+        }
+    }
+    false
+}
+
+fn merge_token_set(
+    tokens: &mut TokenSet,
+    other: &TokenSet,
+    token_conflict_map: &TokenConflictMap,
+    coincident_token_index: &CoincidentTokenIndex,
+) -> bool {
+    if tokens
+        .terminals()
+        .filter(|t| !other.contains_terminal(t.index))
+        .any(|t| check_token_conflicts(t.index, other, token_conflict_map, coincident_token_index))
+    {
+        return false;
+    }
+
+    if other
+        .terminals()
+        .filter(|t| !tokens.contains_terminal(t.index))
+        .any(|t| check_token_conflicts(t.index, tokens, token_conflict_map, coincident_token_index))
+    {
+        return false;
     }
 
     tokens.insert_all(other);

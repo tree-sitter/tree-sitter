@@ -121,7 +121,9 @@ fn get_following_tokens(
     inlines: &InlinedProductionMap,
     builder: &ParseItemSetBuilder,
 ) -> Vec<TokenSet> {
-    let mut result = vec![TokenSet::new(); lexical_grammar.variables.len()];
+    let n_terminals = lexical_grammar.variables.len();
+    let n_externals = syntax_grammar.external_tokens.len();
+    let mut result = vec![TokenSet::with_capacity(n_terminals, n_externals); n_terminals];
     let productions = syntax_grammar
         .variables
         .iter()

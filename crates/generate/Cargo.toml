@@ -43,7 +43,6 @@ rustc-hash.workspace = true
 semver = { optional = true, workspace = true }
 serde.workspace = true
 serde_json.workspace = true
-smallbitvec.workspace = true
 thiserror.workspace = true
 topological-sort.workspace = true
 

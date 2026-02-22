@@ -116,7 +116,6 @@ semver     = { features = [ "serde" ], version = "1.0.27" }
 serde      = { features = [ "derive" ], version = "1.0.228" }
 serde_json = { features = [ "preserve_order" ], version = "1.0.149" }
 similar = "2.7.0"
-smallbitvec = "2.6.0"
 streaming-iterator = "0.1.9"
 tempfile = "3.25.0"
 thiserror = "2.0.18"

@@ -20,16 +20,21 @@ impl<'a> CoincidentTokenIndex<'a> {
             grammar: lexical_grammar,
             entries: vec![Vec::new(); n * n],
         };
+        let mut terminal_indices = Vec::new();
         for (i, state) in table.states.iter().enumerate() {
-            for symbol in state.terminal_entries.keys() {
-                if symbol.is_terminal() {
-                    for other_symbol in state.terminal_entries.keys() {
-                        if other_symbol.is_terminal() {
-                            let index = result.index(symbol.index, other_symbol.index);
-                            if result.entries[index].last().copied() != Some(i) {
-                                result.entries[index].push(i);
-                            }
-                        }
+            terminal_indices.clear();
+            terminal_indices.extend(
+                state
+                    .terminal_entries
+                    .keys()
+                    .filter(|s| s.is_terminal())
+                    .map(|s| s.index),
+            );
+            for (j, &a) in terminal_indices.iter().enumerate() {
+                for &b in &terminal_indices[j..] {
+                    let index = result.index(a, b);
+                    if result.entries[index].last().copied() != Some(i) {
+                        result.entries[index].push(i);
                     }
                 }
             }
