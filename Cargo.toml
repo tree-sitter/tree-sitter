@@ -79,7 +79,7 @@ overflow-checks  = true
 [workspace.dependencies]
 ansi_colours = "1.2.3"
 anstyle = "1.0.13"
-anyhow = "1.0.101"
+anyhow = "1.0.102"
 bstr   = "1.12.1"
 cc     = "1.2.56"
 clap = { features = [
