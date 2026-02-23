@@ -1038,7 +1038,7 @@ pub fn generate_grammar_files(
                         .replace("(url:", "(name: \"SwiftTreeSitter\", url:");
                     if !replaced_contents.eq(&contents) {
                         info!("Updating tree-sitter dependency in Package.swift");
-                        write_file(path, contents)?;
+                        write_file(path, replaced_contents)?;
                     }
                     Ok(())
                 },
