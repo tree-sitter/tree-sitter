@@ -152,10 +152,15 @@ pub struct JsonConfigOpts {
 impl JsonConfigOpts {
     #[must_use]
     pub fn to_tree_sitter_json(self) -> TreeSitterJSON {
+        let injection_regex = format!("^{}$", self.name);
+        let class_name = format!("TreeSitter{}", self.name.to_upper_camel_case());
+        let repository = self
+            .repository
+            .unwrap_or_else(|| format!("https://github.com/tree-sitter/tree-sitter-{}", self.name));
         TreeSitterJSON {
             schema: Some(TREE_SITTER_JSON_SCHEMA.to_string()),
             grammars: vec![Grammar {
-                name: self.name.clone(),
+                name: self.name,
                 camelcase: Some(self.camelcase),
                 title: Some(self.title),
                 scope: self.scope,
@@ -166,10 +171,10 @@ impl JsonConfigOpts {
                 injections: PathsJSON::Empty,
                 locals: PathsJSON::Empty,
                 tags: PathsJSON::Empty,
-                injection_regex: Some(format!("^{}$", self.name)),
+                injection_regex: Some(injection_regex),
                 first_line_regex: None,
                 content_regex: None,
-                class_name: Some(format!("TreeSitter{}", self.name.to_upper_camel_case())),
+                class_name: Some(class_name),
             }],
             metadata: Metadata {
                 version: self.version,
@@ -181,9 +186,7 @@ impl JsonConfigOpts {
                     url: self.url,
                 }]),
                 links: Some(Links {
-                    repository: self.repository.unwrap_or_else(|| {
-                        format!("https://github.com/tree-sitter/tree-sitter-{}", self.name)
-                    }),
+                    repository,
                     funding: self.funding,
                 }),
                 namespace: self.namespace,
@@ -234,6 +237,14 @@ struct GenerateOpts<'a> {
     namespace: Option<&'a str>,
 }
 
+struct InitContext<'a> {
+    repo_path: &'a Path,
+    language_name: &'a str,
+    dashed_language_name: String,
+    allow_update: bool,
+    has_multiple_language_configs: bool,
+}
+
 pub fn generate_grammar_files(
     repo_path: &Path,
     language_name: &str,
@@ -263,24 +274,25 @@ pub fn generate_grammar_files(
         },
     )?;
 
-    let tree_sitter_config = serde_json::from_str::<TreeSitterJSON>(
+    let mut tree_sitter_config = serde_json::from_str::<TreeSitterJSON>(
         &fs::read_to_string(tree_sitter_config.as_path())
             .with_context(|| "Failed to read tree-sitter.json")?,
     )?;
 
-    let authors = tree_sitter_config.metadata.authors.as_ref();
     let camel_name = tree_sitter_config.grammars[0]
         .camelcase
-        .clone()
+        .take()
         .unwrap_or_else(|| language_name.to_upper_camel_case());
     let title_name = tree_sitter_config.grammars[0]
         .title
-        .clone()
+        .take()
         .unwrap_or_else(|| language_name.to_upper_camel_case());
     let class_name = tree_sitter_config.grammars[0]
         .class_name
-        .clone()
+        .take()
         .unwrap_or_else(|| format!("TreeSitter{}", language_name.to_upper_camel_case()));
+
+    let authors = tree_sitter_config.metadata.authors.as_ref();
 
     let default_highlights_path = Path::new("queries").join(DEFAULT_HIGHLIGHTS_QUERY_FILE_NAME);
     let default_injections_path = Path::new("queries").join(DEFAULT_INJECTIONS_QUERY_FILE_NAME);
@@ -328,825 +340,481 @@ pub fn generate_grammar_files(
         namespace: tree_sitter_config.metadata.namespace.as_deref(),
     };
 
+    let ctx = InitContext {
+        repo_path,
+        language_name,
+        dashed_language_name,
+        allow_update,
+        has_multiple_language_configs: tree_sitter_config.has_multiple_language_configs(),
+    };
+
+    let bindings_dir = repo_path.join("bindings");
+
+    generate_common_files(&ctx, &generate_opts)?;
+
+    if tree_sitter_config.bindings.rust {
+        generate_rust_bindings(&ctx, &generate_opts, &bindings_dir)?;
+    }
+    if tree_sitter_config.bindings.node {
+        generate_node_bindings(&ctx, &generate_opts, &bindings_dir)?;
+    }
+    if tree_sitter_config.bindings.c {
+        generate_c_bindings(&ctx, &generate_opts, &bindings_dir)?;
+    }
+    if tree_sitter_config.bindings.go {
+        generate_go_bindings(&ctx, &generate_opts, &bindings_dir)?;
+    }
+    if tree_sitter_config.bindings.python {
+        generate_python_bindings(&ctx, &generate_opts, &bindings_dir)?;
+    }
+    if tree_sitter_config.bindings.swift {
+        generate_swift_bindings(&ctx, &generate_opts, &bindings_dir)?;
+    }
+    if tree_sitter_config.bindings.zig {
+        generate_zig_bindings(&ctx, &generate_opts, &bindings_dir)?;
+    }
+    if tree_sitter_config.bindings.java {
+        generate_java_bindings(&ctx, &generate_opts, &bindings_dir)?;
+    }
+
+    Ok(())
+}
+
+fn generate_common_files(ctx: &InitContext, opts: &GenerateOpts) -> Result<()> {
     // Create package.json
     missing_path_else(
-        repo_path.join("package.json"),
-        allow_update,
+        ctx.repo_path.join("package.json"),
+        ctx.allow_update,
         |path| {
             generate_file(
                 path,
                 PACKAGE_JSON_TEMPLATE,
-                dashed_language_name.as_str(),
-                &generate_opts,
+                ctx.dashed_language_name.as_str(),
+                opts,
             )
         },
-        |path| {
-            let mut contents = fs::read_to_string(path)?
-                .replace(
-                    r#""node-addon-api": "^8.3.1""#,
-                    r#""node-addon-api": "^8.5.0""#,
-                )
-                .replace(
-                    indoc! {r#"
-                    "prebuildify": "^6.0.1",
-                    "tree-sitter-cli":"#},
-                    indoc! {r#"
-                    "prebuildify": "^6.0.1",
-                    "tree-sitter": "^0.25.0",
-                    "tree-sitter-cli":"#},
-                );
-            if !contents.contains("module") {
-                info!("Migrating package.json to ESM");
-                contents = contents.replace(
-                    r#""repository":"#,
-                    indoc! {r#"
-                    "type": "module",
-                      "repository":"#},
-                );
-            }
-            write_file(path, contents)?;
-            Ok(())
-        },
+        update_package_json,
     )?;
 
     // Do not create a grammar.js file in a repo with multiple language configs
-    if !tree_sitter_config.has_multiple_language_configs() {
+    if !ctx.has_multiple_language_configs {
         missing_path_else(
-            repo_path.join("grammar.js"),
-            allow_update,
-            |path| generate_file(path, GRAMMAR_JS_TEMPLATE, language_name, &generate_opts),
-            |path| {
-                let mut contents = fs::read_to_string(path)?;
-                if contents.contains("module.exports") {
-                    info!("Migrating grammars.js to ESM");
-                    contents = contents.replace("module.exports =", "export default");
-                    write_file(path, contents)?;
-                }
-
-                Ok(())
-            },
+            ctx.repo_path.join("grammar.js"),
+            ctx.allow_update,
+            |path| generate_file(path, GRAMMAR_JS_TEMPLATE, ctx.language_name, opts),
+            update_grammar_js,
         )?;
     }
 
     // Write .gitignore file
     missing_path_else(
-        repo_path.join(".gitignore"),
-        allow_update,
-        |path| generate_file(path, GITIGNORE_TEMPLATE, language_name, &generate_opts),
-        |path| {
-            let mut contents = fs::read_to_string(path)?;
-            if !contents.contains("Zig artifacts") {
-                info!("Adding zig entries to .gitignore");
-                contents.push('\n');
-                contents.push_str(indoc! {"
-                # Zig artifacts
-                .zig-cache/
-                zig-cache/
-                zig-out/
-                "});
-            }
-            Ok(())
-        },
+        ctx.repo_path.join(".gitignore"),
+        ctx.allow_update,
+        |path| generate_file(path, GITIGNORE_TEMPLATE, ctx.language_name, opts),
+        update_gitignore,
     )?;
 
     // Write .gitattributes file
     missing_path_else(
-        repo_path.join(".gitattributes"),
-        allow_update,
-        |path| generate_file(path, GITATTRIBUTES_TEMPLATE, language_name, &generate_opts),
-        |path| {
-            let mut contents = fs::read_to_string(path)?;
-            let c_bindings_entry = "bindings/c/* ";
-            if contents.contains(c_bindings_entry) {
-                info!("Updating c bindings entry in .gitattributes");
-                contents = contents.replace(c_bindings_entry, "bindings/c/** ");
-            }
-            if !contents.contains("Zig bindings") {
-                info!("Adding zig entries to .gitattributes");
-                contents.push('\n');
-                contents.push_str(indoc! {"
-                # Zig bindings
-                build.zig linguist-generated
-                build.zig.zon linguist-generated
-                "});
-            }
-            write_file(path, contents)?;
-            Ok(())
-        },
+        ctx.repo_path.join(".gitattributes"),
+        ctx.allow_update,
+        |path| generate_file(path, GITATTRIBUTES_TEMPLATE, ctx.language_name, opts),
+        update_gitattributes,
     )?;
 
     // Write .editorconfig file
-    missing_path(repo_path.join(".editorconfig"), |path| {
-        generate_file(path, EDITORCONFIG_TEMPLATE, language_name, &generate_opts)
+    missing_path(ctx.repo_path.join(".editorconfig"), |path| {
+        generate_file(path, EDITORCONFIG_TEMPLATE, ctx.language_name, opts)
     })?;
 
-    let bindings_dir = repo_path.join("bindings");
+    Ok(())
+}
 
-    // Generate Rust bindings
-    if tree_sitter_config.bindings.rust {
-        missing_path(bindings_dir.join("rust"), create_dir)?.apply(|path| {
-            missing_path_else(path.join("lib.rs"), allow_update, |path| {
-                generate_file(path, LIB_RS_TEMPLATE, language_name, &generate_opts)
-            }, |path| {
-                let mut contents = fs::read_to_string(path)?;
-                if !contents.contains("#[cfg(with_highlights_query)]") {
-                    info!("Updating query constants in bindings/rust/lib.rs");
-                    let replacement = indoc! {r#"
-                        #[cfg(with_highlights_query)]
-                        /// The syntax highlighting query for this grammar.
-                        pub const HIGHLIGHTS_QUERY: &str = include_str!("../../HIGHLIGHTS_QUERY_PATH");
+fn generate_rust_bindings(
+    ctx: &InitContext,
+    opts: &GenerateOpts,
+    bindings_dir: &Path,
+) -> Result<()> {
+    missing_path(bindings_dir.join("rust"), create_dir)?.apply(|path| {
+        missing_path_else(
+            path.join("lib.rs"),
+            ctx.allow_update,
+            |path| generate_file(path, LIB_RS_TEMPLATE, ctx.language_name, opts),
+            |path| update_rust_lib_rs(path, opts),
+        )?;
 
-                        #[cfg(with_injections_query)]
-                        /// The language injection query for this grammar.
-                        pub const INJECTIONS_QUERY: &str = include_str!("../../INJECTIONS_QUERY_PATH");
+        missing_path_else(
+            path.join("build.rs"),
+            ctx.allow_update,
+            |path| generate_file(path, BUILD_RS_TEMPLATE, ctx.language_name, opts),
+            |path| update_rust_build_rs(path, ctx.language_name, opts),
+        )?;
 
-                        #[cfg(with_locals_query)]
-                        /// The local variable query for this grammar.
-                        pub const LOCALS_QUERY: &str = include_str!("../../LOCALS_QUERY_PATH");
-
-                        #[cfg(with_tags_query)]
-                        /// The symbol tagging query for this grammar.
-                        pub const TAGS_QUERY: &str = include_str!("../../TAGS_QUERY_PATH");
-                        "#}
-                        .replace(HIGHLIGHTS_QUERY_PATH_PLACEHOLDER, &generate_opts.highlights_query_path.replace('\\', "/"))
-                        .replace(INJECTIONS_QUERY_PATH_PLACEHOLDER, &generate_opts.injections_query_path.replace('\\', "/"))
-                        .replace(LOCALS_QUERY_PATH_PLACEHOLDER, &generate_opts.locals_query_path.replace('\\', "/"))
-                        .replace(TAGS_QUERY_PATH_PLACEHOLDER, &generate_opts.tags_query_path.replace('\\', "/"));
-                    contents = contents
-                        .replace(
-                            indoc! {r#"
-                            // NOTE: uncomment these to include any queries that this grammar contains:
-
-                            // pub const HIGHLIGHTS_QUERY: &str = include_str!("../../queries/highlights.scm");
-                            // pub const INJECTIONS_QUERY: &str = include_str!("../../queries/injections.scm");
-                            // pub const LOCALS_QUERY: &str = include_str!("../../queries/locals.scm");
-                            // pub const TAGS_QUERY: &str = include_str!("../../queries/tags.scm");
-                            "#},
-                            &replacement,
-                        );
-                }
-                write_file(path, contents)?;
-                Ok(())
-            })?;
-
-            missing_path_else(
-                path.join("build.rs"),
-                allow_update,
-                |path| generate_file(path, BUILD_RS_TEMPLATE, language_name, &generate_opts),
-                |path| {
-                    let mut contents = fs::read_to_string(path)?;
-                    if !contents.contains("wasm32-unknown-unknown") {
-                        info!("Adding wasm32-unknown-unknown target to bindings/rust/build.rs");
-                        let replacement = indoc!{r#"
-                            c_config.flag("-utf-8");
-
-                            if std::env::var("TARGET").unwrap() == "wasm32-unknown-unknown" {
-                                let Ok(wasm_headers) = std::env::var("DEP_TREE_SITTER_LANGUAGE_WASM_HEADERS") else {
-                                    panic!("Environment variable DEP_TREE_SITTER_LANGUAGE_WASM_HEADERS must be set by the language crate");
-                                };
-                                let Ok(wasm_src) =
-                                    std::env::var("DEP_TREE_SITTER_LANGUAGE_WASM_SRC").map(std::path::PathBuf::from)
-                                else {
-                                    panic!("Environment variable DEP_TREE_SITTER_LANGUAGE_WASM_SRC must be set by the language crate");
-                                };
-
-                                c_config.include(&wasm_headers);
-                                c_config.files([
-                                    wasm_src.join("stdio.c"),
-                                    wasm_src.join("stdlib.c"),
-                                    wasm_src.join("string.c"),
-                                ]);
-                            }
-                        "#}
-                            .lines()
-                            .map(|line| if line.is_empty() { line.to_string() } else { format!("    {line}") })
-                            .collect::<Vec<_>>()
-                            .join("\n");
-
-                        contents = contents.replace(r#"    c_config.flag("-utf-8");"#, &replacement);
-                    }
-
-                    // Introduce configuration variables for dynamic query inclusion
-                    if !contents.contains("with_highlights_query") {
-                        info!("Adding support for dynamic query inclusion to bindings/rust/build.rs");
-                        let replaced = indoc! {r#"
-                                c_config.compile("tree-sitter-KEBAB_PARSER_NAME");
-                            }"#}
-                            .replace("KEBAB_PARSER_NAME", &language_name.to_kebab_case());
-
-                        let replacement = indoc! {r#"
-                                c_config.compile("tree-sitter-KEBAB_PARSER_NAME");
-
-                                println!("cargo:rustc-check-cfg=cfg(with_highlights_query)");
-                                if !"HIGHLIGHTS_QUERY_PATH".is_empty() && std::path::Path::new("HIGHLIGHTS_QUERY_PATH").exists() {
-                                    println!("cargo:rustc-cfg=with_highlights_query");
-                                }
-                                println!("cargo:rustc-check-cfg=cfg(with_injections_query)");
-                                if !"INJECTIONS_QUERY_PATH".is_empty() && std::path::Path::new("INJECTIONS_QUERY_PATH").exists() {
-                                    println!("cargo:rustc-cfg=with_injections_query");
-                                }
-                                println!("cargo:rustc-check-cfg=cfg(with_locals_query)");
-                                if !"LOCALS_QUERY_PATH".is_empty() && std::path::Path::new("LOCALS_QUERY_PATH").exists() {
-                                    println!("cargo:rustc-cfg=with_locals_query");
-                                }
-                                println!("cargo:rustc-check-cfg=cfg(with_tags_query)");
-                                if !"TAGS_QUERY_PATH".is_empty() && std::path::Path::new("TAGS_QUERY_PATH").exists() {
-                                    println!("cargo:rustc-cfg=with_tags_query");
-                                }
-                            }"#}
-                            .replace("KEBAB_PARSER_NAME", &language_name.to_kebab_case())
-                            .replace(HIGHLIGHTS_QUERY_PATH_PLACEHOLDER, &generate_opts.highlights_query_path.replace('\\', "/"))
-                            .replace(INJECTIONS_QUERY_PATH_PLACEHOLDER, &generate_opts.injections_query_path.replace('\\', "/"))
-                            .replace(LOCALS_QUERY_PATH_PLACEHOLDER, &generate_opts.locals_query_path.replace('\\', "/"))
-                            .replace(TAGS_QUERY_PATH_PLACEHOLDER, &generate_opts.tags_query_path.replace('\\', "/"));
-
-                        contents = contents.replace(
-                            &replaced,
-                            &replacement,
-                        );
-                    }
-
-                    write_file(path, contents)?;
-                    Ok(())
-                },
-            )?;
-
-            missing_path_else(
-                repo_path.join("Cargo.toml"),
-                allow_update,
-                |path| {
-                    generate_file(
-                        path,
-                        CARGO_TOML_TEMPLATE,
-                        dashed_language_name.as_str(),
-                        &generate_opts,
-                    )
-                },
-                |path| {
-                    let contents = fs::read_to_string(path)?;
-                    if contents.contains("\"LICENSE\"") {
-                        info!("Adding LICENSE entry to bindings/rust/Cargo.toml");
-                        write_file(path, contents.replace("\"LICENSE\"", "\"/LICENSE\""))?;
-                    }
-                    Ok(())
-                },
-            )?;
-
-            Ok(())
-        })?;
-    }
-
-    // Generate Node bindings
-    if tree_sitter_config.bindings.node {
-        missing_path(bindings_dir.join("node"), create_dir)?.apply(|path| {
-            missing_path_else(
-                path.join("index.js"),
-                allow_update,
-                |path| generate_file(path, INDEX_JS_TEMPLATE, language_name, &generate_opts),
-                |path| {
-                    let contents = fs::read_to_string(path)?;
-                    if !contents.contains("Object.defineProperty") {
-                        info!("Replacing index.js");
-                        generate_file(path, INDEX_JS_TEMPLATE, language_name, &generate_opts)?;
-                    }
-                    Ok(())
-                },
-            )?;
-
-            missing_path_else(
-                path.join("index.d.ts"),
-                allow_update,
-                |path| generate_file(path, INDEX_D_TS_TEMPLATE, language_name, &generate_opts),
-                |path| {
-                    let contents = fs::read_to_string(path)?;
-                    if !contents.contains("export default binding") {
-                        info!("Replacing index.d.ts");
-                        generate_file(path, INDEX_D_TS_TEMPLATE, language_name, &generate_opts)?;
-                    }
-                    Ok(())
-                },
-            )?;
-
-            missing_path_else(
-                path.join("binding_test.js"),
-                allow_update,
-                |path| {
-                    generate_file(
-                        path,
-                        BINDING_TEST_JS_TEMPLATE,
-                        language_name,
-                        &generate_opts,
-                    )
-                },
-                |path| {
-                    let contents = fs::read_to_string(path)?;
-                    if !contents.contains("import") {
-                        info!("Replacing binding_test.js");
-                        generate_file(
-                            path,
-                            BINDING_TEST_JS_TEMPLATE,
-                            language_name,
-                            &generate_opts,
-                        )?;
-                    }
-                    Ok(())
-                },
-            )?;
-
-            missing_path(path.join("binding.cc"), |path| {
-                generate_file(path, JS_BINDING_CC_TEMPLATE, language_name, &generate_opts)
-            })?;
-
-            missing_path_else(
-                repo_path.join("binding.gyp"),
-                allow_update,
-                |path| generate_file(path, BINDING_GYP_TEMPLATE, language_name, &generate_opts),
-                |path| {
-                    let contents = fs::read_to_string(path)?;
-                    if contents.contains("fs.exists(") {
-                        info!("Replacing `fs.exists` calls in binding.gyp");
-                        write_file(path, contents.replace("fs.exists(", "fs.existsSync("))?;
-                    }
-                    Ok(())
-                },
-            )?;
-
-            Ok(())
-        })?;
-    }
-
-    // Generate C bindings
-    if tree_sitter_config.bindings.c {
-        let kebab_case_name = language_name.to_kebab_case();
-        missing_path(bindings_dir.join("c"), create_dir)?.apply(|path| {
-            let header_name = format!("tree-sitter-{kebab_case_name}.h");
-            let old_file = &path.join(&header_name);
-            if allow_update && fs::exists(old_file).unwrap_or(false) {
-                info!("Removing bindings/c/{header_name}");
-                fs::remove_file(old_file)?;
-            }
-            missing_path(path.join("tree_sitter"), create_dir)?.apply(|include_path| {
-                missing_path(
-                    include_path.join(&header_name),
-                    |path| {
-                        generate_file(path, PARSER_NAME_H_TEMPLATE, language_name, &generate_opts)
-                    },
-                )?;
-                Ok(())
-            })?;
-
-            missing_path(
-                path.join(format!("tree-sitter-{kebab_case_name}.pc.in")),
-                |path| {
-                    generate_file(
-                        path,
-                        PARSER_NAME_PC_IN_TEMPLATE,
-                        language_name,
-                        &generate_opts,
-                    )
-                },
-            )?;
-
-            missing_path_else(
-                repo_path.join("Makefile"),
-                allow_update,
-                |path| {
-                    generate_file(path, MAKEFILE_TEMPLATE, language_name, &generate_opts)
-                },
-                |path| {
-                    let mut contents = fs::read_to_string(path)?;
-                    if !contents.contains("cd '$(DESTDIR)$(LIBDIR)' && ln -sf") {
-                        info!("Replacing Makefile");
-                        generate_file(path, MAKEFILE_TEMPLATE, language_name, &generate_opts)?;
-                    } else {
-                        let replaced = indoc! {r"
-                            $(PARSER): $(SRC_DIR)/grammar.json
-                                    $(TS) generate $^
-                            "};
-                        if contents.contains(replaced) {
-                            info!("Adding --no-parser target to Makefile");
-                            contents = contents
-                                .replace(
-                                    replaced,
-                                    indoc! {r"
-                                    $(SRC_DIR)/grammar.json: grammar.js
-                                            $(TS) generate --no-parser $^
-
-                                    $(PARSER): $(SRC_DIR)/grammar.json
-                                            $(TS) generate $^
-                                    "}
-                                );
-                        }
-                        write_file(path, contents)?;
-                    }
-                    Ok(())
-                },
-            )?;
-
-            missing_path_else(
-                repo_path.join("CMakeLists.txt"),
-                allow_update,
-                |path| generate_file(path, CMAKELISTS_TXT_TEMPLATE, language_name, &generate_opts),
-                |path| {
-                    let contents = fs::read_to_string(path)?;
-                    let replaced_contents = contents
-                        .replace("add_custom_target(test", "add_custom_target(ts-test")
-                        .replace(
-                            "find_program(TREE_SITTER_CLI tree-sitter DOC \"Tree-sitter CLI\")",
-                            "find_program(TREE_SITTER_CLI tree-sitter DOC \"Tree-sitter CLI\" REQUIRED)",
-                        )
-                        .replace(
-                            &formatdoc! {r#"
-                            install(FILES bindings/c/tree-sitter-{language_name}.h
-                                    DESTINATION "${{CMAKE_INSTALL_INCLUDEDIR}}/tree_sitter")
-                            "#},
-                            indoc! {r#"
-                            install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/bindings/c/tree_sitter"
-                                    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
-                                    FILES_MATCHING PATTERN "*.h")
-                            "#}
-                        ).replace(
-                            &format!("target_include_directories(tree-sitter-{language_name} PRIVATE src)"),
-                            &formatdoc! {"
-                            target_include_directories(tree-sitter-{language_name}
-                                                       PRIVATE src
-                                                       INTERFACE $<BUILD_INTERFACE:${{CMAKE_CURRENT_SOURCE_DIR}}/bindings/c>
-                                                                 $<INSTALL_INTERFACE:${{CMAKE_INSTALL_INCLUDEDIR}}>)
-                            "}
-                        ).replace(
-                            indoc! {r#"
-                            add_custom_command(OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/src/parser.c"
-                                               DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/grammar.json"
-                                               COMMAND "${TREE_SITTER_CLI}" generate src/grammar.json
-                                                        --abi=${TREE_SITTER_ABI_VERSION}
-                                               WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-                                               COMMENT "Generating parser.c")
-                            "#},
-                            indoc! {r#"
-                            add_custom_command(OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/src/grammar.json"
-                                                      "${CMAKE_CURRENT_SOURCE_DIR}/src/node-types.json"
-                                               DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/grammar.js"
-                                               COMMAND "${TREE_SITTER_CLI}" generate grammar.js --no-parser
-                                               WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-                                               COMMENT "Generating grammar.json")
-
-                            add_custom_command(OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/src/parser.c"
-                                               BYPRODUCTS "${CMAKE_CURRENT_SOURCE_DIR}/src/tree_sitter/parser.h"
-                                                          "${CMAKE_CURRENT_SOURCE_DIR}/src/tree_sitter/alloc.h"
-                                                          "${CMAKE_CURRENT_SOURCE_DIR}/src/tree_sitter/array.h"
-                                               DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/grammar.json"
-                                               COMMAND "${TREE_SITTER_CLI}" generate src/grammar.json
-                                                        --abi=${TREE_SITTER_ABI_VERSION}
-                                               WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-                                               COMMENT "Generating parser.c")
-                            "#}
-                        );
-                    if !replaced_contents.eq(&contents) {
-                        info!("Updating CMakeLists.txt");
-                        write_file(path, replaced_contents)?;
-                    }
-                    Ok(())
-                },
-            )?;
-
-            Ok(())
-        })?;
-    }
-
-    // Generate Go bindings
-    if tree_sitter_config.bindings.go {
-        missing_path(bindings_dir.join("go"), create_dir)?.apply(|path| {
-            missing_path(path.join("binding.go"), |path| {
-                generate_file(path, BINDING_GO_TEMPLATE, language_name, &generate_opts)
-            })?;
-
-            missing_path(path.join("binding_test.go"), |path| {
+        missing_path_else(
+            ctx.repo_path.join("Cargo.toml"),
+            ctx.allow_update,
+            |path| {
                 generate_file(
                     path,
-                    BINDING_TEST_GO_TEMPLATE,
-                    language_name,
-                    &generate_opts,
+                    CARGO_TOML_TEMPLATE,
+                    ctx.dashed_language_name.as_str(),
+                    opts,
                 )
-            })?;
+            },
+            |path| {
+                let contents = fs::read_to_string(path)?;
+                if contents.contains("\"LICENSE\"") {
+                    info!("Adding LICENSE entry to bindings/rust/Cargo.toml");
+                    write_file(path, contents.replace("\"LICENSE\"", "\"/LICENSE\""))?;
+                }
+                Ok(())
+            },
+        )?;
 
-            missing_path(repo_path.join("go.mod"), |path| {
-                generate_file(path, GO_MOD_TEMPLATE, language_name, &generate_opts)
-            })?;
+        Ok(())
+    })?;
+    Ok(())
+}
 
+fn generate_node_bindings(
+    ctx: &InitContext,
+    opts: &GenerateOpts,
+    bindings_dir: &Path,
+) -> Result<()> {
+    missing_path(bindings_dir.join("node"), create_dir)?.apply(|path| {
+        missing_path_else(
+            path.join("index.js"),
+            ctx.allow_update,
+            |path| generate_file(path, INDEX_JS_TEMPLATE, ctx.language_name, opts),
+            |path| {
+                regenerate_if_missing(
+                    path,
+                    "Object.defineProperty",
+                    INDEX_JS_TEMPLATE,
+                    ctx.language_name,
+                    opts,
+                )
+            },
+        )?;
+
+        missing_path_else(
+            path.join("index.d.ts"),
+            ctx.allow_update,
+            |path| generate_file(path, INDEX_D_TS_TEMPLATE, ctx.language_name, opts),
+            |path| {
+                regenerate_if_missing(
+                    path,
+                    "export default binding",
+                    INDEX_D_TS_TEMPLATE,
+                    ctx.language_name,
+                    opts,
+                )
+            },
+        )?;
+
+        missing_path_else(
+            path.join("binding_test.js"),
+            ctx.allow_update,
+            |path| generate_file(path, BINDING_TEST_JS_TEMPLATE, ctx.language_name, opts),
+            |path| {
+                regenerate_if_missing(
+                    path,
+                    "import",
+                    BINDING_TEST_JS_TEMPLATE,
+                    ctx.language_name,
+                    opts,
+                )
+            },
+        )?;
+
+        missing_path(path.join("binding.cc"), |path| {
+            generate_file(path, JS_BINDING_CC_TEMPLATE, ctx.language_name, opts)
+        })?;
+
+        missing_path_else(
+            ctx.repo_path.join("binding.gyp"),
+            ctx.allow_update,
+            |path| generate_file(path, BINDING_GYP_TEMPLATE, ctx.language_name, opts),
+            |path| {
+                let contents = fs::read_to_string(path)?;
+                if contents.contains("fs.exists(") {
+                    info!("Replacing `fs.exists` calls in binding.gyp");
+                    write_file(path, contents.replace("fs.exists(", "fs.existsSync("))?;
+                }
+                Ok(())
+            },
+        )?;
+
+        Ok(())
+    })?;
+    Ok(())
+}
+
+fn generate_c_bindings(ctx: &InitContext, opts: &GenerateOpts, bindings_dir: &Path) -> Result<()> {
+    let kebab_case_name = ctx.language_name.to_kebab_case();
+    missing_path(bindings_dir.join("c"), create_dir)?.apply(|path| {
+        let header_name = format!("tree-sitter-{kebab_case_name}.h");
+        let old_file = &path.join(&header_name);
+        if ctx.allow_update && fs::exists(old_file).unwrap_or(false) {
+            info!("Removing bindings/c/{header_name}");
+            fs::remove_file(old_file)?;
+        }
+        missing_path(path.join("tree_sitter"), create_dir)?.apply(|include_path| {
+            missing_path(include_path.join(&header_name), |path| {
+                generate_file(path, PARSER_NAME_H_TEMPLATE, ctx.language_name, opts)
+            })?;
             Ok(())
         })?;
-    }
 
-    // Generate Python bindings
-    if tree_sitter_config.bindings.python {
-        missing_path(bindings_dir.join("python"), create_dir)?.apply(|path| {
-            let snake_case_grammar_name = format!("tree_sitter_{}", language_name.to_snake_case());
-            let lang_path = path.join(&snake_case_grammar_name);
-            missing_path(&lang_path, create_dir)?;
+        missing_path(
+            path.join(format!("tree-sitter-{kebab_case_name}.pc.in")),
+            |path| generate_file(path, PARSER_NAME_PC_IN_TEMPLATE, ctx.language_name, opts),
+        )?;
 
+        missing_path_else(
+            ctx.repo_path.join("Makefile"),
+            ctx.allow_update,
+            |path| generate_file(path, MAKEFILE_TEMPLATE, ctx.language_name, opts),
+            |path| update_c_makefile(path, ctx.language_name, opts),
+        )?;
+
+        missing_path_else(
+            ctx.repo_path.join("CMakeLists.txt"),
+            ctx.allow_update,
+            |path| generate_file(path, CMAKELISTS_TXT_TEMPLATE, ctx.language_name, opts),
+            |path| update_c_cmakelists(path, ctx.language_name),
+        )?;
+
+        Ok(())
+    })?;
+    Ok(())
+}
+
+fn generate_go_bindings(ctx: &InitContext, opts: &GenerateOpts, bindings_dir: &Path) -> Result<()> {
+    missing_path(bindings_dir.join("go"), create_dir)?.apply(|path| {
+        missing_path(path.join("binding.go"), |path| {
+            generate_file(path, BINDING_GO_TEMPLATE, ctx.language_name, opts)
+        })?;
+
+        missing_path(path.join("binding_test.go"), |path| {
+            generate_file(path, BINDING_TEST_GO_TEMPLATE, ctx.language_name, opts)
+        })?;
+
+        missing_path(ctx.repo_path.join("go.mod"), |path| {
+            generate_file(path, GO_MOD_TEMPLATE, ctx.language_name, opts)
+        })?;
+
+        Ok(())
+    })?;
+    Ok(())
+}
+
+fn generate_python_bindings(
+    ctx: &InitContext,
+    opts: &GenerateOpts,
+    bindings_dir: &Path,
+) -> Result<()> {
+    missing_path(bindings_dir.join("python"), create_dir)?.apply(|path| {
+        let snake_case_grammar_name = format!("tree_sitter_{}", ctx.language_name.to_snake_case());
+        let lang_path = path.join(&snake_case_grammar_name);
+        missing_path(&lang_path, create_dir)?;
+
+        missing_path_else(
+            lang_path.join("binding.c"),
+            ctx.allow_update,
+            |path| generate_file(path, PY_BINDING_C_TEMPLATE, ctx.language_name, opts),
+            |path| update_python_binding_c(path, &snake_case_grammar_name),
+        )?;
+
+        missing_path_else(
+            lang_path.join("__init__.py"),
+            ctx.allow_update,
+            |path| generate_file(path, INIT_PY_TEMPLATE, ctx.language_name, opts),
+            |path| {
+                let contents = fs::read_to_string(path)?;
+                if contents.contains("uncomment these to include any queries") {
+                    info!("Replacing __init__.py");
+                    generate_file(path, INIT_PY_TEMPLATE, ctx.language_name, opts)?;
+                }
+                Ok(())
+            },
+        )?;
+
+        missing_path_else(
+            lang_path.join("__init__.pyi"),
+            ctx.allow_update,
+            |path| generate_file(path, INIT_PYI_TEMPLATE, ctx.language_name, opts),
+            |path| update_python_init_pyi(path, ctx.language_name, opts),
+        )?;
+
+        missing_path(lang_path.join("py.typed"), |path| {
+            generate_file(path, "", ctx.language_name, opts) // py.typed is empty
+        })?;
+
+        missing_path(path.join("tests"), create_dir)?.apply(|path| {
             missing_path_else(
-                lang_path.join("binding.c"),
-                allow_update,
-                |path| generate_file(path, PY_BINDING_C_TEMPLATE, language_name, &generate_opts),
-                |path| {
-                    let mut contents = fs::read_to_string(path)?;
-                    if !contents.contains("PyModuleDef_Init") {
-                        info!("Updating bindings/python/{snake_case_grammar_name}/binding.c");
-                        contents = contents
-                            .replace("PyModule_Create", "PyModuleDef_Init")
-                            .replace(
-                                "static PyMethodDef methods[] = {\n",
-                                indoc! {"
-                                static struct PyModuleDef_Slot slots[] = {
-                                #ifdef Py_GIL_DISABLED
-                                    {Py_mod_gil, Py_MOD_GIL_NOT_USED},
-                                #endif
-                                    {0, NULL}
-                                };
-
-                                static PyMethodDef methods[] = {
-                                "},
-                            )
-                            .replace(
-                                indoc! {"
-                                .m_size = -1,
-                                    .m_methods = methods
-                                "},
-                                indoc! {"
-                                .m_size = 0,
-                                    .m_methods = methods,
-                                    .m_slots = slots,
-                                "},
-                            );
-                        write_file(path, contents)?;
-                    }
-                    Ok(())
-                },
+                path.join("test_binding.py"),
+                ctx.allow_update,
+                |path| generate_file(path, TEST_BINDING_PY_TEMPLATE, ctx.language_name, opts),
+                update_python_test_binding,
             )?;
+            Ok(())
+        })?;
 
-            missing_path_else(
-                lang_path.join("__init__.py"),
-                allow_update,
-                |path| {
-                    generate_file(path, INIT_PY_TEMPLATE, language_name, &generate_opts)
-                },
-                |path| {
-                    let contents = fs::read_to_string(path)?;
-                    if contents.contains("uncomment these to include any queries") {
-                        info!("Replacing __init__.py");
-                        generate_file(path, INIT_PY_TEMPLATE, language_name, &generate_opts)?;
-                    }
-                    Ok(())
-                },
-            )?;
+        missing_path_else(
+            ctx.repo_path.join("setup.py"),
+            ctx.allow_update,
+            |path| generate_file(path, SETUP_PY_TEMPLATE, ctx.language_name, opts),
+            |path| update_python_setup_py(path, ctx.language_name, opts),
+        )?;
 
-            missing_path_else(
-                lang_path.join("__init__.pyi"),
-                allow_update,
-                |path| generate_file(path, INIT_PYI_TEMPLATE, language_name, &generate_opts),
-                |path| {
-                    let mut contents = fs::read_to_string(path)?;
-                    if contents.contains("uncomment these to include any queries") {
-                        info!("Replacing __init__.pyi");
-                        generate_file(path, INIT_PYI_TEMPLATE, language_name, &generate_opts)?;
-                    } else if !contents.contains("CapsuleType") {
-                        info!("Updating __init__.pyi");
-                        contents = contents
-                            .replace(
-                                "from typing import Final",
-                                "from typing import Final\nfrom typing_extensions import CapsuleType"
-                            )
-                            .replace("-> object:", "-> CapsuleType:");
-                        write_file(path, contents)?;
-                    }
-                    Ok(())
-                },
-            )?;
+        missing_path_else(
+            ctx.repo_path.join("pyproject.toml"),
+            ctx.allow_update,
+            |path| {
+                generate_file(
+                    path,
+                    PYPROJECT_TOML_TEMPLATE,
+                    ctx.dashed_language_name.as_str(),
+                    opts,
+                )
+            },
+            |path| {
+                let mut contents = fs::read_to_string(path)?;
+                if !contents.contains("cp310-*") {
+                    info!("Updating dependencies in pyproject.toml");
+                    contents = contents
+                        .replace(r#"build = "cp39-*""#, r#"build = "cp310-*""#)
+                        .replace(r#"python = ">=3.9""#, r#"python = ">=3.10""#)
+                        .replace("tree-sitter~=0.22", "tree-sitter~=0.24");
+                    write_file(path, contents)?;
+                }
+                Ok(())
+            },
+        )?;
 
-            missing_path(lang_path.join("py.typed"), |path| {
-                generate_file(path, "", language_name, &generate_opts) // py.typed is empty
-            })?;
+        Ok(())
+    })?;
+    Ok(())
+}
 
-            missing_path(path.join("tests"), create_dir)?.apply(|path| {
-                missing_path_else(
-                    path.join("test_binding.py"),
-                    allow_update,
-                    |path| {
-                        generate_file(
-                            path,
-                            TEST_BINDING_PY_TEMPLATE,
-                            language_name,
-                            &generate_opts,
-                        )
-                    },
-                    |path| {
-                        let mut contents = fs::read_to_string(path)?;
-                        if !contents.contains("Parser(Language(") {
-                            info!("Updating Language function in bindings/python/tests/test_binding.py");
-                            contents = contents
-                                .replace("tree_sitter.Language(", "Parser(Language(")
-                                .replace(".language())\n", ".language()))\n")
-                                .replace(
-                                    "import tree_sitter\n",
-                                    "from tree_sitter import Language, Parser\n",
-                                );
-                            write_file(path, contents)?;
-                        }
-                        Ok(())
-                    },
+fn generate_swift_bindings(
+    ctx: &InitContext,
+    opts: &GenerateOpts,
+    bindings_dir: &Path,
+) -> Result<()> {
+    missing_path(bindings_dir.join("swift"), create_dir)?.apply(|path| {
+        let lang_path = path.join(opts.class_name);
+        missing_path(&lang_path, create_dir)?;
+
+        missing_path(lang_path.join(format!("{}.h", ctx.language_name)), |path| {
+            generate_file(path, PARSER_NAME_H_TEMPLATE, ctx.language_name, opts)
+        })?;
+
+        missing_path(path.join(format!("{}Tests", opts.class_name)), create_dir)?.apply(
+            |path| {
+                missing_path(
+                    path.join(format!("{}Tests.swift", opts.class_name)),
+                    |path| generate_file(path, TESTS_SWIFT_TEMPLATE, ctx.language_name, opts),
                 )?;
-                Ok(())
-            })?;
-
-            missing_path_else(
-                repo_path.join("setup.py"),
-                allow_update,
-                |path| generate_file(path, SETUP_PY_TEMPLATE, language_name, &generate_opts),
-                |path| {
-                    let mut contents = fs::read_to_string(path)?;
-                    if !contents.contains("build_ext") {
-                        info!("Replacing setup.py");
-                        generate_file(path, SETUP_PY_TEMPLATE, language_name, &generate_opts)?;
-                    }
-                    if !contents.contains(" and not get_config_var") {
-                        info!("Updating Python free-threading support in setup.py");
-                        contents = contents.replace(
-                            r#"startswith("cp"):"#,
-                            r#"startswith("cp") and not get_config_var("Py_GIL_DISABLED"):"#
-                        );
-                        write_file(path, contents)?;
-                    }
-                    Ok(())
-                },
-            )?;
-
-            missing_path_else(
-                repo_path.join("pyproject.toml"),
-                allow_update,
-                |path| {
-                    generate_file(
-                        path,
-                        PYPROJECT_TOML_TEMPLATE,
-                        dashed_language_name.as_str(),
-                        &generate_opts,
-                    )
-                },
-                |path| {
-                    let mut contents = fs::read_to_string(path)?;
-                    if !contents.contains("cp310-*") {
-                        info!("Updating dependencies in pyproject.toml");
-                        contents = contents
-                            .replace(r#"build = "cp39-*""#, r#"build = "cp310-*""#)
-                            .replace(r#"python = ">=3.9""#, r#"python = ">=3.10""#)
-                            .replace("tree-sitter~=0.22", "tree-sitter~=0.24");
-                        write_file(path, contents)?;
-                    }
-                    Ok(())
-                },
-            )?;
-
-            Ok(())
-        })?;
-    }
-
-    // Generate Swift bindings
-    if tree_sitter_config.bindings.swift {
-        missing_path(bindings_dir.join("swift"), create_dir)?.apply(|path| {
-            let lang_path = path.join(&class_name);
-            missing_path(&lang_path, create_dir)?;
-
-            missing_path(lang_path.join(format!("{language_name}.h")), |path| {
-                generate_file(path, PARSER_NAME_H_TEMPLATE, language_name, &generate_opts)
-            })?;
-
-            missing_path(path.join(format!("{class_name}Tests")), create_dir)?.apply(|path| {
-                missing_path(path.join(format!("{class_name}Tests.swift")), |path| {
-                    generate_file(path, TESTS_SWIFT_TEMPLATE, language_name, &generate_opts)
-                })?;
 
                 Ok(())
-            })?;
-
-            missing_path_else(
-                repo_path.join("Package.swift"),
-                allow_update,
-                |path| generate_file(path, PACKAGE_SWIFT_TEMPLATE, language_name, &generate_opts),
-                |path| {
-                    let contents = fs::read_to_string(path)?;
-                    let replaced_contents = contents
-                        .replace(
-                            "https://github.com/ChimeHQ/SwiftTreeSitter",
-                            "https://github.com/tree-sitter/swift-tree-sitter",
-                        )
-                        .replace("// swift-tools-version:5.3", "// swift-tools-version:5.6")
-                        .replace(
-                            "\nvar sources =",
-                            "\nlet dir = Context.packageDirectory\nvar sources =",
-                        )
-                        .replace(
-                            "atPath: \"src/scanner.c\"",
-                            "atPath: \"\\(dir)/src/scanner.c\"",
-                        )
-                        .replace("version: \"0.8.0\")", "version: \"0.9.0\")")
-                        .replace("(url:", "(name: \"SwiftTreeSitter\", url:");
-                    if !replaced_contents.eq(&contents) {
-                        info!("Updating Package.swift");
-                        write_file(path, replaced_contents)?;
-                    }
-                    Ok(())
-                },
-            )?;
-
-            Ok(())
-        })?;
-    }
-
-    // Generate Zig bindings
-    if tree_sitter_config.bindings.zig {
-        missing_path_else(
-            repo_path.join("build.zig"),
-            allow_update,
-            |path| generate_file(path, BUILD_ZIG_TEMPLATE, language_name, &generate_opts),
-            |path| {
-                let contents = fs::read_to_string(path)?;
-                if !contents.contains("b.pkg_hash.len") {
-                    info!("Replacing build.zig");
-                    generate_file(path, BUILD_ZIG_TEMPLATE, language_name, &generate_opts)
-                } else {
-                    Ok(())
-                }
             },
         )?;
 
         missing_path_else(
-            repo_path.join("build.zig.zon"),
-            allow_update,
-            |path| generate_file(path, BUILD_ZIG_ZON_TEMPLATE, language_name, &generate_opts),
+            ctx.repo_path.join("Package.swift"),
+            ctx.allow_update,
+            |path| generate_file(path, PACKAGE_SWIFT_TEMPLATE, ctx.language_name, opts),
+            update_swift_package,
+        )?;
+
+        Ok(())
+    })?;
+    Ok(())
+}
+
+fn generate_zig_bindings(
+    ctx: &InitContext,
+    opts: &GenerateOpts,
+    bindings_dir: &Path,
+) -> Result<()> {
+    missing_path_else(
+        ctx.repo_path.join("build.zig"),
+        ctx.allow_update,
+        |path| generate_file(path, BUILD_ZIG_TEMPLATE, ctx.language_name, opts),
+        |path| {
+            regenerate_if_missing(
+                path,
+                "b.pkg_hash.len",
+                BUILD_ZIG_TEMPLATE,
+                ctx.language_name,
+                opts,
+            )
+        },
+    )?;
+
+    missing_path_else(
+        ctx.repo_path.join("build.zig.zon"),
+        ctx.allow_update,
+        |path| generate_file(path, BUILD_ZIG_ZON_TEMPLATE, ctx.language_name, opts),
+        |path| {
+            regenerate_if_missing(
+                path,
+                ".name = .tree_sitter_",
+                BUILD_ZIG_ZON_TEMPLATE,
+                ctx.language_name,
+                opts,
+            )
+        },
+    )?;
+
+    missing_path(bindings_dir.join("zig"), create_dir)?.apply(|path| {
+        missing_path_else(
+            path.join("root.zig"),
+            ctx.allow_update,
+            |path| generate_file(path, ROOT_ZIG_TEMPLATE, ctx.language_name, opts),
             |path| {
                 let contents = fs::read_to_string(path)?;
-                if !contents.contains(".name = .tree_sitter_") {
-                    info!("Replacing build.zig.zon");
-                    generate_file(path, BUILD_ZIG_ZON_TEMPLATE, language_name, &generate_opts)
-                } else {
-                    Ok(())
+                if contents.contains("ts.Language") {
+                    info!("Replacing root.zig");
+                    generate_file(path, ROOT_ZIG_TEMPLATE, ctx.language_name, opts)?;
                 }
+                Ok(())
             },
         )?;
 
-        missing_path(bindings_dir.join("zig"), create_dir)?.apply(|path| {
-            missing_path_else(
-                path.join("root.zig"),
-                allow_update,
-                |path| generate_file(path, ROOT_ZIG_TEMPLATE, language_name, &generate_opts),
-                |path| {
-                    let contents = fs::read_to_string(path)?;
-                    if contents.contains("ts.Language") {
-                        info!("Replacing root.zig");
-                        generate_file(path, ROOT_ZIG_TEMPLATE, language_name, &generate_opts)
-                    } else {
-                        Ok(())
-                    }
-                },
-            )?;
-
-            missing_path(path.join("test.zig"), |path| {
-                generate_file(path, TEST_ZIG_TEMPLATE, language_name, &generate_opts)
-            })?;
-
-            Ok(())
-        })?;
-    }
-
-    // Generate Java bindings
-    if tree_sitter_config.bindings.java {
-        missing_path(repo_path.join("pom.xml"), |path| {
-            generate_file(path, POM_XML_TEMPLATE, language_name, &generate_opts)
+        missing_path(path.join("test.zig"), |path| {
+            generate_file(path, TEST_ZIG_TEMPLATE, ctx.language_name, opts)
         })?;
 
-        missing_path(bindings_dir.join("java"), create_dir)?.apply(|path| {
-            missing_path(path.join("main"), create_dir)?.apply(|path| {
-                let package_path = generate_opts
-                    .namespace
-                    .unwrap_or("io.github.treesitter")
-                    .replace(['-', '_'], "")
-                    .split('.')
-                    .fold(path.to_path_buf(), |path, dir| path.join(dir))
-                    .join("jtreesitter")
-                    .join(language_name.to_lowercase().replace('_', ""));
-                missing_path(package_path, create_dir)?.apply(|path| {
-                    missing_path(path.join(format!("{class_name}.java")), |path| {
-                        generate_file(path, BINDING_JAVA_TEMPLATE, language_name, &generate_opts)
-                    })?;
+        Ok(())
+    })?;
+    Ok(())
+}
 
-                    Ok(())
-                })?;
+fn generate_java_bindings(
+    ctx: &InitContext,
+    opts: &GenerateOpts,
+    bindings_dir: &Path,
+) -> Result<()> {
+    missing_path(ctx.repo_path.join("pom.xml"), |path| {
+        generate_file(path, POM_XML_TEMPLATE, ctx.language_name, opts)
+    })?;
 
-                Ok(())
-            })?;
-
-            missing_path(path.join("test"), create_dir)?.apply(|path| {
-                missing_path(path.join(format!("{class_name}Test.java")), |path| {
-                    generate_file(path, TEST_JAVA_TEMPLATE, language_name, &generate_opts)
+    missing_path(bindings_dir.join("java"), create_dir)?.apply(|path| {
+        missing_path(path.join("main"), create_dir)?.apply(|path| {
+            let package_path = opts
+                .namespace
+                .unwrap_or("io.github.treesitter")
+                .replace(['-', '_'], "")
+                .split('.')
+                .fold(path.to_path_buf(), |path, dir| path.join(dir))
+                .join("jtreesitter")
+                .join(ctx.language_name.to_lowercase().replace('_', ""));
+            missing_path(package_path, create_dir)?.apply(|path| {
+                missing_path(path.join(format!("{}.java", opts.class_name)), |path| {
+                    generate_file(path, BINDING_JAVA_TEMPLATE, ctx.language_name, opts)
                 })?;
 
                 Ok(())
@@ -1154,8 +822,434 @@ pub fn generate_grammar_files(
 
             Ok(())
         })?;
+
+        missing_path(path.join("test"), create_dir)?.apply(|path| {
+            missing_path(path.join(format!("{}Test.java", opts.class_name)), |path| {
+                generate_file(path, TEST_JAVA_TEMPLATE, ctx.language_name, opts)
+            })?;
+
+            Ok(())
+        })?;
+
+        Ok(())
+    })?;
+    Ok(())
+}
+
+fn update_package_json(path: &Path) -> Result<()> {
+    let mut contents = fs::read_to_string(path)?
+        .replace(
+            r#""node-addon-api": "^8.3.1""#,
+            r#""node-addon-api": "^8.5.0""#,
+        )
+        .replace(
+            indoc! {r#"
+            "prebuildify": "^6.0.1",
+            "tree-sitter-cli":"#},
+            indoc! {r#"
+            "prebuildify": "^6.0.1",
+            "tree-sitter": "^0.25.0",
+            "tree-sitter-cli":"#},
+        );
+    if !contents.contains("module") {
+        info!("Migrating package.json to ESM");
+        contents = contents.replace(
+            r#""repository":"#,
+            indoc! {r#"
+            "type": "module",
+              "repository":"#},
+        );
+    }
+    write_file(path, contents)?;
+    Ok(())
+}
+
+fn update_grammar_js(path: &Path) -> Result<()> {
+    let mut contents = fs::read_to_string(path)?;
+    if contents.contains("module.exports") {
+        info!("Migrating grammars.js to ESM");
+        contents = contents.replace("module.exports =", "export default");
+        write_file(path, contents)?;
+    }
+    Ok(())
+}
+
+fn update_gitignore(path: &Path) -> Result<()> {
+    // NOTE: this modifies `contents` but never calls `write_file` (pre-existing bug)
+    let mut contents = fs::read_to_string(path)?;
+    if !contents.contains("Zig artifacts") {
+        info!("Adding zig entries to .gitignore");
+        contents.push('\n');
+        contents.push_str(indoc! {"
+        # Zig artifacts
+        .zig-cache/
+        zig-cache/
+        zig-out/
+        "});
+    }
+    Ok(())
+}
+
+fn update_gitattributes(path: &Path) -> Result<()> {
+    let mut contents = fs::read_to_string(path)?;
+    let c_bindings_entry = "bindings/c/* ";
+    if contents.contains(c_bindings_entry) {
+        info!("Updating c bindings entry in .gitattributes");
+        contents = contents.replace(c_bindings_entry, "bindings/c/** ");
+    }
+    if !contents.contains("Zig bindings") {
+        info!("Adding zig entries to .gitattributes");
+        contents.push('\n');
+        contents.push_str(indoc! {"
+        # Zig bindings
+        build.zig linguist-generated
+        build.zig.zon linguist-generated
+        "});
+    }
+    write_file(path, contents)?;
+    Ok(())
+}
+
+fn update_rust_lib_rs(path: &Path, opts: &GenerateOpts) -> Result<()> {
+    let mut contents = fs::read_to_string(path)?;
+    if !contents.contains("#[cfg(with_highlights_query)]") {
+        info!("Updating query constants in bindings/rust/lib.rs");
+        let replacement = indoc! {r#"
+            #[cfg(with_highlights_query)]
+            /// The syntax highlighting query for this grammar.
+            pub const HIGHLIGHTS_QUERY: &str = include_str!("../../HIGHLIGHTS_QUERY_PATH");
+
+            #[cfg(with_injections_query)]
+            /// The language injection query for this grammar.
+            pub const INJECTIONS_QUERY: &str = include_str!("../../INJECTIONS_QUERY_PATH");
+
+            #[cfg(with_locals_query)]
+            /// The local variable query for this grammar.
+            pub const LOCALS_QUERY: &str = include_str!("../../LOCALS_QUERY_PATH");
+
+            #[cfg(with_tags_query)]
+            /// The symbol tagging query for this grammar.
+            pub const TAGS_QUERY: &str = include_str!("../../TAGS_QUERY_PATH");
+            "#}
+        .replace(
+            HIGHLIGHTS_QUERY_PATH_PLACEHOLDER,
+            &opts.highlights_query_path.replace('\\', "/"),
+        )
+        .replace(
+            INJECTIONS_QUERY_PATH_PLACEHOLDER,
+            &opts.injections_query_path.replace('\\', "/"),
+        )
+        .replace(
+            LOCALS_QUERY_PATH_PLACEHOLDER,
+            &opts.locals_query_path.replace('\\', "/"),
+        )
+        .replace(
+            TAGS_QUERY_PATH_PLACEHOLDER,
+            &opts.tags_query_path.replace('\\', "/"),
+        );
+        contents = contents.replace(
+            indoc! {r#"
+                // NOTE: uncomment these to include any queries that this grammar contains:
+
+                // pub const HIGHLIGHTS_QUERY: &str = include_str!("../../queries/highlights.scm");
+                // pub const INJECTIONS_QUERY: &str = include_str!("../../queries/injections.scm");
+                // pub const LOCALS_QUERY: &str = include_str!("../../queries/locals.scm");
+                // pub const TAGS_QUERY: &str = include_str!("../../queries/tags.scm");
+                "#},
+            &replacement,
+        );
+    }
+    write_file(path, contents)?;
+    Ok(())
+}
+
+fn update_rust_build_rs(path: &Path, language_name: &str, opts: &GenerateOpts) -> Result<()> {
+    let mut contents = fs::read_to_string(path)?;
+    if !contents.contains("wasm32-unknown-unknown") {
+        info!("Adding wasm32-unknown-unknown target to bindings/rust/build.rs");
+        let replacement = indoc!{r#"
+            c_config.flag("-utf-8");
+
+            if std::env::var("TARGET").unwrap() == "wasm32-unknown-unknown" {
+                let Ok(wasm_headers) = std::env::var("DEP_TREE_SITTER_LANGUAGE_WASM_HEADERS") else {
+                    panic!("Environment variable DEP_TREE_SITTER_LANGUAGE_WASM_HEADERS must be set by the language crate");
+                };
+                let Ok(wasm_src) =
+                    std::env::var("DEP_TREE_SITTER_LANGUAGE_WASM_SRC").map(std::path::PathBuf::from)
+                else {
+                    panic!("Environment variable DEP_TREE_SITTER_LANGUAGE_WASM_SRC must be set by the language crate");
+                };
+
+                c_config.include(&wasm_headers);
+                c_config.files([
+                    wasm_src.join("stdio.c"),
+                    wasm_src.join("stdlib.c"),
+                    wasm_src.join("string.c"),
+                ]);
+            }
+        "#}
+            .lines()
+            .map(|line| if line.is_empty() { line.to_string() } else { format!("    {line}") })
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        contents = contents.replace(r#"    c_config.flag("-utf-8");"#, &replacement);
     }
 
+    // Introduce configuration variables for dynamic query inclusion
+    if !contents.contains("with_highlights_query") {
+        info!("Adding support for dynamic query inclusion to bindings/rust/build.rs");
+        let replaced = indoc! {r#"
+                c_config.compile("tree-sitter-KEBAB_PARSER_NAME");
+            }"#}
+        .replace("KEBAB_PARSER_NAME", &language_name.to_kebab_case());
+
+        let replacement = indoc! {r#"
+                c_config.compile("tree-sitter-KEBAB_PARSER_NAME");
+
+                println!("cargo:rustc-check-cfg=cfg(with_highlights_query)");
+                if !"HIGHLIGHTS_QUERY_PATH".is_empty() && std::path::Path::new("HIGHLIGHTS_QUERY_PATH").exists() {
+                    println!("cargo:rustc-cfg=with_highlights_query");
+                }
+                println!("cargo:rustc-check-cfg=cfg(with_injections_query)");
+                if !"INJECTIONS_QUERY_PATH".is_empty() && std::path::Path::new("INJECTIONS_QUERY_PATH").exists() {
+                    println!("cargo:rustc-cfg=with_injections_query");
+                }
+                println!("cargo:rustc-check-cfg=cfg(with_locals_query)");
+                if !"LOCALS_QUERY_PATH".is_empty() && std::path::Path::new("LOCALS_QUERY_PATH").exists() {
+                    println!("cargo:rustc-cfg=with_locals_query");
+                }
+                println!("cargo:rustc-check-cfg=cfg(with_tags_query)");
+                if !"TAGS_QUERY_PATH".is_empty() && std::path::Path::new("TAGS_QUERY_PATH").exists() {
+                    println!("cargo:rustc-cfg=with_tags_query");
+                }
+            }"#}
+            .replace("KEBAB_PARSER_NAME", &language_name.to_kebab_case())
+            .replace(HIGHLIGHTS_QUERY_PATH_PLACEHOLDER, &opts.highlights_query_path.replace('\\', "/"))
+            .replace(INJECTIONS_QUERY_PATH_PLACEHOLDER, &opts.injections_query_path.replace('\\', "/"))
+            .replace(LOCALS_QUERY_PATH_PLACEHOLDER, &opts.locals_query_path.replace('\\', "/"))
+            .replace(TAGS_QUERY_PATH_PLACEHOLDER, &opts.tags_query_path.replace('\\', "/"));
+
+        contents = contents.replace(&replaced, &replacement);
+    }
+
+    write_file(path, contents)?;
+    Ok(())
+}
+
+fn update_c_makefile(path: &Path, language_name: &str, opts: &GenerateOpts) -> Result<()> {
+    let mut contents = fs::read_to_string(path)?;
+    if !contents.contains("cd '$(DESTDIR)$(LIBDIR)' && ln -sf") {
+        info!("Replacing Makefile");
+        generate_file(path, MAKEFILE_TEMPLATE, language_name, opts)?;
+    } else {
+        let replaced = indoc! {r"
+            $(PARSER): $(SRC_DIR)/grammar.json
+                    $(TS) generate $^
+            "};
+        if contents.contains(replaced) {
+            info!("Adding --no-parser target to Makefile");
+            contents = contents.replace(
+                replaced,
+                indoc! {r"
+                    $(SRC_DIR)/grammar.json: grammar.js
+                            $(TS) generate --no-parser $^
+
+                    $(PARSER): $(SRC_DIR)/grammar.json
+                            $(TS) generate $^
+                    "},
+            );
+        }
+        write_file(path, contents)?;
+    }
+    Ok(())
+}
+
+fn update_c_cmakelists(path: &Path, language_name: &str) -> Result<()> {
+    let contents = fs::read_to_string(path)?;
+    let replaced_contents = contents
+        .replace("add_custom_target(test", "add_custom_target(ts-test")
+        .replace(
+            "find_program(TREE_SITTER_CLI tree-sitter DOC \"Tree-sitter CLI\")",
+            "find_program(TREE_SITTER_CLI tree-sitter DOC \"Tree-sitter CLI\" REQUIRED)",
+        )
+        .replace(
+            &formatdoc! {r#"
+            install(FILES bindings/c/tree-sitter-{language_name}.h
+                    DESTINATION "${{CMAKE_INSTALL_INCLUDEDIR}}/tree_sitter")
+            "#},
+            indoc! {r#"
+            install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/bindings/c/tree_sitter"
+                    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+                    FILES_MATCHING PATTERN "*.h")
+            "#}
+        ).replace(
+            &format!("target_include_directories(tree-sitter-{language_name} PRIVATE src)"),
+            &formatdoc! {"
+            target_include_directories(tree-sitter-{language_name}
+                                       PRIVATE src
+                                       INTERFACE $<BUILD_INTERFACE:${{CMAKE_CURRENT_SOURCE_DIR}}/bindings/c>
+                                                 $<INSTALL_INTERFACE:${{CMAKE_INSTALL_INCLUDEDIR}}>)
+            "}
+        ).replace(
+            indoc! {r#"
+            add_custom_command(OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/src/parser.c"
+                               DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/grammar.json"
+                               COMMAND "${TREE_SITTER_CLI}" generate src/grammar.json
+                                        --abi=${TREE_SITTER_ABI_VERSION}
+                               WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+                               COMMENT "Generating parser.c")
+            "#},
+            indoc! {r#"
+            add_custom_command(OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/src/grammar.json"
+                                      "${CMAKE_CURRENT_SOURCE_DIR}/src/node-types.json"
+                               DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/grammar.js"
+                               COMMAND "${TREE_SITTER_CLI}" generate grammar.js --no-parser
+                               WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+                               COMMENT "Generating grammar.json")
+
+            add_custom_command(OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/src/parser.c"
+                               BYPRODUCTS "${CMAKE_CURRENT_SOURCE_DIR}/src/tree_sitter/parser.h"
+                                          "${CMAKE_CURRENT_SOURCE_DIR}/src/tree_sitter/alloc.h"
+                                          "${CMAKE_CURRENT_SOURCE_DIR}/src/tree_sitter/array.h"
+                               DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/grammar.json"
+                               COMMAND "${TREE_SITTER_CLI}" generate src/grammar.json
+                                        --abi=${TREE_SITTER_ABI_VERSION}
+                               WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+                               COMMENT "Generating parser.c")
+            "#}
+        );
+    if !replaced_contents.eq(&contents) {
+        info!("Updating CMakeLists.txt");
+        write_file(path, replaced_contents)?;
+    }
+    Ok(())
+}
+
+fn update_python_binding_c(path: &Path, snake_case_grammar_name: &str) -> Result<()> {
+    let mut contents = fs::read_to_string(path)?;
+    if !contents.contains("PyModuleDef_Init") {
+        info!("Updating bindings/python/{snake_case_grammar_name}/binding.c");
+        contents = contents
+            .replace("PyModule_Create", "PyModuleDef_Init")
+            .replace(
+                "static PyMethodDef methods[] = {\n",
+                indoc! {"
+                static struct PyModuleDef_Slot slots[] = {
+                #ifdef Py_GIL_DISABLED
+                    {Py_mod_gil, Py_MOD_GIL_NOT_USED},
+                #endif
+                    {0, NULL}
+                };
+
+                static PyMethodDef methods[] = {
+                "},
+            )
+            .replace(
+                indoc! {"
+                .m_size = -1,
+                    .m_methods = methods
+                "},
+                indoc! {"
+                .m_size = 0,
+                    .m_methods = methods,
+                    .m_slots = slots,
+                "},
+            );
+        write_file(path, contents)?;
+    }
+    Ok(())
+}
+
+fn update_python_init_pyi(path: &Path, language_name: &str, opts: &GenerateOpts) -> Result<()> {
+    let mut contents = fs::read_to_string(path)?;
+    if contents.contains("uncomment these to include any queries") {
+        info!("Replacing __init__.pyi");
+        generate_file(path, INIT_PYI_TEMPLATE, language_name, opts)?;
+    } else if !contents.contains("CapsuleType") {
+        info!("Updating __init__.pyi");
+        contents = contents
+            .replace(
+                "from typing import Final",
+                "from typing import Final\nfrom typing_extensions import CapsuleType",
+            )
+            .replace("-> object:", "-> CapsuleType:");
+        write_file(path, contents)?;
+    }
+    Ok(())
+}
+
+fn update_python_test_binding(path: &Path) -> Result<()> {
+    let mut contents = fs::read_to_string(path)?;
+    if !contents.contains("Parser(Language(") {
+        info!("Updating Language function in bindings/python/tests/test_binding.py");
+        contents = contents
+            .replace("tree_sitter.Language(", "Parser(Language(")
+            .replace(".language())\n", ".language()))\n")
+            .replace(
+                "import tree_sitter\n",
+                "from tree_sitter import Language, Parser\n",
+            );
+        write_file(path, contents)?;
+    }
+    Ok(())
+}
+
+fn update_python_setup_py(path: &Path, language_name: &str, opts: &GenerateOpts) -> Result<()> {
+    let mut contents = fs::read_to_string(path)?;
+    if !contents.contains("build_ext") {
+        info!("Replacing setup.py");
+        generate_file(path, SETUP_PY_TEMPLATE, language_name, opts)?;
+    }
+    if !contents.contains(" and not get_config_var") {
+        info!("Updating Python free-threading support in setup.py");
+        contents = contents.replace(
+            r#"startswith("cp"):"#,
+            r#"startswith("cp") and not get_config_var("Py_GIL_DISABLED"):"#,
+        );
+        write_file(path, contents)?;
+    }
+    Ok(())
+}
+
+fn update_swift_package(path: &Path) -> Result<()> {
+    let contents = fs::read_to_string(path)?;
+    let replaced_contents = contents
+        .replace(
+            "https://github.com/ChimeHQ/SwiftTreeSitter",
+            "https://github.com/tree-sitter/swift-tree-sitter",
+        )
+        .replace("// swift-tools-version:5.3", "// swift-tools-version:5.6")
+        .replace(
+            "\nvar sources =",
+            "\nlet dir = Context.packageDirectory\nvar sources =",
+        )
+        .replace(
+            "atPath: \"src/scanner.c\"",
+            "atPath: \"\\(dir)/src/scanner.c\"",
+        )
+        .replace("version: \"0.8.0\")", "version: \"0.9.0\")")
+        .replace("(url:", "(name: \"SwiftTreeSitter\", url:");
+    if !replaced_contents.eq(&contents) {
+        info!("Updating Package.swift");
+        write_file(path, replaced_contents)?;
+    }
+    Ok(())
+}
+
+fn regenerate_if_missing(
+    path: &Path,
+    marker: &str,
+    template: &str,
+    language_name: &str,
+    opts: &GenerateOpts,
+) -> Result<()> {
+    let contents = fs::read_to_string(path)?;
+    if !contents.contains(marker) {
+        let filename = path.file_name().unwrap().to_str().unwrap();
+        info!("Replacing {filename}");
+        generate_file(path, template, language_name, opts)?;
+    }
     Ok(())
 }
 
