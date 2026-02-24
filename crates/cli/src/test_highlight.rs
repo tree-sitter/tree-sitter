@@ -13,10 +13,10 @@ use crate::{
 
 #[derive(Debug)]
 pub struct Failure {
-    row: usize,
-    column: usize,
-    expected_highlight: String,
-    actual_highlights: Vec<String>,
+    pub row: usize,
+    pub column: usize,
+    pub expected_highlight: String,
+    pub actual_highlights: Vec<String>,
 }
 
 impl std::error::Error for Failure {}
@@ -175,10 +175,15 @@ pub fn iterate_assertions(
         }
 
         if found == *negative {
+            let expected_highlight = if *negative {
+                format!("!{}", expected_highlight)
+            } else {
+                expected_highlight.clone()
+            };
             return Err(Failure {
                 row: position.row,
                 column: end_column,
-                expected_highlight: expected_highlight.clone(),
+                expected_highlight,
                 actual_highlights: actual_highlights.into_iter().cloned().collect(),
             }
             .into());
