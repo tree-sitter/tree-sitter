@@ -122,14 +122,14 @@ pub fn test_highlights(
 
     if failed { Err(anyhow!("")) } else { Ok(()) }
 }
+
 pub fn iterate_assertions(
     assertions: &[Assertion],
-    highlights: &[(Utf8Point, Utf8Point, Highlight)],
+    highlights: &[HighlightPosition],
     highlight_names: &[String],
 ) -> Result<usize> {
     // Iterate through all of the highlighting assertions, checking each one against the
     // actual highlights.
-    let mut i = 0;
     let mut actual_highlights = Vec::new();
     for Assertion {
         position,
@@ -138,45 +138,43 @@ pub fn iterate_assertions(
         expected_capture_name: expected_highlight,
     } in assertions
     {
-        let mut passed = false;
-        let mut end_column = position.column + length - 1;
+        let mut found = false;
+
+        let end_column = position.column + length - 1;
         actual_highlights.clear();
 
-        // The assertions are ordered by position, so skip past all of the highlights that
-        // end at or before this assertion's position.
-        'highlight_loop: while let Some(highlight) = highlights.get(i) {
-            if highlight.1 <= *position {
-                i += 1;
+        // Iterate through all of the highlights that start at or before this assertion's
+        // position, looking for one that matches the assertion.
+        for highlight in highlights {
+            // The assertions are ordered by position, so skip past all of the highlights that
+            // end at or before this assertion's position.
+            if highlight.end <= *position {
                 continue;
             }
 
-            // Iterate through all of the highlights that start at or before this assertion's
-            // position, looking for one that matches the assertion.
-            let mut j = i;
-            while let (false, Some(highlight)) = (passed, highlights.get(j)) {
-                end_column = position.column + length - 1;
-                if highlight.0.row >= position.row && highlight.0.column > end_column {
-                    break 'highlight_loop;
-                }
+            // Once we've moved on to the next line or passed the end of the assertion, stop
+            // looping.
+            if highlight.start.row > position.row ||
+                highlight.start.row == position.row && highlight.start.column > end_column {
+                break;
+            }
 
-                // If the highlight matches the assertion, or if the highlight doesn't
-                // match the assertion but it's negative, this test passes. Otherwise,
-                // add this highlight to the list of actual highlights that span the
-                // assertion's position, in order to generate an error message in the event
-                // of a failure.
-                let highlight_name = &highlight_names[(highlight.2).0];
-                if (*highlight_name == *expected_highlight) == *negative {
-                    actual_highlights.push(highlight_name);
-                } else {
-                    passed = true;
-                    break 'highlight_loop;
-                }
+            let highlight_name = &highlight_names[(highlight.highlight).0];
+            if highlight_name == expected_highlight {
+                found = true;
+            }
 
-                j += 1;
+            // If the highlight matches the assertion, or if the highlight doesn't
+            // match the assertion but it's negative, this test passes. Otherwise,
+            // add this highlight to the list of actual highlights that span the
+            // assertion's position, in order to generate an error message in the event
+            // of a failure.
+            if (*highlight_name == *expected_highlight) == *negative {
+                actual_highlights.push(highlight_name);
             }
         }
 
-        if !passed {
+        if found == *negative {
             return Err(Failure {
                 row: position.row,
                 column: end_column,
@@ -205,12 +203,19 @@ pub fn test_highlight(
     iterate_assertions(&assertions, &highlights, &highlight_names)
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub struct HighlightPosition {
+    pub start: Utf8Point,
+    pub end: Utf8Point,
+    pub highlight: Highlight,
+}
+
 pub fn get_highlight_positions(
     loader: &Loader,
     highlighter: &mut Highlighter,
     highlight_config: &HighlightConfiguration,
     source: &[u8],
-) -> Result<Vec<(Utf8Point, Utf8Point, Highlight)>> {
+) -> Result<Vec<HighlightPosition>> {
     let mut row = 0;
     let mut column = 0;
     let mut byte_offset = 0;
@@ -248,11 +253,11 @@ pub fn get_highlight_positions(
                         break;
                     }
                 }
-                if let Some(highlight) = highlight_stack.last() {
-                    let utf8_start_position = to_utf8_point(start_position, source.as_bytes());
-                    let utf8_end_position =
+                if let Some(highlight) = highlight_stack.last().cloned() {
+                    let start = to_utf8_point(start_position, source.as_bytes());
+                    let end =
                         to_utf8_point(Point::new(row, column), source.as_bytes());
-                    result.push((utf8_start_position, utf8_end_position, *highlight));
+                    result.push(HighlightPosition { start, end, highlight });
                 }
             }
         }

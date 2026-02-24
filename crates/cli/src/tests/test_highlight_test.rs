@@ -4,7 +4,7 @@ use tree_sitter_highlight::{Highlight, Highlighter};
 use super::helpers::fixtures::{get_highlight_config, get_language, test_loader};
 use crate::{
     query_testing::{Assertion, Utf8Point, parse_position_comments},
-    test_highlight::get_highlight_positions,
+    test_highlight::{HighlightPosition, get_highlight_positions},
 };
 
 #[test]
@@ -54,7 +54,7 @@ fn test_highlight_test_with_basic_test() {
             .unwrap();
     assert_eq!(
         highlight_positions,
-        &[
+        [
             (Utf8Point::new(1, 0), Utf8Point::new(1, 3), Highlight(2)), // "var"
             (Utf8Point::new(1, 4), Utf8Point::new(1, 7), Highlight(0)), // "abc"
             (Utf8Point::new(1, 10), Utf8Point::new(1, 18), Highlight(2)), // "function"
@@ -65,6 +65,6 @@ fn test_highlight_test_with_basic_test() {
             (Utf8Point::new(8, 0), Utf8Point::new(8, 3), Highlight(2)), // "var"
             (Utf8Point::new(8, 4), Utf8Point::new(8, 8), Highlight(0)), // "y̆y̆y̆y̆"
             (Utf8Point::new(8, 11), Utf8Point::new(8, 19), Highlight(2)), // "function"
-        ]
+        ].into_iter().map(|(start, end, highlight)| HighlightPosition { start, end, highlight }).collect::<Vec<_>>()
     );
 }
