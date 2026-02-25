@@ -180,10 +180,27 @@ interface Grammar<
   >;
 }
 
+/**
+ * Return type of grammar(). The runtime nests the evaluated grammar under a
+ * "grammar" key and replaces all optional callbacks with their return values
+ * (arrays/values). Optional input fields become required output fields with
+ * default values when not provided.
+ */
 type GrammarSchema<RuleName extends string> = {
-  [K in keyof Grammar<RuleName>]: K extends 'rules'
-  ? Record<RuleName, Rule>
-  : Grammar<RuleName>[K];
+  grammar: {
+    name: string;
+    /** Base grammar name when extending; undefined for root grammars. */
+    inherits?: string;
+    rules: Record<RuleName, Rule>;
+    precedences: Rule[][];
+    conflicts: string[][];
+    externals: Rule[];
+    extras: Rule[];
+    inline: string[];
+    supertypes: string[];
+    word?: string;
+    reserved: Record<string, Rule[]>;
+  };
 };
 
 /**
