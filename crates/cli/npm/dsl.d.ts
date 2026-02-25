@@ -3,17 +3,19 @@ type BlankRule = { type: 'BLANK' };
 type ChoiceRule = { type: 'CHOICE'; members: Rule[] };
 type FieldRule = { type: 'FIELD'; name: string; content: Rule };
 type ImmediateTokenRule = { type: 'IMMEDIATE_TOKEN'; content: Rule };
-type PatternRule = { type: 'PATTERN'; value: string };
+type PatternRule = { type: 'PATTERN'; value: string; flags?: string };
+type PrecedenceValue = string | number;
 type PrecDynamicRule = { type: 'PREC_DYNAMIC'; content: Rule; value: number };
-type PrecLeftRule = { type: 'PREC_LEFT'; content: Rule; value: number };
-type PrecRightRule = { type: 'PREC_RIGHT'; content: Rule; value: number };
-type PrecRule = { type: 'PREC'; content: Rule; value: number };
+type PrecLeftRule = { type: 'PREC_LEFT'; content: Rule; value: PrecedenceValue };
+type PrecRightRule = { type: 'PREC_RIGHT'; content: Rule; value: PrecedenceValue };
+type PrecRule = { type: 'PREC'; content: Rule; value: PrecedenceValue };
 type Repeat1Rule = { type: 'REPEAT1'; content: Rule };
 type RepeatRule = { type: 'REPEAT'; content: Rule };
 type ReservedRule = { type: 'RESERVED'; content: Rule; context_name: string };
 type SeqRule = { type: 'SEQ'; members: Rule[] };
 type StringRule = { type: 'STRING'; value: string };
 type SymbolRule<Name extends string> = { type: 'SYMBOL'; name: Name };
+type PrecedenceEntry = StringRule | SymbolRule<string>;
 type TokenRule = { type: 'TOKEN'; content: Rule };
 type EOFRule = { type: 'EOF' };
 
@@ -89,8 +91,8 @@ interface Grammar<
    */
   precedences?: (
     $: GrammarSymbols<RuleName | BaseGrammarRuleName>,
-    previous: Rule[][],
-  ) => RuleOrLiteral[][],
+    previous: PrecedenceEntry[][],
+  ) => (string | PrecedenceEntry)[][],
 
   /**
    * An array of arrays of rule names. Each inner array represents a set of
@@ -104,8 +106,8 @@ interface Grammar<
    */
   conflicts?: (
     $: GrammarSymbols<RuleName | BaseGrammarRuleName>,
-    previous: Rule[][],
-  ) => RuleOrLiteral[][];
+    previous: SymbolRule<string>[][],
+  ) => SymbolRule<string>[][];
 
   /**
    * An array of token names which can be returned by an _external scanner_.
@@ -130,9 +132,11 @@ interface Grammar<
    * specify extras: `$ => []` in your grammar.
    *
    *  @param $ grammar rules
+   *  @param previous array of extras from the base grammar
    */
   extras?: (
     $: GrammarSymbols<RuleName | BaseGrammarRuleName>,
+    previous: Rule[],
   ) => RuleOrLiteral[];
 
   /**
@@ -145,8 +149,8 @@ interface Grammar<
    */
   inline?: (
     $: GrammarSymbols<RuleName | BaseGrammarRuleName>,
-    previous: Rule[],
-  ) => RuleOrLiteral[];
+    previous: SymbolRule<string>[],
+  ) => SymbolRule<string>[];
 
   /**
    * A list of hidden rule names that should be considered supertypes in the
@@ -158,8 +162,8 @@ interface Grammar<
    */
   supertypes?: (
     $: GrammarSymbols<RuleName | BaseGrammarRuleName>,
-    previous: Rule[],
-  ) => RuleOrLiteral[];
+    previous: SymbolRule<string>[],
+  ) => SymbolRule<string>[];
 
   /**
    * The name of a token that will match keywords for the purpose of the
@@ -169,24 +173,47 @@ interface Grammar<
    *
    * @see https://tree-sitter.github.io/tree-sitter/creating-parsers/3-writing-the-grammar#keyword-extraction
    */
-  word?: ($: GrammarSymbols<RuleName | BaseGrammarRuleName>) => RuleOrLiteral;
+  word?: (
+    $: GrammarSymbols<RuleName | BaseGrammarRuleName>,
+  ) => SymbolRule<string>;
 
 
   /**
    * Mapping of names to reserved word sets. The first reserved word set is the
    * global word set, meaning it applies to every rule in every parse state.
-   * The other word sets can be used with the `reserved` function.
+   * The other word sets can be used with the `reserved` function. Each callback
+   * receives the base grammar's reserved word set of the same name as its second
+   * argument, or `undefined` if no matching set exists.
    */
   reserved?: Record<
     string,
-    ($: GrammarSymbols<RuleName | BaseGrammarRuleName>) => RuleOrLiteral[]
+    (
+      $: GrammarSymbols<RuleName | BaseGrammarRuleName>,
+      previous: Rule[] | undefined,
+    ) => RuleOrLiteral[]
   >;
 }
 
+/**
+ * Return type of grammar(). The runtime evaluates and normalizes the grammar
+ * beneath a "grammar" key. Optional input fields become required output fields
+ * with default values when not provided.
+ */
 type GrammarSchema<RuleName extends string> = {
-  [K in keyof Grammar<RuleName>]: K extends 'rules'
-  ? Record<RuleName, Rule>
-  : Grammar<RuleName>[K];
+  grammar: {
+    name: string;
+    /** Base grammar name when extending; undefined for root grammars. */
+    inherits: string | undefined;
+    rules: Record<RuleName, Rule>;
+    precedences: PrecedenceEntry[][];
+    conflicts: string[][];
+    externals: Rule[];
+    extras: Rule[];
+    inline: string[];
+    supertypes: string[];
+    word: string | undefined;
+    reserved: Record<string, Rule[]>;
+  };
 };
 
 /**
@@ -314,7 +341,7 @@ declare const prec: {
    *
    * @see https://www.gnu.org/software/bison/manual/html_node/Generalized-LR-Parsing.html
    */
-  dynamic(value: string | number, rule: RuleOrLiteral): PrecDynamicRule;
+  dynamic(value: number, rule: RuleOrLiteral): PrecDynamicRule;
 };
 
 /**
