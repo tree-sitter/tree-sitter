@@ -1956,7 +1956,7 @@ dependencies = [
 
 [[package]]
 name = "tree-sitter"
-version = "0.26.5"
+version = "0.26.6"
 dependencies = [
  "bindgen",
  "cc",
@@ -1970,7 +1970,7 @@ dependencies = [
 
 [[package]]
 name = "tree-sitter-cli"
-version = "0.26.5"
+version = "0.26.6"
 dependencies = [
  "ansi_colours",
  "anstyle",
@@ -2018,7 +2018,7 @@ dependencies = [
 
 [[package]]
 name = "tree-sitter-config"
-version = "0.26.5"
+version = "0.26.6"
 dependencies = [
  "etcetera",
  "log",
@@ -2029,7 +2029,7 @@ dependencies = [
 
 [[package]]
 name = "tree-sitter-generate"
-version = "0.26.5"
+version = "0.26.6"
 dependencies = [
  "bitflags 2.11.0",
  "dunce",
@@ -2052,7 +2052,7 @@ dependencies = [
 
 [[package]]
 name = "tree-sitter-highlight"
-version = "0.26.5"
+version = "0.26.6"
 dependencies = [
  "regex",
  "streaming-iterator",
@@ -2066,7 +2066,7 @@ version = "0.1.7"
 
 [[package]]
 name = "tree-sitter-loader"
-version = "0.26.5"
+version = "0.26.6"
 dependencies = [
  "cc",
  "etcetera",
@@ -2088,7 +2088,7 @@ dependencies = [
 
 [[package]]
 name = "tree-sitter-tags"
-version = "0.26.5"
+version = "0.26.6"
 dependencies = [
  "memchr",
  "regex",
