@@ -17,7 +17,7 @@
       eachSystem = lib.genAttrs systems;
       pkgsFor = inputs.nixpkgs.legacyPackages;
 
-      version = "0.26.0";
+      version = "0.27.0";
 
       fs = lib.fileset;
       src = fs.toSource {
@@ -333,6 +333,7 @@
               pkg-config
               llvm
               clang
+              clang-tools
               libclang
 
               nodejs_22
@@ -348,6 +349,7 @@
             ];
 
             shellHook = ''
+              export PATH="${pkgs.clang-tools}/bin:$PATH"
               echo "Tree-sitter Dev Environment"
               echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
               echo ""

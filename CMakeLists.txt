@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.13)
 
 project(tree-sitter
-        VERSION "0.26.0"
+        VERSION "0.27.0"
         DESCRIPTION "An incremental parsing system for programming tools"
         HOMEPAGE_URL "https://tree-sitter.github.io/tree-sitter/"
         LANGUAGES C)
@@ -81,7 +81,7 @@ set_target_properties(tree-sitter
                       SOVERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}"
                       DEFINE_SYMBOL "")
 
-target_compile_definitions(tree-sitter PRIVATE _POSIX_C_SOURCE=200112L _DEFAULT_SOURCE _DARWIN_C_SOURCE)
+target_compile_definitions(tree-sitter PRIVATE _POSIX_C_SOURCE=200112L _DEFAULT_SOURCE _BSD_SOURCE _DARWIN_C_SOURCE)
 
 include(GNUInstallDirs)
 

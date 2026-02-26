@@ -6,7 +6,7 @@ use std::{
 
 use anyhow::Context;
 use tree_sitter::Language;
-use tree_sitter_generate::{load_grammar_file, ALLOC_HEADER, ARRAY_HEADER};
+use tree_sitter_generate::{ALLOC_HEADER, ARRAY_HEADER, load_grammar_file};
 use tree_sitter_highlight::HighlightConfiguration;
 use tree_sitter_loader::{CompileConfig, Loader};
 use tree_sitter_tags::TagsConfiguration;

@@ -49,6 +49,7 @@ fn main() {
         .include(&include_path)
         .define("_POSIX_C_SOURCE", "200112L")
         .define("_DEFAULT_SOURCE", None)
+        .define("_BSD_SOURCE", None)
         .define("_DARWIN_C_SOURCE", None)
         .warnings(false)
         .file(src_path.join("lib.c"))
@@ -59,10 +60,14 @@ fn main() {
 
 fn configure_wasm_build(config: &mut cc::Build) {
     let Ok(wasm_headers) = env::var("DEP_TREE_SITTER_LANGUAGE_WASM_HEADERS") else {
-        panic!("Environment variable DEP_TREE_SITTER_LANGUAGE_WASM_HEADERS must be set by the language crate");
+        panic!(
+            "Environment variable DEP_TREE_SITTER_LANGUAGE_WASM_HEADERS must be set by the language crate"
+        );
     };
     let Ok(wasm_src) = env::var("DEP_TREE_SITTER_LANGUAGE_WASM_SRC").map(PathBuf::from) else {
-        panic!("Environment variable DEP_TREE_SITTER_LANGUAGE_WASM_SRC must be set by the language crate");
+        panic!(
+            "Environment variable DEP_TREE_SITTER_LANGUAGE_WASM_SRC must be set by the language crate"
+        );
     };
 
     config.include(&wasm_headers);
@@ -70,6 +75,7 @@ fn configure_wasm_build(config: &mut cc::Build) {
         wasm_src.join("stdio.c"),
         wasm_src.join("stdlib.c"),
         wasm_src.join("string.c"),
+        wasm_src.join("wctype.c"),
     ]);
 }
 

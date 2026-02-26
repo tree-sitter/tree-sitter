@@ -6,7 +6,7 @@ use std::{
 };
 
 use log::{error, info};
-use rand::Rng;
+use rand::RngExt;
 use regex::Regex;
 use tree_sitter::{Language, Parser};
 
@@ -25,7 +25,7 @@ use crate::{
         random::Rand,
     },
     parse::perform_edit,
-    test::{parse_tests, print_diff, print_diff_key, strip_sexp_fields, TestEntry},
+    test::{DiffKey, TestDiff, TestEntry, parse_tests, strip_sexp_fields},
 };
 
 pub static LOG_ENABLED: LazyLock<bool> = LazyLock::new(|| env::var("TREE_SITTER_LOG").is_ok());
@@ -44,11 +44,13 @@ pub static EXAMPLE_EXCLUDE: LazyLock<Option<Regex>> =
 
 pub static START_SEED: LazyLock<usize> = LazyLock::new(new_seed);
 
+pub const DEFAULT_EDIT_COUNT: usize = 3;
 pub static EDIT_COUNT: LazyLock<usize> =
-    LazyLock::new(|| int_env_var("TREE_SITTER_EDITS").unwrap_or(3));
+    LazyLock::new(|| int_env_var("TREE_SITTER_EDITS").unwrap_or(DEFAULT_EDIT_COUNT));
 
+pub const DEFAULT_ITERATION_COUNT: usize = 10;
 pub static ITERATION_COUNT: LazyLock<usize> =
-    LazyLock::new(|| int_env_var("TREE_SITTER_ITERATIONS").unwrap_or(10));
+    LazyLock::new(|| int_env_var("TREE_SITTER_ITERATIONS").unwrap_or(DEFAULT_ITERATION_COUNT));
 
 fn int_env_var(name: &'static str) -> Option<usize> {
     env::var(name).ok().and_then(|e| e.parse().ok())
@@ -61,8 +63,8 @@ fn regex_env_var(name: &'static str) -> Option<Regex> {
 #[must_use]
 pub fn new_seed() -> usize {
     int_env_var("TREE_SITTER_SEED").unwrap_or_else(|| {
-        let mut rng = rand::thread_rng();
-        let seed = rng.gen::<usize>();
+        let mut rng = rand::rng();
+        let seed = rng.random_range(0..=usize::MAX);
         info!("Seed: {seed}");
         seed
     })
@@ -95,9 +97,7 @@ pub fn fuzz_language_corpus(
                         .iter()
                         .any(|lang| lang.as_ref() == language_name)
             }
-            TestEntry::Group {
-                ref mut children, ..
-            } => {
+            TestEntry::Group { children, .. } => {
                 children.retain_mut(|child| retain(child, language_name));
                 !children.is_empty()
             }
@@ -109,12 +109,16 @@ pub fn fuzz_language_corpus(
     let corpus_dir = grammar_dir.join(subdir).join("test").join("corpus");
 
     if !corpus_dir.exists() || !corpus_dir.is_dir() {
-        error!("No corpus directory found, ensure that you have a `test/corpus` directory in your grammar directory with at least one test file.");
+        error!(
+            "No corpus directory found, ensure that you have a `test/corpus` directory in your grammar directory with at least one test file."
+        );
         return;
     }
 
     if std::fs::read_dir(&corpus_dir).unwrap().count() == 0 {
-        error!("No corpus files found in `test/corpus`, ensure that you have at least one test file in your corpus directory.");
+        error!(
+            "No corpus files found in `test/corpus`, ensure that you have at least one test file in your corpus directory."
+        );
         return;
     }
 
@@ -183,8 +187,8 @@ pub fn fuzz_language_corpus(
 
             if actual_output != test.output {
                 println!("Incorrect initial parse for {test_name}");
-                print_diff_key();
-                print_diff(&actual_output, &test.output, true);
+                DiffKey::print();
+                println!("{}", TestDiff::new(&actual_output, &test.output));
                 println!();
                 return false;
             }
@@ -221,7 +225,7 @@ pub fn fuzz_language_corpus(
                 }
 
                 // Perform a random series of edits and reparse.
-                let edit_count = rand.unsigned(*EDIT_COUNT);
+                let edit_count = rand.unsigned(options.edits);
                 let mut undo_stack = Vec::with_capacity(edit_count);
                 for _ in 0..=edit_count {
                     let edit = get_random_edit(&mut rand, &input);
@@ -276,8 +280,8 @@ pub fn fuzz_language_corpus(
 
                 if actual_output != test.output && !test.error {
                     println!("Incorrect parse for {test_name} - seed {seed}");
-                    print_diff_key();
-                    print_diff(&actual_output, &test.output, true);
+                    DiffKey::print();
+                    println!("{}", TestDiff::new(&actual_output, &test.output));
                     println!();
                     return false;
                 }
@@ -360,10 +364,10 @@ pub fn flatten_tests(
                     if !include.is_match(&name) {
                         return;
                     }
-                } else if let Some(exclude) = exclude {
-                    if exclude.is_match(&name) {
-                        return;
-                    }
+                } else if let Some(exclude) = exclude
+                    && exclude.is_match(&name)
+                {
+                    return;
                 }
 
                 result.push(FlattenedTest {

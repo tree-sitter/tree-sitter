@@ -3,6 +3,7 @@ import { Node } from './node';
 import { marshalNode, unmarshalCaptures } from './marshal';
 import { TRANSFER_BUFFER } from './parser';
 import { Language } from './language';
+import { newFinalizer } from './finalization_registry';
 
 const PREDICATE_STEP_TYPE_CAPTURE = 1;
 
@@ -20,11 +21,31 @@ export interface QueryOptions {
   /** The end position of the range to query */
   endPosition?: Point;
 
+  /** The start position of the range to query  Only the matches that are fully
+   *  contained within provided range will be returned.
+   **/
+  startContainingPosition?: Point;
+
+  /** The end position of the range to query  Only the matches that are fully
+   *  contained within provided range will be returned.
+   **/
+  endContainingPosition?: Point;
+
   /** The start index of the range to query */
   startIndex?: number;
 
   /** The end index of the range to query */
   endIndex?: number;
+
+  /** The start index of the range to query  Only the matches that are fully
+   *  contained within provided range will be returned.
+   **/
+  startContainingIndex?: number;
+
+  /** The end index of the range to query  Only the matches that are fully
+   *  contained within provided range will be returned.
+   **/
+  endContainingIndex?: number;
 
   /**
    * The maximum number of in-progress matches for this query.
@@ -486,6 +507,10 @@ function parsePattern(
   }
 }
 
+const finalizer = newFinalizer((address: number) => {
+  C._ts_query_delete(address);
+});
+
 export class Query {
   /** @internal */
   private [0] = 0; // Internal handle for Wasm
@@ -667,10 +692,12 @@ export class Query {
     this.assertedProperties = assertedProperties;
     this.refutedProperties = refutedProperties;
     this.exceededMatchLimit = false;
+    finalizer?.register(this, address, this);
   }
 
   /** Delete the query, freeing its resources. */
   delete(): void {
+    finalizer?.unregister(this);
     C._ts_query_delete(this[0]);
     this[0] = 0;
   }
@@ -695,6 +722,10 @@ export class Query {
     const endPosition = options.endPosition ?? ZERO_POINT;
     const startIndex = options.startIndex ?? 0;
     const endIndex = options.endIndex ?? 0;
+    const startContainingPosition = options.startContainingPosition ?? ZERO_POINT;
+    const endContainingPosition = options.endContainingPosition ?? ZERO_POINT;
+    const startContainingIndex = options.startContainingIndex ?? 0;
+    const endContainingIndex = options.endContainingIndex ?? 0;
     const matchLimit = options.matchLimit ?? 0xFFFFFFFF;
     const maxStartDepth = options.maxStartDepth ?? 0xFFFFFFFF;
     const progressCallback = options.progressCallback;
@@ -715,6 +746,18 @@ export class Query {
       throw new Error('`startPosition` cannot be greater than `endPosition`');
     }
 
+    if (endContainingIndex !== 0 && startContainingIndex > endContainingIndex) {
+      throw new Error('`startContainingIndex` cannot be greater than `endContainingIndex`');
+    }
+
+    if (endContainingPosition !== ZERO_POINT && (
+      startContainingPosition.row > endContainingPosition.row ||
+      (startContainingPosition.row === endContainingPosition.row &&
+        startContainingPosition.column > endContainingPosition.column)
+    )) {
+      throw new Error('`startContainingPosition` cannot be greater than `endContainingPosition`');
+    }
+
     if (progressCallback) {
       C.currentQueryProgressCallback = progressCallback;
     }
@@ -730,6 +773,12 @@ export class Query {
       endPosition.column,
       startIndex,
       endIndex,
+      startContainingPosition.row,
+      startContainingPosition.column,
+      endContainingPosition.row,
+      endContainingPosition.column,
+      startContainingIndex,
+      endContainingIndex,
       matchLimit,
       maxStartDepth,
     );
@@ -788,6 +837,10 @@ export class Query {
     const endPosition = options.endPosition ?? ZERO_POINT;
     const startIndex = options.startIndex ?? 0;
     const endIndex = options.endIndex ?? 0;
+    const startContainingPosition = options.startContainingPosition ?? ZERO_POINT;
+    const endContainingPosition = options.endContainingPosition ?? ZERO_POINT;
+    const startContainingIndex = options.startContainingIndex ?? 0;
+    const endContainingIndex = options.endContainingIndex ?? 0;
     const matchLimit = options.matchLimit ?? 0xFFFFFFFF;
     const maxStartDepth = options.maxStartDepth ?? 0xFFFFFFFF;
     const progressCallback = options.progressCallback;
@@ -808,6 +861,18 @@ export class Query {
       throw new Error('`startPosition` cannot be greater than `endPosition`');
     }
 
+    if (endContainingIndex !== 0 && startContainingIndex > endContainingIndex) {
+      throw new Error('`startContainingIndex` cannot be greater than `endContainingIndex`');
+    }
+
+    if (endContainingPosition !== ZERO_POINT && (
+      startContainingPosition.row > endContainingPosition.row ||
+      (startContainingPosition.row === endContainingPosition.row &&
+        startContainingPosition.column > endContainingPosition.column)
+    )) {
+      throw new Error('`startContainingPosition` cannot be greater than `endContainingPosition`');
+    }
+
     if (progressCallback) {
       C.currentQueryProgressCallback = progressCallback;
     }
@@ -823,6 +888,12 @@ export class Query {
       endPosition.column,
       startIndex,
       endIndex,
+      startContainingPosition.row,
+      startContainingPosition.column,
+      endContainingPosition.row,
+      endContainingPosition.column,
+      startContainingIndex,
+      endContainingIndex,
       matchLimit,
       maxStartDepth,
     );

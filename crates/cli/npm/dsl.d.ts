@@ -29,6 +29,7 @@ type Rule =
   | PrecRule
   | Repeat1Rule
   | RepeatRule
+  | ReservedRule
   | SeqRule
   | StringRule
   | SymbolRule<string>

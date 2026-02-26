@@ -318,10 +318,8 @@ struct TSQueryCursor {
   CaptureListPool capture_list_pool;
   uint32_t depth;
   uint32_t max_start_depth;
-  uint32_t start_byte;
-  uint32_t end_byte;
-  TSPoint start_point;
-  TSPoint end_point;
+  TSRange included_range;
+  TSRange containing_range;
   uint32_t next_state_id;
   const TSQueryCursorOptions *query_options;
   TSQueryCursorState query_state;
@@ -1336,7 +1334,7 @@ static void ts_query__perform_analysis(
           // of the query pattern.
           bool does_match = false;
 
-          // ERROR nodes can appear anywhere, so if the step is 
+          // ERROR nodes can appear anywhere, so if the step is
           // looking for an ERROR node, consider it potentially matchable.
           if (step->symbol == ts_builtin_sym_error) {
             does_match = true;
@@ -2736,12 +2734,6 @@ static TSQueryError ts_query__parse_pattern(
 
       stream_advance(stream);
       stream_skip_whitespace(stream);
-
-      QueryStep repeat_step = query_step__new(WILDCARD_SYMBOL, depth, false);
-      repeat_step.alternative_index = starting_step_index;
-      repeat_step.is_pass_through = true;
-      repeat_step.alternative_is_immediate = true;
-      array_push(&self->steps, repeat_step);
     }
 
     // Parse the zero-or-more repetition operator.
@@ -2750,21 +2742,6 @@ static TSQueryError ts_query__parse_pattern(
 
       stream_advance(stream);
       stream_skip_whitespace(stream);
-
-      QueryStep repeat_step = query_step__new(WILDCARD_SYMBOL, depth, false);
-      repeat_step.alternative_index = starting_step_index;
-      repeat_step.is_pass_through = true;
-      repeat_step.alternative_is_immediate = true;
-      array_push(&self->steps, repeat_step);
-
-      // Stop when `step->alternative_index` is `NONE` or it points to
-      // `repeat_step` or beyond. Note that having just been pushed,
-      // `repeat_step` occupies slot `self->steps.size - 1`.
-      QueryStep *step = array_get(&self->steps, starting_step_index);
-      while (step->alternative_index != NONE && step->alternative_index < self->steps.size - 1) {
-        step = array_get(&self->steps, step->alternative_index);
-      }
-      step->alternative_index = self->steps.size;
     }
 
     // Parse the optional operator.
@@ -2773,12 +2750,6 @@ static TSQueryError ts_query__parse_pattern(
 
       stream_advance(stream);
       stream_skip_whitespace(stream);
-
-      QueryStep *step = array_get(&self->steps, starting_step_index);
-      while (step->alternative_index != NONE && step->alternative_index < self->steps.size) {
-        step = array_get(&self->steps, step->alternative_index);
-      }
-      step->alternative_index = self->steps.size;
     }
 
     // Parse an '@'-prefixed capture pattern
@@ -2820,6 +2791,43 @@ static TSQueryError ts_query__parse_pattern(
     else {
       break;
     }
+  }
+
+  QueryStep repeat_step;
+  QueryStep *step;
+  switch (quantifier) {
+    case TSQuantifierOneOrMore:
+      repeat_step = query_step__new(WILDCARD_SYMBOL, depth, false);
+      repeat_step.alternative_index = starting_step_index;
+      repeat_step.is_pass_through = true;
+      repeat_step.alternative_is_immediate = true;
+      array_push(&self->steps, repeat_step);
+      break;
+    case TSQuantifierZeroOrMore:
+      repeat_step = query_step__new(WILDCARD_SYMBOL, depth, false);
+      repeat_step.alternative_index = starting_step_index;
+      repeat_step.is_pass_through = true;
+      repeat_step.alternative_is_immediate = true;
+      array_push(&self->steps, repeat_step);
+
+      // Stop when `step->alternative_index` is `NONE` or it points to
+      // `repeat_step` or beyond. Note that having just been pushed,
+      // `repeat_step` occupies slot `self->steps.size - 1`.
+      step = array_get(&self->steps, starting_step_index);
+      while (step->alternative_index != NONE && step->alternative_index < self->steps.size - 1) {
+        step = array_get(&self->steps, step->alternative_index);
+      }
+      step->alternative_index = self->steps.size;
+      break;
+    case TSQuantifierZeroOrOne:
+      step = array_get(&self->steps, starting_step_index);
+      while (step->alternative_index != NONE && step->alternative_index < self->steps.size) {
+        step = array_get(&self->steps, step->alternative_index);
+      }
+      step->alternative_index = self->steps.size;
+      break;
+    default:
+      break;
   }
 
   capture_quantifiers_mul(capture_quantifiers, quantifier);
@@ -2948,6 +2956,53 @@ TSQuery *ts_query_new(
         wildcard_root_alternative_index = NONE;
       } else {
         break;
+      }
+    }
+
+    // Fix up quantifier loop-backs within alternations. When a branch of an
+    // alternation has a + or * quantifier, the quantifier's pass_through step
+    // loops back to the branch's first step. However, the alternation linking
+    // assigns that same step's `alternative_index` to point to the _next_ branch.
+    // This causes the quantifier loop to incorrectly explore other alternation branches,
+    // when a quantified branch matches, loops back, and then fails to match. To correct
+    // this, we create "clean" copies of the branches' first steps without the link to the
+    // next branch. After a quantified branch matches, it loops back to the cleaned copy.
+    {
+      uint32_t pat_start = pattern->steps.offset;
+      uint32_t pat_end = pat_start + pattern->steps.length - 1; // exclude DONE
+
+      for (uint32_t i = pat_start; i < pat_end; i++) {
+        QueryStep *s = array_get(&self->steps, i);
+        // Ensure this step is a pass_through with a _backward_ alternative (a quantifier loop-back)
+        if (!s->is_pass_through
+            || s->alternative_index == NONE || s->alternative_index >= i) continue;
+
+        uint32_t target_idx = s->alternative_index;
+        QueryStep *target = array_get(&self->steps, target_idx);
+
+        // Check if the target has a forward alternative from alternation linking
+        uint16_t target_alt_index = target->alternative_index;
+        if (target_alt_index == NONE 
+            || target_alt_index <= target_idx || target_alt_index >= pat_end) continue;
+
+        // Create a clean copy of the target step without the alternation alternative.
+        uint32_t copy_idx = self->steps.size;
+        QueryStep copy = *target;
+        copy.alternative_index = NONE;
+        uint16_t target_depth = target->depth;
+        array_push(&self->steps, copy);
+
+        // Add a dead_end that redirects to the pass through step after the target,
+        // so the pattern continues correctly after the cleaned copy matches.
+        QueryStep redirect = query_step__new(0, target_depth, false);
+        redirect.is_dead_end = true;
+        redirect.alternative_index = target_idx + 1;
+        array_push(&self->steps, redirect);
+
+        // Update the pass_through to loop back to the copy. Reacquire `s` since
+        // `self->steps` may have been reallocated.
+        s = array_get(&self->steps, i);
+        s->alternative_index = copy_idx;
       }
     }
   }
@@ -3145,10 +3200,18 @@ TSQueryCursor *ts_query_cursor_new(void) {
     .states = array_new(),
     .finished_states = array_new(),
     .capture_list_pool = capture_list_pool_new(),
-    .start_byte = 0,
-    .end_byte = UINT32_MAX,
-    .start_point = {0, 0},
-    .end_point = POINT_MAX,
+    .included_range = {
+      .start_point = {0, 0},
+      .end_point = POINT_MAX,
+      .start_byte = 0,
+      .end_byte = UINT32_MAX,
+    },
+    .containing_range = {
+      .start_point = {0, 0},
+      .end_point = POINT_MAX,
+      .start_byte = 0,
+      .end_byte = UINT32_MAX,
+    },
     .max_start_depth = UINT32_MAX,
     .operation_count = 0,
   };
@@ -3256,8 +3319,8 @@ bool ts_query_cursor_set_byte_range(
   if (start_byte > end_byte) {
     return false;
   }
-  self->start_byte = start_byte;
-  self->end_byte = end_byte;
+  self->included_range.start_byte = start_byte;
+  self->included_range.end_byte = end_byte;
   return true;
 }
 
@@ -3272,8 +3335,40 @@ bool ts_query_cursor_set_point_range(
   if (point_gt(start_point, end_point)) {
     return false;
   }
-  self->start_point = start_point;
-  self->end_point = end_point;
+  self->included_range.start_point = start_point;
+  self->included_range.end_point = end_point;
+  return true;
+}
+
+bool ts_query_cursor_set_containing_byte_range(
+  TSQueryCursor *self,
+  uint32_t start_byte,
+  uint32_t end_byte
+) {
+  if (end_byte == 0) {
+    end_byte = UINT32_MAX;
+  }
+  if (start_byte > end_byte) {
+    return false;
+  }
+  self->containing_range.start_byte = start_byte;
+  self->containing_range.end_byte = end_byte;
+  return true;
+}
+
+bool ts_query_cursor_set_containing_point_range(
+  TSQueryCursor *self,
+  TSPoint start_point,
+  TSPoint end_point
+) {
+  if (end_point.row == 0 && end_point.column == 0) {
+    end_point = POINT_MAX;
+  }
+  if (point_gt(start_point, end_point)) {
+    return false;
+  }
+  self->containing_range.start_point = start_point;
+  self->containing_range.end_point = end_point;
   return true;
 }
 
@@ -3304,8 +3399,8 @@ static bool ts_query_cursor__first_in_progress_capture(
 
     TSNode node = array_get(captures, state->consumed_capture_count)->node;
     if (
-      ts_node_end_byte(node) <= self->start_byte ||
-      point_lte(ts_node_end_point(node), self->start_point)
+      ts_node_end_byte(node) <= self->included_range.start_byte ||
+      point_lte(ts_node_end_point(node), self->included_range.start_point)
     ) {
       state->consumed_capture_count++;
       i--;
@@ -3630,6 +3725,31 @@ static inline bool ts_query_cursor__should_descend(
   return false;
 }
 
+bool range_intersects(const TSRange *a, const TSRange *b) {
+  bool is_empty = a->start_byte == a->end_byte;
+  return (
+    (
+      a->end_byte > b->start_byte ||
+      (is_empty && a->end_byte == b->start_byte)
+    ) &&
+    (
+      point_gt(a->end_point, b->start_point) ||
+      (is_empty && point_eq(a->end_point, b->start_point))
+    ) &&
+    a->start_byte < b->end_byte &&
+    point_lt(a->start_point, b->end_point)
+  );
+}
+
+bool range_within(const TSRange *a, const TSRange *b) {
+  return (
+    a->start_byte >= b->start_byte &&
+    point_gte(a->start_point, b->start_point) &&
+    a->end_byte <= b->end_byte &&
+    point_lte(a->end_point, b->end_point)
+  );
+}
+
 // Walk the tree, processing patterns until at least one pattern finishes,
 // If one or more patterns finish, return `true` and store their states in the
 // `finished_states` array. Multiple patterns can finish on the same node. If
@@ -3750,39 +3870,31 @@ static inline bool ts_query_cursor__advance(
 
     // Enter a new node.
     else {
-      // Get the properties of the current node.
       TSNode node = ts_tree_cursor_current_node(&self->cursor);
       TSNode parent_node = ts_tree_cursor_parent_node(&self->cursor);
 
-      uint32_t start_byte = ts_node_start_byte(node);
-      uint32_t end_byte = ts_node_end_byte(node);
-      TSPoint start_point = ts_node_start_point(node);
-      TSPoint end_point = ts_node_end_point(node);
-      bool is_empty = start_byte == end_byte;
+      bool parent_intersects_range =
+        ts_node_is_null(parent_node) ||
+        range_intersects(&(TSRange) {
+          .start_point = ts_node_start_point(parent_node),
+          .end_point = ts_node_end_point(parent_node),
+          .start_byte = ts_node_start_byte(parent_node),
+          .end_byte = ts_node_end_byte(parent_node),
+        }, &self->included_range);
+      TSRange node_range = (TSRange) {
+        .start_point = ts_node_start_point(node),
+        .end_point = ts_node_end_point(node),
+        .start_byte = ts_node_start_byte(node),
+        .end_byte = ts_node_end_byte(node),
+      };
+      bool node_intersects_range =
+        parent_intersects_range && range_intersects(&node_range, &self->included_range);
+      bool node_intersects_containing_range =
+        range_intersects(&node_range, &self->containing_range);
+      bool node_within_containing_range =
+        range_within(&node_range, &self->containing_range);
 
-      bool parent_precedes_range = !ts_node_is_null(parent_node) && (
-        ts_node_end_byte(parent_node) <= self->start_byte ||
-        point_lte(ts_node_end_point(parent_node), self->start_point)
-      );
-      bool parent_follows_range = !ts_node_is_null(parent_node) && (
-        ts_node_start_byte(parent_node) >= self->end_byte ||
-        point_gte(ts_node_start_point(parent_node), self->end_point)
-      );
-      bool node_precedes_range =
-        parent_precedes_range ||
-        end_byte < self->start_byte ||
-        point_lt(end_point, self->start_point) ||
-        (!is_empty && end_byte == self->start_byte) ||
-        (!is_empty && point_eq(end_point, self->start_point));
-
-      bool node_follows_range = parent_follows_range || (
-        start_byte >= self->end_byte ||
-        point_gte(start_point, self->end_point)
-      );
-      bool parent_intersects_range = !parent_precedes_range && !parent_follows_range;
-      bool node_intersects_range = !node_precedes_range && !node_follows_range;
-
-      if (self->on_visible_node) {
+      if (node_within_containing_range && self->on_visible_node) {
         TSSymbol symbol = ts_node_symbol(node);
         bool is_named = ts_node_is_named(node);
         bool is_missing = ts_node_is_missing(node);
@@ -4172,7 +4284,7 @@ static inline bool ts_query_cursor__advance(
         }
       }
 
-      if (ts_query_cursor__should_descend(self, node_intersects_range)) {
+      if (node_intersects_containing_range && ts_query_cursor__should_descend(self, node_intersects_range)) {
         switch (ts_tree_cursor_goto_first_child_internal(&self->cursor)) {
           case TreeCursorStepVisible:
             self->depth++;
@@ -4294,12 +4406,12 @@ bool ts_query_cursor_next_capture(
       TSNode node = array_get(captures, state->consumed_capture_count)->node;
 
       bool node_precedes_range = (
-        ts_node_end_byte(node) <= self->start_byte ||
-        point_lte(ts_node_end_point(node), self->start_point)
+        ts_node_end_byte(node) <= self->included_range.start_byte ||
+        point_lte(ts_node_end_point(node), self->included_range.start_point)
       );
       bool node_follows_range = (
-        ts_node_start_byte(node) >= self->end_byte ||
-        point_gte(ts_node_start_point(node), self->end_point)
+        ts_node_start_byte(node) >= self->included_range.end_byte ||
+        point_gte(ts_node_start_point(node), self->included_range.end_point)
       );
       bool node_outside_of_range = node_precedes_range || node_follows_range;
 

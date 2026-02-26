@@ -1,6 +1,5 @@
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
-use anyhow::Result;
 use serde::Serialize;
 use thiserror::Error;
 
@@ -140,7 +139,9 @@ pub type VariableInfoResult<T> = Result<T, VariableInfoError>;
 
 #[derive(Debug, Error, Serialize)]
 pub enum VariableInfoError {
-    #[error("Grammar error: Supertype symbols must always have a single visible child, but `{0}` can have multiple")]
+    #[error(
+        "Grammar error: Supertype symbols must always have a single visible child, but `{0}` can have multiple"
+    )]
     InvalidSupertype(String),
 }
 
@@ -378,11 +379,11 @@ pub fn get_variable_info(
 fn get_aliases_by_symbol(
     syntax_grammar: &SyntaxGrammar,
     default_aliases: &AliasMap,
-) -> HashMap<Symbol, HashSet<Option<Alias>>> {
+) -> HashMap<Symbol, BTreeSet<Option<Alias>>> {
     let mut aliases_by_symbol = HashMap::new();
     for (symbol, alias) in default_aliases {
         aliases_by_symbol.insert(*symbol, {
-            let mut aliases = HashSet::new();
+            let mut aliases = BTreeSet::new();
             aliases.insert(Some(alias.clone()));
             aliases
         });
@@ -391,7 +392,7 @@ fn get_aliases_by_symbol(
         if !default_aliases.contains_key(extra_symbol) {
             aliases_by_symbol
                 .entry(*extra_symbol)
-                .or_insert_with(HashSet::new)
+                .or_insert_with(BTreeSet::new)
                 .insert(None);
         }
     }
@@ -400,7 +401,7 @@ fn get_aliases_by_symbol(
             for step in &production.steps {
                 aliases_by_symbol
                     .entry(step.symbol)
-                    .or_insert_with(HashSet::new)
+                    .or_insert_with(BTreeSet::new)
                     .insert(
                         step.alias
                             .as_ref()
@@ -531,7 +532,7 @@ pub fn generate_node_types_json(
 
     let aliases_by_symbol = get_aliases_by_symbol(syntax_grammar, default_aliases);
 
-    let empty = HashSet::new();
+    let empty = BTreeSet::new();
     let extra_names = syntax_grammar
         .extra_symbols
         .iter()
@@ -541,8 +542,8 @@ pub fn generate_node_types_json(
                 .unwrap_or(&empty)
                 .iter()
                 .map(|alias| {
-                    alias.as_ref().map_or(
-                        match symbol.kind {
+                    alias.as_ref().map_or_else(
+                        || match symbol.kind {
                             SymbolType::NonTerminal => &syntax_grammar.variables[symbol.index].name,
                             SymbolType::Terminal => &lexical_grammar.variables[symbol.index].name,
                             SymbolType::External => {
@@ -590,7 +591,7 @@ pub fn generate_node_types_json(
         } else if !syntax_grammar.variables_to_inline.contains(&symbol) {
             // If a rule is aliased under multiple names, then its information
             // contributes to multiple entries in the final JSON.
-            for alias in aliases_by_symbol.get(&symbol).unwrap_or(&HashSet::new()) {
+            for alias in aliases_by_symbol.get(&symbol).unwrap_or(&BTreeSet::new()) {
                 let kind;
                 let is_named;
                 if let Some(alias) = alias {
@@ -644,7 +645,7 @@ pub fn generate_node_types_json(
                 populate_field_info_json(
                     node_type_json
                         .children
-                        .get_or_insert(FieldInfoJSON::default()),
+                        .get_or_insert_with(FieldInfoJSON::default),
                     &info.children_without_fields,
                 );
             }
@@ -784,6 +785,9 @@ pub fn generate_node_types_json(
                 a_is_leaf.cmp(&b_is_leaf)
             })
             .then_with(|| a.kind.cmp(&b.kind))
+            .then_with(|| a.named.cmp(&b.named))
+            .then_with(|| a.root.cmp(&b.root))
+            .then_with(|| a.extra.cmp(&b.extra))
     });
     result.dedup();
     Ok(result)
@@ -826,12 +830,12 @@ fn extend_sorted<'a, T>(vec: &mut Vec<T>, values: impl IntoIterator<Item = &'a T
 where
     T: 'a + Clone + Eq + Ord,
 {
-    values.into_iter().any(|value| {
+    values.into_iter().fold(false, |acc, value| {
         if let Err(i) = vec.binary_search(value) {
             vec.insert(i, value.clone());
             true
         } else {
-            false
+            acc
         }
     })
 }
@@ -1865,8 +1869,10 @@ mod tests {
                         productions: vec![
                             Production {
                                 dynamic_precedence: 0,
-                                steps: vec![ProductionStep::new(Symbol::non_terminal(1))
-                                    .with_field_name("field1")],
+                                steps: vec![
+                                    ProductionStep::new(Symbol::non_terminal(1))
+                                        .with_field_name("field1"),
+                                ],
                             },
                             Production {
                                 dynamic_precedence: 0,

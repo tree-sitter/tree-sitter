@@ -48,6 +48,19 @@ static int grow_heap(size_t size) {
   return __builtin_wasm_memory_grow(0, new_page_count) != SIZE_MAX;
 }
 
+// Grows the heap if necessary to fit a region at the _end_ of the heap
+// ending at `region_end` by `size` bytes.
+//
+// Returns 0 if the heap could not be grown, 1 otherwise.
+static inline int grow_heap_for_region(Region *region_end, size_t size) {
+  if (region_end > heap_end) {
+    if ((char *)region_end - (char *)heap_start > MAX_HEAP_SIZE) return 0;
+    if (!grow_heap(size)) return 0;
+    heap_end = get_heap_end();
+  }
+  return 1;
+}
+
 // Clear out the heap, and move it to the given address.
 void reset_heap(void *new_heap_start) {
   heap_start = new_heap_start;
@@ -76,13 +89,7 @@ void *malloc(size_t size) {
 
   Region *region_end = region_after(next, size);
 
-  if (region_end > heap_end) {
-    if ((char *)region_end - (char *)heap_start > MAX_HEAP_SIZE) {
-      return NULL;
-    }
-    if (!grow_heap(size)) return NULL;
-    heap_end = get_heap_end();
-  }
+  if (!grow_heap_for_region(region_end, size)) return NULL;
 
   void *result = &next->data;
   next->size = size;
@@ -109,6 +116,7 @@ void free(void *ptr) {
 
 void *calloc(size_t count, size_t size) {
   void *result = malloc(count * size);
+  if (!result) return NULL;
   memset(result, 0, count * size);
   return result;
 }
@@ -117,19 +125,36 @@ void *realloc(void *ptr, size_t new_size) {
   if (ptr == NULL) {
     return malloc(new_size);
   }
+  if (new_size == 0) {
+    free(ptr);
+    return NULL;
+  }
+
 
   Region *region = region_for_ptr(ptr);
   Region *region_end = region_after(region, region->size);
 
-  // When reallocating the last allocated region, return
-  // the same pointer, and skip copying the data.
+  // When reallocating the last allocated region, resize
+  // in place if possible, return the same pointer, and
+  // skip copying the data.
   if (region_end == next) {
-    next = region;
-    return malloc(new_size);
+    Region *new_region_end = region_after(region, new_size);
+
+    size_t additional_size = (char *)new_region_end - (char *)heap_end;
+    if (!grow_heap_for_region(new_region_end, additional_size)) return NULL;
+
+    region->size = new_size;
+    next = new_region_end;
+    return &region->data;
   }
 
   void *result = malloc(new_size);
-  memcpy(result, &region->data, region->size);
+  if (!result) return NULL;
+
+  size_t copy_size = region->size < new_size ? region->size : new_size;
+  memcpy(result, &region->data, copy_size);
+
+  free(ptr);
   return result;
 }
 

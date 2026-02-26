@@ -1,7 +1,6 @@
-use anyhow::Result;
 use regex_syntax::{
-    hir::{Class, Hir, HirKind},
     ParserBuilder,
+    hir::{Class, Hir, HirKind},
 };
 use serde::Serialize;
 use thiserror::Error;
@@ -27,7 +26,7 @@ pub enum ExpandTokensError {
         "The rule `{0}` matches the empty string.
 Tree-sitter does not support syntactic rules that match the empty string
 unless they are used only as the grammar's start rule.
-        "
+"
     )]
     EmptyString(String),
     #[error(transparent)]
@@ -68,10 +67,10 @@ fn get_implicit_precedence(rule: &Rule) -> i32 {
 }
 
 const fn get_completion_precedence(rule: &Rule) -> i32 {
-    if let Rule::Metadata { params, .. } = rule {
-        if let Precedence::Integer(p) = params.precedence {
-            return p;
-        }
+    if let Rule::Metadata { params, .. } = rule
+        && let Precedence::Integer(p) = params.precedence
+    {
+        return p;
     }
     0
 }
@@ -189,7 +188,7 @@ impl NfaBuilder {
             }
             Rule::String(s) => {
                 for c in s.chars().rev() {
-                    self.push_advance(CharacterSet::empty().add_char(c), next_state_id);
+                    self.push_advance(CharacterSet::from_char(c), next_state_id);
                     next_state_id = self.nfa.last_state_id();
                 }
                 Ok(!s.is_empty())

@@ -73,9 +73,8 @@ The behaviors of these three files are described in the next section.
 
 ## Queries
 
-Tree-sitter's syntax highlighting system is based on *tree queries*, which are a general system for pattern-matching on Tree-sitter's
-syntax trees. See [this section][pattern matching] of the documentation for more information
-about tree queries.
+Tree-sitter's syntax highlighting system is based on *tree queries*, which are a general system for pattern-matching on
+Tree-sitter's syntax trees. See [this section][pattern matching] of the documentation for more information about tree queries.
 
 Syntax highlighting is controlled by *three* different types of query files that are usually included in the `queries` folder.
 The default names for the query files use the `.scm` file. We chose this extension because it commonly used for files written

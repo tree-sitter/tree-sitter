@@ -7,15 +7,11 @@ tree-sitter playground [OPTIONS] # Aliases: play, pg, web-ui
 ```
 
 ```admonish note
-For this to work, you must have already built the parser as a Wasm module. This can be done with the [`build`](./build.md) subcommand
-(`tree-sitter build --wasm`).
+For this to work, you must have already built the parser as a Wasm module. This can be done with the [`build`](./build.md)
+subcommand (`tree-sitter build --wasm`).
 ```
 
 ## Options
-
-### `-e/--export <EXPORT_PATH>`
-
-Export static playground files to the specified directory instead of serving them.
 
 ### `-q/--quiet`
 
@@ -24,3 +20,7 @@ Don't automatically open the playground in the default browser.
 ### `--grammar-path <GRAMMAR_PATH>`
 
 The path to the directory containing the grammar and wasm files.
+
+### `-e/--export <EXPORT_PATH>`
+
+Export static playground files to the specified directory instead of serving them.

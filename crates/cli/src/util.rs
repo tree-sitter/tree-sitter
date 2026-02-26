@@ -2,12 +2,12 @@ use std::{
     path::{Path, PathBuf},
     process::{Child, ChildStdin, Command, Stdio},
     sync::{
-        atomic::{AtomicUsize, Ordering},
         Arc,
+        atomic::{AtomicUsize, Ordering},
     },
 };
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use indoc::indoc;
 use log::error;
 use tree_sitter::{Parser, Tree};
@@ -94,9 +94,9 @@ impl LogSession {
             .stdin(Stdio::piped())
             .stdout(dot_file)
             .spawn()
-            .with_context(|| {
-                "Failed to run the `dot` command. Check that graphviz is installed."
-            })?;
+            .with_context(
+                || "Failed to run the `dot` command. Check that graphviz is installed.",
+            )?;
         let dot_stdin = dot_process
             .stdin
             .take()

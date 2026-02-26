@@ -17,7 +17,7 @@
     "tree-sitter"
   ],
   "dependencies": {
-    "eslint-plugin-jsdoc": "^50.2.4"
+    "eslint-plugin-jsdoc": "^62.7.0"
   },
   "peerDependencies": {
     "eslint": ">= 9"

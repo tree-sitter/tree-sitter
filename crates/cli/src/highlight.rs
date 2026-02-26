@@ -5,7 +5,7 @@ use std::{
     io::{self, Write as _},
     path::{self, Path, PathBuf},
     str,
-    sync::{atomic::AtomicUsize, Arc},
+    sync::{Arc, atomic::AtomicUsize},
     time::Instant,
 };
 
@@ -13,8 +13,9 @@ use ansi_colours::{ansi256_from_rgb, rgb_from_ansi256};
 use anstyle::{Ansi256Color, AnsiColor, Color, Effects, RgbColor};
 use anyhow::Result;
 use log::{info, warn};
-use serde::{ser::SerializeMap, Deserialize, Deserializer, Serialize, Serializer};
-use serde_json::{json, Value};
+use serde::{Deserialize, Deserializer, Serialize, Serializer, ser::SerializeMap};
+use serde_json::{Value, json};
+use tree_sitter::ffi::{self, TSInputEncoding};
 use tree_sitter_highlight::{HighlightConfiguration, HighlightEvent, Highlighter, HtmlRenderer};
 use tree_sitter_loader::Loader;
 
@@ -221,11 +222,11 @@ fn parse_style(style: &mut Style, json: Value) {
         style.css = None;
     }
 
-    if let Some(Color::Rgb(RgbColor(red, green, blue))) = style.ansi.get_fg_color() {
-        if !terminal_supports_truecolor() {
-            let ansi256 = Color::Ansi256(Ansi256Color(ansi256_from_rgb((red, green, blue))));
-            style.ansi = style.ansi.fg_color(Some(ansi256));
-        }
+    if let Some(Color::Rgb(RgbColor(red, green, blue))) = style.ansi.get_fg_color()
+        && !terminal_supports_truecolor()
+    {
+        let ansi256 = Color::Ansi256(Ansi256Color(ansi256_from_rgb((red, green, blue))));
+        style.ansi = style.ansi.fg_color(Some(ansi256));
     }
 }
 
@@ -322,6 +323,7 @@ pub struct HighlightOptions {
     pub quiet: bool,
     pub print_time: bool,
     pub cancellation_flag: Arc<AtomicUsize>,
+    pub encoding: Option<TSInputEncoding>,
 }
 
 pub fn highlight(
@@ -364,14 +366,39 @@ pub fn highlight(
     }
 
     let source = fs::read(path)?;
+
+    fn is_utf16_le_bom(bom_bytes: &[u8]) -> bool {
+        bom_bytes == [0xFF, 0xFE]
+    }
+
+    fn is_utf16_be_bom(bom_bytes: &[u8]) -> bool {
+        bom_bytes == [0xFE, 0xFF]
+    }
+
+    let encoding = match opts.encoding {
+        None if source.len() >= 2 => {
+            if is_utf16_le_bom(&source[0..2]) {
+                Some(ffi::TSInputEncodingUTF16LE)
+            } else if is_utf16_be_bom(&source[0..2]) {
+                Some(ffi::TSInputEncodingUTF16BE)
+            } else {
+                None
+            }
+        }
+        _ => opts.encoding,
+    };
+
     let stdout = io::stdout();
     let mut stdout = stdout.lock();
     let time = Instant::now();
     let mut highlighter = Highlighter::new();
-    let events =
-        highlighter.highlight(config, &source, Some(&opts.cancellation_flag), |string| {
-            loader.highlight_config_for_injection_string(string)
-        })?;
+    let events = highlighter.highlight(
+        config,
+        &source,
+        encoding,
+        Some(&opts.cancellation_flag),
+        |string| loader.highlight_config_for_injection_string(string),
+    )?;
     let theme = &opts.theme;
 
     if !opts.quiet && print_name {
@@ -403,7 +430,6 @@ pub fn highlight(
                         .as_ref()
                         .map_or_else(|| "".as_bytes(), |css_style| css_style.as_bytes()),
                 );
-                output.extend(b"'");
             } else {
                 output.extend(b"class='");
                 let mut parts = theme.highlight_names[highlight.0].split('.').peekable();
@@ -413,8 +439,8 @@ pub fn highlight(
                         output.extend(b" ");
                     }
                 }
-                output.extend(b"'");
             }
+            output.extend(b"'");
         })?;
 
         if !opts.quiet {
@@ -474,7 +500,7 @@ mod tests {
         assert_eq!(style.css, None);
 
         // darkcyan is an ANSI color and is preserved
-        env::set_var("COLORTERM", "");
+        unsafe { env::set_var("COLORTERM", "") };
         parse_style(&mut style, Value::String(DARK_CYAN.to_string()));
         assert_eq!(
             style.ansi.get_fg_color(),
@@ -483,7 +509,7 @@ mod tests {
         assert_eq!(style.css, Some("color: #00af87".to_string()));
 
         // junglegreen is not an ANSI color and is preserved when the terminal supports it
-        env::set_var("COLORTERM", "truecolor");
+        unsafe { env::set_var("COLORTERM", "truecolor") };
         parse_style(&mut style, Value::String(JUNGLE_GREEN.to_string()));
         assert_eq!(
             style.ansi.get_fg_color(),
@@ -492,7 +518,7 @@ mod tests {
         assert_eq!(style.css, Some("color: #26a69a".to_string()));
 
         // junglegreen gets approximated as cadetblue when the terminal does not support it
-        env::set_var("COLORTERM", "");
+        unsafe { env::set_var("COLORTERM", "") };
         parse_style(&mut style, Value::String(JUNGLE_GREEN.to_string()));
         assert_eq!(
             style.ansi.get_fg_color(),
@@ -501,9 +527,9 @@ mod tests {
         assert_eq!(style.css, Some("color: #26a69a".to_string()));
 
         if let Ok(environment_variable) = original_environment_variable {
-            env::set_var("COLORTERM", environment_variable);
+            unsafe { env::set_var("COLORTERM", environment_variable) };
         } else {
-            env::remove_var("COLORTERM");
+            unsafe { env::remove_var("COLORTERM") };
         }
     }
 }

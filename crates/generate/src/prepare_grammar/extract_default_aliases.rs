@@ -69,9 +69,7 @@ pub(super) fn extract_default_aliases(
             SymbolType::External => &mut external_status_list[symbol.index],
             SymbolType::NonTerminal => &mut non_terminal_status_list[symbol.index],
             SymbolType::Terminal => &mut terminal_status_list[symbol.index],
-            SymbolType::End | SymbolType::EndOfNonTerminalExtra => {
-                panic!("Unexpected end token")
-            }
+            SymbolType::End | SymbolType::EndOfNonTerminalExtra => panic!("Unexpected end token"),
         };
         status.appears_unaliased = true;
     }

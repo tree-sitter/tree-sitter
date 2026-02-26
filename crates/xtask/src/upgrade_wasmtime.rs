@@ -3,7 +3,7 @@ use std::process::Command;
 use anyhow::{Context, Result};
 use semver::Version;
 
-use crate::{create_commit, UpgradeWasmtime};
+use crate::{UpgradeWasmtime, create_commit};
 
 const WASMTIME_RELEASE_URL: &str = "https://github.com/bytecodealliance/wasmtime/releases/download";
 

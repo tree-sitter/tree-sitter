@@ -28,9 +28,9 @@ jobs:
       NVIM: ${{ matrix.os == 'windows-latest' && 'nvim-win64\\bin\\nvim.exe' || 'nvim' }}
       NVIM_TS_DIR: nvim-treesitter
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           repository: nvim-treesitter/nvim-treesitter
           path: ${{ env.NVIM_TS_DIR }}

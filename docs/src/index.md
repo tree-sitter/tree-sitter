@@ -10,7 +10,8 @@ file and efficiently update the syntax tree as the source file is edited. Tree-s
 - **General** enough to parse any programming language
 - **Fast** enough to parse on every keystroke in a text editor
 - **Robust** enough to provide useful results even in the presence of syntax errors
-- **Dependency-free** so that the runtime library (which is written in pure [C11](https://github.com/tree-sitter/tree-sitter/tree/master/lib)) can be embedded in any application
+- **Dependency-free** so that the runtime library (which is written in pure [C11](https://github.com/tree-sitter/tree-sitter/tree/master/lib))
+can be embedded in any application
 
 ## Language Bindings
 

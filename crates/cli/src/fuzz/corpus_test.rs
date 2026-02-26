@@ -1,6 +1,6 @@
 use tree_sitter::{LogType, Node, Parser, Point, Range, Tree};
 
-use super::{scope_sequence::ScopeSequence, LOG_ENABLED, LOG_GRAPH_ENABLED};
+use super::{LOG_ENABLED, LOG_GRAPH_ENABLED, scope_sequence::ScopeSequence};
 use crate::util;
 
 pub fn check_consistent_sizes(tree: &Tree, input: &[u8]) {
@@ -23,7 +23,7 @@ pub fn check_consistent_sizes(tree: &Tree, input: &[u8]) {
         let mut some_child_has_changes = false;
         let mut actual_named_child_count = 0;
         for i in 0..node.child_count() {
-            let child = node.child(i as u32).unwrap();
+            let child = node.child(i).unwrap();
             assert!(child.start_byte() >= last_child_end_byte);
             assert!(child.start_position() >= last_child_end_point);
             check(child, line_offsets);

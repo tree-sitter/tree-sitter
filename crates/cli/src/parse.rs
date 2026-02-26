@@ -8,18 +8,19 @@ use std::{
 };
 
 use anstyle::{AnsiColor, Color, RgbColor};
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use clap::ValueEnum;
 use log::info;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use tree_sitter::{
-    ffi, InputEdit, Language, LogType, ParseOptions, ParseState, Parser, Point, Range, Tree,
-    TreeCursor,
+    InputEdit, Language, LogType, ParseOptions, ParseState, Parser, Point, Range, Tree, TreeCursor,
+    ffi,
 };
 
 use crate::{fuzz::edits::Edit, logger::paint, util};
 
-#[derive(Debug, Default, Serialize)]
+#[derive(Debug, Default, Serialize, JsonSchema)]
 pub struct Stats {
     pub successful_parses: usize,
     pub total_parses: usize,
@@ -285,6 +286,10 @@ pub fn parse_file_at_path(
     max_path_length: usize,
     opts: &mut ParseFileOptions,
 ) -> Result<()> {
+    #[expect(
+        clippy::collection_is_never_read,
+        reason = "value is held for its Drop side effect"
+    )]
     let mut _log_session = None;
     parser.set_language(language)?;
     let mut source_code = fs::read(path).with_context(|| format!("Error reading {name:?}"))?;
@@ -337,12 +342,12 @@ pub fn parse_file_at_path(
 
     let parse_time = Instant::now();
 
-    #[inline(always)]
+    #[inline]
     fn is_utf16_le_bom(bom_bytes: &[u8]) -> bool {
         bom_bytes == [0xFF, 0xFE]
     }
 
-    #[inline(always)]
+    #[inline]
     fn is_utf16_be_bom(bom_bytes: &[u8]) -> bool {
         bom_bytes == [0xFE, 0xFF]
     }
@@ -367,13 +372,13 @@ pub fn parse_file_at_path(
     // after the specified number of microseconds.
     let start_time = Instant::now();
     let progress_callback = &mut |_: &ParseState| {
-        if let Some(cancellation_flag) = opts.cancellation_flag {
-            if cancellation_flag.load(Ordering::SeqCst) != 0 {
-                return ControlFlow::Break(());
-            }
+        if let Some(cancellation_flag) = opts.cancellation_flag
+            && cancellation_flag.load(Ordering::SeqCst) != 0
+        {
+            return ControlFlow::Break(());
         }
 
-        if opts.timeout > 0 && start_time.elapsed().as_micros() > opts.timeout as u128 {
+        if opts.timeout > 0 && start_time.elapsed().as_micros() > u128::from(opts.timeout) {
             return ControlFlow::Break(());
         }
 
@@ -514,7 +519,6 @@ pub fn parse_file_at_path(
 
         if opts.output == ParseOutput::Cst {
             render_cst(&source_code, &tree, &mut cursor, opts, &mut stdout)?;
-            println!();
         }
 
         if opts.output == ParseOutput::Xml {
@@ -544,10 +548,10 @@ pub fn parse_file_at_path(
                         }
                         write!(&mut stdout, "</{}>", tag.expect("there is a tag"))?;
                         // we only write a line in the case where it's the last sibling
-                        if let Some(parent) = node.parent() {
-                            if parent.child(parent.child_count() as u32 - 1).unwrap() == node {
-                                stdout.write_all(b"\n")?;
-                            }
+                        if let Some(parent) = node.parent()
+                            && parent.child(parent.child_count() - 1).unwrap() == node
+                        {
+                            stdout.write_all(b"\n")?;
                         }
                         needs_newline = true;
                     }
@@ -674,10 +678,9 @@ pub fn parse_file_at_path(
                 width = max_path_length
             )?;
             if let Some(node) = first_error {
-                let start = node.start_position();
-                let end = node.end_position();
-                let mut node_text = String::new();
-                for c in node.kind().chars() {
+                let node_kind = node.kind();
+                let mut node_text = String::with_capacity(node_kind.len());
+                for c in node_kind.chars() {
                     if let Some(escaped) = escape_invisible(c) {
                         node_text += escaped;
                     } else {
@@ -694,6 +697,9 @@ pub fn parse_file_at_path(
                 } else {
                     write!(&mut stdout, "{node_text}")?;
                 }
+
+                let start = node.start_position();
+                let end = node.end_position();
                 write!(
                     &mut stdout,
                     " [{}, {}] - [{}, {}])",
@@ -782,7 +788,7 @@ pub fn render_cst<'a, 'b: 'a>(
         .map(|(row, col)| (row as f64).log10() as usize + (col.len() as f64).log10() as usize + 1)
         .max()
         .unwrap_or(1);
-    let mut indent_level = 1;
+    let mut indent_level = usize::from(!opts.no_ranges);
     let mut did_visit_children = false;
     let mut in_error = false;
     loop {
@@ -851,7 +857,7 @@ fn write_node_text(
     let (quote, quote_color) = if is_named {
         ('`', opts.parse_theme.backtick)
     } else {
-        ('\"', color.map(|c| c.into()))
+        ('\"', color.map(std::convert::Into::into))
     };
 
     if !is_named {
@@ -880,35 +886,24 @@ fn write_node_text(
                     0
                 };
             let formatted_line = render_line_feed(line, opts);
-            if !opts.no_ranges {
-                write!(
-                    out,
-                    "{}{}{}{}{}{}",
-                    if multiline { "\n" } else { "" },
-                    if multiline {
-                        render_node_range(opts, cursor, is_named, true, total_width, node_range)
-                    } else {
-                        String::new()
-                    },
-                    if multiline {
-                        "  ".repeat(indent_level + 1)
-                    } else {
-                        String::new()
-                    },
-                    paint(quote_color, &String::from(quote)),
-                    &paint(color, &render_node_text(&formatted_line)),
-                    paint(quote_color, &String::from(quote)),
-                )?;
-            } else {
-                write!(
-                    out,
-                    "\n{}{}{}{}",
-                    "  ".repeat(indent_level + 1),
-                    paint(quote_color, &String::from(quote)),
-                    &paint(color, &render_node_text(&formatted_line)),
-                    paint(quote_color, &String::from(quote)),
-                )?;
-            }
+            write!(
+                out,
+                "{}{}{}{}{}{}",
+                if multiline { "\n" } else { " " },
+                if multiline && !opts.no_ranges {
+                    render_node_range(opts, cursor, is_named, true, total_width, node_range)
+                } else {
+                    String::new()
+                },
+                if multiline {
+                    "  ".repeat(indent_level + 1)
+                } else {
+                    String::new()
+                },
+                paint(quote_color, &String::from(quote)),
+                paint(color, &render_node_text(&formatted_line)),
+                paint(quote_color, &String::from(quote)),
+            )?;
         }
     }
 
@@ -962,7 +957,7 @@ fn render_node_range(
 
 fn cst_render_node(
     opts: &ParseFileOptions,
-    cursor: &mut TreeCursor,
+    cursor: &TreeCursor,
     source_code: &[u8],
     out: &mut impl Write,
     total_width: usize,
@@ -1008,10 +1003,9 @@ fn cst_render_node(
         } else {
             opts.parse_theme.node_kind
         };
-        write!(out, "{}", paint(kind_color, node.kind()),)?;
+        write!(out, "{}", paint(kind_color, node.kind()))?;
 
         if node.child_count() == 0 {
-            write!(out, " ")?;
             // Node text from a pattern or external scanner
             write_node_text(
                 opts,
@@ -1065,10 +1059,13 @@ pub fn perform_edit(tree: &mut Tree, input: &mut Vec<u8>, edit: &Edit) -> Result
 
 fn parse_edit_flag(source_code: &[u8], flag: &str) -> Result<Edit> {
     let error = || {
-        anyhow!(concat!(
-            "Invalid edit string '{}'. ",
-            "Edit strings must match the pattern '<START_BYTE_OR_POSITION> <REMOVED_LENGTH> <NEW_TEXT>'"
-        ), flag)
+        anyhow!(
+            concat!(
+                "Invalid edit string '{}'. ",
+                "Edit strings must match the pattern '<START_BYTE_OR_POSITION> <REMOVED_LENGTH> <NEW_TEXT>'"
+            ),
+            flag
+        )
     };
 
     // Three whitespace-separated parts:
@@ -1109,12 +1106,12 @@ pub fn offset_for_position(input: &[u8], position: Point) -> Result<usize> {
     let mut offset = 0;
     let mut iter = memchr::memchr_iter(b'\n', input);
     loop {
-        if let Some(pos) = iter.next() {
-            if row < position.row {
-                row += 1;
-                offset = pos;
-                continue;
-            }
+        if let Some(pos) = iter.next()
+            && row < position.row
+        {
+            row += 1;
+            offset = pos;
+            continue;
         }
         offset += 1;
         break;

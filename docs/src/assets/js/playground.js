@@ -61,7 +61,7 @@ function initializeCustomSelect({ initialValue = null, addListeners = false }) {
 }
 
 window.initializePlayground = async (opts) => {
-  const { Parser, Language } = window.TreeSitter;
+  const { Parser, Language, Query } = window.TreeSitter;
 
   const { local } = opts;
   if (local) {
@@ -146,8 +146,9 @@ window.initializePlayground = async (opts) => {
   });
 
   queryEditor.on('keydown', (_, event) => {
-    if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
-      event.stopPropagation(); // Prevent mdBook from going back/forward
+    const key = event.key;
+    if (key === 'ArrowLeft' || key === 'ArrowRight' || key === '?') {
+      event.stopPropagation(); // Prevent mdBook from going back/forward, or showing help
     }
   });
 
@@ -356,11 +357,10 @@ window.initializePlayground = async (opts) => {
       marks.forEach((m) => m.clear());
 
       if (tree && query) {
-        const captures = query.captures(
-          tree.rootNode,
-          { row: startRow, column: 0 },
-          { row: endRow, column: 0 },
-        );
+        const captures = query.captures(tree.rootNode, {
+          startPosition: { row: startRow, column: 0 },
+          endPosition: { row: endRow, column: 0 },
+        });
         let lastNodeId;
         for (const { name, node } of captures) {
           if (node.id === lastNodeId) continue;
@@ -409,7 +409,7 @@ window.initializePlayground = async (opts) => {
       const queryText = queryEditor.getValue();
 
       try {
-        query = parser.language.query(queryText);
+        query = new Query(parser.language, queryText);
         let match;
 
         let row = 0;

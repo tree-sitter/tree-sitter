@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::LazyLock};
+use std::{collections::BTreeMap, sync::LazyLock};
 #[cfg(feature = "load")]
 use std::{
     env, fs,
@@ -7,7 +7,6 @@ use std::{
     process::{Command, Stdio},
 };
 
-use anyhow::Result;
 use bitflags::bitflags;
 use log::warn;
 use node_types::VariableInfo;
@@ -33,16 +32,16 @@ mod render;
 mod rules;
 mod tables;
 
-use build_tables::build_tables;
 pub use build_tables::ParseTableBuilderError;
+use build_tables::build_tables;
 use grammars::{InlinedProductionMap, InputGrammar, LexicalGrammar, SyntaxGrammar};
 pub use node_types::{SuperTypeCycleError, VariableInfoError};
-use parse_grammar::parse_grammar;
 pub use parse_grammar::ParseGrammarError;
-use prepare_grammar::prepare_grammar;
+use parse_grammar::parse_grammar;
 pub use prepare_grammar::PrepareGrammarError;
+use prepare_grammar::prepare_grammar;
 use render::render_c_code;
-pub use render::{ABI_VERSION_MAX, ABI_VERSION_MIN};
+pub use render::{ABI_VERSION_MAX, ABI_VERSION_MIN, RenderError};
 
 static JSON_COMMENT_REGEX: LazyLock<Regex> = LazyLock::new(|| {
     RegexBuilder::new("^\\s*//.*")
@@ -57,7 +56,7 @@ struct JSONOutput {
     syntax_grammar: SyntaxGrammar,
     lexical_grammar: LexicalGrammar,
     inlines: InlinedProductionMap,
-    simple_aliases: HashMap<Symbol, Alias>,
+    simple_aliases: BTreeMap<Symbol, Alias>,
     variable_info: Vec<VariableInfo>,
 }
 
@@ -81,8 +80,8 @@ pub type GenerateResult<T> = Result<T, GenerateError>;
 pub enum GenerateError {
     #[error("Error with specified path -- {0}")]
     GrammarPath(String),
-    #[error("{0}")]
-    IO(String),
+    #[error(transparent)]
+    IO(IoError),
     #[cfg(feature = "load")]
     #[error(transparent)]
     LoadGrammarFile(#[from] LoadGrammarError),
@@ -94,6 +93,8 @@ pub enum GenerateError {
     VariableInfo(#[from] VariableInfoError),
     #[error(transparent)]
     BuildTables(#[from] ParseTableBuilderError),
+    #[error(transparent)]
+    Render(#[from] RenderError),
     #[cfg(feature = "load")]
     #[error(transparent)]
     ParseVersion(#[from] ParseVersionError),
@@ -101,9 +102,28 @@ pub enum GenerateError {
     SuperTypeCycle(#[from] SuperTypeCycleError),
 }
 
-impl From<std::io::Error> for GenerateError {
-    fn from(value: std::io::Error) -> Self {
-        Self::IO(value.to_string())
+#[derive(Debug, Error, Serialize)]
+pub struct IoError {
+    pub error: String,
+    pub path: Option<String>,
+}
+
+impl IoError {
+    fn new(error: &std::io::Error, path: Option<&Path>) -> Self {
+        Self {
+            error: error.to_string(),
+            path: path.map(|p| p.to_string_lossy().to_string()),
+        }
+    }
+}
+
+impl std::fmt::Display for IoError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.error)?;
+        if let Some(ref path) = self.path {
+            write!(f, " ({path})")?;
+        }
+        Ok(())
     }
 }
 
@@ -118,16 +138,9 @@ pub enum LoadGrammarError {
     #[error("Failed to load grammar.js -- {0}")]
     LoadJSGrammarFile(#[from] JSError),
     #[error("Failed to load grammar.json -- {0}")]
-    IO(String),
+    IO(IoError),
     #[error("Unknown grammar file extension: {0:?}")]
     FileExtension(PathBuf),
-}
-
-#[cfg(feature = "load")]
-impl From<std::io::Error> for LoadGrammarError {
-    fn from(value: std::io::Error) -> Self {
-        Self::IO(value.to_string())
-    }
 }
 
 #[cfg(feature = "load")]
@@ -137,8 +150,8 @@ pub enum ParseVersionError {
     Version(String),
     #[error("{0}")]
     JSON(String),
-    #[error("{0}")]
-    IO(String),
+    #[error(transparent)]
+    IO(IoError),
 }
 
 #[cfg(feature = "load")]
@@ -153,8 +166,21 @@ pub enum JSError {
     JSRuntimeUtf8 { runtime: String, error: String },
     #[error("`{runtime}` process exited with status {code}")]
     JSRuntimeExit { runtime: String, code: i32 },
-    #[error("{0}")]
-    IO(String),
+    #[error("Failed to open stdin for `{runtime}`")]
+    JSRuntimeStdin { runtime: String },
+    #[error("Failed to write {item} to `{runtime}`'s stdin -- {error}")]
+    JSRuntimeWrite {
+        runtime: String,
+        item: String,
+        error: String,
+    },
+    #[error("Failed to read output from `{runtime}` -- {error}")]
+    JSRuntimeRead { runtime: String, error: String },
+    #[error(transparent)]
+    IO(IoError),
+    #[cfg(feature = "qjs-rt")]
+    #[error("Failed to get relative path")]
+    RelativePath,
     #[error("Could not parse this package's version as semver -- {0}")]
     Semver(String),
     #[error("Failed to serialze grammar JSON -- {0}")]
@@ -162,13 +188,6 @@ pub enum JSError {
     #[cfg(feature = "qjs-rt")]
     #[error("QuickJS error: {0}")]
     QuickJS(String),
-}
-
-#[cfg(feature = "load")]
-impl From<std::io::Error> for JSError {
-    fn from(value: std::io::Error) -> Self {
-        Self::IO(value.to_string())
-    }
 }
 
 #[cfg(feature = "load")]
@@ -206,7 +225,10 @@ impl Default for OptLevel {
 }
 
 #[cfg(feature = "load")]
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "all parameters are required for parser generation"
+)]
 pub fn generate_parser_in_directory<T, U, V>(
     repo_path: T,
     out_path: Option<U>,
@@ -231,7 +253,8 @@ where
             .try_exists()
             .map_err(|e| GenerateError::GrammarPath(e.to_string()))?
         {
-            fs::create_dir_all(&path_buf)?;
+            fs::create_dir_all(&path_buf)
+                .map_err(|e| GenerateError::IO(IoError::new(&e, Some(path_buf.as_path()))))?;
             repo_path = path_buf;
             repo_path.join("grammar.js")
         } else {
@@ -244,19 +267,16 @@ where
     // Read the grammar file.
     let grammar_json = load_grammar_file(&grammar_path, js_runtime)?;
 
-    let src_path = out_path.map_or_else(|| repo_path.join("src"), |p| p.into());
+    let src_path = out_path.map_or_else(|| repo_path.join("src"), std::convert::Into::into);
     let header_path = src_path.join("tree_sitter");
 
     // Ensure that the output directory exists
-    fs::create_dir_all(&src_path)?;
+    fs::create_dir_all(&src_path)
+        .map_err(|e| GenerateError::IO(IoError::new(&e, Some(src_path.as_path()))))?;
 
     if grammar_path.file_name().unwrap() != "grammar.json" {
-        fs::write(src_path.join("grammar.json"), &grammar_json).map_err(|e| {
-            GenerateError::IO(format!(
-                "Failed to write grammar.json to {} -- {e}",
-                src_path.display()
-            ))
-        })?;
+        fs::write(src_path.join("grammar.json"), &grammar_json)
+            .map_err(|e| GenerateError::IO(IoError::new(&e, Some(src_path.as_path()))))?;
     }
 
     // If our job is only to generate `grammar.json` and not `parser.c`, stop here.
@@ -298,7 +318,8 @@ where
 
     write_file(&src_path.join("parser.c"), c_code)?;
     write_file(&src_path.join("node-types.json"), node_types_json)?;
-    fs::create_dir_all(&header_path)?;
+    fs::create_dir_all(&header_path)
+        .map_err(|e| GenerateError::IO(IoError::new(&e, Some(header_path.as_path()))))?;
     write_file(&header_path.join("alloc.h"), ALLOC_HEADER)?;
     write_file(&header_path.join("array.h"), ARRAY_HEADER)?;
     write_file(&header_path.join("parser.h"), PARSER_HEADER)?;
@@ -382,7 +403,7 @@ fn generate_parser_for_grammar_with_opts(
         abi_version,
         semantic_version,
         supertype_symbol_map,
-    );
+    )?;
     Ok(GeneratedParser {
         c_code,
         #[cfg(feature = "load")]
@@ -414,9 +435,8 @@ fn read_grammar_version(repo_path: &Path) -> Result<Option<Version>, ParseVersio
         let json = path
             .exists()
             .then(|| {
-                let contents = fs::read_to_string(path.as_path()).map_err(|e| {
-                    ParseVersionError::IO(format!("Failed to read `{}` -- {e}", path.display()))
-                })?;
+                let contents = fs::read_to_string(path.as_path())
+                    .map_err(|e| ParseVersionError::IO(IoError::new(&e, Some(path.as_path()))))?;
                 serde_json::from_str::<TreeSitterJson>(&contents).map_err(|e| {
                     ParseVersionError::JSON(format!("Failed to parse `{}` -- {e}", path.display()))
                 })
@@ -450,14 +470,16 @@ pub fn load_grammar_file(
     }
     match grammar_path.extension().and_then(|e| e.to_str()) {
         Some("js") => Ok(load_js_grammar_file(grammar_path, js_runtime)?),
-        Some("json") => Ok(fs::read_to_string(grammar_path)?),
+        Some("json") => Ok(fs::read_to_string(grammar_path)
+            .map_err(|e| LoadGrammarError::IO(IoError::new(&e, Some(grammar_path))))?),
         _ => Err(LoadGrammarError::FileExtension(grammar_path.to_owned()))?,
     }
 }
 
 #[cfg(feature = "load")]
 fn load_js_grammar_file(grammar_path: &Path, js_runtime: Option<&str>) -> JSResult<String> {
-    let grammar_path = dunce::canonicalize(grammar_path)?;
+    let grammar_path = dunce::canonicalize(grammar_path)
+        .map_err(|e| JSError::IO(IoError::new(&e, Some(grammar_path))))?;
 
     #[cfg(feature = "qjs-rt")]
     if js_runtime == Some("native") {
@@ -498,7 +520,9 @@ fn load_js_grammar_file(grammar_path: &Path, js_runtime: Option<&str>) -> JSResu
     let mut js_stdin = js_process
         .stdin
         .take()
-        .ok_or_else(|| JSError::IO(format!("Failed to open stdin for `{js_runtime}`")))?;
+        .ok_or_else(|| JSError::JSRuntimeStdin {
+            runtime: js_runtime.to_string(),
+        })?;
 
     let cli_version = Version::parse(env!("CARGO_PKG_VERSION"))?;
     write!(
@@ -508,21 +532,26 @@ fn load_js_grammar_file(grammar_path: &Path, js_runtime: Option<&str>) -> JSResu
          globalThis.TREE_SITTER_CLI_VERSION_PATCH = {};",
         cli_version.major, cli_version.minor, cli_version.patch,
     )
-    .map_err(|e| {
-        JSError::IO(format!(
-            "Failed to write tree-sitter version to `{js_runtime}`'s stdin -- {e}"
-        ))
+    .map_err(|e| JSError::JSRuntimeWrite {
+        runtime: js_runtime.to_string(),
+        item: "tree-sitter version".to_string(),
+        error: e.to_string(),
     })?;
-    js_stdin.write(include_bytes!("./dsl.js")).map_err(|e| {
-        JSError::IO(format!(
-            "Failed to write grammar dsl to `{js_runtime}`'s stdin -- {e}"
-        ))
-    })?;
+    js_stdin
+        .write(include_bytes!("./dsl.js"))
+        .map_err(|e| JSError::JSRuntimeWrite {
+            runtime: js_runtime.to_string(),
+            item: "grammar dsl".to_string(),
+            error: e.to_string(),
+        })?;
     drop(js_stdin);
 
     let output = js_process
         .wait_with_output()
-        .map_err(|e| JSError::IO(format!("Failed to read output from `{js_runtime}` -- {e}")))?;
+        .map_err(|e| JSError::JSRuntimeRead {
+            runtime: js_runtime.to_string(),
+            error: e.to_string(),
+        })?;
     match output.status.code() {
         Some(0) => {
             let stdout = String::from_utf8(output.stdout).map_err(|e| JSError::JSRuntimeUtf8 {
@@ -538,9 +567,15 @@ fn load_js_grammar_file(grammar_path: &Path, js_runtime: Option<&str>) -> JSResu
                 grammar_json = &stdout[pos + 1..];
 
                 let mut stdout = std::io::stdout().lock();
-                stdout.write_all(node_output.as_bytes())?;
-                stdout.write_all(b"\n")?;
-                stdout.flush()?;
+                stdout
+                    .write_all(node_output.as_bytes())
+                    .map_err(|e| JSError::IO(IoError::new(&e, None)))?;
+                stdout
+                    .write_all(b"\n")
+                    .map_err(|e| JSError::IO(IoError::new(&e, None)))?;
+                stdout
+                    .flush()
+                    .map_err(|e| JSError::IO(IoError::new(&e, None)))?;
             }
 
             Ok(serde_json::to_string_pretty(&serde_json::from_str::<
@@ -560,8 +595,7 @@ fn load_js_grammar_file(grammar_path: &Path, js_runtime: Option<&str>) -> JSResu
 
 #[cfg(feature = "load")]
 pub fn write_file(path: &Path, body: impl AsRef<[u8]>) -> GenerateResult<()> {
-    fs::write(path, body)
-        .map_err(|e| GenerateError::IO(format!("Failed to write {:?} -- {e}", path.file_name())))
+    fs::write(path, body).map_err(|e| GenerateError::IO(IoError::new(&e, Some(path))))
 }
 
 #[cfg(test)]

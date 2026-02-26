@@ -7,8 +7,8 @@ use std::{
 
 use crate::{
     grammars::{
-        LexicalGrammar, Production, ProductionStep, ReservedWordSetId, SyntaxGrammar,
-        NO_RESERVED_WORDS,
+        LexicalGrammar, NO_RESERVED_WORDS, Production, ProductionStep, ReservedWordSetId,
+        SyntaxGrammar,
     },
     rules::{Associativity, Precedence, Symbol, SymbolType, TokenSet},
 };
@@ -130,7 +130,7 @@ impl<'a> ParseItem<'a> {
     }
 
     #[must_use]
-    pub fn is_done(&self) -> bool {
+    pub const fn is_done(&self) -> bool {
         self.step_index as usize == self.production.steps.len()
     }
 
@@ -204,7 +204,7 @@ impl fmt::Display for ParseItemDisplay<'_> {
                     || step.reserved_word_set_id != ReservedWordSetId::default()
                 {
                     write!(f, " (")?;
-                    if step.precedence.is_none() {
+                    if !step.precedence.is_none() {
                         write!(f, " {}", step.precedence)?;
                     }
                     if let Some(associativity) = step.associativity {

@@ -2,7 +2,8 @@
 
 ## Providing the Code
 
-In the example on the previous page, we parsed source code stored in a simple string using the `ts_parser_parse_string` function:
+In the example on the previous page, we parsed source code stored in a simple string using the `ts_parser_parse_string`
+function:
 
 ```c
 TSTree *ts_parser_parse_string(
@@ -135,10 +136,10 @@ Consider a grammar rule like this:
 if_statement: $ => seq("if", "(", $._expression, ")", $._statement);
 ```
 
-A syntax node representing an `if_statement` in this language would have 5 children: the condition expression, the body statement,
-as well as the `if`, `(`, and `)` tokens. The expression and the statement would be marked as _named_ nodes, because they
-have been given explicit names in the grammar. But the `if`, `(`, and `)` nodes would _not_ be named nodes, because they
-are represented in the grammar as simple strings.
+A syntax node representing an `if_statement` in this language would have 5 children: the condition expression, the body
+statement, as well as the `if`, `(`, and `)` tokens. The expression and the statement would be marked as _named_ nodes,
+because they have been given explicit names in the grammar. But the `if`, `(`, and `)` nodes would _not_ be named nodes,
+because they are represented in the grammar as simple strings.
 
 You can check whether any given node is named:
 

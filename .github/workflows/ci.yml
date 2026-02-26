@@ -26,7 +26,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Set up stable Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -44,3 +44,6 @@ jobs:
 
   build:
     uses: ./.github/workflows/build.yml
+
+  check-wasm-stdlib:
+    uses: ./.github/workflows/wasm_stdlib.yml

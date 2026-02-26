@@ -6,7 +6,7 @@ use std::{
     str::{self, FromStr as _},
 };
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use log::{error, info};
 use tiny_http::{Header, Response, Server};
 

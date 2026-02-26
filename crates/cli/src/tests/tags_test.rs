@@ -5,7 +5,7 @@ use std::{
 };
 
 use tree_sitter::Point;
-use tree_sitter_tags::{c_lib as c, Error, TagsConfiguration, TagsContext};
+use tree_sitter_tags::{Error, TagsConfiguration, TagsContext, c_lib as c};
 
 use super::helpers::{
     allocations,

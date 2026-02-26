@@ -3,11 +3,11 @@ root = true
 [*]
 charset = utf-8
 
-[*.{json,toml,yml,gyp}]
+[*.{json,toml,yml,gyp,xml}]
 indent_style = space
 indent_size = 2
 
-[*.js]
+[*.{js,ts}]
 indent_style = space
 indent_size = 2
 
@@ -28,6 +28,10 @@ indent_style = space
 indent_size = 4
 
 [*.swift]
+indent_style = space
+indent_size = 4
+
+[*.java]
 indent_style = space
 indent_size = 4
 

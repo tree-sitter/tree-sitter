@@ -1,8 +1,8 @@
 # `tree-sitter parse`
 
 The `parse` command parses source files using a Tree-sitter parser. You can pass any number of file paths and glob patterns
-to `tree-sitter parse`, and it will parse all the given files. The command will exit with a non-zero status code if any
-parse errors occurred.
+to `tree-sitter parse`, and it will parse all the given files. If no paths are provided, input will be parsed from stdin.
+The command will exit with a non-zero status code if any parse errors occurred.
 
 ```bash
 tree-sitter parse [OPTIONS] [PATHS]... # Aliases: p
@@ -17,6 +17,14 @@ The path to a file that contains paths to source files to parse.
 ### `-p/--grammar-path <PATH>`
 
 The path to the directory containing the grammar.
+
+### `-l/--lib-path`
+
+The path to the parser's dynamic library. This is used instead of the cached or automatically generated dynamic library.
+
+### `--lang-name`
+
+If `--lib-path` is used, the name of the language used to extract the library's language function
 
 ### `--scope <SCOPE>`
 
@@ -37,7 +45,7 @@ The graphs are constructed with [graphviz dot][dot], and the output is written t
 
 ### `--wasm`
 
-Compile and run the parser as a Wasm module.
+Compile and run the parser as a Wasm module (only if the tree-sitter CLI was built with `--features=wasm`).
 
 ### `--dot`
 
@@ -70,7 +78,8 @@ Suppress main output.
 
 ### `--edits <EDITS>...`
 
-Apply edits after parsing the file. Edits are in the form of `row,col|position delcount insert_text` where row and col, or position are 0-indexed.
+Apply edits after parsing the file. Edits are in the form of `row,col|position delcount insert_text` where row and col,
+or position are 0-indexed.
 
 ### `--encoding <ENCODING>`
 
@@ -81,13 +90,14 @@ in `UTF-16BE` or `UTF-16LE`. If no `BOM` is present, `UTF-8` is the default. One
 
 When using the `--debug-graph` option, open the log file in the default browser.
 
-### `-j/--json`
+### `-j/--json-summary`
 
 Output parsing results in a JSON format.
 
 ### `--config-path <CONFIG_PATH>`
 
-The path to an alternative configuration (`config.json`) file. See [the init-config command](./init-config.md) for more information.
+The path to an alternative configuration (`config.json`) file. See [the init-config command](./init-config.md) for more
+information.
 
 ### `-n/--test-number <TEST_NUMBER>`
 

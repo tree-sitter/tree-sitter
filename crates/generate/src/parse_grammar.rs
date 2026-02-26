@@ -1,6 +1,5 @@
 use std::collections::HashSet;
 
-use anyhow::Result;
 use log::warn;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -14,11 +13,17 @@ use crate::{
 
 #[derive(Deserialize)]
 #[serde(tag = "type")]
-#[allow(non_camel_case_types)]
-#[allow(clippy::upper_case_acronyms)]
+#[expect(
+    non_camel_case_types,
+    reason = "variant names match JSON grammar format"
+)]
+#[expect(
+    clippy::upper_case_acronyms,
+    reason = "variant names match JSON grammar format"
+)]
 enum RuleJSON {
     ALIAS {
-        content: Box<RuleJSON>,
+        content: Box<Self>,
         named: bool,
         value: String,
     },
@@ -34,46 +39,46 @@ enum RuleJSON {
         name: String,
     },
     CHOICE {
-        members: Vec<RuleJSON>,
+        members: Vec<Self>,
     },
     FIELD {
         name: String,
-        content: Box<RuleJSON>,
+        content: Box<Self>,
     },
     SEQ {
-        members: Vec<RuleJSON>,
+        members: Vec<Self>,
     },
     REPEAT {
-        content: Box<RuleJSON>,
+        content: Box<Self>,
     },
     REPEAT1 {
-        content: Box<RuleJSON>,
+        content: Box<Self>,
     },
     PREC_DYNAMIC {
         value: i32,
-        content: Box<RuleJSON>,
+        content: Box<Self>,
     },
     PREC_LEFT {
         value: PrecedenceValueJSON,
-        content: Box<RuleJSON>,
+        content: Box<Self>,
     },
     PREC_RIGHT {
         value: PrecedenceValueJSON,
-        content: Box<RuleJSON>,
+        content: Box<Self>,
     },
     PREC {
         value: PrecedenceValueJSON,
-        content: Box<RuleJSON>,
+        content: Box<Self>,
     },
     TOKEN {
-        content: Box<RuleJSON>,
+        content: Box<Self>,
     },
     IMMEDIATE_TOKEN {
-        content: Box<RuleJSON>,
+        content: Box<Self>,
     },
     RESERVED {
         context_name: String,
-        content: Box<RuleJSON>,
+        content: Box<Self>,
     },
 }
 
@@ -200,10 +205,10 @@ pub(crate) fn parse_grammar(input: &str) -> ParseGrammarResult<InputGrammar> {
             .into_iter()
             .try_fold(Vec::<Rule>::new(), |mut acc, item| {
                 let rule = parse_rule(item, false)?;
-                if let Rule::String(ref value) = rule {
-                    if value.is_empty() {
-                        Err(ParseGrammarError::InvalidExtra)?;
-                    }
+                if let Rule::String(ref value) = rule
+                    && value.is_empty()
+                {
+                    Err(ParseGrammarError::InvalidExtra)?;
                 }
                 acc.push(rule);
                 ParseGrammarResult::Ok(acc)
@@ -275,9 +280,7 @@ pub(crate) fn parse_grammar(input: &str) -> ParseGrammarResult<InputGrammar> {
             };
             let matches_empty = match inner_rule {
                 Rule::String(rule_str) => rule_str.is_empty(),
-                Rule::Pattern(ref value, _) => Regex::new(value)
-                    .map(|reg| reg.is_match(""))
-                    .unwrap_or(false),
+                Rule::Pattern(value, _) => Regex::new(value).is_ok_and(|reg| reg.is_match("")),
                 _ => false,
             };
             if matches_empty {

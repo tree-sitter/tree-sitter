@@ -128,15 +128,15 @@ This pattern would match any builtin variable that is not a local variable, beca
 
 # Directives
 
-Similar to predicates, directives are a way to associate arbitrary metadata with a pattern. The only difference between predicates
-and directives is that directives end in a `!` character instead of `?` character.
+Similar to predicates, directives are a way to associate arbitrary metadata with a pattern. The only difference between
+predicates and directives is that directives end in a `!` character instead of `?` character.
 
 Tree-sitter's CLI supports the following directives by default:
 
 ## The `set!` directive
 
-This directive allows you to associate key-value pairs with a pattern. The key and value can be any arbitrary text that you
-see fit.
+This directive allows you to associate key-value pairs with a pattern. The key and value can be any arbitrary text that
+you see fit.
 
 ```query
 ((comment) @injection.content
@@ -156,8 +156,8 @@ another capture are preserved. It takes two arguments, both of which are capture
 ### The `#strip!` directive
 
 The `#strip!` directive allows you to remove text from a capture. It takes two arguments: the first is the capture to strip
-text from, and the second is a regular expression to match against the text. Any text matched by the regular expression will
-be removed from the text associated with the capture.
+text from, and the second is a regular expression to match against the text. Any text matched by the regular expression
+will be removed from the text associated with the capture.
 
 For an example on the `#select-adjacent!` and `#strip!` directives,
 view the [code navigation](../../4-code-navigation.md#examples) documentation.

@@ -20,11 +20,12 @@ mod wasm_language_test;
 use tree_sitter_generate::GenerateResult;
 
 pub use crate::fuzz::{
-    allocations,
+    ITERATION_COUNT, allocations,
     edits::{get_random_edit, invert_edit},
     random::Rand,
-    ITERATION_COUNT,
 };
+
+pub use helpers::fixtures::get_language;
 
 /// This is a simple wrapper around [`tree_sitter_generate::generate_parser_for_grammar`], because
 /// our tests do not need to pass in a version number, only the grammar JSON.

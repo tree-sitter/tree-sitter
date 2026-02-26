@@ -3,7 +3,7 @@ use tree_sitter_highlight::{Highlight, Highlighter};
 
 use super::helpers::fixtures::{get_highlight_config, get_language, test_loader};
 use crate::{
-    query_testing::{parse_position_comments, Assertion, Utf8Point},
+    query_testing::{Assertion, Utf8Point, parse_position_comments},
     test_highlight::get_highlight_positions,
 };
 

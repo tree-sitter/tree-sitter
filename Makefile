@@ -1,4 +1,4 @@
-VERSION := 0.26.0
+VERSION := 0.27.0
 DESCRIPTION := An incremental parsing system for programming tools
 HOMEPAGE_URL := https://tree-sitter.github.io/tree-sitter/
 
@@ -24,7 +24,7 @@ OBJ := $(SRC:.c=.o)
 ARFLAGS := rcs
 CFLAGS ?= -O3 -Wall -Wextra -Wshadow -Wpedantic -Werror=incompatible-pointer-types
 override CFLAGS += -std=c11 -fPIC -fvisibility=hidden
-override CFLAGS += -D_POSIX_C_SOURCE=200112L -D_DEFAULT_SOURCE -D_DARWIN_C_SOURCE
+override CFLAGS += -D_POSIX_C_SOURCE=200112L -D_DEFAULT_SOURCE -D_BSD_SOURCE -D_DARWIN_C_SOURCE
 override CFLAGS += -Ilib/src -Ilib/src/wasm -Ilib/include
 
 # ABI versioning
@@ -122,7 +122,6 @@ test-wasm:
 
 lint:
 	cargo update --workspace --locked --quiet
-	cargo check --workspace --all-targets
 	cargo fmt --all --check
 	cargo clippy --workspace --all-targets -- -D warnings
 
