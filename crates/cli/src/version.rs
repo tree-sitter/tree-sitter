@@ -292,6 +292,9 @@ impl Version {
         } else {
             self.current_dir.join("Makefile")
         };
+        if !makefile_path.exists() {
+            return Ok(());
+        }
 
         self.update_file_with(&makefile_path, |content| {
             content
