@@ -133,7 +133,25 @@ pub(super) fn intern_symbols(
         .inline_names
         .iter()
         .filter_map(|&s| lookup(s))
-        .collect();
+        .collect::<Vec<Symbol>>();
+
+    // An inlined rule never produces nodes, so a supertype entry for it makes
+    // no sense and is dropped.
+    let supertypes = grammar
+        .supertype_names
+        .iter()
+        .zip(supertypes)
+        .filter_map(|(&name, symbol)| {
+            if inline.contains(&symbol) {
+                diagnostics.push(Diagnostic::SupertypeInlined {
+                    name: pool.resolve(name).to_string(),
+                });
+                None
+            } else {
+                Some(symbol)
+            }
+        })
+        .collect::<Vec<_>>();
     let word = grammar
         .word_name
         .map(|s| {
@@ -387,6 +405,51 @@ mod tests {
         assert_eq!(
             result.unwrap_err(),
             InternSymbolsError::Undefined("y".to_string())
+        );
+    }
+
+    #[test]
+    fn test_supertype_and_inline_conflict() {
+        // v1: _v2
+        // _v2: choice("a", "b")
+        // supertypes: [_v2]
+        // inline: [_v2]
+        let mut grammar = {
+            let mut pool = RulePool::default();
+            let v2 = pool.intern("_v2");
+            let v1_root = pool.named_symbol(v2);
+            let v2_root = {
+                let (a, b) = (pool.intern("a"), pool.intern("b"));
+                let (sa, sb) = (pool.string(a), pool.string(b));
+                pool.choice(&[sa, sb])
+            };
+            let variables = vec![
+                Variable {
+                    name: pool.intern("v1"),
+                    root: v1_root,
+                },
+                Variable {
+                    name: v2,
+                    root: v2_root,
+                },
+            ];
+            let mut grammar = pool_grammar(pool, variables);
+            grammar.supertype_names = vec![v2];
+            grammar.inline_names = vec![v2];
+            grammar
+        };
+
+        let mut diagnostics = Vec::new();
+        let meta = intern_symbols(&mut grammar, &mut diagnostics).unwrap();
+
+        // The supertype entry is dropped with a warning, and the rule stays inlined.
+        assert!(meta.supertypes.is_empty());
+        assert_eq!(meta.inline, vec![Symbol::non_terminal(1)]);
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(
+            diagnostics[0].to_string(),
+            "rule `_v2` is both a supertype and inlined. the supertype is \
+             ignored. this will become an error in a future release."
         );
     }
 

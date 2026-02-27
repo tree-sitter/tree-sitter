@@ -261,6 +261,7 @@ pub enum Diagnostic {
     UnarySeq { name: Option<String> },
     EmptyStringMatch(String),
     UnsupportedRegexFlag { flag: char, pattern: String },
+    SupertypeInlined { name: String },
 }
 
 impl std::fmt::Display for Diagnostic {
@@ -304,6 +305,12 @@ impl std::fmt::Display for Diagnostic {
             }
             Self::UnsupportedRegexFlag { flag, pattern } => {
                 write!(f, "unsupported regex flag `{flag}` in pattern `{pattern}`")?;
+            }
+            Self::SupertypeInlined { name } => {
+                write!(
+                    f,
+                    "rule `{name}` is both a supertype and inlined. the supertype is ignored."
+                )?;
             }
         }
         Ok(())
