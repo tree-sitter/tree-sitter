@@ -33,6 +33,7 @@ name    = "benchmark"
 default = [ "qjs-rt" ]
 qjs-rt  = [ "tree-sitter-generate/qjs-rt" ]
 wasm    = [ "tree-sitter/wasm", "tree-sitter-loader/wasm" ]
+prefer-system-toolchain = [ "tree-sitter-loader/prefer-system-toolchain" ]
 
 [dependencies]
 ansi_colours.workspace          = true
