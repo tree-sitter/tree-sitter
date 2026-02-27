@@ -202,6 +202,28 @@ pub fn get_variable_info(
     default_aliases: &AliasMap,
     str_pool: &StrPool,
 ) -> VariableInfoResult<Vec<VariableInfo>> {
+    let mut result =
+        compute_variable_info_fixed_point(syntax_grammar, lexical_grammar, default_aliases);
+    validate_supertype_structure(
+        &result,
+        syntax_grammar,
+        lexical_grammar,
+        default_aliases,
+        str_pool,
+    )?;
+    strip_hidden_child_types(&mut result, syntax_grammar, lexical_grammar);
+    Ok(result)
+}
+
+/// Iteratively compute variable info for every syntax variable until a fixed
+/// point is reached. Each variable's summary can depend on the summaries of
+/// other hidden variables, and variables can have mutually recursive structure,
+/// so we loop until no more changes occur.
+fn compute_variable_info_fixed_point(
+    syntax_grammar: &SyntaxGrammar,
+    lexical_grammar: &LexicalGrammar,
+    default_aliases: &AliasMap,
+) -> Vec<VariableInfo> {
     let child_type_is_visible = |t: &ChildType| {
         variable_type_for_child_type(t, syntax_grammar, lexical_grammar) >= VariableType::Anonymous
     };
@@ -210,9 +232,6 @@ pub fn get_variable_info(
         variable_type_for_child_type(t, syntax_grammar, lexical_grammar) == VariableType::Named
     };
 
-    // Each variable's summary can depend on the summaries of other hidden variables,
-    // and variables can have mutually recursive structure. So we compute the summaries
-    // iteratively, in a loop that terminates only when no more changes are possible.
     let mut did_change = true;
     let mut all_initialized = false;
     let mut result = vec![VariableInfo::default(); syntax_grammar.variables.len()];
@@ -254,10 +273,7 @@ pub fn get_variable_info(
                     // Maintain the set of child types associated with each field, and the quantity
                     // of children associated with each field in this production.
                     if let Some(field_name) = step.field() {
-                        let field_info = variable_info
-                            .fields
-                            .entry(field_name)
-                            .or_insert_with(FieldInfo::default);
+                        let field_info = variable_info.fields.entry(field_name).or_default();
                         did_change |= extend_sorted(&mut field_info.types, Some(&child_type));
 
                         let production_field_quantity = production_field_quantities
@@ -288,52 +304,14 @@ pub fn get_variable_info(
 
                     // Inherit all child information from hidden children.
                     if child_is_hidden && child_symbol.is_non_terminal() {
-                        let child_variable_info = &result[child_symbol.index as usize];
-
-                        // If a hidden child can have multiple children, then its parent node can
-                        // appear to have multiple children.
-                        if child_variable_info.has_multi_step_production {
-                            variable_info.has_multi_step_production = true;
-                        }
-
-                        // If a hidden child has fields, then the parent node can appear to have
-                        // those same fields.
-                        for (&field_name, child_field_info) in &child_variable_info.fields {
-                            production_field_quantities
-                                .entry(field_name)
-                                .or_insert_with(ChildQuantity::zero)
-                                .append(child_field_info.quantity);
-                            did_change |= extend_sorted(
-                                &mut variable_info
-                                    .fields
-                                    .entry(field_name)
-                                    .or_insert_with(FieldInfo::default)
-                                    .types,
-                                &child_field_info.types,
-                            );
-                        }
-
-                        // If a hidden child has children, then the parent node can appear to have
-                        // those same children.
-                        production_children_quantity.append(child_variable_info.children.quantity);
-                        did_change |= extend_sorted(
-                            &mut variable_info.children.types,
-                            &child_variable_info.children.types,
+                        did_change |= inherit_hidden_child_info(
+                            &result[child_symbol.index as usize],
+                            step.field().is_none(),
+                            &mut variable_info,
+                            &mut production_field_quantities,
+                            &mut production_children_quantity,
+                            &mut production_children_without_fields_quantity,
                         );
-
-                        // If a hidden child can have named children without fields, then the parent
-                        // node can appear to have those same children.
-                        if step.field().is_none() {
-                            let grandchildren_info = &child_variable_info.children_without_fields;
-                            if !grandchildren_info.types.is_empty() {
-                                production_children_without_fields_quantity
-                                    .append(child_variable_info.children_without_fields.quantity);
-                                did_change |= extend_sorted(
-                                    &mut variable_info.children_without_fields.types,
-                                    &child_variable_info.children_without_fields.types,
-                                );
-                            }
-                        }
                     }
 
                     // Note whether or not this production contains children whose summaries
@@ -374,6 +352,79 @@ pub fn get_variable_info(
         all_initialized = true;
     }
 
+    result
+}
+
+/// Propagate fields, children, and children-without-fields from a hidden
+/// child variable into the parent variable info. This returns whether
+/// anything changed.
+fn inherit_hidden_child_info(
+    child_variable_info: &VariableInfo,
+    step_has_no_field: bool,
+    variable_info: &mut VariableInfo,
+    production_field_quantities: &mut FxHashMap<StrId, ChildQuantity>,
+    production_children_quantity: &mut ChildQuantity,
+    production_children_without_fields_quantity: &mut ChildQuantity,
+) -> bool {
+    let mut did_change = false;
+
+    // If a hidden child can have multiple children, then its parent node can
+    // appear to have multiple children.
+    if child_variable_info.has_multi_step_production {
+        variable_info.has_multi_step_production = true;
+    }
+
+    // If a hidden child has fields, then the parent node can appear to have
+    // those same fields.
+    for (&field_name, child_field_info) in &child_variable_info.fields {
+        production_field_quantities
+            .entry(field_name)
+            .or_insert_with(ChildQuantity::zero)
+            .append(child_field_info.quantity);
+        did_change |= extend_sorted(
+            &mut variable_info.fields.entry(field_name).or_default().types,
+            &child_field_info.types,
+        );
+    }
+
+    // If a hidden child has children, then the parent node can appear to have
+    // those same children.
+    production_children_quantity.append(child_variable_info.children.quantity);
+    did_change |= extend_sorted(
+        &mut variable_info.children.types,
+        &child_variable_info.children.types,
+    );
+
+    // If a hidden child can have named children without fields, then the parent
+    // node can appear to have those same children.
+    if step_has_no_field {
+        let grandchildren_info = &child_variable_info.children_without_fields;
+        if !grandchildren_info.types.is_empty() {
+            production_children_without_fields_quantity
+                .append(child_variable_info.children_without_fields.quantity);
+            did_change |= extend_sorted(
+                &mut variable_info.children_without_fields.types,
+                &child_variable_info.children_without_fields.types,
+            );
+        }
+    }
+
+    did_change
+}
+
+/// Verify that no supertype symbol has multi-step productions, which would
+/// mean it can have more than one visible child.
+fn validate_supertype_structure(
+    result: &[VariableInfo],
+    syntax_grammar: &SyntaxGrammar,
+    lexical_grammar: &LexicalGrammar,
+    default_aliases: &AliasMap,
+    str_pool: &StrPool,
+) -> VariableInfoResult<()> {
+    let child_type_is_visible = |t: &ChildType| {
+        variable_type_for_child_type(t, syntax_grammar, lexical_grammar) >= VariableType::Anonymous
+    };
+
     for supertype_symbol in &syntax_grammar.supertype_symbols {
         if result[supertype_symbol.index as usize].has_multi_step_production {
             let variable = &syntax_grammar.variables[supertype_symbol.index as usize];
@@ -405,15 +456,27 @@ pub fn get_variable_info(
             }))?;
         }
     }
+    Ok(())
+}
 
-    // Update all of the node type lists to eliminate hidden nodes.
+/// Remove hidden child types from supertype children lists, field type lists,
+/// and children-without-fields lists, and drop fields that become empty.
+fn strip_hidden_child_types(
+    result: &mut [VariableInfo],
+    syntax_grammar: &SyntaxGrammar,
+    lexical_grammar: &LexicalGrammar,
+) {
+    let child_type_is_visible = |t: &ChildType| {
+        variable_type_for_child_type(t, syntax_grammar, lexical_grammar) >= VariableType::Anonymous
+    };
+
     for supertype_symbol in &syntax_grammar.supertype_symbols {
         result[supertype_symbol.index as usize]
             .children
             .types
             .retain(child_type_is_visible);
     }
-    for variable_info in &mut result {
+    for variable_info in result.iter_mut() {
         for field_info in variable_info.fields.values_mut() {
             field_info.types.retain(child_type_is_visible);
         }
@@ -423,8 +486,6 @@ pub fn get_variable_info(
             .types
             .retain(child_type_is_visible);
     }
-
-    Ok(result)
 }
 
 fn get_aliases_by_symbol(
@@ -527,9 +588,72 @@ pub fn generate_node_types_json(
     variable_info: &[VariableInfo],
     str_pool: &StrPool,
 ) -> SuperTypeCycleResult<Vec<NodeInfoJSON>> {
-    let mut node_types_json = BTreeMap::new();
+    let aliases_by_symbol = get_aliases_by_symbol(syntax_grammar, default_aliases);
+    let extra_names = collect_extra_names(syntax_grammar, lexical_grammar, &aliases_by_symbol);
 
-    let child_type_to_node_type = |child_type: &ChildType| match child_type {
+    let mut node_types_json = BTreeMap::new();
+    let mut subtype_map = build_supertype_entries(
+        &mut node_types_json,
+        syntax_grammar,
+        lexical_grammar,
+        default_aliases,
+        variable_info,
+        str_pool,
+        &extra_names,
+    );
+    build_regular_entries(
+        &mut node_types_json,
+        syntax_grammar,
+        lexical_grammar,
+        default_aliases,
+        variable_info,
+        str_pool,
+        &aliases_by_symbol,
+        &extra_names,
+    );
+
+    sort_subtype_map_topologically(&mut subtype_map)?;
+    apply_supertype_collapsing(&mut node_types_json, &subtype_map);
+
+    let anonymous_node_types = build_token_entries(
+        &mut node_types_json,
+        syntax_grammar,
+        lexical_grammar,
+        str_pool,
+        &aliases_by_symbol,
+        &extra_names,
+    );
+
+    let mut result = node_types_json.into_iter().map(|e| e.1).collect::<Vec<_>>();
+    result.extend(anonymous_node_types);
+    result.sort_unstable_by(|a, b| {
+        b.subtypes
+            .is_some()
+            .cmp(&a.subtypes.is_some())
+            .then_with(|| {
+                let a_is_leaf = a.children.is_none() && a.fields.is_none();
+                let b_is_leaf = b.children.is_none() && b.fields.is_none();
+                a_is_leaf.cmp(&b_is_leaf)
+            })
+            .then_with(|| a.kind.cmp(&b.kind))
+            .then_with(|| a.named.cmp(&b.named))
+            .then_with(|| a.root.cmp(&b.root))
+            .then_with(|| a.extra.cmp(&b.extra))
+    });
+    result.dedup();
+    Ok(result)
+}
+
+/// Convert a child type into its JSON representation, resolving any alias.
+#[cfg(feature = "load")]
+fn child_type_to_node_type(
+    child_type: &ChildType,
+    syntax_grammar: &SyntaxGrammar,
+    lexical_grammar: &LexicalGrammar,
+    default_aliases: &AliasMap,
+    str_pool: &StrPool,
+) -> NodeTypeJSON {
+    match child_type {
         ChildType::Aliased(alias) => NodeTypeJSON {
             kind: str_pool.resolve(alias.value).to_string(),
             named: alias.is_named,
@@ -567,25 +691,48 @@ pub fn generate_node_types_json(
                 }
             }
         }
-    };
+    }
+}
 
-    let populate_field_info_json = |json: &mut FieldInfoJSON, info: &FieldInfo| {
-        if info.types.is_empty() {
-            json.required = false;
-        } else {
-            json.multiple |= info.quantity.multiple;
-            json.required &= info.quantity.required;
-            json.types
-                .extend(info.types.iter().map(child_type_to_node_type));
-            json.types.sort_unstable();
-            json.types.dedup();
-        }
-    };
+/// Merge a field's computed info into its JSON representation. No types
+/// means the field is absent from this rule, so it can't be required.
+#[cfg(feature = "load")]
+fn populate_field_info_json(
+    json: &mut FieldInfoJSON,
+    info: &FieldInfo,
+    syntax_grammar: &SyntaxGrammar,
+    lexical_grammar: &LexicalGrammar,
+    default_aliases: &AliasMap,
+    str_pool: &StrPool,
+) {
+    if info.types.is_empty() {
+        json.required = false;
+    } else {
+        json.multiple |= info.quantity.multiple;
+        json.required &= info.quantity.required;
+        json.types.extend(info.types.iter().map(|t| {
+            child_type_to_node_type(
+                t,
+                syntax_grammar,
+                lexical_grammar,
+                default_aliases,
+                str_pool,
+            )
+        }));
+        json.types.sort_unstable();
+        json.types.dedup();
+    }
+}
 
-    let aliases_by_symbol = get_aliases_by_symbol(syntax_grammar, default_aliases);
-
+/// Collect every name an `extra` symbol can appear under, including aliases.
+#[cfg(feature = "load")]
+fn collect_extra_names(
+    syntax_grammar: &SyntaxGrammar,
+    lexical_grammar: &LexicalGrammar,
+    aliases_by_symbol: &FxHashMap<Symbol, BTreeSet<Option<Alias>>>,
+) -> FxHashSet<StrId> {
     let empty = BTreeSet::new();
-    let extra_names = syntax_grammar
+    syntax_grammar
         .extra_symbols
         .iter()
         .flat_map(|symbol| {
@@ -597,133 +744,200 @@ pub fn generate_node_types_json(
                     alias.as_ref().map_or_else(
                         || match symbol.kind {
                             SymbolType::NonTerminal => {
-                                &syntax_grammar.variables[symbol.index as usize].name
+                                syntax_grammar.variables[symbol.index as usize].name
                             }
                             SymbolType::Terminal => {
-                                &lexical_grammar.variables[symbol.index as usize].name
+                                lexical_grammar.variables[symbol.index as usize].name
                             }
                             SymbolType::External => {
-                                &syntax_grammar.external_tokens[symbol.index as usize].name
+                                syntax_grammar.external_tokens[symbol.index as usize].name
                             }
                             _ => unreachable!(),
                         },
-                        |alias| &alias.value,
+                        |alias| alias.value,
                     )
                 })
         })
-        .collect::<FxHashSet<_>>();
+        .collect::<FxHashSet<_>>()
+}
 
+/// Add one JSON entry per supertype and build the supertype-to-subtypes map.
+#[cfg(feature = "load")]
+fn build_supertype_entries(
+    node_types_json: &mut BTreeMap<StrId, NodeInfoJSON>,
+    syntax_grammar: &SyntaxGrammar,
+    lexical_grammar: &LexicalGrammar,
+    default_aliases: &AliasMap,
+    variable_info: &[VariableInfo],
+    str_pool: &StrPool,
+    extra_names: &FxHashSet<StrId>,
+) -> Vec<(NodeTypeJSON, Vec<NodeTypeJSON>)> {
     let mut subtype_map = Vec::new();
     for (i, info) in variable_info.iter().enumerate() {
         let symbol = Symbol::non_terminal(i);
+        if !syntax_grammar.supertype_symbols.contains(&symbol) {
+            continue;
+        }
         let variable = &syntax_grammar.variables[i];
-        if syntax_grammar.supertype_symbols.contains(&symbol) {
-            let node_type_json =
-                node_types_json
-                    .entry(variable.name)
-                    .or_insert_with(|| NodeInfoJSON {
-                        kind: str_pool.resolve(variable.name).to_string(),
-                        named: true,
-                        root: false,
-                        extra: extra_names.contains(&variable.name),
-                        fields: None,
-                        children: None,
-                        subtypes: None,
-                    });
-            let mut subtypes = info
-                .children
-                .types
-                .iter()
-                .map(child_type_to_node_type)
-                .collect::<Vec<_>>();
-            subtypes.sort_unstable();
-            subtypes.dedup();
-            let supertype = NodeTypeJSON {
-                kind: node_type_json.kind.clone(),
+        let node_type_json = node_types_json
+            .entry(variable.name)
+            .or_insert_with(|| NodeInfoJSON {
+                kind: str_pool.resolve(variable.name).to_string(),
                 named: true,
-            };
+                root: false,
+                extra: extra_names.contains(&variable.name),
+                fields: None,
+                children: None,
+                subtypes: None,
+            });
+        let mut subtypes = info
+            .children
+            .types
+            .iter()
+            .map(|t| {
+                child_type_to_node_type(
+                    t,
+                    syntax_grammar,
+                    lexical_grammar,
+                    default_aliases,
+                    str_pool,
+                )
+            })
+            .collect::<Vec<_>>();
+        subtypes.sort_unstable();
+        subtypes.dedup();
+        let supertype = NodeTypeJSON {
+            kind: node_type_json.kind.clone(),
+            named: true,
+        };
 
-            // We only add to the subtype map if there are visible subtypes.
-            // A supertype may have zero subtypes if its children are all
-            // hidden (e.g., wrapping a hidden external token).
-            if !subtypes.is_empty() {
-                subtype_map.push((supertype, subtypes.clone()));
+        // We only add to the subtype map if there are visible subtypes.
+        // A supertype may have zero subtypes if its children are all
+        // hidden (e.g., wrapping a hidden external token).
+        if !subtypes.is_empty() {
+            subtype_map.push((supertype, subtypes.clone()));
+        }
+        node_type_json.subtypes = Some(subtypes);
+    }
+    subtype_map
+}
+
+/// Add JSON entries for visible non-supertype rules, merged into every name
+/// they can appear under.
+#[cfg(feature = "load")]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "all parameters are required to build the entries"
+)]
+fn build_regular_entries(
+    node_types_json: &mut BTreeMap<StrId, NodeInfoJSON>,
+    syntax_grammar: &SyntaxGrammar,
+    lexical_grammar: &LexicalGrammar,
+    default_aliases: &AliasMap,
+    variable_info: &[VariableInfo],
+    str_pool: &StrPool,
+    aliases_by_symbol: &FxHashMap<Symbol, BTreeSet<Option<Alias>>>,
+    extra_names: &FxHashSet<StrId>,
+) {
+    let empty = BTreeSet::new();
+    for (i, info) in variable_info.iter().enumerate() {
+        let symbol = Symbol::non_terminal(i);
+        if syntax_grammar.supertype_symbols.contains(&symbol)
+            || syntax_grammar.variables_to_inline.contains(&symbol)
+        {
+            continue;
+        }
+        let variable = &syntax_grammar.variables[i];
+
+        // If a rule is aliased under multiple names, then its information
+        // contributes to multiple entries in the final JSON.
+        for alias in aliases_by_symbol.get(&symbol).unwrap_or(&empty) {
+            let kind;
+            let is_named;
+            if let Some(alias) = alias {
+                kind = &alias.value;
+                is_named = alias.is_named;
+            } else if variable.kind.is_visible() {
+                kind = &variable.name;
+                is_named = variable.kind == VariableType::Named;
+            } else {
+                continue;
             }
-            node_type_json.subtypes = Some(subtypes);
-        } else if !syntax_grammar.variables_to_inline.contains(&symbol) {
-            // If a rule is aliased under multiple names, then its information
-            // contributes to multiple entries in the final JSON.
-            for alias in aliases_by_symbol.get(&symbol).unwrap_or(&BTreeSet::new()) {
-                let kind;
-                let is_named;
-                if let Some(alias) = alias {
-                    kind = &alias.value;
-                    is_named = alias.is_named;
-                } else if variable.kind.is_visible() {
-                    kind = &variable.name;
-                    is_named = variable.kind == VariableType::Named;
-                } else {
-                    continue;
+
+            // There may already be an entry with this name, because multiple
+            // rules may be aliased with the same name.
+            let mut node_type_existed = true;
+            let node_type_json = node_types_json.entry(*kind).or_insert_with(|| {
+                node_type_existed = false;
+                NodeInfoJSON {
+                    kind: str_pool.resolve(*kind).to_string(),
+                    named: is_named,
+                    root: i == 0,
+                    extra: extra_names.contains(kind),
+                    fields: Some(BTreeMap::new()),
+                    children: None,
+                    subtypes: None,
                 }
+            });
 
-                // There may already be an entry with this name, because multiple
-                // rules may be aliased with the same name.
-                let mut node_type_existed = true;
-                let node_type_json = node_types_json.entry(*kind).or_insert_with(|| {
-                    node_type_existed = false;
-                    NodeInfoJSON {
-                        kind: str_pool.resolve(*kind).to_string(),
-                        named: is_named,
-                        root: i == 0,
-                        extra: extra_names.contains(&kind),
-                        fields: Some(BTreeMap::new()),
-                        children: None,
-                        subtypes: None,
-                    }
-                });
-
-                let fields_json = node_type_json.fields.as_mut().unwrap();
-                for (new_field, field_info) in &info.fields {
-                    let field_json = fields_json
-                        .entry(str_pool.resolve(*new_field).to_string())
-                        .or_insert_with(|| {
-                            // If another rule is aliased with the same name, and does *not* have this
-                            // field, then this field cannot be required.
-                            let mut field_json = FieldInfoJSON::default();
-                            if node_type_existed {
-                                field_json.required = false;
-                            }
-                            field_json
-                        });
-                    populate_field_info_json(field_json, field_info);
-                }
-
-                // If another rule is aliased with the same name, any fields that aren't present in
-                // this cannot be required.
-                for (existing_field, field_json) in fields_json.iter_mut() {
-                    if !info
-                        .fields
-                        .keys()
-                        .any(|&f| str_pool.resolve(f).eq(existing_field))
-                    {
-                        field_json.required = false;
-                    }
-                }
-
+            let fields_json = node_type_json.fields.as_mut().unwrap();
+            for (new_field, field_info) in &info.fields {
+                let field_json = fields_json
+                    .entry(str_pool.resolve(*new_field).to_string())
+                    .or_insert_with(|| {
+                        // If another rule is aliased with the same name, and does *not* have this
+                        // field, then this field cannot be required.
+                        let mut field_json = FieldInfoJSON::default();
+                        if node_type_existed {
+                            field_json.required = false;
+                        }
+                        field_json
+                    });
                 populate_field_info_json(
-                    node_type_json
-                        .children
-                        .get_or_insert_with(FieldInfoJSON::default),
-                    &info.children_without_fields,
+                    field_json,
+                    field_info,
+                    syntax_grammar,
+                    lexical_grammar,
+                    default_aliases,
+                    str_pool,
                 );
             }
+
+            // If another rule is aliased with the same name, any fields that aren't present in
+            // this cannot be required.
+            for (existing_field, field_json) in fields_json.iter_mut() {
+                if !info
+                    .fields
+                    .keys()
+                    .any(|&f| str_pool.resolve(f).eq(existing_field))
+                {
+                    field_json.required = false;
+                }
+            }
+
+            populate_field_info_json(
+                node_type_json
+                    .children
+                    .get_or_insert_with(FieldInfoJSON::default),
+                &info.children_without_fields,
+                syntax_grammar,
+                lexical_grammar,
+                default_aliases,
+                str_pool,
+            );
         }
     }
+}
 
-    // Sort the subtype map topologically so that subtypes are listed before their supertypes.
+/// Sort the subtype map topologically so that subtypes are listed before
+/// their supertypes.
+#[cfg(feature = "load")]
+fn sort_subtype_map_topologically(
+    subtype_map: &mut [(NodeTypeJSON, Vec<NodeTypeJSON>)],
+) -> SuperTypeCycleResult<()> {
     let mut sorted_kinds = Vec::with_capacity(subtype_map.len());
     let mut top_sort = topological_sort::TopologicalSort::<String>::new();
-    for (supertype, subtypes) in &subtype_map {
+    for (supertype, subtypes) in subtype_map.iter() {
         for subtype in subtypes {
             top_sort.add_dependency(subtype.kind.clone(), supertype.kind.clone());
         }
@@ -748,7 +962,16 @@ pub fn generate_node_types_json(
         let b_idx = sorted_kinds.iter().position(|n| n.eq(&b.0.kind)).unwrap();
         a_idx.cmp(&b_idx)
     });
+    Ok(())
+}
 
+/// Collapse a supertype's subtypes into the supertype itself in child and
+/// field type lists.
+#[cfg(feature = "load")]
+fn apply_supertype_collapsing(
+    node_types_json: &mut BTreeMap<StrId, NodeInfoJSON>,
+    subtype_map: &[(NodeTypeJSON, Vec<NodeTypeJSON>)],
+) {
     for node_type_json in node_types_json.values_mut() {
         if node_type_json
             .children
@@ -759,15 +982,28 @@ pub fn generate_node_types_json(
         }
 
         if let Some(children) = &mut node_type_json.children {
-            process_supertypes(children, &subtype_map);
+            process_supertypes(children, subtype_map);
         }
         if let Some(fields) = &mut node_type_json.fields {
             for field_info in fields.values_mut() {
-                process_supertypes(field_info, &subtype_map);
+                process_supertypes(field_info, subtype_map);
             }
         }
     }
+}
 
+/// Add JSON entries for named tokens, returning the anonymous ones to be
+/// appended separately.
+#[cfg(feature = "load")]
+fn build_token_entries(
+    node_types_json: &mut BTreeMap<StrId, NodeInfoJSON>,
+    syntax_grammar: &SyntaxGrammar,
+    lexical_grammar: &LexicalGrammar,
+    str_pool: &StrPool,
+    aliases_by_symbol: &FxHashMap<Symbol, BTreeSet<Option<Alias>>>,
+    extra_names: &FxHashSet<StrId>,
+) -> Vec<NodeInfoJSON> {
+    let empty = BTreeSet::new();
     let mut anonymous_node_types = Vec::new();
 
     let regular_tokens = lexical_grammar
@@ -838,24 +1074,7 @@ pub fn generate_node_types_json(
         }
     }
 
-    let mut result = node_types_json.into_iter().map(|e| e.1).collect::<Vec<_>>();
-    result.extend(anonymous_node_types);
-    result.sort_unstable_by(|a, b| {
-        b.subtypes
-            .is_some()
-            .cmp(&a.subtypes.is_some())
-            .then_with(|| {
-                let a_is_leaf = a.children.is_none() && a.fields.is_none();
-                let b_is_leaf = b.children.is_none() && b.fields.is_none();
-                a_is_leaf.cmp(&b_is_leaf)
-            })
-            .then_with(|| a.kind.cmp(&b.kind))
-            .then_with(|| a.named.cmp(&b.named))
-            .then_with(|| a.root.cmp(&b.root))
-            .then_with(|| a.extra.cmp(&b.extra))
-    });
-    result.dedup();
-    Ok(result)
+    anonymous_node_types
 }
 
 #[cfg(feature = "load")]
