@@ -867,6 +867,12 @@ fn process_supertypes(info: &mut FieldInfoJSON, subtype_map: &[(NodeTypeJSON, Ve
     }
 }
 
+/// Determine the visibility of a child type in the node-types output.
+///
+/// Priority chain: aliases override everything, then supertypes are always
+/// `Named`, inlined rules are always `Hidden`, and everything else falls
+/// back to the variable's declared kind. A symbol is never both a supertype
+/// and inlined, since `intern_symbols` drops the supertype of such rules.
 fn variable_type_for_child_type(
     child_type: &ChildType,
     syntax_grammar: &SyntaxGrammar,
@@ -875,9 +881,16 @@ fn variable_type_for_child_type(
     match child_type {
         ChildType::Aliased(alias) => alias.kind(),
         ChildType::Normal(symbol) => {
-            if syntax_grammar.supertype_symbols.contains(symbol) {
+            let is_supertype = syntax_grammar.supertype_symbols.contains(symbol);
+            let is_inline = syntax_grammar.variables_to_inline.contains(symbol);
+            debug_assert!(
+                !(is_supertype && is_inline),
+                "symbol {} is both a supertype and inlined",
+                symbol.index
+            );
+            if is_supertype {
                 VariableType::Named
-            } else if syntax_grammar.variables_to_inline.contains(symbol) {
+            } else if is_inline {
                 VariableType::Hidden
             } else {
                 let symbol_index = symbol.index as usize;
@@ -2263,6 +2276,72 @@ mod tests {
             )]
             .into_iter()
             .collect()
+        );
+    }
+
+    #[test]
+    fn test_supertype_and_inline_conflict() {
+        // v1: field("f1", _v2)
+        // _v2: choice(v3, v4)
+        // supertypes: [_v2]
+        // inline: [_v2]
+        let mut pool = RulePool::default();
+        let v2_str = pool.intern("_v2");
+        let v1_root = {
+            let v2 = pool.named_symbol(v2_str);
+            field(&mut pool, "f1", v2)
+        };
+        let v2_root = {
+            let v3 = named(&mut pool, "v3");
+            let v4 = named(&mut pool, "v4");
+            pool.choice(&[v3, v4])
+        };
+        let v3_root = string(&mut pool, "x");
+        let v4_root = string(&mut pool, "y");
+        let grammar = InputGrammar {
+            variables: vec![
+                Variable {
+                    name: pool.intern("v1"),
+                    root: v1_root,
+                },
+                Variable {
+                    name: v2_str,
+                    root: v2_root,
+                },
+                Variable {
+                    name: pool.intern("v3"),
+                    root: v3_root,
+                },
+                Variable {
+                    name: pool.intern("v4"),
+                    root: v4_root,
+                },
+            ],
+            supertype_names: vec![v2_str],
+            inline_names: vec![v2_str],
+            pool,
+            ..Default::default()
+        };
+
+        let node_types = get_node_types(grammar).unwrap();
+
+        // The supertype entry for `_v2` is dropped, since the rule is inlined
+        // away and can never appear in a tree. Previously a phantom `_v2`
+        // entry with subtypes was emitted.
+        assert!(node_types.iter().all(|n| n.kind != "_v2"));
+        let v1 = node_types.iter().find(|n| n.kind == "v1").unwrap();
+        assert_eq!(
+            v1.fields.as_ref().unwrap()["f1"].types,
+            vec![
+                NodeTypeJSON {
+                    kind: "v3".to_string(),
+                    named: true,
+                },
+                NodeTypeJSON {
+                    kind: "v4".to_string(),
+                    named: true,
+                },
+            ]
         );
     }
 
