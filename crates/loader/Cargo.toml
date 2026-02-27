@@ -26,6 +26,7 @@ workspace = true
 [features]
 default = [ "tree-sitter-highlight", "tree-sitter-tags" ]
 wasm    = [ "tree-sitter/wasm" ]
+prefer-system-toolchain = []
 
 [dependencies]
 cc.workspace         = true

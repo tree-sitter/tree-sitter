@@ -1589,6 +1589,20 @@ impl Loader {
             }))?;
         }
 
+        // prefer system toolchain over downloaded one, if configured that way
+        #[cfg(feature = "prefer-system-toolchain")]
+        for exe in possible_exes {
+            if Command::new(exe)
+                .arg("--version")
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .status()
+                .is_ok()
+            {
+                return Ok(Some(PathBuf::from(exe)));
+            }
+        }
+
         let cache_dir = etcetera::choose_base_strategy()?
             .cache_dir()
             .join("tree-sitter");
