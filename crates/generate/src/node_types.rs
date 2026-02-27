@@ -802,6 +802,12 @@ fn process_supertypes(info: &mut FieldInfoJSON, subtype_map: &[(NodeTypeJSON, Ve
     }
 }
 
+/// Determine the visibility of a child type in the node-types output.
+///
+/// Priority chain: aliases override everything, then supertypes are always
+/// `Named`, inlined rules are always `Hidden`, and everything else falls
+/// back to the variable's declared kind. A symbol should never be both a
+/// supertype and inlined; `intern_symbols` validates this.
 fn variable_type_for_child_type(
     child_type: &ChildType,
     syntax_grammar: &SyntaxGrammar,
@@ -810,9 +816,16 @@ fn variable_type_for_child_type(
     match child_type {
         ChildType::Aliased(alias) => alias.kind(),
         ChildType::Normal(symbol) => {
-            if syntax_grammar.supertype_symbols.contains(symbol) {
+            let is_supertype = syntax_grammar.supertype_symbols.contains(symbol);
+            let is_inline = syntax_grammar.variables_to_inline.contains(symbol);
+            debug_assert!(
+                !(is_supertype && is_inline),
+                "symbol {} is both a supertype and inlined",
+                symbol.index
+            );
+            if is_supertype {
                 VariableType::Named
-            } else if syntax_grammar.variables_to_inline.contains(symbol) {
+            } else if is_inline {
                 VariableType::Hidden
             } else {
                 match symbol.kind {
@@ -2056,6 +2069,44 @@ mod tests {
             )]
             .into_iter()
             .collect::<HashMap<_, _>>()
+        );
+    }
+
+    #[test]
+    fn test_supertype_and_inline_conflict() {
+        let grammar = InputGrammar {
+            variables: vec![
+                Variable {
+                    name: "v1".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::field("f1".to_string(), Rule::named("_v2")),
+                },
+                Variable {
+                    name: "_v2".to_string(),
+                    kind: VariableType::Hidden,
+                    rule: Rule::choice(vec![Rule::named("v3"), Rule::named("v4")]),
+                },
+                Variable {
+                    name: "v3".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::string("x"),
+                },
+                Variable {
+                    name: "v4".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::string("y"),
+                },
+            ],
+            supertype_symbols: vec!["_v2".to_string()],
+            variables_to_inline: vec!["_v2".to_string()],
+            ..Default::default()
+        };
+
+        let result = prepare_grammar(&grammar);
+        assert!(result.is_err(), "Expected an error but got none");
+        assert_eq!(
+            result.err().unwrap().to_string(),
+            "Symbol `_v2` cannot be both a supertype and inlined"
         );
     }
 
