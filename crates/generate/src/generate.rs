@@ -468,7 +468,7 @@ fn generate_node_types_from_grammar(
     )?;
     Ok(JSONOutput {
         #[cfg(feature = "load")]
-        node_types_json: serde_json::to_string_pretty(&node_types_json).unwrap(),
+        node_types_json,
         syntax_grammar,
         lexical_grammar,
         inlines,
