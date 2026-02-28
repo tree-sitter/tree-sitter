@@ -1292,6 +1292,7 @@ impl Loader {
 
         let mut command = Command::new(&clang_executable);
         command.current_dir(src_path).args([
+            "--target=wasm32-unknown-wasi",
             "-o",
             output_path.to_str().unwrap(),
             "-fPIC",
