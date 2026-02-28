@@ -1276,6 +1276,8 @@ impl Loader {
             } else {
                 command.arg("-shared");
                 command.arg("-Wl,--no-undefined");
+                #[cfg(target_os = "openbsd")]
+                command.arg("-lc");
             }
             command.args(cc_config.get_files());
             command.arg("-o").arg(output_path);
