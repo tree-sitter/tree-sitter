@@ -286,20 +286,27 @@ fn check_token_conflicts(
     token_conflict_map: &TokenConflictMap,
     coincident_token_index: &CoincidentTokenIndex,
 ) -> bool {
-    let symbol = Symbol::terminal(i);
-    for existing_token in set_without_terminal.terminals() {
-        if token_conflict_map.does_conflict(i, existing_token.index)
-            || token_conflict_map.does_match_prefix(i, existing_token.index)
-        {
-            return true;
-        }
-        if !coincident_token_index.contains(symbol, existing_token)
-            && (token_conflict_map.does_overlap(existing_token.index, i)
-                || token_conflict_map.does_overlap(i, existing_token.index))
-        {
+    let wpr = token_conflict_map.row_words;
+    let row_start = i * wpr;
+    let set_bits = set_without_terminal.terminal_bits_words();
+
+    // Does terminal i conflict with or match-prefix any terminal in the set?
+    let conflict_row = &token_conflict_map.conflict_or_prefix_bits[row_start..row_start + wpr];
+    for (&c, &s) in conflict_row.iter().zip(set_bits) {
+        if c & s != 0 {
             return true;
         }
     }
+
+    // Does terminal i overlap (in either direction) with any non-coincident terminal in the set?
+    let overlap_row = &token_conflict_map.overlap_either_bits[row_start..row_start + wpr];
+    let coincident_row = &coincident_token_index.row_bits[row_start..row_start + wpr];
+    for ((&o, &s), &c) in overlap_row.iter().zip(set_bits).zip(coincident_row) {
+        if o & s & !c != 0 {
+            return true;
+        }
+    }
+
     false
 }
 

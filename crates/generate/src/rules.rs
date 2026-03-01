@@ -362,6 +362,12 @@ impl TokenSet {
         self.terminal_bits.get(index).unwrap_or(false)
     }
 
+    /// Raw u64 word slice backing the terminal bitset.
+    #[inline]
+    pub const fn terminal_bits_words(&self) -> &[u64] {
+        self.terminal_bits.as_slice()
+    }
+
     pub fn insert(&mut self, other: Symbol) {
         let vec = match other.kind {
             SymbolType::NonTerminal => panic!("Cannot store non-terminals in a TokenSet"),

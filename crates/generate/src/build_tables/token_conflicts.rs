@@ -31,6 +31,13 @@ pub struct TokenConflictMap<'a> {
     starting_chars_by_index: Vec<CharacterSet>,
     following_chars_by_index: Vec<CharacterSet>,
     grammar: &'a LexicalGrammar,
+    /// Per-row bitsets for fast batch conflict checks.
+    /// Row `i` spans `[i * row_words .. (i+1) * row_words]`.
+    /// Bit `j` is set iff [`does_conflict(i, j)`](Self::does_conflict) || [`does_match_prefix(i, j)`](Self::does_match_prefix).
+    pub(crate) conflict_or_prefix_bits: Vec<u64>,
+    /// Bit `j` is set iff [`does_overlap(i, j)`](Self::does_overlap) || [`does_overlap(j, i)`](Self::does_overlap).
+    pub(crate) overlap_either_bits: Vec<u64>,
+    pub(crate) row_words: usize,
 }
 
 impl<'a> TokenConflictMap<'a> {
@@ -68,6 +75,33 @@ impl<'a> TokenConflictMap<'a> {
             }
         }
 
+        // Precompute per-row bitsets for vectorized check_token_conflicts.
+        let row_words = n.div_ceil(64);
+        let conflict_mask = TokenConflictStatus::DOES_MATCH_VALID_CONT
+            | TokenConflictStatus::DOES_MATCH_SEPARATORS
+            | TokenConflictStatus::MATCHES_SAME_STRING
+            | TokenConflictStatus::MATCHES_PREFIX;
+        let overlap_mask = TokenConflictStatus::DOES_MATCH_SEPARATORS
+            | TokenConflictStatus::MATCHES_PREFIX
+            | TokenConflictStatus::MATCHES_SAME_STRING
+            | TokenConflictStatus::DOES_MATCH_CONTINUATION;
+
+        let mut conflict_or_prefix_bits = vec![0u64; n * row_words];
+        let mut overlap_either_bits = vec![0u64; n * row_words];
+        for i in 0..n {
+            let row_base = i * row_words;
+            for j in 0..n {
+                let entry_ij = status_matrix[matrix_index(n, i, j)];
+                if entry_ij.intersects(conflict_mask) {
+                    conflict_or_prefix_bits[row_base + j / 64] |= 1u64 << (j % 64);
+                }
+                let entry_ji = status_matrix[matrix_index(n, j, i)];
+                if entry_ij.intersects(overlap_mask) || entry_ji.intersects(overlap_mask) {
+                    overlap_either_bits[row_base + j / 64] |= 1u64 << (j % 64);
+                }
+            }
+        }
+
         TokenConflictMap {
             n,
             status_matrix,
@@ -75,6 +109,9 @@ impl<'a> TokenConflictMap<'a> {
             starting_chars_by_index: starting_chars,
             following_chars_by_index: following_chars,
             grammar,
+            conflict_or_prefix_bits,
+            overlap_either_bits,
+            row_words,
         }
     }
 
@@ -113,6 +150,7 @@ impl<'a> TokenConflictMap<'a> {
     }
 
     /// Does token `i` match any strings that are *prefixes* of strings matched by `j`?
+    #[expect(dead_code)]
     #[inline]
     pub fn does_match_prefix(&self, i: usize, j: usize) -> bool {
         self.status_matrix[matrix_index(self.n, i, j)].contains(TokenConflictStatus::MATCHES_PREFIX)

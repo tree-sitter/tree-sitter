@@ -234,6 +234,7 @@ impl BitVec {
     }
 
     /// Word-level OR: self |= other. Returns true if any new bits were set.
+    #[inline]
     pub fn insert_all(&mut self, other: &Self) -> bool {
         let other_words = other.words_in_use();
         if other_words == 0 {
