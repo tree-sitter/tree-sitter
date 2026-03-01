@@ -236,8 +236,7 @@ impl<'a> LexTableBuilder<'a> {
             completion = Some((id, prec));
         }
 
-        let transitions = self.cursor.transitions();
-        let has_sep = self.cursor.transition_chars().any(|(_, sep)| sep);
+        let (transitions, has_sep) = self.cursor.transitions_and_any_sep();
 
         // If EOF is a valid lookahead token, add a transition predicated on the null
         // character that leads to the empty set of NFA states.
