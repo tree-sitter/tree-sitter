@@ -19,49 +19,54 @@ use crate::{
 /// the same `kind`, so storing the index alone is sufficient for ordering.
 type NonterminalIndex = usize;
 
-/// A `Symbol` packed into a `u64` for O(1) sort-key comparison.
-/// Produced by `symbol_key`; decode back with `key_symbol`.
-type SymbolKey = u64;
-
-/// Pack a `Symbol` into a `SymbolKey` for O(1) sort-key comparison in merge-joins.
+/// A [`Symbol`] packed into a `u64` for O(1) sort-key comparison.
 ///
 /// Layout: high 3 bits = `kind` discriminant (5 variants fit in 3 bits), low 61 bits = `index`.
-/// This preserves `Symbol`'s derived `Ord` ordering (kind first, then index)
-/// as a single integer comparison, and halves each entry's size vs `(Symbol, _)`.
+/// This preserves [`Symbol`]'s derived [`Ord`] ordering (kind first, then index) as a single
+/// integer comparison, and halves each entry's size vs storing a full `(Symbol, _)` tuple.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+struct SymbolKey(u64);
+
 const KEY_TAG_SHIFT: u32 = 61;
 const KEY_INDEX_MASK: u64 = (1u64 << KEY_TAG_SHIFT) - 1;
 
-#[inline]
-fn symbol_key(sym: Symbol) -> SymbolKey {
-    debug_assert!(sym.index as u64 <= KEY_INDEX_MASK, "symbol index too large");
-    (sym.kind as u64) << KEY_TAG_SHIFT | sym.index as u64
-}
-
-/// Reconstruct a `Symbol` from a key produced by `symbol_key`.
-#[inline]
-const fn key_symbol(key: SymbolKey) -> Symbol {
-    let kind = match key >> KEY_TAG_SHIFT {
-        0 => SymbolType::External,
-        1 => SymbolType::End,
-        2 => SymbolType::EndOfNonTerminalExtra,
-        3 => SymbolType::Terminal,
-        _ => SymbolType::NonTerminal,
-    };
-    Symbol {
-        kind,
-        index: (key & KEY_INDEX_MASK) as usize,
+impl SymbolKey {
+    #[inline]
+    fn new(sym: Symbol) -> Self {
+        debug_assert!(sym.index as u64 <= KEY_INDEX_MASK, "symbol index too large");
+        Self((sym.kind as u64) << KEY_TAG_SHIFT | sym.index as u64)
     }
-}
 
-#[inline]
-const fn key_is_terminal(key: SymbolKey) -> bool {
-    (key >> KEY_TAG_SHIFT) == SymbolType::Terminal as u64
-}
+    #[inline]
+    const fn symbol(self) -> Symbol {
+        let kind = match self.0 >> KEY_TAG_SHIFT {
+            0 => SymbolType::External,
+            1 => SymbolType::End,
+            2 => SymbolType::EndOfNonTerminalExtra,
+            3 => SymbolType::Terminal,
+            _ => SymbolType::NonTerminal,
+        };
+        Symbol {
+            kind,
+            index: self.index(),
+        }
+    }
 
-#[expect(dead_code)]
-#[inline]
-const fn key_is_non_terminal(key: SymbolKey) -> bool {
-    (key >> KEY_TAG_SHIFT) == SymbolType::NonTerminal as u64
+    #[inline]
+    const fn index(self) -> usize {
+        (self.0 & KEY_INDEX_MASK) as usize
+    }
+
+    #[inline]
+    const fn is_terminal(self) -> bool {
+        (self.0 >> KEY_TAG_SHIFT) == SymbolType::Terminal as u64
+    }
+
+    #[expect(dead_code)]
+    #[inline]
+    const fn is_non_terminal(self) -> bool {
+        (self.0 >> KEY_TAG_SHIFT) == SymbolType::NonTerminal as u64
+    }
 }
 
 pub fn minimize_parse_table(
@@ -206,7 +211,7 @@ impl Minimizer<'_> {
                 let mut entries = state
                     .terminal_entries
                     .iter()
-                    .map(|(sym, entry)| (symbol_key(*sym), entry))
+                    .map(|(sym, entry)| (SymbolKey::new(*sym), entry))
                     .collect::<Vec<(SymbolKey, &ParseTableEntry)>>();
                 entries.sort_unstable_by_key(|&(key, _)| key);
                 entries
@@ -235,7 +240,7 @@ impl Minimizer<'_> {
                     .filter_map(|(sym, entry)| {
                         let action = entry.actions.last()?;
                         if let ParseAction::Shift { state: s, .. } = action {
-                            Some((symbol_key(*sym), *s))
+                            Some((SymbolKey::new(*sym), *s))
                         } else {
                             None
                         }
@@ -347,7 +352,7 @@ impl Minimizer<'_> {
                     // SAFETY: Equal is only reachable when i < len1 && j < len2.
                     let e1 = unsafe { entries1.get_unchecked(i) };
                     let e2 = unsafe { entries2.get_unchecked(j) };
-                    let token = key_symbol(e1.0);
+                    let token = e1.0.symbol();
                     if self.entries_conflict(
                         state1.id,
                         state2.id,
@@ -364,7 +369,7 @@ impl Minimizer<'_> {
                 Ordering::Less => {
                     // SAFETY: Less is only reachable when i < len1.
                     let e1 = unsafe { entries1.get_unchecked(i) };
-                    let token = key_symbol(e1.0);
+                    let token = e1.0.symbol();
                     if self.token_conflicts(state1.id, state2.id, state2, entries2, token) {
                         return true;
                     }
@@ -373,7 +378,7 @@ impl Minimizer<'_> {
                 Ordering::Greater => {
                     // SAFETY: Greater is only reachable when j < len2.
                     let e2 = unsafe { entries2.get_unchecked(j) };
-                    let token = key_symbol(e2.0);
+                    let token = e2.0.symbol();
                     if self.token_conflicts(state1.id, state2.id, state1, entries1, token) {
                         return true;
                     }
@@ -411,7 +416,7 @@ impl Minimizer<'_> {
                             "split states {} {} - successors for {} are split: {s1} {s2}",
                             state1.id,
                             state2.id,
-                            self.symbol_name(&key_symbol(k1)),
+                            self.symbol_name(&k1.symbol()),
                         );
                         return true;
                     }
@@ -557,35 +562,34 @@ impl Minimizer<'_> {
 
         // Hoist loop-invariant word-token comparisons.
         let word_token = self.syntax_grammar.word_token;
-        let word_key = word_token.map(symbol_key);
-        let new_token_key = symbol_key(new_token);
+        let word_key = word_token.map(SymbolKey::new);
+        let new_token_key = SymbolKey::new(new_token);
         let new_token_is_word = word_key == Some(new_token_key);
         let new_token_is_keyword = word_token.is_some() && self.keywords.contains(&new_token);
 
         // Do not add a token if it conflicts with an existing token.
         // Iterate the pre-sorted Vec instead of IndexMap keys for cache-friendlier access.
         for &(key, _) in right_entry_map {
-            if !key_is_terminal(key) {
+            if !key.is_terminal() {
                 continue;
             }
             if new_token_is_keyword && word_key == Some(key) {
                 continue;
             }
-            if new_token_is_word && self.keywords.contains(&key_symbol(key)) {
+            if new_token_is_word && self.keywords.contains(&key.symbol()) {
                 continue;
             }
 
-            let token_index = (key & 0xFFFF_FFFF) as usize;
             if self
                 .token_conflict_map
-                .does_conflict(new_token.index, token_index)
+                .does_conflict(new_token.index, key.index())
             {
                 debug!(
                     "split states {} {} - token {} conflicts with {}",
                     left_id,
                     right_id,
                     self.symbol_name(&new_token),
-                    self.symbol_name(&key_symbol(key)),
+                    self.symbol_name(&key.symbol()),
                 );
                 return true;
             }
