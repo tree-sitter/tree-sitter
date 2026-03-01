@@ -482,6 +482,19 @@ impl<'a> NfaCursor<'a> {
         Self::group_transitions(self.raw_transitions())
     }
 
+    /// Like `transitions()` but also returns whether any raw NFA transition
+    /// is a separator. This is computed in the same pass, avoiding a second
+    /// iteration over `state_ids` for callers that need both.
+    pub fn transitions_and_any_sep(&self) -> (Vec<NfaTransition>, bool) {
+        let mut any_sep = false;
+        let result =
+            Self::group_transitions(self.raw_transitions().map(|(chars, is_sep, prec, state)| {
+                any_sep |= is_sep;
+                (chars, is_sep, prec, state)
+            }));
+        (result, any_sep)
+    }
+
     fn raw_transitions(&self) -> impl Iterator<Item = (&CharacterSet, bool, i32, u32)> {
         self.state_ids.iter().filter_map(move |id| {
             if let NfaState::Advance {
@@ -502,13 +515,22 @@ impl<'a> NfaCursor<'a> {
         iter: impl Iterator<Item = (&'b CharacterSet, bool, i32, u32)>,
     ) -> Vec<NfaTransition> {
         let mut result = Vec::<NfaTransition>::new();
-        for (chars, is_sep, prec, state) in iter {
-            let mut chars = chars.clone();
+        // Reuse a single CharacterSet buffer across iterations to avoid one
+        // malloc per raw transition. `assign` refills it in-place; `mem::take`
+        // donates the allocation to a result entry when chars has a remainder.
+        let mut chars = CharacterSet::empty();
+        for (input_chars, is_sep, prec, state) in iter {
+            chars.assign(input_chars);
             let mut i = 0;
             while i < result.len() && !chars.is_empty() {
                 let intersection = result[i].characters.remove_intersection(&mut chars);
                 if !intersection.is_empty() {
-                    let mut intersection_states = result[i].states.clone();
+                    let chars_is_empty = result[i].characters.is_empty();
+                    let mut intersection_states = if chars_is_empty {
+                        mem::take(&mut result[i].states)
+                    } else {
+                        result[i].states.clone()
+                    };
                     if let Err(j) = intersection_states.binary_search(&state) {
                         intersection_states.insert(j, state);
                     }
@@ -518,18 +540,23 @@ impl<'a> NfaCursor<'a> {
                         precedence: max(result[i].precedence, prec),
                         states: intersection_states,
                     };
-                    if result[i].characters.is_empty() {
+                    if chars_is_empty {
                         result[i] = intersection_transition;
                     } else {
-                        result.insert(i, intersection_transition);
-                        i += 1;
+                        // Push to the tail instead of inserting at i (which
+                        // would be O(n)).  After remove_intersection, the new
+                        // `chars` (C') and `intersection` (I = A∩C) are
+                        // disjoint, so when the loop later reaches I at the
+                        // tail, remove_intersection(I, C'') will be a no-op.
+                        // The final sort makes mid-loop ordering irrelevant.
+                        result.push(intersection_transition);
                     }
                 }
                 i += 1;
             }
             if !chars.is_empty() {
                 result.push(NfaTransition {
-                    characters: chars,
+                    characters: mem::take(&mut chars),
                     precedence: prec,
                     states: vec![state],
                     is_separator: is_sep,
@@ -546,7 +573,7 @@ impl<'a> NfaCursor<'a> {
                 {
                     let characters = mem::take(&mut result[j].characters);
                     result[j].characters = characters.add(&result[i].characters);
-                    result.remove(i);
+                    result.swap_remove(i);
                     i -= 1;
                     break;
                 }

@@ -45,11 +45,24 @@ impl<'a> TokenConflictMap<'a> {
         let starting_chars = get_starting_chars(&mut cursor, grammar);
         let following_chars = get_following_chars(&starting_chars, &following_tokens);
 
+        // Pre-compute O(1) lookup: NFA state ID->owning variable index.
+        // Replaces repeated O(log n) binary searches in compute_conflict_status.
+        let nfa_state_to_var: Vec<usize> = (0..grammar.nfa.states.len())
+            .map(|id| grammar.variable_index_for_nfa_state(id as u32))
+            .collect();
+
         let n = grammar.variables.len();
         let mut status_matrix = vec![TokenConflictStatus::empty(); n * n];
         for i in 0..grammar.variables.len() {
             for j in 0..i {
-                let status = compute_conflict_status(&mut cursor, grammar, &following_chars, i, j);
+                let status = compute_conflict_status(
+                    &mut cursor,
+                    grammar,
+                    &following_chars,
+                    &nfa_state_to_var,
+                    i,
+                    j,
+                );
                 status_matrix[matrix_index(n, i, j)] = status.0;
                 status_matrix[matrix_index(n, j, i)] = status.1;
             }
@@ -256,28 +269,41 @@ fn get_following_chars(
         .collect()
 }
 
+/// Hash a sorted slice of NFA state IDs to a single `u64` for use as a
+/// visited-set key.
+#[inline]
+fn hash_state_set(states: &[u32]) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut h = rustc_hash::FxHasher::default();
+    states.hash(&mut h);
+    h.finish()
+}
+
 fn compute_conflict_status(
     cursor: &mut NfaCursor,
     grammar: &LexicalGrammar,
     following_chars: &[CharacterSet],
+    nfa_state_to_var: &[usize],
     i: usize,
     j: usize,
 ) -> (TokenConflictStatus, TokenConflictStatus) {
-    let mut visited_state_sets = FxHashSet::default();
-    let mut state_set_queue = vec![vec![
+    let mut visited_state_sets = FxHashSet::<u64>::default();
+    let mut state_set_queue = Vec::with_capacity(4);
+    state_set_queue.push(vec![
         grammar.variables[i].start_state,
         grammar.variables[j].start_state,
-    ]];
+    ]);
     let mut result = (TokenConflictStatus::empty(), TokenConflictStatus::empty());
 
     while let Some(state_set) = state_set_queue.pop() {
-        let mut live_variable_indices = grammar.variable_indices_for_nfa_states(&state_set);
-
         // If only one of the two tokens could possibly match from this state, then
         // there is no reason to analyze any of its successors. Just record the fact
         // that the token matches a string that the other token does not match.
-        let first_live_variable_index = live_variable_indices.next().unwrap();
-        if live_variable_indices.count() == 0 {
+        let first_live_variable_index = nfa_state_to_var[state_set[0] as usize];
+        if state_set
+            .iter()
+            .all(|&s| nfa_state_to_var[s as usize] == first_live_variable_index)
+        {
             if first_live_variable_index == i {
                 result
                     .0
@@ -292,12 +318,17 @@ fn compute_conflict_status(
 
         // Don't pursue states where there's no potential for conflict.
         cursor.reset(state_set);
-        let within_separator = cursor.transition_chars().any(|(_, sep)| sep);
+
+        // Compute lazily: most BFS states have no completions, so
+        // `within_separator` is never needed in those iterations.
+        let mut within_separator = None::<bool>;
 
         // Examine each possible completed token in this state.
         let mut completion = None;
         for (id, precedence) in cursor.completions() {
-            if within_separator {
+            let sep = *within_separator
+                .get_or_insert_with(|| cursor.transition_chars().any(|(_, sep)| sep));
+            if sep {
                 if id == i {
                     result.0.insert(TokenConflictStatus::DOES_MATCH_SEPARATORS);
                 } else {
@@ -345,12 +376,18 @@ fn compute_conflict_status(
             if let Some((completed_id, completed_precedence)) = completion {
                 let mut advanced_id = None;
                 let mut successor_contains_completed_id = false;
-                for variable_id in grammar.variable_indices_for_nfa_states(&transition.states) {
-                    if variable_id == completed_id {
+                let mut prev_var = None;
+                for &state_id in &transition.states {
+                    let var_id = nfa_state_to_var[state_id as usize];
+                    if prev_var == Some(var_id) {
+                        continue;
+                    }
+                    prev_var = Some(var_id);
+                    if var_id == completed_id {
                         successor_contains_completed_id = true;
                         break;
                     }
-                    advanced_id = Some(variable_id);
+                    advanced_id = Some(var_id);
                 }
 
                 // Determine which action is preferred: matching the already complete
@@ -361,7 +398,7 @@ fn compute_conflict_status(
                         &transition,
                         completed_id,
                         completed_precedence,
-                        within_separator,
+                        within_separator.unwrap_or(false),
                     ) {
                         can_advance = true;
                         if advanced_id == i {
@@ -387,7 +424,7 @@ fn compute_conflict_status(
                 }
             }
 
-            if can_advance && visited_state_sets.insert(transition.states.clone()) {
+            if can_advance && visited_state_sets.insert(hash_state_set(&transition.states)) {
                 state_set_queue.push(transition.states);
             }
         }
