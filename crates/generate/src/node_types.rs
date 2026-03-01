@@ -1,4 +1,6 @@
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet};
+
+use rustc_hash::{FxHashMap, FxHashSet};
 
 use serde::Serialize;
 use thiserror::Error;
@@ -22,7 +24,7 @@ pub struct FieldInfo {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct VariableInfo {
-    pub fields: HashMap<String, FieldInfo>,
+    pub fields: FxHashMap<String, FieldInfo>,
     pub children: FieldInfo,
     pub children_without_fields: FieldInfo,
     pub has_multi_step_production: bool,
@@ -195,7 +197,7 @@ pub fn get_variable_info(
             // immediately combined across all productions, but the child quantities must be
             // recorded separately for each production.
             for production in &variable.productions {
-                let mut production_field_quantities = HashMap::new();
+                let mut production_field_quantities = FxHashMap::default();
                 let mut production_children_quantity = ChildQuantity::zero();
                 let mut production_children_without_fields_quantity = ChildQuantity::zero();
                 let mut production_has_uninitialized_invisible_children = false;
@@ -379,8 +381,8 @@ pub fn get_variable_info(
 fn get_aliases_by_symbol(
     syntax_grammar: &SyntaxGrammar,
     default_aliases: &AliasMap,
-) -> HashMap<Symbol, BTreeSet<Option<Alias>>> {
-    let mut aliases_by_symbol = HashMap::new();
+) -> FxHashMap<Symbol, BTreeSet<Option<Alias>>> {
+    let mut aliases_by_symbol = FxHashMap::default();
     for (symbol, alias) in default_aliases {
         aliases_by_symbol.insert(*symbol, {
             let mut aliases = BTreeSet::new();
@@ -426,7 +428,7 @@ pub fn get_supertype_symbol_map(
     let aliases_by_symbol = get_aliases_by_symbol(syntax_grammar, default_aliases);
     let mut supertype_symbol_map = BTreeMap::new();
 
-    let mut symbols_by_alias = HashMap::new();
+    let mut symbols_by_alias = FxHashMap::default();
     for (symbol, aliases) in &aliases_by_symbol {
         for alias in aliases.iter().flatten() {
             symbols_by_alias
@@ -555,7 +557,7 @@ pub fn generate_node_types_json(
                     )
                 })
         })
-        .collect::<HashSet<_>>();
+        .collect::<FxHashSet<_>>();
 
     let mut subtype_map = Vec::new();
     for (i, info) in variable_info.iter().enumerate() {
@@ -1833,7 +1835,7 @@ mod tests {
                 }
             )]
             .into_iter()
-            .collect::<HashMap<_, _>>()
+            .collect::<FxHashMap<_, _>>()
         );
 
         assert_eq!(
@@ -1853,7 +1855,7 @@ mod tests {
                 }
             )]
             .into_iter()
-            .collect::<HashMap<_, _>>()
+            .collect::<FxHashMap<_, _>>()
         );
     }
 
@@ -1920,7 +1922,7 @@ mod tests {
                 }
             )]
             .into_iter()
-            .collect::<HashMap<_, _>>()
+            .collect::<FxHashMap<_, _>>()
         );
     }
 
@@ -1981,7 +1983,7 @@ mod tests {
                 }
             )]
             .into_iter()
-            .collect::<HashMap<_, _>>()
+            .collect::<FxHashMap<_, _>>()
         );
 
         assert_eq!(
@@ -2055,7 +2057,7 @@ mod tests {
                 }
             )]
             .into_iter()
-            .collect::<HashMap<_, _>>()
+            .collect::<FxHashMap<_, _>>()
         );
     }
 

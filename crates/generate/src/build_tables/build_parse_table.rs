@@ -1,12 +1,12 @@
 use std::{
     cmp::Ordering,
-    collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque},
+    collections::{BTreeMap, BTreeSet, VecDeque},
     hash::BuildHasherDefault,
 };
 
 use indexmap::{IndexMap, map::Entry};
 use log::warn;
-use rustc_hash::FxHasher;
+use rustc_hash::{FxHashMap, FxHashSet, FxHasher};
 use serde::Serialize;
 use thiserror::Error;
 
@@ -56,12 +56,12 @@ struct ParseTableBuilder<'a> {
     syntax_grammar: &'a SyntaxGrammar,
     lexical_grammar: &'a LexicalGrammar,
     variable_info: &'a [VariableInfo],
-    core_ids_by_core: HashMap<ParseItemSetCore<'a>, usize>,
+    core_ids_by_core: FxHashMap<ParseItemSetCore<'a>, usize>,
     state_ids_by_item_set: IndexMap<ParseItemSet<'a>, ParseStateId, BuildHasherDefault<FxHasher>>,
     parse_state_info_by_id: Vec<ParseStateInfo<'a>>,
     parse_state_queue: VecDeque<ParseStateQueueEntry>,
     non_terminal_extra_states: Vec<(Symbol, usize)>,
-    actual_conflicts: HashSet<Vec<Symbol>>,
+    actual_conflicts: FxHashSet<Vec<Symbol>>,
     parse_table: ParseTable,
 }
 
@@ -252,7 +252,7 @@ impl<'a> ParseTableBuilder<'a> {
             variable_info,
             non_terminal_extra_states: Vec::new(),
             state_ids_by_item_set: IndexMap::default(),
-            core_ids_by_core: HashMap::new(),
+            core_ids_by_core: FxHashMap::default(),
             parse_state_info_by_id: Vec::new(),
             parse_state_queue: VecDeque::new(),
             actual_conflicts: syntax_grammar.expected_conflicts.iter().cloned().collect(),
@@ -417,7 +417,7 @@ impl<'a> ParseTableBuilder<'a> {
         let mut terminal_successors = BTreeMap::new();
         let mut non_terminal_successors = BTreeMap::new();
         let mut lookaheads_with_conflicts = TokenSet::new();
-        let mut reduction_infos = HashMap::<Symbol, ReductionInfo>::new();
+        let mut reduction_infos = FxHashMap::<Symbol, ReductionInfo>::default();
 
         // Each item in the item set contributes to either or a Shift action or a Reduce
         // action in this state.
@@ -616,7 +616,7 @@ impl<'a> ParseTableBuilder<'a> {
                             None
                         }
                     })
-                    .collect::<HashSet<_>>();
+                    .collect::<FxHashSet<_>>();
                 let parent_symbol_names = parent_symbols
                     .iter()
                     .map(|&variable_index| {

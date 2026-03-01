@@ -1,4 +1,6 @@
-use std::{cmp::Ordering, collections::HashSet, fmt};
+use std::{cmp::Ordering, fmt};
+
+use rustc_hash::FxHashSet;
 
 use bitflags::bitflags;
 
@@ -261,7 +263,7 @@ fn compute_conflict_status(
     i: usize,
     j: usize,
 ) -> (TokenConflictStatus, TokenConflictStatus) {
-    let mut visited_state_sets = HashSet::new();
+    let mut visited_state_sets = FxHashSet::default();
     let mut state_set_queue = vec![vec![
         grammar.variables[i].start_state,
         grammar.variables[j].start_state,

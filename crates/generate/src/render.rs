@@ -1,9 +1,11 @@
 use std::{
     cmp,
-    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
+    collections::{BTreeMap, BTreeSet},
     fmt::Write,
     mem::swap,
 };
+
+use rustc_hash::{FxHashMap, FxHashSet};
 
 use crate::LANGUAGE_VERSION;
 use indoc::indoc;
@@ -90,11 +92,11 @@ struct Generator {
     syntax_grammar: SyntaxGrammar,
     lexical_grammar: LexicalGrammar,
     default_aliases: AliasMap,
-    symbol_order: HashMap<Symbol, usize>,
-    symbol_ids: HashMap<Symbol, String>,
-    alias_ids: HashMap<Alias, String>,
+    symbol_order: FxHashMap<Symbol, usize>,
+    symbol_ids: FxHashMap<Symbol, String>,
+    alias_ids: FxHashMap<Alias, String>,
     unique_aliases: Vec<Alias>,
-    symbol_map: HashMap<Symbol, Symbol>,
+    symbol_map: FxHashMap<Symbol, Symbol>,
     reserved_word_sets: Vec<TokenSet>,
     reserved_word_set_ids_by_parse_state: Vec<usize>,
     field_names: Vec<String>,
@@ -187,7 +189,7 @@ impl Generator {
     }
 
     fn init(&mut self) {
-        let mut symbol_identifiers = HashSet::new();
+        let mut symbol_identifiers = FxHashSet::default();
         for i in 0..self.parse_table.symbols.len() {
             self.assign_symbol_id(self.parse_table.symbols[i], &mut symbol_identifiers);
         }
@@ -196,7 +198,7 @@ impl Generator {
             self.symbol_ids[&Symbol::end()].clone(),
         );
 
-        self.symbol_map = HashMap::new();
+        self.symbol_map = FxHashMap::default();
 
         for symbol in &self.parse_table.symbols {
             let mut mapping = symbol;
@@ -610,7 +612,7 @@ impl Generator {
     }
 
     fn add_non_terminal_alias_map(&mut self) {
-        let mut alias_ids_by_symbol = HashMap::new();
+        let mut alias_ids_by_symbol = FxHashMap::default();
         for variable in &self.syntax_grammar.variables {
             for production in &variable.productions {
                 for step in &production.steps {
@@ -666,7 +668,7 @@ impl Generator {
             "static const TSStateId ts_primary_state_ids[STATE_COUNT] = {{"
         );
         indent!(self);
-        let mut first_state_for_each_core_id = HashMap::new();
+        let mut first_state_for_each_core_id = FxHashMap::default();
         for (idx, state) in self.parse_table.states.iter().enumerate() {
             let primary_state = first_state_for_each_core_id
                 .entry(state.core_id)
@@ -1287,7 +1289,7 @@ impl Generator {
     }
 
     fn add_parse_table(&mut self) -> RenderResult<()> {
-        let mut parse_table_entries = HashMap::new();
+        let mut parse_table_entries = FxHashMap::default();
         let mut next_parse_action_list_index = 0;
 
         // Parse action lists zero is for the default value, when a symbol is not valid.
@@ -1368,7 +1370,7 @@ impl Generator {
                     .len()
                     .saturating_sub(self.large_state_count),
             );
-            let mut symbols_by_value = HashMap::<(usize, SymbolType), Vec<Symbol>>::new();
+            let mut symbols_by_value = FxHashMap::<(usize, SymbolType), Vec<Symbol>>::default();
             for state in self.parse_table.states.iter().skip(self.large_state_count) {
                 small_state_indices.push(next_table_index);
                 symbols_by_value.clear();
@@ -1689,7 +1691,7 @@ impl Generator {
 
     fn get_parse_action_list_id(
         entry: &ParseTableEntry,
-        parse_table_entries: &mut HashMap<ParseTableEntry, usize>,
+        parse_table_entries: &mut FxHashMap<ParseTableEntry, usize>,
         next_parse_action_list_index: &mut usize,
     ) -> usize {
         if let Some(&index) = parse_table_entries.get(entry) {
@@ -1724,7 +1726,7 @@ impl Generator {
         )
     }
 
-    fn assign_symbol_id(&mut self, symbol: Symbol, used_identifiers: &mut HashSet<String>) {
+    fn assign_symbol_id(&mut self, symbol: Symbol, used_identifiers: &mut FxHashSet<String>) {
         let mut id;
         if symbol == Symbol::end() {
             id = "ts_builtin_sym_end".to_string();

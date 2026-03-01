@@ -1,4 +1,6 @@
-use std::{collections::HashMap, mem};
+use std::mem;
+
+use rustc_hash::FxHashMap;
 
 use super::ExtractedSyntaxGrammar;
 use crate::{
@@ -11,7 +13,7 @@ struct Expander {
     repeat_count_in_variable: usize,
     preceding_symbol_count: usize,
     auxiliary_variables: Vec<Variable>,
-    existing_repeats: HashMap<Rule, Symbol>,
+    existing_repeats: FxHashMap<Rule, Symbol>,
 }
 
 impl Expander {
@@ -106,7 +108,7 @@ pub(super) fn expand_repeats(mut grammar: ExtractedSyntaxGrammar) -> ExtractedSy
         repeat_count_in_variable: 0,
         preceding_symbol_count: grammar.variables.len(),
         auxiliary_variables: Vec::new(),
-        existing_repeats: HashMap::new(),
+        existing_repeats: FxHashMap::default(),
     };
 
     for (i, variable) in grammar.variables.iter_mut().enumerate() {

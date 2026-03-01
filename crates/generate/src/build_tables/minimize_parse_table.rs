@@ -1,8 +1,6 @@
-use std::{
-    cmp::Ordering,
-    collections::{HashMap, HashSet},
-    mem,
-};
+use std::{cmp::Ordering, mem};
+
+use rustc_hash::{FxHashMap, FxHashSet};
 
 use log::debug;
 
@@ -111,7 +109,7 @@ struct Minimizer<'a> {
 
 impl Minimizer<'_> {
     fn remove_unit_reductions(&mut self) {
-        let mut aliased_symbols = HashSet::new();
+        let mut aliased_symbols = FxHashSet::default();
         for variable in &self.syntax_grammar.variables {
             for production in &variable.productions {
                 for step in &production.steps {
@@ -122,7 +120,7 @@ impl Minimizer<'_> {
             }
         }
 
-        let mut unit_reduction_symbols_by_state = HashMap::new();
+        let mut unit_reduction_symbols_by_state = FxHashMap::default();
         for (i, state) in self.parse_table.states.iter().enumerate() {
             let mut only_unit_reductions = true;
             let mut unit_reduction_symbol = None;
