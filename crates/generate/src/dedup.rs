@@ -14,8 +14,7 @@ pub fn split_state_id_groups<S>(
     let mut group_id = start_group_id;
     while group_id < state_ids_by_group_id.len() {
         let state_ids = &state_ids_by_group_id[group_id];
-        // Pre-allocate for the worst case (entire group splits) to avoid reallocs.
-        let mut split_state_ids = Vec::with_capacity(state_ids.len());
+        let mut split_state_ids = Vec::new();
 
         let mut i = 0;
         while i < state_ids.len() {

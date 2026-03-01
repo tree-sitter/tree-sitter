@@ -229,10 +229,11 @@ impl LexicalGrammar {
     }
 
     pub fn variable_index_for_nfa_state(&self, state_id: u32) -> usize {
-        self.variables
-            .iter()
-            .position(|v| v.start_state >= state_id)
-            .unwrap()
+        // The NFA is built in reverse (accept state first, entry state last), so
+        // each variable's `start_state` is the last (highest) NFA state allocated
+        // for it. These values are monotonically increasing, so we can binary
+        // search for the first variable whose start_state >= state_id.
+        self.variables.partition_point(|v| v.start_state < state_id)
     }
 }
 
