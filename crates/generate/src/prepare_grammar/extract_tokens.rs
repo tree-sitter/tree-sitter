@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use rustc_hash::FxHashMap;
 
 use serde::Serialize;
 use thiserror::Error;
@@ -89,7 +89,7 @@ pub(super) fn extract_tokens(
     // will need to have their indices decremented.
     let mut variables = Vec::with_capacity(grammar.variables.len());
     let mut symbol_replacer = SymbolReplacer {
-        replacements: HashMap::new(),
+        replacements: FxHashMap::default(),
     };
     for (i, variable) in grammar.variables.into_iter().enumerate() {
         if let Rule::Symbol(Symbol {
@@ -268,7 +268,7 @@ struct TokenExtractor {
 }
 
 struct SymbolReplacer {
-    replacements: HashMap<usize, usize>,
+    replacements: FxHashMap<usize, usize>,
 }
 
 impl TokenExtractor {

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use rustc_hash::FxHashMap;
 
 use serde::Serialize;
 use thiserror::Error;
@@ -19,7 +19,7 @@ struct ProductionStepId {
 }
 
 struct InlinedProductionMapBuilder {
-    production_indices_by_step_id: HashMap<ProductionStepId, Vec<usize>>,
+    production_indices_by_step_id: FxHashMap<ProductionStepId, Vec<usize>>,
     productions: Vec<Production>,
 }
 
@@ -227,7 +227,7 @@ pub(super) fn process_inlines(
 
     Ok(InlinedProductionMapBuilder {
         productions: Vec::new(),
-        production_indices_by_step_id: HashMap::new(),
+        production_indices_by_step_id: FxHashMap::default(),
     }
     .build(grammar))
 }
