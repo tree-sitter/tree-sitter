@@ -75,6 +75,9 @@ typedef struct {
  * - `is_pass_through` - Indicates that state has no matching logic of its own,
  *    and exists only to split a state. One copy of the state advances immediately
  *    to the next step, and one moves to the alternative step.
+ * - `is_inside_alternation` - Indicates that state is inside an alternation.
+ *    Currently only written to quantifier steps, read by logic that maintains
+ *    correctness for quantifiers inside alternations.
  *
  * Steps also store some derived state that summarizes how they relate to other
  * steps within the same pattern. This is used to optimize the matching process:
@@ -102,6 +105,7 @@ typedef struct {
   bool is_last_child: 1;
   bool is_pass_through: 1;
   bool is_dead_end: 1;
+  bool is_inside_alternation: 1;
   bool contains_captures: 1;
   bool root_pattern_guaranteed: 1;
   bool parent_pattern_guaranteed: 1;
@@ -2219,6 +2223,7 @@ static TSQueryError ts_query__parse_pattern(
   Stream *stream,
   uint32_t depth,
   bool is_immediate,
+  bool is_inside_alternation,
   CaptureQuantifiers *capture_quantifiers
 ) {
   if (stream->next == 0) return TSQueryErrorSyntax;
@@ -2252,6 +2257,7 @@ static TSQueryError ts_query__parse_pattern(
         stream,
         depth,
         is_immediate,
+        true,
         &branch_capture_quantifiers
       );
 
@@ -2319,6 +2325,7 @@ static TSQueryError ts_query__parse_pattern(
           stream,
           depth,
           child_is_immediate,
+          is_inside_alternation,
           &child_capture_quantifiers
         );
         if (e == PARENT_DONE) {
@@ -2557,6 +2564,7 @@ static TSQueryError ts_query__parse_pattern(
           stream,
           depth + 1,
           child_is_immediate,
+          is_inside_alternation,
           &child_capture_quantifiers
         );
         // In the event we only parsed a predicate, meaning no new steps were added,
@@ -2668,6 +2676,7 @@ static TSQueryError ts_query__parse_pattern(
       stream,
       depth,
       is_immediate,
+      is_inside_alternation,
       &field_capture_quantifiers
     );
     if (e) {
@@ -2786,12 +2795,14 @@ static TSQueryError ts_query__parse_pattern(
   switch (quantifier) {
     case TSQuantifierOneOrMore:
       repeat_step = query_step__new(WILDCARD_SYMBOL, depth, false);
+      repeat_step.is_inside_alternation = is_inside_alternation;
       repeat_step.alternative_index = starting_step_index;
       repeat_step.is_pass_through = true;
       array_push(&self->steps, repeat_step);
       break;
     case TSQuantifierZeroOrMore:
       repeat_step = query_step__new(WILDCARD_SYMBOL, depth, false);
+      repeat_step.is_inside_alternation = is_inside_alternation;
       repeat_step.alternative_index = starting_step_index;
       repeat_step.is_pass_through = true;
       array_push(&self->steps, repeat_step);
@@ -2870,7 +2881,7 @@ TSQuery *ts_query_new(
       .is_non_local = false,
     }));
     CaptureQuantifiers capture_quantifiers = capture_quantifiers_new();
-    *error_type = ts_query__parse_pattern(self, &stream, 0, false, &capture_quantifiers);
+    *error_type = ts_query__parse_pattern(self, &stream, 0, false, false, &capture_quantifiers);
     array_push(&self->steps, query_step__new(0, PATTERN_DONE_MARKER, false));
 
     QueryPattern *pattern = array_back(&self->patterns);
@@ -2960,7 +2971,7 @@ TSQuery *ts_query_new(
       for (uint32_t i = pat_start; i < pat_end; i++) {
         QueryStep *s = array_get(&self->steps, i);
         // Ensure this step is a pass_through with a _backward_ alternative (a quantifier loop-back)
-        if (!s->is_pass_through
+        if (!s->is_pass_through || !s->is_inside_alternation
             || s->alternative_index == NONE || s->alternative_index >= i) continue;
 
         uint32_t target_idx = s->alternative_index;
@@ -2968,7 +2979,7 @@ TSQuery *ts_query_new(
 
         // Check if the target has a forward alternative from alternation linking
         uint16_t target_alt_index = target->alternative_index;
-        if (target_alt_index == NONE 
+        if (target_alt_index == NONE
             || target_alt_index <= target_idx || target_alt_index >= pat_end) continue;
 
         // Create a clean copy of the target step without the alternation alternative.
