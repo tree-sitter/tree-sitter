@@ -110,6 +110,69 @@ This pattern would match a set of possible keyword tokens, capturing them as `@k
 ] @keyword
 ```
 
+Alternations can have quantified alternants, and then can have their own
+quantifiers as well. See the following examples for an illustration of how these
+cases work:
+
+```query
+;;; SOURCE CODE ;;;
+; #include <foo>
+; #include <bar>
+; #include <baz>
+; // comment
+;;;;;;;;;;;;;;;;;;;
+
+[
+  (preproc_include)
+  (comment)
+]+ @capture
+; ^ Produces one match with four captures:
+; [
+;   "#include <foo>\n",
+;   "#include <bar>\n",
+;   "#include <baz>\n",
+;   "// comment",
+; ]
+;
+; Regex equivalent: [ab]+
+
+[
+  (preproc_include)+
+  (comment)
+] @capture
+; ^ Produces two matches; one with three captures, and one with one capture:
+; [
+;   "#include <foo>\n",
+;   "#include <bar>\n",
+;   "#include <baz>\n",
+; ],
+; [
+;   "// comment",
+; ]
+;
+; Regex equivalent: a+|b
+
+[
+  (preproc_include)
+  (comment)
+] @capture
+; ^ Produces four matches, each with one capture:
+; [
+;   "#include <foo>\n",
+; ],
+; [
+;   "#include <bar>\n",
+; ],
+; [
+;   "#include <baz>\n",
+; ],
+; [
+;   "// comment",
+; ]
+;
+; Regex equivalent: [ab]
+```
+
 ## Anchors
 
 The anchor operator, `.`, is used to constrain the ways in which child patterns are matched. It has different behaviors
