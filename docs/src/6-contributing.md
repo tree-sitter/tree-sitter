@@ -1,0 +1,282 @@
+# Contributing
+
+## Code of Conduct
+
+Contributors to Tree-sitter should abide by the [Contributor Covenant][covenant].
+
+## Developing Tree-sitter
+
+### Prerequisites
+
+To make changes to Tree-sitter, you should have:
+
+1. A C compiler, for compiling the core library and the generated parsers.
+2. A [Rust toolchain][rust], for compiling the Rust bindings, the highlighting library, and the CLI.
+3. Node.js and NPM, for generating parsers from `grammar.js` files.
+4. Either [Emscripten][emscripten], [Docker][docker], or [podman][podman] for
+compiling the library to Wasm.
+
+### Building
+
+Clone the repository:
+
+```sh
+git clone https://github.com/tree-sitter/tree-sitter
+cd tree-sitter
+```
+
+Optionally, build the Wasm library. If you skip this step, then the `tree-sitter playground` command will require an internet
+connection. If you have Emscripten installed, this will use your `emcc` compiler. Otherwise, it will use Docker or Podman:
+
+```sh
+cd lib/binding_web
+npm install # or your JS package manager of choice
+npm run build
+```
+
+Build the Rust libraries and the CLI:
+
+```sh
+cargo build --release
+```
+
+This will create the `tree-sitter` CLI executable in the `target/release` folder.
+
+If you want to automatically install the `tree-sitter` CLI in your system, you can run:
+
+```sh
+cargo install --path crates/cli
+```
+
+If you're going to be in a fast iteration cycle and would like the CLI to build faster, you can use the `release-dev` profile:
+
+```sh
+cargo build --profile release-dev
+# or
+cargo install --path crates/cli --profile release-dev
+```
+
+### Testing
+
+Before you can run the tests, you need to fetch some upstream grammars that are used for testing:
+
+```sh
+cargo xtask fetch-fixtures
+```
+
+To test any changes you've made to the CLI, you can regenerate these parsers using your current CLI code:
+
+```sh
+cargo xtask generate-fixtures
+```
+
+Then you can run the tests:
+
+```sh
+cargo xtask test
+```
+
+Similarly, to test the Wasm binding, you need to compile these parsers to Wasm:
+
+```sh
+cargo xtask generate-fixtures --wasm
+cargo xtask test-wasm
+```
+
+#### Wasm Stdlib
+
+The tree-sitter Wasm stdlib can be built via xtask:
+
+```sh
+cargo xtask build-wasm-stdlib
+```
+
+This command looks for the [Wasi SDK][wasi_sdk] indicated by the `TREE_SITTER_WASI_SDK_PATH`
+environment variable. If you don't have the binary, it can be downloaded from wasi-sdk's [releases][wasi-sdk-releases]
+page. Similarly, this command also looks for [ the `wasm-opt` tool from binaryen][binaryen] indicated by the `TREE_SITTER_BINARYEN_PATH`
+environment variable. `wasm-opt` and the rest of the binaryen tool suite can be downloaded from the project's [releases][binaryen-releases]
+page. Note that any changes to `crates/language/wasm/**` requires rebuilding the tree-sitter Wasm stdlib via `cargo xtask build-wasm-stdlib`.
+
+### Debugging
+
+The test script has a number of useful flags. You can list them all by running `cargo xtask test -h`.
+Here are some of the main flags:
+
+If you want to run a specific unit test, pass its name (or part of its name) as an argument:
+
+```sh
+cargo xtask test test_does_something
+```
+
+You can run the tests under the debugger (either `lldb` or `gdb`) using the `-g` flag:
+
+```sh
+cargo xtask test -g test_does_something
+```
+
+Part of the Tree-sitter test suite involves parsing the _corpus_ tests for several languages and performing randomized edits
+to each example in the corpus. If you just want to run the tests for a particular _language_, you can pass the `-l` flag.
+Additionally, if you want to run a particular _example_ from the corpus, you can pass the `-e` flag:
+
+```sh
+cargo xtask test -l javascript -e Arrays
+```
+
+If you are using `lldb` to debug the C library, tree-sitter provides custom pretty printers for several of its types.
+You can enable these helpers by importing them:
+
+```sh
+(lldb) command script import /path/to/tree-sitter/lib/lldb_pretty_printers/tree_sitter_types.py
+```
+
+## Published Packages
+
+The main [`tree-sitter/tree-sitter`][ts repo] repository contains the source code for
+several packages that are published to package registries for different languages:
+
+* Rust crates on [crates.io][crates]:
+  * [`tree-sitter`][lib crate] — A Rust binding to the core library
+  * [`tree-sitter-config`][config crate] — User configuration of the command-line tool
+  * [`tree-sitter-cli`][cli crate] — The command-line tool
+  * [`tree-sitter-generate`][generate crate] — The parser-generation library
+  * [`tree-sitter-highlight`][highlight crate] — The syntax-highlighting library
+  * [`tree-sitter-language`][language crate] — A language type for grammars to interact with the core library
+  * [`tree-sitter-loader`][loader crate] — The parser building and loading library
+  * [`tree-sitter-tags`][tags crate] — The syntax-tagging library
+
+* JavaScript modules on [npmjs.com][npmjs]:
+  * [`web-tree-sitter`][web-ts] — A Wasm-based JavaScript binding to the core library
+  * [`tree-sitter-cli`][cli package] — The command-line tool
+
+There are also several other dependent repositories that contain other published packages:
+
+* [`tree-sitter/node-tree-sitter`][node ts] — Node.js bindings to the core library,
+published as [`tree-sitter`][node package] on npmjs.com
+* [`tree-sitter/py-tree-sitter`][py ts] — Python bindings to the core library,
+published as [`tree-sitter`][py package] on [PyPI.org][pypi].
+* [`tree-sitter/go-tree-sitter`][go ts] — Go bindings to the core library,
+published as [`tree_sitter`][go package] on [pkg.go.dev][go.dev].
+
+## Release workflow
+
+Treesitter follows [semver](https://semver.org) (pre-1.0.0) with a dual development strategy:
+* All development happens on the **`master` branch**, i.e., any new PR (bugfix or feature) must target `master`.
+* Applicable bugfixes and minor improvements are backported to the latest **`release-0.x` branch**, where `x` is the latest minor version. This can be automated by adding the `ci:backport release-0.x` label to the PR. _No new features or breaking changes should be backported_; this is important to make sure that patch releases are drop-in replacements that are always safe to update to (i.e., downstream users should never have to check patch versions for input or output changes)!
+
+**Important:** All crates within the project (see above) are versioned in lockstep with the exception of [`tree-sitter-language`][language crate], which is versioned independently and only bumped when necessary.
+
+### Minor releases
+
+Minor releases (`0.x.0`) are made from the **`master` branch** following these steps:
+1. Create a "release `v0.x.0`" PR on `master` and apply the `ci:check release` label to check for possible issues, in particular whether the language crate needs to be bumped.
+2. If the check release workflow indicates, bump the **patch** version of the language crate. Important: This must be higher than the last published version on `crates.io`, which may be from a patch release! (I.e., the version may need to be bumped by two or more.)
+3. Once the PR is merged, tag the commit accordingly: `tag v0.x.0` and push via `git push --tags` (maintainers only). This will trigger the release and publish workflows.
+4. Edit the Github release to include release notes (auto-generated, if nothing else).
+5. Create a new `release-0.x` branch and push to Github.
+6. Bump all version numbers (except for the language crate) to `0.{x+1}.0`, e.g., via `cargo xtask bump-version 0.{x+1}.0` and committing as "release: start working on `0.{x+1}.0`". (This is important to be able to distinguish prerelease nightly builds from the last release by the `--version` output.) Note: this requires tooling for all involved languages, including `npm` and `zig`. Double-check that all versions are bumped correctly by grepping for the old version!
+
+On average, minor releases should happen 1-3 times a year.
+
+### Patch releases
+
+Patch releases (`0.x.y`) are made from the **`release-0.x` branch** following these steps:
+1. Bump all version numbers (except for the language crate) to `0.x.y` as described above.
+2. Create a "release `v0.x.y` PR on `release-0.x` and apply the `ci:check release` label.
+3. If the check release workflow indicates, bump the patch version of the language crate.
+4. Once the PR is merged, tag the commit accordingly: `tag v0.x.y` and push via `git push --tags` (maintainers only). This will trigger the release and publish workflows.
+5. Edit the Github release to include release notes (auto-generated, if nothing else).
+
+On average, minor releases should happen every six weeks.
+
+## Developing Documentation
+
+Our current static site generator for documentation is [`mdBook`][mdBook], with a little bit of custom JavaScript to handle
+the playground page. Most of the documentation is written in Markdown, including this file! You can find these files
+at [`docs/src`][docs src]. If you'd like to submit a PR to improve the documentation, navigate to the page you'd like to
+edit and hit the edit icon at the top right of the page.
+
+### Prerequisites for Local Development
+
+```admonish note
+We're assuming you have `cargo` installed, the Rust package manager.
+```
+
+To run and iterate on the docs locally, the
+[`mdbook`][mdbook cli] CLI tool is required, which can be installed with
+
+```sh
+cargo install mdbook
+```
+
+You might have noticed we have some fancy admonitions sprinkled throughout the documentation, like the note above.
+These are created using [`mdbook-admonish`][admonish], a [preprocessor][preprocessor] for `mdBook`. As such, this is also
+a requirement for developing the documentation locally. To install it, run:
+
+```sh
+cargo install mdbook-admonish
+```
+
+Once you've installed it, you can begin using admonitions in your markdown files. See the [reference][admonish reference]
+for more information.
+
+### Spinning it up
+
+Now that you've installed the prerequisites, you can run the following command to start a local server:
+
+```sh
+cd docs
+mdbook serve --open
+```
+
+`mdbook` has a live-reload feature, so any changes you make to the markdown files will be reflected in the browser after
+a short delay. Once you've made a change that you're happy with, you can submit a PR with your changes.
+
+### Improving the Playground
+
+The playground page is a little more complicated, but if you know some basic JavaScript and CSS you should be able to make
+changes. The playground code can be found in [`docs/src/assets/js/playground.js`][playground], and its corresponding css
+at [`docs/src/assets/css/playground.css`][playground css]. The editor of choice we use for the playground is [CodeMirror][codemirror],
+and the tree-sitter module is fetched from [here][js url]. This, along with the Wasm module and Wasm parsers, live in the
+[.github.io repo][gh.io repo].
+
+[admonish]: https://github.com/tommilligan/mdbook-admonish
+[admonish reference]: https://tommilligan.github.io/mdbook-admonish/reference.html
+[binaryen]: https://github.com/WebAssembly/binaryen
+[binaryen-releases]: https://github.com/WebAssembly/binaryen/releases
+[config crate]: https://crates.io/crates/tree-sitter-config
+[cli crate]: https://crates.io/crates/tree-sitter-cli
+[cli package]: https://www.npmjs.com/package/tree-sitter-cli
+[codemirror]: https://codemirror.net
+[covenant]: https://www.contributor-covenant.org/version/1/4/code-of-conduct
+[crates]: https://crates.io
+[docker]: https://www.docker.com
+[docs src]: https://github.com/tree-sitter/tree-sitter/tree/master/docs/src
+[emscripten]: https://emscripten.org
+[generate crate]: https://crates.io/crates/tree-sitter-generate
+[gh.io repo]: https://github.com/tree-sitter/tree-sitter.github.io
+[go.dev]: https://pkg.go.dev
+[go package]: https://pkg.go.dev/github.com/tree-sitter/go-tree-sitter
+[go ts]: https://github.com/tree-sitter/go-tree-sitter
+[highlight crate]: https://crates.io/crates/tree-sitter-highlight
+[js url]: https://tree-sitter.github.io/web-tree-sitter.js
+[language crate]: https://crates.io/crates/tree-sitter-language
+[lib crate]: https://crates.io/crates/tree-sitter
+[loader crate]: https://crates.io/crates/tree-sitter-loader
+[mdBook]: https://rust-lang.github.io/mdBook
+[mdbook cli]: https://rust-lang.github.io/mdBook/guide/installation.html
+[node package]: https://www.npmjs.com/package/tree-sitter
+[node ts]: https://github.com/tree-sitter/node-tree-sitter
+[npmjs]: https://npmjs.com
+[playground]: https://github.com/tree-sitter/tree-sitter/blob/master/docs/src/assets/js/playground.js
+[playground css]: https://github.com/tree-sitter/tree-sitter/blob/master/docs/src/assets/css/playground.css
+[podman]: https://podman.io
+[preprocessor]: https://rust-lang.github.io/mdBook/for_developers/preprocessors.html
+[py package]: https://pypi.org/project/tree-sitter
+[py ts]: https://github.com/tree-sitter/py-tree-sitter
+[pypi]: https://pypi.org
+[rust]: https://rustup.rs
+[tags crate]: https://crates.io/crates/tree-sitter-tags
+[ts repo]: https://github.com/tree-sitter/tree-sitter
+[wasi_sdk]: https://github.com/WebAssembly/wasi-sdk
+[wasi-sdk-releases]: https://github.com/WebAssembly/wasi-sdk/releases
+[web-ts]: https://www.npmjs.com/package/web-tree-sitter

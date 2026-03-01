@@ -11,6 +11,11 @@ extern "C" {
 #include "./parser.h"
 
 typedef struct {
+  uint32_t value;
+  bool valid;
+} ColumnData;
+
+typedef struct {
   TSLexer data;
   Length current_position;
   Length token_start_position;
@@ -27,18 +32,18 @@ typedef struct {
   uint32_t chunk_size;
   uint32_t lookahead_size;
   bool did_get_column;
+  ColumnData column_data;
 
   char debug_buffer[TREE_SITTER_SERIALIZATION_BUFFER_SIZE];
 } Lexer;
 
-void ts_lexer_init(Lexer *);
-void ts_lexer_delete(Lexer *);
-void ts_lexer_set_input(Lexer *, TSInput);
-void ts_lexer_reset(Lexer *, Length);
-void ts_lexer_start(Lexer *);
-void ts_lexer_finish(Lexer *, uint32_t *);
-void ts_lexer_advance_to_end(Lexer *);
-void ts_lexer_mark_end(Lexer *);
+void ts_lexer_init(Lexer *self);
+void ts_lexer_delete(Lexer *self);
+void ts_lexer_set_input(Lexer *self, TSInput input);
+void ts_lexer_reset(Lexer *self, Length position);
+void ts_lexer_start(Lexer *self);
+void ts_lexer_finish(Lexer *self, uint32_t *lookahead_end_byte);
+void ts_lexer_mark_end(Lexer *self);
 bool ts_lexer_set_included_ranges(Lexer *self, const TSRange *ranges, uint32_t count);
 TSRange *ts_lexer_included_ranges(const Lexer *self, uint32_t *count);
 

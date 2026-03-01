@@ -1,6 +1,6 @@
 // This grammar has an "extra" rule, `comment`, that is a non-terminal.
 
-module.exports = grammar({
+export default grammar({
   name: "extra_non_terminals",
 
   extras: $ => [
@@ -9,7 +9,12 @@ module.exports = grammar({
   ],
 
   rules: {
-    module: $ => seq('a', 'b', 'c', 'd'),
-    comment: $ => seq('(', repeat(/[a-z]+/), ')'),
+    module: _ => seq('a', 'b', 'c', 'd'),
+
+    comment: $ => choice($.paren_comment, $.line_comment),
+
+    paren_comment: _ => token(seq('(', repeat(/[a-z]+/), ')')),
+
+    line_comment: _ => token(seq('//', /.*/)),
   }
 })

@@ -17,25 +17,18 @@ use tree_sitter::{InputEdit, Language, Parser, Point};
 let mut parser = Parser::new();
 ```
 
-Add the `cc` crate to your `Cargo.toml` under `[build-dependencies]`:
-
-```toml
-[build-dependencies]
-cc="*"
-```
-
 Then, add a language as a dependency:
 
 ```toml
 [dependencies]
-tree-sitter = "0.22"
-tree-sitter-rust = "0.21"
+tree-sitter = "0.24"
+tree-sitter-rust = "0.23"
 ```
 
-To then use a language, you assign them to the parser.
+To use a language, you assign them to the parser.
 
 ```rust
-parser.set_language(&tree_sitter_rust::language()).expect("Error loading Rust grammar");
+parser.set_language(&tree_sitter_rust::LANGUAGE.into()).expect("Error loading Rust grammar");
 ```
 
 Now you can parse source code:
@@ -105,4 +98,55 @@ assert_eq!(
 );
 ```
 
+## Using Wasm Grammar Files
+
+> Requires the feature **wasm** to be enabled.
+
+First, create a parser with a Wasm store:
+
+```rust
+use tree_sitter::{wasmtime::Engine, Parser, WasmStore};
+
+let engine = Engine::default();
+let store = WasmStore::new(&engine).unwrap();
+
+let mut parser = Parser::new();
+parser.set_wasm_store(store).unwrap();
+```
+
+Then, load the language from a Wasm file:
+
+```rust
+const JAVASCRIPT_GRAMMAR: &[u8] = include_bytes!("path/to/tree-sitter-javascript.wasm");
+
+let mut store = WasmStore::new(&engine).unwrap();
+let javascript = store
+    .load_language("javascript", JAVASCRIPT_GRAMMAR)
+    .unwrap();
+
+// The language may be loaded from a different WasmStore than the one set on
+// the parser but it must use the same underlying WasmEngine.
+parser.set_language(&javascript).unwrap();
+```
+
+Now you can parse source code:
+
+```rust
+let source_code = "let x = 1;";
+let tree = parser.parse(source_code, None).unwrap();
+
+assert_eq!(
+    tree.root_node().to_sexp(),
+    "(program (lexical_declaration (variable_declarator name: (identifier) value: (number))))"
+);
+```
+
 [tree-sitter]: https://github.com/tree-sitter/tree-sitter
+
+## Features
+
+- **std** - This feature is enabled by default and allows `tree-sitter` to use the standard library.
+  - Error types implement the `std::error:Error` trait.
+  - `regex` performance optimizations are enabled.
+  - The DOT graph methods are enabled.
+- **wasm** - This feature allows `tree-sitter` to be built for Wasm targets using the `wasmtime-c-api` crate.

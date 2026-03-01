@@ -1,0 +1,27 @@
+[package]
+authors      = [ "PARSER_AUTHOR_NAME PARSER_AUTHOR_EMAIL" ]
+autoexamples = false
+categories   = [ "parser-implementations", "parsing", "text-editors" ]
+description  = "PARSER_DESCRIPTION"
+edition      = "2024"
+keywords     = [ "incremental", "parsing", "tree-sitter", "PARSER_NAME" ]
+license      = "PARSER_LICENSE"
+name         = "tree-sitter-PARSER_NAME"
+readme       = "README.md"
+repository   = "PARSER_URL"
+version      = "PARSER_VERSION"
+
+build   = "bindings/rust/build.rs"
+include = [ "bindings/rust/*", "grammar.js", "queries/*", "src/*", "tree-sitter.json", "/LICENSE" ]
+
+[lib]
+path = "bindings/rust/lib.rs"
+
+[dependencies]
+tree-sitter-language = "0.1"
+
+[build-dependencies]
+cc = "1.2"
+
+[dev-dependencies]
+tree-sitter = "RUST_BINDING_VERSION"

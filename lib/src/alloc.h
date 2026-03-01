@@ -15,10 +15,10 @@ extern "C" {
 #define TS_PUBLIC __attribute__((visibility("default")))
 #endif
 
-TS_PUBLIC extern void *(*ts_current_malloc)(size_t);
-TS_PUBLIC extern void *(*ts_current_calloc)(size_t, size_t);
-TS_PUBLIC extern void *(*ts_current_realloc)(void *, size_t);
-TS_PUBLIC extern void (*ts_current_free)(void *);
+TS_PUBLIC extern void *(*ts_current_malloc)(size_t size);
+TS_PUBLIC extern void *(*ts_current_calloc)(size_t count, size_t size);
+TS_PUBLIC extern void *(*ts_current_realloc)(void *ptr, size_t size);
+TS_PUBLIC extern void (*ts_current_free)(void *ptr);
 
 // Allow clients to override allocation functions
 #ifndef ts_malloc

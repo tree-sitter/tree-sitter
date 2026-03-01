@@ -1,4 +1,5 @@
 name: Release
+
 on:
   workflow_dispatch:
   push:
@@ -9,19 +10,22 @@ jobs:
   build:
     uses: ./.github/workflows/build.yml
     with:
-      run_test: false
+      run-test: false
 
   release:
-    name: Release
+    name: Release on GitHub
     runs-on: ubuntu-latest
     needs: build
     permissions:
+      id-token: write
+      attestations: write
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v6
 
       - name: Download build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           path: artifacts
 
@@ -31,9 +35,13 @@ jobs:
 
       - name: Prepare release artifacts
         run: |
-          mkdir -p target
-          mv artifacts/tree-sitter.wasm/* target/
+          mkdir -p target web
+          mv artifacts/tree-sitter.wasm/* web/
+
+          tar -czf target/web-tree-sitter.tar.gz -C web .
+
           rm -r artifacts/tree-sitter.wasm
+
           for platform in $(cd artifacts; ls | sed 's/^tree-sitter\.//'); do
             exe=$(ls artifacts/tree-sitter.$platform/tree-sitter*)
             gzip --stdout --name $exe > target/tree-sitter-$platform.gz
@@ -41,60 +49,81 @@ jobs:
           rm -rf artifacts
           ls -l target/
 
-      - name: Create release
-        uses: softprops/action-gh-release@v2
+      - name: Generate attestations
+        uses: actions/attest-build-provenance@v3
         with:
-          name: ${{ github.ref_name }}
-          tag_name: ${{ github.ref_name }}
-          fail_on_unmatched_files: true
-          files: |
+          subject-path: |
             target/tree-sitter-*.gz
-            target/tree-sitter.wasm
-            target/tree-sitter.js
+            target/web-tree-sitter.tar.gz
+
+      - name: Create release
+        run: |-
+          gh release create $GITHUB_REF_NAME \
+            target/tree-sitter-*.gz \
+            target/web-tree-sitter.tar.gz
+        env:
+          GH_TOKEN: ${{ github.token }}
 
   crates_io:
-    name: Publish CLI to Crates.io
+    name: Publish packages to Crates.io
     runs-on: ubuntu-latest
+    environment: crates
+    permissions:
+      id-token: write
+      contents: read
     needs: release
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v6
 
-      - name: Setup Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
+      - name: Set up Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - name: Set up registry token
+        id: auth
+        uses: rust-lang/crates-io-auth-action@v1
 
       - name: Publish crates to Crates.io
         uses: katyo/publish-crates@v2
         with:
-          registry-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          registry-token: ${{ steps.auth.outputs.token }}
 
   npm:
-    name: Publish lib to npmjs.com
+    name: Publish packages to npmjs.com
     runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      id-token: write
+      contents: read
     needs: release
     strategy:
       fail-fast: false
       matrix:
-        directory: ["cli/npm", "lib/binding_web"]
+        directory: [crates/cli/npm, lib/binding_web]
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      - name: Set up Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
 
       - name: Build wasm
         if: matrix.directory == 'lib/binding_web'
-        run: ./script/build-wasm
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 18
-          registry-url: "https://registry.npmjs.org"
-
-      - name: Publish lib to npmjs.com
-        env:
-          NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
         run: |
           cd ${{ matrix.directory }}
-          npm publish
+          npm ci
+          npm run build
+          npm run build:debug
+          CJS=true npm run build
+          CJS=true npm run build:debug
+          npm run build:dts
+
+      - name: Publish to npmjs.com
+        working-directory: ${{ matrix.directory }}
+        run: npm publish

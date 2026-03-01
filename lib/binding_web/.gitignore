@@ -1,6 +1,10 @@
-/tree-sitter.js
-/tree-sitter.wasm
-package-lock.json
+debug/
+dist/
+web-tree-sitter*
+lib/*.c
+lib/*.h
+!lib/tree-sitter.c
+!lib/web-tree-sitter.d.ts
 node_modules
 *.tgz
 LICENSE

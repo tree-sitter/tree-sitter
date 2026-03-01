@@ -1,9 +1,21 @@
 name: CI
+
 on:
   pull_request:
+    paths-ignore:
+      - docs/**
+      - "**/README.md"
+      - CONTRIBUTING.md
+      - LICENSE
+      - cli/src/templates
   push:
-    branches:
-      - 'master'
+    branches: [master]
+    paths-ignore:
+      - docs/**
+      - "**/README.md"
+      - CONTRIBUTING.md
+      - LICENSE
+      - cli/src/templates
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -13,15 +25,25 @@ jobs:
   checks:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - run: rustup toolchain install stable --profile minimal
-    - run: rustup toolchain install nightly --profile minimal
-    - run: rustup component add --toolchain nightly rustfmt
-    - uses: Swatinem/rust-cache@v2
-    - run: make lint
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up stable Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          components: clippy, rustfmt
+
+      - name: Lint files
+        run: |
+          make lint
+          make lint-web
 
   sanitize:
     uses: ./.github/workflows/sanitize.yml
 
   build:
     uses: ./.github/workflows/build.yml
+
+  check-wasm-stdlib:
+    uses: ./.github/workflows/wasm_stdlib.yml

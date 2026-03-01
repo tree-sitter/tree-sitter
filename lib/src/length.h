@@ -31,7 +31,7 @@ static inline Length length_add(Length len1, Length len2) {
 
 static inline Length length_sub(Length len1, Length len2) {
   Length result;
-  result.bytes = len1.bytes - len2.bytes;
+  result.bytes = (len1.bytes >= len2.bytes) ? len1.bytes - len2.bytes : 0;
   result.extent = point_sub(len1.extent, len2.extent);
   return result;
 }

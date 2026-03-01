@@ -1,4 +1,4 @@
-module.exports = grammar({
+export default grammar({
   name: 'readme_grammar',
 
   // Things that can appear anywhere in the language, like comments
@@ -31,6 +31,6 @@ module.exports = grammar({
 
     comment: _ => /#.*/,
 
-    variable: _ => /[a-zA-Z]\w*/,
+    variable: _ => new RustRegex('(?i:[a-z])\\w*'),
   },
 });

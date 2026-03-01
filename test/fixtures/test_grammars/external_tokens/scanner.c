@@ -30,7 +30,7 @@ void tree_sitter_external_tokens_external_scanner_destroy(void *payload) {
 unsigned tree_sitter_external_tokens_external_scanner_serialize(
   void *payload,
   char *buffer
-) { return true; }
+) { return 0; }
 
 void tree_sitter_external_tokens_external_scanner_deserialize(
   void *payload,
@@ -77,6 +77,7 @@ bool tree_sitter_external_tokens_external_scanner_scan(
 
     for (;;) {
       if (scanner->depth == 0) {
+        lexer->log(lexer, "Found a percent string");
         lexer->result_symbol = percent_string;
         return true;
       }

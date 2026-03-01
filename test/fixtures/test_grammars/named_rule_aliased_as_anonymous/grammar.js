@@ -1,4 +1,4 @@
-module.exports = grammar({
+export default grammar({
   name: 'named_rule_aliased_as_anonymous',
 
   rules: {

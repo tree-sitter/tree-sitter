@@ -1,0 +1,29 @@
+name: Close as spam
+
+on:
+  issues:
+    types: [labeled]
+  pull_request_target:
+    types: [labeled]
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  spam:
+    runs-on: ubuntu-latest
+    if: github.event.label.name == 'spam'
+    steps:
+      - name: Checkout script
+        uses: actions/checkout@v6
+        with:
+          sparse-checkout: .github/scripts/close_spam.js
+          sparse-checkout-cone-mode: false
+
+      - name: Run script
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const script = require('./.github/scripts/close_spam.js')
+            await script({github, context})

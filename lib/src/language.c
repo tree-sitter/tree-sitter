@@ -24,8 +24,41 @@ uint32_t ts_language_state_count(const TSLanguage *self) {
   return self->state_count;
 }
 
-uint32_t ts_language_version(const TSLanguage *self) {
-  return self->version;
+const TSSymbol *ts_language_supertypes(const TSLanguage *self, uint32_t *length) {
+  if (self->abi_version >= LANGUAGE_VERSION_WITH_RESERVED_WORDS) {
+    *length = self->supertype_count;
+    return self->supertype_symbols;
+  } else {
+    *length = 0;
+    return NULL;
+  }
+}
+
+const TSSymbol *ts_language_subtypes(
+  const TSLanguage *self,
+  TSSymbol supertype,
+  uint32_t *length
+) {
+  if (self->abi_version < LANGUAGE_VERSION_WITH_RESERVED_WORDS || !ts_language_symbol_metadata(self, supertype).supertype) {
+    *length = 0;
+    return NULL;
+  }
+
+  TSMapSlice slice = self->supertype_map_slices[supertype];
+  *length = slice.length;
+  return &self->supertype_map_entries[slice.index];
+}
+
+uint32_t ts_language_abi_version(const TSLanguage *self) {
+  return self->abi_version;
+}
+
+const TSLanguageMetadata *ts_language_metadata(const TSLanguage *self) {
+    return self->abi_version >= LANGUAGE_VERSION_WITH_RESERVED_WORDS ? &self->metadata : NULL;
+}
+
+const char *ts_language_name(const TSLanguage *self) {
+  return self->abi_version >= LANGUAGE_VERSION_WITH_RESERVED_WORDS ? self->name : NULL;
 }
 
 uint32_t ts_language_field_count(const TSLanguage *self) {
@@ -43,13 +76,46 @@ void ts_language_table_entry(
     result->is_reusable = false;
     result->actions = NULL;
   } else {
-    assert(symbol < self->token_count);
+    ts_assert(symbol < self->token_count);
     uint32_t action_index = ts_language_lookup(self, state, symbol);
     const TSParseActionEntry *entry = &self->parse_actions[action_index];
     result->action_count = entry->entry.count;
     result->is_reusable = entry->entry.reusable;
     result->actions = (const TSParseAction *)(entry + 1);
   }
+}
+
+TSLexerMode ts_language_lex_mode_for_state(
+   const TSLanguage *self,
+   TSStateId state
+) {
+  if (self->abi_version < 15) {
+    TSLexMode mode = ((const TSLexMode *)self->lex_modes)[state];
+    return (TSLexerMode) {
+      .lex_state = mode.lex_state,
+      .external_lex_state = mode.external_lex_state,
+      .reserved_word_set_id = 0,
+    };
+  } else {
+    return self->lex_modes[state];
+  }
+}
+
+bool ts_language_is_reserved_word(
+  const TSLanguage *self,
+  TSStateId state,
+  TSSymbol symbol
+) {
+  TSLexerMode lex_mode = ts_language_lex_mode_for_state(self, state);
+  if (lex_mode.reserved_word_set_id > 0) {
+    unsigned start = lex_mode.reserved_word_set_id * self->max_reserved_word_set_size;
+    unsigned end = start + self->max_reserved_word_set_size;
+    for (unsigned i = start; i < end; i++) {
+      if (self->reserved_words[i] == symbol) return true;
+      if (self->reserved_words[i] == 0) break;
+    }
+  }
+  return false;
 }
 
 TSSymbolMetadata ts_language_symbol_metadata(
@@ -116,7 +182,7 @@ TSSymbol ts_language_symbol_for_name(
   uint32_t length,
   bool is_named
 ) {
-  if (!strncmp(string, "ERROR", length)) return ts_builtin_sym_error;
+  if (is_named && !strncmp(string, "ERROR", length)) return ts_builtin_sym_error;
   uint16_t count = (uint16_t)ts_language_symbol_count(self);
   for (TSSymbol i = 0; i < count; i++) {
     TSSymbolMetadata metadata = ts_language_symbol_metadata(self, i);
@@ -138,6 +204,8 @@ TSSymbolType ts_language_symbol_type(
     return TSSymbolTypeRegular;
   } else if (metadata.visible) {
     return TSSymbolTypeAnonymous;
+  } else if (metadata.supertype) {
+    return TSSymbolTypeSupertype;
   } else {
     return TSSymbolTypeAuxiliary;
   }

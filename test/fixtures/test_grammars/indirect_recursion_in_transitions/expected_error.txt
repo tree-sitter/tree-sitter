@@ -1,0 +1,1 @@
+Grammar contains an indirectly recursive rule: type_expression -> _expression -> identifier_expression -> type_expression

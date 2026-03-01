@@ -1,0 +1,1 @@
+Terminal rule 'A' cannot be used as a supertype

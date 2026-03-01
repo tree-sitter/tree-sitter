@@ -1,16 +1,17 @@
 [package]
-name = "tree-sitter"
-version.workspace = true
-description = "Rust bindings to the Tree-sitter parsing library"
-authors.workspace = true
-edition.workspace = true
-rust-version = "1.65"
-readme = "binding_rust/README.md"
-homepage.workspace = true
+name                 = "tree-sitter"
+version.workspace    = true
+description          = "Rust bindings to the Tree-sitter parsing library"
+authors.workspace    = true
+edition.workspace    = true
+rust-version         = "1.90"
+readme               = "binding_rust/README.md"
+homepage.workspace   = true
 repository.workspace = true
-license.workspace = true
-keywords.workspace = true
-categories = ["api-bindings", "parsing", "text-editors"]
+documentation        = "https://docs.rs/tree-sitter"
+license.workspace    = true
+keywords.workspace   = true
+categories           = [ "api-bindings", "external-ffi-bindings", "parsing", "text-editors" ]
 
 build = "binding_rust/build.rs"
 links = "tree-sitter"
@@ -20,27 +21,43 @@ include = [
   "/Cargo.toml",
   "/src/*.h",
   "/src/*.c",
+  "/src/portable/*",
   "/src/unicode/*",
   "/src/wasm/*",
   "/include/tree_sitter/api.h",
+  "/LICENSE",
 ]
 
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = [ "--cfg", "docsrs" ]
+targets      = [ "x86_64-unknown-linux-gnu", "x86_64-pc-windows-gnu" ]
+
+[lints]
+workspace = true
+
 [features]
-wasm = ["wasmtime-c-api"]
+default = [ "std" ]
+std     = [ "regex/std", "regex/perf", "regex-syntax/unicode" ]
+wasm    = [ "std", "wasmtime-c-api" ]
 
 [dependencies]
-regex.workspace = true
-tree-sitter-language = { version = "0.1", path = "language" }
+regex                          = { default-features = false, features = [ "unicode" ], version = "1.12.3" }
+regex-syntax                   = { default-features = false, version = "0.8.9" }
+streaming-iterator             = "0.1.9"
+tree-sitter-language.workspace = true
 
 [dependencies.wasmtime-c-api]
-version = "21.0.1"
-optional = true
-package = "wasmtime-c-api-impl"
 default-features = false
+features         = [ "cranelift", "gc-drc" ]
+optional         = true
+package          = "wasmtime-c-api-impl"
+version          = "36.0.6"
 
 [build-dependencies]
-bindgen = { version = "0.69.4", optional = true }
-cc.workspace = true
+bindgen              = { optional = true, version = "0.72.1" }
+cc.workspace         = true
+serde_json.workspace = true
 
 [lib]
 path = "binding_rust/lib.rs"

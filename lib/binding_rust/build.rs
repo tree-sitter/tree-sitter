@@ -2,6 +2,7 @@ use std::{env, fs, path::PathBuf};
 
 fn main() {
     let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
+    let target = env::var("TARGET").unwrap();
 
     #[cfg(feature = "bindgen")]
     generate_bindings(&out_dir);
@@ -26,6 +27,11 @@ fn main() {
     let include_path = manifest_path.join("include");
     let src_path = manifest_path.join("src");
     let wasm_path = src_path.join("wasm");
+
+    if target.starts_with("wasm32-unknown") {
+        configure_wasm_build(&mut config);
+    }
+
     for entry in fs::read_dir(&src_path).unwrap() {
         let entry = entry.unwrap();
         let path = src_path.join(entry.file_name());
@@ -37,17 +43,48 @@ fn main() {
         .flag_if_supported("-fvisibility=hidden")
         .flag_if_supported("-Wshadow")
         .flag_if_supported("-Wno-unused-parameter")
+        .flag_if_supported("-Wno-incompatible-pointer-types")
         .include(&src_path)
         .include(&wasm_path)
         .include(&include_path)
+        .define("_POSIX_C_SOURCE", "200112L")
+        .define("_DEFAULT_SOURCE", None)
+        .define("_BSD_SOURCE", None)
+        .define("_DARWIN_C_SOURCE", None)
+        .warnings(false)
         .file(src_path.join("lib.c"))
         .compile("tree-sitter");
 
     println!("cargo:include={}", include_path.display());
 }
 
+fn configure_wasm_build(config: &mut cc::Build) {
+    let Ok(wasm_headers) = env::var("DEP_TREE_SITTER_LANGUAGE_WASM_HEADERS") else {
+        panic!(
+            "Environment variable DEP_TREE_SITTER_LANGUAGE_WASM_HEADERS must be set by the language crate"
+        );
+    };
+    let Ok(wasm_src) = env::var("DEP_TREE_SITTER_LANGUAGE_WASM_SRC").map(PathBuf::from) else {
+        panic!(
+            "Environment variable DEP_TREE_SITTER_LANGUAGE_WASM_SRC must be set by the language crate"
+        );
+    };
+
+    config.include(&wasm_headers);
+    config.files([
+        wasm_src.join("stdio.c"),
+        wasm_src.join("stdlib.c"),
+        wasm_src.join("string.c"),
+        wasm_src.join("wctype.c"),
+    ]);
+}
+
 #[cfg(feature = "bindgen")]
-fn generate_bindings(out_dir: &Path) {
+fn generate_bindings(out_dir: &std::path::Path) {
+    use std::str::FromStr;
+
+    use bindgen::RustTarget;
+
     const HEADER_PATH: &str = "include/tree_sitter/api.h";
 
     println!("cargo:rerun-if-changed={HEADER_PATH}");
@@ -66,6 +103,8 @@ fn generate_bindings(out_dir: &Path) {
         "TSQueryPredicateStep",
     ];
 
+    let rust_version = env!("CARGO_PKG_RUST_VERSION");
+
     let bindings = bindgen::Builder::default()
         .header(HEADER_PATH)
         .layout_tests(false)
@@ -74,11 +113,17 @@ fn generate_bindings(out_dir: &Path) {
         .allowlist_var("^TREE_SITTER.*")
         .no_copy(no_copy.join("|"))
         .prepend_enum_name(false)
+        .use_core()
+        .clang_arg("-D TREE_SITTER_FEATURE_WASM")
+        .rust_target(RustTarget::from_str(rust_version).unwrap())
         .generate()
         .expect("Failed to generate bindings");
 
     let bindings_rs = out_dir.join("bindings.rs");
-    bindings
-        .write_to_file(&bindings_rs)
-        .unwrap_or_else(|_| panic!("Failed to write bindings into path: {bindings_rs:?}"));
+    bindings.write_to_file(&bindings_rs).unwrap_or_else(|_| {
+        panic!(
+            "Failed to write bindings into path: {}",
+            bindings_rs.display()
+        )
+    });
 }

@@ -10,8 +10,8 @@ extern "C" {
 
 #define ts_builtin_sym_error_repeat (ts_builtin_sym_error - 1)
 
+#define LANGUAGE_VERSION_WITH_RESERVED_WORDS 15
 #define LANGUAGE_VERSION_WITH_PRIMARY_STATES 14
-#define LANGUAGE_VERSION_USABLE_VIA_WASM 13
 
 typedef struct {
   const TSParseAction *actions;
@@ -35,17 +35,11 @@ typedef struct {
   uint16_t action_count;
 } LookaheadIterator;
 
-void ts_language_table_entry(const TSLanguage *, TSStateId, TSSymbol, TableEntry *);
-
-TSSymbolMetadata ts_language_symbol_metadata(const TSLanguage *, TSSymbol);
-
-TSSymbol ts_language_public_symbol(const TSLanguage *, TSSymbol);
-
-TSStateId ts_language_next_state(const TSLanguage *self, TSStateId state, TSSymbol symbol);
-
-static inline bool ts_language_is_symbol_external(const TSLanguage *self, TSSymbol symbol) {
-  return 0 < symbol && symbol < self->external_token_count + 1;
-}
+void ts_language_table_entry(const TSLanguage *self, TSStateId state, TSSymbol symbol, TableEntry *result);
+TSLexerMode ts_language_lex_mode_for_state(const TSLanguage *self, TSStateId state);
+bool ts_language_is_reserved_word(const TSLanguage *self, TSStateId state, TSSymbol symbol);
+TSSymbolMetadata ts_language_symbol_metadata(const TSLanguage *self, TSSymbol symbol);
+TSSymbol ts_language_public_symbol(const TSLanguage *self, TSSymbol symbol);
 
 static inline const TSParseAction *ts_language_actions(
   const TSLanguage *self,
@@ -189,7 +183,7 @@ static inline bool ts_language_state_is_primary(
   const TSLanguage *self,
   TSStateId state
 ) {
-  if (self->version >= LANGUAGE_VERSION_WITH_PRIMARY_STATES) {
+  if (self->abi_version >= LANGUAGE_VERSION_WITH_PRIMARY_STATES) {
     return state == self->primary_state_ids[state];
   } else {
     return true;
@@ -238,7 +232,7 @@ static inline void ts_language_field_map(
     return;
   }
 
-  TSFieldMapSlice slice = self->field_map_slices[production_id];
+  TSMapSlice slice = self->field_map_slices[production_id];
   *start = &self->field_map_entries[slice.index];
   *end = &self->field_map_entries[slice.index] + slice.length;
 }

@@ -1,4 +1,4 @@
-module.exports = grammar({
+export default grammar({
   name: 'lexical_conflicts_due_to_state_merging',
 
   rules: {
