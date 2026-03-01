@@ -7,11 +7,11 @@ use super::grammars::VariableType;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]
 pub enum SymbolType {
-    External,
-    End,
-    EndOfNonTerminalExtra,
-    Terminal,
-    NonTerminal,
+    External = 0,
+    End = 1,
+    EndOfNonTerminalExtra = 2,
+    Terminal = 3,
+    NonTerminal = 4,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]

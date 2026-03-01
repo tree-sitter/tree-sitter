@@ -80,7 +80,9 @@ impl<'a> TokenConflictMap<'a> {
 
     #[inline]
     pub fn does_conflict(&self, i: usize, j: usize) -> bool {
-        let entry = &self.status_matrix[matrix_index(self.n, i, j)];
+        debug_assert!(i < self.n && j < self.n, "token indices out of bounds");
+        // Safety: i < n and j < n, so n*i+j < n*n == status_matrix.len().
+        let entry = unsafe { self.status_matrix.get_unchecked(matrix_index(self.n, i, j)) };
         entry.does_match_valid_continuation
             || entry.does_match_separators
             || entry.matches_same_string
