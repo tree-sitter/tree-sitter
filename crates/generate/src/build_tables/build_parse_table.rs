@@ -479,11 +479,22 @@ impl<'a> ParseTableBuilder<'a> {
                 let action = if item.is_augmented() {
                     ParseAction::Accept
                 } else {
+                    // These values are narrowed to u16 to reduce the size of
+                    // ParseAction. No real-world grammar approaches these limits.
+                    debug_assert!(
+                        u16::try_from(item.step_index).is_ok(),
+                        "production step count exceeds u16::MAX"
+                    );
+                    let production_id = self.get_production_id(item);
+                    debug_assert!(
+                        u16::try_from(production_id).is_ok(),
+                        "production info id exceeds u16::MAX"
+                    );
                     ParseAction::Reduce {
                         symbol,
-                        child_count: item.step_index as usize,
+                        child_count: item.step_index as u16,
                         dynamic_precedence: item.production.dynamic_precedence,
-                        production_id: self.get_production_id(item),
+                        production_id: production_id as u16,
                     }
                 };
 

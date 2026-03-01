@@ -24,9 +24,9 @@ pub enum ParseAction {
     Recover,
     Reduce {
         symbol: Symbol,
-        child_count: usize,
+        child_count: u16,
         dynamic_precedence: i32,
-        production_id: ProductionInfoId,
+        production_id: u16,
     },
 }
 
