@@ -3112,6 +3112,39 @@ fn test_query_alternation_with_inner_quantifier() {
 }
 
 #[test]
+fn test_query_alternation_with_outer_quantifier() {
+    let language = get_language("c");
+    let source_code = "#include <foo>
+#include <bar>
+#include <baz>
+
+// comment";
+    let matches = &[(
+        0,
+        vec![
+            ("capture", "#include <foo>\n"),
+            ("capture", "#include <bar>\n"),
+            ("capture", "#include <baz>\n"),
+            ("capture", "// comment"),
+        ],
+    )];
+
+    let query = "[
+        (preproc_include)
+        (comment)
+    ]+ @capture";
+    let query = Query::new(&language, query).unwrap();
+    assert_query_matches(&language, &query, source_code, matches);
+
+    let query = "([
+        (preproc_include)
+        (comment)
+    ] (_)?)+ @capture";
+    let query = Query::new(&language, query).unwrap();
+    assert_query_matches(&language, &query, source_code, matches);
+}
+
+#[test]
 fn test_query_matches_with_alternations_and_predicates() {
     allocations::record(|| {
         let language = get_language("java");
