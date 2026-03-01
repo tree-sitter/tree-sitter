@@ -56,15 +56,15 @@ typedef struct {
  * Steps have some additional fields in order to handle the `.` (or "anchor") operator,
  * which forbids additional child nodes:
  * - `is_immediate` - Indicates that the node matching this step cannot be preceded
- *   by other sibling nodes that weren't specified in the pattern.
+ *    by other sibling nodes that weren't specified in the pattern.
  * - `is_last_child` - Indicates that the node matching this step cannot have any
- *   subsequent named siblings.
+ *    subsequent named siblings.
  *
  * For simple patterns, steps are matched in sequential order. But in order to
  * handle alternative/repeated/optional sub-patterns, query steps are not always
  * structured as a linear sequence; they sometimes need to split and merge. This
  * is done using the following fields:
- *  - `alternative_index` - The index of a different query step that serves as
+ * - `alternative_index` - The index of a different query step that serves as
  *    an alternative to this step. A `NONE` value represents no alternative.
  *    When a query state reaches a step with an alternative index, the state
  *    is duplicated, with one copy remaining at the original step, and one copy
@@ -75,21 +75,19 @@ typedef struct {
  * - `is_pass_through` - Indicates that state has no matching logic of its own,
  *    and exists only to split a state. One copy of the state advances immediately
  *    to the next step, and one moves to the alternative step.
- * - `alternative_is_immediate` - Indicates that this step's alternative step
- *    should be treated as if `is_immediate` is true.
  *
  * Steps also store some derived state that summarizes how they relate to other
  * steps within the same pattern. This is used to optimize the matching process:
- *  - `contains_captures` - Indicates that this step or one of its child steps
- *     has a non-empty `capture_ids` list.
- *  - `parent_pattern_guaranteed` - Indicates that if this step is reached, then
- *     it and all of its subsequent sibling steps within the same parent pattern
- *     are guaranteed to match.
- *  - `root_pattern_guaranteed` - Similar to `parent_pattern_guaranteed`, but
- *     for the entire top-level pattern. When iterating through a query's
- *     captures using `ts_query_cursor_next_capture`, this field is used to
- *     detect that a capture can safely be returned from a match that has not
- *     even completed yet.
+ * - `contains_captures` - Indicates that this step or one of its child steps
+ *    has a non-empty `capture_ids` list.
+ * - `parent_pattern_guaranteed` - Indicates that if this step is reached, then
+ *    it and all of its subsequent sibling steps within the same parent pattern
+ *    are guaranteed to match.
+ * - `root_pattern_guaranteed` - Similar to `parent_pattern_guaranteed`, but
+ *    for the entire top-level pattern. When iterating through a query's
+ *    captures using `ts_query_cursor_next_capture`, this field is used to
+ *    detect that a capture can safely be returned from a match that has not
+ *    even completed yet.
  */
 typedef struct {
   TSSymbol symbol;
@@ -104,7 +102,6 @@ typedef struct {
   bool is_last_child: 1;
   bool is_pass_through: 1;
   bool is_dead_end: 1;
-  bool alternative_is_immediate: 1;
   bool contains_captures: 1;
   bool root_pattern_guaranteed: 1;
   bool parent_pattern_guaranteed: 1;
@@ -816,17 +813,8 @@ static QueryStep query_step__new(
   QueryStep step = {
     .symbol = symbol,
     .depth = depth,
-    .field = 0,
     .alternative_index = NONE,
-    .negated_field_list_id = 0,
-    .contains_captures = false,
-    .is_last_child = false,
-    .is_named = false,
-    .is_pass_through = false,
-    .is_dead_end = false,
-    .root_pattern_guaranteed = false,
     .is_immediate = is_immediate,
-    .alternative_is_immediate = false,
   };
   for (unsigned i = 0; i < MAX_STEP_CAPTURE_COUNT; i++) {
     step.capture_ids[i] = NONE;
@@ -2800,14 +2788,12 @@ static TSQueryError ts_query__parse_pattern(
       repeat_step = query_step__new(WILDCARD_SYMBOL, depth, false);
       repeat_step.alternative_index = starting_step_index;
       repeat_step.is_pass_through = true;
-      repeat_step.alternative_is_immediate = true;
       array_push(&self->steps, repeat_step);
       break;
     case TSQuantifierZeroOrMore:
       repeat_step = query_step__new(WILDCARD_SYMBOL, depth, false);
       repeat_step.alternative_index = starting_step_index;
       repeat_step.is_pass_through = true;
-      repeat_step.alternative_is_immediate = true;
       array_push(&self->steps, repeat_step);
 
       // Stop when `step->alternative_index` is `NONE` or it points to
@@ -4177,17 +4163,17 @@ static inline bool ts_query_cursor__advance(
               QueryState *copy = ts_query_cursor__copy_state(self, &child_state);
               if (copy) {
                 LOG(
-                  "  split state for branch. pattern:%u, from_step:%u, to_step:%u, immediate:%d, capture_count: %u\n",
+                  "  split state for branch. pattern:%u, from_step:%u, to_step:%u, pass_through:%d, capture_count:%u\n",
                   copy->pattern_index,
                   copy->step_index,
                   next_step->alternative_index,
-                  next_step->alternative_is_immediate,
+                  next_step->is_pass_through,
                   capture_list_pool_get(&self->capture_list_pool, copy->capture_list_id)->size
                 );
                 end_index++;
                 copy_count++;
                 copy->step_index = child_step->alternative_index;
-                if (child_step->alternative_is_immediate) {
+                if (child_step->is_pass_through) {
                   copy->seeking_immediate_match = true;
                 }
               }
