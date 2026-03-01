@@ -92,7 +92,7 @@ pub fn build_tables(
         &token_conflict_map,
     );
     populate_external_lex_states(&mut parse_table, syntax_grammar);
-    mark_fragile_tokens(&mut parse_table, lexical_grammar, &token_conflict_map);
+    mark_fragile_tokens(&mut parse_table, &token_conflict_map);
 
     if let Some(report_symbol_name) = report_symbol_name {
         report_state_info(
@@ -426,25 +426,19 @@ fn identify_keywords(
         .collect()
 }
 
-fn mark_fragile_tokens(
-    parse_table: &mut ParseTable,
-    lexical_grammar: &LexicalGrammar,
-    token_conflict_map: &TokenConflictMap,
-) {
-    let n = lexical_grammar.variables.len();
-    let mut valid_tokens_mask = Vec::with_capacity(n);
+fn mark_fragile_tokens(parse_table: &mut ParseTable, token_conflict_map: &TokenConflictMap) {
+    let mut valid_terminal_indices = Vec::new();
     for state in &mut parse_table.states {
-        valid_tokens_mask.clear();
-        valid_tokens_mask.resize(n, false);
+        valid_terminal_indices.clear();
         for token in state.terminal_entries.keys() {
             if token.is_terminal() {
-                valid_tokens_mask[token.index] = true;
+                valid_terminal_indices.push(token.index);
             }
         }
         for (token, entry) in &mut state.terminal_entries {
             if token.is_terminal() {
-                for (i, is_valid) in valid_tokens_mask.iter().enumerate() {
-                    if *is_valid && token_conflict_map.does_overlap(i, token.index) {
+                for &i in &valid_terminal_indices {
+                    if token_conflict_map.does_overlap(i, token.index) {
                         entry.reusable = false;
                         break;
                     }
