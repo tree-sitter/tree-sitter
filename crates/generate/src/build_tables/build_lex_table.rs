@@ -1,7 +1,9 @@
 use std::{
-    collections::{HashMap, VecDeque, hash_map::Entry},
+    collections::{VecDeque, hash_map::Entry},
     mem,
 };
+
+use rustc_hash::FxHashMap;
 
 use log::debug;
 
@@ -139,7 +141,7 @@ struct LexTableBuilder<'a> {
     cursor: NfaCursor<'a>,
     table: LexTable,
     state_queue: VecDeque<QueueEntry>,
-    state_ids_by_nfa_state_set: HashMap<(Vec<u32>, bool), usize>,
+    state_ids_by_nfa_state_set: FxHashMap<(Vec<u32>, bool), usize>,
 }
 
 impl<'a> LexTableBuilder<'a> {
@@ -149,7 +151,7 @@ impl<'a> LexTableBuilder<'a> {
             cursor: NfaCursor::new(&lexical_grammar.nfa, vec![]),
             table: LexTable::default(),
             state_queue: VecDeque::new(),
-            state_ids_by_nfa_state_set: HashMap::new(),
+            state_ids_by_nfa_state_set: FxHashMap::default(),
         }
     }
 
@@ -345,7 +347,7 @@ fn merge_token_set(
 fn minimize_lex_table(table: &mut LexTable, parse_table: &mut ParseTable) {
     // Initially group the states by their accept action and their
     // valid lookahead characters.
-    let mut state_ids_by_signature = HashMap::new();
+    let mut state_ids_by_signature = FxHashMap::default();
     for (i, state) in table.states.iter().enumerate() {
         let signature = (
             i == 0,

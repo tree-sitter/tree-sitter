@@ -6,12 +6,13 @@ mod item_set_builder;
 mod minimize_parse_table;
 mod token_conflicts;
 
-use std::collections::{BTreeSet, HashMap};
+use std::collections::BTreeSet;
 
 pub use build_lex_table::LARGE_CHARACTER_RANGE_COUNT;
 use build_parse_table::BuildTableResult;
 pub use build_parse_table::ParseTableBuilderError;
 use log::{debug, info};
+use rustc_hash::FxHashMap;
 
 use self::{
     build_lex_table::build_lex_table,
@@ -284,7 +285,7 @@ fn populate_used_symbols(
 }
 
 fn populate_external_lex_states(parse_table: &mut ParseTable, syntax_grammar: &SyntaxGrammar) {
-    let mut external_tokens_by_corresponding_internal_token = HashMap::new();
+    let mut external_tokens_by_corresponding_internal_token = FxHashMap::default();
     for (i, external_token) in syntax_grammar.external_tokens.iter().enumerate() {
         if let Some(symbol) = external_token.corresponding_internal_token {
             external_tokens_by_corresponding_internal_token.insert(symbol.index, i);

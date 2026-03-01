@@ -1,5 +1,4 @@
 use std::{
-    collections::HashMap,
     path::{Path, PathBuf},
     sync::{LazyLock, Mutex},
 };
@@ -9,6 +8,7 @@ use rquickjs::{
     Context, Ctx, Function, Module, Object, Runtime, Type, Value,
     loader::{FileResolver, ScriptLoader},
 };
+use rustc_hash::FxHashMap;
 
 use super::{IoError, JSError, JSResult};
 
@@ -49,8 +49,8 @@ fn format_js_exception(v: Value) -> JSError {
     }
 }
 
-static FILE_CACHE: LazyLock<Mutex<HashMap<String, String>>> =
-    LazyLock::new(|| Mutex::new(HashMap::new()));
+static FILE_CACHE: LazyLock<Mutex<FxHashMap<String, String>>> =
+    LazyLock::new(|| Mutex::new(FxHashMap::default()));
 
 #[rquickjs::function]
 fn load_file(path: String) -> rquickjs::Result<String> {
