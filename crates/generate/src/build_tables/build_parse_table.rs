@@ -481,9 +481,9 @@ impl<'a> ParseTableBuilder<'a> {
                 } else {
                     ParseAction::Reduce {
                         symbol,
-                        child_count: item.step_index as usize,
+                        child_count: item.step_index as u16,
                         dynamic_precedence: item.production.dynamic_precedence,
-                        production_id: self.get_production_id(item),
+                        production_id: self.get_production_id(item) as u16,
                     }
                 };
 
