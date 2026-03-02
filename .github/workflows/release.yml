@@ -25,7 +25,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Download build artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           path: artifacts
 
@@ -50,7 +50,7 @@ jobs:
           ls -l target/
 
       - name: Generate attestations
-        uses: actions/attest-build-provenance@v3
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: |
             target/tree-sitter-*.gz
