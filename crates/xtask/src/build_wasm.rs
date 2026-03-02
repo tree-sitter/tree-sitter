@@ -185,7 +185,11 @@ pub fn run_wasm(args: &BuildWasm) -> Result<()> {
     .trim_end_matches(',')
     .to_string();
 
-    let exported_functions = format!("EXPORTED_FUNCTIONS={exported_functions}");
+    // __assert_fail is provided by Emscripten's libc but not included in
+    // stdlib-symbols.txt (the native path handles it as a builtin in wasm_store.c).
+    // Side modules (language grammars) may import it when their external scanners
+    // use assert(), so it must be exported from the main module.
+    let exported_functions = format!("EXPORTED_FUNCTIONS={exported_functions},___assert_fail");
     let exported_runtime_methods = format!(
         "EXPORTED_RUNTIME_METHODS={}",
         EXPORTED_RUNTIME_METHODS.join(",")

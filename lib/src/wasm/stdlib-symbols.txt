@@ -1,5 +1,6 @@
 "calloc",
 "free",
+"isalpha",
 "iswalnum",
 "iswalpha",
 "iswblank",
