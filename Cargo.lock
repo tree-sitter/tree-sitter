@@ -1934,7 +1934,6 @@ dependencies = [
  "bindgen",
  "cc",
  "regex",
- "regex-syntax",
  "serde_json",
  "streaming-iterator",
  "tree-sitter-language",
@@ -2042,7 +2041,6 @@ version = "0.27.0"
 dependencies = [
  "cc",
  "etcetera",
- "indoc",
  "libloading 0.9.0",
  "log",
  "once_cell",
