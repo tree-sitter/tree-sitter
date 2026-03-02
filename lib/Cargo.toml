@@ -38,12 +38,11 @@ workspace = true
 
 [features]
 default = [ "std" ]
-std     = [ "regex/std", "regex/perf", "regex-syntax/unicode" ]
+std     = [ "regex/std", "regex/perf" ]
 wasm    = [ "std", "wasmtime-c-api" ]
 
 [dependencies]
 regex                          = { default-features = false, features = [ "unicode" ], version = "1.12.3" }
-regex-syntax                   = { default-features = false, version = "0.8.9" }
 streaming-iterator             = "0.1.9"
 tree-sitter-language.workspace = true
 
