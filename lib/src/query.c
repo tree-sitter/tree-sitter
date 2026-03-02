@@ -72,6 +72,16 @@ typedef struct {
  *    step, so this splitting is an iterative process.
  * - `is_dead_end` - Indicates that this state cannot be passed directly, and
  *    exists only in order to redirect to an alternative index, with no splitting.
+ *    When the alternative_index points *backward* (to a lower step index), the
+ *    dead-end represents a recursive back-reference written as `(^)` in the query
+ *    language. This causes the step machine to loop back to the start of an
+ *    enclosing `[...]` alternation, enabling descent to arbitrary depth. Multiple
+ *    carets `(^^)` refer to successively outer alternations (De Bruijn indices).
+ *    Recursive references must appear in tail position — they are the last step
+ *    in their branch, with no subsequent siblings or children. On the execution
+ *    side, a backward jump adjusts `start_depth` by the difference between the
+ *    dead-end step's depth and the target step's depth, so that compile-time
+ *    depths remain aligned with the runtime tree position as recursion deepens.
  * - `is_pass_through` - Indicates that state has no matching logic of its own,
  *    and exists only to split a state. One copy of the state advances immediately
  *    to the next step, and one moves to the alternative step.
@@ -110,6 +120,16 @@ typedef struct {
   bool parent_pattern_guaranteed: 1;
   bool is_missing: 1;
 } QueryStep;
+
+/*
+ * EnclosingAlternation - A singly-linked list tracking the start step indices
+ * of enclosing [...] alternations during query parsing. Used to resolve (^)
+ * recursive back-references to the correct alternation level.
+ */
+typedef struct EnclosingAlternation {
+  uint32_t start_step_index;
+  const struct EnclosingAlternation *parent;
+} EnclosingAlternation;
 
 /*
  * Slice - A slice of an external array. Within a query, capture names,
@@ -1429,7 +1449,12 @@ static void ts_query__perform_analysis(
             // If the pattern is finished or hypothetical parent node is complete, then
             // record that matching can terminate at this step of the pattern. Otherwise,
             // add this state to the list of states to process on the next iteration.
-            if (!next_step->is_dead_end) {
+            // Backward-pointing dead-ends are recursive (^) references — treat them as
+            // successful terminations since the recursion always has a base case.
+            if (next_step->is_dead_end && next_step->alternative_index != NONE &&
+                next_step->alternative_index < next_state.step_index) {
+              array_insert_sorted_by(&analysis->finished_parent_symbols, , state->root_symbol);
+            } else if (!next_step->is_dead_end) {
               bool did_finish_pattern = array_get(&self->steps, next_state.step_index)->depth != step->depth;
               if (did_finish_pattern) {
                 array_insert_sorted_by(&analysis->finished_parent_symbols, , state->root_symbol);
@@ -2231,7 +2256,8 @@ static TSQueryError ts_query__parse_pattern(
   Stream *stream,
   uint32_t depth,
   bool is_immediate,
-  CaptureQuantifiers *capture_quantifiers
+  CaptureQuantifiers *capture_quantifiers,
+  const EnclosingAlternation *enclosing_alternations
 ) {
   if (stream->next == 0) return TSQueryErrorSyntax;
   if (stream->next == ')' || stream->next == ']') return PARENT_DONE;
@@ -2257,6 +2283,10 @@ static TSQueryError ts_query__parse_pattern(
     // Parse each branch, and add a placeholder step in between the branches.
     Array(uint32_t) branch_step_indices = array_new();
     CaptureQuantifiers branch_capture_quantifiers = capture_quantifiers_new();
+    EnclosingAlternation alt_entry = {
+      .start_step_index = self->steps.size,
+      .parent = enclosing_alternations,
+    };
     for (;;) {
       uint32_t start_index = self->steps.size;
       TSQueryError e = ts_query__parse_pattern(
@@ -2264,7 +2294,8 @@ static TSQueryError ts_query__parse_pattern(
         stream,
         depth,
         is_immediate,
-        &branch_capture_quantifiers
+        &branch_capture_quantifiers,
+        &alt_entry
       );
 
       if (e == PARENT_DONE) {
@@ -2292,6 +2323,39 @@ static TSQueryError ts_query__parse_pattern(
     }
     (void)array_pop(&self->steps);
 
+    // Validate recursive branches:
+    // 1. At least one branch must be a non-recursive base case.
+    // 2. Recursive branches must contain at least one node before (^),
+    //    otherwise they loop without consuming input.
+    {
+      bool has_base_case = false;
+      for (unsigned i = 0; i < branch_step_indices.size; i++) {
+        uint32_t branch_start = *array_get(&branch_step_indices, i);
+        uint32_t branch_end = (i + 1 < branch_step_indices.size)
+          ? *array_get(&branch_step_indices, i + 1) - 1
+          : self->steps.size;
+        QueryStep *last_step = array_get(&self->steps, branch_end - 1);
+        bool branch_is_recursive = last_step->is_dead_end &&
+          last_step->alternative_index < alt_entry.start_step_index + 1;
+        if (branch_is_recursive) {
+          // A recursive branch that is just (^) with no preceding node
+          // would loop forever without descending into any child.
+          if (branch_end - branch_start <= 1) {
+            capture_quantifiers_delete(&branch_capture_quantifiers);
+            array_delete(&branch_step_indices);
+            return TSQueryErrorStructure;
+          }
+        } else {
+          has_base_case = true;
+        }
+      }
+      if (!has_base_case) {
+        capture_quantifiers_delete(&branch_capture_quantifiers);
+        array_delete(&branch_step_indices);
+        return TSQueryErrorStructure;
+      }
+    }
+
     // For all of the branches except for the last one, add the subsequent branch as an
     // alternative, and link the end of the branch to the current end of the steps.
     for (unsigned i = 0; i < branch_step_indices.size - 1; i++) {
@@ -2308,10 +2372,11 @@ static TSQueryError ts_query__parse_pattern(
     array_delete(&branch_step_indices);
   }
 
-  // An open parenthesis can be the start of three possible constructs:
+  // An open parenthesis can be the start of four possible constructs:
   // * A grouped sequence
   // * A predicate
   // * A named node
+  // * A parent pointer (recursion)
   else if (stream->next == '(') {
     stream_advance(stream);
     stream_skip_whitespace(stream);
@@ -2331,7 +2396,8 @@ static TSQueryError ts_query__parse_pattern(
           stream,
           depth,
           child_is_immediate,
-          &child_capture_quantifiers
+          &child_capture_quantifiers,
+          enclosing_alternations
         );
         if (e == PARENT_DONE) {
           if (stream->next == ')') {
@@ -2357,6 +2423,31 @@ static TSQueryError ts_query__parse_pattern(
     else if (stream->next == '.' || stream->next == '#') {
       stream_advance(stream);
       return ts_query__parse_predicate(self, stream);
+    }
+
+    // A caret indicates a recursive back-reference to an enclosing alternation.
+    // (^) refers to the immediately enclosing [...], (^^) to the next outer, etc.
+    else if (stream->next == '^') {
+      // The first ^ refers to the innermost [...], each further ^ goes one level out.
+      const EnclosingAlternation *target = enclosing_alternations;
+      while(1) {
+        if (!target) return TSQueryErrorSyntax;
+        stream_advance(stream);
+        if (stream->next != '^') break;
+        target = target->parent;
+      }
+      
+      // after ^^^, group must be closed (recursive nodes, can not have direct children)
+      stream_skip_whitespace(stream);
+      if (stream->next != ')') return TSQueryErrorSyntax;
+      stream_advance(stream);
+
+      // Emit a dead-end step that jumps backward to the alternation start.
+      QueryStep rec_step = query_step__new(0, depth, false);
+      rec_step.is_dead_end = true;
+      rec_step.alternative_index = target->start_step_index;
+      array_push(&self->steps, rec_step);
+
     }
 
     // Otherwise, this parenthesis is the start of a named node.
@@ -2569,7 +2660,8 @@ static TSQueryError ts_query__parse_pattern(
           stream,
           depth + 1,
           child_is_immediate,
-          &child_capture_quantifiers
+          &child_capture_quantifiers,
+          enclosing_alternations
         );
         // In the event we only parsed a predicate, meaning no new steps were added,
         // then subtract one so we're not indexing past the end of the array
@@ -2680,7 +2772,8 @@ static TSQueryError ts_query__parse_pattern(
       stream,
       depth,
       is_immediate,
-      &field_capture_quantifiers
+      &field_capture_quantifiers,
+      enclosing_alternations
     );
     if (e) {
       capture_quantifiers_delete(&field_capture_quantifiers);
@@ -2884,7 +2977,7 @@ TSQuery *ts_query_new(
       .is_non_local = false,
     }));
     CaptureQuantifiers capture_quantifiers = capture_quantifiers_new();
-    *error_type = ts_query__parse_pattern(self, &stream, 0, false, &capture_quantifiers);
+    *error_type = ts_query__parse_pattern(self, &stream, 0, false, &capture_quantifiers, NULL);
     array_push(&self->steps, query_step__new(0, PATTERN_DONE_MARKER, false));
 
     QueryPattern *pattern = array_back(&self->patterns);
@@ -4151,7 +4244,7 @@ static inline bool ts_query_cursor__advance(
 
           // If this state's next step has an alternative step, then copy the state in order
           // to pursue both alternatives. The alternative step itself may have an alternative,
-          // so this is an interactive process.
+          // so this is an iterative process.
           unsigned end_index = j + 1;
           for (unsigned k = j; k < end_index; k++) {
             QueryState *child_state = array_get(&self->states, k);
@@ -4161,6 +4254,13 @@ static inline bool ts_query_cursor__advance(
               // via its alternative index. When a state reaches a dead-end step, it jumps straight
               // to the step's alternative.
               if (child_step->is_dead_end) {
+                // A backward-pointing dead-end is a recursive back-reference (^).
+                // Adjust start_depth so the target steps' compile-time depths
+                // align with the current tree position.
+                if (child_step->alternative_index < child_state->step_index) {
+                  QueryStep *target_step = array_get(&self->query->steps, child_step->alternative_index);
+                  child_state->start_depth += child_step->depth - target_step->depth;
+                }
                 child_state->step_index = child_step->alternative_index;
                 k--;
                 continue;
