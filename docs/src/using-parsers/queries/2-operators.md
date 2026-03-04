@@ -110,6 +110,48 @@ This pattern would match a set of possible keyword tokens, capturing them as `@k
 ] @keyword
 ```
 
+### Recursive Alternations
+
+Inside an alternation, the special pattern `(^)` is a recursive back-reference to the
+enclosing `[...]`. It causes the query engine to loop back and try all alternatives again,
+one level deeper in the tree. This enables matching nodes at arbitrary nesting depth without
+writing out every possible depth by hand.
+
+A recursive alternation needs at least two branches: one or more *recursive* branches that
+descend into a child and end with `(^)`, and one or more *base-case* branches that match the
+target node.
+
+For example, to find every `return_statement` at any depth inside a function body:
+
+```query
+(function_definition
+  body: (compound_statement
+    [(_ (^)) (return_statement) @ret]))
+```
+
+The `(_ (^))` branch matches any child node and recurses. The `(return_statement) @ret` branch
+is the base case that captures the target. Together they express "descend through any number of
+intermediate nodes until a `return_statement` is found."
+
+Recursive branches can be constrained to specific node types. This pattern only descends
+through `if_statement` consequence chains (with or without braces):
+
+```query
+(function_definition
+  body: (compound_statement [
+    (if_statement consequence: (compound_statement (^))) @if
+    (if_statement consequence: (^)) @if
+    (return_statement) @ret
+  ]))
+```
+
+When alternations are nested, `(^^)` refers to the next outer `[...]`, `(^^^)` to the one
+beyond that, and so on. This allows inner and outer alternations to recurse independently,
+enabling multi-level patterns that distinguish different nesting depths.
+
+Note: `(^)` must be the last element in its branch (tail position). It cannot be followed
+by sibling steps or have child steps of its own.
+
 ## Anchors
 
 The anchor operator, `.`, is used to constrain the ways in which child patterns are matched. It has different behaviors
