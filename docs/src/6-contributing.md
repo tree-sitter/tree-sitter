@@ -1,5 +1,60 @@
 # Contributing
 
+## AI Policy
+
+Large language models (LLMs) and coding agents (Copilot, Claude, Gemini etc.)
+are very good at quickly producing reasonable-looking code. However, they are
+very bad at understanding the (especially historical) context of the project.
+This means that it has become trivial to create PRs that seem useful at first
+glance but require a significant effort to bring them up to the standard
+required by the project, putting an undue burden on the maintainers. To prevent
+this, contributions to tree-sitter are **required** to follow these rules:
+
+1. **No direct coding agent interaction with the repository.**
+
+   This includes both automatically opened PRs or issues and automated code
+   review, whether requested intentionally or not. While the use of such tools
+   can be helpful, a human (you) must be in the driver's seat at all times.
+
+   If you want an LLM-assisted review of your contribution, open a PR against
+   the default branch of your own fork *first* and iterate there. Once you are
+   satisfied, you can open a new, clean PR from the same branch to the
+   tree-sitter repo.
+
+2. **No copy-pasted LLM output in issues, PR descriptions or comments.**
+
+   LLMs are notoriously incapable of being concise, forcing maintainers to sift
+   through long text to separate the pearls from the slop. Being able to give a
+   concise description of the problem and/or solution also demonstrates that
+   you can take responsibility for the changes.
+
+   We want to talk with you, not a glorified Markov chain. If you are not
+   comfortable with writing in English, you can use dedicated translation tools
+   like Google Translate or DeepL that will translate comments in your native
+   language to English as closely as possible (without padding with irrelevant
+   details and changing the tone). Also, your English need not be perfect: Most
+   contributors are not native speakers, and people will make an effort to
+   understand you as long as you make a similar effort to communicate clearly.
+   Knowing your language level is also helpful to us when commenting on your
+   issue or PR.
+
+3. **All AI use must be disclosed.**
+
+   At the very least, the fact that LLM or a coding agent was used needs to be
+   disclosed, with a short description of how the tool was used and what you
+   yourself did.
+
+   The burden is on you to convince us that you have sufficient understanding
+   of the problem and the proposed solution to merit the significant maintainer
+   effort for code review and improvements. While these rules apply to everyone
+   equally, the burden of proof is of course higher for new contributors than
+   for maintainers and long-time trusted contributors.
+
+It is up to the maintainers' discretion whether an issue or PR violates these
+rules, in which case it will be closed without discussion. In general, opening
+a new issue or PR that respects the rules is welcomed, but we reserve the right
+to block repeat offenders or fully autonomous agents.
+
 ## Code of Conduct
 
 Contributors to Tree-sitter should abide by the [Contributor Covenant][covenant].
