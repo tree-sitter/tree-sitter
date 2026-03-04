@@ -19,4 +19,10 @@ size_t strlen(const char *str);
 
 int strncmp(const char *left, const char *right, size_t n);
 
+int strcmp(const char *left, const char *right);
+
+char *strncat(char *dst, const char *src, size_t n);
+
+char *strncpy(char *dest, const char *src, size_t n);
+
 #endif // TREE_SITTER_WASM_STRING_H_
