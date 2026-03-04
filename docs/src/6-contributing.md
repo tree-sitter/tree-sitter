@@ -1,5 +1,28 @@
 # Contributing
 
+## AI Policy
+
+1. No direct coding agent interaction with the repository. This includes
+   automatically opened PRs, automated code review through Copilot et al.,
+   automatically responding to PR reviews.
+   If you want an LLM-assisted review, open a PR against your own fork
+   first and iterate there. Once you are satisfied, open a PR from the
+   same branch on the tree-sitter repo.
+2. No LLM-generated PR descriptions or comments. Use your own words;
+   your English does not need to be perfect, and writing in your own
+   words helps us understand you better, however, Google Translate, DeepL, etc.
+   are fine if you need them. Concise descriptions without extraneous
+   context show respect for maintainers' limited time. LLMs are very
+   bad at this, so it is your responsibility to condense any LLM output
+   to something that meets expectations.
+3. Disclose the coding agent used for generating the PR, with a link to
+   the chat protocol if possible, and you are comfortable with that. One
+   glance at a transcript tells us whether the work was vibe-coded or
+   genuinely assisted.
+4. Zero tolerance: contributions that violate this policy will be closed
+   without discussion. We will give people a second chance on a new PR,
+   but repeat offenders will be blocked.
+
 ## Code of Conduct
 
 Contributors to Tree-sitter should abide by the [Contributor Covenant][covenant].
