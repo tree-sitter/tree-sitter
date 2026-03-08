@@ -3144,6 +3144,278 @@ fn test_query_alternation_with_outer_quantifier() {
     assert_query_matches(&language, &query, source_code, matches);
 }
 
+// Tests for inner quantifiers on alternation branches.
+//
+// When a branch inside [...] has a ? or * quantifier, the branch can match zero
+// nodes.  This makes the alternation as a whole optional — it should be able to
+// match nothing.  We test this by placing the alternation before a required
+// sibling: (compound_statement [alt] (return_statement) @ret).  If the
+// alternation is correctly optional, the return_statement matches even when
+// the compound_statement has no break/continue.
+
+#[test]
+fn test_query_alternation_inner_optional_first_branch() {
+    // [A? B] — first branch is optional.
+    // A? can match zero → alternation should be optional.
+    let language = get_language("c");
+    let source_code = "void f() { return; }";
+
+    let query_str = "(compound_statement
+        [(break_statement)? (continue_statement)] @cap
+        (return_statement) @ret)";
+    let query = Query::new(&language, query_str).unwrap();
+
+    let expected = &[(0, vec![("ret", "return;")])];
+    assert_query_matches(&language, &query, source_code, expected);
+}
+
+#[test]
+fn test_query_alternation_inner_optional_last_branch() {
+    // [A B?] — last branch is optional.
+    let language = get_language("c");
+    let source_code = "void f() { return; }";
+
+    let query_str = "(compound_statement
+        [(break_statement) (continue_statement)?] @cap
+        (return_statement) @ret)";
+    let query = Query::new(&language, query_str).unwrap();
+
+    let expected = &[(0, vec![("ret", "return;")])];
+    assert_query_matches(&language, &query, source_code, expected);
+}
+
+#[test]
+fn test_query_alternation_inner_optional_both_branches() {
+    // [A? B?] — both branches optional.
+    let language = get_language("c");
+    let source_code = "void f() { return; }";
+
+    let query_str = "(compound_statement
+        [(break_statement)? (continue_statement)?] @cap
+        (return_statement) @ret)";
+    let query = Query::new(&language, query_str).unwrap();
+
+    let expected = &[(0, vec![("ret", "return;")])];
+    assert_query_matches(&language, &query, source_code, expected);
+}
+
+#[test]
+fn test_query_alternation_inner_zero_or_more() {
+    // [A* B] — A* can match zero → alternation optional.
+    let language = get_language("c");
+    let source_code = "void f() { return; }";
+
+    let query_str = "(compound_statement
+        [(break_statement)* (continue_statement)] @cap
+        (return_statement) @ret)";
+    let query = Query::new(&language, query_str).unwrap();
+
+    let expected = &[(0, vec![("ret", "return;")])];
+    assert_query_matches(&language, &query, source_code, expected);
+}
+
+#[test]
+fn test_query_alternation_inner_plus_no_leakage() {
+    // [A+ B] — A+ should not leak into B branch.
+    // 3 breaks then continue → two separate matches.
+    let language = get_language("c");
+    let source_code = "void f() { break; break; break; continue; }";
+
+    let query_str = "(compound_statement
+        [(break_statement)+ (continue_statement)] @cap)";
+    let query = Query::new(&language, query_str).unwrap();
+
+    let expected = &[
+        (
+            0,
+            vec![
+                ("cap", "break;"),
+                ("cap", "break;"),
+                ("cap", "break;"),
+            ],
+        ),
+        (0, vec![("cap", "continue;")]),
+    ];
+    assert_query_matches(&language, &query, source_code, expected);
+}
+
+#[test]
+fn test_query_alternation_inner_star_no_leakage() {
+    // [A* B] — A* should not leak into B branch.
+    let language = get_language("c");
+    let source_code = "void f() { break; break; break; continue; }";
+
+    let query_str = "(compound_statement
+        [(break_statement)* (continue_statement)] @cap)";
+    let query = Query::new(&language, query_str).unwrap();
+
+    let expected = &[
+        (
+            0,
+            vec![
+                ("cap", "break;"),
+                ("cap", "break;"),
+                ("cap", "break;"),
+            ],
+        ),
+        (0, vec![("cap", "continue;")]),
+    ];
+    assert_query_matches(&language, &query, source_code, expected);
+}
+
+// Multi-step branch tests: branches with child patterns, not just single node types.
+
+#[test]
+fn test_query_alternation_inner_optional_multistep_zero_match() {
+    // [(expression_statement (assignment_expression))? (break_statement)]
+    // Multi-step first branch is optional.  Source has only return → should skip.
+    let language = get_language("c");
+    let source_code = "void f() { return; }";
+
+    let query_str = "(compound_statement
+        [(expression_statement (assignment_expression))? (break_statement)] @cap
+        (return_statement) @ret)";
+    let query = Query::new(&language, query_str).unwrap();
+
+    let expected = &[(0, vec![("ret", "return;")])];
+    assert_query_matches(&language, &query, source_code, expected);
+}
+
+#[test]
+fn test_query_alternation_inner_optional_multistep_does_match() {
+    // Same query, but source has an assignment before return → optional branch matches.
+    let language = get_language("c");
+    let source_code = "void f() { x = 1; return; }";
+
+    let query_str = "(compound_statement
+        [(expression_statement (assignment_expression))? (break_statement)] @cap
+        (return_statement) @ret)";
+    let query = Query::new(&language, query_str).unwrap();
+
+    let expected = &[(0, vec![("cap", "x = 1;"), ("ret", "return;")])];
+    assert_query_matches(&language, &query, source_code, expected);
+}
+
+#[test]
+fn test_query_alternation_inner_star_multistep_zero_match() {
+    // [(expression_statement (assignment_expression))* (break_statement)]
+    // Multi-step star, source has only return → zero matches, skip.
+    let language = get_language("c");
+    let source_code = "void f() { return; }";
+
+    let query_str = "(compound_statement
+        [(expression_statement (assignment_expression))* (break_statement)] @cap
+        (return_statement) @ret)";
+    let query = Query::new(&language, query_str).unwrap();
+
+    let expected = &[(0, vec![("ret", "return;")])];
+    assert_query_matches(&language, &query, source_code, expected);
+}
+
+#[test]
+fn test_query_alternation_inner_star_multistep_multiple_matches() {
+    // Multi-step star, source has two assignments then return → star matches both.
+    let language = get_language("c");
+    let source_code = "void f() { x = 1; y = 2; return; }";
+
+    let query_str = "(compound_statement
+        [(expression_statement (assignment_expression))* (break_statement)] @cap
+        (return_statement) @ret)";
+    let query = Query::new(&language, query_str).unwrap();
+
+    let expected = &[(
+        0,
+        vec![
+            ("cap", "x = 1;"),
+            ("cap", "y = 2;"),
+            ("ret", "return;"),
+        ],
+    )];
+    assert_query_matches(&language, &query, source_code, expected);
+}
+
+#[test]
+fn test_query_alternation_inner_plus_multistep_no_leakage() {
+    // [(expression_statement (assignment_expression))+ (break_statement)]
+    // Two assignments then a break → separate matches, no leakage.
+    let language = get_language("c");
+    let source_code = "void f() { x = 1; y = 2; break; }";
+
+    let query_str = "(compound_statement
+        [(expression_statement (assignment_expression))+ (break_statement)] @cap)";
+    let query = Query::new(&language, query_str).unwrap();
+
+    let expected = &[
+        (
+            0,
+            vec![
+                ("cap", "x = 1;"),
+                ("cap", "y = 2;"),
+            ],
+        ),
+        (0, vec![("cap", "break;")]),
+    ];
+    assert_query_matches(&language, &query, source_code, expected);
+}
+
+// Three-branch alternation with middle branch optional.
+
+#[test]
+fn test_query_alternation_three_branches_middle_optional() {
+    // [(break_statement) (continue_statement)? (return_statement)]
+    // Middle branch is optional → whole alternation should be optional.
+    // Source: only an expression_statement (none of the three), then a return.
+    let language = get_language("c");
+    let source_code = "void f() { x = 1; }";
+
+    let query_str = "(compound_statement
+        [(break_statement) (continue_statement)? (return_statement)] @cap
+        (expression_statement) @expr)";
+    let query = Query::new(&language, query_str).unwrap();
+
+    let expected = &[(0, vec![("expr", "x = 1;")])];
+    assert_query_matches(&language, &query, source_code, expected);
+}
+
+// Nested alternation: inner alternation has an optional branch.
+
+#[test]
+fn test_query_alternation_nested_inner_optional() {
+    // [[(break_statement)? (continue_statement)] (return_statement)]
+    // Inner alternation [(break)? (continue)] — break branch is optional,
+    // so inner alternation is optional, so its branch in the outer alternation
+    // can match zero nodes.
+    // Source: only "x = 1;" — neither break, continue, nor return.
+    let language = get_language("c");
+    let source_code = "void f() { x = 1; }";
+
+    let query_str = "(compound_statement
+        [[(break_statement)? (continue_statement)] (return_statement)] @cap
+        (expression_statement) @expr)";
+    let query = Query::new(&language, query_str).unwrap();
+
+    let expected = &[(0, vec![("expr", "x = 1;")])];
+    assert_query_matches(&language, &query, source_code, expected);
+}
+
+// Multi-step branch with field constraint.
+
+#[test]
+fn test_query_alternation_inner_optional_with_field() {
+    // [(if_statement consequence: (compound_statement))? (break_statement)]
+    // Multi-step with field constraint, optional.
+    let language = get_language("c");
+    let source_code = "void f() { return; }";
+
+    let query_str = "(compound_statement
+        [(if_statement consequence: (compound_statement))? (break_statement)] @cap
+        (return_statement) @ret)";
+    let query = Query::new(&language, query_str).unwrap();
+
+    let expected = &[(0, vec![("ret", "return;")])];
+    assert_query_matches(&language, &query, source_code, expected);
+}
+
 #[test]
 fn test_query_matches_with_alternations_and_predicates() {
     allocations::record(|| {

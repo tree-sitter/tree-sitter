@@ -2288,14 +2288,49 @@ static TSQueryError ts_query__parse_pattern(
 
     // For all of the branches except for the last one, add the subsequent branch as an
     // alternative, and link the end of the branch to the current end of the steps.
+    // Also detect if any branch has an optional quantifier (? or *), which means
+    // the alternation as a whole can match zero nodes.
+    bool any_branch_optional = false;
     for (unsigned i = 0; i < branch_step_indices.size - 1; i++) {
       uint32_t step_index = *array_get(&branch_step_indices, i);
       uint32_t next_step_index = *array_get(&branch_step_indices, i + 1);
       QueryStep *start_step = array_get(&self->steps, step_index);
       QueryStep *end_step = array_get(&self->steps, next_step_index - 1);
+
+      // If the step already has an alternative_index, it was set by a ? or *
+      // quantifier (pointing forward to skip past the branch).  Alternation
+      // linking is about to overwrite it, so record that this branch was optional.
+      if (start_step->alternative_index != NONE)
+        any_branch_optional = true;
+
       start_step->alternative_index = next_step_index;
       end_step->alternative_index = self->steps.size;
       end_step->is_dead_end = true;
+    }
+
+    // Check the last branch too — its ? or * is not overwritten by linking,
+    // but we still want to know if it was optional.
+    {
+      uint32_t last_start = *array_get(&branch_step_indices,
+                                        branch_step_indices.size - 1);
+      QueryStep *last_step = array_get(&self->steps, last_start);
+      if (last_step->alternative_index != NONE)
+        any_branch_optional = true;
+    }
+
+    // If any branch was optional (? or *), the whole alternation can match
+    // zero nodes.  Ensure the last branch's alt chain ends with a skip past
+    // the alternation, so that when all branches fail, the match can still
+    // succeed with zero consumed nodes.
+    if (any_branch_optional) {
+      uint32_t last_start = *array_get(&branch_step_indices,
+                                        branch_step_indices.size - 1);
+      QueryStep *step = array_get(&self->steps, last_start);
+      while (step->alternative_index != NONE
+             && step->alternative_index < self->steps.size) {
+        step = array_get(&self->steps, step->alternative_index);
+      }
+      step->alternative_index = self->steps.size;
     }
 
     capture_quantifiers_delete(&branch_capture_quantifiers);
