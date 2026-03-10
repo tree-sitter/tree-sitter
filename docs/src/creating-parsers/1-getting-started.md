@@ -41,6 +41,10 @@ cd tree-sitter-${LOWER_PARSER_NAME}
 The `LOWER_` prefix here means the "lowercase" name of the language.
 ```
 
+```admonish warning
+Dashes are not permitted via the CLI's `init` command and should not be used in parser names.
+```
+
 ### Init
 
 Once you've installed the `tree-sitter` CLI tool, you can start setting up your project, which will allow your parser to
