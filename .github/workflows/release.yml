@@ -45,6 +45,7 @@ jobs:
           for platform in $(cd artifacts; ls | sed 's/^tree-sitter\.//'); do
             exe=$(ls artifacts/tree-sitter.$platform/tree-sitter*)
             gzip --stdout --name $exe > target/tree-sitter-$platform.gz
+            zip -j9 target/tree-sitter-cli-$platform.zip $exe
           done
           rm -rf artifacts
           ls -l target/
@@ -54,12 +55,14 @@ jobs:
         with:
           subject-path: |
             target/tree-sitter-*.gz
+            target/tree-sitter-cli-*.zip
             target/web-tree-sitter.tar.gz
 
       - name: Create release
         run: |-
           gh release create $GITHUB_REF_NAME \
             target/tree-sitter-*.gz \
+            target/tree-sitter-cli-*.zip \
             target/web-tree-sitter.tar.gz
         env:
           GH_TOKEN: ${{ github.token }}
