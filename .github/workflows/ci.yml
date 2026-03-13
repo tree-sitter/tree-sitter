@@ -1,21 +1,14 @@
 name: CI
 
 on:
-  pull_request:
-    paths-ignore:
-      - docs/**
-      - "**/README.md"
-      - CONTRIBUTING.md
-      - LICENSE
-      - cli/src/templates
   push:
-    branches: [master]
-    paths-ignore:
-      - docs/**
-      - "**/README.md"
-      - CONTRIBUTING.md
-      - LICENSE
-      - cli/src/templates
+    branches:
+      - 'master'
+      - 'release-[0-9]+.[0-9]+'
+  pull_request:
+    branches:
+      - 'master'
+      - 'release-[0-9]+.[0-9]+'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
