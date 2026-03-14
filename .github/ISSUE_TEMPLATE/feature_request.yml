@@ -2,6 +2,14 @@ name: Feature request
 description: Request an enhancement
 type: Feature
 body:
+  - type: checkboxes
+    attributes:
+      label: AI Policy
+      description: Review our [AI Policy](https://tree-sitter.github.io/tree-sitter/6-contributing.html#ai-policy).
+      options:
+        - label: I have read the AI Policy and this issue complies with it.
+          required: true
+
   - type: markdown
     attributes:
       value: |
