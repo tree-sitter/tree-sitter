@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use rustc_hash::FxHashSet;
 
 use log::warn;
 use regex::Regex;
@@ -160,7 +160,7 @@ fn variable_is_used(
     extras: &[Rule],
     externals: &[Rule],
     target_name: &str,
-    in_progress: &mut HashSet<String>,
+    in_progress: &mut FxHashSet<String>,
 ) -> bool {
     let root = &grammar_rules.first().unwrap().0;
     if target_name == root {
@@ -241,7 +241,7 @@ pub(crate) fn parse_grammar(input: &str) -> ParseGrammarResult<InputGrammar> {
         .map(|(n, r)| Ok((n, parse_rule(serde_json::from_value(r)?, false)?)))
         .collect::<ParseGrammarResult<Vec<_>>>()?;
 
-    let mut in_progress = HashSet::new();
+    let mut in_progress = FxHashSet::default();
 
     for (name, rule) in &rules {
         if grammar_json.word.as_ref().is_none_or(|w| w != name)

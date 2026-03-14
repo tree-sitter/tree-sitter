@@ -1,7 +1,6 @@
-use std::{
-    collections::{HashMap, HashSet},
-    mem,
-};
+use std::{cmp::Ordering, mem};
+
+use rustc_hash::{FxHashMap, FxHashSet};
 
 use log::debug;
 
@@ -10,9 +9,69 @@ use crate::{
     OptLevel,
     dedup::split_state_id_groups,
     grammars::{LexicalGrammar, SyntaxGrammar, VariableType},
-    rules::{AliasMap, Symbol, TokenSet},
+    rules::{AliasMap, Symbol, SymbolType, TokenSet},
     tables::{GotoAction, ParseAction, ParseState, ParseStateId, ParseTable, ParseTableEntry},
 };
+
+/// Index into `SyntaxGrammar::variables`. All nonterminal `Symbol`s share
+/// the same `kind`, so storing the index alone is sufficient for ordering.
+type NonterminalIndex = usize;
+
+/// A `Symbol` packed into a `u64` for O(1) sort-key comparison.
+///
+/// Layout: high 3 bits = `kind` discriminant (5 variants fit in 3 bits), low 61 bits = `index`.
+/// This preserves `Symbol`'s derived `Ord` ordering (kind first, then index) as a single
+/// integer comparison, and halves each entry's size vs storing a full `(Symbol, _)` tuple.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+struct SymbolKey(u64);
+
+const KEY_TAG_SHIFT: u32 = 61;
+const KEY_INDEX_MASK: u64 = (1u64 << KEY_TAG_SHIFT) - 1;
+
+impl SymbolKey {
+    #[inline]
+    fn new(sym: Symbol) -> Self {
+        debug_assert!(sym.index as u64 <= KEY_INDEX_MASK, "symbol index too large");
+        Self((sym.kind as u64) << KEY_TAG_SHIFT | sym.index as u64)
+    }
+
+    #[inline]
+    const fn symbol(self) -> Symbol {
+        let kind = match self.0 >> KEY_TAG_SHIFT {
+            0 => SymbolType::External,
+            1 => SymbolType::End,
+            2 => SymbolType::EndOfNonTerminalExtra,
+            3 => SymbolType::Terminal,
+            _ => SymbolType::NonTerminal,
+        };
+        Symbol {
+            kind,
+            index: self.index(),
+        }
+    }
+
+    #[inline]
+    const fn index(self) -> usize {
+        (self.0 & KEY_INDEX_MASK) as usize
+    }
+
+    #[inline]
+    const fn is_terminal(self) -> bool {
+        (self.0 >> KEY_TAG_SHIFT) == SymbolType::Terminal as u64
+    }
+
+    #[allow(dead_code)]
+    #[inline]
+    const fn is_non_terminal(self) -> bool {
+        (self.0 >> KEY_TAG_SHIFT) == SymbolType::NonTerminal as u64
+    }
+}
+
+impl From<Symbol> for SymbolKey {
+    fn from(sym: Symbol) -> Self {
+        Self::new(sym)
+    }
+}
 
 pub fn minimize_parse_table(
     parse_table: &mut ParseTable,
@@ -50,7 +109,7 @@ struct Minimizer<'a> {
 
 impl Minimizer<'_> {
     fn remove_unit_reductions(&mut self) {
-        let mut aliased_symbols = HashSet::new();
+        let mut aliased_symbols = FxHashSet::default();
         for variable in &self.syntax_grammar.variables {
             for production in &variable.productions {
                 for step in &production.steps {
@@ -61,7 +120,7 @@ impl Minimizer<'_> {
             }
         }
 
-        let mut unit_reduction_symbols_by_state = HashMap::new();
+        let mut unit_reduction_symbols_by_state = FxHashMap::default();
         for (i, state) in self.parse_table.states.iter().enumerate() {
             let mut only_unit_reductions = true;
             let mut unit_reduction_symbol = None;
@@ -135,26 +194,92 @@ impl Minimizer<'_> {
 
         // Initially group the states by their parse item set core.
         let mut group_ids_by_state_id = Vec::with_capacity(self.parse_table.states.len());
-        let mut state_ids_by_group_id = vec![Vec::<ParseStateId>::new(); core_count];
+        // Pre-allocate for the maximum possible number of groups (one per state) to
+        // avoid reallocs as split_state_id_groups pushes new groups.
+        let mut state_ids_by_group_id = Vec::with_capacity(self.parse_table.states.len());
+        state_ids_by_group_id.resize(core_count, Vec::new());
         for (i, state) in self.parse_table.states.iter().enumerate() {
             state_ids_by_group_id[state.core_id].push(i);
             group_ids_by_state_id.push(state.core_id);
         }
+
+        // Precompute sorted terminal entry references for merge-join in states_conflict.
+        // entry_maps[state_id][i] = (symbol_key, &ParseTableEntry)
+        // Keys are packed u64s (symbol_key) for single-instruction comparison.
+        // Storing a reference avoids the IndexMap::get_index call in states_conflict.
+        let entry_maps: Vec<Vec<(SymbolKey, &ParseTableEntry)>> = self
+            .parse_table
+            .states
+            .iter()
+            .map(|state| {
+                let mut entries: Vec<(SymbolKey, &ParseTableEntry)> = state
+                    .terminal_entries
+                    .iter()
+                    .map(|(sym, entry)| (SymbolKey::new(*sym), entry))
+                    .collect();
+                entries.sort_unstable_by_key(|&(key, _)| key);
+                entries
+            })
+            .collect();
 
         split_state_id_groups(
             &self.parse_table.states,
             &mut state_ids_by_group_id,
             &mut group_ids_by_state_id,
             0,
-            |left, right, groups| self.states_conflict(left, right, groups),
+            |left, right, groups| self.states_conflict(left, right, groups, &entry_maps),
         );
+
+        // Precompute per-state sorted shift actions and nonterminal goto actions.
+        // State actions are stable across loop iterations; only group assignments change.
+        // Keys are packed u64s (symbol_key) for single-instruction comparison.
+        let shift_maps: Vec<Vec<(SymbolKey, ParseStateId)>> = self
+            .parse_table
+            .states
+            .iter()
+            .map(|state| {
+                let mut shifts: Vec<(SymbolKey, ParseStateId)> = state
+                    .terminal_entries
+                    .iter()
+                    .filter_map(|(sym, entry)| {
+                        let action = entry.actions.last()?;
+                        if let ParseAction::Shift { state: s, .. } = action {
+                            Some((SymbolKey::new(*sym), *s))
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+                shifts.sort_unstable_by_key(|&(key, _)| key);
+                shifts
+            })
+            .collect();
+
+        // Store only the symbol index: all nonterminal entries share the same kind,
+        // so index alone is sufficient for sorting and comparison.
+        let nonterminal_maps: Vec<Vec<(NonterminalIndex, GotoAction)>> = self
+            .parse_table
+            .states
+            .iter()
+            .map(|state| {
+                let mut entries: Vec<(NonterminalIndex, GotoAction)> = state
+                    .nonterminal_entries
+                    .iter()
+                    .map(|(sym, action)| (sym.index, *action))
+                    .collect();
+                entries.sort_unstable_by_key(|&(idx, _)| idx);
+                entries
+            })
+            .collect();
 
         while split_state_id_groups(
             &self.parse_table.states,
             &mut state_ids_by_group_id,
             &mut group_ids_by_state_id,
             0,
-            |left, right, groups| self.state_successors_differ(left, right, groups),
+            |left, right, groups| {
+                self.state_successors_differ(left, right, groups, &shift_maps, &nonterminal_maps)
+            },
         ) {}
 
         let error_group_index = state_ids_by_group_id
@@ -203,35 +328,68 @@ impl Minimizer<'_> {
 
     fn states_conflict(
         &self,
-        left_state: &ParseState,
-        right_state: &ParseState,
+        state1: &ParseState,
+        state2: &ParseState,
         group_ids_by_state_id: &[ParseStateId],
+        entry_maps: &[Vec<(SymbolKey, &ParseTableEntry)>],
     ) -> bool {
-        for (token, left_entry) in &left_state.terminal_entries {
-            if let Some(right_entry) = right_state.terminal_entries.get(token) {
-                if self.entries_conflict(
-                    left_state.id,
-                    right_state.id,
-                    token,
-                    left_entry,
-                    right_entry,
-                    group_ids_by_state_id,
-                ) {
-                    return true;
+        let entries1 = &entry_maps[state1.id];
+        let entries2 = &entry_maps[state2.id];
+        let len1 = entries1.len();
+        let len2 = entries2.len();
+        let mut i = 0;
+        let mut j = 0;
+        while i < len1 || j < len2 {
+            // SAFETY: each branch only accesses entries1[i] when i < len1
+            // and entries2[j] when j < len2, both of which hold by construction.
+            let ord = if i < len1 && j < len2 {
+                unsafe { entries1.get_unchecked(i) }
+                    .0
+                    .cmp(&unsafe { entries2.get_unchecked(j) }.0)
+            } else if i < len1 {
+                Ordering::Less
+            } else {
+                Ordering::Greater
+            };
+            match ord {
+                Ordering::Equal => {
+                    // SAFETY: Equal is only reachable when i < len1 && j < len2.
+                    let e1 = unsafe { entries1.get_unchecked(i) };
+                    let e2 = unsafe { entries2.get_unchecked(j) };
+                    let token = e1.0.symbol();
+                    if self.entries_conflict(
+                        state1.id,
+                        state2.id,
+                        &token,
+                        e1.1,
+                        e2.1,
+                        group_ids_by_state_id,
+                    ) {
+                        return true;
+                    }
+                    i += 1;
+                    j += 1;
                 }
-            } else if self.token_conflicts(left_state.id, right_state.id, right_state, *token) {
-                return true;
+                Ordering::Less => {
+                    // SAFETY: Less is only reachable when i < len1.
+                    let e1 = unsafe { entries1.get_unchecked(i) };
+                    let token = e1.0.symbol();
+                    if self.token_conflicts(state1.id, state2.id, state2, entries2, token) {
+                        return true;
+                    }
+                    i += 1;
+                }
+                Ordering::Greater => {
+                    // SAFETY: Greater is only reachable when j < len2.
+                    let e2 = unsafe { entries2.get_unchecked(j) };
+                    let token = e2.0.symbol();
+                    if self.token_conflicts(state1.id, state2.id, state1, entries1, token) {
+                        return true;
+                    }
+                    j += 1;
+                }
             }
         }
-
-        for token in right_state.terminal_entries.keys() {
-            if !left_state.terminal_entries.contains_key(token)
-                && self.token_conflicts(left_state.id, right_state.id, left_state, *token)
-            {
-                return true;
-            }
-        }
-
         false
     }
 
@@ -240,44 +398,67 @@ impl Minimizer<'_> {
         state1: &ParseState,
         state2: &ParseState,
         group_ids_by_state_id: &[ParseStateId],
+        shift_maps: &[Vec<(SymbolKey, ParseStateId)>],
+        nonterminal_maps: &[Vec<(usize, GotoAction)>],
     ) -> bool {
-        for (token, entry1) in &state1.terminal_entries {
-            if let ParseAction::Shift { state: s1, .. } = entry1.actions.last().unwrap()
-                && let Some(entry2) = state2.terminal_entries.get(token)
-                && let ParseAction::Shift { state: s2, .. } = entry2.actions.last().unwrap()
-            {
-                let group1 = group_ids_by_state_id[*s1];
-                let group2 = group_ids_by_state_id[*s2];
-                if group1 != group2 {
-                    debug!(
-                        "split states {} {} - successors for {} are split: {s1} {s2}",
-                        state1.id,
-                        state2.id,
-                        self.symbol_name(token),
-                    );
-                    return true;
+        let shifts1 = &shift_maps[state1.id];
+        let shifts2 = &shift_maps[state2.id];
+        let mut i = 0;
+        let mut j = 0;
+        while i < shifts1.len() && j < shifts2.len() {
+            // SAFETY: loop condition ensures i < shifts1.len() and j < shifts2.len().
+            let (k1, s1) = *unsafe { shifts1.get_unchecked(i) };
+            let (k2, s2) = *unsafe { shifts2.get_unchecked(j) };
+            match k1.cmp(&k2) {
+                Ordering::Less => i += 1,
+                Ordering::Greater => j += 1,
+                Ordering::Equal => {
+                    let group1 = group_ids_by_state_id[s1];
+                    let group2 = group_ids_by_state_id[s2];
+                    if group1 != group2 {
+                        debug!(
+                            "split states {} {} - successors for {} are split: {s1} {s2}",
+                            state1.id,
+                            state2.id,
+                            self.symbol_name(&k1.symbol()),
+                        );
+                        return true;
+                    }
+                    i += 1;
+                    j += 1;
                 }
             }
         }
 
-        for (symbol, s1) in &state1.nonterminal_entries {
-            if let Some(s2) = state2.nonterminal_entries.get(symbol) {
-                match (s1, s2) {
-                    (GotoAction::ShiftExtra, GotoAction::ShiftExtra) => {}
-                    (GotoAction::Goto(s1), GotoAction::Goto(s2)) => {
-                        let group1 = group_ids_by_state_id[*s1];
-                        let group2 = group_ids_by_state_id[*s2];
-                        if group1 != group2 {
-                            debug!(
-                                "split states {} {} - successors for {} are split: {s1} {s2}",
-                                state1.id,
-                                state2.id,
-                                self.symbol_name(symbol),
-                            );
-                            return true;
+        let nonterms1 = &nonterminal_maps[state1.id];
+        let nonterms2 = &nonterminal_maps[state2.id];
+        let mut i = 0;
+        let mut j = 0;
+        while i < nonterms1.len() && j < nonterms2.len() {
+            // SAFETY: loop condition ensures i < nonterms1.len() and j < nonterms2.len().
+            let (idx1, s1) = *unsafe { nonterms1.get_unchecked(i) };
+            let (idx2, s2) = *unsafe { nonterms2.get_unchecked(j) };
+            match idx1.cmp(&idx2) {
+                Ordering::Less => i += 1,
+                Ordering::Greater => j += 1,
+                Ordering::Equal => {
+                    match (s1, s2) {
+                        (GotoAction::ShiftExtra, GotoAction::ShiftExtra) => {}
+                        (GotoAction::Goto(s1), GotoAction::Goto(s2)) => {
+                            let group1 = group_ids_by_state_id[s1];
+                            let group2 = group_ids_by_state_id[s2];
+                            if group1 != group2 {
+                                debug!(
+                                    "split states {} {} - successors for {} are split: {s1} {s2}",
+                                    state1.id, state2.id, self.syntax_grammar.variables[idx1].name,
+                                );
+                                return true;
+                            }
                         }
+                        _ => return true,
                     }
-                    _ => return true,
+                    i += 1;
+                    j += 1;
                 }
             }
         }
@@ -346,6 +527,7 @@ impl Minimizer<'_> {
         left_id: ParseStateId,
         right_id: ParseStateId,
         right_state: &ParseState,
+        right_entry_map: &[(SymbolKey, &ParseTableEntry)],
         new_token: Symbol,
     ) -> bool {
         if new_token == Symbol::end_of_nonterminal_extra() {
@@ -382,28 +564,36 @@ impl Minimizer<'_> {
             return true;
         }
 
+        // Hoist loop-invariant word-token comparisons.
+        let word_token = self.syntax_grammar.word_token;
+        let word_key = word_token.map(SymbolKey::new);
+        let new_token_key = SymbolKey::new(new_token);
+        let new_token_is_word = word_key == Some(new_token_key);
+        let new_token_is_keyword = word_token.is_some() && self.keywords.contains(&new_token);
+
         // Do not add a token if it conflicts with an existing token.
-        for token in right_state.terminal_entries.keys().copied() {
-            if !token.is_terminal() {
+        // Iterate the pre-sorted Vec instead of IndexMap keys for cache-friendlier access.
+        for &(key, _) in right_entry_map {
+            if !key.is_terminal() {
                 continue;
             }
-            if self.syntax_grammar.word_token == Some(token) && self.keywords.contains(&new_token) {
+            if new_token_is_keyword && word_key == Some(key) {
                 continue;
             }
-            if self.syntax_grammar.word_token == Some(new_token) && self.keywords.contains(&token) {
+            if new_token_is_word && self.keywords.contains(&key.symbol()) {
                 continue;
             }
 
             if self
                 .token_conflict_map
-                .does_conflict(new_token.index, token.index)
+                .does_conflict(new_token.index, key.index())
             {
                 debug!(
                     "split states {} {} - token {} conflicts with {}",
                     left_id,
                     right_id,
                     self.symbol_name(&new_token),
-                    self.symbol_name(&token),
+                    self.symbol_name(&key.symbol()),
                 );
                 return true;
             }

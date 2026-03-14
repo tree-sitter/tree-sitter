@@ -1,7 +1,9 @@
 use std::{
-    collections::{HashMap, VecDeque, hash_map::Entry},
+    collections::{VecDeque, hash_map::Entry},
     mem,
 };
+
+use rustc_hash::FxHashMap;
 
 use log::debug;
 
@@ -139,7 +141,7 @@ struct LexTableBuilder<'a> {
     cursor: NfaCursor<'a>,
     table: LexTable,
     state_queue: VecDeque<QueueEntry>,
-    state_ids_by_nfa_state_set: HashMap<(Vec<u32>, bool), usize>,
+    state_ids_by_nfa_state_set: FxHashMap<(Vec<u32>, bool), usize>,
 }
 
 impl<'a> LexTableBuilder<'a> {
@@ -149,7 +151,7 @@ impl<'a> LexTableBuilder<'a> {
             cursor: NfaCursor::new(&lexical_grammar.nfa, vec![]),
             table: LexTable::default(),
             state_queue: VecDeque::new(),
-            state_ids_by_nfa_state_set: HashMap::new(),
+            state_ids_by_nfa_state_set: FxHashMap::default(),
         }
     }
 
@@ -234,8 +236,7 @@ impl<'a> LexTableBuilder<'a> {
             completion = Some((id, prec));
         }
 
-        let transitions = self.cursor.transitions();
-        let has_sep = self.cursor.transition_chars().any(|(_, sep)| sep);
+        let (transitions, has_sep) = self.cursor.transitions_and_any_sep();
 
         // If EOF is a valid lookahead token, add a transition predicated on the null
         // character that leads to the empty set of NFA states.
@@ -285,20 +286,27 @@ fn check_token_conflicts(
     token_conflict_map: &TokenConflictMap,
     coincident_token_index: &CoincidentTokenIndex,
 ) -> bool {
-    let symbol = Symbol::terminal(i);
-    for existing_token in set_without_terminal.terminals() {
-        if token_conflict_map.does_conflict(i, existing_token.index)
-            || token_conflict_map.does_match_prefix(i, existing_token.index)
-        {
-            return true;
-        }
-        if !coincident_token_index.contains(symbol, existing_token)
-            && (token_conflict_map.does_overlap(existing_token.index, i)
-                || token_conflict_map.does_overlap(i, existing_token.index))
-        {
+    let wpr = token_conflict_map.row_words;
+    let row_start = i * wpr;
+    let set_bits = set_without_terminal.terminal_bits_words();
+
+    // Does terminal i conflict with or match-prefix any terminal in the set?
+    let conflict_row = &token_conflict_map.conflict_or_prefix_bits[row_start..row_start + wpr];
+    for (&c, &s) in conflict_row.iter().zip(set_bits) {
+        if c & s != 0 {
             return true;
         }
     }
+
+    // Does terminal i overlap (in either direction) with any non-coincident terminal in the set?
+    let overlap_row = &token_conflict_map.overlap_either_bits[row_start..row_start + wpr];
+    let coincident_row = &coincident_token_index.row_bits[row_start..row_start + wpr];
+    for ((&o, &s), &c) in overlap_row.iter().zip(set_bits).zip(coincident_row) {
+        if o & s & !c != 0 {
+            return true;
+        }
+    }
+
     false
 }
 
@@ -345,7 +353,7 @@ fn merge_token_set(
 fn minimize_lex_table(table: &mut LexTable, parse_table: &mut ParseTable) {
     // Initially group the states by their accept action and their
     // valid lookahead characters.
-    let mut state_ids_by_signature = HashMap::new();
+    let mut state_ids_by_signature = FxHashMap::default();
     for (i, state) in table.states.iter().enumerate() {
         let signature = (
             i == 0,

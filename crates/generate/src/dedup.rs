@@ -8,6 +8,9 @@ pub fn split_state_id_groups<S>(
 ) -> bool {
     let mut result = false;
 
+    // Use a flat bitset instead of Vec::contains for O(1) membership tests.
+    let mut is_split = vec![false; states.len()];
+
     let mut group_id = start_group_id;
     while group_id < state_ids_by_group_id.len() {
         let state_ids = &state_ids_by_group_id[group_id];
@@ -16,7 +19,7 @@ pub fn split_state_id_groups<S>(
         let mut i = 0;
         while i < state_ids.len() {
             let left_state_id = state_ids[i];
-            if split_state_ids.contains(&left_state_id) {
+            if is_split[left_state_id] {
                 i += 1;
                 continue;
             }
@@ -28,7 +31,7 @@ pub fn split_state_id_groups<S>(
             let mut j = i + 1;
             while j < state_ids.len() {
                 let right_state_id = state_ids[j];
-                if split_state_ids.contains(&right_state_id) {
+                if is_split[right_state_id] {
                     j += 1;
                     continue;
                 }
@@ -36,6 +39,7 @@ pub fn split_state_id_groups<S>(
 
                 if should_split(left_state, right_state, group_ids_by_state_id) {
                     split_state_ids.push(right_state_id);
+                    is_split[right_state_id] = true;
                 }
 
                 j += 1;
@@ -47,11 +51,12 @@ pub fn split_state_id_groups<S>(
         // If any states were removed from the group, add them all as a new group.
         if !split_state_ids.is_empty() {
             result = true;
-            state_ids_by_group_id[group_id].retain(|i| !split_state_ids.contains(i));
+            state_ids_by_group_id[group_id].retain(|i| !is_split[*i]);
 
             let new_group_id = state_ids_by_group_id.len();
             for id in &split_state_ids {
                 group_ids_by_state_id[*id] = new_group_id;
+                is_split[*id] = false;
             }
 
             state_ids_by_group_id.push(split_state_ids);

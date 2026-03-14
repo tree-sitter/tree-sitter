@@ -229,10 +229,10 @@ impl LexicalGrammar {
     }
 
     pub fn variable_index_for_nfa_state(&self, state_id: u32) -> usize {
-        self.variables
-            .iter()
-            .position(|v| v.start_state >= state_id)
-            .unwrap()
+        // `start_state` values are monotonically increasing (each variable's entry
+        // is the last NFA state allocated for it). Binary search for the first
+        // variable whose upper-boundary state >= state_id, i.e. the owner variable.
+        self.variables.partition_point(|v| v.start_state < state_id)
     }
 }
 

@@ -1,7 +1,6 @@
-use std::{
-    collections::{HashMap, HashSet},
-    fmt,
-};
+use std::fmt;
+
+use rustc_hash::{FxHashMap, FxHashSet};
 
 use super::item::{ParseItem, ParseItemDisplay, ParseItemSet, ParseItemSetEntry, TokenSetDisplay};
 use crate::{
@@ -25,9 +24,9 @@ struct FollowSetInfo {
 pub struct ParseItemSetBuilder<'a> {
     syntax_grammar: &'a SyntaxGrammar,
     lexical_grammar: &'a LexicalGrammar,
-    first_sets: HashMap<Symbol, TokenSet>,
-    reserved_first_sets: HashMap<Symbol, ReservedWordSetId>,
-    last_sets: HashMap<Symbol, TokenSet>,
+    first_sets: FxHashMap<Symbol, TokenSet>,
+    reserved_first_sets: FxHashMap<Symbol, ReservedWordSetId>,
+    last_sets: FxHashMap<Symbol, TokenSet>,
     inlines: &'a InlinedProductionMap,
     transitive_closure_additions: Vec<Vec<TransitiveClosureAddition<'a>>>,
 }
@@ -47,9 +46,9 @@ impl<'a> ParseItemSetBuilder<'a> {
         let mut result = Self {
             syntax_grammar,
             lexical_grammar,
-            first_sets: HashMap::new(),
-            reserved_first_sets: HashMap::new(),
-            last_sets: HashMap::new(),
+            first_sets: FxHashMap::default(),
+            reserved_first_sets: FxHashMap::default(),
+            last_sets: FxHashMap::default(),
             inlines,
             transitive_closure_additions: vec![Vec::new(); syntax_grammar.variables.len()],
         };
@@ -92,7 +91,7 @@ impl<'a> ParseItemSetBuilder<'a> {
         // Rather than computing these sets using recursion, we use an explicit stack
         // called `symbols_to_process`.
         let mut symbols_to_process = Vec::new();
-        let mut processed_non_terminals = HashSet::new();
+        let mut processed_non_terminals = FxHashSet::default();
         for i in 0..syntax_grammar.variables.len() {
             let symbol = Symbol::non_terminal(i);
             let first_set = result.first_sets.entry(symbol).or_default();
@@ -162,7 +161,7 @@ impl<'a> ParseItemSetBuilder<'a> {
         // Rather than computing these additions recursively, we use an explicit stack.
         let empty_lookaheads = TokenSet::new();
         let mut stack = Vec::new();
-        let mut follow_set_info_by_non_terminal = HashMap::<usize, FollowSetInfo>::new();
+        let mut follow_set_info_by_non_terminal = FxHashMap::<usize, FollowSetInfo>::default();
         for i in 0..syntax_grammar.variables.len() {
             // First, build up a map whose keys are all of the non-terminals that can
             // appear at the beginning of non-terminal `i`, and whose values store

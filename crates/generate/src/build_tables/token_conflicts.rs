@@ -1,4 +1,8 @@
-use std::{cmp::Ordering, collections::HashSet, fmt};
+use std::{cmp::Ordering, fmt};
+
+use rustc_hash::FxHashSet;
+
+use bitflags::bitflags;
 
 use crate::{
     build_tables::item::TokenSetDisplay,
@@ -7,14 +11,17 @@ use crate::{
     rules::TokenSet,
 };
 
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-struct TokenConflictStatus {
-    matches_prefix: bool,
-    does_match_continuation: bool,
-    does_match_valid_continuation: bool,
-    does_match_separators: bool,
-    matches_same_string: bool,
-    matches_different_string: bool,
+bitflags! {
+    /// Per-(i,j) token conflict status, packed into a single byte.
+    #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+    struct TokenConflictStatus: u8 {
+        const MATCHES_PREFIX              = 1 << 0;
+        const DOES_MATCH_CONTINUATION     = 1 << 1;
+        const DOES_MATCH_VALID_CONT       = 1 << 2;
+        const DOES_MATCH_SEPARATORS       = 1 << 3;
+        const MATCHES_SAME_STRING         = 1 << 4;
+        const MATCHES_DIFFERENT_STRING    = 1 << 5;
+    }
 }
 
 pub struct TokenConflictMap<'a> {
@@ -24,6 +31,13 @@ pub struct TokenConflictMap<'a> {
     starting_chars_by_index: Vec<CharacterSet>,
     following_chars_by_index: Vec<CharacterSet>,
     grammar: &'a LexicalGrammar,
+    /// Per-row bitsets for fast batch conflict checks.
+    /// Row `i` spans `[i * row_words .. (i+1) * row_words]`.
+    /// Bit `j` is set iff `does_conflict(i, j) || does_match_prefix(i, j)`.
+    pub conflict_or_prefix_bits: Vec<u64>,
+    /// Bit `j` is set iff `does_overlap(i, j) || does_overlap(j, i)`.
+    pub overlap_either_bits: Vec<u64>,
+    pub row_words: usize,
 }
 
 impl<'a> TokenConflictMap<'a> {
@@ -38,13 +52,53 @@ impl<'a> TokenConflictMap<'a> {
         let starting_chars = get_starting_chars(&mut cursor, grammar);
         let following_chars = get_following_chars(&starting_chars, &following_tokens);
 
+        // Pre-compute O(1) lookup: NFA state ID->owning variable index.
+        // Replaces repeated O(log n) binary searches in compute_conflict_status.
+        let nfa_state_to_var: Vec<usize> = (0..grammar.nfa.states.len())
+            .map(|id| grammar.variable_index_for_nfa_state(id as u32))
+            .collect();
+
         let n = grammar.variables.len();
-        let mut status_matrix = vec![TokenConflictStatus::default(); n * n];
+        let mut status_matrix = vec![TokenConflictStatus::empty(); n * n];
         for i in 0..grammar.variables.len() {
             for j in 0..i {
-                let status = compute_conflict_status(&mut cursor, grammar, &following_chars, i, j);
+                let status = compute_conflict_status(
+                    &mut cursor,
+                    grammar,
+                    &following_chars,
+                    &nfa_state_to_var,
+                    i,
+                    j,
+                );
                 status_matrix[matrix_index(n, i, j)] = status.0;
                 status_matrix[matrix_index(n, j, i)] = status.1;
+            }
+        }
+
+        // Precompute per-row bitsets for vectorized check_token_conflicts.
+        let row_words = n.div_ceil(64);
+        let conflict_mask = TokenConflictStatus::DOES_MATCH_VALID_CONT
+            | TokenConflictStatus::DOES_MATCH_SEPARATORS
+            | TokenConflictStatus::MATCHES_SAME_STRING
+            | TokenConflictStatus::MATCHES_PREFIX;
+        let overlap_mask = TokenConflictStatus::DOES_MATCH_SEPARATORS
+            | TokenConflictStatus::MATCHES_PREFIX
+            | TokenConflictStatus::MATCHES_SAME_STRING
+            | TokenConflictStatus::DOES_MATCH_CONTINUATION;
+
+        let mut conflict_or_prefix_bits = vec![0u64; n * row_words];
+        let mut overlap_either_bits = vec![0u64; n * row_words];
+        for i in 0..n {
+            let row_base = i * row_words;
+            for j in 0..n {
+                let entry_ij = status_matrix[matrix_index(n, i, j)];
+                if entry_ij.intersects(conflict_mask) {
+                    conflict_or_prefix_bits[row_base + j / 64] |= 1u64 << (j % 64);
+                }
+                let entry_ji = status_matrix[matrix_index(n, j, i)];
+                if entry_ij.intersects(overlap_mask) || entry_ji.intersects(overlap_mask) {
+                    overlap_either_bits[row_base + j / 64] |= 1u64 << (j % 64);
+                }
             }
         }
 
@@ -55,6 +109,9 @@ impl<'a> TokenConflictMap<'a> {
             starting_chars_by_index: starting_chars,
             following_chars_by_index: following_chars,
             grammar,
+            conflict_or_prefix_bits,
+            overlap_either_bits,
+            row_words,
         }
     }
 
@@ -68,44 +125,53 @@ impl<'a> TokenConflictMap<'a> {
 
     /// Does token `i` match any strings that token `j` does *not* match?
     pub fn does_match_different_string(&self, i: usize, j: usize) -> bool {
-        self.status_matrix[matrix_index(self.n, i, j)].matches_different_string
+        self.status_matrix[matrix_index(self.n, i, j)]
+            .contains(TokenConflictStatus::MATCHES_DIFFERENT_STRING)
     }
 
     /// Does token `i` match any strings that token `j` also matches, where
     /// token `i` is preferred over token `j`?
     #[inline]
     pub fn does_match_same_string(&self, i: usize, j: usize) -> bool {
-        self.status_matrix[matrix_index(self.n, i, j)].matches_same_string
+        self.status_matrix[matrix_index(self.n, i, j)]
+            .contains(TokenConflictStatus::MATCHES_SAME_STRING)
     }
 
     #[inline]
     pub fn does_conflict(&self, i: usize, j: usize) -> bool {
-        let entry = &self.status_matrix[matrix_index(self.n, i, j)];
-        entry.does_match_valid_continuation
-            || entry.does_match_separators
-            || entry.matches_same_string
+        debug_assert!(i < self.n && j < self.n, "token indices out of bounds");
+        // Safety: i < n and j < n imply n*i+j < n*n == status_matrix.len().
+        let entry = unsafe { *self.status_matrix.get_unchecked(matrix_index(self.n, i, j)) };
+        entry.intersects(
+            TokenConflictStatus::DOES_MATCH_VALID_CONT
+                | TokenConflictStatus::DOES_MATCH_SEPARATORS
+                | TokenConflictStatus::MATCHES_SAME_STRING,
+        )
     }
 
     /// Does token `i` match any strings that are *prefixes* of strings matched by `j`?
+    #[allow(dead_code)]
     #[inline]
     pub fn does_match_prefix(&self, i: usize, j: usize) -> bool {
-        self.status_matrix[matrix_index(self.n, i, j)].matches_prefix
+        self.status_matrix[matrix_index(self.n, i, j)].contains(TokenConflictStatus::MATCHES_PREFIX)
     }
 
     pub fn does_match_shorter_or_longer(&self, i: usize, j: usize) -> bool {
-        let entry = &self.status_matrix[matrix_index(self.n, i, j)];
-        let reverse_entry = &self.status_matrix[matrix_index(self.n, j, i)];
-        (entry.does_match_valid_continuation || entry.does_match_separators)
-            && !reverse_entry.does_match_separators
+        let entry = self.status_matrix[matrix_index(self.n, i, j)];
+        let reverse_entry = self.status_matrix[matrix_index(self.n, j, i)];
+        entry.intersects(
+            TokenConflictStatus::DOES_MATCH_VALID_CONT | TokenConflictStatus::DOES_MATCH_SEPARATORS,
+        ) && !reverse_entry.contains(TokenConflictStatus::DOES_MATCH_SEPARATORS)
     }
 
     #[inline]
     pub fn does_overlap(&self, i: usize, j: usize) -> bool {
-        let status = &self.status_matrix[matrix_index(self.n, i, j)];
-        status.does_match_separators
-            || status.matches_prefix
-            || status.matches_same_string
-            || status.does_match_continuation
+        self.status_matrix[matrix_index(self.n, i, j)].intersects(
+            TokenConflictStatus::DOES_MATCH_SEPARATORS
+                | TokenConflictStatus::MATCHES_PREFIX
+                | TokenConflictStatus::MATCHES_SAME_STRING
+                | TokenConflictStatus::DOES_MATCH_CONTINUATION,
+        )
     }
 
     pub fn prefer_token(grammar: &LexicalGrammar, left: (i32, usize), right: (i32, usize)) -> bool {
@@ -241,51 +307,70 @@ fn get_following_chars(
         .collect()
 }
 
+/// Hash a sorted slice of NFA state IDs to a single `u64` for use as a
+/// visited-set key.
+#[inline]
+fn hash_state_set(states: &[u32]) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut h = rustc_hash::FxHasher::default();
+    states.hash(&mut h);
+    h.finish()
+}
+
 fn compute_conflict_status(
     cursor: &mut NfaCursor,
     grammar: &LexicalGrammar,
     following_chars: &[CharacterSet],
+    nfa_state_to_var: &[usize],
     i: usize,
     j: usize,
 ) -> (TokenConflictStatus, TokenConflictStatus) {
-    let mut visited_state_sets = HashSet::new();
-    let mut state_set_queue = vec![vec![
+    let mut visited_state_sets = FxHashSet::<u64>::default();
+    let mut state_set_queue = Vec::with_capacity(4);
+    state_set_queue.push(vec![
         grammar.variables[i].start_state,
         grammar.variables[j].start_state,
-    ]];
-    let mut result = (
-        TokenConflictStatus::default(),
-        TokenConflictStatus::default(),
-    );
+    ]);
+    let mut result = (TokenConflictStatus::empty(), TokenConflictStatus::empty());
 
     while let Some(state_set) = state_set_queue.pop() {
-        let mut live_variable_indices = grammar.variable_indices_for_nfa_states(&state_set);
-
         // If only one of the two tokens could possibly match from this state, then
         // there is no reason to analyze any of its successors. Just record the fact
         // that the token matches a string that the other token does not match.
-        let first_live_variable_index = live_variable_indices.next().unwrap();
-        if live_variable_indices.count() == 0 {
+        let first_live_variable_index = nfa_state_to_var[state_set[0] as usize];
+        if state_set
+            .iter()
+            .all(|&s| nfa_state_to_var[s as usize] == first_live_variable_index)
+        {
             if first_live_variable_index == i {
-                result.0.matches_different_string = true;
+                result
+                    .0
+                    .insert(TokenConflictStatus::MATCHES_DIFFERENT_STRING);
             } else {
-                result.1.matches_different_string = true;
+                result
+                    .1
+                    .insert(TokenConflictStatus::MATCHES_DIFFERENT_STRING);
             }
             continue;
         }
 
         // Don't pursue states where there's no potential for conflict.
         cursor.reset(state_set);
-        let within_separator = cursor.transition_chars().any(|(_, sep)| sep);
+
+        // Compute lazily: most BFS states have no completions, so
+        // `within_separator` is never needed in those iterations.
+        let mut within_separator = None::<bool>;
 
         // Examine each possible completed token in this state.
         let mut completion = None;
         for (id, precedence) in cursor.completions() {
-            if within_separator {
+            let sep = *within_separator
+                .get_or_insert_with(|| cursor.transition_chars().any(|(_, sep)| sep));
+            if sep {
                 if id == i {
-                    result.0.does_match_separators = true;
+                    result.0.insert(TokenConflictStatus::DOES_MATCH_SEPARATORS);
                 } else {
-                    result.1.does_match_separators = true;
+                    result.1.insert(TokenConflictStatus::DOES_MATCH_SEPARATORS);
                 }
             }
 
@@ -310,9 +395,9 @@ fn compute_conflict_status(
                 }
 
                 if preferred_id == i {
-                    result.0.matches_same_string = true;
+                    result.0.insert(TokenConflictStatus::MATCHES_SAME_STRING);
                 } else {
-                    result.1.matches_same_string = true;
+                    result.1.insert(TokenConflictStatus::MATCHES_SAME_STRING);
                 }
             } else {
                 completion = Some((id, precedence));
@@ -329,12 +414,18 @@ fn compute_conflict_status(
             if let Some((completed_id, completed_precedence)) = completion {
                 let mut advanced_id = None;
                 let mut successor_contains_completed_id = false;
-                for variable_id in grammar.variable_indices_for_nfa_states(&transition.states) {
-                    if variable_id == completed_id {
+                let mut prev_var = None;
+                for &state_id in &transition.states {
+                    let var_id = nfa_state_to_var[state_id as usize];
+                    if prev_var == Some(var_id) {
+                        continue;
+                    }
+                    prev_var = Some(var_id);
+                    if var_id == completed_id {
                         successor_contains_completed_id = true;
                         break;
                     }
-                    advanced_id = Some(variable_id);
+                    advanced_id = Some(var_id);
                 }
 
                 // Determine which action is preferred: matching the already complete
@@ -345,29 +436,33 @@ fn compute_conflict_status(
                         &transition,
                         completed_id,
                         completed_precedence,
-                        within_separator,
+                        within_separator.unwrap_or(false),
                     ) {
                         can_advance = true;
                         if advanced_id == i {
-                            result.0.does_match_continuation = true;
+                            result
+                                .0
+                                .insert(TokenConflictStatus::DOES_MATCH_CONTINUATION);
                             if transition.characters.does_intersect(&following_chars[j]) {
-                                result.0.does_match_valid_continuation = true;
+                                result.0.insert(TokenConflictStatus::DOES_MATCH_VALID_CONT);
                             }
                         } else {
-                            result.1.does_match_continuation = true;
+                            result
+                                .1
+                                .insert(TokenConflictStatus::DOES_MATCH_CONTINUATION);
                             if transition.characters.does_intersect(&following_chars[i]) {
-                                result.1.does_match_valid_continuation = true;
+                                result.1.insert(TokenConflictStatus::DOES_MATCH_VALID_CONT);
                             }
                         }
                     } else if completed_id == i {
-                        result.0.matches_prefix = true;
+                        result.0.insert(TokenConflictStatus::MATCHES_PREFIX);
                     } else {
-                        result.1.matches_prefix = true;
+                        result.1.insert(TokenConflictStatus::MATCHES_PREFIX);
                     }
                 }
             }
 
-            if can_advance && visited_state_sets.insert(transition.states.clone()) {
+            if can_advance && visited_state_sets.insert(hash_state_set(&transition.states)) {
                 state_set_queue.push(transition.states);
             }
         }
