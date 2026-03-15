@@ -1,17 +1,24 @@
 #ifndef TREE_SITTER_WASM_WCTYPE_H_
 #define TREE_SITTER_WASM_WCTYPE_H_
 
-#include <stdbool.h>
-
 typedef int wint_t;
 
-int iswlower(wint_t wch);
+static inline int iswlower(wint_t wch) {
+    return (unsigned)wch - L'a' < 26;
+}
 
-int iswupper(wint_t wch);
+static inline int iswupper(wint_t wch) {
+    return (unsigned)wch - L'A' < 26;
+}
 
-int iswpunct(wint_t wch);
+static inline int iswpunct(wint_t wch) {
+  return (wch >= 33 && wch <= 47) ||
+         (wch >= 58 && wch <= 64) ||
+         (wch >= 91 && wch <= 96) ||
+         (wch >= 123 && wch <= 126);
+}
 
-static inline bool iswalpha(wint_t wch) {
+static inline int iswalpha(wint_t wch) {
   switch (wch) {
   case L'a':
   case L'b':
@@ -65,13 +72,13 @@ static inline bool iswalpha(wint_t wch) {
   case L'X':
   case L'Y':
   case L'Z':
-    return true;
+    return 1;
   default:
-    return false;
+    return 0;
   }
 }
 
-static inline bool iswdigit(wint_t wch) {
+static inline int iswdigit(wint_t wch) {
   switch (wch) {
   case L'0':
   case L'1':
@@ -83,13 +90,13 @@ static inline bool iswdigit(wint_t wch) {
   case L'7':
   case L'8':
   case L'9':
-    return true;
+    return 1;
   default:
-    return false;
+    return 0;
   }
 }
 
-static inline bool iswalnum(wint_t wch) {
+static inline int iswalnum(wint_t wch) {
   switch (wch) {
   case L'a':
   case L'b':
@@ -153,13 +160,13 @@ static inline bool iswalnum(wint_t wch) {
   case L'7':
   case L'8':
   case L'9':
-    return true;
+    return 1;
   default:
-    return false;
+    return 0;
   }
 }
 
-static inline bool iswspace(wint_t wch) {
+static inline int iswspace(wint_t wch) {
   switch (wch) {
   case L' ':
   case L'\t':
@@ -167,9 +174,9 @@ static inline bool iswspace(wint_t wch) {
   case L'\v':
   case L'\f':
   case L'\r':
-    return true;
+    return 1;
   default:
-    return false;
+    return 0;
   }
 }
 
