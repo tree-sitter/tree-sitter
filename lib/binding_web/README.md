@@ -174,7 +174,9 @@ For example, you can download the JavaScript `.wasm` file from the tree-sitter-j
 You can also generate the `.wasm` file for your desired grammar. Shown below is an example of how to generate the `.wasm`
 file for the JavaScript grammar.
 
-**IMPORTANT**: [Emscripten][emscripten], [Docker][docker], or [Podman][podman] need to be installed.
+> [!NOTE]
+> Since v0.26.1, `tree-sitter build --wasm` uses [wasi-sdk][] and will automatically download it on first use.
+> No additional tools need to be installed.
 
 First install `tree-sitter-cli`, and the tree-sitter language for which to generate `.wasm`
 (`tree-sitter-javascript` in this example):
@@ -263,3 +265,4 @@ following to your webpack config:
 [node bindings]: https://github.com/tree-sitter/node-tree-sitter
 [npm module]: https://www.npmjs.com/package/web-tree-sitter
 [podman]: https://podman.io
+[wasi-sdk]: https://github.com/WebAssembly/wasi-sdk
