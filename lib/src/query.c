@@ -16,7 +16,7 @@
 #include "./unicode.h"
 #include <wctype.h>
 
-// #define DEBUG_ANALYZE_QUERY
+#define DEBUG_ANALYZE_QUERY
 // #define DEBUG_EXECUTE_QUERY
 
 #define MAX_STEP_CAPTURE_COUNT 3
@@ -115,6 +115,7 @@ typedef struct {
   bool is_last_child: 1;
   bool is_pass_through: 1;
   bool is_dead_end: 1;
+  bool is_field_gate: 1;
   bool is_inside_alternation: 1;
   bool contains_captures: 1;
   bool root_pattern_guaranteed: 1;
@@ -222,6 +223,7 @@ typedef struct {
   bool has_in_progress_alternatives: 1;
   bool dead: 1;
   bool needs_parent: 1;
+  TSFieldId required_field;
 } QueryState;
 
 typedef Array(TSQueryCapture) CaptureList;
@@ -263,6 +265,7 @@ typedef struct {
   uint16_t depth;
   uint16_t step_index;
   TSSymbol root_symbol;
+  TSFieldId required_field;
 } AnalysisState;
 
 typedef Array(AnalysisState *) AnalysisStateSet;
@@ -1266,6 +1269,16 @@ static void ts_query__perform_analysis(
         }
       }
 
+      // Record the gate's field in the state so it persists across iterations.
+      {
+        const QueryStep *s = array_get(&self->steps, state->step_index);
+        while (s->is_field_gate) {
+          state->required_field = s->field;
+          state->step_index++; // skip the gate step
+          s = array_get(&self->steps, state->step_index);
+        }
+      }
+
       const TSStateId parse_state = analysis_state__top(state)->parse_state;
       const TSSymbol parent_symbol = analysis_state__top(state)->parent_symbol;
       const TSFieldId parent_field_id = analysis_state__top(state)->field_id;
@@ -1360,7 +1373,7 @@ static void ts_query__perform_analysis(
             } else if (step->symbol != visible_symbol) {
               does_match = false;
             }
-            if (step->field && step->field != field_id) {
+            if (state->required_field && state->required_field != field_id) {
               does_match = false;
             }
             if (
@@ -1416,6 +1429,8 @@ static void ts_query__perform_analysis(
           // over any descendant steps of the current child.
           const QueryStep *next_step = step;
           if (does_match) {
+            // Clear the field constraint after a successful match.
+            next_state.required_field = 0;
             for (;;) {
               next_state.step_index++;
               next_step = array_get(&self->steps, next_state.step_index);
@@ -1435,6 +1450,14 @@ static void ts_query__perform_analysis(
             if (next_step->is_pass_through) {
               next_state.step_index++;
               next_step++;
+              continue;
+            }
+
+            // Skip field-gate steps, recording the field constraint.
+            if (next_step->is_field_gate) {
+              next_state.required_field = next_step->field;
+              next_state.step_index++;
+              next_step = array_get(&self->steps, next_state.step_index);
               continue;
             }
 
@@ -1818,6 +1841,14 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
         // If there isn't a final step, then that means the parent step itself is unreachable.
         impossible_step_index = parent_step_index;
       }
+      // If the impossible step is preceded by a field-gate, report the
+      // error at the gate's position (the field name) instead.
+      if (impossible_step_index > 0) {
+        QueryStep *prev = array_get(&self->steps, impossible_step_index - 1);
+        if (prev->is_field_gate) {
+          impossible_step_index--;
+        }
+      }
       uint32_t j, impossible_exists;
       array_search_sorted_by(&self->step_offsets, .step_index, impossible_step_index, &j, &impossible_exists);
       if (j >= self->step_offsets.size) j = self->step_offsets.size - 1;
@@ -1881,6 +1912,16 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
     }
   }
 
+  // Clear guaranteed flags on field-gate dead-end steps. Gates are not matchable
+  // steps, so they should not block the backwards fallibility propagation.
+  for (unsigned i = 0; i < self->steps.size; i++) {
+    QueryStep *step = array_get(&self->steps, i);
+    if (step->is_field_gate) {
+      step->root_pattern_guaranteed = false;
+      step->parent_pattern_guaranteed = false;
+    }
+  }
+
   // Propagate fallibility. If a pattern is fallible at a given step, then it is
   // fallible at all of its preceding steps.
   bool done = self->steps.size == 0;
@@ -1889,6 +1930,12 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
     for (unsigned i = self->steps.size - 1; i > 0; i--) {
       QueryStep *step = array_get(&self->steps, i);
       if (step->depth == PATTERN_DONE_MARKER) continue;
+
+      // Field-gate steps are transparent - look through to the guarded
+      // step so that gates don't block guarantee propagation.
+      if (step->is_field_gate) {
+        step = array_get(&self->steps, i + 1);
+      }
 
       // Determine if this step is definite or has definite alternatives.
       bool parent_pattern_guaranteed = false;
@@ -2254,7 +2301,7 @@ static TSQueryError ts_query__parse_pattern(
   if (stream->next == 0) return TSQueryErrorSyntax;
   if (stream->next == ')' || stream->next == ']') return PARENT_DONE;
 
-  const uint32_t starting_step_index = self->steps.size;
+  uint32_t starting_step_index = self->steps.size;
 
   // Store the byte offset of each step in the query.
   if (
@@ -2792,7 +2839,30 @@ static TSQueryError ts_query__parse_pattern(
     stream_advance(stream);
     stream_skip_whitespace(stream);
 
-    // Parse the pattern
+    // Resolve the field name before parsing the child pattern.
+    TSFieldId field_id = ts_language_field_id_for_name(
+      self->language,
+      field_name,
+      length
+    );
+    if (!field_id) {
+      stream->input = field_name;
+      return TSQueryErrorField;
+    }
+
+    // Emit a field-gate step: a dead-end that sets the field constraint
+    // in the QueryState. The child step always follows at gate_index + 1.
+    QueryStep gate = query_step__new(0, depth, false);
+    gate.is_dead_end = true;
+    gate.is_field_gate = true;
+    gate.field = field_id;
+    array_push(&self->steps, gate);
+
+    // The child steps start after the gate. Update starting_step_index
+    // so that captures and quantifiers apply to the child, not the gate.
+    starting_step_index = self->steps.size;
+
+    // Parse the child pattern.
     CaptureQuantifiers field_capture_quantifiers = capture_quantifiers_new();
     TSQueryError e = ts_query__parse_pattern(
       self,
@@ -2806,33 +2876,6 @@ static TSQueryError ts_query__parse_pattern(
       capture_quantifiers_delete(&field_capture_quantifiers);
       if (e == PARENT_DONE) e = TSQueryErrorSyntax;
       return e;
-    }
-
-    // Add the field name to the first step of the pattern
-    TSFieldId field_id = ts_language_field_id_for_name(
-      self->language,
-      field_name,
-      length
-    );
-    if (!field_id) {
-      stream->input = field_name;
-      return TSQueryErrorField;
-    }
-
-    uint32_t step_index = starting_step_index;
-    QueryStep *step = array_get(&self->steps, step_index);
-    for (;;) {
-      step->field = field_id;
-      if (
-        step->alternative_index != NONE &&
-        step->alternative_index > step_index &&
-        step->alternative_index < self->steps.size
-      ) {
-        step_index = step->alternative_index;
-        step = array_get(&self->steps, step_index);
-      } else {
-        break;
-      }
     }
 
     capture_quantifiers_add_all(capture_quantifiers, &field_capture_quantifiers);
@@ -3256,7 +3299,13 @@ bool ts_query_is_pattern_guaranteed_at_step(
     step_index = step_offset->step_index;
   }
   if (step_index < self->steps.size) {
-    return array_get(&self->steps, step_index)->root_pattern_guaranteed;
+    // Skip field-gate dead-end steps to the actual matching step.
+    QueryStep *step = array_get(&self->steps, step_index);
+    while (step->is_field_gate) {
+      step_index++;
+      step = array_get(&self->steps, step_index);
+    }
+    return step->root_pattern_guaranteed;
   } else {
     return false;
   }
@@ -3683,6 +3732,7 @@ static void ts_query_cursor__add_state(
     .has_in_progress_alternatives = false,
     .needs_parent = step->depth == 1,
     .dead = false,
+    .required_field = 0,
   }));
 }
 
@@ -4105,6 +4155,15 @@ static inline bool ts_query_cursor__advance(
           state->has_in_progress_alternatives = false;
           copy_count = 0;
 
+          // Process field-gate steps transparently. These dead-end steps
+          // set the field constraint in the state and advance to the next
+          // step without consuming a node.
+          while (step->is_field_gate) {
+            state->required_field = step->field;
+            state->step_index++;
+            step = array_get(&self->query->steps, state->step_index);
+          }
+
           // Check that the node matches all of the criteria for the next
           // step of the pattern.
           if ((uint32_t)state->start_depth + (uint32_t)step->depth != self->depth) continue;
@@ -4139,8 +4198,8 @@ static inline bool ts_query_cursor__advance(
             }
             if (!has_supertype) node_does_match = false;
           }
-          if (step->field) {
-            if (step->field == field_id) {
+          if (state->required_field) {
+            if (state->required_field == field_id) {
               if (!can_have_later_siblings_with_this_field) {
                 later_sibling_can_match = false;
               }
@@ -4244,6 +4303,7 @@ static inline bool ts_query_cursor__advance(
           }
 
           // Advance this state to the next step of its pattern.
+          state->required_field = 0;
           state->step_index++;
           LOG(
             "  advance state. pattern:%u, step:%u\n",
@@ -4276,15 +4336,25 @@ static inline bool ts_query_cursor__advance(
           for (unsigned k = j; k < end_index; k++) {
             QueryState *child_state = array_get(&self->states, k);
             QueryStep *child_step = array_get(&self->query->steps, child_state->step_index);
+
+            // Skip field-gate steps transparently: set the field constraint
+            // and advance, so that the branching logic below sees the real
+            // step (which may carry alternation links from [A B] linking).
+            while (child_step->is_field_gate) {
+              child_state->required_field = child_step->field;
+              child_state->step_index++;
+              child_step = array_get(&self->query->steps, child_state->step_index);
+            }
+
             if (child_step->alternative_index != NONE) {
               // A "dead-end" step exists only to add a non-sequential jump into the step sequence,
               // via its alternative index. When a state reaches a dead-end step, it jumps straight
               // to the step's alternative.
               if (child_step->is_dead_end) {
                 // A backward-pointing dead-end is a recursive back-reference (^).
-                // Adjust start_depth so the target steps' compile-time depths
-                // align with the current tree position.
                 if (child_step->alternative_index < child_state->step_index) {
+                  // Adjust start_depth so the target steps' compile-time depths
+                  // align with the current tree position.
                   QueryStep *target_step = array_get(&self->query->steps, child_step->alternative_index);
                   child_state->start_depth += child_step->depth - target_step->depth;
                 }
