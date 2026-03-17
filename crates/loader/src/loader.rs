@@ -5,8 +5,6 @@
 use std::fmt::Write as _;
 #[cfg(any(feature = "tree-sitter-highlight", feature = "tree-sitter-tags"))]
 use std::ops::Range;
-#[cfg(feature = "tree-sitter-highlight")]
-use std::sync::Mutex;
 use std::{
     collections::HashMap,
     env, fs,
@@ -16,7 +14,7 @@ use std::{
     mem,
     path::{Path, PathBuf},
     process::Command,
-    sync::LazyLock,
+    sync::{LazyLock, Mutex},
     time::{SystemTime, SystemTimeError},
 };
 
@@ -43,7 +41,7 @@ use tree_sitter_tags::{Error as TagsError, TagsConfiguration};
 static GRAMMAR_NAME_REGEX: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r#""name":\s*"(.*?)""#).unwrap());
 
-static WASM_TOOL_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
+static WASM_TOOL_LOCK: Mutex<()> = Mutex::new(());
 
 const WASI_SDK_VERSION: &str = include_str!("../wasi-sdk-version").trim_ascii();
 const BINARYEN_VERSION: &str = include_str!("../binaryen-version").trim_ascii();
