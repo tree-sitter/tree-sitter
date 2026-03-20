@@ -67,7 +67,7 @@ wasmparser.workspace = true
 webbrowser.workspace = true
 
 tree-sitter.workspace = true
-tree-sitter-generate.workspace = true
+tree-sitter-generate = { workspace = true, features = ["load"] }
 tree-sitter-config.workspace = true
 tree-sitter-highlight.workspace = true
 tree-sitter-loader.workspace = true

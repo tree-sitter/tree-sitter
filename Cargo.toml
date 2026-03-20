@@ -154,7 +154,7 @@ wasmparser = "0.243.0"
 webbrowser = "1.0.5"
 
 tree-sitter = { version = "0.26.7", path = "./lib" }
-tree-sitter-generate = { version = "0.26.7", path = "./crates/generate" }
+tree-sitter-generate = { version = "0.26.7", path = "./crates/generate", default-features = false }
 tree-sitter-loader = { version = "0.26.7", path = "./crates/loader" }
 tree-sitter-config = { version = "0.26.7", path = "./crates/config" }
 tree-sitter-highlight = { version = "0.26.7", path = "./crates/highlight" }
