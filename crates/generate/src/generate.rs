@@ -8,6 +8,7 @@ use std::{
 };
 
 use bitflags::bitflags;
+#[cfg(feature = "load")]
 use log::warn;
 use node_types::VariableInfo;
 use regex::{Regex, RegexBuilder};
@@ -108,6 +109,7 @@ pub struct IoError {
     pub path: Option<String>,
 }
 
+#[cfg(feature = "load")]
 impl IoError {
     fn new(error: &std::io::Error, path: Option<&Path>) -> Self {
         Self {

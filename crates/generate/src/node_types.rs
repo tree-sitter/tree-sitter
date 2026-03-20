@@ -1,4 +1,6 @@
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+#[cfg(feature = "load")]
+use std::collections::HashSet;
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use serde::Serialize;
 use thiserror::Error;
