@@ -1098,6 +1098,35 @@ static void ts_parser__accept(
   ts_stack_halt(self->stack, version);
 }
 
+static bool ts_parser__process_candidate_recovery_actions(
+  TSParser *self,
+  const TSParseAction *actions,
+  uint32_t action_count
+) {
+  bool has_shift_action = false;
+  for (uint32_t i = 0; i < action_count; i++) {
+    TSParseAction action = actions[i];
+    switch (action.type) {
+      case TSParseActionTypeShift:
+      case TSParseActionTypeRecover:
+        if (!action.shift.extra && !action.shift.repetition) has_shift_action = true;
+        break;
+      case TSParseActionTypeReduce:
+        if (action.reduce.child_count > 0)
+          ts_reduce_action_set_add(&self->reduce_actions, (ReduceAction) {
+            .symbol = action.reduce.symbol,
+            .count = action.reduce.child_count,
+            .dynamic_precedence = action.reduce.dynamic_precedence,
+            .production_id = action.reduce.production_id,
+          });
+        break;
+      default:
+        break;
+    }
+  }
+  return has_shift_action;
+}
+
 static bool ts_parser__do_all_potential_reductions(
   TSParser *self,
   StackVersion starting_version,
@@ -1124,37 +1153,17 @@ static bool ts_parser__do_all_potential_reductions(
     bool has_shift_action = false;
     array_clear(&self->reduce_actions);
 
-    TSSymbol first_symbol, end_symbol;
     if (lookahead_symbol != 0) {
-      first_symbol = lookahead_symbol;
-      end_symbol = lookahead_symbol + 1;
-    } else {
-      first_symbol = 1;
-      end_symbol = self->language->token_count;
-    }
-
-    for (TSSymbol symbol = first_symbol; symbol < end_symbol; symbol++) {
       TableEntry entry;
-      ts_language_table_entry(self->language, state, symbol, &entry);
-      for (uint32_t j = 0; j < entry.action_count; j++) {
-        TSParseAction action = entry.actions[j];
-        switch (action.type) {
-          case TSParseActionTypeShift:
-          case TSParseActionTypeRecover:
-            if (!action.shift.extra && !action.shift.repetition) has_shift_action = true;
-            break;
-          case TSParseActionTypeReduce:
-            if (action.reduce.child_count > 0)
-              ts_reduce_action_set_add(&self->reduce_actions, (ReduceAction) {
-                .symbol = action.reduce.symbol,
-                .count = action.reduce.child_count,
-                .dynamic_precedence = action.reduce.dynamic_precedence,
-                .production_id = action.reduce.production_id,
-              });
-            break;
-          default:
-            break;
-        }
+      ts_language_table_entry(self->language, state, lookahead_symbol, &entry);
+      has_shift_action = ts_parser__process_candidate_recovery_actions(self, entry.actions, entry.action_count);
+    } else {
+      LookaheadIterator iter = ts_language_lookaheads(self->language, state);
+      while (ts_lookahead_iterator__next(&iter)) {
+        // only terminal tokens are valid lookaheads for reduction decisions
+        if (iter.symbol == ts_builtin_sym_end || iter.symbol >= self->language->token_count) continue;
+        if (ts_parser__process_candidate_recovery_actions(self, iter.actions, iter.action_count))
+          has_shift_action = true;
       }
     }
 
