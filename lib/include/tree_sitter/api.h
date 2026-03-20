@@ -114,6 +114,13 @@ typedef struct TSLogger {
   void (*log)(void *payload, TSLogType log_type, const char *buffer);
 } TSLogger;
 
+/**
+ * A summary of a change to a text document.
+ *
+ * The `start_byte` and `start_point` values must be less than or equal to the
+ * `old_end_byte` and `old_end_point` values, respectively. Passing an edit
+ * that violates these invariants may produce nonsensical results.
+ */
 typedef struct TSInputEdit {
   uint32_t start_byte;
   uint32_t old_end_byte;
@@ -437,6 +444,9 @@ TSRange *ts_tree_included_ranges(const TSTree *self, uint32_t *length);
  *
  * You must describe the edit both in terms of byte offsets and in terms of
  * (row, column) coordinates.
+ *
+ * The edit's `start_byte` must be less than or equal to its `old_end_byte`,
+ * and its `start_point` must be less than or equal to its `old_end_point`.
  */
 void ts_tree_edit(TSTree *self, const TSInputEdit *edit);
 
@@ -700,6 +710,9 @@ TSNode ts_node_named_descendant_for_point_range(TSNode self, TSPoint start, TSPo
  * afterward will already reflect the edit. You only need to use [`ts_node_edit`]
  * when you have a [`TSNode`] instance that you want to keep and continue to use
  * after an edit.
+ *
+ * The edit's `start_byte` must be less than or equal to its `old_end_byte`,
+ * and its `start_point` must be less than or equal to its `old_end_point`.
  */
 void ts_node_edit(TSNode *self, const TSInputEdit *edit);
 
@@ -714,6 +727,9 @@ bool ts_node_eq(TSNode self, TSNode other);
  * This function updates a single point's byte offset and row/column position
  * based on an edit operation. This is useful for editing points without
  * requiring a tree or node instance.
+ *
+ * The edit's `start_byte` must be less than or equal to its `old_end_byte`,
+ * and its `start_point` must be less than or equal to its `old_end_point`.
  */
 void ts_point_edit(TSPoint *point, uint32_t *point_byte, const TSInputEdit *edit);
 
@@ -723,6 +739,9 @@ void ts_point_edit(TSPoint *point, uint32_t *point_byte, const TSInputEdit *edit
  * This function updates a range's start and end positions based on an edit
  * operation. This is useful for editing ranges without requiring a tree
  * or node instance.
+ *
+ * The edit's `start_byte` must be less than or equal to its `old_end_byte`,
+ * and its `start_point` must be less than or equal to its `old_end_point`.
  */
 void ts_range_edit(TSRange *range, const TSInputEdit *edit);
 

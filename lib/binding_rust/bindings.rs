@@ -106,6 +106,7 @@ pub struct TSLogger {
         ),
     >,
 }
+#[doc = " A summary of a change to a text document.\n\n The `start_byte` and `start_point` values must be less than or equal to the\n `old_end_byte` and `old_end_point` values, respectively. Passing an edit\n that violates these invariants may produce nonsensical results."]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct TSInputEdit {
@@ -298,7 +299,7 @@ unsafe extern "C" {
     pub fn ts_tree_included_ranges(self_: *const TSTree, length: *mut u32) -> *mut TSRange;
 }
 unsafe extern "C" {
-    #[doc = " Edit the syntax tree to keep it in sync with source code that has been\n edited.\n\n You must describe the edit both in terms of byte offsets and in terms of\n (row, column) coordinates."]
+    #[doc = " Edit the syntax tree to keep it in sync with source code that has been\n edited.\n\n You must describe the edit both in terms of byte offsets and in terms of\n (row, column) coordinates.\n\n The edit's `start_byte` must be less than or equal to its `old_end_byte`,\n and its `start_point` must be less than or equal to its `old_end_point`."]
     pub fn ts_tree_edit(self_: *mut TSTree, edit: *const TSInputEdit);
 }
 unsafe extern "C" {
@@ -488,7 +489,7 @@ unsafe extern "C" {
     ) -> TSNode;
 }
 unsafe extern "C" {
-    #[doc = " Edit the node to keep it in-sync with source code that has been edited.\n\n This function is only rarely needed. When you edit a syntax tree with the\n [`ts_tree_edit`] function, all of the nodes that you retrieve from the tree\n afterward will already reflect the edit. You only need to use [`ts_node_edit`]\n when you have a [`TSNode`] instance that you want to keep and continue to use\n after an edit."]
+    #[doc = " Edit the node to keep it in-sync with source code that has been edited.\n\n This function is only rarely needed. When you edit a syntax tree with the\n [`ts_tree_edit`] function, all of the nodes that you retrieve from the tree\n afterward will already reflect the edit. You only need to use [`ts_node_edit`]\n when you have a [`TSNode`] instance that you want to keep and continue to use\n after an edit.\n\n The edit's `start_byte` must be less than or equal to its `old_end_byte`,\n and its `start_point` must be less than or equal to its `old_end_point`."]
     pub fn ts_node_edit(self_: *mut TSNode, edit: *const TSInputEdit);
 }
 unsafe extern "C" {
@@ -496,11 +497,11 @@ unsafe extern "C" {
     pub fn ts_node_eq(self_: TSNode, other: TSNode) -> bool;
 }
 unsafe extern "C" {
-    #[doc = " Edit a point to keep it in-sync with source code that has been edited.\n\n This function updates a single point's byte offset and row/column position\n based on an edit operation. This is useful for editing points without\n requiring a tree or node instance."]
+    #[doc = " Edit a point to keep it in-sync with source code that has been edited.\n\n This function updates a single point's byte offset and row/column position\n based on an edit operation. This is useful for editing points without\n requiring a tree or node instance.\n\n The edit's `start_byte` must be less than or equal to its `old_end_byte`,\n and its `start_point` must be less than or equal to its `old_end_point`."]
     pub fn ts_point_edit(point: *mut TSPoint, point_byte: *mut u32, edit: *const TSInputEdit);
 }
 unsafe extern "C" {
-    #[doc = " Edit a range to keep it in-sync with source code that has been edited.\n\n This function updates a range's start and end positions based on an edit\n operation. This is useful for editing ranges without requiring a tree\n or node instance."]
+    #[doc = " Edit a range to keep it in-sync with source code that has been edited.\n\n This function updates a range's start and end positions based on an edit\n operation. This is useful for editing ranges without requiring a tree\n or node instance.\n\n The edit's `start_byte` must be less than or equal to its `old_end_byte`,\n and its `start_point` must be less than or equal to its `old_end_point`."]
     pub fn ts_range_edit(range: *mut TSRange, edit: *const TSInputEdit);
 }
 unsafe extern "C" {
