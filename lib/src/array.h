@@ -21,6 +21,29 @@ extern "C" {
 #pragma GCC diagnostic ignored "-Wunused-variable"
 #endif
 
+/// Cross-compiler deprecation attribute for private array functions.
+/// Direct calls to `_array__*` functions will produce compiler warnings;
+/// use the corresponding public `array_*` macros instead.
+#if defined(__GNUC__) || defined(__clang__)
+#define TS_DEPRECATED_(msg) __attribute__((deprecated(msg)))
+#define TS_SUPPRESS_DEPRECATED_START_ \
+  _Pragma("GCC diagnostic push") \
+  _Pragma("GCC diagnostic ignored \"-Wdeprecated-declarations\"")
+#define TS_SUPPRESS_DEPRECATED_END_ \
+  _Pragma("GCC diagnostic pop")
+#elif defined(_MSC_VER)
+#define TS_DEPRECATED_(msg) __declspec(deprecated(msg))
+#define TS_SUPPRESS_DEPRECATED_START_ \
+  __pragma(warning(push)) \
+  __pragma(warning(disable : 4996))
+#define TS_SUPPRESS_DEPRECATED_END_ \
+  __pragma(warning(pop))
+#else
+#define TS_DEPRECATED_(msg)
+#define TS_SUPPRESS_DEPRECATED_START_
+#define TS_SUPPRESS_DEPRECATED_END_
+#endif
+
 #define Array(T)       \
   struct {             \
     T *contents;       \
@@ -52,11 +75,14 @@ extern "C" {
 
 /// Reserve `new_capacity` elements of space in the array. If `new_capacity` is
 /// less than the array's current capacity, this function has no effect.
-#define array_reserve(self, new_capacity)        \
-  ((self)->contents = _array__reserve(           \
-    (void *)(self)->contents, &(self)->capacity, \
-    array_elem_size(self), new_capacity)         \
-  )
+#define array_reserve(self, new_capacity)          \
+  do {                                             \
+    TS_SUPPRESS_DEPRECATED_START_                  \
+    (self)->contents = _array__reserve(            \
+      (void *)(self)->contents, &(self)->capacity, \
+      array_elem_size(self), new_capacity);        \
+    TS_SUPPRESS_DEPRECATED_END_                    \
+  } while (0)
 
 /// Free any memory allocated for this array. Note that this does not free any
 /// memory allocated for the array's contents.
@@ -71,10 +97,12 @@ extern "C" {
 /// Push a new `element` onto the end of the array.
 #define array_push(self, element)                                 \
   do {                                                            \
+    TS_SUPPRESS_DEPRECATED_START_                                 \
     (self)->contents = _array__grow(                              \
       (void *)(self)->contents, (self)->size, &(self)->capacity,  \
       1, array_elem_size(self)                                    \
     );                                                            \
+    TS_SUPPRESS_DEPRECATED_END_                                   \
    (self)->contents[(self)->size++] = (element);                  \
   } while(0)
 
@@ -83,10 +111,12 @@ extern "C" {
 #define array_grow_by(self, count)                                               \
   do {                                                                           \
     if ((count) == 0) break;                                                     \
+    TS_SUPPRESS_DEPRECATED_START_                                                \
     (self)->contents = _array__grow(                                             \
       (self)->contents, (self)->size, &(self)->capacity,                         \
       count, array_elem_size(self)                                               \
     );                                                                           \
+    TS_SUPPRESS_DEPRECATED_END_                                                  \
     memset((self)->contents + (self)->size, 0, (count) * array_elem_size(self)); \
     (self)->size += (count);                                                     \
   } while (0)
@@ -97,41 +127,64 @@ extern "C" {
 
 /// Append `count` elements to the end of the array, reading their values from the
 /// `contents` pointer.
-#define array_extend(self, count, other_contents)                 \
-  (self)->contents = _array__splice(                              \
-    (void*)(self)->contents, &(self)->size, &(self)->capacity,    \
-    array_elem_size(self), (self)->size, 0, count, other_contents \
-  )
+#define array_extend(self, count, other_contents)                   \
+  do {                                                              \
+    TS_SUPPRESS_DEPRECATED_START_                                   \
+    (self)->contents = _array__splice(                              \
+      (void*)(self)->contents, &(self)->size, &(self)->capacity,    \
+      array_elem_size(self), (self)->size, 0, count, other_contents \
+    );                                                              \
+    TS_SUPPRESS_DEPRECATED_END_                                     \
+  } while (0)
 
 /// Remove `old_count` elements from the array starting at the given `index`. At
 /// the same index, insert `new_count` new elements, reading their values from the
 /// `new_contents` pointer.
-#define array_splice(self, _index, old_count, new_count, new_contents) \
-  (self)->contents = _array__splice(                                   \
-    (void *)(self)->contents, &(self)->size, &(self)->capacity,        \
-    array_elem_size(self), _index, old_count, new_count, new_contents  \
-  )
+#define array_splice(self, _index, old_count, new_count, new_contents)  \
+  do {                                                                  \
+    TS_SUPPRESS_DEPRECATED_START_                                       \
+    (self)->contents = _array__splice(                                  \
+      (void *)(self)->contents, &(self)->size, &(self)->capacity,       \
+      array_elem_size(self), _index, old_count, new_count, new_contents \
+    );                                                                  \
+    TS_SUPPRESS_DEPRECATED_END_                                         \
+  } while (0)
 
 /// Insert one `element` into the array at the given `index`.
-#define array_insert(self, _index, element)                     \
-  (self)->contents = _array__splice(                            \
-    (void *)(self)->contents, &(self)->size, &(self)->capacity, \
-    array_elem_size(self), _index, 0, 1, &(element)             \
-  )
+#define array_insert(self, _index, element)                       \
+  do {                                                            \
+    TS_SUPPRESS_DEPRECATED_START_                                 \
+    (self)->contents = _array__splice(                            \
+      (void *)(self)->contents, &(self)->size, &(self)->capacity, \
+      array_elem_size(self), _index, 0, 1, &(element)            \
+    );                                                            \
+    TS_SUPPRESS_DEPRECATED_END_                                   \
+  } while (0)
 
 /// Remove one element from the array at the given `index`.
-#define array_erase(self, _index) \
-  _array__erase((void *)(self)->contents, &(self)->size, array_elem_size(self), _index)
+#define array_erase(self, _index)                    \
+  do {                                               \
+    TS_SUPPRESS_DEPRECATED_START_                    \
+    _array__erase(                                   \
+      (void *)(self)->contents, &(self)->size,        \
+      array_elem_size(self), _index                  \
+    );                                               \
+    TS_SUPPRESS_DEPRECATED_END_                      \
+  } while (0)
 
 /// Pop the last element off the array, returning the element by value.
 #define array_pop(self) ((self)->contents[--(self)->size])
 
 /// Assign the contents of one array to another, reallocating if necessary.
-#define array_assign(self, other)                                   \
-  (self)->contents = _array__assign(                                \
-    (void *)(self)->contents, &(self)->size, &(self)->capacity,     \
-    (const void *)(other)->contents, (other)->size, array_elem_size(self) \
-  )
+#define array_assign(self, other)                                       \
+  do {                                                                  \
+    TS_SUPPRESS_DEPRECATED_START_                                       \
+    (self)->contents = _array__assign(                                  \
+      (void *)(self)->contents, &(self)->size, &(self)->capacity,       \
+      (const void *)(other)->contents, (other)->size, array_elem_size(self) \
+    );                                                                  \
+    TS_SUPPRESS_DEPRECATED_END_                                         \
+  } while (0)
 
 /// Swap one array with another
 #define array_swap(self, other)                                     \
@@ -139,8 +192,10 @@ extern "C" {
     void *_array_swap_tmp = (void *)(self)->contents;               \
     (self)->contents = (other)->contents;                           \
     (other)->contents = _array_swap_tmp;                            \
+    TS_SUPPRESS_DEPRECATED_START_                                   \
     _array__swap(&(self)->size, &(self)->capacity,                  \
                  &(other)->size, &(other)->capacity);               \
+    TS_SUPPRESS_DEPRECATED_END_                                     \
   } while (0)
 
 /// Get the size of the array contents
@@ -185,6 +240,9 @@ extern "C" {
   } while (0)
 
 // Private
+//
+// These functions are implementation details. Do not call them directly;
+// use the corresponding public `array_*` macros above.
 
 // Pointers to individual `Array` fields (rather than the entire `Array` itself)
 // are passed to the various `_array__*` functions below to address strict aliasing
@@ -193,7 +251,7 @@ extern "C" {
 // The `Array` type itself was not altered as a solution in order to avoid breakage
 // with existing consumers (in particular, parsers with external scanners).
 
-/// This is not what you're looking for, see `array_erase`.
+TS_DEPRECATED_("use the `array_erase` macro instead")
 static inline void _array__erase(void* self_contents, uint32_t *size,
                                 size_t element_size, uint32_t index) {
   ts_assert(index < *size);
@@ -203,7 +261,7 @@ static inline void _array__erase(void* self_contents, uint32_t *size,
   (*size)--;
 }
 
-/// This is not what you're looking for, see `array_reserve`.
+TS_DEPRECATED_("use the `array_reserve` macro instead")
 static inline void *_array__reserve(void *contents, uint32_t *capacity,
                                   size_t element_size, uint32_t new_capacity) {
   void *new_contents = contents;
@@ -218,16 +276,18 @@ static inline void *_array__reserve(void *contents, uint32_t *capacity,
   return new_contents;
 }
 
-/// This is not what you're looking for, see `array_assign`.
+TS_DEPRECATED_("use the `array_assign` macro instead")
 static inline void *_array__assign(void* self_contents, uint32_t *self_size, uint32_t *self_capacity,
                                  const void *other_contents, uint32_t other_size, size_t element_size) {
+  TS_SUPPRESS_DEPRECATED_START_
   void *new_contents = _array__reserve(self_contents, self_capacity, element_size, other_size);
+  TS_SUPPRESS_DEPRECATED_END_
   *self_size = other_size;
   memcpy(new_contents, other_contents, *self_size * element_size);
   return new_contents;
 }
 
-/// This is not what you're looking for, see `array_swap`.
+TS_DEPRECATED_("use the `array_swap` macro instead")
 static inline void _array__swap(uint32_t *self_size, uint32_t *self_capacity,
                                uint32_t *other_size, uint32_t *other_capacity) {
   uint32_t tmp_size = *self_size;
@@ -238,7 +298,7 @@ static inline void _array__swap(uint32_t *self_size, uint32_t *self_capacity,
   *other_capacity = tmp_capacity;
 }
 
-/// This is not what you're looking for, see `array_push` or `array_grow_by`.
+TS_DEPRECATED_("use the `array_push` or `array_grow_by` macro instead")
 static inline void *_array__grow(void *contents, uint32_t size, uint32_t *capacity,
                                uint32_t count, size_t element_size) {
   void *new_contents = contents;
@@ -247,12 +307,14 @@ static inline void *_array__grow(void *contents, uint32_t size, uint32_t *capaci
     uint32_t new_capacity = *capacity * 2;
     if (new_capacity < 8) new_capacity = 8;
     if (new_capacity < new_size) new_capacity = new_size;
+    TS_SUPPRESS_DEPRECATED_START_
     new_contents = _array__reserve(contents, capacity, element_size, new_capacity);
+    TS_SUPPRESS_DEPRECATED_END_
   }
   return new_contents;
 }
 
-/// This is not what you're looking for, see `array_splice`.
+TS_DEPRECATED_("use the `array_splice` macro instead")
 static inline void *_array__splice(void *self_contents, uint32_t *size, uint32_t *capacity,
                                  size_t element_size,
                                  uint32_t index, uint32_t old_count,
@@ -262,7 +324,9 @@ static inline void *_array__splice(void *self_contents, uint32_t *size, uint32_t
   uint32_t new_end = index + new_count;
   ts_assert(old_end <= *size);
 
+  TS_SUPPRESS_DEPRECATED_START_
   void *new_contents = _array__reserve(self_contents, capacity, element_size, new_size);
+  TS_SUPPRESS_DEPRECATED_END_
 
   char *contents = (char *)new_contents;
   if (*size > old_end) {
