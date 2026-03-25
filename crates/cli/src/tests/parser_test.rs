@@ -250,6 +250,64 @@ fn test_parsing_with_custom_utf16_be_input() {
 }
 
 #[test]
+fn test_utf16_decode_does_not_read_oob() {
+    // Test for a buffer over-read in ts_decode_utf16_le/be when a lead surrogate
+    // is the last code unit in a chunk. The test grammar's external scanner
+    // distinguishes surrogate code points from supplementary-plane characters,
+    // making the over-read directly observable in the parse tree.
+    //
+    // Buffer layout:
+    //   buf[0] = 0xD83E  (lead surrogate)
+    //   buf[1] = 0xDD8B  (POISON: fake trail surrogate, adjacent in memory)
+    //
+    // The callback returns only buf[0..1] (one code unit = 2 bytes).
+    //
+    // When functioning correctly, this test passes a length of 2 bytes, which is
+    // interpreted as 2/2 = 1 code unit, and thus doesn't over-read into the "poison"
+    // fake trail surrogate. If an over-read does occur, the scanner sees a
+    // supplementary token.
+    let mut parser = Parser::new();
+    let language = get_test_fixture_language("utf16_surrogate_oob");
+    parser.set_language(&language).unwrap();
+
+    let buf = vec![
+        0xD83E, // lead surrogate (the only "visible" code unit)
+        0xDD8B, // POISON: adjacent in Vec memory, past the chunk
+    ];
+    assert_eq!("🦋", String::from_utf16(&buf).unwrap());
+
+    let mut callback = |offset: usize, _position: Point| -> &[u16] {
+        // only expose buf[0], never buf[1]
+        if offset >= 1 {
+            return [].as_slice();
+        }
+        &buf[0..1]
+    };
+
+    // Use the parse function matching the host endianness, since the
+    // buffer contains native u16 values.
+    #[cfg(target_endian = "little")]
+    let tree = parser
+        .parse_utf16_le_with_options(&mut callback, None, None)
+        .unwrap();
+    #[cfg(target_endian = "big")]
+    let tree = parser
+        .parse_utf16_be_with_options(&mut callback, None, None)
+        .unwrap();
+
+    let root = tree.root_node();
+
+    // Correct: scanner sees raw surrogate (0xD83E) -> `surrogate` node
+    // Incorrect: scanner sees supplementary (U+1F98B, aka 🦋) -> `supplementary` node
+    assert_eq!(
+        root.to_sexp(),
+        "(program (surrogate))",
+        "buffer over-read: decoder read past chunk boundary and formed a \
+         supplementary character from OOB adjacent memory"
+    );
+}
+
+#[test]
 fn test_parsing_with_callback_returning_owned_strings() {
     let mut parser = Parser::new();
     parser.set_language(&get_language("rust")).unwrap();
