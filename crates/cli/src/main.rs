@@ -901,7 +901,7 @@ impl Init {
 
             let new_config = format!("{}\n", serde_json::to_string_pretty(&json)?);
             // Write the re-serialized config back, as newly added optional boolean fields
-            // will be included with explicit `false`s rather than implict `null`s
+            // will be included with explicit `false`s rather than implicit `null`s
             if self.update && !old_config.trim().eq(new_config.trim()) {
                 info!("Updating tree-sitter.json");
                 fs::write(
