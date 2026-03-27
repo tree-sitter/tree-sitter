@@ -677,6 +677,10 @@ pub fn generate_node_types_json(
             }
         }
     }
+    // Remove stale entries whose kind is not in the topological sort
+    // (e.g., when a supertype's subtypes have been replaced by external tokens).
+    subtype_map.retain(|(supertype, _)| sorted_kinds.contains(&supertype.kind));
+
     subtype_map.sort_by(|a, b| {
         let a_idx = sorted_kinds.iter().position(|n| n.eq(&a.0.kind)).unwrap();
         let b_idx = sorted_kinds.iter().position(|n| n.eq(&b.0.kind)).unwrap();
