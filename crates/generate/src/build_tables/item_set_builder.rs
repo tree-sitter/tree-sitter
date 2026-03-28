@@ -152,8 +152,8 @@ impl<'a> ParseItemSetBuilder<'a> {
         //   * `lookaheads` - the set of possible lookahead tokens that can always come after `item`
         //     in an expansion of symbol `i`.
         //
-        //   * `reserved_lookaheads` - the set of reserved lookahead lookahead tokens that can
-        //     always come after `item` in the expansion of symbol `i`.
+        //   * `reserved_lookaheads` - the set of reserved lookahead tokens that can always come
+        //     after `item` in the expansion of symbol `i`.
         //
         //   * `propagates_lookaheads` - a boolean indicating whether or not `item` can occur at the
         //     *end* of the expansion of symbol `i`, so that i's own current lookahead tokens can

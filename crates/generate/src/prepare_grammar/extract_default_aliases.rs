@@ -91,7 +91,7 @@ pub(super) fn extract_default_aliases(
             .map(|(i, status)| (Symbol::external(i), status)),
     );
 
-    // For each symbol that always appears aliased, find the alias the occurs most often,
+    // For each symbol that always appears aliased, find the alias that occurs most often,
     // and designate that alias as the symbol's "default alias". Store all of these
     // default aliases in a map that will be returned.
     let mut result = AliasMap::new();

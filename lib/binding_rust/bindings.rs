@@ -367,7 +367,7 @@ unsafe extern "C" {
     pub fn ts_node_is_missing(self_: TSNode) -> bool;
 }
 unsafe extern "C" {
-    #[doc = " Check if the node is *extra*. Extra nodes represent things like comments,\n which are not required the grammar, but can appear anywhere."]
+    #[doc = " Check if the node is *extra*. Extra nodes represent things like comments,\n which are not required by the grammar, but can appear anywhere."]
     pub fn ts_node_is_extra(self_: TSNode) -> bool;
 }
 unsafe extern "C" {
@@ -640,7 +640,7 @@ unsafe extern "C" {
     ) -> *const ::core::ffi::c_char;
 }
 unsafe extern "C" {
-    #[doc = " Get the quantifier of the query's captures. Each capture is * associated\n with a numeric id based on the order that it appeared in the query's source."]
+    #[doc = " Get the quantifier of the query's captures. Each capture is associated\n with a numeric id based on the order that it appeared in the query's source."]
     pub fn ts_query_capture_quantifier_for_id(
         self_: *const TSQuery,
         pattern_index: u32,
@@ -667,7 +667,7 @@ unsafe extern "C" {
     pub fn ts_query_disable_pattern(self_: *mut TSQuery, pattern_index: u32);
 }
 unsafe extern "C" {
-    #[doc = " Create a new cursor for executing a given query.\n\n The cursor stores the state that is needed to iteratively search\n for matches. To use the query cursor, first call [`ts_query_cursor_exec`]\n to start running a given query on a given syntax node. Then, there are\n two options for consuming the results of the query:\n 1. Repeatedly call [`ts_query_cursor_next_match`] to iterate over all of the\n    *matches* in the order that they were found. Each match contains the\n    index of the pattern that matched, and an array of captures. Because\n    multiple patterns can match the same set of nodes, one match may contain\n    captures that appear *before* some of the captures from a previous match.\n 2. Repeatedly call [`ts_query_cursor_next_capture`] to iterate over all of the\n    individual *captures* in the order that they appear. This is useful if\n    don't care about which pattern matched, and just want a single ordered\n    sequence of captures.\n\n If you don't care about consuming all of the results, you can stop calling\n [`ts_query_cursor_next_match`] or [`ts_query_cursor_next_capture`] at any point.\n  You can then start executing another query on another node by calling\n  [`ts_query_cursor_exec`] again."]
+    #[doc = " Create a new cursor for executing a given query.\n\n The cursor stores the state that is needed to iteratively search\n for matches. To use the query cursor, first call [`ts_query_cursor_exec`]\n to start running a given query on a given syntax node. Then, there are\n two options for consuming the results of the query:\n 1. Repeatedly call [`ts_query_cursor_next_match`] to iterate over all of the\n    *matches* in the order that they were found. Each match contains the\n    index of the pattern that matched, and an array of captures. Because\n    multiple patterns can match the same set of nodes, one match may contain\n    captures that appear *before* some of the captures from a previous match.\n 2. Repeatedly call [`ts_query_cursor_next_capture`] to iterate over all of the\n    individual *captures* in the order that they appear. This is useful if\n    you don't care about which pattern matched, and just want a single ordered\n    sequence of captures.\n\n If you don't care about consuming all of the results, you can stop calling\n [`ts_query_cursor_next_match`] or [`ts_query_cursor_next_capture`] at any point.\n  You can then start executing another query on another node by calling\n  [`ts_query_cursor_exec`] again."]
     pub fn ts_query_cursor_new() -> *mut TSQueryCursor;
 }
 unsafe extern "C" {
@@ -746,7 +746,7 @@ unsafe extern "C" {
     ) -> bool;
 }
 unsafe extern "C" {
-    #[doc = " Set the maximum start depth for a query cursor.\n\n This prevents cursors from exploring children nodes at a certain depth.\n Note if a pattern includes many children, then they will still be checked.\n\n The zero max start depth value can be used as a special behavior and\n it helps to destructure a subtree by staying on a node and using captures\n for interested parts. Note that the zero max start depth only limit a search\n depth for a pattern's root node but other nodes that are parts of the pattern\n may be searched at any depth what defined by the pattern structure.\n\n Set to `UINT32_MAX` to remove the maximum start depth."]
+    #[doc = " Set the maximum start depth for a query cursor.\n\n This prevents cursors from exploring children nodes at a certain depth.\n Note if a pattern includes many children, then they will still be checked.\n\n The zero max start depth value can be used as a special behavior and\n it helps to destructure a subtree by staying on a node and using captures\n for interested parts. Note that the zero max start depth only limits a search\n depth for a pattern's root node but other nodes that are parts of the pattern\n may be searched at any depth as defined by the pattern structure.\n\n Set to `UINT32_MAX` to remove the maximum start depth."]
     pub fn ts_query_cursor_set_max_start_depth(self_: *mut TSQueryCursor, max_start_depth: u32);
 }
 unsafe extern "C" {
@@ -813,7 +813,7 @@ unsafe extern "C" {
     ) -> *const ::core::ffi::c_char;
 }
 unsafe extern "C" {
-    #[doc = " Check whether the given node type id belongs to named nodes, anonymous nodes,\n or a hidden nodes.\n\n See also [`ts_node_is_named`]. Hidden nodes are never returned from the API."]
+    #[doc = " Check whether the given node type id belongs to named nodes, anonymous nodes,\n or hidden nodes.\n\n See also [`ts_node_is_named`]. Hidden nodes are never returned from the API."]
     pub fn ts_language_symbol_type(self_: *const TSLanguage, symbol: TSSymbol) -> TSSymbolType;
 }
 unsafe extern "C" {

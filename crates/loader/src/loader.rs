@@ -1746,7 +1746,7 @@ impl Loader {
                     let language_path =
                         parser_path.join(grammar.path.unwrap_or_else(|| PathBuf::from(".")));
 
-                    // Determine if a previous language configuration in this package.json file
+                    // Determine if a previous language configuration in this tree-sitter.json file
                     // already uses the same language.
                     let mut language_id = None;
                     for (id, (path, _, _)) in

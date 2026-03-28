@@ -787,7 +787,7 @@ impl<'a> ParseTableBuilder<'a> {
                 entry.actions.pop();
                 conflicting_items.retain(|item| item.is_done());
             }
-            // If the SHIFT and REDUCE actions have the same predence, consider
+            // If the SHIFT and REDUCE actions have the same precedence, consider
             // the REDUCE actions' associativity.
             else if !shift_is_less && !shift_is_more {
                 considered_associativity = true;

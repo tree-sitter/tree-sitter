@@ -867,7 +867,7 @@ fn update_package_json(path: &Path) -> Result<()> {
 fn update_grammar_js(path: &Path) -> Result<()> {
     let mut contents = fs::read_to_string(path)?;
     if contents.contains("module.exports") {
-        info!("Migrating grammars.js to ESM");
+        info!("Migrating grammar.js to ESM");
         contents = contents.replace("module.exports =", "export default");
         write_file(path, contents)?;
     }

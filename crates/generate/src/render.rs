@@ -937,7 +937,7 @@ impl Generator {
 
             // For large character sets, find the best matching character set from
             // a pre-selected list of large character sets, which are based on the
-            // state transitions for invidual tokens. This transition may not exactly
+            // state transitions for individual tokens. This transition may not exactly
             // match one of the pre-selected character sets. In that case, determine
             // the additional checks that need to be performed to match this transition.
             let mut best_large_char_set: Option<(usize, CharacterSet, CharacterSet)> = None;
@@ -1018,7 +1018,7 @@ impl Generator {
                     add!(self, " ||{line_break}");
                 }
 
-                // If the character set contains the max character, than it probably
+                // If the character set contains the max character, then it probably
                 // corresponds to a negated character class in a regex, so it will be more
                 // concise and readable to express it in terms of negated ranges.
                 let is_included = !asserted_chars.contains(char::MAX);
