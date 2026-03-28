@@ -519,7 +519,7 @@ MutableSubtree ts_subtree_new_node(
 // Create a new error node containing the given children.
 //
 // This node is treated as 'extra'. Its children are prevented from having
-// having any effect on the parse state.
+// any effect on the parse state.
 Subtree ts_subtree_new_error_node(
   SubtreeArray *children,
   bool extra,
@@ -535,7 +535,7 @@ Subtree ts_subtree_new_error_node(
 // Create a new 'missing leaf' node.
 //
 // This node is treated as 'extra'. Its children are prevented from having
-// having any effect on the parse state.
+// any effect on the parse state.
 Subtree ts_subtree_new_missing_leaf(
   SubtreePool *pool,
   TSSymbol symbol,
@@ -758,7 +758,7 @@ Subtree ts_subtree_edit(Subtree self, const TSInputEdit *input_edit, SubtreePool
       };
 
       // Interpret all inserted text as applying to the *first* child that touches the edit.
-      // Subsequent children are only never have any text inserted into them; they are only
+      // Subsequent children never have any text inserted into them; they are only
       // shrunk to compensate for the edit.
       if (
         child_right.bytes > edit.start.bytes ||

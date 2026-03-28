@@ -185,7 +185,7 @@ typedef struct {
  *    step must be matched by the very next sibling. This is used when
  *    processing repetitions, or when processing a wildcard node followed by
  *    an anchor.
- * - `has_in_progress_alternatives` - A flag that indicates that there is are
+ * - `has_in_progress_alternatives` - A flag that indicates that there are
  *    other states that have the same captures as this state, but are at
  *    different steps in their pattern. This means that in order to obey the
  *    'longest-match' rule, this state should not be returned as a match until
