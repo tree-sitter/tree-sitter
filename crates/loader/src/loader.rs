@@ -1236,11 +1236,7 @@ impl Loader {
         }
 
         let compiler = cc_config.get_compiler();
-        let mut command = Command::new(compiler.path());
-        command.args(compiler.args());
-        for (key, value) in compiler.env() {
-            command.env(key, value);
-        }
+        let mut command = compiler.to_command();
 
         let output_path = config.output_path.as_ref().unwrap();
 

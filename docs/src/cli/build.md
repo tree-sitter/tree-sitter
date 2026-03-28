@@ -8,6 +8,10 @@ tree-sitter build [OPTIONS] [PATH] # Aliases: b
 ```
 
 You can change the compiler executable via the `CC` environment variable and add extra flags via `CFLAGS`.
+The `CC` variable can include a compiler wrapper (for example, `sccache cc`). Common wrappers such as `ccache`,
+`distcc`, `sccache`, `icecc`, `cachepot`, and `buildcache` are recognized automatically. If you use a custom wrapper,
+set `CC_KNOWN_WRAPPER_CUSTOM` to the wrapper executable name used in `CC` (for example, `CC="my-wrapper clang"` with
+`CC_KNOWN_WRAPPER_CUSTOM=my-wrapper`).
 For macOS or iOS, you can set `MACOSX_DEPLOYMENT_TARGET` or `IPHONEOS_DEPLOYMENT_TARGET` respectively to define the
 minimum supported version.
 
