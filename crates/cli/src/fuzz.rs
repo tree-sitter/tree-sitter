@@ -257,7 +257,7 @@ pub fn fuzz_language_corpus(
                 // Check that the new tree is consistent.
                 check_consistent_sizes(&tree2, &input);
                 if let Err(message) = check_changed_ranges(&tree, &tree2, &input) {
-                    error!("\nUnexpected scope change in seed {seed} with start seed {start_seed}\n{message}\n\n",);
+                    error!("\nUnexpected scope change in seed {seed} with start seed {start_seed}\n{message}\n\n");
                     return false;
                 }
 
