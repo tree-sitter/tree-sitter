@@ -100,7 +100,7 @@ void tree_sitter_my_language_external_scanner_deserialize(
 }
 ```
 
-This function should _restore_ the state of your scanner based the bytes that were previously written by the `serialize`
+This function should _restore_ the state of your scanner based on the bytes that were previously written by the `serialize`
 function. It is called with a pointer to your scanner, a pointer to the buffer of bytes, and the number of bytes that should
 be read. It is good practice to explicitly erase your scanner state variables at the start of this function, before restoring
 their values from the byte buffer.
@@ -118,7 +118,7 @@ to check if the next character (or set of characters) invalidates the token.
 
 - Return `true` from the scanning function, indicating that a token was successfully lexed.
 
-Tree-sitter will then push resulting node to the parse stack, and the input position will remain where it reached at the
+Tree-sitter will then push the resulting node to the parse stack, and the input position will remain where it reached at the
 point `lexer->mark_end` was called.
 
 ```c
@@ -219,7 +219,7 @@ void* tree_sitter_my_language_external_scanner_create() {
 If you need to use array-like types in your scanner, such as tracking a stack of indentations or tags, you should use the
 array macros from `tree_sitter/array.h`.
 
-There are quite a few of them provided for you, but here's how you could get started tracking some . Check out the header
+There are quite a few of them provided for you, but here's how you could get started tracking some state. Check out the header
 itself for more detailed documentation.
 
 ```admonish attention

@@ -181,7 +181,7 @@ On average, minor releases should happen 1-3 times a year.
 
 Patch releases (`0.x.y`) are made from the **`release-0.x` branch** following these steps:
 1. Bump all version numbers (except for the language crate) to `0.x.y` as described above.
-2. Create a "release `v0.x.y` PR on `release-0.x` and apply the `ci:check release` label.
+2. Create a "release `v0.x.y`" PR on `release-0.x` and apply the `ci:check release` label.
 3. If the check release workflow indicates, bump the patch version of the language crate.
 4. Once the PR is merged, tag the commit accordingly: `tag v0.x.y` and push via `git push --tags` (maintainers only). This will trigger the release and publish workflows.
 5. Edit the Github release to include release notes (auto-generated, if nothing else).

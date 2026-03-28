@@ -13,7 +13,7 @@ following entries:
 
 Every object in this array has these two entries:
 
-- `"type"` — A string that indicates, which grammar rule the node represents. This corresponds to the `ts_node_type` function
+- `"type"` — A string that indicates which grammar rule the node represents. This corresponds to the `ts_node_type` function
 described [here][syntax nodes].
 - `"named"` — A boolean that indicates whether this kind of node corresponds to a rule name in the grammar or just a string
 literal. See [here][named-vs-anonymous-nodes] for more info.

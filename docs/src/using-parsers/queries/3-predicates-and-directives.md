@@ -13,7 +13,7 @@ This family of predicates allows you to match against a single capture or string
 value.
 
 The first argument to this predicate must be a capture, but the second can be either a capture to
-compare the two captures' text, or a string to compare first capture's text
+compare the two captures' text, or a string to compare the first capture's text
 against.
 
 The base predicate is `#eq?`, but its complement, `#not-eq?`, can be used to _not_
@@ -164,7 +164,7 @@ view the [code navigation](../../4-code-navigation.md#examples) documentation.
 
 ## Recap
 
-To recap about the predicates and directives Tree-Sitter's bindings support:
+To recap about the predicates and directives Tree-sitter's bindings support:
 
 - `#eq?` checks for a direct match against a capture or string
 
