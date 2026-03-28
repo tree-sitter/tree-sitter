@@ -581,11 +581,11 @@ pub fn parse_file_at_path(
                         }
                         let start = node.start_position();
                         let end = node.end_position();
-                        write!(&mut stdout, " srow=\"{}\"", start.row)?;
-                        write!(&mut stdout, " scol=\"{}\"", start.column)?;
-                        write!(&mut stdout, " erow=\"{}\"", end.row)?;
-                        write!(&mut stdout, " ecol=\"{}\"", end.column)?;
-                        write!(&mut stdout, ">")?;
+                        write!(
+                            &mut stdout,
+                            " srow=\"{}\" scol=\"{}\" erow=\"{}\" ecol=\"{}\">",
+                            start.row, start.column, end.row, end.column
+                        )?;
                         tags.push(node.kind());
                         needs_newline = true;
                     }

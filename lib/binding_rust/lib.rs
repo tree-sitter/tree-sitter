@@ -3746,11 +3746,11 @@ impl fmt::Display for QueryError {
 #[must_use]
 pub fn format_sexp(sexp: &str, initial_indent_level: usize) -> String {
     let mut indent_level = initial_indent_level;
-    let mut formatted = String::new();
+    let mut formatted = String::with_capacity(sexp.len());
     let mut has_field = false;
 
     let mut c_iter = sexp.chars().peekable();
-    let mut s = String::with_capacity(sexp.len());
+    let mut scratch = String::with_capacity(sexp.len());
     let mut quote = '\0';
     let mut saw_paren = false;
     let mut did_last = false;
@@ -3796,12 +3796,12 @@ pub fn format_sexp(sexp: &str, initial_indent_level: usize) -> String {
         Some(())
     };
 
-    while fetch_next_str(&mut s).is_some() {
-        if s.is_empty() && indent_level > 0 {
+    while fetch_next_str(&mut scratch).is_some() {
+        if scratch.is_empty() && indent_level > 0 {
             // ")"
             indent_level -= 1;
             write!(formatted, ")").unwrap();
-        } else if s.starts_with('(') {
+        } else if scratch.starts_with('(') {
             if has_field {
                 has_field = false;
             } else {
@@ -3815,27 +3815,27 @@ pub fn format_sexp(sexp: &str, initial_indent_level: usize) -> String {
             }
 
             // "(node_name"
-            write!(formatted, "{s}").unwrap();
+            write!(formatted, "{scratch}").unwrap();
 
             // "(MISSING node_name" or "(UNEXPECTED 'x'"
-            if s.starts_with("(MISSING") || s.starts_with("(UNEXPECTED") {
-                fetch_next_str(&mut s).unwrap();
-                if s.is_empty() {
+            if scratch.starts_with("(MISSING") || scratch.starts_with("(UNEXPECTED") {
+                fetch_next_str(&mut scratch).unwrap();
+                if scratch.is_empty() {
                     while indent_level > 0 {
                         indent_level -= 1;
                         write!(formatted, ")").unwrap();
                     }
                 } else {
-                    write!(formatted, " {s}").unwrap();
+                    write!(formatted, " {scratch}").unwrap();
                 }
             }
-        } else if s.ends_with(':') {
+        } else if scratch.ends_with(':') {
             // "field:"
             writeln!(formatted).unwrap();
             for _ in 0..indent_level {
                 write!(formatted, "  ").unwrap();
             }
-            write!(formatted, "{s} ").unwrap();
+            write!(formatted, "{scratch} ").unwrap();
             has_field = true;
             indent_level += 1;
         }
