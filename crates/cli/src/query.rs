@@ -37,7 +37,7 @@ pub fn query_file_at_path(
     test_summary: Option<&mut TestSummary>,
 ) -> Result<()> {
     let stdout = io::stdout();
-    let mut stdout = stdout.lock();
+    let mut stdout = io::BufWriter::with_capacity(64 * 1024, stdout.lock());
 
     let query_source = fs::read_to_string(query_path)
         .with_context(|| format!("Error reading query file {}", query_path.display()))?;
