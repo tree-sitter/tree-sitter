@@ -584,7 +584,14 @@ pub fn generate_node_types_json(
                 kind: node_type_json.kind.clone(),
                 named: true,
             };
-            subtype_map.push((supertype, subtypes.clone()));
+            // Only add to subtype_map if there are visible subtypes.
+            // A supertype may have zero subtypes if its children are all
+            // hidden (e.g., wrapping a hidden external token). In that case,
+            // the supertype won't participate in the topological sort and
+            // must be excluded from the sort at line ~682.
+            if !subtypes.is_empty() {
+                subtype_map.push((supertype, subtypes.clone()));
+            }
             node_type_json.subtypes = Some(subtypes);
         } else if !syntax_grammar.variables_to_inline.contains(&symbol) {
             // If a rule is aliased under multiple names, then its information
@@ -1254,6 +1261,52 @@ mod tests {
                 )
             }
         );
+    }
+
+    #[test]
+    fn test_node_types_supertype_with_only_hidden_child() {
+        // Regression test: a supertype whose only child is a hidden external
+        // token must not panic. get_variable_info filters hidden children
+        // from supertype children.types, leaving zero subtypes. The
+        // subtype_map must skip entries with empty subtypes to avoid a
+        // lookup failure in the topological sort.
+        //
+        // Two supertypes needed so the sort comparator runs.
+        let node_types = get_node_types(&InputGrammar {
+            supertype_symbols: vec!["_type_a".to_string(), "_type_b".to_string()],
+            variables: vec![
+                Variable {
+                    name: "v1".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::seq(vec![Rule::named("_type_a"), Rule::named("_type_b")]),
+                },
+                // Supertype A: normal choice of named subtypes
+                Variable {
+                    name: "_type_a".to_string(),
+                    kind: VariableType::Hidden,
+                    rule: Rule::choice(vec![Rule::named("v2"), Rule::named("v3")]),
+                },
+                Variable {
+                    name: "v2".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::string("x"),
+                },
+                Variable {
+                    name: "v3".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::string("y"),
+                },
+                // Supertype B: wraps a hidden external token (zero visible subtypes)
+                Variable {
+                    name: "_type_b".to_string(),
+                    kind: VariableType::Hidden,
+                    rule: Rule::external(0),
+                },
+            ],
+            external_tokens: vec![Rule::named("_hidden_ext")],
+            ..Default::default()
+        });
+        assert!(node_types.is_ok());
     }
 
     #[test]
