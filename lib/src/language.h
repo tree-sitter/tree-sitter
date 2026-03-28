@@ -163,7 +163,7 @@ static inline bool ts_lookahead_iterator__next(LookaheadIterator *self) {
     } while (!self->table_value);
   }
 
-  // Depending on if the symbols is terminal or non-terminal, the table value either
+  // Depending on if the symbol is terminal or non-terminal, the table value either
   // represents a list of actions or a successor state.
   if (self->symbol < self->language->token_count) {
     const TSParseActionEntry *entry = &self->language->parse_actions[self->table_value];

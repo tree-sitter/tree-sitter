@@ -564,7 +564,7 @@ bool ts_node_is_missing(TSNode self);
 
 /**
  * Check if the node is *extra*. Extra nodes represent things like comments,
- * which are not required the grammar, but can appear anywhere.
+ * which are not required by the grammar, but can appear anywhere.
  */
 bool ts_node_is_extra(TSNode self);
 
@@ -995,7 +995,7 @@ const char *ts_query_capture_name_for_id(
 );
 
 /**
- * Get the quantifier of the query's captures. Each capture is * associated
+ * Get the quantifier of the query's captures. Each capture is associated
  * with a numeric id based on the order that it appeared in the query's source.
  */
 TSQuantifier ts_query_capture_quantifier_for_id(
@@ -1041,7 +1041,7 @@ void ts_query_disable_pattern(TSQuery *self, uint32_t pattern_index);
  *    captures that appear *before* some of the captures from a previous match.
  * 2. Repeatedly call [`ts_query_cursor_next_capture`] to iterate over all of the
  *    individual *captures* in the order that they appear. This is useful if
- *    don't care about which pattern matched, and just want a single ordered
+ *    you don't care about which pattern matched, and just want a single ordered
  *    sequence of captures.
  *
  * If you don't care about consuming all of the results, you can stop calling
@@ -1171,9 +1171,9 @@ bool ts_query_cursor_next_capture(
  *
  * The zero max start depth value can be used as a special behavior and
  * it helps to destructure a subtree by staying on a node and using captures
- * for interested parts. Note that the zero max start depth only limit a search
+ * for interested parts. Note that the zero max start depth only limits a search
  * depth for a pattern's root node but other nodes that are parts of the pattern
- * may be searched at any depth what defined by the pattern structure.
+ * may be searched at any depth as defined by the pattern structure.
  *
  * Set to `UINT32_MAX` to remove the maximum start depth.
  */
@@ -1252,7 +1252,7 @@ const char *ts_language_symbol_name(const TSLanguage *self, TSSymbol symbol);
 
 /**
  * Check whether the given node type id belongs to named nodes, anonymous nodes,
- * or a hidden nodes.
+ * or hidden nodes.
  *
  * See also [`ts_node_is_named`]. Hidden nodes are never returned from the API.
  */
