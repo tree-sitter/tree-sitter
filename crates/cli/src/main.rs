@@ -234,7 +234,7 @@ struct Parse {
     /// Output the parse data in a pretty-printed CST format
     #[arg(long = "cst", short = 'c')]
     pub output_cst: bool,
-    /// Show parsing statistic
+    /// Show parsing statistics
     #[arg(long, short, conflicts_with = "json", conflicts_with = "json_summary")]
     pub stat: bool,
     /// Interrupt the parsing process by timeout (µs)
