@@ -482,7 +482,7 @@ mod test {
                         ])
                     ]))
                 ),
-                // The pattern "e" was only used in once place: as the definition of `rule_1`,
+                // The pattern "e" was only used in one place: as the definition of `rule_1`,
                 // so that rule was moved to the lexical grammar. The pattern "b" appeared in
                 // two places, so it was not moved into the lexical grammar.
                 Variable::named("rule_2", Rule::terminal(1)),

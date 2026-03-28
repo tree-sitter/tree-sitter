@@ -468,7 +468,7 @@ impl HighlightConfiguration {
     /// and `function.builtin.constructor`, but will not match `function.method`.
     ///
     /// When highlighting, results are returned as `Highlight` values, which contain the index
-    /// of the matched highlight this list of highlight names.
+    /// of the matched highlight in this list of highlight names.
     pub fn configure(&mut self, recognized_names: &[impl AsRef<str>]) {
         let mut capture_parts = Vec::new();
         self.highlight_indices.clear();

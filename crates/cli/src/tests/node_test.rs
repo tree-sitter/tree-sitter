@@ -454,7 +454,7 @@ fn test_node_child_by_field_name_with_extra_hidden_children() {
     // In the Python grammar, some fields are applied to `suite` nodes,
     // which consist of an invisible `indent` token followed by a block.
     // Check that when searching for a child with a field name, we don't
-    //
+    // return a hidden child node.
     let tree = parser.parse("while a:\n  pass", None).unwrap();
     let while_node = tree.root_node().child(0).unwrap();
     assert_eq!(while_node.kind(), "while_statement");

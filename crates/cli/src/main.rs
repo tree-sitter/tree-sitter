@@ -240,7 +240,7 @@ struct Parse {
     /// Output the parse data in a pretty-printed CST format
     #[arg(long = "cst", short = 'c')]
     pub output_cst: bool,
-    /// Show parsing statistic
+    /// Show parsing statistics
     #[arg(long, short, conflicts_with = "json", conflicts_with = "json_summary")]
     pub stat: bool,
     /// Interrupt the parsing process by timeout (µs)
@@ -901,7 +901,7 @@ impl Init {
 
             let new_config = format!("{}\n", serde_json::to_string_pretty(&json)?);
             // Write the re-serialized config back, as newly added optional boolean fields
-            // will be included with explicit `false`s rather than implict `null`s
+            // will be included with explicit `false`s rather than implicit `null`s
             if self.update && !old_config.trim().eq(new_config.trim()) {
                 info!("Updating tree-sitter.json");
                 fs::write(
@@ -1147,7 +1147,7 @@ impl Parse {
         };
 
         if self.lib_path.is_none() && self.lang_name.is_some() {
-            warn!("--lang-name` specified without --lib-path. This argument will be ignored.");
+            warn!("--lang-name specified without --lib-path. This argument will be ignored.");
         }
         let lib_info = get_lib_info(self.lib_path.as_ref(), self.lang_name.as_ref(), current_dir);
 
@@ -1319,7 +1319,7 @@ impl Test {
         }
 
         if self.lib_path.is_none() && self.lang_name.is_some() {
-            warn!("--lang-name` specified without --lib-path. This argument will be ignored.");
+            warn!("--lang-name specified without --lib-path. This argument will be ignored.");
         }
         let languages = loader.languages_at_path(current_dir)?;
         let language = if let Some(ref lib_path) = self.lib_path {
@@ -1498,7 +1498,7 @@ impl Fuzz {
         loader.force_rebuild(self.rebuild || self.grammar_path.is_some());
 
         if self.lib_path.is_none() && self.lang_name.is_some() {
-            warn!("--lang-name` specified without --lib-path. This argument will be ignored.");
+            warn!("--lang-name specified without --lib-path. This argument will be ignored.");
         }
         let languages = loader.languages_at_path(current_dir)?;
         let (language, language_name) = if let Some(ref lib_path) = self.lib_path {

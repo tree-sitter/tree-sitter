@@ -28,7 +28,7 @@ pub struct TokenConflictMap<'a> {
 
 impl<'a> TokenConflictMap<'a> {
     /// Create a token conflict map based on a lexical grammar, which describes the structure
-    /// of each token, and a `following_token` map, which indicates which tokens may be appear
+    /// of each token, and a `following_token` map, which indicates which tokens may appear
     /// immediately after each other token.
     ///
     /// This analyzes the possible kinds of overlap between each pair of tokens and stores

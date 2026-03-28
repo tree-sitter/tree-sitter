@@ -1013,10 +1013,9 @@ fn run_tests(
                                 (format_sexp(&output, 0), format_sexp(&actual, 0))
                             };
 
-                            // Only bail early before updating if the actual is not the output,
-                            // sometimes users want to test cases that
-                            // are intended to have errors, hence why this
-                            // check isn't shown above
+                            // Only bail early before updating if `actual` does not match `output`.
+                            // Sometimes users want to test cases that are intended to have
+                            // errors, hence why this check isn't shown above.
                             if actual.contains("ERROR") || actual.contains("MISSING") {
                                 test_summary.has_parse_errors = true;
 
