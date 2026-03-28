@@ -433,7 +433,7 @@ pub fn parse_file_at_path(
     let parse_duration = parse_time.elapsed();
 
     let stdout = io::stdout();
-    let mut stdout = stdout.lock();
+    let mut stdout = io::BufWriter::with_capacity(64 * 1024, stdout.lock());
 
     if let Some(mut tree) = tree {
         if opts.debug_graph && !opts.edits.is_empty() {
@@ -510,7 +510,7 @@ pub fn parse_file_at_path(
                 }
             }
             cursor.reset(tree.root_node());
-            println!();
+            writeln!(&mut stdout)?;
         }
 
         if opts.output == ParseOutput::Cst {
