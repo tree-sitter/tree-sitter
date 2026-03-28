@@ -888,13 +888,14 @@ fn run_tests(
                 let tree = parser.parse(&input, None).unwrap();
                 let parse_rate = {
                     let parse_time = start.elapsed();
-                    let true_parse_rate = tree.root_node().byte_range().len() as f64
-                        / (parse_time.as_nanos() as f64 / 1_000_000.0);
+                    let byte_len = tree.root_node().byte_range().len();
+                    let true_parse_rate =
+                        byte_len as f64 / (parse_time.as_nanos() as f64 / 1_000_000.0);
                     let adj_parse_rate = adjusted_parse_rate(&tree, parse_time);
 
                     test_summary.parse_stats.total_parses += 1;
                     test_summary.parse_stats.total_duration += parse_time;
-                    test_summary.parse_stats.total_bytes += tree.root_node().byte_range().len();
+                    test_summary.parse_stats.total_bytes += byte_len;
 
                     Some((true_parse_rate, adj_parse_rate))
                 };
