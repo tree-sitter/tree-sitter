@@ -22,7 +22,7 @@ DSL through the `RustRegex` class. Simply pass your regex pattern as a string:
 
   ```admonish note 
   Only a subset of the Regex engine is actually supported. This is due to certain features like lookahead and lookaround
-  assertions not feasible to use in an LR(1) grammar, as well as certain flags being unnecessary for tree-sitter. However,
+  assertions not being feasible to use in an LR(1) grammar, as well as certain flags being unnecessary for tree-sitter. However,
   plenty of features are supported by default:
 
   - Character classes

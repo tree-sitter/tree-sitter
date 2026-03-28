@@ -25,7 +25,7 @@ It's usually a good idea to find a formal specification for the language you're 
 most likely contain a context-free grammar. As you read through the rules of this CFG, you will probably discover a complex
 and cyclic graph of relationships. It might be unclear how you should navigate this graph as you define your grammar.
 
-Although languages have very different constructs, their constructs can often be categorized in to similar groups like
+Although languages have very different constructs, their constructs can often be categorized into similar groups like
 _Declarations_, _Definitions_, _Statements_, _Expressions_, _Types_ and _Patterns_. In writing your grammar, a good first
 step is to create just enough structure to include all of these basic _groups_ of symbols. For a language like Go,
 you might start with something like this:
@@ -372,7 +372,7 @@ structured like that, but this conflict is actually present in the
 
 ## Hiding Rules
 
-You may have noticed in the above examples that some grammar rule name like `_expression` and `_type` began with an underscore.
+You may have noticed in the above examples that some grammar rule names like `_expression` and `_type` began with an underscore.
 Starting a rule's name with an underscore causes the rule to be _hidden_ in the syntax tree. This is useful for rules like
 `_expression` in the grammars above, which always just wrap a single child node. If these nodes were not hidden, they would
 add substantial depth and noise to the syntax tree without making it any easier to understand.
@@ -515,7 +515,6 @@ module.exports = grammar({
     // ...
   },
 });
-_
 ```
 
 Although supertype rules are hidden from the syntax tree, they can still be used in queries. See the chapter on

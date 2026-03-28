@@ -9,7 +9,7 @@ would match any `binary_expression` node whose children are both `number_literal
 (binary_expression (number_literal) (number_literal))
 ```
 
-Children can also be omitted. For example, this would match any `binary_expression` where at least _one_ of child is a
+Children can also be omitted. For example, this would match any `binary_expression` where at least _one_ of its children is a
 `string_literal` node:
 
 ```query
@@ -88,7 +88,7 @@ using `(MISSING)`:
 (MISSING) @missing-node
 ```
 
-This is useful when attempting to detect all syntax errors in a given parse tree, since these missing node are not captured
+This is useful when attempting to detect all syntax errors in a given parse tree, since these missing nodes are not captured
 by `(ERROR)` queries. Specific missing node types can also be queried:
 
 ```scheme
