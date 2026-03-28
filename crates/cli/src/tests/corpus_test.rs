@@ -397,12 +397,12 @@ fn test_feature_corpus_files() {
                     failure_count += 1;
                 }
             } else {
-                eprintln!("Expected error message but got none for test grammar '{language_name}'",);
+                eprintln!("Expected error message but got none for test grammar '{language_name}'");
                 failure_count += 1;
             }
         } else {
             if let Err(e) = &generate_result {
-                eprintln!("Unexpected error for test grammar '{language_name}':\n{e}",);
+                eprintln!("Unexpected error for test grammar '{language_name}':\n{e}");
                 failure_count += 1;
                 continue;
             }

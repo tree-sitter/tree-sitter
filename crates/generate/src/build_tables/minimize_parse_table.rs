@@ -349,7 +349,7 @@ impl Minimizer<'_> {
         new_token: Symbol,
     ) -> bool {
         if new_token == Symbol::end_of_nonterminal_extra() {
-            debug!("split states {left_id} {right_id} - end of non-terminal extra",);
+            debug!("split states {left_id} {right_id} - end of non-terminal extra");
             return true;
         }
 
