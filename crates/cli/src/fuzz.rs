@@ -25,7 +25,7 @@ use crate::{
         random::Rand,
     },
     parse::perform_edit,
-    test::{DiffKey, TestDiff, TestEntry, parse_tests, strip_sexp_fields},
+    test::{DiffKey, TestDiff, TestEntry, TestExpectation, parse_tests, strip_sexp_fields},
 };
 
 pub static LOG_ENABLED: LazyLock<bool> = LazyLock::new(|| env::var("TREE_SITTER_LOG").is_ok());
@@ -144,7 +144,7 @@ pub fn fuzz_language_corpus(
         .take()
         .unwrap_or_default()
         .into_iter()
-        .chain(tests.iter().filter(|x| x.skip).map(get_test_name))
+        .chain(tests.iter().filter(|t| t.skip()).map(get_test_name))
         .map(|x| (x, 0))
         .collect::<HashMap<String, usize>>();
 
@@ -176,7 +176,7 @@ pub fn fuzz_language_corpus(
 
             let tree = parser.parse(&test.input, None).unwrap();
 
-            if test.error {
+            if test.error() {
                 return true;
             }
 
@@ -278,7 +278,7 @@ pub fn fuzz_language_corpus(
                     actual_output = strip_sexp_fields(&actual_output);
                 }
 
-                if actual_output != test.output && !test.error {
+                if actual_output != test.output && !test.error() {
                     println!("Incorrect parse for {test_name} - seed {seed}");
                     DiffKey::print();
                     println!("{}", TestDiff::new(&actual_output, &test.output));
@@ -326,10 +326,20 @@ pub struct FlattenedTest {
     pub input: Vec<u8>,
     pub output: String,
     pub languages: Vec<Box<str>>,
-    pub error: bool,
-    pub skip: bool,
+    pub expectation: TestExpectation,
     pub has_fields: bool,
     pub template_delimiters: Option<(&'static str, &'static str)>,
+}
+impl FlattenedTest {
+    #[must_use]
+    fn skip(&self) -> bool {
+        self.expectation == TestExpectation::Skip
+    }
+
+    #[must_use]
+    fn error(&self) -> bool {
+        self.expectation == TestExpectation::Error
+    }
 }
 
 #[must_use]
@@ -376,8 +386,7 @@ pub fn flatten_tests(
                     output,
                     has_fields,
                     languages: attributes.languages,
-                    error: attributes.error,
-                    skip: attributes.skip,
+                    expectation: attributes.expectation,
                     template_delimiters: None,
                 });
             }
