@@ -73,6 +73,28 @@ increment(n) == n + 1
       (plus (identifier_ref) (number)))))
 ```
 
+* If your input contains `---` lines (e.g. YAML document separators, Markdown thematic breaks), the **longest** matching
+`---` line is used as the divider between input and expected output. This means you can use a longer divider line to
+avoid ambiguity:
+
+```text
+==================
+YAML document test
+==================
+
+---
+key: value
+
+------
+
+(stream
+  (document
+    (block_mapping
+      (block_mapping_pair
+        key: (flow_node (plain_scalar))
+        value: (flow_node (plain_scalar))))))
+```
+
 These tests are important. They serve as the parser's API documentation, and they can be run every time you change the grammar
 to verify that everything still parses correctly.
 
