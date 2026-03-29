@@ -1165,6 +1165,22 @@ static bool ts_parser__do_all_potential_reductions(
         if (ts_parser__process_candidate_recovery_actions(self, iter.actions, iter.action_count))
           has_shift_action = true;
       }
+
+      // Sort reduce_actions by symbol descending to ensure deterministic
+      // ordering. The LookaheadIterator may visit symbols in a different
+      // order than the original linear scan (group order vs symbol order
+      // for small parse states), which can produce different orderings.
+      // Since reductions are applied sequentially and the last reduction
+      // version survives, the order affects error recovery outcomes.
+      for (uint32_t j = 1; j < self->reduce_actions.size; j++) {
+        ReduceAction key = self->reduce_actions.contents[j];
+        int32_t k = (int32_t)j - 1;
+        while (k >= 0 && self->reduce_actions.contents[k].symbol < key.symbol) {
+          self->reduce_actions.contents[k + 1] = self->reduce_actions.contents[k];
+          k--;
+        }
+        self->reduce_actions.contents[k + 1] = key;
+      }
     }
 
     StackVersion reduction_version = STACK_VERSION_NONE;
