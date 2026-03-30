@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, sync::LazyLock};
+use std::collections::BTreeMap;
 #[cfg(feature = "load")]
 use std::{
     env, fs,
@@ -11,7 +11,6 @@ use bitflags::bitflags;
 #[cfg(feature = "load")]
 use log::warn;
 use node_types::VariableInfo;
-use regex::{Regex, RegexBuilder};
 use rules::{Alias, Symbol};
 #[cfg(feature = "load")]
 use semver::Version;
@@ -44,13 +43,6 @@ pub use prepare_grammar::PrepareGrammarError;
 use prepare_grammar::prepare_grammar;
 use render::render_c_code;
 pub use render::{ABI_VERSION_MAX, ABI_VERSION_MIN, RenderError};
-
-static JSON_COMMENT_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-    RegexBuilder::new("^\\s*//.*")
-        .multi_line(true)
-        .build()
-        .unwrap()
-});
 
 struct JSONOutput {
     #[cfg(feature = "load")]
@@ -334,8 +326,7 @@ pub fn generate_parser_for_grammar(
     grammar_json: &str,
     semantic_version: Option<(u8, u8, u8)>,
 ) -> GenerateResult<(String, String)> {
-    let grammar_json = JSON_COMMENT_REGEX.replace_all(grammar_json, "\n");
-    let input_grammar = parse_grammar(&grammar_json)?;
+    let input_grammar = parse_grammar(grammar_json)?;
     let parser = generate_parser_for_grammar_with_opts(
         &input_grammar,
         LANGUAGE_VERSION,
