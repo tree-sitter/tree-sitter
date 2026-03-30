@@ -22,6 +22,8 @@ pub enum InternSymbolsError {
     UndefinedConflict(String),
     #[error("Undefined symbol `{0}` as grammar's word token")]
     UndefinedWordToken(String),
+    #[error("Symbol `{0}` cannot be both a supertype and inlined")]
+    SupertypeInlined(String),
 }
 
 pub(super) fn intern_symbols(grammar: &InputGrammar) -> InternSymbolsResult<InternedGrammar> {
@@ -92,6 +94,13 @@ pub(super) fn intern_symbols(grammar: &InputGrammar) -> InternSymbolsResult<Inte
     for name in &grammar.variables_to_inline {
         if let Some(symbol) = interner.intern_name(name) {
             variables_to_inline.push(symbol);
+        }
+    }
+
+    for symbol in &variables_to_inline {
+        if supertype_symbols.contains(symbol) {
+            let name = &grammar.variables[symbol.index].name;
+            return Err(InternSymbolsError::SupertypeInlined(name.clone()));
         }
     }
 
@@ -281,6 +290,29 @@ mod tests {
         assert!(result.is_err(), "Expected an error but got none");
         let e = result.err().unwrap();
         assert_eq!(e.to_string(), "Undefined symbol `y`");
+    }
+
+    #[test]
+    fn test_supertype_and_inline_conflict() {
+        let result = intern_symbols(&InputGrammar {
+            variables: vec![
+                Variable::named("v1", Rule::named("_v2")),
+                Variable::named(
+                    "_v2",
+                    Rule::choice(vec![Rule::string("a"), Rule::string("b")]),
+                ),
+            ],
+            supertype_symbols: vec!["_v2".to_string()],
+            variables_to_inline: vec!["_v2".to_string()],
+            ..Default::default()
+        });
+
+        assert!(result.is_err(), "Expected an error but got none");
+        let e = result.err().unwrap();
+        assert_eq!(
+            e.to_string(),
+            "Symbol `_v2` cannot be both a supertype and inlined"
+        );
     }
 
     fn build_grammar(variables: Vec<Variable>) -> InputGrammar {
