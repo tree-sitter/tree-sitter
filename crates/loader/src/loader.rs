@@ -14,7 +14,7 @@ use std::{
     mem,
     path::{Path, PathBuf},
     process::Command,
-    sync::{LazyLock, Mutex},
+    sync::Mutex,
     time::{SystemTime, SystemTimeError},
 };
 
@@ -37,9 +37,6 @@ use tree_sitter::WasmError;
 use tree_sitter_highlight::HighlightConfiguration;
 #[cfg(feature = "tree-sitter-tags")]
 use tree_sitter_tags::{Error as TagsError, TagsConfiguration};
-
-static GRAMMAR_NAME_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r#""name":\s*"(.*?)""#).unwrap());
 
 static WASM_TOOL_LOCK: Mutex<()> = Mutex::new(());
 
@@ -1897,6 +1894,16 @@ impl Loader {
         pattern.and_then(|r| RegexBuilder::new(r).multi_line(true).build().ok())
     }
 
+    // Matches "name":\s*"(.*?)", returning the capture
+    fn grammar_name(json_text: &str) -> Option<String> {
+        let i = json_text.find("\"name\":")? + "\"name\":".len();
+        let rest = json_text[i..].trim_start();
+        let rest = rest.strip_prefix('\"')?;
+        let end = rest.find('\"')?;
+
+        Some(rest[..end].to_string())
+    }
+
     fn grammar_json_name(grammar_path: &Path) -> LoaderResult<String> {
         let file = fs::File::open(grammar_path)
             .map_err(|e| LoaderError::IO(IoError::new(e, Some(grammar_path))))?;
@@ -1908,12 +1915,10 @@ impl Loader {
             .map_err(|_| LoaderError::GrammarJSON(grammar_path.to_string_lossy().to_string()))?
             .join("\n");
 
-        let name = GRAMMAR_NAME_REGEX
-            .captures(&first_three_lines)
-            .and_then(|c| c.get(1))
+        let name = Self::grammar_name(&first_three_lines)
             .ok_or_else(|| LoaderError::GrammarJSON(grammar_path.to_string_lossy().to_string()))?;
 
-        Ok(name.as_str().to_string())
+        Ok(name)
     }
 
     pub fn select_language(
