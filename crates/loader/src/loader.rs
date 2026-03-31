@@ -1142,14 +1142,7 @@ impl Loader {
             format!("{:x}", hasher.finish())
         };
 
-        let mut lock_path = if env::var("CROSS_RUNNER").is_ok() {
-            tempfile::tempdir()
-                .expect("create a temp dir")
-                .path()
-                .to_path_buf()
-        } else {
-            etcetera::choose_base_strategy()?.cache_dir()
-        };
+        let mut lock_path = etcetera::choose_base_strategy()?.cache_dir();
         lock_path.push(format!(
             "tree-sitter{slash}lock{slash}{name}-{lock_hash}.lock",
             slash = std::path::MAIN_SEPARATOR,
