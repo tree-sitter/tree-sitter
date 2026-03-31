@@ -1406,11 +1406,24 @@ const TSLanguage *ts_wasm_store_load_language(
 
   if (language->abi_version >= LANGUAGE_VERSION_WITH_RESERVED_WORDS) {
     language->name = copy_string(memory, wasm_language.name);
-    language->reserved_words = copy(
-        &memory[wasm_language.reserved_words],
-        wasm_language.max_reserved_word_set_size * sizeof(TSSymbol)
-    );
     language->max_reserved_word_set_size = wasm_language.max_reserved_word_set_size;
+
+    // Determine the number of reserved word sets by finding the maximum
+    // reserved_word_set_id across all lex modes.
+    uint16_t max_reserved_word_set_id = 0;
+    for (uint32_t i = 0; i < wasm_language.state_count; i++) {
+      uint16_t id = language->lex_modes[i].reserved_word_set_id;
+      if (id > max_reserved_word_set_id) max_reserved_word_set_id = id;
+    }
+
+    if (max_reserved_word_set_id > 0 && language->max_reserved_word_set_size > 0) {
+      uint32_t reserved_word_count =
+        (max_reserved_word_set_id + 1) * language->max_reserved_word_set_size;
+      language->reserved_words = copy(
+          &memory[wasm_language.reserved_words],
+          reserved_word_count * sizeof(TSSymbol)
+      );
+    }
   }
 
   if (language->external_token_count > 0) {

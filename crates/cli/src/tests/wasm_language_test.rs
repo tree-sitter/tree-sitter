@@ -315,6 +315,55 @@ fn test_load_wasm_errors() {
 }
 
 #[test]
+fn test_load_wasm_language_with_reserved_words() {
+    // This test exercises a grammar with multiple reserved word sets loaded via WASM.
+    allocations::record(|| {
+        let store = WasmStore::new(&ENGINE).unwrap();
+        let language = get_test_fixture_language_wasm("reserved_words");
+
+        let mut parser = Parser::new();
+        parser.set_wasm_store(store).unwrap();
+        parser.set_language(&language).unwrap();
+
+        // "if" and "while" are globally reserved, so using them as identifiers
+        // should produce an error recovery.
+        let tree = parser
+            .parse("var a =\n\nif (something) {\n  c();\n}", None)
+            .unwrap();
+        assert_eq!(
+            tree.root_node().to_sexp(),
+            concat!(
+                "(program ",
+                "(ERROR (identifier)) ",
+                "(if_statement (parenthesized_expression (identifier)) ",
+                "(block (expression_statement (call_expression (identifier))))))",
+            )
+        );
+
+        // "if" and "while" are NOT reserved in the 'property' context, so they
+        // can appear as object keys without error.
+        let tree = parser
+            .parse("var x = {\n  if: a,\n  while: b,\n};", None)
+            .unwrap();
+        assert_eq!(
+            tree.root_node().to_sexp(),
+            concat!(
+                "(program (var_declaration (identifier) (object ",
+                "(pair (identifier) (identifier)) (pair (identifier) (identifier)))))"
+            )
+        );
+
+        // "var" IS reserved in the 'property' context, so using it as a property
+        // key triggers error recovery.
+        let tree = parser.parse("var x = {\nvar y = z;", None).unwrap();
+        assert_eq!(
+            tree.root_node().to_sexp(),
+            "(program (ERROR (identifier)) (var_declaration (identifier) (identifier)))"
+        );
+    });
+}
+
+#[test]
 fn test_wasm_oom() {
     allocations::record(|| {
         let mut store = WasmStore::new(&ENGINE).unwrap();
