@@ -10,7 +10,7 @@ outputs:
 runs:
   using: composite
   steps:
-    - uses: actions/cache@v4
+    - uses: actions/cache@v5
       id: cache
       with:
         path: |
