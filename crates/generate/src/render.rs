@@ -26,6 +26,7 @@ use super::{
 pub const ABI_VERSION_MIN: usize = 14;
 pub const ABI_VERSION_MAX: usize = LANGUAGE_VERSION;
 const ABI_VERSION_WITH_RESERVED_WORDS: usize = 15;
+const SMALL_STATE_THRESHOLD: usize = 64;
 
 pub type RenderResult<T> = Result<T, RenderError>;
 
@@ -326,33 +327,16 @@ impl Generator {
 
         // Determine which states should use the "small state" representation, and which should
         // use the normal array representation.
-        //
-        // States are sorted by descending entry count. We pick the split point that
-        // minimizes total table size. For each state:
-        //   - Large cost: symbol_count words (dense row)
-        //   - Small cost: 1 + 2*groups + entries words (sparse representation)
-        // where groups = number of distinct (action, type) pairs, and entries = total
-        // terminal + nonterminal entries.
-        //
-        // States 0 (error) and 1 (start) must always be large states.
-        let symbol_count = self.parse_table.symbols.len();
-        self.large_state_count = 2; // at minimum, states 0 and 1
-        for (i, state) in self.parse_table.states.iter().enumerate().skip(2) {
-            let entries = state.terminal_entries.len() + state.nonterminal_entries.len();
-            // Estimate the number of distinct action groups in the small state format.
-            // In the small state format, symbols with the same action value are grouped.
-            // We estimate groups as at most the number of entries (worst case: all distinct).
-            // A more accurate count would require computing the actual grouping, but
-            // entries serves as an upper bound.
-            let groups = entries; // conservative upper bound
-            let small_cost = 1 + 2 * groups + entries;
-            let large_cost = symbol_count;
-            if small_cost >= large_cost {
-                self.large_state_count = i + 1;
-            } else {
-                break;
-            }
-        }
+        let threshold = cmp::min(SMALL_STATE_THRESHOLD, self.parse_table.symbols.len() / 2);
+        self.large_state_count = self
+            .parse_table
+            .states
+            .iter()
+            .enumerate()
+            .take_while(|(i, s)| {
+                *i <= 1 || s.terminal_entries.len() + s.nonterminal_entries.len() > threshold
+            })
+            .count();
     }
 
     fn add_header(&mut self) {
