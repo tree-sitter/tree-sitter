@@ -1458,10 +1458,10 @@ impl Generator {
         let mut low_water_mark: usize = 0;
 
         // Limit the number of offsets tried per row. When the limit is hit,
-        // the row is placed at the end of the packed array (no overlap).
+        // a coarse stride search covers the rest of the packed array.
         // This bounds total work to O(state_count * MAX_PACKING_ATTEMPTS)
         // while keeping packing tight for the majority of rows.
-        const MAX_PACKING_ATTEMPTS: usize = 100_000;
+        const MAX_PACKING_ATTEMPTS: usize = 500_000;
 
         for &(state_idx, nnz) in &row_nnz {
             if nnz == 0 {
@@ -1509,8 +1509,13 @@ impl Generator {
                 attempts += 1;
                 if attempts > MAX_PACKING_ATTEMPTS {
                     let packed_len = packed_check.len();
-                    let stride = cmp::max(1, packed_len / MAX_PACKING_ATTEMPTS) as i32;
-                    let mut coarse_offset = low_water_mark as i32 - first_col as i32;
+                    // Stride across the remainder of the packed array that
+                    // the fine search didn't reach. Start from the current
+                    // offset (where fine search stopped), not from the
+                    // beginning which was already scanned.
+                    let remaining = packed_len as i64 - (offset as i64 + first_col as i64);
+                    let stride = cmp::max(1, remaining as usize / MAX_PACKING_ATTEMPTS) as i32;
+                    let mut coarse_offset = offset;
                     let mut found = false;
                     while ((coarse_offset as i64) + (first_col as i64)) < packed_len as i64 {
                         let fp = (coarse_offset as i64 + first_col as i64) as usize;
