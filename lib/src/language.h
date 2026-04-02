@@ -12,6 +12,7 @@ extern "C" {
 
 #define LANGUAGE_VERSION_WITH_RESERVED_WORDS 15
 #define LANGUAGE_VERSION_WITH_PRIMARY_STATES 14
+#define LANGUAGE_VERSION_WITH_COMPRESSED_TABLES 16
 
 typedef struct {
   const TSParseAction *actions;
@@ -67,15 +68,22 @@ static inline bool ts_language_has_reduce_action(
 //
 // For non-terminal symbols, the table value represents a successor state.
 // For terminal symbols, it represents an index in the actions table.
-// For 'large' parse states, this is a direct lookup. For 'small' parse
-// states, this requires searching through the symbol groups to find
-// the given symbol.
+// For ABI >= 16, uses row-displacement compressed tables for all states.
+// For older ABIs, 'large' parse states use a direct 2D lookup, and
+// 'small' parse states use a linear search through symbol groups.
 static inline uint16_t ts_language_lookup(
   const TSLanguage *self,
   TSStateId state,
   TSSymbol symbol
 ) {
-  if (state >= self->large_state_count) {
+  if (self->abi_version >= LANGUAGE_VERSION_WITH_COMPRESSED_TABLES) {
+    int32_t offset = self->parse_table_offsets[state];
+    uint32_t index = (uint32_t)((int32_t)symbol + offset);
+    if (index < self->parse_table_size && self->parse_table_check[index] == state) {
+      return self->parse_table_entries[index];
+    }
+    return 0;
+  } else if (state >= self->large_state_count) {
     uint32_t index = self->small_parse_table_map[state - self->large_state_count];
     const uint16_t *data = &self->small_parse_table[index];
     uint16_t group_count = *(data++);
@@ -102,6 +110,8 @@ static inline bool ts_language_has_actions(
 
 // Iterate over all of the symbols that are valid in the given state.
 //
+// For compressed tables (ABI >= 16), iterate through all symbols
+// and check the displacement table for each one.
 // For 'large' parse states, this just requires iterating through
 // all possible symbols and checking the parse table for each one.
 // For 'small' parse states, this exploits the structure of the
@@ -110,7 +120,8 @@ static inline LookaheadIterator ts_language_lookaheads(
   const TSLanguage *self,
   TSStateId state
 ) {
-  bool is_small_state = state >= self->large_state_count;
+  bool is_small_state = (self->abi_version < LANGUAGE_VERSION_WITH_COMPRESSED_TABLES)
+    && state >= self->large_state_count;
   const uint16_t *data;
   const uint16_t *group_end = NULL;
   uint16_t group_count = 0;
@@ -120,7 +131,14 @@ static inline LookaheadIterator ts_language_lookaheads(
     group_end = data + 1;
     group_count = *data;
   } else {
-    data = &self->parse_table[state * self->symbol_count] - 1;
+    // For both compressed (ABI >= 16) and old large states, we set up
+    // dummy data pointer. For old large states it points into parse_table.
+    // For compressed tables, the iterator uses ts_language_lookup() instead.
+    if (self->abi_version >= LANGUAGE_VERSION_WITH_COMPRESSED_TABLES) {
+      data = NULL;
+    } else {
+      data = &self->parse_table[state * self->symbol_count] - 1;
+    }
   }
   return (LookaheadIterator) {
     .language = self,
@@ -128,6 +146,7 @@ static inline LookaheadIterator ts_language_lookaheads(
     .group_end = group_end,
     .group_count = group_count,
     .is_small_state = is_small_state,
+    .state = state,
     .symbol = UINT16_MAX,
     .next_state = 0,
   };
@@ -152,7 +171,17 @@ static inline bool ts_lookahead_iterator__next(LookaheadIterator *self) {
     }
   }
 
-  // For large parse states, iterate through every symbol until one
+  // For compressed tables (ABI >= 16), iterate through every symbol
+  // and use the displacement lookup to check validity.
+  else if (self->data == NULL) {
+    do {
+      self->symbol++;
+      if (self->symbol >= self->language->symbol_count) return false;
+      self->table_value = ts_language_lookup(self->language, self->state, self->symbol);
+    } while (!self->table_value);
+  }
+
+  // For large parse states (old ABI), iterate through every symbol until one
   // is found that has valid actions.
   else {
     do {

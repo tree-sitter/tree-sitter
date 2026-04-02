@@ -161,6 +161,11 @@ typedef struct {
   int32_t supertype_map_slices;
   int32_t supertype_map_entries;
   TSLanguageMetadata metadata;
+  // Row-displacement compressed parse table (ABI version >= 16)
+  int32_t parse_table_offsets;
+  int32_t parse_table_entries;
+  int32_t parse_table_check;
+  uint32_t parse_table_size;
 } LanguageInWasmMemory;
 
 // LexerInWasmMemory - The memory layout of a `TSLexer` when compiled to wasm32.
@@ -1426,6 +1431,22 @@ const TSLanguage *ts_wasm_store_load_language(
     }
   }
 
+  if (language->abi_version >= LANGUAGE_VERSION_WITH_COMPRESSED_TABLES) {
+    language->parse_table_size = wasm_language.parse_table_size;
+    language->parse_table_offsets = copy(
+      &memory[wasm_language.parse_table_offsets],
+      wasm_language.state_count * sizeof(int32_t)
+    );
+    language->parse_table_entries = copy(
+      &memory[wasm_language.parse_table_entries],
+      wasm_language.parse_table_size * sizeof(uint16_t)
+    );
+    language->parse_table_check = copy(
+      &memory[wasm_language.parse_table_check],
+      wasm_language.parse_table_size * sizeof(uint16_t)
+    );
+  }
+
   if (language->external_token_count > 0) {
     language->external_scanner.symbol_map = copy(
       &memory[wasm_language.external_scanner.symbol_map],
@@ -1820,6 +1841,9 @@ void ts_wasm_language_release(const TSLanguage *self) {
     ts_free((void *)self->reserved_words);
     ts_free((void *)self->parse_actions);
     ts_free((void *)self->parse_table);
+    ts_free((void *)self->parse_table_offsets);
+    ts_free((void *)self->parse_table_entries);
+    ts_free((void *)self->parse_table_check);
     ts_free((void *)self->primary_state_ids);
     ts_free((void *)self->public_symbol_map);
     ts_free((void *)self->small_parse_table);

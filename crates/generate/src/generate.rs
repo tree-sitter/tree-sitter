@@ -60,7 +60,7 @@ struct GeneratedParser {
 
 // NOTE: This constant must be kept in sync with the definition of
 // `TREE_SITTER_LANGUAGE_VERSION` in `lib/include/tree_sitter/api.h`.
-const LANGUAGE_VERSION: usize = 15;
+const LANGUAGE_VERSION: usize = 16;
 
 pub const ALLOC_HEADER: &str = include_str!("templates/alloc.h");
 pub const ARRAY_HEADER: &str = include_str!("templates/array.h");

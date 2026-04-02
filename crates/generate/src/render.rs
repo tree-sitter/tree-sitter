@@ -26,6 +26,7 @@ use super::{
 pub const ABI_VERSION_MIN: usize = 14;
 pub const ABI_VERSION_MAX: usize = LANGUAGE_VERSION;
 const ABI_VERSION_WITH_RESERVED_WORDS: usize = 15;
+const ABI_VERSION_WITH_COMPRESSED_TABLES: usize = 16;
 const SMALL_STATE_THRESHOLD: usize = 64;
 
 pub type RenderResult<T> = Result<T, RenderError>;
@@ -1334,6 +1335,345 @@ impl Generator {
             &mut next_parse_action_list_index,
         );
 
+        if self.abi_version >= ABI_VERSION_WITH_COMPRESSED_TABLES {
+            self.add_compressed_parse_table(
+                &mut parse_table_entries,
+                &mut next_parse_action_list_index,
+            )?;
+        } else {
+            self.add_legacy_parse_table(
+                &mut parse_table_entries,
+                &mut next_parse_action_list_index,
+            )?;
+        }
+
+        if next_parse_action_list_index >= usize::from(u16::MAX) {
+            Err(RenderError::ParseTable(next_parse_action_list_index))?;
+        }
+
+        let mut parse_table_entries = parse_table_entries
+            .into_iter()
+            .map(|(entry, i)| (i, entry))
+            .collect::<Vec<_>>();
+        parse_table_entries.sort_by_key(|(index, _)| *index);
+        self.add_parse_action_list(parse_table_entries);
+
+        Ok(())
+    }
+
+    /// Emit the compressed (row-displacement) parse table for ABI >= 16.
+    ///
+    /// This replaces both `ts_parse_table[LARGE_STATE_COUNT][SYMBOL_COUNT]`
+    /// and `ts_small_parse_table[]` with three flat arrays:
+    ///   - `ts_parse_table_offsets[STATE_COUNT]`  (int32_t per state)
+    ///   - `ts_parse_table_entries[PACKED_SIZE]`   (uint16_t per slot)
+    ///   - `ts_parse_table_check[PACKED_SIZE]`     (uint16_t per slot)
+    fn add_compressed_parse_table(
+        &mut self,
+        parse_table_entries: &mut HashMap<ParseTableEntry, usize>,
+        next_parse_action_list_index: &mut usize,
+    ) -> RenderResult<()> {
+        let state_count = self.parse_table.states.len();
+        let symbol_count = self.parse_table.symbols.len();
+
+        // The check array uses u16::MAX as the "empty slot" sentinel, so
+        // state IDs must be strictly less than u16::MAX to avoid collisions.
+        assert!(
+            state_count < u16::MAX as usize,
+            "Compressed parse table requires fewer than {} states, but grammar has {} states",
+            u16::MAX,
+            state_count
+        );
+
+        // Build the dense matrix: rows[state][symbol] = table_value
+        // where table_value is an action list index (for terminals) or a goto state (for non-terminals).
+        let mut rows: Vec<Vec<u16>> = Vec::with_capacity(state_count);
+        for (state_idx, state) in self.parse_table.states.iter().enumerate() {
+            let mut row = vec![0u16; symbol_count];
+
+            for (symbol, action) in &state.nonterminal_entries {
+                let col = match self.symbol_order.get(symbol) {
+                    Some(&c) => c,
+                    None => match self.symbol_order.get(&Symbol::end()) {
+                        Some(&c) if *symbol == Symbol::end_of_nonterminal_extra() => c,
+                        _ => continue,
+                    },
+                };
+                let state_id = match action {
+                    GotoAction::Goto(s) => *s,
+                    GotoAction::ShiftExtra => state_idx,
+                };
+                row[col] = state_id as u16;
+            }
+
+            for (symbol, entry) in &state.terminal_entries {
+                let col = match self.symbol_order.get(symbol) {
+                    Some(&c) => c,
+                    None => match self.symbol_order.get(&Symbol::end()) {
+                        Some(&c) if *symbol == Symbol::end_of_nonterminal_extra() => c,
+                        _ => continue,
+                    },
+                };
+                let entry_id = Self::get_parse_action_list_id(
+                    entry,
+                    parse_table_entries,
+                    next_parse_action_list_index,
+                );
+                row[col] = entry_id as u16;
+            }
+
+            rows.push(row);
+        }
+
+        // Row-displacement packing algorithm.
+        //
+        // For each state (row), find an offset such that placing the row's
+        // non-zero entries at positions (offset + symbol) doesn't conflict
+        // with entries already placed by other states. Write the entry values
+        // and a "check" value (the state id) at those positions.
+        //
+        // Sort rows by number of non-zero entries (descending) so that the
+        // densest rows are placed first, yielding a tighter packing.
+        let mut row_nnz: Vec<(usize, usize)> = rows
+            .iter()
+            .enumerate()
+            .map(|(i, row)| {
+                let nnz = row.iter().filter(|&&v| v != 0).count();
+                (i, nnz)
+            })
+            .collect();
+        row_nnz.sort_by(|a, b| b.1.cmp(&a.1));
+
+        // The packed arrays — grow dynamically.
+        let mut packed_entries: Vec<u16> = Vec::new();
+        let mut packed_check: Vec<u16> = Vec::new();
+        // Use u16::MAX as sentinel for "empty slot" in check array.
+        // Valid state IDs are 0..state_count which is < u16::MAX.
+        let empty_check: u16 = u16::MAX;
+
+        let mut offsets: Vec<i32> = vec![0i32; state_count];
+
+        // Track the first position in the packed array that might be free.
+        // All positions before this are guaranteed to be occupied.
+        let mut low_water_mark: usize = 0;
+
+        // Limit the number of offsets tried per row. When the limit is hit,
+        // the row is placed at the end of the packed array (no overlap).
+        // This bounds total work to O(state_count * MAX_PACKING_ATTEMPTS)
+        // while keeping packing tight for the majority of rows.
+        const MAX_PACKING_ATTEMPTS: usize = 100_000;
+
+        for &(state_idx, nnz) in &row_nnz {
+            if nnz == 0 {
+                // No entries — offset doesn't matter, set to 0.
+                offsets[state_idx] = 0;
+                continue;
+            }
+
+            let row = &rows[state_idx];
+
+            // Collect the non-zero column indices for this row.
+            let nz_cols: Vec<usize> = row
+                .iter()
+                .enumerate()
+                .filter(|&(_, &v)| v != 0)
+                .map(|(col, _)| col)
+                .collect();
+
+            let first_col = nz_cols[0];
+            let last_col = *nz_cols.last().unwrap();
+
+            // Start searching from an offset where first_col maps to at least
+            // low_water_mark (all earlier positions are known to be occupied).
+            let mut offset: i32 = cmp::max(
+                -(first_col as i32),
+                low_water_mark as i32 - first_col as i32,
+            );
+
+            let mut attempts: usize = 0;
+
+            'search: loop {
+                let first_pos = (offset as i64 + first_col as i64) as usize;
+
+                // If the first column lands past the array, all positions are
+                // implicitly free — accept this offset immediately.
+                if first_pos >= packed_check.len() {
+                    break 'search;
+                }
+
+                // If we've exhausted the fine-search budget, switch to a coarse
+                // search that strides across the entire packed array.  This
+                // covers far more ground with the same number of iterations and
+                // almost always finds a valid overlapping position, avoiding the
+                // pathological "append at end" fallback that bloats the output.
+                attempts += 1;
+                if attempts > MAX_PACKING_ATTEMPTS {
+                    let packed_len = packed_check.len();
+                    let stride = cmp::max(1, packed_len / MAX_PACKING_ATTEMPTS) as i32;
+                    let mut coarse_offset = low_water_mark as i32 - first_col as i32;
+                    let mut found = false;
+                    while ((coarse_offset as i64) + (first_col as i64)) < packed_len as i64 {
+                        let fp = (coarse_offset as i64 + first_col as i64) as usize;
+                        if fp < packed_len && packed_check[fp] == empty_check {
+                            let mut ok = true;
+                            for &col in &nz_cols[1..] {
+                                let pos = (coarse_offset as i64 + col as i64) as usize;
+                                if pos < packed_len && packed_check[pos] != empty_check {
+                                    ok = false;
+                                    break;
+                                }
+                            }
+                            if ok {
+                                offset = coarse_offset;
+                                found = true;
+                                break;
+                            }
+                        }
+                        coarse_offset += stride;
+                    }
+                    if !found {
+                        // True fallback: place past the end of the array.
+                        offset = packed_len as i32;
+                    }
+                    break 'search;
+                }
+
+                // Quick pre-check: if the first column's slot is occupied,
+                // skip this offset without checking the remaining columns.
+                if packed_check[first_pos] != empty_check {
+                    offset += 1;
+                    continue;
+                }
+
+                // Check the remaining non-zero columns for conflicts.
+                let mut conflict = false;
+                for &col in &nz_cols[1..] {
+                    let pos = (offset as i64 + col as i64) as usize;
+                    if pos < packed_check.len() && packed_check[pos] != empty_check {
+                        conflict = true;
+                        break;
+                    }
+                }
+
+                if !conflict {
+                    break 'search;
+                }
+                offset += 1;
+            }
+
+            offsets[state_idx] = offset;
+
+            // Place entries.
+            let required_len = (offset as i64 + last_col as i64 + 1) as usize;
+            if required_len > packed_entries.len() {
+                packed_entries.resize(required_len, 0);
+                packed_check.resize(required_len, empty_check);
+            }
+
+            for &col in &nz_cols {
+                let pos = (offset as i64 + col as i64) as usize;
+                packed_entries[pos] = row[col];
+                packed_check[pos] = state_idx as u16;
+            }
+
+            // Advance low_water_mark past newly occupied positions.
+            while low_water_mark < packed_check.len()
+                && packed_check[low_water_mark] != empty_check
+            {
+                low_water_mark += 1;
+            }
+        }
+
+        let packed_size = packed_entries.len();
+
+        // We still need a dummy ts_parse_table for the struct to compile.
+        // Emit a minimal 1x1 table.
+        add_line!(
+            self,
+            "static const uint16_t ts_parse_table[1][1] = {{{{0}}}};",
+        );
+        add_line!(self, "");
+
+        // Emit ts_parse_table_offsets[STATE_COUNT]
+        add_line!(
+            self,
+            "static const int32_t ts_parse_table_offsets[STATE_COUNT] = {{",
+        );
+        indent!(self);
+        for (i, &off) in offsets.iter().enumerate() {
+            add_line!(self, "[{i}] = {off},");
+        }
+        dedent!(self);
+        add_line!(self, "}};");
+        add_line!(self, "");
+
+        // Emit ts_parse_table_entries[PACKED_SIZE]
+        add_line!(
+            self,
+            "#define PARSE_TABLE_SIZE {packed_size}",
+        );
+        add_line!(self, "");
+        add_line!(
+            self,
+            "static const uint16_t ts_parse_table_entries[PARSE_TABLE_SIZE] = {{",
+        );
+        indent!(self);
+        // Emit in chunks for readability
+        let chunk_size = 16;
+        let mut i = 0;
+        while i < packed_size {
+            let end = cmp::min(i + chunk_size, packed_size);
+            let vals: Vec<String> = packed_entries[i..end]
+                .iter()
+                .map(|v| v.to_string())
+                .collect();
+            add_line!(self, "{},", vals.join(", "));
+            i = end;
+        }
+        dedent!(self);
+        add_line!(self, "}};");
+        add_line!(self, "");
+
+        // Emit ts_parse_table_check[PACKED_SIZE]
+        add_line!(
+            self,
+            "static const uint16_t ts_parse_table_check[PARSE_TABLE_SIZE] = {{",
+        );
+        indent!(self);
+        i = 0;
+        while i < packed_size {
+            let end = cmp::min(i + chunk_size, packed_size);
+            let vals: Vec<String> = packed_check[i..end]
+                .iter()
+                .map(|v| v.to_string())
+                .collect();
+            add_line!(self, "{},", vals.join(", "));
+            i = end;
+        }
+        dedent!(self);
+        add_line!(self, "}};");
+        add_line!(self, "");
+
+        // Emit empty small_parse_table and map so the struct fields compile.
+        if self.large_state_count < self.parse_table.states.len() {
+            add_line!(self, "static const uint16_t ts_small_parse_table[] = {{0}};");
+            add_line!(self, "");
+            add_line!(
+                self,
+                "static const uint32_t ts_small_parse_table_map[] = {{0}};",
+            );
+            add_line!(self, "");
+        }
+
+        Ok(())
+    }
+
+    /// Emit the legacy (uncompressed) parse table for ABI < 16.
+    fn add_legacy_parse_table(
+        &mut self,
+        parse_table_entries: &mut HashMap<ParseTableEntry, usize>,
+        next_parse_action_list_index: &mut usize,
+    ) -> RenderResult<()> {
         add_line!(
             self,
             "static const uint16_t ts_parse_table[LARGE_STATE_COUNT][SYMBOL_COUNT] = {{",
@@ -1377,8 +1717,8 @@ impl Generator {
             for (symbol, entry) in &terminal_entries {
                 let entry_id = Self::get_parse_action_list_id(
                     entry,
-                    &mut parse_table_entries,
-                    &mut next_parse_action_list_index,
+                    parse_table_entries,
+                    next_parse_action_list_index,
                 );
                 add_line!(self, "[{}] = ACTIONS({entry_id}),", self.symbol_ids[symbol]);
             }
@@ -1424,8 +1764,8 @@ impl Generator {
                 for (symbol, entry) in &terminal_entries {
                     let entry_id = Self::get_parse_action_list_id(
                         entry,
-                        &mut parse_table_entries,
-                        &mut next_parse_action_list_index,
+                        parse_table_entries,
+                        next_parse_action_list_index,
                     );
                     symbols_by_value
                         .entry((entry_id, SymbolType::Terminal))
@@ -1519,16 +1859,6 @@ impl Generator {
             add_line!(self, "}};");
             add_line!(self, "");
         }
-        if next_parse_action_list_index >= usize::from(u16::MAX) {
-            Err(RenderError::ParseTable(next_parse_action_list_index))?;
-        }
-
-        let mut parse_table_entries = parse_table_entries
-            .into_iter()
-            .map(|(entry, i)| (i, entry))
-            .collect::<Vec<_>>();
-        parse_table_entries.sort_by_key(|(index, _)| *index);
-        self.add_parse_action_list(parse_table_entries);
 
         Ok(())
     }
@@ -1730,6 +2060,14 @@ impl Generator {
             add_line!(self, ".patch_version = {},", metadata.patch);
             dedent!(self);
             add_line!(self, "}},");
+        }
+
+        // Compressed parse table (ABI >= 16)
+        if self.abi_version >= ABI_VERSION_WITH_COMPRESSED_TABLES {
+            add_line!(self, ".parse_table_offsets = ts_parse_table_offsets,");
+            add_line!(self, ".parse_table_entries = ts_parse_table_entries,");
+            add_line!(self, ".parse_table_check = ts_parse_table_check,");
+            add_line!(self, ".parse_table_size = PARSE_TABLE_SIZE,");
         }
 
         dedent!(self);

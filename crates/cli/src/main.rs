@@ -40,7 +40,7 @@ use tree_sitter_tags::TagsContext;
 
 const BUILD_VERSION: &str = env!("CARGO_PKG_VERSION");
 const BUILD_SHA: Option<&'static str> = option_env!("BUILD_SHA");
-const DEFAULT_GENERATE_ABI_VERSION: usize = 15;
+const DEFAULT_GENERATE_ABI_VERSION: usize = 16;
 
 #[derive(Subcommand)]
 #[command(about="Generates and tests parsers", author=crate_authors!("\n"), styles=get_styles())]
