@@ -68,7 +68,8 @@ static inline bool ts_language_has_reduce_action(
 //
 // For non-terminal symbols, the table value represents a successor state.
 // For terminal symbols, it represents an index in the actions table.
-// For ABI >= 16, uses row-displacement compressed tables for all states.
+// For ABI >= 16, uses CSR (Compressed Sparse Row) tables for all states.
+// Lookup is O(log n) binary search on the column indices for the state's row.
 // For older ABIs, 'large' parse states use a direct 2D lookup, and
 // 'small' parse states use a linear search through symbol groups.
 static inline uint16_t ts_language_lookup(
@@ -77,10 +78,19 @@ static inline uint16_t ts_language_lookup(
   TSSymbol symbol
 ) {
   if (self->abi_version >= LANGUAGE_VERSION_WITH_COMPRESSED_TABLES) {
-    int32_t offset = self->parse_table_offsets[state];
-    uint32_t index = (uint32_t)((int32_t)symbol + offset);
-    if (index < self->parse_table_size && self->parse_table_check[index] == state) {
-      return self->parse_table_entries[index];
+    uint32_t start = self->parse_table_row_offsets[state];
+    uint32_t end = self->parse_table_row_offsets[state + 1];
+    // Binary search for symbol in columns[start..end]
+    while (start < end) {
+      uint32_t mid = start + (end - start) / 2;
+      uint16_t col = self->parse_table_columns[mid];
+      if (col == symbol) {
+        return self->parse_table_values[mid];
+      } else if (col < symbol) {
+        start = mid + 1;
+      } else {
+        end = mid;
+      }
     }
     return 0;
   } else if (state >= self->large_state_count) {
@@ -110,8 +120,8 @@ static inline bool ts_language_has_actions(
 
 // Iterate over all of the symbols that are valid in the given state.
 //
-// For compressed tables (ABI >= 16), iterate through all symbols
-// and check the displacement table for each one.
+// For compressed tables (ABI >= 16), iterate through the CSR row entries
+// directly, which only visits non-zero symbols.
 // For 'large' parse states, this just requires iterating through
 // all possible symbols and checking the parse table for each one.
 // For 'small' parse states, this exploits the structure of the
@@ -125,20 +135,21 @@ static inline LookaheadIterator ts_language_lookaheads(
   const uint16_t *data;
   const uint16_t *group_end = NULL;
   uint16_t group_count = 0;
+  uint16_t section_index = 0;
   if (is_small_state) {
     uint32_t index = self->small_parse_table_map[state - self->large_state_count];
     data = &self->small_parse_table[index];
     group_end = data + 1;
     group_count = *data;
+  } else if (self->abi_version >= LANGUAGE_VERSION_WITH_COMPRESSED_TABLES) {
+    // For CSR tables, group_count tracks the number of remaining entries.
+    // data is set to NULL to indicate CSR mode.
+    data = NULL;
+    uint32_t start = self->parse_table_row_offsets[state];
+    uint32_t end = self->parse_table_row_offsets[state + 1];
+    group_count = (uint16_t)(end - start);  // NNZ per row <= symbol_count <= UINT16_MAX
   } else {
-    // For both compressed (ABI >= 16) and old large states, we set up
-    // dummy data pointer. For old large states it points into parse_table.
-    // For compressed tables, the iterator uses ts_language_lookup() instead.
-    if (self->abi_version >= LANGUAGE_VERSION_WITH_COMPRESSED_TABLES) {
-      data = NULL;
-    } else {
-      data = &self->parse_table[state * self->symbol_count] - 1;
-    }
+    data = &self->parse_table[state * self->symbol_count] - 1;
   }
   return (LookaheadIterator) {
     .language = self,
@@ -147,6 +158,7 @@ static inline LookaheadIterator ts_language_lookaheads(
     .group_count = group_count,
     .is_small_state = is_small_state,
     .state = state,
+    .section_index = section_index,
     .symbol = UINT16_MAX,
     .next_state = 0,
   };
@@ -171,14 +183,15 @@ static inline bool ts_lookahead_iterator__next(LookaheadIterator *self) {
     }
   }
 
-  // For compressed tables (ABI >= 16), iterate through every symbol
-  // and use the displacement lookup to check validity.
+  // For compressed tables (ABI >= 16), iterate through the CSR row entries
+  // directly. group_count tracks the number of entries remaining.
+  // Position is computed as row_offsets[state+1] - group_count.
   else if (self->data == NULL) {
-    do {
-      self->symbol++;
-      if (self->symbol >= self->language->symbol_count) return false;
-      self->table_value = ts_language_lookup(self->language, self->state, self->symbol);
-    } while (!self->table_value);
+    if (self->group_count == 0) return false;
+    uint32_t pos = self->language->parse_table_row_offsets[self->state + 1] - self->group_count;
+    self->symbol = self->language->parse_table_columns[pos];
+    self->table_value = self->language->parse_table_values[pos];
+    self->group_count--;
   }
 
   // For large parse states (old ABI), iterate through every symbol until one
