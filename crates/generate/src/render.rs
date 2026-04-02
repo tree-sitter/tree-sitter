@@ -103,6 +103,7 @@ struct Generator {
     supertype_symbol_map: BTreeMap<Symbol, Vec<ChildType>>,
     supertype_map: BTreeMap<String, Vec<ChildType>>,
     abi_version: usize,
+    use_compressed_tables: bool,
     metadata: Option<Metadata>,
 }
 
@@ -338,6 +339,50 @@ impl Generator {
                 *i <= 1 || s.terminal_entries.len() + s.nonterminal_entries.len() > threshold
             })
             .count();
+
+        // Decide whether to use CSR-compressed parse tables (ABI 16) or fall
+        // back to legacy format (ABI 15).  This must happen before any
+        // rendering so that `self.abi_version` is consistent when `add_stats`
+        // emits `#define LANGUAGE_VERSION`.
+        if self.abi_version >= ABI_VERSION_WITH_COMPRESSED_TABLES {
+            let state_count = self.parse_table.states.len();
+            let symbol_count = self.parse_table.symbols.len();
+            let total_nnz: usize = self
+                .parse_table
+                .states
+                .iter()
+                .map(|s| s.terminal_entries.len() + s.nonterminal_entries.len())
+                .sum();
+
+            // CSR: row_offsets (uint32) + columns (uint16) + values (uint16)
+            let csr_cost = (state_count + 1) * 4 + total_nnz * 4;
+
+            // Legacy: dense table for large states + small_parse_table + map
+            let dense_cost = self.large_state_count * symbol_count * 2;
+            let small_state_cost: usize = self
+                .parse_table
+                .states
+                .iter()
+                .skip(self.large_state_count)
+                .map(|s| {
+                    let entries = s.terminal_entries.len() + s.nonterminal_entries.len();
+                    let terminal_groups: HashSet<_> = s.terminal_entries.values().collect();
+                    let nonterminal_groups: HashSet<_> = s.nonterminal_entries.values().collect();
+                    let groups = terminal_groups.len() + nonterminal_groups.len();
+                    (1 + groups * 3 + entries * 2) * 2
+                })
+                .sum();
+            let small_map_cost = (state_count - self.large_state_count) * 4;
+            let legacy_cost = dense_cost + small_state_cost + small_map_cost;
+
+            if csr_cost < legacy_cost {
+                self.use_compressed_tables = true;
+            } else {
+                // CSR would be larger — fall back to legacy format.
+                self.use_compressed_tables = false;
+                self.abi_version = ABI_VERSION_WITH_COMPRESSED_TABLES - 1;
+            }
+        }
     }
 
     fn add_header(&mut self) {
@@ -1335,7 +1380,7 @@ impl Generator {
             &mut next_parse_action_list_index,
         );
 
-        if self.abi_version >= ABI_VERSION_WITH_COMPRESSED_TABLES {
+        if self.use_compressed_tables {
             self.add_compressed_parse_table(
                 &mut parse_table_entries,
                 &mut next_parse_action_list_index,
@@ -1908,7 +1953,10 @@ impl Generator {
 
         // CSR-compressed parse table (ABI >= 16)
         if self.abi_version >= ABI_VERSION_WITH_COMPRESSED_TABLES {
-            add_line!(self, ".parse_table_row_offsets = ts_parse_table_row_offsets,");
+            add_line!(
+                self,
+                ".parse_table_row_offsets = ts_parse_table_row_offsets,"
+            );
             add_line!(self, ".parse_table_columns = ts_parse_table_columns,");
             add_line!(self, ".parse_table_values = ts_parse_table_values,");
         }
