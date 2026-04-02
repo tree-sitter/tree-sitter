@@ -140,7 +140,9 @@ the values from the `TokenType` enum, described above.
 
 - **`void (*advance)(TSLexer *, bool skip)`** — A function for advancing to the next character. If you pass `true` for
 the second argument, the current character will be treated as whitespace; whitespace won't be included in the text range
-associated with tokens emitted by the external scanner.
+associated with tokens emitted by the external scanner. **Note:** Internally, `skip=true` will change the start mark of
+the token. If `mark_end` has already been called, passing `true` for `skip` will cause the token to have zero length.
+Use `skip=false` after calling `mark_end` to consume characters without affecting the token boundaries.
 
 - **`void (*mark_end)(TSLexer *)`** — A function for marking the end of the recognized token. This allows matching tokens
 that require multiple characters of lookahead. By default, (if you don't call `mark_end`), any character that you moved
