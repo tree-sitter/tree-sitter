@@ -1384,12 +1384,12 @@ impl Generator {
             self.add_compressed_parse_table(
                 &mut parse_table_entries,
                 &mut next_parse_action_list_index,
-            )?;
+            );
         } else {
             self.add_legacy_parse_table(
                 &mut parse_table_entries,
                 &mut next_parse_action_list_index,
-            )?;
+            );
         }
 
         if next_parse_action_list_index >= usize::from(u16::MAX) {
@@ -1410,16 +1410,16 @@ impl Generator {
     ///
     /// This replaces both `ts_parse_table[LARGE_STATE_COUNT][SYMBOL_COUNT]`
     /// and `ts_small_parse_table[]` with three flat arrays:
-    ///   - `ts_parse_table_row_offsets[STATE_COUNT + 1]`  (uint32_t, cumulative NNZ)
-    ///   - `ts_parse_table_columns[TOTAL_NNZ]`            (uint16_t, sorted symbol indices)
-    ///   - `ts_parse_table_values[TOTAL_NNZ]`             (uint16_t, action/goto values)
+    ///   - `ts_parse_table_row_offsets[STATE_COUNT + 1]`  (`uint32_t`, cumulative NNZ)
+    ///   - `ts_parse_table_columns[TOTAL_NNZ]`            (`uint16_t`, sorted symbol indices)
+    ///   - `ts_parse_table_values[TOTAL_NNZ]`             (`uint16_t`, action/goto values)
     ///
     /// Lookup is O(log n) binary search on columns for a given state's row.
     fn add_compressed_parse_table(
         &mut self,
         parse_table_entries: &mut HashMap<ParseTableEntry, usize>,
         next_parse_action_list_index: &mut usize,
-    ) -> RenderResult<()> {
+    ) {
         let state_count = self.parse_table.states.len();
         let symbol_count = self.parse_table.symbols.len();
 
@@ -1515,7 +1515,7 @@ impl Generator {
         let mut i = 0;
         while i < total_nnz {
             let end = cmp::min(i + chunk_size, total_nnz);
-            let vals: Vec<String> = columns[i..end].iter().map(|v| v.to_string()).collect();
+            let vals: Vec<String> = columns[i..end].iter().map(std::string::ToString::to_string).collect();
             add_line!(self, "{},", vals.join(", "));
             i = end;
         }
@@ -1532,7 +1532,7 @@ impl Generator {
         i = 0;
         while i < total_nnz {
             let end = cmp::min(i + chunk_size, total_nnz);
-            let vals: Vec<String> = values[i..end].iter().map(|v| v.to_string()).collect();
+            let vals: Vec<String> = values[i..end].iter().map(std::string::ToString::to_string).collect();
             add_line!(self, "{},", vals.join(", "));
             i = end;
         }
@@ -1553,8 +1553,6 @@ impl Generator {
             );
             add_line!(self, "");
         }
-
-        Ok(())
     }
 
     /// Emit the legacy (uncompressed) parse table for ABI < 16.
@@ -1562,7 +1560,7 @@ impl Generator {
         &mut self,
         parse_table_entries: &mut HashMap<ParseTableEntry, usize>,
         next_parse_action_list_index: &mut usize,
-    ) -> RenderResult<()> {
+    ) {
         add_line!(
             self,
             "static const uint16_t ts_parse_table[LARGE_STATE_COUNT][SYMBOL_COUNT] = {{",
@@ -1748,8 +1746,6 @@ impl Generator {
             add_line!(self, "}};");
             add_line!(self, "");
         }
-
-        Ok(())
     }
 
     fn add_parse_action_list(&mut self, parse_table_entries: Vec<(usize, ParseTableEntry)>) {

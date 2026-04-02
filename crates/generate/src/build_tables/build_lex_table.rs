@@ -432,7 +432,7 @@ fn sort_states(table: &mut LexTable, parse_table: &mut ParseTable) {
 
 /// Extract large character sets by scanning all lex state transitions in the combined
 /// lex table. This deduplicates identical character sets across all states using a
-/// HashSet for O(1) lookups instead of linear scans.
+/// `HashSet` for O(1) lookups instead of linear scans.
 ///
 /// For each state, we collect:
 /// 1. Individual transition character sets that have many ranges (non-main-token transitions)

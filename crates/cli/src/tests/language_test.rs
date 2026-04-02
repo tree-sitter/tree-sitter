@@ -35,17 +35,29 @@ fn test_lookahead_iterator() {
             .collect();
     let mut lookahead = language.lookahead_iterator(next_state).unwrap();
     assert_eq!(*lookahead.language(), language);
-    let actual_symbols: HashSet<String> = lookahead.iter_names().map(|s| s.to_string()).collect();
+    let actual_symbols: HashSet<String> = lookahead
+        .iter_names()
+        .map(std::string::ToString::to_string)
+        .collect();
     assert_eq!(
         actual_symbols,
-        expected_symbols.iter().map(|s| s.to_string()).collect(),
+        expected_symbols
+            .iter()
+            .map(std::string::ToString::to_string)
+            .collect(),
     );
 
     lookahead.reset_state(next_state);
-    let actual_symbols2: HashSet<String> = lookahead.iter_names().map(|s| s.to_string()).collect();
+    let actual_symbols2: HashSet<String> = lookahead
+        .iter_names()
+        .map(std::string::ToString::to_string)
+        .collect();
     assert_eq!(
         actual_symbols2,
-        expected_symbols.iter().map(|s| s.to_string()).collect(),
+        expected_symbols
+            .iter()
+            .map(std::string::ToString::to_string)
+            .collect(),
     );
 
     lookahead.reset(&language, next_state);
@@ -54,7 +66,10 @@ fn test_lookahead_iterator() {
         .collect();
     assert_eq!(
         actual_symbols3,
-        expected_symbols.iter().map(|s| s.to_string()).collect(),
+        expected_symbols
+            .iter()
+            .map(std::string::ToString::to_string)
+            .collect(),
     );
 }
 
