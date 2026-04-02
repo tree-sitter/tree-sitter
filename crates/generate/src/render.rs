@@ -1426,7 +1426,8 @@ impl Generator {
                     symbols.sort_unstable();
                     canonical_data.push(symbols.len() as u16);
                     for symbol in symbols.iter() {
-                        canonical_data.push(self.symbol_order[symbol] as u16);
+                        canonical_data.push(symbol.kind as u16);
+                        canonical_data.push(symbol.index as u16);
                     }
                 }
 
