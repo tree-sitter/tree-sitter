@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use tree_sitter::{self, Parser};
 
 use super::helpers::fixtures::get_language;
@@ -27,19 +29,32 @@ fn test_lookahead_iterator() {
     assert_eq!(cursor.node().grammar_name(), "identifier");
     assert_ne!(cursor.node().grammar_id(), cursor.node().kind_id());
 
-    let expected_symbols = ["//", "/*", "identifier", "line_comment", "block_comment"];
+    let expected_symbols: HashSet<&str> =
+        ["//", "/*", "identifier", "line_comment", "block_comment"]
+            .into_iter()
+            .collect();
     let mut lookahead = language.lookahead_iterator(next_state).unwrap();
     assert_eq!(*lookahead.language(), language);
-    assert!(lookahead.iter_names().eq(expected_symbols));
+    let actual_symbols: HashSet<String> = lookahead.iter_names().map(|s| s.to_string()).collect();
+    assert_eq!(
+        actual_symbols,
+        expected_symbols.iter().map(|s| s.to_string()).collect(),
+    );
 
     lookahead.reset_state(next_state);
-    assert!(lookahead.iter_names().eq(expected_symbols));
+    let actual_symbols2: HashSet<String> = lookahead.iter_names().map(|s| s.to_string()).collect();
+    assert_eq!(
+        actual_symbols2,
+        expected_symbols.iter().map(|s| s.to_string()).collect(),
+    );
 
     lookahead.reset(&language, next_state);
-    assert!(
-        lookahead
-            .map(|s| language.node_kind_for_id(s).unwrap())
-            .eq(expected_symbols)
+    let actual_symbols3: HashSet<String> = lookahead
+        .map(|s| language.node_kind_for_id(s).unwrap().to_string())
+        .collect();
+    assert_eq!(
+        actual_symbols3,
+        expected_symbols.iter().map(|s| s.to_string()).collect(),
     );
 }
 

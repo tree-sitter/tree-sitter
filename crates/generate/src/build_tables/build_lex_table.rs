@@ -131,7 +131,6 @@ impl<'a> LexTableBuilder<'a> {
         }
     }
 
-
     fn add_state_for_tokens(&mut self, tokens: &TokenSet) -> usize {
         let mut eof_valid = false;
         let nfa_states = tokens
@@ -450,7 +449,8 @@ fn extract_large_character_sets(table: &LexTable) -> Vec<(Option<Symbol>, Charac
         for (chars, action) in &state.advance_actions {
             if action.in_main_token {
                 main_token_chars = main_token_chars.add(chars);
-            } else if chars.range_count() > LARGE_CHARACTER_RANGE_COUNT && seen.insert(chars.clone())
+            } else if chars.range_count() > LARGE_CHARACTER_RANGE_COUNT
+                && seen.insert(chars.clone())
             {
                 result.push((None, chars.clone()));
             }

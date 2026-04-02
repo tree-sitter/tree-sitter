@@ -1582,8 +1582,7 @@ impl Generator {
             }
 
             // Advance low_water_mark past newly occupied positions.
-            while low_water_mark < packed_check.len()
-                && packed_check[low_water_mark] != empty_check
+            while low_water_mark < packed_check.len() && packed_check[low_water_mark] != empty_check
             {
                 low_water_mark += 1;
             }
@@ -1613,10 +1612,7 @@ impl Generator {
         add_line!(self, "");
 
         // Emit ts_parse_table_entries[PACKED_SIZE]
-        add_line!(
-            self,
-            "#define PARSE_TABLE_SIZE {packed_size}",
-        );
+        add_line!(self, "#define PARSE_TABLE_SIZE {packed_size}",);
         add_line!(self, "");
         add_line!(
             self,
@@ -1648,10 +1644,7 @@ impl Generator {
         i = 0;
         while i < packed_size {
             let end = cmp::min(i + chunk_size, packed_size);
-            let vals: Vec<String> = packed_check[i..end]
-                .iter()
-                .map(|v| v.to_string())
-                .collect();
+            let vals: Vec<String> = packed_check[i..end].iter().map(|v| v.to_string()).collect();
             add_line!(self, "{},", vals.join(", "));
             i = end;
         }
@@ -1661,7 +1654,10 @@ impl Generator {
 
         // Emit empty small_parse_table and map so the struct fields compile.
         if self.large_state_count < self.parse_table.states.len() {
-            add_line!(self, "static const uint16_t ts_small_parse_table[] = {{0}};");
+            add_line!(
+                self,
+                "static const uint16_t ts_small_parse_table[] = {{0}};"
+            );
             add_line!(self, "");
             add_line!(
                 self,
