@@ -1,5 +1,5 @@
 use std::{
-    collections::{VecDeque, hash_map::Entry},
+    collections::{HashMap, HashSet, VecDeque, hash_map::Entry},
     mem,
 };
 
@@ -93,35 +93,11 @@ pub fn build_lex_table(
     minimize_lex_table(&mut main_lex_table, parse_table);
     sort_states(&mut main_lex_table, parse_table);
 
-    let mut large_character_sets = Vec::new();
-    for (variable_ix, _variable) in lexical_grammar.variables.iter().enumerate() {
-        let symbol = Symbol::terminal(variable_ix);
-        builder.reset();
-        builder.add_state_for_tokens(&TokenSet::from_iter([symbol]));
-        for state in &builder.table.states {
-            let mut characters = CharacterSet::empty();
-            for (chars, action) in &state.advance_actions {
-                if action.in_main_token {
-                    characters = characters.add(chars);
-                    continue;
-                }
-
-                if chars.range_count() > LARGE_CHARACTER_RANGE_COUNT
-                    && !large_character_sets.iter().any(|(_, set)| set == chars)
-                {
-                    large_character_sets.push((None, chars.clone()));
-                }
-            }
-
-            if characters.range_count() > LARGE_CHARACTER_RANGE_COUNT
-                && !large_character_sets
-                    .iter()
-                    .any(|(_, set)| *set == characters)
-            {
-                large_character_sets.push((Some(symbol), characters));
-            }
-        }
-    }
+    // Extract large character sets by scanning the actual combined lex table.
+    // This is more effective than the old approach of rebuilding per-token lex tables,
+    // because it finds character sets as they actually appear in transitions and can
+    // deduplicate across all states efficiently using a HashSet.
+    let large_character_sets = extract_large_character_sets(&main_lex_table);
 
     LexTables {
         main_lex_table,
@@ -155,11 +131,6 @@ impl<'a> LexTableBuilder<'a> {
         }
     }
 
-    fn reset(&mut self) {
-        self.table = LexTable::default();
-        self.state_queue.clear();
-        self.state_ids_by_nfa_state_set.clear();
-    }
 
     fn add_state_for_tokens(&mut self, tokens: &TokenSet) -> usize {
         let mut eof_valid = false;
@@ -458,4 +429,45 @@ fn sort_states(table: &mut LexTable, parse_table: &mut ParseTable) {
     for state in &mut parse_table.states {
         state.lex_state_id = new_ids_by_old_id[state.lex_state_id];
     }
+}
+
+/// Extract large character sets by scanning all lex state transitions in the combined
+/// lex table. This deduplicates identical character sets across all states using a
+/// HashSet for O(1) lookups instead of linear scans.
+///
+/// For each state, we collect:
+/// 1. Individual transition character sets that have many ranges (non-main-token transitions)
+/// 2. The union of all main-token transition character sets per state
+///
+/// This replaces the old approach that rebuilt separate per-token lex tables.
+fn extract_large_character_sets(table: &LexTable) -> Vec<(Option<Symbol>, CharacterSet)> {
+    let mut seen = HashSet::new();
+    let mut result = Vec::new();
+
+    for state in &table.states {
+        // Collect the union of all main-token character sets for this state
+        let mut main_token_chars = CharacterSet::empty();
+        for (chars, action) in &state.advance_actions {
+            if action.in_main_token {
+                main_token_chars = main_token_chars.add(chars);
+            } else if chars.range_count() > LARGE_CHARACTER_RANGE_COUNT && seen.insert(chars.clone())
+            {
+                result.push((None, chars.clone()));
+            }
+        }
+
+        if main_token_chars.range_count() > LARGE_CHARACTER_RANGE_COUNT
+            && seen.insert(main_token_chars.clone())
+        {
+            // We no longer have a specific symbol association since we're scanning
+            // the combined lex table. Use None for the symbol.
+            result.push((None, main_token_chars));
+        }
+    }
+
+    // Sort by descending range count so that the largest (most beneficial) character
+    // sets are tried first during matching in the renderer.
+    result.sort_by(|a, b| b.1.range_count().cmp(&a.1.range_count()));
+
+    result
 }
