@@ -6,7 +6,6 @@ use std::{
 };
 
 use crate::LANGUAGE_VERSION;
-use indoc::indoc;
 use serde::Serialize;
 use thiserror::Error;
 
@@ -109,6 +108,7 @@ struct LargeCharacterSetInfo {
     is_used: bool,
 }
 
+#[derive(Clone, Copy, Default)]
 struct Metadata {
     major: u8,
     minor: u8,
@@ -1658,15 +1658,7 @@ impl Generator {
                     .unwrap()
             );
 
-            let Some(metadata) = &self.metadata else {
-                panic!(
-                    indoc! {"
-                        Metadata is required to generate ABI version {}.
-                        This means that your grammar doesn't have a tree-sitter.json config file with an appropriate version field in the metadata table.
-                    "},
-                    self.abi_version
-                );
-            };
+            let metadata = self.metadata.unwrap_or_default();
 
             add_line!(self, ".metadata = {{");
             indent!(self);
