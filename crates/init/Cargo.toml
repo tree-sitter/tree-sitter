@@ -1,0 +1,29 @@
+[package]
+name = "tree-sitter-init"
+authors.workspace = true
+categories.workspace = true
+edition.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[dependencies]
+anyhow.workspace                = true
+crc32fast.workspace             = true
+heck.workspace                  = true
+indoc.workspace                 = true
+log.workspace                   = true
+rand.workspace                  = true
+semver.workspace                = true
+serde.workspace                 = true
+serde_json.workspace            = true
+
+tree-sitter.workspace           = true
+tree-sitter-generate            = { workspace = true, features = ["load"] }
+tree-sitter-loader.workspace    = true
+
+[lints]
+workspace = true

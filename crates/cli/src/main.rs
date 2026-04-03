@@ -14,13 +14,13 @@ use log::{error, info, warn};
 use regex::Regex;
 use semver::Version as SemverVersion;
 use tree_sitter::{Parser, Point, ffi};
+use tree_sitter_init::{JsonConfigOpts, TREE_SITTER_JSON_SCHEMA, generate_grammar_files};
 use tree_sitter_cli::{
     fuzz::{
         DEFAULT_EDIT_COUNT, DEFAULT_ITERATION_COUNT, EDIT_COUNT, FuzzOptions, ITERATION_COUNT,
         LOG_ENABLED, LOG_GRAPH_ENABLED, START_SEED, fuzz_language_corpus,
     },
     highlight::{self, HighlightOptions},
-    init::{JsonConfigOpts, TREE_SITTER_JSON_SCHEMA, generate_grammar_files},
     input::{CliInput, get_input, get_tmp_source_file},
     logger,
     parse::{self, ParseDebugType, ParseFileOptions, ParseOutput, ParseTheme},
