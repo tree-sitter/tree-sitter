@@ -28,7 +28,6 @@ qjs-rt  = [ "load", "rquickjs", "pathdiff" ]
 bitflags = "2.10.0"
 dunce = "1.0.5"
 indexmap.workspace = true
-indoc.workspace = true
 log.workspace = true
 pathdiff = { optional = true, version = "0.2.3" }
 regex.workspace = true

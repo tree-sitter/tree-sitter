@@ -8,8 +8,6 @@ use std::{
 };
 
 use bitflags::bitflags;
-#[cfg(feature = "load")]
-use log::warn;
 use node_types::VariableInfo;
 use rules::{Alias, Symbol};
 #[cfg(feature = "load")]
@@ -228,7 +226,7 @@ pub fn generate_parser_in_directory<T, U, V>(
     repo_path: T,
     out_path: Option<U>,
     grammar_path: Option<V>,
-    mut abi_version: usize,
+    abi_version: usize,
     report_symbol_name: Option<&str>,
     js_runtime: Option<&str>,
     generate_parser: bool,
@@ -284,20 +282,6 @@ where
     }
 
     let semantic_version = read_grammar_version(&repo_path)?;
-
-    if semantic_version.is_none() && abi_version > ABI_VERSION_MIN {
-        warn!(
-            concat!(
-                "No `tree-sitter.json` file found in your grammar, ",
-                "this file is required to generate with ABI {}. ",
-                "Using ABI version {} instead.\n",
-                "This file can be set up with `tree-sitter init`. ",
-                "For more information, see https://tree-sitter.github.io/tree-sitter/cli/init."
-            ),
-            abi_version, ABI_VERSION_MIN
-        );
-        abi_version = ABI_VERSION_MIN;
-    }
 
     // Generate the parser and related files.
     let GeneratedParser {
