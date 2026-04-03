@@ -9,6 +9,7 @@ license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 version.workspace = true
+include = [ "src/**" ]
 
 [dependencies]
 anyhow.workspace                = true
