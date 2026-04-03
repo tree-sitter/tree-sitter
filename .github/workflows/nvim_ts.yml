@@ -37,14 +37,13 @@ jobs:
           ref: main
 
       - if: runner.os != 'Windows'
-        run: echo ${{ github.workspace }}/target/release >> $GITHUB_PATH
+        run: echo ${{ github.workspace }}/target/optimize >> $GITHUB_PATH
 
       - if: runner.os == 'Windows'
-        run: echo ${{ github.workspace }}/target/release >> $env:GITHUB_PATH
+        run: echo ${{ github.workspace }}/target/optimize >> $env:GITHUB_PATH
 
       - uses: actions-rust-lang/setup-rust-toolchain@v1
-      - run: cargo build --release
-      - uses: ilammy/msvc-dev-cmd@v1
+      - run: cargo build --profile optimize
 
       - name: Install and prepare Neovim
         run: bash ./scripts/ci-install.sh
@@ -52,7 +51,7 @@ jobs:
 
       - if: matrix.type == 'generate'
         name: Generate and compile parsers
-        run: $NVIM -l ./scripts/install-parsers.lua --generate --max-jobs=2
+        run: $NVIM -l ./scripts/install-parsers.lua --generate --max-jobs=3
         working-directory: ${{ env.NVIM_TS_DIR }}
         shell: bash
 
