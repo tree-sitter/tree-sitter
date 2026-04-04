@@ -22,5 +22,7 @@ runs:
           'lib/src/array.h',
           'lib/src/alloc.h',
           'lib/src/wasm/wasm-stdlib.h',
+          'crates/loader/wasi-sdk-version',
+          'crates/loader/binaryen-version',
           'test/fixtures/grammars/*/**/src/*.c',
           '.github/actions/cache/action.yml') }}
