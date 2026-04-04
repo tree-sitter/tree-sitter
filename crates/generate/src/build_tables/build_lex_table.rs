@@ -1,9 +1,9 @@
 use std::{
-    collections::{HashMap, HashSet, VecDeque, hash_map::Entry},
+    collections::{VecDeque, hash_map::Entry},
     mem,
 };
 
-use rustc_hash::FxHashMap;
+use rustc_hash::{FxHashMap, FxHashSet};
 
 use log::debug;
 
@@ -96,7 +96,7 @@ pub fn build_lex_table(
     // Extract large character sets by scanning the actual combined lex table.
     // This is more effective than the old approach of rebuilding per-token lex tables,
     // because it finds character sets as they actually appear in transitions and can
-    // deduplicate across all states efficiently using a HashSet.
+    // deduplicate across all states efficiently using a FxHashSet.
     let large_character_sets = extract_large_character_sets(&main_lex_table);
 
     LexTables {
@@ -432,7 +432,7 @@ fn sort_states(table: &mut LexTable, parse_table: &mut ParseTable) {
 
 /// Extract large character sets by scanning all lex state transitions in the combined
 /// lex table. This deduplicates identical character sets across all states using a
-/// `HashSet` for O(1) lookups instead of linear scans.
+/// `FxHashSet` for O(1) lookups instead of linear scans.
 ///
 /// For each state, we collect:
 /// 1. Individual transition character sets that have many ranges (non-main-token transitions)
@@ -440,7 +440,7 @@ fn sort_states(table: &mut LexTable, parse_table: &mut ParseTable) {
 ///
 /// This replaces the old approach that rebuilt separate per-token lex tables.
 fn extract_large_character_sets(table: &LexTable) -> Vec<(Option<Symbol>, CharacterSet)> {
-    let mut seen = HashSet::new();
+    let mut seen = FxHashSet::default();
     let mut result = Vec::new();
 
     for state in &table.states {

@@ -1,6 +1,6 @@
 use std::{
     cmp,
-    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
+    collections::{BTreeMap, BTreeSet},
     fmt::Write,
     mem::swap,
 };
@@ -366,8 +366,8 @@ impl Generator {
                 .skip(self.large_state_count)
                 .map(|s| {
                     let entries = s.terminal_entries.len() + s.nonterminal_entries.len();
-                    let terminal_groups: HashSet<_> = s.terminal_entries.values().collect();
-                    let nonterminal_groups: HashSet<_> = s.nonterminal_entries.values().collect();
+                    let terminal_groups: FxHashSet<_> = s.terminal_entries.values().collect();
+                    let nonterminal_groups: FxHashSet<_> = s.nonterminal_entries.values().collect();
                     let groups = terminal_groups.len() + nonterminal_groups.len();
                     (1 + groups * 3 + entries * 2) * 2
                 })
@@ -913,7 +913,7 @@ impl Generator {
 
         // Group states by identical body text
         let mut body_groups: Vec<(String, Vec<usize>)> = Vec::new();
-        let mut body_index: HashMap<String, usize> = HashMap::new();
+        let mut body_index: FxHashMap<String, usize> = FxHashMap::default();
         for (state_ix, body) in state_bodies {
             if let Some(&group_ix) = body_index.get(&body) {
                 body_groups[group_ix].1.push(state_ix);
@@ -1417,7 +1417,7 @@ impl Generator {
     /// Lookup is O(log n) binary search on columns for a given state's row.
     fn add_compressed_parse_table(
         &mut self,
-        parse_table_entries: &mut HashMap<ParseTableEntry, usize>,
+        parse_table_entries: &mut FxHashMap<ParseTableEntry, usize>,
         next_parse_action_list_index: &mut usize,
     ) {
         let state_count = self.parse_table.states.len();
@@ -1515,7 +1515,10 @@ impl Generator {
         let mut i = 0;
         while i < total_nnz {
             let end = cmp::min(i + chunk_size, total_nnz);
-            let vals: Vec<String> = columns[i..end].iter().map(std::string::ToString::to_string).collect();
+            let vals: Vec<String> = columns[i..end]
+                .iter()
+                .map(std::string::ToString::to_string)
+                .collect();
             add_line!(self, "{},", vals.join(", "));
             i = end;
         }
@@ -1532,7 +1535,10 @@ impl Generator {
         i = 0;
         while i < total_nnz {
             let end = cmp::min(i + chunk_size, total_nnz);
-            let vals: Vec<String> = values[i..end].iter().map(std::string::ToString::to_string).collect();
+            let vals: Vec<String> = values[i..end]
+                .iter()
+                .map(std::string::ToString::to_string)
+                .collect();
             add_line!(self, "{},", vals.join(", "));
             i = end;
         }
@@ -1558,7 +1564,7 @@ impl Generator {
     /// Emit the legacy (uncompressed) parse table for ABI < 16.
     fn add_legacy_parse_table(
         &mut self,
-        parse_table_entries: &mut HashMap<ParseTableEntry, usize>,
+        parse_table_entries: &mut FxHashMap<ParseTableEntry, usize>,
         next_parse_action_list_index: &mut usize,
     ) {
         add_line!(
@@ -1630,7 +1636,7 @@ impl Generator {
                     .saturating_sub(self.large_state_count),
             );
             // Deduplication: map canonical data to its first table index
-            let mut seen_data: HashMap<Vec<u16>, usize> = HashMap::new();
+            let mut seen_data: FxHashMap<Vec<u16>, usize> = FxHashMap::default();
             let mut symbols_by_value = FxHashMap::<(usize, SymbolType), Vec<Symbol>>::default();
             for (state_offset, state) in self
                 .parse_table
