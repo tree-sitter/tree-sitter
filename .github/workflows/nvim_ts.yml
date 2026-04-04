@@ -3,6 +3,7 @@ name: nvim-treesitter parser tests
 on:
   pull_request:
     paths:
+      - 'lib/**'
       - 'crates/cli/**'
       - 'crates/config/**'
       - 'crates/generate/**'
@@ -26,26 +27,43 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       NVIM: ${{ matrix.os == 'windows-latest' && 'nvim-win64\\bin\\nvim.exe' || 'nvim' }}
+      NVIM_DIR: neovim
       NVIM_TS_DIR: nvim-treesitter
     steps:
       - uses: actions/checkout@v6
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - run: cargo build --profile optimize
+      - if: runner.os != 'Windows'
+        run: echo ${{ github.workspace }}/target/optimize >> "$GITHUB_PATH"
+      - if: runner.os == 'Windows'
+        run: echo ${{ github.workspace }}/target/optimize >> "$env:GITHUB_PATH"
 
-      - uses: actions/checkout@v6
+      - if: runner.os != 'Windows'
+        name: Clone Neovim
+        uses: actions/checkout@v6
+        with:
+          repository: neovim/neovim
+          path: ${{ env.NVIM_DIR }}
+
+      - if: runner.os != 'Windows'
+        name: Build Neovim
+        working-directory: ${{ env.NVIM_DIR }}
+        run: |
+          cmake -S cmake.deps -B .deps -G Ninja -D CMAKE_BUILD_TYPE=Release -D TREESITTER_URL=https://github.com/tree-sitter/tree-sitter/archive/${{ github.event.pull_request.head.sha }}.tar.gz -D DEPS_IGNORE_SHA=TRUE
+          cmake --build .deps --config Release
+          cmake -B build -G Ninja -D CMAKE_BUILD_TYPE=Release
+          cmake --build build --config Release
+          echo "VIMRUNTIME=${{ github.workspace }}/neovim/runtime" >> "$GITHUB_ENV"
+          echo ${{ github.workspace }}/neovim/build/bin >> "$GITHUB_PATH"
+
+      - name: Clone nvim-treesitter
+        uses: actions/checkout@v6
         with:
           repository: nvim-treesitter/nvim-treesitter
           path: ${{ env.NVIM_TS_DIR }}
-          ref: main
-
-      - if: runner.os != 'Windows'
-        run: echo ${{ github.workspace }}/target/optimize >> $GITHUB_PATH
 
       - if: runner.os == 'Windows'
-        run: echo ${{ github.workspace }}/target/optimize >> $env:GITHUB_PATH
-
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-      - run: cargo build --profile optimize
-
-      - name: Install and prepare Neovim
+        name: Install and prepare Neovim
         run: bash ./scripts/ci-install.sh
         working-directory: ${{ env.NVIM_TS_DIR }}
 
