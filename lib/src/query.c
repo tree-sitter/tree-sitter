@@ -16,7 +16,7 @@
 #include "./unicode.h"
 #include <wctype.h>
 
-#define DEBUG_ANALYZE_QUERY
+// #define DEBUG_ANALYZE_QUERY
 // #define DEBUG_EXECUTE_QUERY
 
 #define MAX_STEP_CAPTURE_COUNT 3
@@ -124,14 +124,21 @@ typedef struct {
 } QueryStep;
 
 /*
- * EnclosingAlternation - A singly-linked list tracking the start step indices
- * of enclosing [...] alternations during query parsing. Used to resolve (^)
- * recursive back-references to the correct alternation level.
+ * EntryPoint - A singly-linked list (stack) tracking recursion entry points
+ * during query parsing.  Both anonymous alternations ([...]) and labeled
+ * scopes (^label ...) push an entry; it is popped when the scope closes.
+ *
+ * Anonymous entries (name == NULL) are counted by (^), (^^), (^^^), etc.
+ * Labeled entries (name != NULL) are found by name for (^label) references.
+ * Because both share one stack, label scoping is automatic - a label is
+ * only visible inside its body.
  */
-typedef struct EnclosingAlternation {
+typedef struct EntryPoint {
   uint32_t start_step_index;
-  const struct EnclosingAlternation *parent;
-} EnclosingAlternation;
+  const char *name;          // NULL for anonymous alternation entries
+  uint32_t name_length;
+  const struct EntryPoint *parent;
+} EntryPoint;
 
 /*
  * Slice - A slice of an external array. Within a query, capture names,
@@ -2296,7 +2303,7 @@ static TSQueryError ts_query__parse_pattern(
   uint32_t depth,
   bool is_immediate,
   CaptureQuantifiers *capture_quantifiers,
-  const EnclosingAlternation *enclosing_alternations
+  const EntryPoint *entry_points
 ) {
   if (stream->next == 0) return TSQueryErrorSyntax;
   if (stream->next == ')' || stream->next == ']') return PARENT_DONE;
@@ -2322,9 +2329,11 @@ static TSQueryError ts_query__parse_pattern(
     // Parse each branch, and add a placeholder step in between the branches.
     Array(uint32_t) branch_step_indices = array_new();
     CaptureQuantifiers branch_capture_quantifiers = capture_quantifiers_new();
-    EnclosingAlternation alt_entry = {
+    EntryPoint alt_entry = {
       .start_step_index = self->steps.size,
-      .parent = enclosing_alternations,
+      .name = NULL,
+      .name_length = 0,
+      .parent = entry_points,
     };
     for (;;) {
       uint32_t start_index = self->steps.size;
@@ -2375,11 +2384,21 @@ static TSQueryError ts_query__parse_pattern(
           : self->steps.size;
         QueryStep *last_step = array_get(&self->steps, branch_end - 1);
         bool branch_is_recursive = last_step->is_dead_end &&
-          last_step->alternative_index < alt_entry.start_step_index + 1;
+          last_step->alternative_index == alt_entry.start_step_index;
         if (branch_is_recursive) {
-          // A recursive branch that is just (^) with no preceding node
-          // would loop forever without descending into any child.
-          if (branch_end - branch_start <= 1) {
+          // A recursive branch that is just (^) or (^label) targeting THIS
+          // alternation with no real node step would loop forever.  Check
+          // that the branch contains at least one step that matches a node
+          // (not just pass-throughs and dead-ends).
+          bool has_real_step = false;
+          for (uint32_t s = branch_start; s < branch_end; s++) {
+            QueryStep *bs = array_get(&self->steps, s);
+            if (!bs->is_dead_end && !bs->is_pass_through) {
+              has_real_step = true;
+              break;
+            }
+          }
+          if (!has_real_step) {
             capture_quantifiers_delete(&branch_capture_quantifiers);
             array_delete(&branch_step_indices);
             return TSQueryErrorStructure;
@@ -2471,7 +2490,7 @@ static TSQueryError ts_query__parse_pattern(
           depth,
           child_is_immediate,
           &child_capture_quantifiers,
-          enclosing_alternations
+          entry_points
         );
         if (e == PARENT_DONE) {
           if (stream->next == ')') {
@@ -2499,29 +2518,121 @@ static TSQueryError ts_query__parse_pattern(
       return ts_query__parse_predicate(self, stream);
     }
 
-    // A caret indicates a recursive back-reference to an enclosing alternation.
-    // (^) refers to the immediately enclosing [...], (^^) to the next outer, etc.
+    // A caret indicates a recursive back-reference.
+    // (^)        - refers to the immediately enclosing [...]
+    // (^^)       - refers to the next outer [...] (De Bruijn)
+    // (^label)   - refers to a labeled step defined by (^label ...body)
+    // (^label ...body) - defines a labeled recursion target, then parses body
     else if (stream->next == '^') {
-      // The first ^ refers to the innermost [...], each further ^ goes one level out.
-      const EnclosingAlternation *target = enclosing_alternations;
-      while(1) {
-        if (!target) return TSQueryErrorSyntax;
-        stream_advance(stream);
-        if (stream->next != '^') break;
-        target = target->parent;
-      }
-      
-      // after ^^^, group must be closed (recursive nodes, can not have direct children)
-      stream_skip_whitespace(stream);
-      if (stream->next != ')') return TSQueryErrorSyntax;
       stream_advance(stream);
 
-      // Emit a dead-end step that jumps backward to the alternation start.
-      QueryStep rec_step = query_step__new(0, depth, false);
-      rec_step.is_dead_end = true;
-      rec_step.alternative_index = target->start_step_index;
-      array_push(&self->steps, rec_step);
+      if (stream->next == '^' || !stream_is_ident_start(stream)) {
+        // Anonymous back-reference: (^), (^^), (^^^), etc.
+        // Walk the entry-point stack, skipping labeled entries (only
+        // anonymous alternation entries count for De Bruijn indexing).
+        const EntryPoint *target = entry_points;
+        while (target && target->name) target = target->parent;
+        if (!target) return TSQueryErrorSyntax;
+        while (stream->next == '^') {
+          stream_advance(stream);
+          target = target->parent;
+          while (target && target->name) target = target->parent;
+          if (!target) return TSQueryErrorSyntax;
+        }
 
+        stream_skip_whitespace(stream);
+        if (stream->next != ')') return TSQueryErrorSyntax;
+        stream_advance(stream);
+
+        // Emit pass-through + dead-end pair, same as labeled refs.
+        // When this reference is a bare branch in [...], the pass-through
+        // receives the alternation link and the dead-end keeps its
+        // recursion target.
+        QueryStep pass_step = query_step__new(0, depth, false);
+        pass_step.is_pass_through = true;
+        array_push(&self->steps, pass_step);
+        QueryStep rec_step = query_step__new(0, depth, false);
+        rec_step.is_dead_end = true;
+        rec_step.alternative_index = target->start_step_index;
+        array_push(&self->steps, rec_step);
+      } else {
+        // Labeled: (^label) or (^label ...body).
+        // Scan the label name.
+        const char *label_name = stream->input;
+        stream_scan_identifier(stream);
+        uint32_t label_length = (uint32_t)(stream->input - label_name);
+        stream_skip_whitespace(stream);
+
+        if (stream->next == ')') {
+          // (^label) - labeled back-reference.
+          stream_advance(stream);
+
+          // Walk the entry-point stack to find the label.
+          const EntryPoint *target = entry_points;
+          while (target) {
+            if (target->name &&
+                target->name_length == label_length &&
+                !strncmp(target->name, label_name, label_length))
+              break;
+            target = target->parent;
+          }
+          if (!target) return TSQueryErrorSyntax;
+
+          // Emit pass-through + dead-end pair.
+          QueryStep pass_step = query_step__new(0, depth, false);
+          pass_step.is_pass_through = true;
+          array_push(&self->steps, pass_step);
+          QueryStep rec_step = query_step__new(0, depth, false);
+          rec_step.is_dead_end = true;
+          rec_step.alternative_index = target->start_step_index;
+          array_push(&self->steps, rec_step);
+        } else {
+          // (^label ...body) - labeled step definition.
+          // Push a labeled entry point onto the stack.
+          EntryPoint label_entry = {
+            .start_step_index = self->steps.size,
+            .name = label_name,
+            .name_length = label_length,
+            .parent = entry_points,
+          };
+
+          // Parse the body - one or more child patterns until ')'.
+          CaptureQuantifiers child_capture_quantifiers = capture_quantifiers_new();
+          bool child_is_immediate = false;
+          for (;;) {
+            if (stream->next == '.') {
+              child_is_immediate = true;
+              stream_advance(stream);
+              stream_skip_whitespace(stream);
+            }
+            TSQueryError e = ts_query__parse_pattern(
+              self,
+              stream,
+              depth,
+              child_is_immediate,
+              &child_capture_quantifiers,
+              &label_entry
+            );
+            if (e == PARENT_DONE) {
+              if (stream->next == ')') {
+                stream_advance(stream);
+                break;
+              }
+              e = TSQueryErrorSyntax;
+            }
+            if (e) {
+              capture_quantifiers_delete(&child_capture_quantifiers);
+              return e;
+            }
+
+            capture_quantifiers_add_all(capture_quantifiers, &child_capture_quantifiers);
+            capture_quantifiers_clear(&child_capture_quantifiers);
+            child_is_immediate = false;
+          }
+          capture_quantifiers_delete(&child_capture_quantifiers);
+          // label_entry goes out of scope here - label is no longer visible.
+        }
+      }
     }
 
     // Otherwise, this parenthesis is the start of a named node.
@@ -2735,7 +2846,7 @@ static TSQueryError ts_query__parse_pattern(
           depth + 1,
           child_is_immediate,
           &child_capture_quantifiers,
-          enclosing_alternations
+          entry_points
         );
         // In the event we only parsed a predicate, meaning no new steps were added,
         // then subtract one so we're not indexing past the end of the array
@@ -2870,7 +2981,7 @@ static TSQueryError ts_query__parse_pattern(
       depth,
       is_immediate,
       &field_capture_quantifiers,
-      enclosing_alternations
+      entry_points
     );
     if (e) {
       capture_quantifiers_delete(&field_capture_quantifiers);
@@ -2961,14 +3072,20 @@ static TSQueryError ts_query__parse_pattern(
   switch (quantifier) {
     case TSQuantifierOneOrMore:
       repeat_step = query_step__new(WILDCARD_SYMBOL, depth, false);
-      repeat_step.is_inside_alternation = (enclosing_alternations != NULL);
+      repeat_step.is_inside_alternation = false;
+      for (const EntryPoint *ep = entry_points; ep; ep = ep->parent) {
+        if (!ep->name) { repeat_step.is_inside_alternation = true; break; }
+      }
       repeat_step.alternative_index = starting_step_index;
       repeat_step.is_pass_through = true;
       array_push(&self->steps, repeat_step);
       break;
     case TSQuantifierZeroOrMore:
       repeat_step = query_step__new(WILDCARD_SYMBOL, depth, false);
-      repeat_step.is_inside_alternation = (enclosing_alternations != NULL);
+      repeat_step.is_inside_alternation = false;
+      for (const EntryPoint *ep = entry_points; ep; ep = ep->parent) {
+        if (!ep->name) { repeat_step.is_inside_alternation = true; break; }
+      }
       repeat_step.alternative_index = starting_step_index;
       repeat_step.is_pass_through = true;
       array_push(&self->steps, repeat_step);
@@ -4346,6 +4463,14 @@ static inline bool ts_query_cursor__advance(
               child_step = array_get(&self->query->steps, child_state->step_index);
             }
 
+            // Skip bare pass-through steps that have no alternation link
+            // (labeled ref outside an alternation).  Inside alternations,
+            // pass-throughs have alternative_index set and are handled below.
+            while (child_step->is_pass_through && child_step->alternative_index == NONE) {
+              child_state->step_index++;
+              child_step = array_get(&self->query->steps, child_state->step_index);
+            }
+
             if (child_step->alternative_index != NONE) {
               // A "dead-end" step exists only to add a non-sequential jump into the step sequence,
               // via its alternative index. When a state reaches a dead-end step, it jumps straight
@@ -4357,6 +4482,9 @@ static inline bool ts_query_cursor__advance(
                   // align with the current tree position.
                   QueryStep *target_step = array_get(&self->query->steps, child_step->alternative_index);
                   child_state->start_depth += child_step->depth - target_step->depth;
+                  // The jump enters a new scope - clear seeking_immediate_match
+                  // so the target step can match any sibling, not just the first.
+                  child_state->seeking_immediate_match = false;
                 }
                 child_state->step_index = child_step->alternative_index;
                 k--;
@@ -4385,7 +4513,16 @@ static inline bool ts_query_cursor__advance(
                 copy_count++;
                 copy->step_index = child_step->alternative_index;
                 if (child_step->is_pass_through) {
-                  copy->seeking_immediate_match = true;
+                  // For quantifier pass-throughs, the copy should only match
+                  // the immediate next sibling.  For labeled-ref pass-throughs
+                  // (where the next step is a backward dead-end goto), don't
+                  // restrict - the target scope will match any sibling.
+                  QueryStep *after_pass = array_get(
+                    &self->query->steps, child_state->step_index);
+                  if (!after_pass->is_dead_end ||
+                      after_pass->alternative_index >= child_state->step_index) {
+                    copy->seeking_immediate_match = true;
+                  }
                 }
               }
             }

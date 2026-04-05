@@ -175,14 +175,12 @@ cases work:
 
 ### Recursive Alternations
 
-Inside an alternation, the special pattern `(^)` is a recursive back-reference to the
-enclosing `[...]`. It causes the query engine to loop back and try all alternatives again,
-one level deeper in the tree. This enables matching nodes at arbitrary nesting depth without
-writing out every possible depth by hand.
+Inside an alternation, the special pattern `(^)` is a recursive back-reference to the enclosing `[...]`. It causes the query 
+engine to loop back and try all alternatives again, one level deeper in the tree. This enables matching nodes at arbitrary 
+nesting depth without writing out every possible depth by hand.
 
-A recursive alternation needs at least two branches: one or more *recursive* branches that
-descend into a child and end with `(^)`, and one or more *base-case* branches that match the
-target node.
+A recursive alternation needs at least two branches: one or more *recursive* branches that descend into a child and end with 
+`(^)`, and one or more *base-case* branches that match the target node.
 
 For example, to find every `return_statement` at any depth inside a function body:
 
@@ -192,12 +190,11 @@ For example, to find every `return_statement` at any depth inside a function bod
     [(_ (^)) (return_statement) @ret]))
 ```
 
-The `(_ (^))` branch matches any child node and recurses. The `(return_statement) @ret` branch
-is the base case that captures the target. Together they express "descend through any number of
-intermediate nodes until a `return_statement` is found."
+The `(_ (^))` branch matches any child node and recurses. The `(return_statement) @ret` branch is the base case that captures 
+the target. Together they express "descend through any number of intermediate nodes until a `return_statement` is found."
 
-Recursive branches can be constrained to specific node types. This pattern only descends
-through `if_statement` consequence chains (with or without braces):
+Recursive branches can be constrained to specific node types. This pattern only descends through `if_statement` consequence 
+chains (with or without braces):
 
 ```query
 (function_definition
@@ -208,12 +205,41 @@ through `if_statement` consequence chains (with or without braces):
   ]))
 ```
 
-When alternations are nested, `(^^)` refers to the next outer `[...]`, `(^^^)` to the one
-beyond that, and so on. This allows inner and outer alternations to recurse independently,
-enabling multi-level patterns that distinguish different nesting depths.
+When alternations are nested, `(^^)` refers to the next outer `[...]`, `(^^^)` to the one beyond that, and so on. This allows 
+inner and outer alternations to recurse independently, enabling multi-level patterns that distinguish different nesting 
+depths.
 
-Note: `(^)` must be the last element in its branch (tail position). It cannot be followed
-by sibling steps or have child steps of its own.
+#### Labeled Recursion
+
+The anonymous `(^)` / `(^^)` references target alternations by counting nesting levels (De Bruijn indices). When patterns grow 
+complex, this becomes hard to read and fragile under refactoring. **Labeled recursion** lets you name a recursion scope and 
+refer to it by name.
+
+`(^label ...)` defines a labeled scope - the body (one or more child patterns) becomes a recursion target. `(^label)` (without 
+a body) is a back-reference that jumps to the most recent scope with that name.
+
+For example, to match C pointer-declarator chains like `***x`, stripping the type and capturing each layer:
+
+```query
+(declaration
+  type: (_) @type
+  declarator: (^ptr (pointer_declarator
+    declarator: [(^ptr) (identifier) @name]
+  ) @star))
+```
+
+Here `(^ptr ...)` wraps the `pointer_declarator` node. The back-reference `(^ptr)` jumps back to the scope entry - re-entering 
+at the `pointer_declarator` match, one level deeper. This cannot be expressed with anonymous `(^)`, because `(^)` can only 
+target an enclosing `[...]`, and the recursion target here is the node pattern above the alternation.
+
+Labels are scoped to their body - a `(^label)` reference is only valid inside the corresponding `(^label ...)` body. 
+Referencing an undefined or out-of-scope label is a parse error.
+
+Labeled and counted references can coexist. Inside a labeled scope that directly wraps an alternation, both `(^)` (targeting 
+the alternation) and `(^label)` (targeting the labeled scope) resolve to the same point.
+
+Note: `(^)`, `(^^)`, and `(^label)` must be the last element in their branch (tail position). They cannot be followed by 
+sibling steps or have child steps of their own.
 
 ## Anchors
 

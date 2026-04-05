@@ -6994,3 +6994,431 @@ fn test_query_recursive_ref_capture_isolation_across_matches() {
         );
     });
 }
+
+// =========================================================================
+// Labeled recursive references: (^label ...body) and (^label)
+// =========================================================================
+
+#[test]
+fn test_query_labeled_ref_parse_errors() {
+    allocations::record(|| {
+        let language = get_language("c");
+
+        // (^label) referencing an undefined label
+        assert_eq!(
+            Query::new(&language, "(function_definition (^nosuch))").unwrap_err().kind,
+            QueryErrorKind::Syntax,
+        );
+
+        // (^label) at top level with no definition
+        assert_eq!(
+            Query::new(&language, "(^label)").unwrap_err().kind,
+            QueryErrorKind::Syntax,
+        );
+
+        // Forward reference: (^label) before (^label ...body)
+        assert_eq!(
+            Query::new(
+                &language,
+                "(function_definition (^label) (^label (compound_statement)))",
+            )
+            .unwrap_err()
+            .kind,
+            QueryErrorKind::Syntax,
+        );
+
+        // Self-loop: (^d) as bare branch directly inside (^d [...])
+        // Same as [(^) (identifier)] - zero-width loop, rejected as Structure error.
+        assert_eq!(
+            Query::new(
+                &language,
+                "(declaration declarator: (^d [(^d) (identifier)]))",
+            )
+            .unwrap_err()
+            .kind,
+            QueryErrorKind::Structure,
+        );
+
+        // Out-of-scope: (^label) after (^label ...body) has closed
+        assert_eq!(
+            Query::new(
+                &language,
+                "(function_definition (^d (compound_statement)) (^d))",
+            )
+            .unwrap_err()
+            .kind,
+            QueryErrorKind::Syntax,
+        );
+    });
+}
+
+#[test]
+fn test_query_labeled_ref_valid_parse() {
+    allocations::record(|| {
+        let language = get_language("c");
+
+        // Basic labeled recursion on declarator chain
+        assert!(Query::new(
+            &language,
+            "(declaration declarator: (^d [(pointer_declarator declarator: (^d)) (identifier) @name]))",
+        )
+        .is_ok());
+
+        // Label above alternation - the key motivating case
+        assert!(Query::new(
+            &language,
+            concat!(
+                "(declaration declarator: (^rec (parenthesized_declarator [",
+                "  (pointer_declarator declarator: (^rec)) @ptr",
+                "  (identifier) @name",
+                "])))",
+            ),
+        )
+        .is_ok());
+    });
+}
+
+#[test]
+fn test_query_labeled_ref_equivalent_to_anonymous() {
+    // A labeled ref targeting the alternation itself should behave identically
+    // to an anonymous (^).
+    allocations::record(|| {
+        let language = get_language("c");
+
+        // (^d [...]) wraps the alternation directly - equivalent to bare (^).
+        let query = Query::new(
+            &language,
+            concat!(
+                "(declaration type: (_) @type declarator: (^d [",
+                "  (pointer_declarator declarator: (^d)) @ptr",
+                "  (identifier) @name",
+                "]))",
+            ),
+        )
+        .unwrap();
+
+        assert_query_matches(
+            &language,
+            &query,
+            "int *a; int **b; int ***c;",
+            &[
+                (0, vec![("type", "int"), ("ptr", "*a"), ("name", "a")]),
+                (0, vec![("type", "int"), ("ptr", "**b"), ("ptr", "*b"), ("name", "b")]),
+                (0, vec![("type", "int"), ("ptr", "***c"), ("ptr", "**c"), ("ptr", "*c"), ("name", "c")]),
+            ],
+        );
+    });
+}
+
+#[test]
+fn test_query_labeled_ref_above_alternation() {
+    // The label wraps compound_statement, which is ABOVE the alternation.
+    // This avoids duplicating compound_statement in each branch.
+    //
+    // Without labels, you'd need:
+    //   [(compound_statement (if ... consequence: (^))) (compound_statement (return))]
+    // With a label above:
+    //   (^rec (compound_statement [(if ... consequence: (^rec)) (return)]))
+    allocations::record(|| {
+        let language = get_language("c");
+        let query = Query::new(
+            &language,
+            concat!(
+                "(function_definition body: (^rec (compound_statement [",
+                "  (if_statement consequence: (^rec)) @if",
+                "  (return_statement) @ret",
+                "])))",
+            ),
+        )
+        .unwrap();
+
+        // Single-line source avoids long whitespace escapes in expected output.
+        assert_query_matches(
+            &language,
+            &query,
+            "int f(int x, int y) { if (x) { if (y) { return 2; } return 1; } return 0; }",
+            &[
+                (0, vec![
+                    ("if", "if (x) { if (y) { return 2; } return 1; }"),
+                    ("if", "if (y) { return 2; }"),
+                    ("ret", "return 2;"),
+                ]),
+                (0, vec![
+                    ("if", "if (x) { if (y) { return 2; } return 1; }"),
+                    ("ret", "return 1;"),
+                ]),
+                (0, vec![("ret", "return 0;")]),
+            ],
+        );
+    });
+}
+
+#[test]
+fn test_query_labeled_ref_nested_shadow() {
+    // Two (^d ...) definitions with the same name at different depths.
+    // Outer: recurses through pointer_declarator, array_declarator, and identifier.
+    // Inner (shadows, inside array_declarator): recurses through pointer_declarator
+    // and identifier only - no array_declarator.
+    //
+    // The (^d) inside the inner definition targets the inner (pointer-only) label,
+    // not the outer (pointer+array) label. This means once we enter an
+    // array_declarator, further recursion only peels pointers - not more arrays.
+    // Demonstrated by: `int a[10][20]` produces NO match (inner label blocks nested
+    // arrays), while `int *a[10]` and `int a[10]` work fine.
+    allocations::record(|| {
+        let language = get_language("c");
+        let query = Query::new(
+            &language,
+            concat!(
+                "(declaration type: (_) @type declarator: (^d [",
+                "  (pointer_declarator declarator: (^d)) @ptr",
+                "  (array_declarator declarator: (^d [",
+                "    (pointer_declarator declarator: (^d)) @inner_ptr",
+                "    (identifier) @name",
+                "  ])) @arr",
+                "  (identifier) @name",
+                "]))",
+            ),
+        )
+        .unwrap();
+
+        assert_query_matches(
+            &language,
+            &query,
+            "int *a[10]; int a[10][20]; int **b; int a[10];",
+            &[
+                // int *a[10] - outer ptr ~> outer arr ~> inner name
+                (0, vec![("type", "int"), ("ptr", "*a[10]"), ("arr", "a[10]"), ("name", "a")]),
+                
+                // int a[10][20] - outer arr, but inner label has no arr branch ~> NO MATCH
+                
+                // int **b - outer ptr ~> outer ptr ~> outer name (no arrays involved)
+                (0, vec![("type", "int"), ("ptr", "**b"), ("ptr", "*b"), ("name", "b")]),
+                
+                // int a[10] - outer arr ~> inner name
+                (0, vec![("type", "int"), ("arr", "a[10]"), ("name", "a")]),
+            ],
+        );
+    });
+}
+
+#[test]
+fn test_query_two_labels_unary_paren() {
+    // Two labels (^a, ^b) - neither directly on an alternation.
+    // (^a) wraps unary_expression, (^b) wraps parenthesized_expression.
+    // Every unary op must pass through parens to reach its argument;
+    // parens can self-nest via (^b) or contain another unary via (^a).
+    //
+    // Matches: +(a), +((b)), +(+(c)), -(!(e))
+    // No match: +d (no parens around arg), (e) (no unary at top)
+    allocations::record(|| {
+        let language = get_language("c");
+        let query = Query::new(
+            &language,
+            concat!(
+                "(expression_statement",
+                "  (^a (unary_expression",
+                "    (^b (parenthesized_expression [",
+                "      (^a) (^b) (identifier) @name",
+                "    ]) @paren)",
+                "  ) @unary)",
+                ")",
+            ),
+        )
+        .unwrap();
+
+        assert_query_matches(
+            &language,
+            &query,
+            "void f() { +(a); +((b)); +(+(c)); -(!(e)); +d; (g); }",
+            &[
+                (0, vec![("unary", "+(a)"), ("paren", "(a)"), ("name", "a")]),
+                (0, vec![("unary", "+((b))"), ("paren", "((b))"), ("paren", "(b)"), ("name", "b")]),
+                (0, vec![("unary", "+(+(c))"), ("paren", "(+(c))"), ("unary", "+(c)"), ("paren", "(c)"), ("name", "c")]),
+                (0, vec![("unary", "-(!(e))"), ("paren", "(!(e))"), ("unary", "!(e)"), ("paren", "(e)"), ("name", "e")]),
+                // +d - no match (unary arg is not parenthesized)
+                // (g) - no match (top level is not unary_expression)
+            ],
+        );
+    });
+}
+
+#[test]
+fn test_query_two_labels_two_domains() {
+    // Two labels creating distinct recursion domains.
+    // (^outer) wraps parenthesized_expression - every level must go through parens.
+    // Inside parens:
+    //   - unary_expression recurses to (^outer) via non-bare ref
+    //   - (^inner) wraps a second parenthesized_expression for paren-only nesting
+    //   - identifier is the base case at both levels
+    //
+    // Once in the inner-paren domain, recursion can only self-nest parens or
+    // reach identifier - unary is unreachable.  This demonstrates two labels
+    // governing independent recursion scopes.
+    allocations::record(|| {
+        let language = get_language("c");
+        let query = Query::new(
+            &language,
+            concat!(
+                "(expression_statement",
+                "  (^outer (parenthesized_expression [",
+                "    (unary_expression (^outer)) @un",
+                "    (^inner (parenthesized_expression [",
+                "      (^inner)",
+                "      (identifier) @name",
+                "    ]) @inner_paren)",
+                "    (identifier) @name",
+                "  ]) @paren)",
+                ")",
+            ),
+        )
+        .unwrap();
+
+        assert_query_matches(
+            &language,
+            &query,
+            "void f() { (a); ((b)); (+(c)); (+((d))); (((e))); (+(+(f))); ((+(g))); +(h); }",
+            &[
+                // (a) - outer paren, identifier base case
+                (0, vec![("paren", "(a)"), ("name", "a")]),
+                
+                // ((b)) - outer paren, inner paren, identifier
+                (0, vec![("paren", "((b))"), ("inner_paren", "(b)"), ("name", "b")]),
+                
+                // (+(c)) - outer paren, unary recurse, outer paren, identifier
+                (0, vec![("paren", "(+(c))"), ("un", "+(c)"), ("paren", "(c)"), ("name", "c")]),
+
+                // (+((d))) - outer + unary + outer + inner + identifier
+                (0, vec![("paren", "(+((d)))"), ("un", "+((d))"), ("paren", "((d))"), ("inner_paren", "(d)"), ("name", "d")]),
+
+                // (((e))) - outer + inner + inner self-recurse + identifier
+                (0, vec![("paren", "(((e)))"), ("inner_paren", "((e))"), ("inner_paren", "(e)"), ("name", "e")]),
+                
+                // (+(+(f))) - outer + unary + outer + unary + outer + identifier
+                (0, vec![("paren", "(+(+(f)))"), ("un", "+(+(f))"), ("paren", "(+(f))"), ("un", "+(f)"), ("paren", "(f)"), ("name", "f")]),
+
+                // ((+(g))) - inner paren wraps +(g), but inner has no unary branch ~> no match
+
+                // +(h) - top level is unary, not parenthesized ~> no match
+            ],
+        );
+    });
+}
+
+#[test]
+fn test_query_kitchen_sink_all_refs() {
+    // Kitchen-sink test using both recursion mechanisms twice:
+    //   (^outer)  - labeled back-reference to outer paren scope
+    //   (^inner …) - labeled scope for inner paren domain
+    //   (^)       - anonymous self-recurse (inner paren nesting)
+    //   (^^)      - anonymous outer-recurse (escape inner ~> outer alt)
+    //
+    // Outer scope: (parenthesized_expression [ unary ~> (^outer) | (^inner paren[…]) | id ])
+    // Inner scope: (parenthesized_expression [ (paren (^))@deep | (^^) | id ])
+    //
+    // (^) requires a real node before it (bare self-ref is a self-loop), so
+    // inner's self-recurse is (parenthesized_expression (^)) - paren nesting.
+    // (^^) escapes from inner domain to outer alt, reaching unary_expression.
+    allocations::record(|| {
+        let language = get_language("c");
+        let query = Query::new(
+            &language,
+            concat!(
+                "(expression_statement",
+                "  (^outer (parenthesized_expression [",
+                "    (unary_expression (^outer)) @un",
+                "    (^inner (parenthesized_expression [",
+                "      (parenthesized_expression (^)) @deep_paren",
+                "      (^^)",
+                "      (identifier) @name",
+                "    ]) @inner_paren)",
+                "    (identifier) @name",
+                "  ]) @paren)",
+                ")",
+            ),
+        )
+        .unwrap();
+
+        assert_query_matches(
+            &language,
+            &query,
+            "void f() { (a); ((b)); (+(a)); (((c))); ((+(a))); ((+((d)))); (+(+(a))); }",
+            &[
+                // (a) - base case: outer paren ~> identifier
+                (0, vec![("paren", "(a)"), ("name", "a")]),
+
+                // ((b)) - (^inner) scope: outer ~> inner ~> identifier
+                (0, vec![("paren", "((b))"), ("inner_paren", "(b)"), ("name", "b")]),
+
+                // (+(a)) - (^outer) labeled ref: outer ~> unary ~> outer ~> identifier
+                (0, vec![("paren", "(+(a))"), ("un", "+(a)"), ("paren", "(a)"), ("name", "a")]),
+
+                // (((c))) - (^) anonymous self: outer ~> inner ~> deep_paren ~> inner ~> identifier
+                (0, vec![("paren", "(((c)))"), ("inner_paren", "((c))"), ("deep_paren", "(c)"), ("name", "c")]),
+
+                // (((c))) - also via (^^) ~> outer ~> inner chain (inner_paren at both levels)
+                (0, vec![("paren", "(((c)))"), ("inner_paren", "((c))"), ("inner_paren", "(c)"), ("name", "c")]),
+
+                // ((+(a))) - (^^) escape: outer ~> inner ~> (^^) ~> outer ~> unary ~> (^outer) ~> paren ~> id
+                (0, vec![("paren", "((+(a)))"), ("inner_paren", "(+(a))"), ("un", "+(a)"), ("paren", "(a)"), ("name", "a")]),
+
+                // ((+((d)))) - (^^) + full chain: inner ~> (^^) ~> outer.unary ~> (^outer) ~> paren ~> inner ~> id
+                (0, vec![("paren", "((+((d))))"), ("inner_paren", "(+((d)))"), ("un", "+((d))"), ("paren", "((d))"), ("inner_paren", "(d)"), ("name", "d")]),
+
+                // (+(+(a))) - double (^outer): outer ~> unary ~> outer ~> unary ~> outer ~> identifier
+                (0, vec![("paren", "(+(+(a)))"), ("un", "+(+(a))"), ("paren", "(+(a))"), ("un", "+(a)"), ("paren", "(a)"), ("name", "a")]),
+            ],
+        );
+    });
+}
+
+#[test]
+fn test_query_recursive_ref_unlabeled_outer_dup() {
+    // Demonstrates spurious duplicate matches using only unlabeled (^^).
+    // No labels involved - the issue is purely about recursion targets
+    // coinciding with outer alternation branch starts.
+    //
+    // Outer alt: [ (unary_expression (paren [inner_alt])) | (identifier) ]
+    // Inner alt: [ (^^) | (identifier) ]
+    //
+    // (^^) escapes the inner paren domain to the outer alt, enabling
+    // unary nesting through parens: (+(+(a))).  But when the inner alt
+    // is entered, the (^^) pass-through creates a copy to the inner
+    // identifier branch, AND the dead-end jump to the outer alt start
+    // follows that step's outer alt link to the outer identifier branch,
+    // producing a spurious duplicate.
+    allocations::record(|| {
+        let language = get_language("c");
+        let query = Query::new(
+            &language,
+            concat!(
+                "(expression_statement",
+                "  (parenthesized_expression [",
+                "    (unary_expression",
+                "      (parenthesized_expression [",
+                "        (^^)",
+                "        (identifier) @name",
+                "      ]) @inner_paren",
+                "    ) @un",
+                "    (identifier) @name",
+                "  ]) @paren",
+                ")",
+            ),
+        )
+        .unwrap();
+
+        assert_query_matches(
+            &language,
+            &query,
+            "void f() { (a); (+(a)); (+(+(a))); }",
+            &[
+                // (a) - base case, no recursion, no dup
+                (0, vec![("paren", "(a)"), ("name", "a")]),
+                // (+(a)) - unary, inner paren, identifier via inner alt
+                (0, vec![("paren", "(+(a))"), ("un", "+(a)"), ("inner_paren", "(a)"), ("name", "a")]),
+                // (+(+(a))) - (^^) recurse: unary, inner paren, (^^) ~> outer, unary, inner paren, identifier
+                (0, vec![("paren", "(+(+(a)))"), ("un", "+(+(a))"), ("inner_paren", "(+(a))"), ("un", "+(a)"), ("inner_paren", "(a)"), ("name", "a")]),
+            ],
+        );
+    });
+}
