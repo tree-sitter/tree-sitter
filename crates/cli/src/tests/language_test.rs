@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use tree_sitter::{self, Parser};
 
 use super::helpers::fixtures::get_language;
@@ -29,48 +27,25 @@ fn test_lookahead_iterator() {
     assert_eq!(cursor.node().grammar_name(), "identifier");
     assert_ne!(cursor.node().grammar_id(), cursor.node().kind_id());
 
-    let expected_symbols: HashSet<&str> =
-        ["//", "/*", "identifier", "line_comment", "block_comment"]
-            .into_iter()
-            .collect();
+    let expected_symbols = ["/*", "//", "block_comment", "identifier", "line_comment"];
+
     let mut lookahead = language.lookahead_iterator(next_state).unwrap();
     assert_eq!(*lookahead.language(), language);
-    let actual_symbols: HashSet<String> = lookahead
-        .iter_names()
-        .map(std::string::ToString::to_string)
-        .collect();
-    assert_eq!(
-        actual_symbols,
-        expected_symbols
-            .iter()
-            .map(std::string::ToString::to_string)
-            .collect(),
-    );
+    let mut actual = lookahead.iter_names().collect::<Vec<_>>();
+    actual.sort_unstable();
+    assert_eq!(actual, expected_symbols);
 
     lookahead.reset_state(next_state);
-    let actual_symbols2: HashSet<String> = lookahead
-        .iter_names()
-        .map(std::string::ToString::to_string)
-        .collect();
-    assert_eq!(
-        actual_symbols2,
-        expected_symbols
-            .iter()
-            .map(std::string::ToString::to_string)
-            .collect(),
-    );
+    let mut actual = lookahead.iter_names().collect::<Vec<_>>();
+    actual.sort_unstable();
+    assert_eq!(actual, expected_symbols);
 
     lookahead.reset(&language, next_state);
-    let actual_symbols3: HashSet<String> = lookahead
-        .map(|s| language.node_kind_for_id(s).unwrap().to_string())
-        .collect();
-    assert_eq!(
-        actual_symbols3,
-        expected_symbols
-            .iter()
-            .map(std::string::ToString::to_string)
-            .collect(),
-    );
+    let mut actual = lookahead
+        .map(|s| language.node_kind_for_id(s).unwrap())
+        .collect::<Vec<_>>();
+    actual.sort_unstable();
+    assert_eq!(actual, expected_symbols);
 }
 
 #[test]
