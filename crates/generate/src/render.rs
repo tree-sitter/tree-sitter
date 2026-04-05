@@ -1389,12 +1389,18 @@ impl Generator {
         next_parse_action_list_index: &mut usize,
     ) {
         let state_count = self.parse_table.states.len();
-        let symbol_count = self.parse_table.symbols.len();
 
-        // Build the dense matrix: rows[state][symbol] = table_value
-        let mut rows: Vec<Vec<u16>> = Vec::with_capacity(state_count);
+        // Build CSR arrays directly from the sparse entry maps, avoiding a
+        // full state_count x symbol_count dense matrix allocation.
+        let mut row_offsets = Vec::with_capacity(state_count + 1);
+        let mut columns: Vec<u16> = Vec::new();
+        let mut values: Vec<u16> = Vec::new();
+        // Scratch space for collecting (col, val) pairs per state. Reused
+        // across iterations to avoid repeated allocation.
+        let mut entries_buf: Vec<(u16, u16)> = Vec::new();
+
         for (state_idx, state) in self.parse_table.states.iter().enumerate() {
-            let mut row = vec![0u16; symbol_count];
+            entries_buf.clear();
 
             for (symbol, action) in &state.nonterminal_entries {
                 let col = match self.symbol_order.get(symbol) {
@@ -1408,7 +1414,7 @@ impl Generator {
                     GotoAction::Goto(s) => *s,
                     GotoAction::ShiftExtra => state_idx,
                 };
-                row[col] = state_id as u16;
+                entries_buf.push((col as u16, state_id as u16));
             }
 
             for (symbol, entry) in &state.terminal_entries {
@@ -1424,31 +1430,21 @@ impl Generator {
                     parse_table_entries,
                     next_parse_action_list_index,
                 );
-                row[col] = entry_id as u16;
+                entries_buf.push((col as u16, entry_id as u16));
             }
 
-            rows.push(row);
-        }
+            // CSR requires columns to be sorted within each row.
+            entries_buf.sort_unstable_by_key(|&(col, _)| col);
 
-        // Build CSR arrays from the dense matrix
-        let mut row_offsets: Vec<u32> = Vec::with_capacity(state_count + 1);
-        let mut columns: Vec<u16> = Vec::new();
-        let mut values: Vec<u16> = Vec::new();
-
-        let mut cumulative: u32 = 0;
-        for row in &rows {
-            row_offsets.push(cumulative);
-            for (col, &val) in row.iter().enumerate() {
-                if val != 0 {
-                    columns.push(col as u16);
-                    values.push(val);
-                    cumulative += 1;
-                }
+            row_offsets.push(columns.len() as u32);
+            for &(col, val) in &entries_buf {
+                columns.push(col);
+                values.push(val);
             }
         }
-        row_offsets.push(cumulative); // sentinel: row_offsets[state_count] = total NNZ
+        row_offsets.push(columns.len() as u32);
 
-        let total_nnz = cumulative as usize;
+        let total_nnz = columns.len();
 
         // We still need a dummy ts_parse_table for the struct to compile.
         // Emit a minimal 1x1 table.
@@ -1479,17 +1475,7 @@ impl Generator {
             "static const uint16_t ts_parse_table_columns[PARSE_TABLE_NNZ] = {{",
         );
         indent!(self);
-        let chunk_size = 16;
-        let mut i = 0;
-        while i < total_nnz {
-            let end = cmp::min(i + chunk_size, total_nnz);
-            let vals: Vec<String> = columns[i..end]
-                .iter()
-                .map(std::string::ToString::to_string)
-                .collect();
-            add_line!(self, "{},", vals.join(", "));
-            i = end;
-        }
+        self.add_chunked_u16_array(&columns);
         dedent!(self);
         add_line!(self, "}};");
         add_line!(self, "");
@@ -1500,16 +1486,7 @@ impl Generator {
             "static const uint16_t ts_parse_table_values[PARSE_TABLE_NNZ] = {{",
         );
         indent!(self);
-        i = 0;
-        while i < total_nnz {
-            let end = cmp::min(i + chunk_size, total_nnz);
-            let vals: Vec<String> = values[i..end]
-                .iter()
-                .map(std::string::ToString::to_string)
-                .collect();
-            add_line!(self, "{},", vals.join(", "));
-            i = end;
-        }
+        self.add_chunked_u16_array(&values);
         dedent!(self);
         add_line!(self, "}};");
         add_line!(self, "");
@@ -1525,6 +1502,17 @@ impl Generator {
                 self,
                 "static const uint32_t ts_small_parse_table_map[] = {{0}};",
             );
+            add_line!(self, "");
+        }
+    }
+
+    /// Write a `u16` slice as comma-separated rows of 16 values each,
+    fn add_chunked_u16_array(&mut self, data: &[u16]) {
+        for chunk in data.chunks(16) {
+            add_whitespace!(self);
+            for val in chunk {
+                add!(self, "{val}, ");
+            }
             add_line!(self, "");
         }
     }
