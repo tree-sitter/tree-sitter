@@ -893,43 +893,11 @@ impl Generator {
         add_line!(self, "switch (state) {{");
 
         indent!(self);
-
-        // Render each lex state body to a separate string, then group states
-        // with identical bodies to emit combined case labels. This deduplicates
-        // lex states that produce the same C code but weren't merged during
-        // table minimization (e.g., states that differ in ways not captured
-        // by the minimizer's equivalence check).
-        let mut state_bodies: Vec<(usize, String)> = Vec::new();
-        let original_buffer = std::mem::take(&mut self.buffer);
         for (i, state) in lex_table.states.into_iter().enumerate() {
-            self.buffer.clear();
-            // Indent to the same level as in the final output (case body level)
+            add_line!(self, "case {i}:");
             indent!(self);
             self.add_lex_state(i, state);
             dedent!(self);
-            state_bodies.push((i, self.buffer.clone()));
-        }
-        self.buffer = original_buffer;
-
-        // Group states by identical body text
-        let mut body_groups: Vec<(String, Vec<usize>)> = Vec::new();
-        let mut body_index: FxHashMap<String, usize> = FxHashMap::default();
-        for (state_ix, body) in state_bodies {
-            if let Some(&group_ix) = body_index.get(&body) {
-                body_groups[group_ix].1.push(state_ix);
-            } else {
-                let group_ix = body_groups.len();
-                body_index.insert(body.clone(), group_ix);
-                body_groups.push((body, vec![state_ix]));
-            }
-        }
-
-        for (body, state_indices) in &body_groups {
-            for state_ix in state_indices {
-                add_line!(self, "case {state_ix}:");
-            }
-            // Body was already rendered at the correct indent level
-            self.buffer.push_str(body);
         }
 
         add_line!(self, "default:");
