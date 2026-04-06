@@ -26,46 +26,50 @@ jobs:
     name: ${{ matrix.os }} - ${{ matrix.type }}
     runs-on: ${{ matrix.os }}
     env:
-      NVIM: ${{ matrix.os == 'windows-latest' && 'nvim-win64\\bin\\nvim.exe' || 'nvim' }}
+      NVIM: ${{ matrix.os == 'windows-latest' && 'nvim.exe' || 'nvim' }}
+      NVIM_TAG: stable
       NVIM_DIR: neovim
       NVIM_TS_DIR: nvim-treesitter
     steps:
       - uses: actions/checkout@v6
       - uses: actions-rust-lang/setup-rust-toolchain@v1
       - run: cargo build --profile optimize
-      - if: runner.os != 'Windows'
-        run: echo ${{ github.workspace }}/target/optimize >> "$GITHUB_PATH"
-      - if: runner.os == 'Windows'
-        run: echo ${{ github.workspace }}/target/optimize >> "$env:GITHUB_PATH"
 
-      - if: runner.os != 'Windows'
-        name: Clone Neovim
+      - name: Clone Neovim
         uses: actions/checkout@v6
         with:
           repository: neovim/neovim
+          ref: ${{ env.NVIM_TAG }}
           path: ${{ env.NVIM_DIR }}
 
       - if: runner.os != 'Windows'
-        name: Build Neovim
+        name: Setup environment (Posix)
+        run: |
+          echo ${{ github.workspace }}/target/optimize >> "$GITHUB_PATH"
+          echo ${{ github.workspace }}/neovim/build/bin >> "$GITHUB_PATH"
+          echo "VIMRUNTIME=${{ github.workspace }}/neovim/runtime" >> "$GITHUB_ENV"
+
+      - if: runner.os == 'Windows'
+        name: Setup environment (why can't you just be normal?!)
+        run: |
+          ${{ env.NVIM_DIR }}/.github/scripts/env.ps1
+          echo ${{ github.workspace }}/target/optimize >> "$env:GITHUB_PATH"
+          echo ${{ github.workspace }}/neovim/build/bin >> "$env:GITHUB_PATH"
+          echo "VIMRUNTIME=${{ github.workspace }}/neovim/runtime" >> "$env:GITHUB_ENV"
+
+      - name: Build Neovim
         working-directory: ${{ env.NVIM_DIR }}
         run: |
           cmake -S cmake.deps -B .deps -G Ninja -D CMAKE_BUILD_TYPE=Release -D TREESITTER_URL=https://github.com/tree-sitter/tree-sitter/archive/${{ github.event.pull_request.head.sha }}.tar.gz -D DEPS_IGNORE_SHA=TRUE
           cmake --build .deps --config Release
           cmake -B build -G Ninja -D CMAKE_BUILD_TYPE=Release
           cmake --build build --config Release
-          echo "VIMRUNTIME=${{ github.workspace }}/neovim/runtime" >> "$GITHUB_ENV"
-          echo ${{ github.workspace }}/neovim/build/bin >> "$GITHUB_PATH"
 
       - name: Clone nvim-treesitter
         uses: actions/checkout@v6
         with:
           repository: nvim-treesitter/nvim-treesitter
           path: ${{ env.NVIM_TS_DIR }}
-
-      - if: runner.os == 'Windows'
-        name: Install and prepare Neovim
-        run: bash ./scripts/ci-install.sh
-        working-directory: ${{ env.NVIM_TS_DIR }}
 
       - if: matrix.type == 'generate'
         name: Generate and compile parsers
@@ -80,7 +84,13 @@ jobs:
         shell: bash
 
       - if: "!cancelled()"
-        name: Check query files
+        name: Test parsers
+        run: $NVIM -l ./scripts/check-parsers.lua
+        working-directory: ${{ env.NVIM_TS_DIR }}
+        shell: bash
+
+      - if: "!cancelled()"
+        name: Test queries
         run: $NVIM -l ./scripts/check-queries.lua
         working-directory: ${{ env.NVIM_TS_DIR }}
         shell: bash
