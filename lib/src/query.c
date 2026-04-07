@@ -783,7 +783,7 @@ static const char *symbol_table_name_for_id(
   uint32_t *length
 ) {
   Slice slice = *(array_get(&self->slices,id));
-  *length = slice.length;
+  if (length != NULL) *length = slice.length;
   return array_get(&self->characters, slice.offset);
 }
 
