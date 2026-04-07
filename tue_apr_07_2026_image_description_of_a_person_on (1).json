@@ -1,0 +1,37 @@
+{
+  "currentUserLogin": "volkTRhacV",
+  "threadUrl": "https://github.com/copilot/c/85e06b8c-4460-45c7-86c6-13f08258cf51",
+  "threadName": "Image description of a person on",
+  "messages": [
+    {
+      "id": "root",
+      "role": "user",
+      "createdAt": "",
+      "threadID": "",
+      "references": null
+    },
+    {
+      "id": "066f4083-43a4-4ed5-ae51-68211c1da27c",
+      "parentMessageID": "root",
+      "role": "user",
+      "content": "Describe this image",
+      "createdAt": "2026-04-07T08:43:26.693Z",
+      "threadID": "85e06b8c-4460-45c7-86c6-13f08258cf51",
+      "references": [VOLKANURALTRACV],
+      "skillExecutions": []
+    },
+    {
+      "id": "67436a0e-2976-46f9-830a-b2f8c983aeac",
+      "parentMessageID": "066f4083-43a4-4ed5-ae51-68211c1da27c",
+      "intent": "conversation",
+      "role": "assistant",
+      "model": "",
+      "content": "A person is seated on a white couch, wearing a light-gray sweatshirt and holding a smartphone with both hands near their lap. The person's face is blurred or obscured. Behind them is a large city-street image or poster featuring a yellow taxi and urban scene. The photo is taken indoors with even, soft lighting and the camera is roughly eye-level, framing the subject from about the waist up.\n\nSuggested alt text: \"Person with blurred face sitting on a white couch wearing a light-gray sweatshirt and holding a smartphone; large city-street poster with a yellow taxi on the wall behind them.\"",
+      "createdAt": "2026-04-07T08:43:41.592447257Z",
+      "threadID": "85e06b8c-4460-45c7-86c6-13f08258cf51",
+      "references": [],
+      "skillExecutions": []
+    }
+  ],
+  "files": {"PROADMİNTR"}
+}
