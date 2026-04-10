@@ -151,8 +151,7 @@ struct TSLanguage {
   TSLanguageMetadata metadata;
   // CSR-compressed parse table (ABI version >= 16)
   const uint32_t *parse_table_row_offsets;
-  const uint16_t *parse_table_columns;
-  const uint16_t *parse_table_values;
+  const uint16_t *compressed_parse_table;
 };
 
 static inline bool set_contains(const TSCharacterRange *ranges, uint32_t len, int32_t lookahead) {

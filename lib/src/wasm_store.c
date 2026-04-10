@@ -163,8 +163,7 @@ typedef struct {
   TSLanguageMetadata metadata;
   // CSR-compressed parse table (ABI version >= 16)
   int32_t parse_table_row_offsets;
-  int32_t parse_table_columns;
-  int32_t parse_table_values;
+  int32_t compressed_parse_table;
 } LanguageInWasmMemory;
 
 // LexerInWasmMemory - The memory layout of a `TSLexer` when compiled to wasm32.
@@ -1445,13 +1444,9 @@ const TSLanguage *ts_wasm_store_load_language(
     memcpy(&total_nnz,
       &memory[wasm_language.parse_table_row_offsets + wasm_language.state_count * sizeof(uint32_t)],
       sizeof(uint32_t));
-    language->parse_table_columns = copy(
-      &memory[wasm_language.parse_table_columns],
-      total_nnz * sizeof(uint16_t)
-    );
-    language->parse_table_values = copy(
-      &memory[wasm_language.parse_table_values],
-      total_nnz * sizeof(uint16_t)
+    language->compressed_parse_table = copy(
+      &memory[wasm_language.compressed_parse_table],
+      total_nnz * 2 * sizeof(uint16_t)
     );
   }
 
@@ -1850,8 +1845,7 @@ void ts_wasm_language_release(const TSLanguage *self) {
     ts_free((void *)self->parse_actions);
     ts_free((void *)self->parse_table);
     ts_free((void *)self->parse_table_row_offsets);
-    ts_free((void *)self->parse_table_columns);
-    ts_free((void *)self->parse_table_values);
+    ts_free((void *)self->compressed_parse_table);
     ts_free((void *)self->primary_state_ids);
     ts_free((void *)self->public_symbol_map);
     ts_free((void *)self->small_parse_table);

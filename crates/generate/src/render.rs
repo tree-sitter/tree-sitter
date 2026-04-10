@@ -354,7 +354,7 @@ impl Generator {
                 .map(|s| s.terminal_entries.len() + s.nonterminal_entries.len())
                 .sum();
 
-            // CSR: row_offsets (uint32) + columns (uint16) + values (uint16)
+            // CSR: row_offsets (uint32) + interleaved (symbol, value) pairs (2x uint16 each)
             let csr_cost = (state_count + 1) * 4 + total_nnz * 4;
 
             // Legacy: dense table for large states + small_parse_table + map
@@ -1377,12 +1377,12 @@ impl Generator {
     /// Emit the CSR (Compressed Sparse Row) parse table for ABI >= 16.
     ///
     /// This replaces both `ts_parse_table[LARGE_STATE_COUNT][SYMBOL_COUNT]`
-    /// and `ts_small_parse_table[]` with three flat arrays:
+    /// and `ts_small_parse_table[]` with two flat arrays:
     ///   - `ts_parse_table_row_offsets[STATE_COUNT + 1]`  (`uint32_t`, cumulative NNZ)
-    ///   - `ts_parse_table_columns[TOTAL_NNZ]`            (`uint16_t`, sorted symbol indices)
-    ///   - `ts_parse_table_values[TOTAL_NNZ]`             (`uint16_t`, action/goto values)
+    ///   - `ts_compressed_parse_table[TOTAL_NNZ * 2]`     (`uint16_t`, interleaved
+    ///      (symbol, value) pairs using symbol enum names and STATE()/ACTIONS() macros)
     ///
-    /// Lookup is O(log n) binary search on columns for a given state's row.
+    /// Lookup is O(log n) binary search on the symbol entries for a given state's row.
     fn add_compressed_parse_table(
         &mut self,
         parse_table_entries: &mut FxHashMap<ParseTableEntry, usize>,
@@ -1390,14 +1390,21 @@ impl Generator {
     ) {
         let state_count = self.parse_table.states.len();
 
-        // Build CSR arrays directly from the sparse entry maps, avoiding a
+        // Build a reverse map: column index -> Symbol, so we can look up
+        // symbol enum names from column indices.
+        let col_to_symbol: FxHashMap<usize, Symbol> = self
+            .symbol_order
+            .iter()
+            .map(|(symbol, &col)| (col, *symbol))
+            .collect();
+
+        // Build CSR entries directly from the sparse entry maps, avoiding a
         // full state_count x symbol_count dense matrix allocation.
+        // Each entry is (col_index, value, is_goto).
         let mut row_offsets = Vec::with_capacity(state_count + 1);
-        let mut columns: Vec<u16> = Vec::new();
-        let mut values: Vec<u16> = Vec::new();
-        // Scratch space for collecting (col, val) pairs per state. Reused
-        // across iterations to avoid repeated allocation.
-        let mut entries_buf: Vec<(u16, u16)> = Vec::new();
+        let mut entries_buf: Vec<(u16, u16, bool)> = Vec::new();
+        let mut all_state_entries: Vec<Vec<(u16, u16, bool)>> = Vec::with_capacity(state_count);
+        let mut total_nnz: usize = 0;
 
         for (state_idx, state) in self.parse_table.states.iter().enumerate() {
             entries_buf.clear();
@@ -1414,7 +1421,7 @@ impl Generator {
                     GotoAction::Goto(s) => *s,
                     GotoAction::ShiftExtra => state_idx,
                 };
-                entries_buf.push((col as u16, state_id as u16));
+                entries_buf.push((col as u16, state_id as u16, true));
             }
 
             for (symbol, entry) in &state.terminal_entries {
@@ -1430,21 +1437,17 @@ impl Generator {
                     parse_table_entries,
                     next_parse_action_list_index,
                 );
-                entries_buf.push((col as u16, entry_id as u16));
+                entries_buf.push((col as u16, entry_id as u16, false));
             }
 
             // CSR requires columns to be sorted within each row.
-            entries_buf.sort_unstable_by_key(|&(col, _)| col);
+            entries_buf.sort_unstable_by_key(|&(col, _, _)| col);
 
-            row_offsets.push(columns.len() as u32);
-            for &(col, val) in &entries_buf {
-                columns.push(col);
-                values.push(val);
-            }
+            row_offsets.push(total_nnz as u32);
+            total_nnz += entries_buf.len();
+            all_state_entries.push(entries_buf.clone());
         }
-        row_offsets.push(columns.len() as u32);
-
-        let total_nnz = columns.len();
+        row_offsets.push(total_nnz as u32);
 
         // We still need a dummy ts_parse_table for the struct to compile.
         // Emit a minimal 1x1 table.
@@ -1467,26 +1470,34 @@ impl Generator {
         add_line!(self, "}};");
         add_line!(self, "");
 
-        // Emit ts_parse_table_columns[TOTAL_NNZ]
+        // Emit ts_compressed_parse_table[TOTAL_NNZ * 2] with interleaved
+        // (symbol_name, STATE(val) or ACTIONS(val)) pairs per state.
         add_line!(self, "#define PARSE_TABLE_NNZ {total_nnz}",);
         add_line!(self, "");
         add_line!(
             self,
-            "static const uint16_t ts_parse_table_columns[PARSE_TABLE_NNZ] = {{",
+            "static const uint16_t ts_compressed_parse_table[PARSE_TABLE_NNZ * 2] = {{",
         );
         indent!(self);
-        self.add_chunked_u16_array(&columns);
-        dedent!(self);
-        add_line!(self, "}};");
-        add_line!(self, "");
 
-        // Emit ts_parse_table_values[TOTAL_NNZ]
-        add_line!(
-            self,
-            "static const uint16_t ts_parse_table_values[PARSE_TABLE_NNZ] = {{",
-        );
-        indent!(self);
-        self.add_chunked_u16_array(&values);
+        for (state_idx, entries) in all_state_entries.iter().enumerate() {
+            if !entries.is_empty() {
+                add_line!(self, "// State {state_idx}");
+                for &(col, val, is_goto) in entries {
+                    let symbol = col_to_symbol
+                        .get(&(col as usize))
+                        .expect("column index must map to a symbol");
+                    let symbol_name = &self.symbol_ids[symbol];
+                    if is_goto {
+                        add_line!(self, "{symbol_name}, STATE({val}),");
+                    } else {
+                        add_line!(self, "{symbol_name}, ACTIONS({val}),");
+                    }
+                }
+                add_line!(self, "");
+            }
+        }
+
         dedent!(self);
         add_line!(self, "}};");
         add_line!(self, "");
@@ -1502,17 +1513,6 @@ impl Generator {
                 self,
                 "static const uint32_t ts_small_parse_table_map[] = {{0}};",
             );
-            add_line!(self, "");
-        }
-    }
-
-    /// Write a `u16` slice as comma-separated rows of 16 values each,
-    fn add_chunked_u16_array(&mut self, data: &[u16]) {
-        for chunk in data.chunks(16) {
-            add_whitespace!(self);
-            for val in chunk {
-                add!(self, "{val}, ");
-            }
             add_line!(self, "");
         }
     }
@@ -1915,8 +1915,10 @@ impl Generator {
                 self,
                 ".parse_table_row_offsets = ts_parse_table_row_offsets,"
             );
-            add_line!(self, ".parse_table_columns = ts_parse_table_columns,");
-            add_line!(self, ".parse_table_values = ts_parse_table_values,");
+            add_line!(
+                self,
+                ".compressed_parse_table = ts_compressed_parse_table,"
+            );
         }
 
         dedent!(self);
