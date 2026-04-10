@@ -1482,18 +1482,48 @@ impl Generator {
 
         for (state_idx, entries) in all_state_entries.iter().enumerate() {
             if !entries.is_empty() {
-                add_line!(self, "// State {state_idx}");
+                // Emit a comment with the symbol names for this state.
+                let symbol_names: Vec<&str> = entries
+                    .iter()
+                    .map(|&(col, _, _)| {
+                        let symbol = col_to_symbol
+                            .get(&(col as usize))
+                            .expect("column index must map to a symbol");
+                        self.symbol_ids[symbol].as_str()
+                    })
+                    .collect();
+                let comment = format!("// State {state_idx}: {}", symbol_names.join(", "));
+                if comment.len() <= 160 {
+                    add_line!(self, "{comment}");
+                } else {
+                    add_line!(self, "// State {state_idx}: {} symbols", entries.len());
+                }
+
+                // Emit integer column indices with STATE()/ACTIONS() values,
+                // packing multiple pairs per line.
+                let indent_width = self.indent_level * 2;
+                let mut line_len = 0usize;
                 for &(col, val, is_goto) in entries {
-                    let symbol = col_to_symbol
-                        .get(&(col as usize))
-                        .expect("column index must map to a symbol");
-                    let symbol_name = &self.symbol_ids[symbol];
-                    if is_goto {
-                        add_line!(self, "{symbol_name}, STATE({val}),");
+                    let pair = if is_goto {
+                        format!("{col}, STATE({val}),")
                     } else {
-                        add_line!(self, "{symbol_name}, ACTIONS({val}),");
+                        format!("{col}, ACTIONS({val}),")
+                    };
+                    if line_len == 0 {
+                        add_whitespace!(self);
+                        add!(self, "{pair}");
+                        line_len = indent_width + pair.len();
+                    } else if line_len + 1 + pair.len() > 160 {
+                        self.buffer += "\n";
+                        add_whitespace!(self);
+                        add!(self, "{pair}");
+                        line_len = indent_width + pair.len();
+                    } else {
+                        add!(self, " {pair}");
+                        line_len += 1 + pair.len();
                     }
                 }
+                self.buffer += "\n";
                 add_line!(self, "");
             }
         }
