@@ -1380,7 +1380,7 @@ impl Generator {
     /// and `ts_small_parse_table[]` with two flat arrays:
     ///   - `ts_parse_table_row_offsets[STATE_COUNT + 1]`  (`uint32_t`, cumulative NNZ)
     ///   - `ts_compressed_parse_table[TOTAL_NNZ * 2]`     (`uint16_t`, interleaved
-    ///      (symbol, value) pairs using symbol enum names and STATE()/ACTIONS() macros)
+    ///     (symbol, value) pairs using symbol enum names and `STATE()`/`ACTIONS()` macros)
     ///
     /// Lookup is O(log n) binary search on the symbol entries for a given state's row.
     fn add_compressed_parse_table(
