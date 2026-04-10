@@ -1915,10 +1915,7 @@ impl Generator {
                 self,
                 ".parse_table_row_offsets = ts_parse_table_row_offsets,"
             );
-            add_line!(
-                self,
-                ".compressed_parse_table = ts_compressed_parse_table,"
-            );
+            add_line!(self, ".compressed_parse_table = ts_compressed_parse_table,");
         }
 
         dedent!(self);
