@@ -107,7 +107,7 @@ log = { features = [ "std" ], version = "0.4.29" }
 memchr = "2.8.0"
 once_cell = "1.21.3"
 pretty_assertions = "1.4.1"
-rand         = "0.10.0"
+rand         = "0.10.1"
 regex        = "1.12.3"
 regex-syntax = "0.8.9"
 rustc-hash = "2.1.1"
