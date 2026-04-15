@@ -1983,7 +1983,6 @@ dependencies = [
  "clap",
  "clap_complete",
  "clap_complete_nushell",
- "crc32fast",
  "ctor",
  "ctrlc",
  "dialoguer",
@@ -2010,6 +2009,7 @@ dependencies = [
  "tree-sitter-config",
  "tree-sitter-generate",
  "tree-sitter-highlight",
+ "tree-sitter-init",
  "tree-sitter-loader",
  "tree-sitter-tags",
  "tree-sitter-tests-proc-macro",
@@ -2060,6 +2060,24 @@ dependencies = [
  "streaming-iterator",
  "thiserror",
  "tree-sitter",
+]
+
+[[package]]
+name = "tree-sitter-init"
+version = "0.27.0"
+dependencies = [
+ "anyhow",
+ "crc32fast",
+ "heck",
+ "indoc",
+ "log",
+ "rand",
+ "semver",
+ "serde",
+ "serde_json",
+ "tree-sitter",
+ "tree-sitter-generate",
+ "tree-sitter-loader",
 ]
 
 [[package]]

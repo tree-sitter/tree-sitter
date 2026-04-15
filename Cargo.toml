@@ -5,10 +5,11 @@ members = [
   "crates/config",
   "crates/generate",
   "crates/highlight",
+  "crates/init",
+  "crates/language",
   "crates/loader",
   "crates/tags",
   "crates/xtask",
-  "crates/language",
   "lib",
 ]
 resolver = "2"
@@ -130,6 +131,7 @@ tree-sitter           = { path = "./lib", version = "0.27.0" }
 tree-sitter-config    = { path = "./crates/config", version = "0.27.0" }
 tree-sitter-generate  = { path = "./crates/generate", version = "0.27.0", default-features = false }
 tree-sitter-highlight = { path = "./crates/highlight", version = "0.27.0" }
+tree-sitter-init      = { path = "./crates/init", version = "0.27.0" }
 tree-sitter-loader    = { path = "./crates/loader", version = "0.27.0" }
 tree-sitter-tags      = { path = "./crates/tags", version = "0.27.0" }
 

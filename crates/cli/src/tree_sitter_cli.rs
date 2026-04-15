@@ -2,7 +2,6 @@
 
 pub mod fuzz;
 pub mod highlight;
-pub mod init;
 pub mod input;
 pub mod logger;
 pub mod parse;

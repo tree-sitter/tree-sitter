@@ -42,7 +42,6 @@ bstr.workspace                  = true
 clap.workspace                  = true
 clap_complete.workspace         = true
 clap_complete_nushell.workspace = true
-crc32fast.workspace             = true
 ctor.workspace                  = true
 ctrlc.workspace                 = true
 dialoguer.workspace             = true
@@ -70,6 +69,7 @@ tree-sitter.workspace           = true
 tree-sitter-config.workspace    = true
 tree-sitter-generate            = { workspace = true, features = ["load"] }
 tree-sitter-highlight.workspace = true
+tree-sitter-init.workspace      = true
 tree-sitter-loader.workspace    = true
 tree-sitter-tags.workspace      = true
 
