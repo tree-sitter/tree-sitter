@@ -33,6 +33,7 @@ The language scope to use for parsing. This is useful when the language is ambig
 ### `-d/--debug`
 
 Outputs parsing and lexing logs. This logs to stderr.
+Pass `--debug=pretty` for formatted logs.
 
 ### `-0/--debug-build`
 

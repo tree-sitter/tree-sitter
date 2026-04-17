@@ -215,13 +215,17 @@ struct Parse {
     /// Select a language by the scope instead of a file extension
     #[arg(long)]
     pub scope: Option<String>,
-    /// Show parsing debug log
-    #[arg(long, short = 'd')] // TODO: Rework once clap adds `default_missing_value_t`
-    #[expect(
-        clippy::option_option,
-        reason = "required by clap for optional flag with optional value"
+    /// Show parsing debug log. Pass `--debug=pretty` for formatted logs.
+    #[arg(
+        long,
+        short = 'd',
+        value_enum,
+        num_args = 0..=1,
+        require_equals = true,
+        default_value_t = ParseDebugType::Quiet,
+        default_missing_value = "normal"
     )]
-    pub debug: Option<Option<ParseDebugType>>,
+    pub debug: ParseDebugType,
     /// Compile a parser in debug mode
     #[arg(long, short = '0')]
     pub debug_build: bool,
@@ -1106,11 +1110,7 @@ impl Parse {
 
         let should_track_stats = self.stat;
         let mut stats = parse::ParseStats::default();
-        let debug: ParseDebugType = match self.debug {
-            None => ParseDebugType::Quiet,
-            Some(None) => ParseDebugType::Normal,
-            Some(Some(specifier)) => specifier,
-        };
+        let debug = self.debug;
 
         let mut options = ParseFileOptions {
             edits: &edits
@@ -2022,6 +2022,25 @@ impl Complete {
     }
 }
 
+fn build_cli(version: String) -> Command {
+    let cli = Command::new("tree-sitter")
+        .help_template(concat!(
+            "\n",
+            "{before-help}{name} {version}\n",
+            "{author-with-newline}{about-with-newline}\n",
+            "{usage-heading} {usage}\n",
+            "\n",
+            "{all-args}{after-help}\n",
+            "\n"
+        ))
+        .version(version)
+        .subcommand_required(true)
+        .arg_required_else_help(true)
+        .disable_help_subcommand(true)
+        .disable_colored_help(false);
+    Commands::augment_subcommands(cli)
+}
+
 fn main() {
     let result = run();
     if let Err(err) = &result {
@@ -2046,22 +2065,7 @@ fn run() -> Result<()> {
         |build_sha| format!("{BUILD_VERSION} ({build_sha})"),
     );
 
-    let cli = Command::new("tree-sitter")
-        .help_template(concat!(
-            "\n",
-            "{before-help}{name} {version}\n",
-            "{author-with-newline}{about-with-newline}\n",
-            "{usage-heading} {usage}\n",
-            "\n",
-            "{all-args}{after-help}\n",
-            "\n"
-        ))
-        .version(version)
-        .subcommand_required(true)
-        .arg_required_else_help(true)
-        .disable_help_subcommand(true)
-        .disable_colored_help(false);
-    let mut cli = Commands::augment_subcommands(cli);
+    let mut cli = build_cli(version);
 
     let command = Commands::from_arg_matches(&cli.clone().get_matches())?;
 
@@ -2191,5 +2195,61 @@ fn parse_range<T>(
         Ok(Some(make(start)..make(end)))
     } else {
         Ok(None)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::ffi::OsString;
+
+    fn parse_command_from<I, T>(args: I) -> clap::error::Result<Commands>
+    where
+        I: IntoIterator<Item = T>,
+        T: Into<OsString> + Clone,
+    {
+        let cli = build_cli("test".to_owned());
+        let matches = cli.try_get_matches_from(args)?;
+        Commands::from_arg_matches(&matches)
+    }
+
+    fn parse_subcommand<I, T>(args: I) -> Parse
+    where
+        I: IntoIterator<Item = T>,
+        T: Into<OsString> + Clone,
+    {
+        let command = parse_command_from(args).unwrap();
+        match command {
+            Commands::Parse(parse) => parse,
+            _ => panic!("expected parse subcommand"),
+        }
+    }
+
+    #[test]
+    fn parse_debug_defaults_to_quiet() {
+        let parse = parse_subcommand(["tree-sitter", "parse", "source.js"]);
+        assert_eq!(parse.debug, ParseDebugType::Quiet);
+        assert_eq!(parse.paths, Some(vec![PathBuf::from("source.js")]));
+    }
+
+    #[test]
+    fn parse_debug_without_value_uses_normal() {
+        let parse = parse_subcommand(["tree-sitter", "parse", "--debug", "source.js"]);
+        assert_eq!(parse.debug, ParseDebugType::Normal);
+        assert_eq!(parse.paths, Some(vec![PathBuf::from("source.js")]));
+    }
+
+    #[test]
+    fn parse_short_debug_without_value_keeps_following_path() {
+        let parse = parse_subcommand(["tree-sitter", "parse", "-d", "source.js"]);
+        assert_eq!(parse.debug, ParseDebugType::Normal);
+        assert_eq!(parse.paths, Some(vec![PathBuf::from("source.js")]));
+    }
+
+    #[test]
+    fn parse_debug_accepts_explicit_value() {
+        let parse = parse_subcommand(["tree-sitter", "parse", "--debug=pretty", "source.js"]);
+        assert_eq!(parse.debug, ParseDebugType::Pretty);
+        assert_eq!(parse.paths, Some(vec![PathBuf::from("source.js")]));
     }
 }
