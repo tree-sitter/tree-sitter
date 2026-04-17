@@ -21,7 +21,7 @@ type NodeInfo =
 /**
  * The tree-sitter language object for this grammar.
  *
- * @see {@linkcode https://tree-sitter.github.io/node-tree-sitter/interfaces/Parser.Language.html Parser.Language}
+ * @see {@linkcode https://tree-sitter.github.io/node-tree-sitter/interfaces/Language.html Parser.Language}
  *
  * @example
  * import Parser from "tree-sitter";
