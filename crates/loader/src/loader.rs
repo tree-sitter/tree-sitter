@@ -958,8 +958,10 @@ impl Loader {
                     path = PathBuf::from(path.file_stem()?.to_os_string());
                 }
                 extensions.reverse();
-                self.language_configuration_ids_by_file_type
-                    .get(&extensions.join("."))
+                // Try all extension suffixes from coarser to finer and stop at the first match.
+                (0..extensions.len())
+                    .map(|i| extensions[i..].join("."))
+                    .find_map(|key| self.language_configuration_ids_by_file_type.get(&key))
             });
 
         if let Some(configuration_ids) = configuration_ids
