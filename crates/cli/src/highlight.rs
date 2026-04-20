@@ -16,7 +16,7 @@ use log::{info, warn};
 use serde::{Deserialize, Deserializer, Serialize, Serializer, ser::SerializeMap};
 use serde_json::{Value, json};
 use tree_sitter::ffi::{self, TSInputEncoding};
-use tree_sitter_highlight::{HighlightConfiguration, HighlightEvent, Highlighter, HtmlRenderer};
+use tree_sitter_highlight::{HighlightConfiguration, HighlightEvent, Highlighter, HtmlRenderer, LatexRenderer};
 use tree_sitter_loader::Loader;
 
 pub const HTML_HEAD_HEADER: &str = "
@@ -314,6 +314,7 @@ pub struct HighlightOptions {
     pub captures_path: Option<PathBuf>,
     pub inline_styles: bool,
     pub html: bool,
+    pub latex: bool,
     pub quiet: bool,
     pub print_time: bool,
     pub cancellation_flag: Arc<AtomicUsize>,
@@ -449,6 +450,9 @@ pub fn highlight(
             writeln!(&mut stdout, "</table>")?;
             writeln!(&mut stdout, "{HTML_FOOTER}")?;
         }
+    } else if opts.latex {
+        println!("latex");
+        let mut renderer = LatexRenderer::new();
     } else {
         let mut style_stack = vec![theme.default_style().ansi];
         for event in events {

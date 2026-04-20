@@ -502,11 +502,14 @@ struct Query {
 #[command(alias = "hi")]
 struct Highlight {
     /// Generate highlighting as an HTML document
-    #[arg(long, short = 'H')]
+    #[arg(long, short = 'H', conflicts_with = "latex")]
     pub html: bool,
     /// When generating HTML, use css classes rather than inline styles
     #[arg(long)]
     pub css_classes: bool,
+    /// Generate highlighting as an LaTeX document
+    #[arg(long, short = 'L', conflicts_with = "html")]
+    pub latex: bool,
     /// Check that highlighting captures conform strictly to standards
     #[arg(long)]
     pub check: bool,
@@ -1701,6 +1704,7 @@ impl Highlight {
             captures_path: self.captures_path,
             inline_styles: !self.css_classes,
             html: self.html,
+            latex: self.latex,
             quiet: self.quiet,
             print_time: self.time,
             cancellation_flag: cancellation_flag.clone(),

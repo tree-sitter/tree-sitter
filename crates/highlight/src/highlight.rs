@@ -24,7 +24,7 @@ use tree_sitter::{
 };
 
 const CANCELLATION_CHECK_INTERVAL: usize = 100;
-const BUFFER_HTML_RESERVE_CAPACITY: usize = 10 * 1024;
+const BUFFER_RESERVE_CAPACITY: usize = 10 * 1024;
 const BUFFER_LINES_RESERVE_CAPACITY: usize = 1000;
 
 static STANDARD_CAPTURE_NAMES: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {
@@ -142,6 +142,14 @@ pub struct Highlighter {
 /// Converts a general-purpose syntax highlighting iterator into a sequence of lines of HTML.
 pub struct HtmlRenderer {
     pub html: Vec<u8>,
+    pub line_offsets: Vec<u32>,
+    carriage_return_highlight: Option<Highlight>,
+    // The offset in `self.html` of the last carriage return.
+    last_carriage_return: Option<usize>,
+}
+
+pub struct LatexRenderer {
+    pub latex: Vec<u8>,
     pub line_offsets: Vec<u32>,
     carriage_return_highlight: Option<Highlight>,
     // The offset in `self.html` of the last carriage return.
@@ -1160,7 +1168,7 @@ impl HtmlRenderer {
     #[must_use]
     pub fn new() -> Self {
         let mut result = Self {
-            html: Vec::with_capacity(BUFFER_HTML_RESERVE_CAPACITY),
+            html: Vec::with_capacity(BUFFER_RESERVE_CAPACITY),
             line_offsets: Vec::with_capacity(BUFFER_LINES_RESERVE_CAPACITY),
             carriage_return_highlight: None,
             last_carriage_return: None,
@@ -1174,7 +1182,7 @@ impl HtmlRenderer {
     }
 
     pub fn reset(&mut self) {
-        shrink_and_clear(&mut self.html, BUFFER_HTML_RESERVE_CAPACITY);
+        shrink_and_clear(&mut self.html, BUFFER_RESERVE_CAPACITY);
         shrink_and_clear(&mut self.line_offsets, BUFFER_LINES_RESERVE_CAPACITY);
         self.line_offsets.push(0);
     }
@@ -1305,6 +1313,162 @@ impl HtmlRenderer {
                 self.html.extend_from_slice(escape);
             } else {
                 self.html.push(c);
+            }
+        }
+    }
+}
+
+
+impl Default for LatexRenderer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl LatexRenderer {
+    #[must_use]
+    pub fn new() -> Self {
+        let mut result = Self {
+            latex: Vec::with_capacity(BUFFER_RESERVE_CAPACITY),
+            line_offsets: Vec::with_capacity(BUFFER_LINES_RESERVE_CAPACITY),
+            carriage_return_highlight: None,
+            last_carriage_return: None,
+        };
+        result.line_offsets.push(0);
+        result
+    }
+
+    pub const fn set_carriage_return_highlight(&mut self, highlight: Option<Highlight>) {
+        self.carriage_return_highlight = highlight;
+    }
+
+    pub fn reset(&mut self) {
+        shrink_and_clear(&mut self.latex, BUFFER_RESERVE_CAPACITY);
+        shrink_and_clear(&mut self.line_offsets, BUFFER_LINES_RESERVE_CAPACITY);
+        self.line_offsets.push(0);
+    }
+
+    pub fn render<F>(
+        &mut self,
+        highlighter: impl Iterator<Item = Result<HighlightEvent, Error>>,
+        source: &[u8],
+        attribute_callback: &F,
+    ) -> Result<(), Error>
+    where
+        F: Fn(Highlight, &mut Vec<u8>),
+    {
+        let mut highlights = Vec::new();
+        for event in highlighter {
+            match event {
+                Ok(HighlightEvent::HighlightStart(s)) => {
+                    highlights.push(s);
+                    self.start_highlight(s, &attribute_callback);
+                }
+                Ok(HighlightEvent::HighlightEnd) => {
+                    highlights.pop();
+                    self.end_highlight();
+                }
+                Ok(HighlightEvent::Source { start, end }) => {
+                    self.add_text(&source[start..end], &highlights, &attribute_callback);
+                }
+                Err(a) => return Err(a),
+            }
+        }
+        if let Some(offset) = self.last_carriage_return.take() {
+            self.add_carriage_return(offset, attribute_callback);
+        }
+        if self.latex.last() != Some(&b'\n') {
+            self.latex.push(b'\n');
+        }
+        if self.line_offsets.last() == Some(&(self.latex.len() as u32)) {
+            self.line_offsets.pop();
+        }
+        Ok(())
+    }
+
+    pub fn lines(&self) -> impl Iterator<Item = &str> {
+        self.line_offsets
+            .iter()
+            .enumerate()
+            .map(move |(i, line_start)| {
+                let line_start = *line_start as usize;
+                let line_end = if i + 1 == self.line_offsets.len() {
+                    self.latex.len()
+                } else {
+                    self.line_offsets[i + 1] as usize
+                };
+                str::from_utf8(&self.latex[line_start..line_end]).unwrap()
+            })
+    }
+
+    fn add_carriage_return<F>(&mut self, offset: usize, attribute_callback: &F)
+    where
+        F: Fn(Highlight, &mut Vec<u8>),
+    {
+        if let Some(highlight) = self.carriage_return_highlight {
+            // If a CR is the last character in a `HighlightEvent::Source`
+            // region, then we don't know until the next `Source` event or EOF
+            // whether it is part of CRLF or on its own. To avoid unbounded
+            // lookahead, save the offset of the CR and insert there now that we
+            // know.
+            let rest = self.latex.split_off(offset);
+            self.latex.extend(b"<span ");
+            (attribute_callback)(highlight, &mut self.latex);
+            self.latex.extend(b"></span>");
+            self.latex.extend(rest);
+        }
+    }
+
+    fn start_highlight<F>(&mut self, h: Highlight, attribute_callback: &F)
+    where
+        F: Fn(Highlight, &mut Vec<u8>),
+    {
+        self.latex.extend(b"<span ");
+        (attribute_callback)(h, &mut self.latex);
+        self.latex.extend(b">");
+    }
+
+    fn end_highlight(&mut self) {
+        self.latex.extend(b"</span>");
+    }
+
+    fn add_text<F>(&mut self, src: &[u8], highlights: &[Highlight], attribute_callback: &F)
+    where
+        F: Fn(Highlight, &mut Vec<u8>),
+    {
+        pub const fn latex_escape(c: u8) -> Option<&'static [u8]> {
+            match c as char {
+                _ => None,
+            }
+        }
+
+        for c in LossyUtf8::new(src).flat_map(|p| p.bytes()) {
+            // Don't render carriage return characters, but allow lone carriage returns (not
+            // followed by line feeds) to be styled via the attribute callback.
+            if c == b'\r' {
+                self.last_carriage_return = Some(self.latex.len());
+                continue;
+            }
+            if let Some(offset) = self.last_carriage_return.take()
+                && c != b'\n'
+            {
+                self.add_carriage_return(offset, attribute_callback);
+            }
+
+            // At line boundaries, close and re-open all of the open tags.
+            if c == b'\n' {
+                for _ in highlights {
+                    self.end_highlight();
+                }
+                self.latex.push(c);
+                self.line_offsets.push(self.latex.len() as u32);
+                for scope in highlights {
+                    self.start_highlight(*scope, attribute_callback);
+                }
+            } else if let Some(escape) = latex_escape(c) {
+                self.latex.extend_from_slice(escape);
+            } else {
+                self.latex.push(c);
             }
         }
     }
