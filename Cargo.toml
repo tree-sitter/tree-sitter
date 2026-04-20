@@ -90,7 +90,7 @@ clap = { features = [
   "string",
   "unstable-styles",
 ], version = "4.5.58" }
-clap_complete = "4.5.66"
+clap_complete = "4.6.2"
 clap_complete_nushell = "4.5.10"
 crc32fast = "1.5.0"
 ctor      = "0.6.3"
@@ -124,7 +124,7 @@ topological-sort = "0.2.2"
 unindent = "0.2.4"
 walkdir = "2.5.0"
 wasmparser = "0.244.0"
-webbrowser = "1.1.0"
+webbrowser = "1.2.1"
 
 tree-sitter           = { path = "./lib", version = "0.27.0" }
 tree-sitter-config    = { path = "./crates/config", version = "0.27.0" }
