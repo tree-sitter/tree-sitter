@@ -18,6 +18,11 @@ You can install the `tree-sitter-cli` with `cargo`:
 cargo install --locked tree-sitter-cli
 ```
 
+or if you have `cargo-binstall`, you can avoid compiling the CLI from source:
+```sh
+cargo binstall tree-sitter-cli
+```
+
 or with `npm`:
 
 ```sh
