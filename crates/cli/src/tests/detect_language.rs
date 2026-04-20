@@ -141,7 +141,7 @@ fn detect_language_with_dots_in_filename() {
       ]
     },
     {
-      "name": "php",
+      "name": "php_dots",
       "path": ".",
       "scope": "source.php",
       "file-types": [
