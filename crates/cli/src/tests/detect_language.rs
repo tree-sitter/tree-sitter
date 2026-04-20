@@ -133,7 +133,7 @@ fn detect_language_with_dots_in_filename() {
         r#"{
   "grammars": [
     {
-      "name": "blade",
+      "name": "blade_dots",
       "path": ".",
       "scope": "source.blade",
       "file-types": [
