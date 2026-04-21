@@ -154,7 +154,7 @@ fn detect_language_with_dots_in_filename() {
   }
 }
 "#,
-        "blade",
+        "blade_dots",
     );
 
     let mut loader = Loader::with_parser_lib_path(scratch_dir().to_path_buf());
