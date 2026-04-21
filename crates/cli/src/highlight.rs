@@ -51,6 +51,17 @@ pub const HTML_FOOTER: &str = "
 pub struct Style {
     pub ansi: anstyle::Style,
     pub css: Option<String>,
+    pub latex:  Option<LatexStyle>
+}
+
+
+#[derive(Debug, Default)]
+pub struct LatexStyle
+{
+    pub underline: bool,
+    pub bold: bool,
+    pub italic: bool,
+    pub rgb: [f32; 3]
 }
 
 #[derive(Debug)]
@@ -209,11 +220,14 @@ fn parse_style(style: &mut Style, json: Value) {
             }
         }
         style.css = Some(style_to_css(style.ansi));
+        style.latex = Some(style_to_latex(style.ansi));
     } else if let Some(color) = parse_color(json) {
         style.ansi = style.ansi.fg_color(Some(color));
         style.css = Some(style_to_css(style.ansi));
+        style.latex = Some(style_to_latex(style.ansi));
     } else {
         style.css = None;
+        style.latex = None;
     }
 
     if let Some(Color::Rgb(RgbColor(red, green, blue))) = style.ansi.get_fg_color()
@@ -264,6 +278,11 @@ fn hex_string_to_rgb(s: &str) -> Option<(u8, u8, u8)> {
     }
 }
 
+fn rgb_to_latex(rgb: (u8, u8, u8)) -> [f32; 3] {
+    let (red, green, blue) = rgb;
+    [red as f32 / 255.0, green as f32 / 255.0, blue as f32 / 255.0]
+}
+
 fn style_to_css(style: anstyle::Style) -> String {
     let mut result = String::new();
     let effects = style.get_effects();
@@ -278,6 +297,38 @@ fn style_to_css(style: anstyle::Style) -> String {
     }
     if let Some(color) = style.get_fg_color() {
         write_color(&mut result, color);
+    }
+    result
+}
+
+fn style_to_latex(style: anstyle::Style) -> LatexStyle {
+    let mut result = LatexStyle::default();
+    let effects = style.get_effects();
+    if effects.contains(Effects::UNDERLINE) {
+        result.underline = true;
+    }
+    if effects.contains(Effects::BOLD) {
+        result.bold = true;
+    }
+    if effects.contains(Effects::ITALIC) {
+        result.italic = true;
+    }
+    if let Some(color) = style.get_fg_color() {
+        match color {
+            Color::Ansi(color) => match color {
+                AnsiColor::Black => result.rgb = [0.0, 0.0, 0.0],
+                AnsiColor::Red => result.rgb = [1.0, 0.0, 0.0],
+                AnsiColor::Green => result.rgb = [0.0, 1.0, 0.0],
+                AnsiColor::Yellow => result.rgb = [1.0, 1.0, 0.0],
+                AnsiColor::Blue => result.rgb = [0.0, 0.0, 1.0],
+                AnsiColor::Magenta => result.rgb = [1.0, 0.0, 1.0],
+                AnsiColor::Cyan => result.rgb = [0.0, 1.0, 1.0],
+                AnsiColor::White => result.rgb = [1.0, 1.0, 1.0],
+                _ => unreachable!(),
+            },
+            Color::Ansi256(Ansi256Color(n)) => result.rgb = rgb_to_latex(rgb_from_ansi256(n)),
+            Color::Rgb(RgbColor(r, g, b)) => result.rgb = rgb_to_latex((r, g, b)),
+        }
     }
     result
 }
