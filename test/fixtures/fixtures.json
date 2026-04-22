@@ -1,6 +1,6 @@
 [
   ["bash","v0.25.0", null],
-  ["c","v0.24.1", null],
+  ["c","v0.24.2", null],
   ["cpp","v0.23.4", null],
   ["embedded-template","v0.25.0", null],
   ["go","v0.25.0", null],
