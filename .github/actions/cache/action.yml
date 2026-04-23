@@ -22,4 +22,5 @@ runs:
           'lib/src/array.h',
           'lib/src/alloc.h',
           'test/fixtures/grammars/*/**/src/*.c',
+          'test/fixtures/fixtures.json',
           '.github/actions/cache/action.yml') }}
