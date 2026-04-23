@@ -80,13 +80,12 @@ static inline uint16_t ts_language_lookup(
   if (self->abi_version >= LANGUAGE_VERSION_WITH_COMPRESSED_TABLES) {
     uint32_t start = self->parse_table_row_offsets[state];
     uint32_t end = self->parse_table_row_offsets[state + 1];
-    // Binary search for symbol in compressed_parse_table[start*2..end*2]
-    // Each entry is a (symbol, value) pair at indices [i*2, i*2+1].
+    // Binary search for symbol in columns[start..end]
     while (start < end) {
       uint32_t mid = start + (end - start) / 2;
-      uint16_t col = self->compressed_parse_table[mid * 2];
+      uint16_t col = self->parse_table_columns[mid];
       if (col == symbol) {
-        return self->compressed_parse_table[mid * 2 + 1];
+        return self->parse_table_values[mid];
       } else if (col < symbol) {
         start = mid + 1;
       } else {
@@ -190,8 +189,8 @@ static inline bool ts_lookahead_iterator__next(LookaheadIterator *self) {
   else if (self->data == NULL) {
     if (self->group_count == 0) return false;
     uint32_t pos = self->language->parse_table_row_offsets[self->state + 1] - self->group_count;
-    self->symbol = self->language->compressed_parse_table[pos * 2];
-    self->table_value = self->language->compressed_parse_table[pos * 2 + 1];
+    self->symbol = self->language->parse_table_columns[pos];
+    self->table_value = self->language->parse_table_values[pos];
     self->group_count--;
   }
 
