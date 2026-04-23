@@ -2471,7 +2471,7 @@ impl Query {
         let pattern_count = unsafe { ffi::ts_query_pattern_count(ptr.0) as usize };
 
         let mut capture_names = Vec::with_capacity(capture_count as usize);
-        let mut capture_quantifiers_vec = Vec::with_capacity(pattern_count as usize);
+        let mut capture_quantifiers_vec = Vec::with_capacity(pattern_count);
         let mut text_predicates_vec = Vec::with_capacity(pattern_count);
         let mut property_predicates_vec = Vec::with_capacity(pattern_count);
         let mut property_settings_vec = Vec::with_capacity(pattern_count);
@@ -2924,7 +2924,7 @@ impl Query {
         } else {
             Err(predicate_error(
                 row,
-                format!("Invalid arguments to {function_name} predicate. Missing key argument",),
+                format!("Invalid arguments to {function_name} predicate. Missing key argument"),
             ))
         }
     }
