@@ -316,7 +316,7 @@ pub fn generate_parser_for_grammar(
         LANGUAGE_VERSION,
         semantic_version,
         None,
-        OptLevel::empty(),
+        OptLevel::default(),
     )?;
     Ok((input_grammar.name, parser.c_code))
 }
