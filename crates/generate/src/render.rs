@@ -1540,7 +1540,7 @@ impl Generator {
         add_line!(self, "");
 
         // columns stores sorted symbol ids for binary search.
-        add_line!(self, "#define PARSE_TABLE_NNZ {total_nnz}",);
+        add_line!(self, "#define PARSE_TABLE_NNZ {total_nnz}");
         add_line!(self, "");
         add_line!(
             self,
