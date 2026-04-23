@@ -25,4 +25,5 @@ runs:
           'crates/loader/wasi-sdk-version',
           'crates/loader/binaryen-version',
           'test/fixtures/grammars/*/**/src/*.c',
+          'test/fixtures/fixtures.json',
           '.github/actions/cache/action.yml') }}
