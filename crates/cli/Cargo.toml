@@ -81,3 +81,36 @@ tree_sitter_proc_macro = { path = "src/tests/proc_macro", package = "tree-sitter
 tempfile.workspace = true
 pretty_assertions.workspace = true
 unindent.workspace = true
+
+[package.metadata.binstall]
+pkg-fmt = "zip"
+
+[package.metadata.binstall.overrides.aarch64-unknown-linux-gnu]
+pkg-url = "{ repo }/releases/download/v{ version }/{ name }-linux-arm64{ archive-suffix }"
+
+[package.metadata.binstall.overrides.armv7-unknown-linux-gnueabihf]
+pkg-url = "{ repo }/releases/download/v{ version }/{ name }-linux-arm{ archive-suffix }"
+
+[package.metadata.binstall.overrides.x86_64-unknown-linux-gnu]
+pkg-url = "{ repo }/releases/download/v{ version }/{ name }-linux-x64{ archive-suffix }"
+
+[package.metadata.binstall.overrides.i686-unknown-linux-gnu]
+pkg-url = "{ repo }/releases/download/v{ version }/{ name }-linux-x86{ archive-suffix }"
+
+[package.metadata.binstall.overrides.powerpc64-unknown-linux-gnu]
+pkg-url = "{ repo }/releases/download/v{ version }/{ name }-linux-powerpc64{ archive-suffix }"
+
+[package.metadata.binstall.overrides.aarch64-pc-windows-msvc]
+pkg-url = "{ repo }/releases/download/v{ version }/{ name }-windows-arm64{ archive-suffix }"
+
+[package.metadata.binstall.overrides.x86_64-pc-windows-msvc]
+pkg-url = "{ repo }/releases/download/v{ version }/{ name }-windows-x64{ archive-suffix }"
+
+[package.metadata.binstall.overrides.i686-pc-windows-msvc]
+pkg-url = "{ repo }/releases/download/v{ version }/{ name }-windows-x86{ archive-suffix }"
+
+[package.metadata.binstall.overrides.aarch64-apple-darwin]
+pkg-url = "{ repo }/releases/download/v{ version }/{ name }-macos-arm64{ archive-suffix }"
+
+[package.metadata.binstall.overrides.x86_64-apple-darwin]
+pkg-url = "{ repo }/releases/download/v{ version }/{ name }-macos-x64{ archive-suffix }"
