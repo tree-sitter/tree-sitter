@@ -12,16 +12,15 @@ The Tree-sitter CLI allows you to develop, test, and use Tree-sitter grammars fr
 
 ### Installation
 
-You can install the `tree-sitter-cli` with `cargo`:
+You can install the `tree-sitter-cli` with `cargo-binstall`:
 
 ```sh
-cargo install --locked tree-sitter-cli
+cargo binstall tree-sitter-cli
 ```
 
-or with `npm`:
-
+or you can build it from source:
 ```sh
-npm install tree-sitter-cli
+cargo install --locked tree-sitter-cli
 ```
 
 You can also download a pre-built binary for your platform from [the releases page].
