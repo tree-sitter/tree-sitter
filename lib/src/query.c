@@ -204,6 +204,7 @@ typedef struct {
   bool needs_parent: 1;
 } QueryState;
 
+typedef Array(QueryState) QueryStateList;
 typedef Array(TSQueryCapture) CaptureList;
 
 /*
@@ -314,8 +315,12 @@ struct TSQuery {
 struct TSQueryCursor {
   const TSQuery *query;
   TSTreeCursor cursor;
-  Array(QueryState) states;
-  Array(QueryState) finished_states;
+  QueryStateList states;
+  QueryStateList finished_states;
+  // Tracks how much of finished_states is in heap order. Elements at indices
+  // < this value satisfy the min-heap property; elements >= this value are
+  // newly pushed and need to be sifted into place. Only used by `next_capture`.
+  uint32_t finished_states_heap_size;
   CaptureListPool capture_list_pool;
   uint32_t depth;
   uint32_t max_start_depth;
@@ -488,6 +493,121 @@ static void capture_list_pool_release(CaptureListPool *self, uint32_t id) {
   if (id >= self->list.size) return;
   array_get(&self->list, id)->size = UINT32_MAX;
   self->free_capture_list_count++;
+}
+
+/********************
+ * FinishedStateHeap
+ *
+ * A min-heap of finished query states, ordered by (byte offset of next
+ * unconsumed capture, pattern_index, id). This allows
+ * ts_query_cursor_next_capture to find the earliest capture in O(1) instead
+ * of scanning all finished states. The heap is maintained lazily -
+ * ts_query_cursor__advance uses plain array_push, and next_capture sifts
+ * new elements into place via a tracked heap_size boundary.
+ ********************/
+
+static void finished_state_swap(QueryStateList *states, uint32_t a, uint32_t b) {
+  QueryState tmp = *array_get(states, a);
+  *array_get(states, a) = *array_get(states, b);
+  *array_get(states, b) = tmp;
+}
+
+// Compare two finished states by (byte offset of next unconsumed capture,
+// pattern_index, id). The id tiebreaker preserves discovery order.
+static inline bool finished_state_precedes(
+  const QueryState *a,
+  const QueryState *b,
+  const CaptureListPool *pool
+) {
+  const CaptureList *a_caps = capture_list_pool_get(pool, a->capture_list_id);
+  const CaptureList *b_caps = capture_list_pool_get(pool, b->capture_list_id);
+  if (a->consumed_capture_count >= a_caps->size) return false;
+  if (b->consumed_capture_count >= b_caps->size) return true;
+  uint32_t a_byte = ts_node_start_byte(a_caps->contents[a->consumed_capture_count].node);
+  uint32_t b_byte = ts_node_start_byte(b_caps->contents[b->consumed_capture_count].node);
+  if (a_byte != b_byte) return a_byte < b_byte;
+  if (a->pattern_index != b->pattern_index) return a->pattern_index < b->pattern_index;
+  return a->id < b->id;
+}
+
+static void finished_state_sift_down(
+  QueryStateList *states,
+  uint32_t index,
+  const CaptureListPool *pool
+) {
+  uint32_t size = states->size;
+  while (true) {
+    uint32_t smallest = index;
+    uint32_t left = 2 * index + 1;
+    uint32_t right = 2 * index + 2;
+    if (left < size && finished_state_precedes(
+      array_get(states, left),
+      array_get(states, smallest),
+      pool
+    )) {
+      smallest = left;
+    }
+    if (right < size && finished_state_precedes(
+      array_get(states, right),
+      array_get(states, smallest),
+      pool
+    )) {
+      smallest = right;
+    }
+    if (smallest == index) break;
+    finished_state_swap(states, index, smallest);
+    index = smallest;
+  }
+}
+
+static void finished_state_sift_up(
+  QueryStateList *states,
+  uint32_t index,
+  const CaptureListPool *pool
+) {
+  while (index > 0) {
+    uint32_t parent = (index - 1) / 2;
+    if (finished_state_precedes(
+      array_get(states, index),
+      array_get(states, parent),
+      pool
+    )) {
+      finished_state_swap(states, index, parent);
+      index = parent;
+    } else {
+      break;
+    }
+  }
+}
+
+static inline void finished_state_pop(QueryStateList *states, const CaptureListPool *pool) {
+  if (states->size > 1) *array_front(states) = *array_back(states);
+  states->size--;
+  if (states->size > 0) finished_state_sift_down(states, 0, pool);
+}
+
+// Remove an element at an arbitrary index and restore heap order.
+static void finished_state_erase(
+  QueryStateList *states,
+  uint32_t index,
+  const CaptureListPool *pool
+) {
+  if (index == states->size - 1) {
+    states->size--;
+    return;
+  }
+  *array_get(states, index) = *array_back(states);
+  states->size--;
+  // The replacement element may need to go up or down.
+  if (index > 0 && finished_state_precedes(
+    array_get(states, index),
+    array_get(states, (index - 1) / 2),
+    pool
+  )) {
+    finished_state_sift_up(states, index, pool);
+  } else {
+    finished_state_sift_down(states, index, pool);
+  }
 }
 
 /**************
@@ -3277,6 +3397,7 @@ void ts_query_cursor_exec(
 
   array_clear(&self->states);
   array_clear(&self->finished_states);
+  self->finished_states_heap_size = 0;
   ts_tree_cursor_reset(&self->cursor, node);
   capture_list_pool_reset(&self->capture_list_pool);
   self->on_visible_node = true;
@@ -4337,7 +4458,12 @@ void ts_query_cursor_remove_match(
         &self->capture_list_pool,
         state->capture_list_id
       );
-      array_erase(&self->finished_states, i);
+      if (self->finished_states_heap_size > 0) {
+        finished_state_erase(&self->finished_states, i, &self->capture_list_pool);
+        self->finished_states_heap_size = self->finished_states.size;
+      } else {
+        array_erase(&self->finished_states, i);
+      }
       return;
     }
   }
@@ -4366,6 +4492,16 @@ bool ts_query_cursor_next_capture(
   // be discovered in order, because patterns can overlap. Search for matches
   // until there is a finished capture that is before any unfinished capture.
   for (;;) {
+    // Sift any newly pushed finished states into the heap.
+    while (self->finished_states_heap_size < self->finished_states.size) {
+      finished_state_sift_up(
+        &self->finished_states,
+        self->finished_states_heap_size,
+        &self->capture_list_pool
+      );
+      self->finished_states_heap_size++;
+    }
+
     // First, find the earliest capture in an unfinished match.
     uint32_t first_unfinished_capture_byte;
     uint32_t first_unfinished_pattern_index;
@@ -4379,13 +4515,14 @@ bool ts_query_cursor_next_capture(
       &first_unfinished_state_is_definite
     );
 
-    // Then find the earliest capture in a finished match. It must occur
-    // before the first capture in an *unfinished* match.
+    // Then find the earliest capture in a finished match. The finished_states
+    // array is maintained as a min-heap, so the earliest is always at index 0.
+    // Clean up fully-consumed and out-of-range states from the heap root first.
     QueryState *first_finished_state = NULL;
     uint32_t first_finished_capture_byte = first_unfinished_capture_byte;
     uint32_t first_finished_pattern_index = first_unfinished_pattern_index;
-    for (unsigned i = 0; i < self->finished_states.size;) {
-      QueryState *state = array_get(&self->finished_states, i);
+    while (self->finished_states.size > 0) {
+      QueryState *state = array_get(&self->finished_states, 0);
       const CaptureList *captures = capture_list_pool_get(
         &self->capture_list_pool,
         state->capture_list_id
@@ -4397,7 +4534,8 @@ bool ts_query_cursor_next_capture(
           &self->capture_list_pool,
           state->capture_list_id
         );
-        array_erase(&self->finished_states, i);
+        finished_state_pop(&self->finished_states, &self->capture_list_pool);
+        self->finished_states_heap_size = self->finished_states.size;
         continue;
       }
 
@@ -4416,6 +4554,7 @@ bool ts_query_cursor_next_capture(
       // Skip captures that are outside of the cursor's range.
       if (node_outside_of_range) {
         state->consumed_capture_count++;
+        finished_state_sift_down(&self->finished_states, 0, &self->capture_list_pool);
         continue;
       }
 
@@ -4431,7 +4570,7 @@ bool ts_query_cursor_next_capture(
         first_finished_capture_byte = node_start_byte;
         first_finished_pattern_index = state->pattern_index;
       }
-      i++;
+      break;
     }
 
     // If there is finished capture that is clearly before any unfinished
@@ -4458,6 +4597,11 @@ bool ts_query_cursor_next_capture(
       match->capture_count = captures->size;
       *capture_index = state->consumed_capture_count;
       state->consumed_capture_count++;
+      // If this state is in the finished_states heap, its sort key has changed
+      // (next capture is now later in the document). Restore heap order.
+      if (state == first_finished_state) {
+        finished_state_sift_down(&self->finished_states, 0, &self->capture_list_pool);
+      }
       return true;
     }
 
