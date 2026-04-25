@@ -334,6 +334,7 @@ struct TSQueryCursor {
 static const TSQueryError PARENT_DONE = -1;
 static const uint16_t PATTERN_DONE_MARKER = UINT16_MAX;
 static const uint16_t NONE = UINT16_MAX;
+static const uint32_t CAPTURE_LIST_NONE = UINT32_MAX;
 static const TSSymbol WILDCARD_SYMBOL = 0;
 static const unsigned OP_COUNT_PER_QUERY_CALLBACK_CHECK = 100;
 
@@ -429,7 +430,7 @@ static CaptureListPool capture_list_pool_new(void) {
 }
 
 static void capture_list_pool_reset(CaptureListPool *self) {
-  for (uint16_t i = 0; i < (uint16_t)self->list.size; i++) {
+  for (uint32_t i = 0; i < self->list.size; i++) {
     // This invalid size means that the list is not in use.
     array_get(&self->list, i)->size = UINT32_MAX;
   }
@@ -437,18 +438,18 @@ static void capture_list_pool_reset(CaptureListPool *self) {
 }
 
 static void capture_list_pool_delete(CaptureListPool *self) {
-  for (uint16_t i = 0; i < (uint16_t)self->list.size; i++) {
+  for (uint32_t i = 0; i < self->list.size; i++) {
     array_delete(array_get(&self->list, i));
   }
   array_delete(&self->list);
 }
 
-static const CaptureList *capture_list_pool_get(const CaptureListPool *self, uint16_t id) {
+static const CaptureList *capture_list_pool_get(const CaptureListPool *self, uint32_t id) {
   if (id >= self->list.size) return &self->empty_list;
   return array_get(&self->list, id);
 }
 
-static CaptureList *capture_list_pool_get_mut(CaptureListPool *self, uint16_t id) {
+static CaptureList *capture_list_pool_get_mut(CaptureListPool *self, uint32_t id) {
   ts_assert(id < self->list.size);
   return array_get(&self->list, id);
 }
@@ -459,10 +460,10 @@ static bool capture_list_pool_is_empty(const CaptureListPool *self) {
   return self->free_capture_list_count == 0 && self->list.size >= self->max_capture_list_count;
 }
 
-static uint16_t capture_list_pool_acquire(CaptureListPool *self) {
+static uint32_t capture_list_pool_acquire(CaptureListPool *self) {
   // First see if any already allocated capture list is currently unused.
   if (self->free_capture_list_count > 0) {
-    for (uint16_t i = 0; i < (uint16_t)self->list.size; i++) {
+    for (uint32_t i = 0; i < self->list.size; i++) {
       if (array_get(&self->list, i)->size == UINT32_MAX) {
         array_clear(array_get(&self->list, i));
         self->free_capture_list_count--;
@@ -475,7 +476,7 @@ static uint16_t capture_list_pool_acquire(CaptureListPool *self) {
   // doesn't put us over the requested maximum.
   uint32_t i = self->list.size;
   if (i >= self->max_capture_list_count) {
-    return NONE;
+    return CAPTURE_LIST_NONE;
   }
   CaptureList list;
   array_init(&list);
@@ -483,7 +484,7 @@ static uint16_t capture_list_pool_acquire(CaptureListPool *self) {
   return i;
 }
 
-static void capture_list_pool_release(CaptureListPool *self, uint16_t id) {
+static void capture_list_pool_release(CaptureListPool *self, uint32_t id) {
   if (id >= self->list.size) return;
   array_get(&self->list, id)->size = UINT32_MAX;
   self->free_capture_list_count++;
@@ -3551,7 +3552,7 @@ static void ts_query_cursor__add_state(
   );
   array_insert(&self->states, index, ((QueryState) {
     .id = UINT32_MAX,
-    .capture_list_id = NONE,
+    .capture_list_id = CAPTURE_LIST_NONE,
     .step_index = pattern->step_index,
     .pattern_index = pattern->pattern_index,
     .start_depth = start_depth,
@@ -3571,13 +3572,13 @@ static CaptureList *ts_query_cursor__prepare_to_capture(
   QueryState *state,
   unsigned state_index_to_preserve
 ) {
-  if (state->capture_list_id == NONE) {
+  if (state->capture_list_id == CAPTURE_LIST_NONE) {
     state->capture_list_id = capture_list_pool_acquire(&self->capture_list_pool);
 
     // If there are no capture lists left in the pool, then terminate whichever
     // state has captured the earliest node in the document, and steal its
     // capture list.
-    if (state->capture_list_id == NONE) {
+    if (state->capture_list_id == CAPTURE_LIST_NONE) {
       self->did_exceed_match_limit = true;
       uint32_t state_index, byte_offset, pattern_index;
       if (
@@ -3596,7 +3597,7 @@ static CaptureList *ts_query_cursor__prepare_to_capture(
         );
         QueryState *other_state = array_get(&self->states, state_index);
         state->capture_list_id = other_state->capture_list_id;
-        other_state->capture_list_id = NONE;
+        other_state->capture_list_id = CAPTURE_LIST_NONE;
         other_state->dead = true;
         CaptureList *list = capture_list_pool_get_mut(
           &self->capture_list_pool,
@@ -3650,10 +3651,10 @@ static QueryState *ts_query_cursor__copy_state(
   const QueryState *state = *state_ref;
   uint32_t state_index = (uint32_t)(state - self->states.contents);
   QueryState copy = *state;
-  copy.capture_list_id = NONE;
+  copy.capture_list_id = CAPTURE_LIST_NONE;
 
   // If the state has captures, copy its capture list.
-  if (state->capture_list_id != NONE) {
+  if (state->capture_list_id != CAPTURE_LIST_NONE) {
     CaptureList *new_captures = ts_query_cursor__prepare_to_capture(self, &copy, state_index);
     if (!new_captures) return NULL;
     const CaptureList *old_captures = capture_list_pool_get(
