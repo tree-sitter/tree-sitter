@@ -181,6 +181,8 @@ typedef struct {
  *    have already been returned.
  * - `capture_list_id` - A numeric id that can be used to retrieve the state's
  *    list of captures from the `CaptureListPool`.
+ * - `heap_insert_order` - A sequence number used to preserve discovery order
+ *    among finished states with the same capture position and pattern.
  * - `seeking_immediate_match` - A flag that indicates that the state's next
  *    step must be matched by the very next sibling. This is used when
  *    processing repetitions, or when processing a wildcard node followed by
@@ -194,6 +196,7 @@ typedef struct {
 typedef struct {
   uint32_t id;
   uint32_t capture_list_id;
+  uint32_t heap_insert_order;
   uint16_t start_depth;
   uint16_t step_index;
   uint16_t pattern_index;
@@ -327,6 +330,7 @@ struct TSQueryCursor {
   TSRange included_range;
   TSRange containing_range;
   uint32_t next_state_id;
+  uint32_t next_finished_state_id;
   const TSQueryCursorOptions *query_options;
   TSQueryCursorState query_state;
   unsigned operation_count;
@@ -499,7 +503,7 @@ static void capture_list_pool_release(CaptureListPool *self, uint32_t id) {
  * FinishedStateHeap
  *
  * A min-heap of finished query states, ordered by (byte offset of next
- * unconsumed capture, pattern_index, id). This allows
+ * unconsumed capture, pattern_index, insertion order). This allows
  * ts_query_cursor_next_capture to find the earliest capture in O(1) instead
  * of scanning all finished states. The heap is maintained lazily -
  * ts_query_cursor__advance uses plain array_push, and next_capture sifts
@@ -513,7 +517,7 @@ static void finished_state_swap(QueryStateList *states, uint32_t a, uint32_t b) 
 }
 
 // Compare two finished states by (byte offset of next unconsumed capture,
-// pattern_index, id). The id tiebreaker preserves discovery order.
+// pattern_index, insertion order).
 static inline bool finished_state_precedes(
   const QueryState *a,
   const QueryState *b,
@@ -527,7 +531,7 @@ static inline bool finished_state_precedes(
   uint32_t b_byte = ts_node_start_byte(b_caps->contents[b->consumed_capture_count].node);
   if (a_byte != b_byte) return a_byte < b_byte;
   if (a->pattern_index != b->pattern_index) return a->pattern_index < b->pattern_index;
-  return a->id < b->id;
+  return a->heap_insert_order < b->heap_insert_order;
 }
 
 static void finished_state_sift_down(
@@ -607,6 +611,25 @@ static void finished_state_erase(
     finished_state_sift_up(states, index, pool);
   } else {
     finished_state_sift_down(states, index, pool);
+  }
+}
+
+static void ts_query_cursor__push_finished_state(
+  TSQueryCursor *self,
+  QueryState *state
+) {
+  state->heap_insert_order = self->next_finished_state_id++;
+  array_push(&self->finished_states, *state);
+}
+
+static void ts_query_cursor__heapify_finished_states(TSQueryCursor *self) {
+  while (self->finished_states_heap_size < self->finished_states.size) {
+    finished_state_sift_up(
+      &self->finished_states,
+      self->finished_states_heap_size,
+      &self->capture_list_pool
+    );
+    self->finished_states_heap_size++;
   }
 }
 
@@ -3402,6 +3425,7 @@ void ts_query_cursor_exec(
   capture_list_pool_reset(&self->capture_list_pool);
   self->on_visible_node = true;
   self->next_state_id = 0;
+  self->next_finished_state_id = 0;
   self->depth = 0;
   self->ascending = false;
   self->halted = false;
@@ -3674,6 +3698,7 @@ static void ts_query_cursor__add_state(
   array_insert(&self->states, index, ((QueryState) {
     .id = UINT32_MAX,
     .capture_list_id = CAPTURE_LIST_NONE,
+    .heap_insert_order = UINT32_MAX,
     .step_index = pattern->step_index,
     .pattern_index = pattern->pattern_index,
     .start_depth = start_depth,
@@ -3931,7 +3956,7 @@ static inline bool ts_query_cursor__advance(
             (state->start_depth > self->depth || self->depth == 0)
           ) {
             LOG("  finish pattern %u\n", state->pattern_index);
-            array_push(&self->finished_states, *state);
+            ts_query_cursor__push_finished_state(self, state);
             did_match = true;
             deleted_count++;
           }
@@ -4393,7 +4418,7 @@ static inline bool ts_query_cursor__advance(
                 LOG("  defer finishing pattern %u\n", state->pattern_index);
               } else {
                 LOG("  finish pattern %u\n", state->pattern_index);
-                array_push(&self->finished_states, *state);
+                ts_query_cursor__push_finished_state(self, state);
                 array_erase(&self->states, (uint32_t)(state - self->states.contents));
                 did_match = true;
                 j--;
@@ -4431,8 +4456,22 @@ bool ts_query_cursor_next_match(
       return false;
     }
   }
+  if (self->finished_states_heap_size > 0) {
+    ts_query_cursor__heapify_finished_states(self);
+  }
 
-  QueryState *state = array_get(&self->finished_states, 0);
+  uint32_t state_index = 0;
+  if (self->finished_states_heap_size > 0) {
+    for (uint32_t i = 1; i < self->finished_states.size; i++) {
+      QueryState *state = array_get(&self->finished_states, i);
+      QueryState *earliest_state = array_get(&self->finished_states, state_index);
+      if (state->heap_insert_order < earliest_state->heap_insert_order) {
+        state_index = i;
+      }
+    }
+  }
+
+  QueryState *state = array_get(&self->finished_states, state_index);
   if (state->id == UINT32_MAX) state->id = self->next_state_id++;
   match->id = state->id;
   match->pattern_index = state->pattern_index;
@@ -4443,7 +4482,12 @@ bool ts_query_cursor_next_match(
   match->captures = captures->contents;
   match->capture_count = captures->size;
   capture_list_pool_release(&self->capture_list_pool, state->capture_list_id);
-  array_erase(&self->finished_states, 0);
+  if (self->finished_states_heap_size > 0) {
+    finished_state_erase(&self->finished_states, state_index, &self->capture_list_pool);
+    self->finished_states_heap_size = self->finished_states.size;
+  } else {
+    array_erase(&self->finished_states, state_index);
+  }
   return true;
 }
 
@@ -4451,6 +4495,10 @@ void ts_query_cursor_remove_match(
   TSQueryCursor *self,
   uint32_t match_id
 ) {
+  if (self->finished_states_heap_size > 0) {
+    ts_query_cursor__heapify_finished_states(self);
+  }
+
   for (unsigned i = 0; i < self->finished_states.size; i++) {
     const QueryState *state = array_get(&self->finished_states, i);
     if (state->id == match_id) {
@@ -4493,14 +4541,7 @@ bool ts_query_cursor_next_capture(
   // until there is a finished capture that is before any unfinished capture.
   for (;;) {
     // Sift any newly pushed finished states into the heap.
-    while (self->finished_states_heap_size < self->finished_states.size) {
-      finished_state_sift_up(
-        &self->finished_states,
-        self->finished_states_heap_size,
-        &self->capture_list_pool
-      );
-      self->finished_states_heap_size++;
-    }
+    ts_query_cursor__heapify_finished_states(self);
 
     // First, find the earliest capture in an unfinished match.
     uint32_t first_unfinished_capture_byte;
