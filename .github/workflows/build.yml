@@ -26,6 +26,7 @@ jobs:
           - windows-x86
           - macos-arm64
           - macos-x64
+          - illumos-x64
           - wasm32
 
         include:
@@ -44,6 +45,9 @@ jobs:
           - { platform: macos-arm64     , target: aarch64-apple-darwin          , os: macos-15         }
           - { platform: macos-x64       , target: x86_64-apple-darwin           , os: macos-15-intel   }
           - { platform: wasm32          , target: wasm32-unknown-unknown        , os: ubuntu-24.04     }
+
+          # illumos is not supported OOTB, it runs in a vm
+          - { platform: illumos-x64     , target: x86_64-unknown-illumos        , os: ubuntu-24.04     , vm: true , no-run: true }
 
           # Extra features
           - { platform: linux-arm64     , features: wasm }
@@ -119,6 +123,7 @@ jobs:
         cache-dependency-path: lib/binding_web/package-lock.json
 
     - name: Set up Rust
+      if: ${{ !matrix.vm }}
       uses: actions-rust-lang/setup-rust-toolchain@v1
       with:
         target: ${{ matrix.target }}
@@ -192,7 +197,7 @@ jobs:
         WASMTIME_REPO: https://github.com/bytecodealliance/wasmtime
 
     - name: Build C library (make)
-      if: runner.os != 'Windows'
+      if: runner.os != 'Windows' && !matrix.vm
       run: |
         if [[ $PLATFORM == linux-arm ]]; then
           CC=arm-linux-gnueabihf-gcc; AR=arm-linux-gnueabihf-ar
@@ -209,7 +214,7 @@ jobs:
         CFLAGS: -g -Werror -Wall -Wextra -Wshadow -Wpedantic -Werror=incompatible-pointer-types
 
     - name: Build C library (CMake)
-      if: "!matrix.cross"
+      if: "!matrix.cross && !matrix.vm"
       run: |
         cmake -S . -B build/static \
           -DBUILD_SHARED_LIBS=OFF \
@@ -227,6 +232,20 @@ jobs:
       env:
         CC: ${{ contains(matrix.platform, 'linux') && 'clang' || '' }}
         WASM: ${{ contains(matrix.features, 'wasm') && (matrix.run-wasm-test || !inputs.run-test) && 'ON' || 'OFF' }}
+
+    - name: Build C library and Rust crate (illumos gmake)
+      if: matrix.platform == 'illumos-x64'
+      uses: vmactions/omnios-vm@v1
+      with:
+        release: r151056-build
+        copyback: false
+        prepare: |
+          pkg install -q build-essential || [ $? -eq 4 ]
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --profile minimal
+        run: |
+          . "$HOME/.cargo/env"
+          gmake -j
+          cargo build -p tree-sitter
 
     - name: Build Wasm library
       if: contains(matrix.features, 'wasm') && (matrix.run-wasm-test || !inputs.run-test)
@@ -246,7 +265,7 @@ jobs:
       run: cargo check --no-default-features --target='${{ matrix.target }}'
 
     - name: Build target
-      if: "!inputs.run-test"
+      if: "!inputs.run-test && !matrix.vm"
       run: cargo build --release --target='${{ matrix.target }}' --features='${{ (matrix.run-wasm-test || !inputs.run-test) && matrix.features || '' }}' $PACKAGE
       env:
         PACKAGE: ${{ matrix.platform == 'wasm32' && '-p tree-sitter' || '' }}
