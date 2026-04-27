@@ -1371,7 +1371,7 @@ impl Generator {
                     .saturating_sub(self.large_state_count),
             );
             // Deduplication: map canonical data to its first table index
-            let mut seen_data: HashMap<Vec<u16>, usize> = HashMap::new();
+            let mut seen_data: FxHashMap<Vec<u16>, usize> = FxHashMap::default();
             let mut symbols_by_value = FxHashMap::<(usize, SymbolType), Vec<Symbol>>::default();
             for (state_offset, state) in self
                 .parse_table
