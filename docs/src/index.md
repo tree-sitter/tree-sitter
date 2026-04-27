@@ -39,6 +39,7 @@ There are bindings that allow Tree-sitter to be used from the following language
 - [D](https://github.com/aminya/d-tree-sitter)
 - [Delphi](https://github.com/modersohn/delphi-tree-sitter)
 - [ELisp](https://www.gnu.org/software/emacs/manual/html_node/elisp/Parsing-Program-Source.html)
+- [F#](https://github.com/ionide/tree-sitter-fsharp)
 - [Go](https://github.com/alexaandru/go-tree-sitter-bare)
 - [Guile](https://github.com/Z572/guile-ts)
 - [Janet](https://github.com/sogaiu/janet-tree-sitter)
