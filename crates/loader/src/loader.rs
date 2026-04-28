@@ -1400,7 +1400,7 @@ impl Loader {
     }
 
     #[cfg(windows)]
-    fn check_external_scanner(_library_path: &Path) {
+    const fn check_external_scanner(_library_path: &Path) {
         // TODO: there's no nm command on windows, whoever wants to implement this can and should :)
     }
 
