@@ -1370,9 +1370,16 @@ impl Generator {
                     .len()
                     .saturating_sub(self.large_state_count),
             );
+            // Deduplication: map canonical data to its first table index
+            let mut seen_data: FxHashMap<Vec<u16>, usize> = FxHashMap::default();
             let mut symbols_by_value = FxHashMap::<(usize, SymbolType), Vec<Symbol>>::default();
-            for state in self.parse_table.states.iter().skip(self.large_state_count) {
-                small_state_indices.push(next_table_index);
+            for (state_offset, state) in self
+                .parse_table
+                .states
+                .iter()
+                .enumerate()
+                .skip(self.large_state_count)
+            {
                 symbols_by_value.clear();
 
                 terminal_entries.clear();
@@ -1396,9 +1403,7 @@ impl Generator {
                 for (symbol, action) in &state.nonterminal_entries {
                     let state_id = match action {
                         GotoAction::Goto(i) => *i,
-                        GotoAction::ShiftExtra => {
-                            self.large_state_count + small_state_indices.len() - 1
-                        }
+                        GotoAction::ShiftExtra => state_offset,
                     };
                     symbols_by_value
                         .entry((state_id, SymbolType::NonTerminal))
@@ -1410,6 +1415,31 @@ impl Generator {
                 values_with_symbols.sort_unstable_by_key(|((value, kind), symbols)| {
                     (symbols.len(), *kind, *value, symbols[0])
                 });
+
+                // Build canonical data key for deduplication: the sequence of uint16
+                // values that would go into ts_small_parse_table for this state.
+                let mut canonical_data: Vec<u16> = Vec::new();
+                canonical_data.push(values_with_symbols.len() as u16);
+                for ((value, kind), symbols) in &mut values_with_symbols {
+                    canonical_data.push(*kind as u16);
+                    canonical_data.push(*value as u16);
+                    symbols.sort_unstable();
+                    canonical_data.push(symbols.len() as u16);
+                    for symbol in symbols.iter() {
+                        canonical_data.push(symbol.kind as u16);
+                        canonical_data.push(symbol.index as u16);
+                    }
+                }
+
+                // Check if we've seen identical data before
+                if let Some(&existing_index) = seen_data.get(&canonical_data) {
+                    small_state_indices.push(existing_index);
+                    continue;
+                }
+
+                // Record new unique entry
+                seen_data.insert(canonical_data, next_table_index);
+                small_state_indices.push(next_table_index);
 
                 add_line!(
                     self,
@@ -1427,7 +1457,6 @@ impl Generator {
                         add_line!(self, "ACTIONS({value}), {},", symbols.len());
                     }
 
-                    symbols.sort_unstable();
                     indent!(self);
                     for symbol in symbols {
                         add_line!(self, "{},", self.symbol_ids[symbol]);
