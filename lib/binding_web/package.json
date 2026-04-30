@@ -43,6 +43,10 @@
     },
     "./debug/web-tree-sitter.wasm": "./debug/web-tree-sitter.wasm"
   },
+  "browser": {
+    "fs/promises": false,
+    "module": false
+  },
   "types": "web-tree-sitter.d.ts",
   "keywords": [
     "incremental",
