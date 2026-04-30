@@ -59,3 +59,27 @@ bool ts_query_cursor_next_match(TSQueryCursor *, TSQueryMatch *match);
 
 This function will return `false` when there are no more matches. Otherwise, it will populate the `match` with data about
 which pattern matched and which nodes were captured.
+
+## Restricting the Query Range
+
+You can restrict the range in which the query is executed using byte offsets or point (row, column) positions:
+
+```c
+bool ts_query_cursor_set_byte_range(TSQueryCursor *self, uint32_t start_byte, uint32_t end_byte);
+bool ts_query_cursor_set_point_range(TSQueryCursor *self, TSPoint start_point, TSPoint end_point);
+```
+
+These functions return matches that *intersect* with the given range. A match may be returned even if only part of it overlaps
+with the range.
+
+There are also "containing" variants that only return matches where all captured nodes are fully within the range:
+
+```c
+bool ts_query_cursor_set_containing_byte_range(TSQueryCursor *self, uint32_t start_byte, uint32_t end_byte);
+bool ts_query_cursor_set_containing_point_range(TSQueryCursor *self, TSPoint start_point, TSPoint end_point);
+```
+
+```admonish note
+For all of these functions, an end value of zero is treated as unbounded (the maximum possible value).
+This means passing a byte range of `(0, 0)` (or a point range of `{0, 0}, {0, 0}`) will match the entire tree, not an empty range.
+```
