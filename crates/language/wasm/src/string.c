@@ -82,3 +82,36 @@ int strncmp(const char *left, const char *right, size_t n) {
   }
   return 0;
 }
+
+char *strncat(char *dst, const char *src, size_t n) {
+  char *dst_cursor = dst;
+  while (*dst_cursor) {
+    dst_cursor++;
+  }
+
+  size_t count = 0;
+  while (*src && count < n) {
+    *dst_cursor = *src;
+    dst_cursor++;
+    src++;
+  }
+  *dst_cursor = '\0';
+
+  return dst;
+}
+
+int strcmp(const char *left, const char *right) {
+  while (*left && (*left == *right)) {
+    left++;
+    right++;
+  }
+  return *(const unsigned char *)left - *(const unsigned char *)right;
+}
+
+char *strncpy(char *dest, const char *src, size_t n) {
+  char *d = dest;
+  const char *s = src;
+  while (n-- && (*d++ = *s++));
+  if (n == (size_t)-1) *d = '\0';
+  return dest;
+}
