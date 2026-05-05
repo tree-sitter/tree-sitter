@@ -161,6 +161,10 @@ typedef struct {
   int32_t supertype_map_slices;
   int32_t supertype_map_entries;
   TSLanguageMetadata metadata;
+  // CSR-compressed parse table (ABI version >= 16)
+  int32_t parse_table_row_offsets;
+  int32_t parse_table_columns;
+  int32_t parse_table_values;
 } LanguageInWasmMemory;
 
 // LexerInWasmMemory - The memory layout of a `TSLexer` when compiled to wasm32.
@@ -1332,6 +1336,9 @@ const TSLanguage *ts_wasm_store_load_language(
     wasm_language.parse_table,
     wasm_language.small_parse_table,
     wasm_language.small_parse_table_map,
+    wasm_language.parse_table_row_offsets,
+    wasm_language.parse_table_columns,
+    wasm_language.parse_table_values,
     wasm_language.parse_actions,
     wasm_language.symbol_names,
     wasm_language.field_names,
@@ -1380,7 +1387,13 @@ const TSLanguage *ts_wasm_store_load_language(
     .parse_table = copy(
       &wasm_memory,
       wasm_language.parse_table,
-      wasm_language.large_state_count * wasm_language.symbol_count * sizeof(uint16_t),
+      (wasm_language.abi_version >= LANGUAGE_VERSION_WITH_COMPRESSED_TABLES
+        ? (
+          wasm_language.parse_table_row_offsets
+            ? sizeof(uint16_t)
+            : wasm_language.large_state_count * wasm_language.symbol_count * sizeof(uint16_t)
+        )
+        : wasm_language.large_state_count * wasm_language.symbol_count * sizeof(uint16_t)),
       &valid_wasm_memory
     ),
     .parse_actions = copy_unsized_static_array(
@@ -1526,7 +1539,10 @@ const TSLanguage *ts_wasm_store_load_language(
     if (!valid_wasm_memory) goto invalid_language_memory;
   }
 
-  if (language->state_count > language->large_state_count) {
+  if (
+    language->state_count > language->large_state_count &&
+    !wasm_language.parse_table_row_offsets
+  ) {
     uint32_t small_state_count = wasm_language.state_count - wasm_language.large_state_count;
     language->small_parse_table_map = copy(
       &wasm_memory,
@@ -1578,6 +1594,41 @@ const TSLanguage *ts_wasm_store_load_language(
       );
       if (!valid_wasm_memory) goto invalid_language_memory;
     }
+  }
+
+  if (
+    language->abi_version >= LANGUAGE_VERSION_WITH_COMPRESSED_TABLES &&
+    wasm_language.parse_table_row_offsets
+  ) {
+    language->parse_table_row_offsets = copy(
+      &wasm_memory,
+      wasm_language.parse_table_row_offsets,
+      (wasm_language.state_count + 1) * sizeof(uint32_t),
+      &valid_wasm_memory
+    );
+    if (!valid_wasm_memory) goto invalid_language_memory;
+    uint32_t total_nnz;
+    if (!wasm_memory__read(
+      &wasm_memory,
+      wasm_language.parse_table_row_offsets + wasm_language.state_count * sizeof(uint32_t),
+      &total_nnz,
+      sizeof(total_nnz)
+    )) {
+      goto invalid_language_memory;
+    }
+    language->parse_table_columns = copy(
+      &wasm_memory,
+      wasm_language.parse_table_columns,
+      total_nnz * sizeof(uint16_t),
+      &valid_wasm_memory
+    );
+    language->parse_table_values = copy(
+      &wasm_memory,
+      wasm_language.parse_table_values,
+      total_nnz * sizeof(uint16_t),
+      &valid_wasm_memory
+    );
+    if (!valid_wasm_memory) goto invalid_language_memory;
   }
 
   if (language->external_token_count > 0) {
@@ -1989,6 +2040,9 @@ void ts_wasm_language_release(const TSLanguage *self) {
     ts_free((void *)self->reserved_words);
     ts_free((void *)self->parse_actions);
     ts_free((void *)self->parse_table);
+    ts_free((void *)self->parse_table_row_offsets);
+    ts_free((void *)self->parse_table_columns);
+    ts_free((void *)self->parse_table_values);
     ts_free((void *)self->primary_state_ids);
     ts_free((void *)self->public_symbol_map);
     ts_free((void *)self->small_parse_table);
