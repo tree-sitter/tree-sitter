@@ -2,10 +2,11 @@ use std::{
     cmp,
     collections::{BTreeMap, BTreeSet},
     fmt::Write,
+    hash::{Hash as _, Hasher as _},
     mem::swap,
 };
 
-use rustc_hash::{FxHashMap, FxHashSet};
+use rustc_hash::{FxHashMap, FxHashSet, FxHasher};
 
 use crate::LANGUAGE_VERSION;
 use serde::Serialize;
@@ -1614,9 +1615,21 @@ impl Generator {
                     .len()
                     .saturating_sub(self.large_state_count),
             );
+            // Deduplicate small parse table entries: states with identical
+            // grouped symbol/action data share the same table offset.  The
+            // canonical_data buffer is reused across iterations and we key
+            // the dedup map by its hash to avoid per-state allocations.
+            let mut seen_data: FxHashMap<u64, usize> = FxHashMap::default();
+            #[expect(clippy::collection_is_never_read, reason = "hasher performs a read")]
+            let mut canonical_data: Vec<u16> = Vec::with_capacity(64);
             let mut symbols_by_value = FxHashMap::<(usize, SymbolType), Vec<Symbol>>::default();
-            for state in self.parse_table.states.iter().skip(self.large_state_count) {
-                small_state_indices.push(next_table_index);
+            for (state_offset, state) in self
+                .parse_table
+                .states
+                .iter()
+                .enumerate()
+                .skip(self.large_state_count)
+            {
                 symbols_by_value.clear();
 
                 terminal_entries.clear();
@@ -1640,9 +1653,7 @@ impl Generator {
                 for (symbol, action) in &state.nonterminal_entries {
                     let state_id = match action {
                         GotoAction::Goto(i) => *i,
-                        GotoAction::ShiftExtra => {
-                            self.large_state_count + small_state_indices.len() - 1
-                        }
+                        GotoAction::ShiftExtra => state_offset,
                     };
                     symbols_by_value
                         .entry((state_id, SymbolType::NonTerminal))
@@ -1654,6 +1665,36 @@ impl Generator {
                 values_with_symbols.sort_unstable_by_key(|((value, kind), symbols)| {
                     (symbols.len(), *kind, *value, symbols[0])
                 });
+
+                // Build a canonical byte sequence representing what would be
+                // emitted to ts_small_parse_table for this state.  States with
+                // identical canonical data can share the same table offset.
+                canonical_data.clear();
+                canonical_data.push(values_with_symbols.len() as u16);
+                for ((value, kind), symbols) in &mut values_with_symbols {
+                    canonical_data.push(*kind as u16);
+                    canonical_data.push(*value as u16);
+                    symbols.sort_unstable();
+                    canonical_data.push(symbols.len() as u16);
+                    for symbol in symbols.iter() {
+                        // Use Symbol kind+index directly: symbol_order only
+                        // contains terminal symbols, but small parse table
+                        // entries also reference nonterminal symbols.
+                        canonical_data.push(symbol.kind as u16);
+                        canonical_data.push(symbol.index as u16);
+                    }
+                }
+
+                let mut hasher = FxHasher::default();
+                canonical_data.hash(&mut hasher);
+                let key = hasher.finish();
+
+                if let Some(&existing_index) = seen_data.get(&key) {
+                    small_state_indices.push(existing_index);
+                    continue;
+                }
+                seen_data.insert(key, next_table_index);
+                small_state_indices.push(next_table_index);
 
                 add_line!(
                     self,
@@ -1671,7 +1712,6 @@ impl Generator {
                         add_line!(self, "ACTIONS({value}), {},", symbols.len());
                     }
 
-                    symbols.sort_unstable();
                     indent!(self);
                     for symbol in symbols {
                         add_line!(self, "{},", self.symbol_ids[symbol]);
