@@ -60,7 +60,7 @@ struct GeneratedParser {
 
 // NOTE: This constant must be kept in sync with the definition of
 // `TREE_SITTER_LANGUAGE_VERSION` in `lib/include/tree_sitter/api.h`.
-const LANGUAGE_VERSION: usize = 15;
+const LANGUAGE_VERSION: usize = 16;
 
 pub const ALLOC_HEADER: &str = include_str!("templates/alloc.h");
 pub const ARRAY_HEADER: &str = include_str!("templates/array.h");
@@ -207,13 +207,41 @@ impl From<rquickjs::Error> for JSError {
 bitflags! {
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     pub struct OptLevel: u32 {
+        /// Merge equivalent parse states.
         const MergeStates = 1 << 0;
+        /// Force the parse table to use the hybrid format (dense 2D table for
+        /// "large" states + grouped sparse `ts_small_parse_table` for "small"
+        /// states).
+        const ForceHybridTable = 1 << 1;
+        /// Force the parse table to use the CSR-compressed format (a single
+        /// uniform compressed sparse row representation for all states).
+        const ForceCompressedTable = 1 << 2;
     }
 }
 
 impl Default for OptLevel {
     fn default() -> Self {
         Self::MergeStates
+    }
+}
+
+impl OptLevel {
+    /// Force the renderer to emit the hybrid (ABI 15) parse table format,
+    /// bypassing the heuristic.
+    #[must_use]
+    pub fn force_hybrid_parse_table(mut self) -> Self {
+        self.remove(Self::ForceCompressedTable);
+        self.insert(Self::ForceHybridTable);
+        self
+    }
+
+    /// Force the renderer to emit the CSR-compressed (ABI 16) parse table
+    /// format, bypassing the heuristic.
+    #[must_use]
+    pub fn force_compressed_parse_table(mut self) -> Self {
+        self.remove(Self::ForceHybridTable);
+        self.insert(Self::ForceCompressedTable);
+        self
     }
 }
 
@@ -309,6 +337,7 @@ where
 pub fn generate_parser_for_grammar(
     grammar_json: &str,
     semantic_version: Option<(u8, u8, u8)>,
+    optimizations: Option<OptLevel>,
 ) -> GenerateResult<(String, String)> {
     let input_grammar = parse_grammar(grammar_json)?;
     let parser = generate_parser_for_grammar_with_opts(
@@ -316,7 +345,7 @@ pub fn generate_parser_for_grammar(
         LANGUAGE_VERSION,
         semantic_version,
         None,
-        OptLevel::default(),
+        optimizations.unwrap_or_default(),
     )?;
     Ok((input_grammar.name, parser.c_code))
 }
@@ -381,6 +410,7 @@ fn generate_parser_for_grammar_with_opts(
         abi_version,
         semantic_version,
         supertype_symbol_map,
+        optimizations,
     )?;
     Ok(GeneratedParser {
         c_code,
