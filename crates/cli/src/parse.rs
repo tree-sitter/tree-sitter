@@ -306,13 +306,13 @@ pub fn parse_file_at_path(
                 }
                 writeln!(&mut io::stderr(), "{message}").unwrap();
             } else {
+                #[rustfmt::skip]
                 let colors = &[
-                    AnsiColor::White,
-                    AnsiColor::Red,
-                    AnsiColor::Blue,
-                    AnsiColor::Green,
-                    AnsiColor::Cyan,
-                    AnsiColor::Yellow,
+                    AnsiColor::White, AnsiColor::Red, AnsiColor::Blue, AnsiColor::Green,
+                    AnsiColor::Cyan, AnsiColor::Yellow, AnsiColor::Magenta,
+                    AnsiColor::BrightWhite, AnsiColor::BrightRed, AnsiColor::BrightBlue,
+                    AnsiColor::BrightGreen, AnsiColor::BrightCyan, AnsiColor::BrightYellow,
+                    AnsiColor::BrightMagenta,
                 ];
                 if message.starts_with("process version:") {
                     let comma_idx = message.find(',').unwrap();
@@ -321,7 +321,7 @@ pub fn parse_file_at_path(
                         .unwrap();
                 }
                 let color = if use_color {
-                    Some(colors[curr_version])
+                    Some(colors[curr_version % colors.len()])
                 } else {
                     None
                 };
