@@ -90,7 +90,7 @@ clap = { features = [
   "string",
   "unstable-styles",
 ], version = "4.5.58" }
-clap_complete = "4.6.2"
+clap_complete = "4.6.3"
 clap_complete_nushell = "4.5.10"
 crc32fast = "1.5.0"
 ctor      = "0.6.3"
