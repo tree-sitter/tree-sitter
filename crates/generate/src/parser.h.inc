@@ -149,6 +149,10 @@ struct TSLanguage {
   const TSMapSlice *supertype_map_slices;
   const TSSymbol *supertype_map_entries;
   TSLanguageMetadata metadata;
+  // CSR-compressed parse table (ABI version >= 16)
+  const uint32_t *parse_table_row_offsets;
+  const uint16_t *parse_table_columns;
+  const uint16_t *parse_table_values;
 };
 
 static inline bool set_contains(const TSCharacterRange *ranges, uint32_t len, int32_t lookahead) {

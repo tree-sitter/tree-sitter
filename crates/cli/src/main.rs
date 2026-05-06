@@ -40,7 +40,7 @@ use tree_sitter_tags::TagsContext;
 
 const BUILD_VERSION: &str = env!("CARGO_PKG_VERSION");
 const BUILD_SHA: Option<&'static str> = option_env!("BUILD_SHA");
-const DEFAULT_GENERATE_ABI_VERSION: usize = 15;
+const DEFAULT_GENERATE_ABI_VERSION: usize = 16;
 
 #[derive(Subcommand)]
 #[command(about="Generates and tests parsers", author=crate_authors!("\n"), styles=get_styles())]
@@ -163,11 +163,23 @@ struct Generate {
     /// The name or path of the JavaScript runtime to use for generating parsers, specify `native`
     /// to use the native `QuickJS` runtime
     pub js_runtime: Option<String>,
-
     /// Disable optimizations when generating the parser. Currently, this only affects
     /// the merging of compatible parse states.
     #[arg(long)]
     pub disable_optimizations: bool,
+    /// Select the parse table format.
+    #[arg(long, value_enum, default_value_t = ParseTableMode::Auto)]
+    pub table_fmt: ParseTableMode,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, ValueEnum)]
+pub enum ParseTableMode {
+    /// Heuristic automatically decides.
+    Auto,
+    /// Dense 2D table for large states + grouped sparse small table.
+    Hybrid,
+    /// CSR-compressed table. Requires ABI 16.
+    CSR,
 }
 
 #[derive(Args)]
@@ -948,6 +960,17 @@ impl Generate {
             self.json_summary
         };
 
+        let optimizations = if self.disable_optimizations {
+            OptLevel::empty()
+        } else {
+            OptLevel::default()
+        };
+        let optimizations = match self.table_fmt {
+            ParseTableMode::Auto => optimizations,
+            ParseTableMode::Hybrid => optimizations.force_hybrid_parse_table(),
+            ParseTableMode::CSR => optimizations.force_compressed_parse_table(),
+        };
+
         if let Err(err) = tree_sitter_generate::generate_parser_in_directory(
             current_dir,
             self.output.as_deref(),
@@ -956,11 +979,7 @@ impl Generate {
             self.report_states_for_rule.as_deref(),
             self.js_runtime.as_deref(),
             !self.no_parser,
-            if self.disable_optimizations {
-                OptLevel::empty()
-            } else {
-                OptLevel::default()
-            },
+            optimizations,
         ) {
             if json_summary {
                 eprintln!("{}", serde_json::to_string_pretty(&err)?);

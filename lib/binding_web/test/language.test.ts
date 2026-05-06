@@ -20,7 +20,7 @@ describe('Language', () => {
 
       const lang = Language.loadSync(wasmModule);
       expect(lang.name).toBe('javascript');
-      expect(lang.abiVersion).toBe(15);
+      expect(lang.abiVersion).toBeGreaterThanOrEqual(15);
 
       // Verify the language actually works by parsing a snippet
       const parser = new Parser();
@@ -75,7 +75,7 @@ describe('Language', () => {
   describe('.name, .version', () => {
     it('returns the name and version of the language', () => {
       expect(JavaScript.name).toBe('javascript');
-      expect(JavaScript.abiVersion).toBe(15);
+      expect(JavaScript.abiVersion).toBeGreaterThanOrEqual(15);
     });
   });
 
