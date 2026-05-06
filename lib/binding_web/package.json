@@ -71,15 +71,15 @@
   "devDependencies": {
     "@eslint/js": "^9.39.1",
     "@types/emscripten": "^1.41.5",
-    "@types/node": "^25.5.0",
+    "@types/node": "^25.6.0",
     "@vitest/coverage-v8": "^3.0.5",
     "dts-buddy": "^0.7.0",
-    "esbuild": "^0.27.4",
+    "esbuild": "^0.28.0",
     "eslint": "^9.39.1",
     "source-map": "^0.7.4",
     "tsx": "^4.21.0",
     "typescript": "^5.7.3",
-    "typescript-eslint": "^8.58.0",
+    "typescript-eslint": "^8.59.1",
     "vitest": "^3.0.5"
   },
   "scripts": {
