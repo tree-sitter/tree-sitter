@@ -3144,6 +3144,269 @@ fn test_query_alternation_with_outer_quantifier() {
     assert_query_matches(&language, &query, source_code, matches);
 }
 
+// Tests for inner quantifiers on alternation branches.
+//
+// When a branch inside [...] has a ? or * quantifier, the branch can match zero
+// nodes.  This makes the alternation as a whole optional - it should be able to
+// match nothing.  We test this by placing the alternation before a required
+// sibling: (compound_statement [alt] (return_statement) @ret).  If the
+// alternation is correctly optional, the return_statement matches even when
+// the compound_statement has no break/continue.
+
+#[test]
+fn test_query_alternation_inner_optional_first_branch() {
+    // [A? B] - first branch is optional.
+    // A? can match zero ~> alternation should be optional.
+    let language = get_language("c");
+    let source_code = "void f() { return; }";
+
+    let query_str = "(compound_statement
+        [(break_statement)? (continue_statement)] @cap
+        (return_statement) @ret)";
+    let query = Query::new(&language, query_str).unwrap();
+
+    let expected = &[(0, vec![("ret", "return;")])];
+    assert_query_matches(&language, &query, source_code, expected);
+}
+
+#[test]
+fn test_query_alternation_inner_optional_last_branch() {
+    // [A B?] - last branch is optional.
+    let language = get_language("c");
+    let source_code = "void f() { return; }";
+
+    let query_str = "(compound_statement
+        [(break_statement) (continue_statement)?] @cap
+        (return_statement) @ret)";
+    let query = Query::new(&language, query_str).unwrap();
+
+    let expected = &[(0, vec![("ret", "return;")])];
+    assert_query_matches(&language, &query, source_code, expected);
+}
+
+#[test]
+fn test_query_alternation_inner_optional_both_branches() {
+    // [A? B?] - both branches optional.
+    let language = get_language("c");
+    let source_code = "void f() { return; }";
+
+    let query_str = "(compound_statement
+        [(break_statement)? (continue_statement)?] @cap
+        (return_statement) @ret)";
+    let query = Query::new(&language, query_str).unwrap();
+
+    let expected = &[(0, vec![("ret", "return;")])];
+    assert_query_matches(&language, &query, source_code, expected);
+}
+
+#[test]
+fn test_query_alternation_inner_zero_or_more() {
+    // [A* B] - A* can match zero ~> alternation optional.
+    let language = get_language("c");
+    let source_code = "void f() { return; }";
+
+    let query_str = "(compound_statement
+        [(break_statement)* (continue_statement)] @cap
+        (return_statement) @ret)";
+    let query = Query::new(&language, query_str).unwrap();
+
+    let expected = &[(0, vec![("ret", "return;")])];
+    assert_query_matches(&language, &query, source_code, expected);
+}
+
+#[test]
+fn test_query_alternation_inner_plus_no_leakage() {
+    // [A+ B] - A+ should not leak into B branch.
+    // 3 breaks then continue ~> two separate matches.
+    let language = get_language("c");
+    let source_code = "void f() { break; break; break; continue; }";
+
+    let query_str = "(compound_statement
+        [(break_statement)+ (continue_statement)] @cap)";
+    let query = Query::new(&language, query_str).unwrap();
+
+    let expected = &[
+        (
+            0,
+            vec![
+                ("cap", "break;"),
+                ("cap", "break;"),
+                ("cap", "break;"),
+            ],
+        ),
+        (0, vec![("cap", "continue;")]),
+    ];
+    assert_query_matches(&language, &query, source_code, expected);
+}
+
+#[test]
+fn test_query_alternation_inner_star_no_leakage() {
+    // [A* B] - A* should not leak into B branch.
+    let language = get_language("c");
+    let source_code = "void f() { break; break; break; continue; }";
+
+    let query_str = "(compound_statement
+        [(break_statement)* (continue_statement)] @cap)";
+    let query = Query::new(&language, query_str).unwrap();
+
+    let expected = &[
+        (
+            0,
+            vec![
+                ("cap", "break;"),
+                ("cap", "break;"),
+                ("cap", "break;"),
+            ],
+        ),
+        (0, vec![("cap", "continue;")]),
+    ];
+    assert_query_matches(&language, &query, source_code, expected);
+}
+
+// Multi-step branch tests: branches with child patterns, not just single node types.
+
+#[test]
+fn test_query_alternation_inner_optional_multistep_zero_match() {
+    // [(expression_statement (assignment_expression))? (break_statement)]
+    // Multi-step first branch is optional.  Source has only return ~> should skip.
+    let language = get_language("c");
+    let source_code = "void f() { return; }";
+
+    let query_str = "(compound_statement
+        [(expression_statement (assignment_expression))? (break_statement)] @cap
+        (return_statement) @ret)";
+    let query = Query::new(&language, query_str).unwrap();
+
+    let expected = &[(0, vec![("ret", "return;")])];
+    assert_query_matches(&language, &query, source_code, expected);
+}
+
+#[test]
+fn test_query_alternation_inner_optional_multistep_does_match() {
+    // Same query, but source has an assignment before return ~> optional branch matches.
+    let language = get_language("c");
+    let source_code = "void f() { x = 1; return; }";
+
+    let query_str = "(compound_statement
+        [(expression_statement (assignment_expression))? (break_statement)] @cap
+        (return_statement) @ret)";
+    let query = Query::new(&language, query_str).unwrap();
+
+    let expected = &[(0, vec![("cap", "x = 1;"), ("ret", "return;")])];
+    assert_query_matches(&language, &query, source_code, expected);
+}
+
+#[test]
+fn test_query_alternation_inner_star_multistep_zero_match() {
+    // [(expression_statement (assignment_expression))* (break_statement)]
+    // Multi-step star, source has only return ~> zero matches, skip.
+    let language = get_language("c");
+    let source_code = "void f() { return; }";
+
+    let query_str = "(compound_statement
+        [(expression_statement (assignment_expression))* (break_statement)] @cap
+        (return_statement) @ret)";
+    let query = Query::new(&language, query_str).unwrap();
+
+    let expected = &[(0, vec![("ret", "return;")])];
+    assert_query_matches(&language, &query, source_code, expected);
+}
+
+#[test]
+fn test_query_alternation_inner_star_multistep_multiple_matches() {
+    // Multi-step star, source has two assignments then return ~> star matches both.
+    let language = get_language("c");
+    let source_code = "void f() { x = 1; y = 2; return; }";
+
+    let query_str = "(compound_statement
+        [(expression_statement (assignment_expression))* (break_statement)] @cap
+        (return_statement) @ret)";
+    let query = Query::new(&language, query_str).unwrap();
+
+    let expected = &[
+        (0, vec![("cap", "x = 1;"), ("ret", "return;")]),
+        (0, vec![("cap", "y = 2;"), ("ret", "return;")]),
+    ];
+    assert_query_matches(&language, &query, source_code, expected);
+}
+
+#[test]
+fn test_query_alternation_inner_plus_multistep_no_leakage() {
+    // [(expression_statement (assignment_expression))+ (break_statement)]
+    // Two assignments then a break ~> separate matches, no leakage.
+    let language = get_language("c");
+    let source_code = "void f() { x = 1; y = 2; break; }";
+
+    let query_str = "(compound_statement
+        [(expression_statement (assignment_expression))+ (break_statement)] @cap)";
+    let query = Query::new(&language, query_str).unwrap();
+
+    let expected = &[
+        (0, vec![("cap", "x = 1;")]),
+        (0, vec![("cap", "y = 2;")]),
+        (0, vec![("cap", "break;")]),
+    ];
+    assert_query_matches(&language, &query, source_code, expected);
+}
+
+// Three-branch alternation with middle branch optional.
+
+#[test]
+fn test_query_alternation_three_branches_middle_optional() {
+    // [(break_statement) (continue_statement)? (return_statement)]
+    // Middle branch is optional ~> whole alternation should be optional.
+    // Source: only an expression_statement (none of the three), then a return.
+    let language = get_language("c");
+    let source_code = "void f() { x = 1; }";
+
+    let query_str = "(compound_statement
+        [(break_statement) (continue_statement)? (return_statement)] @cap
+        (expression_statement) @expr)";
+    let query = Query::new(&language, query_str).unwrap();
+
+    let expected = &[(0, vec![("expr", "x = 1;")])];
+    assert_query_matches(&language, &query, source_code, expected);
+}
+
+// Nested alternation: inner alternation has an optional branch.
+
+#[test]
+fn test_query_alternation_nested_inner_optional() {
+    // [[(break_statement)? (continue_statement)] (return_statement)]
+    // Inner alternation [(break)? (continue)] - break branch is optional,
+    // so inner alternation is optional, so its branch in the outer alternation
+    // can match zero nodes.
+    // Source: only "x = 1;" - neither break, continue, nor return.
+    let language = get_language("c");
+    let source_code = "void f() { x = 1; }";
+
+    let query_str = "(compound_statement
+        [[(break_statement)? (continue_statement)] (return_statement)] @cap
+        (expression_statement) @expr)";
+    let query = Query::new(&language, query_str).unwrap();
+
+    let expected = &[(0, vec![("expr", "x = 1;")])];
+    assert_query_matches(&language, &query, source_code, expected);
+}
+
+// Multi-step branch with field constraint.
+
+#[test]
+fn test_query_alternation_inner_optional_with_field() {
+    // [(if_statement consequence: (compound_statement))? (break_statement)]
+    // Multi-step with field constraint, optional.
+    let language = get_language("c");
+    let source_code = "void f() { return; }";
+
+    let query_str = "(compound_statement
+        [(if_statement consequence: (compound_statement))? (break_statement)] @cap
+        (return_statement) @ret)";
+    let query = Query::new(&language, query_str).unwrap();
+
+    let expected = &[(0, vec![("ret", "return;")])];
+    assert_query_matches(&language, &query, source_code, expected);
+}
+
 #[test]
 fn test_query_matches_with_alternations_and_predicates() {
     allocations::record(|| {
@@ -6032,4 +6295,1130 @@ export default grammar({
     let source = "foo()\n()";
 
     assert_query_matches(&language, &query, source, &[(0, vec![("tuple", "()")])]);
+}
+
+// -----------------------------------------------------------------------
+// Recursive back-reference (^) tests
+// -----------------------------------------------------------------------
+
+#[test]
+fn test_query_recursive_ref_parse_errors() {
+    allocations::record(|| {
+        let language = get_language("c");
+
+        // (^) outside any alternation
+        assert_eq!(
+            Query::new(&language, "(function_definition (^))").unwrap_err().kind,
+            QueryErrorKind::Syntax,
+        );
+
+        // bare (^) at top level
+        assert_eq!(
+            Query::new(&language, "(^)").unwrap_err().kind,
+            QueryErrorKind::Syntax,
+        );
+
+        // (^^) with only one enclosing alternation
+        assert_eq!(
+            Query::new(&language, "[(_ (^^)) (return_statement) @ret]")
+                .unwrap_err()
+                .kind,
+            QueryErrorKind::Syntax,
+        );
+
+        // (^^^) with only two enclosing alternations
+        assert_eq!(
+            Query::new(
+                &language,
+                "[(_ [(_ (^^^)) (identifier)]) (return_statement)]",
+            )
+            .unwrap_err()
+            .kind,
+            QueryErrorKind::Syntax,
+        );
+
+        // all-recursive alternation with no base case
+        assert_eq!(
+            Query::new(&language, "[(^)]").unwrap_err().kind,
+            QueryErrorKind::Structure,
+        );
+
+        // bare (^) as direct branch - doesn't consume input
+        assert_eq!(
+            Query::new(&language, "[(^) (return_statement) @ret]")
+                .unwrap_err()
+                .kind,
+            QueryErrorKind::Structure,
+        );
+    });
+}
+
+#[test]
+fn test_query_recursive_ref_valid_parse() {
+    allocations::record(|| {
+        let language = get_language("c");
+
+        // basic wildcard descent
+        assert!(Query::new(
+            &language,
+            "[(_ (^)) (return_statement) @ret]",
+        )
+        .is_ok());
+
+        // (^) in field position
+        assert!(Query::new(
+            &language,
+            "[(if_statement consequence: (^)) (return_statement) @ret]",
+        )
+        .is_ok());
+
+        // (^^) with two levels of alternation
+        assert!(Query::new(
+            &language,
+            "[(_ [(_ (^^)) (identifier)]) (return_statement)]",
+        )
+        .is_ok());
+
+        // multiple recursive branches
+        assert!(Query::new(
+            &language,
+            concat!(
+                "[(if_statement consequence: (compound_statement (^))) ",
+                "(if_statement consequence: (^)) ",
+                "(return_statement) @ret]",
+            ),
+        )
+        .is_ok());
+    });
+}
+
+#[test]
+fn test_query_recursive_ref_wildcard_descent() {
+    allocations::record(|| {
+        let language = get_language("c");
+        let query = Query::new(
+            &language,
+            "(function_definition body: (compound_statement [(_ (^)) (return_statement) @ret]))",
+        )
+        .unwrap();
+
+        // Returns at various depths: direct, inside one if, inside two ifs
+        assert_query_matches(
+            &language,
+            &query,
+            "
+            int shallow(void) {
+                return 1;
+            }
+            int one_deep(int x) {
+                if (x) { return 1; }
+                return 0;
+            }
+            int two_deep(int x, int y) {
+                if (x) {
+                    if (y) { return 2; }
+                    return 1;
+                }
+                return 0;
+            }
+            ",
+            &[
+                (0, vec![("ret", "return 1;")]),
+                (0, vec![("ret", "return 1;")]),
+                (0, vec![("ret", "return 0;")]),
+                (0, vec![("ret", "return 2;")]),
+                (0, vec![("ret", "return 1;")]),
+                (0, vec![("ret", "return 0;")]),
+            ],
+        );
+    });
+}
+
+#[test]
+fn test_query_recursive_ref_constrained_descent() {
+    allocations::record(|| {
+        let language = get_language("c");
+        let query = Query::new(
+            &language,
+            concat!(
+                "(function_definition body: (compound_statement [",
+                "  (if_statement consequence: (compound_statement (^))) @if",
+                "  (if_statement consequence: (^)) @if",
+                "  (return_statement) @ret",
+                "]))",
+            ),
+        )
+        .unwrap();
+
+        // Constrained descent only through if-statement consequence chains
+        assert_query_matches(
+            &language,
+            &query,
+            "
+            int f(int x) {
+                if (x) { return 1; }
+                return 0;
+            }
+            ",
+            &[
+                (
+                    0,
+                    vec![
+                        ("if", "if (x) { return 1; }"),
+                        ("ret", "return 1;"),
+                    ],
+                ),
+                (0, vec![("ret", "return 0;")]),
+            ],
+        );
+    });
+}
+
+#[test]
+fn test_query_recursive_ref_nested_alternations() {
+    allocations::record(|| {
+        let language = get_language("c");
+        let query = Query::new(
+            &language,
+            concat!(
+                "(function_definition body: (compound_statement",
+                "  [(_ [(_ (^^)) (return_statement) @inner]) (return_statement) @outer]",
+                "))",
+            ),
+        )
+        .unwrap();
+
+        // Direct returns and depth-1 returns are @outer.
+        // The (^^) path goes inner->outer, so its base case is @outer.
+        // @inner only fires when the inner alternation's own base case matches.
+        assert_query_matches(
+            &language,
+            &query,
+            "
+            int f(void) { return 0; }
+            int g(int x) {
+                if (x) { return 1; }
+                return 0;
+            }
+            ",
+            &[
+                (0, vec![("outer", "return 0;")]),
+                (0, vec![("outer", "return 1;")]),
+                (0, vec![("outer", "return 0;")]),
+            ],
+        );
+
+        assert_query_matches(
+            &language,
+            &query,
+            "
+            int h(int x, int y) {
+                if (x) {
+                    if (y) { return 2; }
+                    return 1;
+                }
+                return 0;
+            }
+            ",
+            &[
+                (0, vec![("outer", "return 2;")]),
+                (0, vec![("outer", "return 1;")]),
+                (0, vec![("outer", "return 0;")]),
+            ],
+        );
+    });
+}
+
+// -----------------------------------------------------------------------
+// Recursive back-reference: capture ordering along the recursion path
+//
+// All tests use C pointer/array declarations for compact nesting:
+//   int ***c;          - 3 pointer levels
+//   int c2[10][20][30]; - 3 array levels
+//   int **g[10];       - mixed: 2 ptr + 1 arr (3 total)
+//   int *h[10][20];    - mixed: 1 ptr + 2 arr (3 total)
+// -----------------------------------------------------------------------
+
+// Test 1: Capture only root type and leaf identifier - no intermediate
+// recursion captures. Each declaration produces a single match with
+// scalar (non-repeated) captures regardless of nesting depth.
+#[test]
+fn test_query_recursive_ref_capture_root_and_leaf_only() {
+    allocations::record(|| {
+        let language = get_language("c");
+        let query = Query::new(
+            &language,
+            "(declaration type: (_) @type declarator: [(pointer_declarator declarator: (^)) (identifier) @name])",
+        ).unwrap();
+
+        assert_query_matches(
+            &language,
+            &query,
+            "int *a; int **b; int ***c;",
+            &[
+                (0, vec![("type", "int"), ("name", "a")]),
+                (0, vec![("type", "int"), ("name", "b")]),
+                (0, vec![("type", "int"), ("name", "c")]),
+            ],
+        );
+    });
+}
+
+// Test 2: Capture root, leaf, AND each recursion step.
+// The @ptr capture appears once per pointer_declarator traversed -
+// including the outermost one - in DFS (= source) order.
+#[test]
+fn test_query_recursive_ref_capture_all_steps() {
+    allocations::record(|| {
+        let language = get_language("c");
+        let query = Query::new(
+            &language,
+            "(declaration type: (_) @type declarator: [(pointer_declarator declarator: (^)) @ptr (identifier) @name])",
+        ).unwrap();
+
+        assert_query_matches(
+            &language,
+            &query,
+            "int *a; int **b; int ***c;",
+            &[
+                // depth 1: single ptr captured, then base case
+                (0, vec![("type", "int"), ("ptr", "*a"), ("name", "a")]),
+                // depth 2: two ptrs in source order (outer first)
+                (0, vec![("type", "int"), ("ptr", "**b"), ("ptr", "*b"), ("name", "b")]),
+                // depth 3: three ptrs in source order
+                (0, vec![("type", "int"), ("ptr", "***c"), ("ptr", "**c"), ("ptr", "*c"), ("name", "c")]),
+            ],
+        );
+    });
+}
+
+// Test 3: Three recursive alternatives (pointer_declarator,
+// array_declarator, parenthesized_declarator) captured under the SAME
+// name @step. parenthesized_declarator is transparent (no capture),
+// so paren levels are invisible in the capture list.
+#[test]
+fn test_query_recursive_ref_mixed_alternatives_same_name() {
+    allocations::record(|| {
+        let language = get_language("c");
+        let query = Query::new(
+            &language,
+            concat!(
+                "(declaration type: (_) @type declarator: [",
+                "  (pointer_declarator declarator: (^)) @step",
+                "  (array_declarator declarator: (^)) @step",
+                "  (parenthesized_declarator (^))",
+                "  (identifier) @name",
+                "])",
+            ),
+        ).unwrap();
+
+        // int ***c;          ~> ptr(ptr(ptr(id)))
+        // int d[10][20][30]; ~> arr(arr(arr(id)))
+        // int **g[10];       ~> ptr(ptr(arr(id)))
+        // int *h[10][20];    ~> ptr(arr(arr(id)))
+        // int (*e)[10];      ~> arr(paren(ptr(id))) - paren level skipped
+        assert_query_matches(
+            &language,
+            &query,
+            "int ***c; int d[10][20][30]; int **g[10]; int *h[10][20]; int (*e)[10];",
+            &[
+                (0, vec![("type", "int"), ("step", "***c"), ("step", "**c"), ("step", "*c"), ("name", "c")]),
+                (0, vec![("type", "int"), ("step", "d[10][20][30]"), ("step", "d[10][20]"), ("step", "d[10]"), ("name", "d")]),
+                (0, vec![("type", "int"), ("step", "**g[10]"), ("step", "*g[10]"), ("step", "g[10]"), ("name", "g")]),
+                (0, vec![("type", "int"), ("step", "*h[10][20]"), ("step", "h[10][20]"), ("step", "h[10]"), ("name", "h")]),
+                (0, vec![("type", "int"), ("step", "(*e)[10]"), ("step", "*e"), ("name", "e")]),
+            ],
+        );
+    });
+}
+
+// Test 4: Recursive alternatives captured under SEPARATE names
+// @ptr and @arr. parenthesized_declarator passes through without
+// capture. Each list only contains matches from its own branch.
+#[test]
+fn test_query_recursive_ref_mixed_alternatives_separate_names() {
+    allocations::record(|| {
+        let language = get_language("c");
+        let query = Query::new(
+            &language,
+            concat!(
+                "(declaration type: (_) @type declarator: [",
+                "  (pointer_declarator declarator: (^)) @ptr",
+                "  (array_declarator declarator: (^)) @arr",
+                "  (parenthesized_declarator (^))",
+                "  (identifier) @name",
+                "])",
+            ),
+        ).unwrap();
+
+        // int ***c;              ~> ptr, ptr, ptr (3 @ptr)
+        // int d[10][20][30];     ~> arr, arr, arr (3 @arr)
+        // int **g[10];           ~> ptr, ptr, arr (2 @ptr + 1 @arr)
+        // int *h[10][20];        ~> ptr, arr, arr (1 @ptr + 2 @arr)
+        // int (*e)[10];          ~> arr, paren, ptr (1 @arr + 1 @ptr)
+        // int (*(*f)[10])[20];   ~> arr, paren, ptr, arr, paren, ptr (2 @arr + 2 @ptr)
+        assert_query_matches(
+            &language,
+            &query,
+            "int ***c; int d[10][20][30]; int **g[10]; int *h[10][20]; int (*e)[10]; int (*(*f)[10])[20];",
+            &[
+                (0, vec![("type", "int"), ("ptr", "***c"), ("ptr", "**c"), ("ptr", "*c"), ("name", "c")]),
+                (0, vec![("type", "int"), ("arr", "d[10][20][30]"), ("arr", "d[10][20]"), ("arr", "d[10]"), ("name", "d")]),
+                (0, vec![("type", "int"), ("ptr", "**g[10]"), ("ptr", "*g[10]"), ("arr", "g[10]"), ("name", "g")]),
+                (0, vec![("type", "int"), ("ptr", "*h[10][20]"), ("arr", "h[10][20]"), ("arr", "h[10]"), ("name", "h")]),
+                (0, vec![("type", "int"), ("arr", "(*e)[10]"), ("ptr", "*e"), ("name", "e")]),
+                (0, vec![("type", "int"), ("arr", "(*(*f)[10])[20]"), ("ptr", "*(*f)[10]"), ("arr", "(*f)[10]"), ("ptr", "*f"), ("name", "f")]),
+            ],
+        );
+    });
+}
+
+// Test 5: Capture ONE specific recursive alternative (@ptr only) PLUS
+// the alternation itself (@step on [...]). @step captures every
+// recursion level; @ptr captures only pointer_declarator levels.
+// This gives two lists: one complete, one filtered.
+#[test]
+fn test_query_recursive_ref_partial_capture_plus_alternation() {
+    allocations::record(|| {
+        let language = get_language("c");
+        let query = Query::new(
+            &language,
+            concat!(
+                "(declaration type: (_) @type declarator: [",
+                "  (pointer_declarator declarator: (^)) @ptr",
+                "  (array_declarator declarator: (^))",
+                "  (identifier) @name",
+                "] @step)",
+            ),
+        ).unwrap();
+
+        // int *h[10][20]; - ptr(arr[20](arr[10](id)))
+        // @step fires at every level; @ptr fires only for pointer levels.
+        // Capture order within a level: branch capture before alternation capture.
+        assert_query_matches(
+            &language,
+            &query,
+            "int *h[10][20];",
+            &[
+                (0, vec![
+                    ("type", "int"),
+                    ("ptr", "*h[10][20]"), ("step", "*h[10][20]"),
+                    ("step", "h[10][20]"),
+                    ("step", "h[10]"),
+                    ("name", "h"), ("step", "h"),
+                ]),
+            ],
+        );
+    });
+}
+
+// Test 6: Same as test 5, but the specific-branch capture and the
+// alternation capture share the SAME name @step. When a pointer branch
+// matches, it is captured twice under @step (once from the branch,
+// once from the alternation). Array branches and the base case produce
+// one @step each.
+#[test]
+fn test_query_recursive_ref_partial_capture_same_name_as_alternation() {
+    allocations::record(|| {
+        let language = get_language("c");
+        let query = Query::new(
+            &language,
+            concat!(
+                "(declaration type: (_) @type declarator: [",
+                "  (pointer_declarator declarator: (^)) @step",
+                "  (array_declarator declarator: (^))",
+                "  (identifier) @name",
+                "] @step)",
+            ),
+        ).unwrap();
+
+        // int *h[10][20]; - ptr(arr(arr(id)))
+        // ptr level: branch @step + alternation @step ~> duplicated
+        // arr levels: only alternation @step
+        // id level: @name + alternation @step
+        assert_query_matches(
+            &language,
+            &query,
+            "int *h[10][20];",
+            &[
+                (0, vec![
+                    ("type", "int"),
+                    ("step", "*h[10][20]"), ("step", "*h[10][20]"),
+                    ("step", "h[10][20]"),
+                    ("step", "h[10]"),
+                    ("name", "h"), ("step", "h"),
+                ]),
+            ],
+        );
+    });
+}
+
+// Edge case: plain identifier (no ptr/arr nesting)
+// should produce no matches - the alternation requires at least one
+// pointer_declarator wrapper before the identifier base case.
+#[test]
+fn test_query_recursive_ref_capture_no_match_plain_decl() {
+    allocations::record(|| {
+        let language = get_language("c");
+        let query = Query::new(
+            &language,
+            "(declaration type: (_) @type declarator: [(pointer_declarator declarator: (^)) @ptr (identifier) @name])",
+        ).unwrap();
+
+        // int x; - declarator is identifier directly; needs pointer_declarator
+        // as the alternation is inside (declaration declarator: [...])
+        // and identifier IS in the alternation as a base case, so it
+        // SHOULD match (the alternation sits in declarator: position).
+        assert_query_matches(
+            &language,
+            &query,
+            "int x;",
+            &[
+                (0, vec![("type", "int"), ("name", "x")]),
+            ],
+        );
+    });
+}
+
+// -----------------------------------------------------------------------
+// Recursive back-reference: field combinations on alternation entry vs (^)
+//
+// The alternation `[...]` may sit behind a field prefix (from the outer
+// node), and the `(^)` inside a branch may sit behind its own field.
+// Many combinations of fielded and unfielded exist
+
+// Test 1: entry field=0, (^) field=0.
+#[test]
+fn test_query_recursive_ref_field_both_unnamed() {
+    allocations::record(|| {
+        let language = get_language("c");
+        let query = Query::new(
+            &language,
+            concat!(
+                "(expression_statement",
+                "  [(parenthesized_expression (^))",
+                "   (identifier) @leaf",
+                "]) @root",
+            ),
+        ).unwrap();
+
+        assert_query_matches(
+            &language,
+            &query,
+            "void f() { a; (a); ((a)); }",
+            &[
+                (0, vec![("root", "a;"), ("leaf", "a")]),
+                (0, vec![("root", "(a);"), ("leaf", "a")]),
+                (0, vec![("root", "((a));"), ("leaf", "a")]),
+            ],
+        );
+    });
+}
+
+// Test 2: entry field=A, (^) field=0.
+#[test]
+fn test_query_recursive_ref_field_root_named() {
+    allocations::record(|| {
+        let language = get_language("c");
+        let query = Query::new(
+            &language,
+            concat!(
+                "(pointer_expression argument:",
+                "  [(parenthesized_expression (^))",
+                "   (identifier) @leaf",
+                "]) @root",
+            ),
+        ).unwrap();
+
+        assert_query_matches(
+            &language,
+            &query,
+            "void f() { *a; *(a); *((a)); }",
+            &[
+                (0, vec![("root", "*a"), ("leaf", "a")]),
+                (0, vec![("root", "*(a)"), ("leaf", "a")]),
+                (0, vec![("root", "*((a))"), ("leaf", "a")]),
+            ],
+        );
+    });
+}
+
+// Test 3: recursion named only - entry field=0, (^) field=A.
+#[test]
+fn test_query_recursive_ref_field_recursion_named() {
+    allocations::record(|| {
+        let language = get_language("c");
+        let query = Query::new(
+            &language,
+            concat!(
+                "(expression_statement",
+                "  [(parenthesized_expression",
+                "     (binary_expression left: (^)))",
+                "   (identifier) @leaf",
+                "]) @root",
+            ),
+        ).unwrap();
+
+        assert_query_matches(
+            &language,
+            &query,
+            "void f() { a; (a+1); ((a+1)+2); }",
+            &[
+                (0, vec![("root", "a;"), ("leaf", "a")]),
+                (0, vec![("root", "(a+1);"), ("leaf", "a")]),
+                (0, vec![("root", "((a+1)+2);"), ("leaf", "a")]),
+            ],
+        );
+    });
+}
+
+// Test 4: recursion uses different name - entry field=A, (^) field=B.
+#[test]
+fn test_query_recursive_ref_field_different_names() {
+    allocations::record(|| {
+        let language = get_language("c");
+        let query = Query::new(
+            &language,
+            concat!(
+                "(pointer_expression argument:",
+                "  [(cast_expression value: (^))",
+                "   (identifier) @leaf",
+                "]) @root",
+            ),
+        ).unwrap();
+
+        assert_query_matches(
+            &language,
+            &query,
+            "void f() { *a; *(int)a; *(int)(float)a; }",
+            &[
+                (0, vec![("root", "*a"), ("leaf", "a")]),
+                (0, vec![("root", "*(int)a"), ("leaf", "a")]),
+                (0, vec![("root", "*(int)(float)a"), ("leaf", "a")]),
+            ],
+        );
+    });
+}
+
+// Test 5: recursion uses same name - entry field=A, (^) field=A.
+#[test]
+fn test_query_recursive_ref_field_same_name() {
+    allocations::record(|| {
+        let language = get_language("c");
+        let query = Query::new(
+            &language,
+            concat!(
+                "(pointer_expression argument:",
+                "  [(unary_expression argument: (^))",
+                "   (identifier) @leaf",
+                "]) @root",
+            ),
+        ).unwrap();
+
+        assert_query_matches(
+            &language,
+            &query,
+            "void f() { *a; *!a; *!!a; }",
+            &[
+                (0, vec![("root", "*a"), ("leaf", "a")]),
+                (0, vec![("root", "*!a"), ("leaf", "a")]),
+                (0, vec![("root", "*!!a"), ("leaf", "a")]),
+            ],
+        );
+    });
+}
+
+// Test 6: multiple recursions, entry field=A and (^) field=B or field=0
+#[test]
+fn test_query_recursive_ref_field_multi_chain_2() {
+    allocations::record(|| {
+        let language = get_language("c");
+        let query = Query::new(
+            &language,
+            concat!(
+                "(pointer_expression argument:",
+                "  [(cast_expression value: (^))",
+                "   (parenthesized_expression (^))",
+                "   (identifier) @leaf",
+                "]) @root",
+            ),
+        ).unwrap();
+
+        assert_query_matches(
+            &language,
+            &query,
+            "void f() { *a; *(int)a; *(a); *(int)(a); *((int)a); }",
+            &[
+                (0, vec![("root", "*a"), ("leaf", "a")]),
+                (0, vec![("root", "*(int)a"), ("leaf", "a")]),
+                (0, vec![("root", "*(a)"), ("leaf", "a")]),
+                (0, vec![("root", "*(int)(a)"), ("leaf", "a")]),
+                (0, vec![("root", "*((int)a)"), ("leaf", "a")]),
+            ],
+        );
+    });
+}
+
+// Test 7: Multiple declarations sharing one parse, verifying that
+// captures from different matches don't leak across match boundaries.
+#[test]
+fn test_query_recursive_ref_capture_isolation_across_matches() {
+    allocations::record(|| {
+        let language = get_language("c");
+        let query = Query::new(
+            &language,
+            concat!(
+                "(declaration type: (_) @type declarator: [",
+                "  (pointer_declarator declarator: (^)) @ptr",
+                "  (array_declarator declarator: (^)) @arr",
+                "  (parenthesized_declarator (^))",
+                "  (identifier) @name",
+                "])",
+            ),
+        ).unwrap();
+
+        // Six declarations of increasing complexity in one source.
+        // Every level goes through the alternation - outermost included.
+        assert_query_matches(
+            &language,
+            &query,
+            "int *a; int b[10]; int **c[10]; int *d[10][20]; int ***e; int (*f)[10];",
+            &[
+                (0, vec![("type", "int"), ("ptr", "*a"), ("name", "a")]),
+                (0, vec![("type", "int"), ("arr", "b[10]"), ("name", "b")]),
+                (0, vec![("type", "int"), ("ptr", "**c[10]"), ("ptr", "*c[10]"), ("arr", "c[10]"), ("name", "c")]),
+                (0, vec![("type", "int"), ("ptr", "*d[10][20]"), ("arr", "d[10][20]"), ("arr", "d[10]"), ("name", "d")]),
+                (0, vec![("type", "int"), ("ptr", "***e"), ("ptr", "**e"), ("ptr", "*e"), ("name", "e")]),
+                (0, vec![("type", "int"), ("arr", "(*f)[10]"), ("ptr", "*f"), ("name", "f")]),
+            ],
+        );
+    });
+}
+
+// =========================================================================
+// Labeled recursive references: (^label ...body) and (^label)
+// =========================================================================
+
+#[test]
+fn test_query_labeled_ref_parse_errors() {
+    allocations::record(|| {
+        let language = get_language("c");
+
+        // (^label) referencing an undefined label
+        assert_eq!(
+            Query::new(&language, "(function_definition (^nosuch))").unwrap_err().kind,
+            QueryErrorKind::Syntax,
+        );
+
+        // (^label) at top level with no definition
+        assert_eq!(
+            Query::new(&language, "(^label)").unwrap_err().kind,
+            QueryErrorKind::Syntax,
+        );
+
+        // Forward reference: (^label) before (^label ...body)
+        assert_eq!(
+            Query::new(
+                &language,
+                "(function_definition (^label) (^label (compound_statement)))",
+            )
+            .unwrap_err()
+            .kind,
+            QueryErrorKind::Syntax,
+        );
+
+        // Self-loop: (^d) as bare branch directly inside (^d [...])
+        // Same as [(^) (identifier)] - zero-width loop, rejected as Structure error.
+        assert_eq!(
+            Query::new(
+                &language,
+                "(declaration declarator: (^d [(^d) (identifier)]))",
+            )
+            .unwrap_err()
+            .kind,
+            QueryErrorKind::Structure,
+        );
+
+        // Out-of-scope: (^label) after (^label ...body) has closed
+        assert_eq!(
+            Query::new(
+                &language,
+                "(function_definition (^d (compound_statement)) (^d))",
+            )
+            .unwrap_err()
+            .kind,
+            QueryErrorKind::Syntax,
+        );
+    });
+}
+
+#[test]
+fn test_query_labeled_ref_valid_parse() {
+    allocations::record(|| {
+        let language = get_language("c");
+
+        // Basic labeled recursion on declarator chain
+        assert!(Query::new(
+            &language,
+            "(declaration declarator: (^d [(pointer_declarator declarator: (^d)) (identifier) @name]))",
+        )
+        .is_ok());
+
+        // Label above alternation - the key motivating case
+        assert!(Query::new(
+            &language,
+            concat!(
+                "(declaration declarator: (^rec (parenthesized_declarator [",
+                "  (pointer_declarator declarator: (^rec)) @ptr",
+                "  (identifier) @name",
+                "])))",
+            ),
+        )
+        .is_ok());
+    });
+}
+
+#[test]
+fn test_query_labeled_ref_equivalent_to_anonymous() {
+    // A labeled ref targeting the alternation itself should behave identically
+    // to an anonymous (^).
+    allocations::record(|| {
+        let language = get_language("c");
+
+        // (^d [...]) wraps the alternation directly - equivalent to bare (^).
+        let query = Query::new(
+            &language,
+            concat!(
+                "(declaration type: (_) @type declarator: (^d [",
+                "  (pointer_declarator declarator: (^d)) @ptr",
+                "  (identifier) @name",
+                "]))",
+            ),
+        )
+        .unwrap();
+
+        assert_query_matches(
+            &language,
+            &query,
+            "int *a; int **b; int ***c;",
+            &[
+                (0, vec![("type", "int"), ("ptr", "*a"), ("name", "a")]),
+                (0, vec![("type", "int"), ("ptr", "**b"), ("ptr", "*b"), ("name", "b")]),
+                (0, vec![("type", "int"), ("ptr", "***c"), ("ptr", "**c"), ("ptr", "*c"), ("name", "c")]),
+            ],
+        );
+    });
+}
+
+#[test]
+fn test_query_labeled_ref_above_alternation() {
+    // The label wraps compound_statement, which is ABOVE the alternation.
+    // This avoids duplicating compound_statement in each branch.
+    //
+    // Without labels, you'd need:
+    //   [(compound_statement (if ... consequence: (^))) (compound_statement (return))]
+    // With a label above:
+    //   (^rec (compound_statement [(if ... consequence: (^rec)) (return)]))
+    allocations::record(|| {
+        let language = get_language("c");
+        let query = Query::new(
+            &language,
+            concat!(
+                "(function_definition body: (^rec (compound_statement [",
+                "  (if_statement consequence: (^rec)) @if",
+                "  (return_statement) @ret",
+                "])))",
+            ),
+        )
+        .unwrap();
+
+        // Single-line source avoids long whitespace escapes in expected output.
+        assert_query_matches(
+            &language,
+            &query,
+            "int f(int x, int y) { if (x) { if (y) { return 2; } return 1; } return 0; }",
+            &[
+                (0, vec![
+                    ("if", "if (x) { if (y) { return 2; } return 1; }"),
+                    ("if", "if (y) { return 2; }"),
+                    ("ret", "return 2;"),
+                ]),
+                (0, vec![
+                    ("if", "if (x) { if (y) { return 2; } return 1; }"),
+                    ("ret", "return 1;"),
+                ]),
+                (0, vec![("ret", "return 0;")]),
+            ],
+        );
+    });
+}
+
+#[test]
+fn test_query_labeled_ref_nested_shadow() {
+    // Two (^d ...) definitions with the same name at different depths.
+    // Outer: recurses through pointer_declarator, array_declarator, and identifier.
+    // Inner (shadows, inside array_declarator): recurses through pointer_declarator
+    // and identifier only - no array_declarator.
+    //
+    // The (^d) inside the inner definition targets the inner (pointer-only) label,
+    // not the outer (pointer+array) label. This means once we enter an
+    // array_declarator, further recursion only peels pointers - not more arrays.
+    // Demonstrated by: `int a[10][20]` produces NO match (inner label blocks nested
+    // arrays), while `int *a[10]` and `int a[10]` work fine.
+    allocations::record(|| {
+        let language = get_language("c");
+        let query = Query::new(
+            &language,
+            concat!(
+                "(declaration type: (_) @type declarator: (^d [",
+                "  (pointer_declarator declarator: (^d)) @ptr",
+                "  (array_declarator declarator: (^d [",
+                "    (pointer_declarator declarator: (^d)) @inner_ptr",
+                "    (identifier) @name",
+                "  ])) @arr",
+                "  (identifier) @name",
+                "]))",
+            ),
+        )
+        .unwrap();
+
+        assert_query_matches(
+            &language,
+            &query,
+            "int *a[10]; int a[10][20]; int **b; int a[10];",
+            &[
+                // int *a[10] - outer ptr ~> outer arr ~> inner name
+                (0, vec![("type", "int"), ("ptr", "*a[10]"), ("arr", "a[10]"), ("name", "a")]),
+                
+                // int a[10][20] - outer arr, but inner label has no arr branch ~> NO MATCH
+                
+                // int **b - outer ptr ~> outer ptr ~> outer name (no arrays involved)
+                (0, vec![("type", "int"), ("ptr", "**b"), ("ptr", "*b"), ("name", "b")]),
+                
+                // int a[10] - outer arr ~> inner name
+                (0, vec![("type", "int"), ("arr", "a[10]"), ("name", "a")]),
+            ],
+        );
+    });
+}
+
+#[test]
+fn test_query_two_labels_unary_paren() {
+    // Two labels (^a, ^b) - neither directly on an alternation.
+    // (^a) wraps unary_expression, (^b) wraps parenthesized_expression.
+    // Every unary op must pass through parens to reach its argument;
+    // parens can self-nest via (^b) or contain another unary via (^a).
+    //
+    // Matches: +(a), +((b)), +(+(c)), -(!(e))
+    // No match: +d (no parens around arg), (e) (no unary at top)
+    allocations::record(|| {
+        let language = get_language("c");
+        let query = Query::new(
+            &language,
+            concat!(
+                "(expression_statement",
+                "  (^a (unary_expression",
+                "    (^b (parenthesized_expression [",
+                "      (^a) (^b) (identifier) @name",
+                "    ]) @paren)",
+                "  ) @unary)",
+                ")",
+            ),
+        )
+        .unwrap();
+
+        assert_query_matches(
+            &language,
+            &query,
+            "void f() { +(a); +((b)); +(+(c)); -(!(e)); +d; (g); }",
+            &[
+                (0, vec![("unary", "+(a)"), ("paren", "(a)"), ("name", "a")]),
+                (0, vec![("unary", "+((b))"), ("paren", "((b))"), ("paren", "(b)"), ("name", "b")]),
+                (0, vec![("unary", "+(+(c))"), ("paren", "(+(c))"), ("unary", "+(c)"), ("paren", "(c)"), ("name", "c")]),
+                (0, vec![("unary", "-(!(e))"), ("paren", "(!(e))"), ("unary", "!(e)"), ("paren", "(e)"), ("name", "e")]),
+                // +d - no match (unary arg is not parenthesized)
+                // (g) - no match (top level is not unary_expression)
+            ],
+        );
+    });
+}
+
+#[test]
+fn test_query_two_labels_two_domains() {
+    // Two labels creating distinct recursion domains.
+    // (^outer) wraps parenthesized_expression - every level must go through parens.
+    // Inside parens:
+    //   - unary_expression recurses to (^outer) via non-bare ref
+    //   - (^inner) wraps a second parenthesized_expression for paren-only nesting
+    //   - identifier is the base case at both levels
+    //
+    // Once in the inner-paren domain, recursion can only self-nest parens or
+    // reach identifier - unary is unreachable.  This demonstrates two labels
+    // governing independent recursion scopes.
+    allocations::record(|| {
+        let language = get_language("c");
+        let query = Query::new(
+            &language,
+            concat!(
+                "(expression_statement",
+                "  (^outer (parenthesized_expression [",
+                "    (unary_expression (^outer)) @un",
+                "    (^inner (parenthesized_expression [",
+                "      (^inner)",
+                "      (identifier) @name",
+                "    ]) @inner_paren)",
+                "    (identifier) @name",
+                "  ]) @paren)",
+                ")",
+            ),
+        )
+        .unwrap();
+
+        assert_query_matches(
+            &language,
+            &query,
+            "void f() { (a); ((b)); (+(c)); (+((d))); (((e))); (+(+(f))); ((+(g))); +(h); }",
+            &[
+                // (a) - outer paren, identifier base case
+                (0, vec![("paren", "(a)"), ("name", "a")]),
+                
+                // ((b)) - outer paren, inner paren, identifier
+                (0, vec![("paren", "((b))"), ("inner_paren", "(b)"), ("name", "b")]),
+                
+                // (+(c)) - outer paren, unary recurse, outer paren, identifier
+                (0, vec![("paren", "(+(c))"), ("un", "+(c)"), ("paren", "(c)"), ("name", "c")]),
+
+                // (+((d))) - outer + unary + outer + inner + identifier
+                (0, vec![("paren", "(+((d)))"), ("un", "+((d))"), ("paren", "((d))"), ("inner_paren", "(d)"), ("name", "d")]),
+
+                // (((e))) - outer + inner + inner self-recurse + identifier
+                (0, vec![("paren", "(((e)))"), ("inner_paren", "((e))"), ("inner_paren", "(e)"), ("name", "e")]),
+                
+                // (+(+(f))) - outer + unary + outer + unary + outer + identifier
+                (0, vec![("paren", "(+(+(f)))"), ("un", "+(+(f))"), ("paren", "(+(f))"), ("un", "+(f)"), ("paren", "(f)"), ("name", "f")]),
+
+                // ((+(g))) - inner paren wraps +(g), but inner has no unary branch ~> no match
+
+                // +(h) - top level is unary, not parenthesized ~> no match
+            ],
+        );
+    });
+}
+
+#[test]
+fn test_query_kitchen_sink_all_refs() {
+    // Kitchen-sink test using both recursion mechanisms twice:
+    //   (^outer)  - labeled back-reference to outer paren scope
+    //   (^inner …) - labeled scope for inner paren domain
+    //   (^)       - anonymous self-recurse (inner paren nesting)
+    //   (^^)      - anonymous outer-recurse (escape inner ~> outer alt)
+    //
+    // Outer scope: (parenthesized_expression [ unary ~> (^outer) | (^inner paren[…]) | id ])
+    // Inner scope: (parenthesized_expression [ (paren (^))@deep | (^^) | id ])
+    //
+    // (^) requires a real node before it (bare self-ref is a self-loop), so
+    // inner's self-recurse is (parenthesized_expression (^)) - paren nesting.
+    // (^^) escapes from inner domain to outer alt, reaching unary_expression.
+    allocations::record(|| {
+        let language = get_language("c");
+        let query = Query::new(
+            &language,
+            concat!(
+                "(expression_statement",
+                "  (^outer (parenthesized_expression [",
+                "    (unary_expression (^outer)) @un",
+                "    (^inner (parenthesized_expression [",
+                "      (parenthesized_expression (^)) @deep_paren",
+                "      (^^)",
+                "      (identifier) @name",
+                "    ]) @inner_paren)",
+                "    (identifier) @name",
+                "  ]) @paren)",
+                ")",
+            ),
+        )
+        .unwrap();
+
+        assert_query_matches(
+            &language,
+            &query,
+            "void f() { (a); ((b)); (+(a)); (((c))); ((+(a))); ((+((d)))); (+(+(a))); }",
+            &[
+                // (a) - base case: outer paren ~> identifier
+                (0, vec![("paren", "(a)"), ("name", "a")]),
+
+                // ((b)) - (^inner) scope: outer ~> inner ~> identifier
+                (0, vec![("paren", "((b))"), ("inner_paren", "(b)"), ("name", "b")]),
+
+                // (+(a)) - (^outer) labeled ref: outer ~> unary ~> outer ~> identifier
+                (0, vec![("paren", "(+(a))"), ("un", "+(a)"), ("paren", "(a)"), ("name", "a")]),
+
+                // (((c))) - (^) anonymous self: outer ~> inner ~> deep_paren ~> inner ~> identifier
+                (0, vec![("paren", "(((c)))"), ("inner_paren", "((c))"), ("deep_paren", "(c)"), ("name", "c")]),
+
+                // (((c))) - also via (^^) ~> outer ~> inner chain (inner_paren at both levels)
+                (0, vec![("paren", "(((c)))"), ("inner_paren", "((c))"), ("inner_paren", "(c)"), ("name", "c")]),
+
+                // ((+(a))) - (^^) escape: outer ~> inner ~> (^^) ~> outer ~> unary ~> (^outer) ~> paren ~> id
+                (0, vec![("paren", "((+(a)))"), ("inner_paren", "(+(a))"), ("un", "+(a)"), ("paren", "(a)"), ("name", "a")]),
+
+                // ((+((d)))) - (^^) + full chain: inner ~> (^^) ~> outer.unary ~> (^outer) ~> paren ~> inner ~> id
+                (0, vec![("paren", "((+((d))))"), ("inner_paren", "(+((d)))"), ("un", "+((d))"), ("paren", "((d))"), ("inner_paren", "(d)"), ("name", "d")]),
+
+                // (+(+(a))) - double (^outer): outer ~> unary ~> outer ~> unary ~> outer ~> identifier
+                (0, vec![("paren", "(+(+(a)))"), ("un", "+(+(a))"), ("paren", "(+(a))"), ("un", "+(a)"), ("paren", "(a)"), ("name", "a")]),
+            ],
+        );
+    });
+}
+
+#[test]
+fn test_query_recursive_ref_unlabeled_outer_dup() {
+    // Demonstrates spurious duplicate matches using only unlabeled (^^).
+    // No labels involved - the issue is purely about recursion targets
+    // coinciding with outer alternation branch starts.
+    //
+    // Outer alt: [ (unary_expression (paren [inner_alt])) | (identifier) ]
+    // Inner alt: [ (^^) | (identifier) ]
+    //
+    // (^^) escapes the inner paren domain to the outer alt, enabling
+    // unary nesting through parens: (+(+(a))).  But when the inner alt
+    // is entered, the (^^) pass-through creates a copy to the inner
+    // identifier branch, AND the dead-end jump to the outer alt start
+    // follows that step's outer alt link to the outer identifier branch,
+    // producing a spurious duplicate.
+    allocations::record(|| {
+        let language = get_language("c");
+        let query = Query::new(
+            &language,
+            concat!(
+                "(expression_statement",
+                "  (parenthesized_expression [",
+                "    (unary_expression",
+                "      (parenthesized_expression [",
+                "        (^^)",
+                "        (identifier) @name",
+                "      ]) @inner_paren",
+                "    ) @un",
+                "    (identifier) @name",
+                "  ]) @paren",
+                ")",
+            ),
+        )
+        .unwrap();
+
+        assert_query_matches(
+            &language,
+            &query,
+            "void f() { (a); (+(a)); (+(+(a))); }",
+            &[
+                // (a) - base case, no recursion, no dup
+                (0, vec![("paren", "(a)"), ("name", "a")]),
+                // (+(a)) - unary, inner paren, identifier via inner alt
+                (0, vec![("paren", "(+(a))"), ("un", "+(a)"), ("inner_paren", "(a)"), ("name", "a")]),
+                // (+(+(a))) - (^^) recurse: unary, inner paren, (^^) ~> outer, unary, inner paren, identifier
+                (0, vec![("paren", "(+(+(a)))"), ("un", "+(+(a))"), ("inner_paren", "(+(a))"), ("un", "+(a)"), ("inner_paren", "(a)"), ("name", "a")]),
+            ],
+        );
+    });
 }
