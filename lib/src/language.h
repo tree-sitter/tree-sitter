@@ -26,7 +26,6 @@ typedef struct {
   const uint16_t *group_end;
   TSStateId state;
   uint16_t table_value;
-  uint16_t section_index;
   uint16_t group_count;
   bool is_small_state;
 
@@ -138,7 +137,6 @@ static inline LookaheadIterator ts_language_lookaheads(
   const uint16_t *data;
   const uint16_t *group_end = NULL;
   uint16_t group_count = 0;
-  uint16_t section_index = 0;
   if (is_small_state) {
     uint32_t index = self->small_parse_table_map[state - self->large_state_count];
     data = &self->small_parse_table[index];
@@ -161,7 +159,6 @@ static inline LookaheadIterator ts_language_lookaheads(
     .group_count = group_count,
     .is_small_state = is_small_state,
     .state = state,
-    .section_index = section_index,
     .symbol = UINT16_MAX,
     .next_state = 0,
   };
