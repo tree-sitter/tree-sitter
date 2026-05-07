@@ -31,6 +31,13 @@ const ABI_VERSION_WITH_RESERVED_WORDS: usize = 15;
 const ABI_VERSION_WITH_COMPRESSED_TABLES: usize = 16;
 const SMALL_STATE_THRESHOLD: usize = 64;
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+enum Repr {
+    Dense,
+    Csr,
+    Small,
+}
+
 pub type RenderResult<T> = Result<T, RenderError>;
 
 #[derive(Debug, Error, Serialize)]
@@ -501,7 +508,220 @@ impl Generator {
             self.parse_table.production_infos.len()
         );
         add_line!(self, "#define SUPERTYPE_COUNT {}", self.supertype_map.len());
+
+        // Plan B (PR #5578 review): per-state representation cost analysis.
+        self.add_per_state_cost_stats();
+
         add_line!(self, "");
+    }
+
+    // Pick the smallest representation for each state and emit summary stats.
+    // Plan B step 1: picker only runs; emission paths still use the per-grammar
+    // 2-way choice. The defines feed corpus-runner CSV columns.
+    fn add_per_state_cost_stats(&mut self) {
+        let symbol_count = self.parse_table.symbols.len();
+
+        let mut standalone_costs: Vec<[usize; 3]> = Vec::with_capacity(self.parse_table.states.len());
+        let mut sum_dense: usize = 0;
+        let mut sum_csr: usize = 0;
+        let mut sum_small: usize = 0;
+        let mut sum_current: usize = 0;
+
+        let mut term_groups: FxHashSet<&ParseTableEntry> = FxHashSet::default();
+        let mut nonterm_groups: FxHashSet<usize> = FxHashSet::default();
+
+        for (state_idx, state) in self.parse_table.states.iter().enumerate() {
+            let nnz = state.terminal_entries.len() + state.nonterminal_entries.len();
+
+            term_groups.clear();
+            nonterm_groups.clear();
+            for entry in state.terminal_entries.values() {
+                term_groups.insert(entry);
+            }
+            for action in state.nonterminal_entries.values() {
+                let id = match action {
+                    GotoAction::Goto(s) => *s,
+                    GotoAction::ShiftExtra => state_idx,
+                };
+                nonterm_groups.insert(id);
+            }
+            let group_count = term_groups.len() + nonterm_groups.len();
+
+            // Overhead-aware per-state marginal cost. Dense has no per-state
+            // overhead (state slots into the [N][SYMBOL_COUNT] matrix). CSR
+            // adds one row_offsets entry (4 bytes). Small adds the group-count
+            // u16 header (2 bytes) and the small_parse_table_map u32 entry
+            // (4 bytes) on top of body bytes.
+            let dense = symbol_count * 2;
+            let csr = nnz * 4 + 4;
+            let small = 2 * nnz + 4 * group_count + 6;
+
+            sum_dense += dense;
+            sum_csr += csr;
+            sum_small += small;
+            standalone_costs.push([dense, csr, small]);
+
+            let current = if self.use_compressed_tables {
+                csr
+            } else if state_idx < self.large_state_count {
+                dense
+            } else {
+                small
+            };
+            sum_current += current;
+        }
+
+        let picks = self.decide_state_representations(&standalone_costs);
+
+        let mut pick_dense: usize = 0;
+        let mut pick_csr: usize = 0;
+        let mut pick_small: usize = 0;
+        let mut sum_opt: usize = 0;
+        let mut sum_opt_pre_dedup: usize = 0;
+
+        // Pre-dedup total: sum of standalone argmin per state (no dedup credit).
+        for c in &standalone_costs {
+            sum_opt_pre_dedup += c[0].min(c[1]).min(c[2]);
+        }
+
+        // Post-dedup total uses the picker's actual decisions and credits any
+        // small-tier dedup. For each canonical group with N members, only the
+        // first member pays the full small body; the rest pay 4 bytes (map).
+        let mut canonical_seen: FxHashMap<u64, usize> = FxHashMap::default();
+        for (i, &repr) in picks.iter().enumerate() {
+            match repr {
+                Repr::Dense => {
+                    pick_dense += 1;
+                    sum_opt += standalone_costs[i][0];
+                }
+                Repr::Csr => {
+                    pick_csr += 1;
+                    sum_opt += standalone_costs[i][1];
+                }
+                Repr::Small => {
+                    pick_small += 1;
+                    let h = self.canonical_small_hash(i);
+                    if canonical_seen.insert(h, i).is_some() {
+                        // Duplicate canonical: only the map entry costs.
+                        sum_opt += 4;
+                    } else {
+                        sum_opt += standalone_costs[i][2];
+                    }
+                }
+            }
+        }
+
+        add_line!(self, "#define PER_STATE_OPT_BYTES {sum_opt}");
+        add_line!(self, "#define PER_STATE_OPT_BYTES_PRE_DEDUP {sum_opt_pre_dedup}");
+        add_line!(self, "#define PER_STATE_DENSE_BYTES {sum_dense}");
+        add_line!(self, "#define PER_STATE_CSR_BYTES {sum_csr}");
+        add_line!(self, "#define PER_STATE_SMALL_BYTES {sum_small}");
+        add_line!(self, "#define PER_STATE_CURRENT_BYTES {sum_current}");
+        add_line!(self, "#define PER_STATE_PICK_DENSE {pick_dense}");
+        add_line!(self, "#define PER_STATE_PICK_CSR {pick_csr}");
+        add_line!(self, "#define PER_STATE_PICK_SMALL {pick_small}");
+    }
+
+    // Choose dense / CSR / small per state. Two-pass: per-state argmin on
+    // standalone overhead-aware costs, then a dedup-promotion pass that
+    // groups states by canonical small-data and promotes a whole group to
+    // small when all-small (one full body + N-1 map entries) beats the sum
+    // of their standalone picks. One pass suffices because dedup only
+    // affects the small tier.
+    fn decide_state_representations(&self, standalone_costs: &[[usize; 3]]) -> Vec<Repr> {
+        let n = self.parse_table.states.len();
+        let mut picks = Vec::with_capacity(n);
+
+        for c in standalone_costs {
+            let pick = if c[0] <= c[1] && c[0] <= c[2] {
+                Repr::Dense
+            } else if c[1] <= c[2] {
+                Repr::Csr
+            } else {
+                Repr::Small
+            };
+            picks.push(pick);
+        }
+
+        // Group states by canonical small-data hash. FxHasher 64-bit
+        // collisions across O(10K) states are negligible; a false dedup
+        // would slightly mis-estimate cost but not produce incorrect picks
+        // since we still verify the promotion is locally cheaper.
+        let mut by_hash: FxHashMap<u64, Vec<usize>> = FxHashMap::default();
+        for i in 0..n {
+            by_hash.entry(self.canonical_small_hash(i)).or_default().push(i);
+        }
+
+        for (_, group) in by_hash.into_iter().filter(|(_, g)| g.len() > 1) {
+            let current: usize = group
+                .iter()
+                .map(|&i| match picks[i] {
+                    Repr::Dense => standalone_costs[i][0],
+                    Repr::Csr => standalone_costs[i][1],
+                    Repr::Small => standalone_costs[i][2],
+                })
+                .sum();
+            // First state in the group pays full small_cost (body + map);
+            // each subsequent state pays only 4 bytes (its map entry).
+            let promoted = standalone_costs[group[0]][2] + 4 * (group.len() - 1);
+            if promoted < current {
+                for &i in &group {
+                    picks[i] = Repr::Small;
+                }
+            }
+        }
+
+        picks
+    }
+
+    // Hash the canonical small-table representation of a state. Two states
+    // with equal hashes are presumed to emit byte-identical small entries.
+    fn canonical_small_hash(&self, state_idx: usize) -> u64 {
+        let state = &self.parse_table.states[state_idx];
+
+        // Group symbols by action. Terminals key on &ParseTableEntry (Eq
+        // distinguishes distinct action sequences); nonterminals key on
+        // resolved goto state ID. Renumbering preserves equality (both
+        // states remap goto values the same way), so original IDs are fine.
+        let mut term_groups: FxHashMap<&ParseTableEntry, Vec<(u8, u32)>> = FxHashMap::default();
+        let mut nonterm_groups: FxHashMap<usize, Vec<(u8, u32)>> = FxHashMap::default();
+
+        for (sym, entry) in &state.terminal_entries {
+            term_groups
+                .entry(entry)
+                .or_default()
+                .push((sym.kind as u8, sym.index as u32));
+        }
+        for (sym, action) in &state.nonterminal_entries {
+            let id = match action {
+                GotoAction::Goto(s) => *s,
+                GotoAction::ShiftExtra => state_idx,
+            };
+            nonterm_groups
+                .entry(id)
+                .or_default()
+                .push((sym.kind as u8, sym.index as u32));
+        }
+
+        for v in term_groups.values_mut() {
+            v.sort_unstable();
+        }
+        for v in nonterm_groups.values_mut() {
+            v.sort_unstable();
+        }
+
+        // Sort groups deterministically. Each group's symbol set is
+        // disjoint from every other group's (a symbol belongs to exactly
+        // one action group), so symbol-sequence ordering is total.
+        let mut term_vec: Vec<_> = term_groups.into_iter().collect();
+        let mut nonterm_vec: Vec<_> = nonterm_groups.into_iter().collect();
+        term_vec.sort_by(|a, b| a.1.cmp(&b.1));
+        nonterm_vec.sort_by(|a, b| a.1.cmp(&b.1));
+
+        let mut h = FxHasher::default();
+        term_vec.hash(&mut h);
+        nonterm_vec.hash(&mut h);
+        h.finish()
     }
 
     fn add_symbol_enum(&mut self) {
