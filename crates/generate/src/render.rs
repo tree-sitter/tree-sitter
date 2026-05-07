@@ -20,8 +20,8 @@ use super::{
     node_types::ChildType,
     rules::{Alias, AliasMap, Symbol, SymbolType, TokenSet},
     tables::{
-        AdvanceAction, FieldLocation, GotoAction, LexState, LexTable, ParseAction, ParseTable,
-        ParseTableEntry,
+        AdvanceAction, FieldLocation, GotoAction, LexState, LexTable, ParseAction, ParseState,
+        ParseTable, ParseTableEntry,
     },
 };
 
@@ -115,6 +115,8 @@ struct Generator {
     supertype_map: BTreeMap<String, Vec<ChildType>>,
     abi_version: usize,
     use_compressed_tables: bool,
+    state_repr: Vec<Repr>,
+    csr_state_count: usize,
     metadata: Option<Metadata>,
 }
 
@@ -363,6 +365,95 @@ impl Generator {
             } else {
                 self.heuristic_should_compress()
             };
+        }
+
+        // Plan B step 2: assign each state a representation and partition the
+        // state list into contiguous tiers [Dense | CSR | Small]. This step
+        // mirrors the existing 2-way decision so the reorder is a no-op
+        // (parser.c output unchanged) until step 3 enables free 3-way picks.
+        self.assign_initial_state_repr();
+        self.reorder_states_by_repr();
+    }
+
+    // Populate `state_repr` to mirror the current 2-way decision exactly:
+    // CSR-compressed grammar -> every state CSR; hybrid grammar -> first
+    // `large_state_count` states Dense, the rest Small. The reorder sort
+    // key keeps states 0 (error) and 1 (start) at indices 0 and 1 within
+    // whichever tier they land in.
+    fn assign_initial_state_repr(&mut self) {
+        let n = self.parse_table.states.len();
+        self.state_repr = if self.abi_version >= ABI_VERSION_WITH_COMPRESSED_TABLES
+            && self.use_compressed_tables
+        {
+            vec![Repr::Csr; n]
+        } else {
+            let mut v = vec![Repr::Dense; self.large_state_count.min(n)];
+            v.resize(n, Repr::Small);
+            v
+        };
+    }
+
+    // Reorder parse_table.states into contiguous [Dense | CSR | Small] tiers,
+    // remap all Shift/Goto state references, permute parallel state-indexed
+    // arrays, and update large_state_count + csr_state_count.
+    fn reorder_states_by_repr(&mut self) {
+        let n = self.parse_table.states.len();
+
+        // Build old_id -> new_id permutation. Stable sort by (tier, original
+        // id); states 0 and 1 are pinned to the head so the runtime keeps
+        // its error/start state conventions.
+        let mut old_ids_by_new: Vec<usize> = (0..n).collect();
+        old_ids_by_new.sort_by_key(|&i| {
+            let tier = match self.state_repr[i] {
+                Repr::Dense => 0u8,
+                Repr::Csr => 1,
+                Repr::Small => 2,
+            };
+            (i > 1, tier, i)
+        });
+
+        let mut new_id_by_old = vec![0usize; n];
+        for (new_id, &old_id) in old_ids_by_new.iter().enumerate() {
+            new_id_by_old[old_id] = new_id;
+        }
+
+        // Reorder states; remap Shift/Goto values inside each state.
+        let mut new_states: Vec<ParseState> = old_ids_by_new
+            .iter()
+            .map(|&old_id| {
+                let mut s = ParseState::default();
+                std::mem::swap(&mut s, &mut self.parse_table.states[old_id]);
+                s.update_referenced_states(|other_old_id, _| new_id_by_old[other_old_id]);
+                s
+            })
+            .collect();
+        std::mem::swap(&mut self.parse_table.states, &mut new_states);
+
+        // Permute parallel arrays indexed by parse-state id.
+        let new_repr: Vec<Repr> = old_ids_by_new
+            .iter()
+            .map(|&old_id| self.state_repr[old_id])
+            .collect();
+        self.state_repr = new_repr;
+
+        if !self.reserved_word_set_ids_by_parse_state.is_empty() {
+            let new_rws: Vec<usize> = old_ids_by_new
+                .iter()
+                .map(|&old_id| self.reserved_word_set_ids_by_parse_state[old_id])
+                .collect();
+            self.reserved_word_set_ids_by_parse_state = new_rws;
+        }
+
+        // Recount tier boundaries from the (now-sorted) repr vector.
+        let dense_count = self.state_repr.iter().filter(|r| **r == Repr::Dense).count();
+        let csr_count = self.state_repr.iter().filter(|r| **r == Repr::Csr).count();
+        self.csr_state_count = csr_count;
+        // In CSR mode the existing emission paths still depend on
+        // large_state_count carrying the take_while value (used as a
+        // dummy-table threshold in add_compressed_parse_table). Step 3 will
+        // reunify these once emission switches to the 3-way layout.
+        if !self.use_compressed_tables {
+            self.large_state_count = dense_count;
         }
     }
 
