@@ -124,6 +124,7 @@ typedef struct {
   uint32_t external_token_count;
   uint32_t state_count;
   uint32_t large_state_count;
+  uint32_t csr_state_count;
   uint32_t production_id_count;
   uint32_t field_count;
   uint16_t max_alias_sequence_length;
@@ -1378,6 +1379,8 @@ const TSLanguage *ts_wasm_store_load_language(
     .external_token_count = wasm_language.external_token_count,
     .state_count = wasm_language.state_count,
     .large_state_count = wasm_language.large_state_count,
+    .csr_state_count = wasm_language.abi_version >= LANGUAGE_VERSION_WITH_COMPRESSED_TABLES
+      ? wasm_language.csr_state_count : 0,
     .production_id_count = wasm_language.production_id_count,
     .field_count = wasm_language.field_count,
     .supertype_count = wasm_language.supertype_count,
@@ -1387,12 +1390,11 @@ const TSLanguage *ts_wasm_store_load_language(
     .parse_table = copy(
       &wasm_memory,
       wasm_language.parse_table,
-      (wasm_language.abi_version >= LANGUAGE_VERSION_WITH_COMPRESSED_TABLES
-        ? (
-          wasm_language.parse_table_row_offsets
-            ? sizeof(uint16_t)
-            : wasm_language.large_state_count * wasm_language.symbol_count * sizeof(uint16_t)
-        )
+      // Dense tier covers state ids [0, large_state_count). When the picker
+      // assigned no Dense states the generator emits a 1x1 placeholder so
+      // the static initializer is well-formed; copy that single element.
+      (wasm_language.large_state_count == 0
+        ? sizeof(uint16_t)
         : wasm_language.large_state_count * wasm_language.symbol_count * sizeof(uint16_t)),
       &valid_wasm_memory
     ),
@@ -1540,10 +1542,11 @@ const TSLanguage *ts_wasm_store_load_language(
   }
 
   if (
-    language->state_count > language->large_state_count &&
-    !wasm_language.parse_table_row_offsets
+    wasm_language.state_count >
+    wasm_language.large_state_count + language->csr_state_count
   ) {
-    uint32_t small_state_count = wasm_language.state_count - wasm_language.large_state_count;
+    uint32_t small_state_count = wasm_language.state_count
+      - wasm_language.large_state_count - language->csr_state_count;
     language->small_parse_table_map = copy(
       &wasm_memory,
       wasm_language.small_parse_table_map,
@@ -1598,19 +1601,19 @@ const TSLanguage *ts_wasm_store_load_language(
 
   if (
     language->abi_version >= LANGUAGE_VERSION_WITH_COMPRESSED_TABLES &&
-    wasm_language.parse_table_row_offsets
+    language->csr_state_count > 0
   ) {
     language->parse_table_row_offsets = copy(
       &wasm_memory,
       wasm_language.parse_table_row_offsets,
-      (wasm_language.state_count + 1) * sizeof(uint32_t),
+      (language->csr_state_count + 1) * sizeof(uint32_t),
       &valid_wasm_memory
     );
     if (!valid_wasm_memory) goto invalid_language_memory;
     uint32_t total_nnz;
     if (!wasm_memory__read(
       &wasm_memory,
-      wasm_language.parse_table_row_offsets + wasm_language.state_count * sizeof(uint32_t),
+      wasm_language.parse_table_row_offsets + language->csr_state_count * sizeof(uint32_t),
       &total_nnz,
       sizeof(total_nnz)
     )) {

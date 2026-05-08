@@ -67,20 +67,23 @@ static inline bool ts_language_has_reduce_action(
 //
 // For non-terminal symbols, the table value represents a successor state.
 // For terminal symbols, it represents an index in the actions table.
-// For ABI >= 16 with CSR tables, uses O(log n) binary search on column
-// indices for the state's row.  For ABI < 16 (or ABI 16 grammars where
-// the heuristic chose the hybrid format and left CSR pointers NULL),
-// 'large' parse states use a direct 2D lookup, and 'small' parse states
-// use a linear search through symbol groups.
+// For ABI >= 16, the picker partitions states into three contiguous tiers
+// chosen per state for minimum bytes: Dense (O(1) 2D lookup), CSR
+// (O(log n) binary search on a sparse row), and Small (linear scan over
+// grouped symbol/action sections). For ABI < 16, only the Dense and Small
+// tiers exist (csr_state_count == 0).
 static inline uint16_t ts_language_lookup(
   const TSLanguage *self,
   TSStateId state,
   TSSymbol symbol
 ) {
-  if (self->abi_version >= LANGUAGE_VERSION_WITH_COMPRESSED_TABLES
-      && self->parse_table_row_offsets) {
-    uint32_t start = self->parse_table_row_offsets[state];
-    uint32_t end = self->parse_table_row_offsets[state + 1];
+  if (state < self->large_state_count) {
+    return self->parse_table[state * self->symbol_count + symbol];
+  } else if (self->abi_version >= LANGUAGE_VERSION_WITH_COMPRESSED_TABLES
+             && state < self->large_state_count + self->csr_state_count) {
+    uint32_t csr_state = state - self->large_state_count;
+    uint32_t start = self->parse_table_row_offsets[csr_state];
+    uint32_t end = self->parse_table_row_offsets[csr_state + 1];
     // Binary search for symbol in columns[start..end]
     while (start < end) {
       uint32_t mid = start + (end - start) / 2;
@@ -94,8 +97,11 @@ static inline uint16_t ts_language_lookup(
       }
     }
     return 0;
-  } else if (state >= self->large_state_count) {
-    uint32_t index = self->small_parse_table_map[state - self->large_state_count];
+  } else {
+    uint32_t small_state = state - self->large_state_count
+      - (self->abi_version >= LANGUAGE_VERSION_WITH_COMPRESSED_TABLES
+         ? self->csr_state_count : 0);
+    uint32_t index = self->small_parse_table_map[small_state];
     const uint16_t *data = &self->small_parse_table[index];
     uint16_t group_count = *(data++);
     for (unsigned i = 0; i < group_count; i++) {
@@ -106,8 +112,6 @@ static inline uint16_t ts_language_lookup(
       }
     }
     return 0;
-  } else {
-    return self->parse_table[state * self->symbol_count + symbol];
   }
 }
 
@@ -121,33 +125,34 @@ static inline bool ts_language_has_actions(
 
 // Iterate over all of the symbols that are valid in the given state.
 //
-// For compressed tables (ABI >= 16), iterate through the CSR row entries
-// directly, which only visits non-zero symbols.
-// For 'large' parse states, this just requires iterating through
-// all possible symbols and checking the parse table for each one.
-// For 'small' parse states, this exploits the structure of the
-// table to only visit the valid symbols.
+// Dispatch matches `ts_language_lookup`: Dense states scan all symbols,
+// CSR states walk the sparse row directly (visits only non-zero entries),
+// and Small states walk the grouped sparse representation.
 static inline LookaheadIterator ts_language_lookaheads(
   const TSLanguage *self,
   TSStateId state
 ) {
-  bool csr_mode = (self->abi_version >= LANGUAGE_VERSION_WITH_COMPRESSED_TABLES)
-    && self->parse_table_row_offsets;
-  bool is_small_state = !csr_mode && state >= self->large_state_count;
+  uint32_t csr_count = (self->abi_version >= LANGUAGE_VERSION_WITH_COMPRESSED_TABLES)
+    ? self->csr_state_count : 0;
+  bool is_dense_state = state < self->large_state_count;
+  bool is_csr_state = !is_dense_state
+    && state < self->large_state_count + csr_count;
+  bool is_small_state = !is_dense_state && !is_csr_state;
   const uint16_t *data;
   const uint16_t *group_end = NULL;
   uint16_t group_count = 0;
   if (is_small_state) {
-    uint32_t index = self->small_parse_table_map[state - self->large_state_count];
+    uint32_t index = self->small_parse_table_map[state - self->large_state_count - csr_count];
     data = &self->small_parse_table[index];
     group_end = data + 1;
     group_count = *data;
-  } else if (csr_mode) {
-    // For CSR tables, group_count tracks the number of remaining entries.
+  } else if (is_csr_state) {
+    // For CSR rows, group_count tracks the number of remaining entries.
     // data is set to NULL to indicate CSR mode.
     data = NULL;
-    uint32_t start = self->parse_table_row_offsets[state];
-    uint32_t end = self->parse_table_row_offsets[state + 1];
+    uint32_t csr_state = state - self->large_state_count;
+    uint32_t start = self->parse_table_row_offsets[csr_state];
+    uint32_t end = self->parse_table_row_offsets[csr_state + 1];
     group_count = (uint16_t)(end - start);  // NNZ per row <= symbol_count <= UINT16_MAX
   } else {
     data = &self->parse_table[state * self->symbol_count] - 1;
@@ -183,12 +188,15 @@ static inline bool ts_lookahead_iterator__next(LookaheadIterator *self) {
     }
   }
 
-  // For compressed tables (ABI >= 16), iterate through the CSR row entries
+  // For CSR-tier states (ABI >= 16), iterate through the CSR row entries
   // directly. group_count tracks the number of entries remaining.
-  // Position is computed as row_offsets[state+1] - group_count.
+  // Position is computed as row_offsets[csr_state+1] - group_count, where
+  // csr_state is the row index into the CSR-tier arrays (state shifted
+  // down past the Dense tier).
   else if (self->data == NULL) {
     if (self->group_count == 0) return false;
-    uint32_t pos = self->language->parse_table_row_offsets[self->state + 1] - self->group_count;
+    uint32_t csr_state = self->state - self->language->large_state_count;
+    uint32_t pos = self->language->parse_table_row_offsets[csr_state + 1] - self->group_count;
     self->symbol = self->language->parse_table_columns[pos];
     self->table_value = self->language->parse_table_values[pos];
     self->group_count--;

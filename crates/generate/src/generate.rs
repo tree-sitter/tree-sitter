@@ -209,39 +209,12 @@ bitflags! {
     pub struct OptLevel: u32 {
         /// Merge equivalent parse states.
         const MergeStates = 1 << 0;
-        /// Force the parse table to use the hybrid format (dense 2D table for
-        /// "large" states + grouped sparse `ts_small_parse_table` for "small"
-        /// states).
-        const ForceHybridTable = 1 << 1;
-        /// Force the parse table to use the CSR-compressed format (a single
-        /// uniform compressed sparse row representation for all states).
-        const ForceCompressedTable = 1 << 2;
     }
 }
 
 impl Default for OptLevel {
     fn default() -> Self {
         Self::MergeStates
-    }
-}
-
-impl OptLevel {
-    /// Force the renderer to emit the hybrid (ABI 15) parse table format,
-    /// bypassing the heuristic.
-    #[must_use]
-    pub fn force_hybrid_parse_table(mut self) -> Self {
-        self.remove(Self::ForceCompressedTable);
-        self.insert(Self::ForceHybridTable);
-        self
-    }
-
-    /// Force the renderer to emit the CSR-compressed (ABI 16) parse table
-    /// format, bypassing the heuristic.
-    #[must_use]
-    pub fn force_compressed_parse_table(mut self) -> Self {
-        self.remove(Self::ForceHybridTable);
-        self.insert(Self::ForceCompressedTable);
-        self
     }
 }
 
@@ -410,7 +383,6 @@ fn generate_parser_for_grammar_with_opts(
         abi_version,
         semantic_version,
         supertype_symbol_map,
-        optimizations,
     )?;
     Ok(GeneratedParser {
         c_code,

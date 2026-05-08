@@ -167,19 +167,6 @@ struct Generate {
     /// the merging of compatible parse states.
     #[arg(long)]
     pub disable_optimizations: bool,
-    /// Select the parse table format.
-    #[arg(long, value_enum, default_value_t = ParseTableMode::Auto)]
-    pub table_fmt: ParseTableMode,
-}
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq, ValueEnum)]
-pub enum ParseTableMode {
-    /// Heuristic automatically decides.
-    Auto,
-    /// Dense 2D table for large states + grouped sparse small table.
-    Hybrid,
-    /// CSR-compressed table. Requires ABI 16.
-    CSR,
 }
 
 #[derive(Args)]
@@ -964,11 +951,6 @@ impl Generate {
             OptLevel::empty()
         } else {
             OptLevel::default()
-        };
-        let optimizations = match self.table_fmt {
-            ParseTableMode::Auto => optimizations,
-            ParseTableMode::Hybrid => optimizations.force_hybrid_parse_table(),
-            ParseTableMode::CSR => optimizations.force_compressed_parse_table(),
         };
 
         if let Err(err) = tree_sitter_generate::generate_parser_in_directory(

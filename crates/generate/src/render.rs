@@ -13,7 +13,6 @@ use serde::Serialize;
 use thiserror::Error;
 
 use super::{
-    OptLevel,
     build_tables::Tables,
     grammars::{ExternalToken, LexicalGrammar, SyntaxGrammar, VariableType},
     nfa::CharacterSet,
@@ -48,8 +47,6 @@ pub enum RenderError {
         "This version of Tree-sitter can only generate parsers with ABI version {ABI_VERSION_MIN} - {ABI_VERSION_MAX}, not {0}"
     )]
     ABI(usize),
-    #[error("`ForceHybridTable` and `ForceCompressedTable` are mutually exclusive")]
-    ConflictingParseTableFlags,
 }
 
 #[clippy::format_args]
@@ -114,7 +111,6 @@ struct Generator {
     supertype_symbol_map: BTreeMap<Symbol, Vec<ChildType>>,
     supertype_map: BTreeMap<String, Vec<ChildType>>,
     abi_version: usize,
-    use_compressed_tables: bool,
     state_repr: Vec<Repr>,
     csr_state_count: usize,
     metadata: Option<Metadata>,
@@ -133,8 +129,8 @@ struct Metadata {
 }
 
 impl Generator {
-    fn generate(mut self, optimizations: OptLevel) -> RenderResult<String> {
-        self.init(optimizations);
+    fn generate(mut self) -> RenderResult<String> {
+        self.init();
         self.add_header();
         self.add_includes();
         self.add_pragmas();
@@ -203,7 +199,7 @@ impl Generator {
         Ok(self.buffer)
     }
 
-    fn init(&mut self, optimizations: OptLevel) {
+    fn init(&mut self) {
         let mut symbol_identifiers = FxHashSet::default();
         for i in 0..self.parse_table.symbols.len() {
             self.assign_symbol_id(self.parse_table.symbols[i], &mut symbol_identifiers);
@@ -353,44 +349,27 @@ impl Generator {
             })
             .count();
 
-        // Decide whether to use the CSR-compressed parse table (ABI 16) or
-        // fall back to the hybrid format (ABI 15).  This must happen before
-        // any rendering so that `self.abi_version` is consistent when
-        // `add_stats` emits `#define LANGUAGE_VERSION`.
+        // Choose a representation per state (ABI >= 16 only) and reorder the
+        // state list into contiguous [Dense | CSR | Small] tiers. ABI < 16
+        // grammars keep the legacy 2-way layout (Dense + Small) since the
+        // runtime there has no notion of a CSR tier.
         if self.abi_version >= ABI_VERSION_WITH_COMPRESSED_TABLES {
-            self.use_compressed_tables = if optimizations.contains(OptLevel::ForceCompressedTable) {
-                true
-            } else if optimizations.contains(OptLevel::ForceHybridTable) {
-                false
-            } else {
-                self.heuristic_should_compress()
-            };
-        }
-
-        // Plan B step 2: assign each state a representation and partition the
-        // state list into contiguous tiers [Dense | CSR | Small]. This step
-        // mirrors the existing 2-way decision so the reorder is a no-op
-        // (parser.c output unchanged) until step 3 enables free 3-way picks.
-        self.assign_initial_state_repr();
-        self.reorder_states_by_repr();
-    }
-
-    // Populate `state_repr` to mirror the current 2-way decision exactly:
-    // CSR-compressed grammar -> every state CSR; hybrid grammar -> first
-    // `large_state_count` states Dense, the rest Small. The reorder sort
-    // key keeps states 0 (error) and 1 (start) at indices 0 and 1 within
-    // whichever tier they land in.
-    fn assign_initial_state_repr(&mut self) {
-        let n = self.parse_table.states.len();
-        self.state_repr = if self.abi_version >= ABI_VERSION_WITH_COMPRESSED_TABLES
-            && self.use_compressed_tables
-        {
-            vec![Repr::Csr; n]
+            let costs = self.compute_standalone_costs();
+            self.state_repr = self.decide_state_representations(&costs);
         } else {
+            let n = self.parse_table.states.len();
             let mut v = vec![Repr::Dense; self.large_state_count.min(n)];
             v.resize(n, Repr::Small);
-            v
-        };
+            self.state_repr = v;
+        }
+        // The runtime hard-codes state 0 (error) and state 1 (start state)
+        // at those exact ids; pin them into the Dense tier so they remain
+        // at indices 0 and 1 after the tier-based sort. The cost is at
+        // most 2 * (SYMBOL_COUNT * 2 - small_or_csr_cost) bytes per grammar.
+        for s in self.state_repr.iter_mut().take(2) {
+            *s = Repr::Dense;
+        }
+        self.reorder_states_by_repr();
     }
 
     // Reorder parse_table.states into contiguous [Dense | CSR | Small] tiers,
@@ -445,64 +424,8 @@ impl Generator {
         }
 
         // Recount tier boundaries from the (now-sorted) repr vector.
-        let dense_count = self.state_repr.iter().filter(|r| **r == Repr::Dense).count();
-        let csr_count = self.state_repr.iter().filter(|r| **r == Repr::Csr).count();
-        self.csr_state_count = csr_count;
-        // In CSR mode the existing emission paths still depend on
-        // large_state_count carrying the take_while value (used as a
-        // dummy-table threshold in add_compressed_parse_table). Step 3 will
-        // reunify these once emission switches to the 3-way layout.
-        if !self.use_compressed_tables {
-            self.large_state_count = dense_count;
-        }
-    }
-
-    /// Decide per grammar whether the CSR-compressed parse table is
-    /// expected to produce a smaller binary than the hybrid format.
-    ///
-    /// Let `L` be `LARGE_STATE_COUNT`, `S` be `STATE_COUNT`, and `SYM` be
-    /// `SYMBOL_COUNT`.  All three conditions must hold:
-    ///
-    /// 1. The dense table area per total state must exceed 40, that is
-    ///    `(L * SYM) / S > 40`.  This ensures the dense table is large
-    ///    enough relative to total state count that savings from
-    ///    compressing it outweigh the small-state grouping penalty CSR
-    ///    incurs (CSR loses the hybrid format's grouped representation
-    ///    of small parse states). The threshold of 40 was chosen
-    ///    empirically. The worst observed regression from testing had
-    ///    `L*SYM/S ≈ 29`, so 40 leaves a comfortable margin without missing
-    ///    meaningful savings.
-    /// 2. The dense table density must be below 45%, meaning fewer than
-    ///    45% of the `L * SYM` cells in the dense table are non-zero.
-    ///    Above ~50% density, CSR's per-entry column indices cost more
-    ///    than the zeros they eliminate. 45% leaves a reasonable conservative
-    ///    margin.
-    /// 3. The dense table must have more than 50,000 cells (`L * SYM > 50_000`)
-    ///    to avoid applying compression to tiny grammars where fixed
-    ///    overhead dominates.
-    fn heuristic_should_compress(&self) -> bool {
-        let state_count = self.parse_table.states.len();
-        let symbol_count = self.parse_table.symbols.len();
-        let dense_area = self.large_state_count * symbol_count;
-
-        if dense_area <= state_count * 40 || dense_area <= 50_000 {
-            return false;
-        }
-
-        // Count non-zero entries for large states only (the dense table).
-        let nnz_large: usize = self
-            .parse_table
-            .states
-            .iter()
-            .take(self.large_state_count)
-            .map(|s| s.terminal_entries.len() + s.nonterminal_entries.len())
-            .sum();
-
-        // CSR stores each non-zero entry as (column, value) = 4 bytes,
-        // while the hybrid format stores every cell (including zeros) as
-        // 2 bytes. CSR wins on the dense table when density < 50%.
-        let density = nnz_large as f64 / dense_area as f64;
-        density < 0.45
+        self.large_state_count = self.state_repr.iter().filter(|r| **r == Repr::Dense).count();
+        self.csr_state_count = self.state_repr.iter().filter(|r| **r == Repr::Csr).count();
     }
 
     fn add_header(&mut self) {
@@ -564,6 +487,7 @@ impl Generator {
             self.parse_table.states.len()
         );
         add_line!(self, "#define LARGE_STATE_COUNT {}", self.large_state_count);
+        add_line!(self, "#define CSR_STATE_COUNT {}", self.csr_state_count);
 
         add_line!(
             self,
@@ -606,24 +530,19 @@ impl Generator {
         add_line!(self, "");
     }
 
-    // Pick the smallest representation for each state and emit summary stats.
-    // Plan B step 1: picker only runs; emission paths still use the per-grammar
-    // 2-way choice. The defines feed corpus-runner CSV columns.
-    fn add_per_state_cost_stats(&mut self) {
+    // Compute the standalone overhead-aware per-state cost in each
+    // representation. Dense has no per-state overhead (state slots into the
+    // [N][SYMBOL_COUNT] matrix). CSR adds one row_offsets entry (4 bytes).
+    // Small adds the group-count u16 header (2 bytes) and the
+    // small_parse_table_map u32 entry (4 bytes) on top of body bytes.
+    fn compute_standalone_costs(&self) -> Vec<[usize; 3]> {
         let symbol_count = self.parse_table.symbols.len();
-
-        let mut standalone_costs: Vec<[usize; 3]> = Vec::with_capacity(self.parse_table.states.len());
-        let mut sum_dense: usize = 0;
-        let mut sum_csr: usize = 0;
-        let mut sum_small: usize = 0;
-        let mut sum_current: usize = 0;
-
         let mut term_groups: FxHashSet<&ParseTableEntry> = FxHashSet::default();
         let mut nonterm_groups: FxHashSet<usize> = FxHashSet::default();
+        let mut out = Vec::with_capacity(self.parse_table.states.len());
 
         for (state_idx, state) in self.parse_table.states.iter().enumerate() {
             let nnz = state.terminal_entries.len() + state.nonterminal_entries.len();
-
             term_groups.clear();
             nonterm_groups.clear();
             for entry in state.terminal_entries.values() {
@@ -638,65 +557,53 @@ impl Generator {
             }
             let group_count = term_groups.len() + nonterm_groups.len();
 
-            // Overhead-aware per-state marginal cost. Dense has no per-state
-            // overhead (state slots into the [N][SYMBOL_COUNT] matrix). CSR
-            // adds one row_offsets entry (4 bytes). Small adds the group-count
-            // u16 header (2 bytes) and the small_parse_table_map u32 entry
-            // (4 bytes) on top of body bytes.
-            let dense = symbol_count * 2;
-            let csr = nnz * 4 + 4;
-            let small = 2 * nnz + 4 * group_count + 6;
-
-            sum_dense += dense;
-            sum_csr += csr;
-            sum_small += small;
-            standalone_costs.push([dense, csr, small]);
-
-            let current = if self.use_compressed_tables {
-                csr
-            } else if state_idx < self.large_state_count {
-                dense
-            } else {
-                small
-            };
-            sum_current += current;
+            out.push([
+                symbol_count * 2,
+                nnz * 4 + 4,
+                2 * nnz + 4 * group_count + 6,
+            ]);
         }
+        out
+    }
 
-        let picks = self.decide_state_representations(&standalone_costs);
-
-        let mut pick_dense: usize = 0;
-        let mut pick_csr: usize = 0;
-        let mut pick_small: usize = 0;
-        let mut sum_opt: usize = 0;
+    // Emit per-state cost analytics for the corpus runner. Reflects the
+    // post-reorder state list, so picks here align with what the emitter
+    // actually wrote.
+    fn add_per_state_cost_stats(&mut self) {
+        let costs = self.compute_standalone_costs();
+        let mut sum_dense: usize = 0;
+        let mut sum_csr: usize = 0;
+        let mut sum_small: usize = 0;
         let mut sum_opt_pre_dedup: usize = 0;
-
-        // Pre-dedup total: sum of standalone argmin per state (no dedup credit).
-        for c in &standalone_costs {
+        for c in &costs {
+            sum_dense += c[0];
+            sum_csr += c[1];
+            sum_small += c[2];
             sum_opt_pre_dedup += c[0].min(c[1]).min(c[2]);
         }
 
-        // Post-dedup total uses the picker's actual decisions and credits any
-        // small-tier dedup. For each canonical group with N members, only the
-        // first member pays the full small body; the rest pay 4 bytes (map).
+        let mut pick_dense = 0;
+        let mut pick_csr = 0;
+        let mut pick_small = 0;
+        let mut sum_opt = 0;
         let mut canonical_seen: FxHashMap<u64, usize> = FxHashMap::default();
-        for (i, &repr) in picks.iter().enumerate() {
+        for (i, &repr) in self.state_repr.iter().enumerate() {
             match repr {
                 Repr::Dense => {
                     pick_dense += 1;
-                    sum_opt += standalone_costs[i][0];
+                    sum_opt += costs[i][0];
                 }
                 Repr::Csr => {
                     pick_csr += 1;
-                    sum_opt += standalone_costs[i][1];
+                    sum_opt += costs[i][1];
                 }
                 Repr::Small => {
                     pick_small += 1;
                     let h = self.canonical_small_hash(i);
                     if canonical_seen.insert(h, i).is_some() {
-                        // Duplicate canonical: only the map entry costs.
                         sum_opt += 4;
                     } else {
-                        sum_opt += standalone_costs[i][2];
+                        sum_opt += costs[i][2];
                     }
                 }
             }
@@ -707,7 +614,6 @@ impl Generator {
         add_line!(self, "#define PER_STATE_DENSE_BYTES {sum_dense}");
         add_line!(self, "#define PER_STATE_CSR_BYTES {sum_csr}");
         add_line!(self, "#define PER_STATE_SMALL_BYTES {sum_small}");
-        add_line!(self, "#define PER_STATE_CURRENT_BYTES {sum_current}");
         add_line!(self, "#define PER_STATE_PICK_DENSE {pick_dense}");
         add_line!(self, "#define PER_STATE_PICK_CSR {pick_csr}");
         add_line!(self, "#define PER_STATE_PICK_SMALL {pick_small}");
@@ -1681,17 +1587,10 @@ impl Generator {
             &mut next_parse_action_list_index,
         );
 
-        if self.use_compressed_tables {
-            self.add_compressed_parse_table(
-                &mut parse_table_entries,
-                &mut next_parse_action_list_index,
-            );
-        } else {
-            self.add_hybrid_parse_table(
-                &mut parse_table_entries,
-                &mut next_parse_action_list_index,
-            );
-        }
+        self.add_three_way_parse_table(
+            &mut parse_table_entries,
+            &mut next_parse_action_list_index,
+        );
 
         if next_parse_action_list_index >= usize::from(u16::MAX) {
             Err(RenderError::ParseTable(next_parse_action_list_index))?;
@@ -1707,178 +1606,67 @@ impl Generator {
         Ok(())
     }
 
-    /// Emit the CSR (Compressed Sparse Row) parse table for ABI >= 16.
+    /// Emit the parse table in the 3-way per-state layout (ABI >= 16).
     ///
-    /// This replaces both `ts_parse_table[LARGE_STATE_COUNT][SYMBOL_COUNT]`
-    /// and `ts_small_parse_table[]` with three flat arrays:
-    ///   - `ts_parse_table_row_offsets[STATE_COUNT + 1]`  (`uint32_t`, cumulative NNZ)
-    ///   - `ts_parse_table_columns[TOTAL_NNZ]`            (`uint16_t`, sorted symbol indices)
-    ///   - `ts_parse_table_values[TOTAL_NNZ]`             (`uint16_t`, action/goto values)
-    ///
-    /// Lookup is O(log n) binary search on columns for a given state's row.
-    fn add_compressed_parse_table(
+    /// State ids are partitioned by the picker into three contiguous tiers:
+    ///   * `[0, LARGE_STATE_COUNT)`                                   - Dense
+    ///     `ts_parse_table[LARGE_STATE_COUNT][SYMBOL_COUNT]`, O(1) lookup.
+    ///   * `[LARGE_STATE_COUNT, LARGE_STATE_COUNT + CSR_STATE_COUNT)` - CSR
+    ///     `ts_parse_table_row_offsets[CSR_STATE_COUNT + 1]`,
+    ///     `ts_parse_table_columns[NNZ]`, `ts_parse_table_values[NNZ]`,
+    ///     O(log n) binary search on columns within the row.
+    ///   * remainder                                                  - Small
+    ///     grouped sparse `ts_small_parse_table[]` with
+    ///     `ts_small_parse_table_map[]` for offsets, O(group_count + nnz)
+    ///     linear scan.
+    fn add_three_way_parse_table(
         &mut self,
         parse_table_entries: &mut FxHashMap<ParseTableEntry, usize>,
         next_parse_action_list_index: &mut usize,
     ) {
-        let state_count = self.parse_table.states.len();
+        let n = self.parse_table.states.len();
+        let dense_count = self.large_state_count;
+        let csr_count = self.csr_state_count;
 
-        // Build CSR arrays directly from the sparse entry maps, avoiding a
-        // full state_count x symbol_count dense matrix allocation.
-        let mut row_offsets = Vec::with_capacity(state_count + 1);
-        let mut columns: Vec<u16> = Vec::new();
-        let mut values: Vec<u16> = Vec::new();
-        let mut entries_buf: Vec<(u16, u16)> = Vec::new();
-
-        for (state_idx, state) in self.parse_table.states.iter().enumerate() {
-            entries_buf.clear();
-
-            for (symbol, action) in &state.nonterminal_entries {
-                let col = match self.symbol_order.get(symbol) {
-                    Some(&c) => c,
-                    None => match self.symbol_order.get(&Symbol::end()) {
-                        Some(&c) if *symbol == Symbol::end_of_nonterminal_extra() => c,
-                        _ => continue,
-                    },
-                };
-                let state_id = match action {
-                    GotoAction::Goto(s) => *s,
-                    GotoAction::ShiftExtra => state_idx,
-                };
-                entries_buf.push((col as u16, state_id as u16));
-            }
-
-            for (symbol, entry) in &state.terminal_entries {
-                let col = match self.symbol_order.get(symbol) {
-                    Some(&c) => c,
-                    None => match self.symbol_order.get(&Symbol::end()) {
-                        Some(&c) if *symbol == Symbol::end_of_nonterminal_extra() => c,
-                        _ => continue,
-                    },
-                };
-                let entry_id = Self::get_parse_action_list_id(
-                    entry,
-                    parse_table_entries,
-                    next_parse_action_list_index,
-                );
-                entries_buf.push((col as u16, entry_id as u16));
-            }
-
-            // CSR requires columns to be sorted within each row.
-            entries_buf.sort_unstable_by_key(|&(col, _)| col);
-
-            row_offsets.push(columns.len() as u32);
-            for &(col, val) in &entries_buf {
-                columns.push(col);
-                values.push(val);
-            }
-        }
-        row_offsets.push(columns.len() as u32);
-
-        let total_nnz = columns.len();
-
-        // We still need a dummy ts_parse_table for the struct to compile.
-        // Emit a minimal 1x1 table.
-        add_line!(
-            self,
-            "static const uint16_t ts_parse_table[1][1] = {{{{0}}}};",
+        self.add_dense_section(dense_count, parse_table_entries, next_parse_action_list_index);
+        self.add_csr_section(
+            dense_count,
+            csr_count,
+            parse_table_entries,
+            next_parse_action_list_index,
         );
-        add_line!(self, "");
-
-        // row_offsets delimit each state's slice in the CSR arrays below.
-        add_line!(
-            self,
-            "static const uint32_t ts_parse_table_row_offsets[STATE_COUNT + 1] = {{",
-        );
-        indent!(self);
-        for (i, &off) in row_offsets.iter().enumerate() {
-            add_line!(self, "[{i}] = {off},");
-        }
-        dedent!(self);
-        add_line!(self, "}};");
-        add_line!(self, "");
-
-        // columns stores sorted symbol ids for binary search.
-        add_line!(self, "#define PARSE_TABLE_NNZ {total_nnz}");
-        add_line!(self, "");
-        add_line!(
-            self,
-            "static const uint16_t ts_parse_table_columns[PARSE_TABLE_NNZ] = {{",
-        );
-        indent!(self);
-        self.add_chunked_u16_array(&columns);
-        dedent!(self);
-        add_line!(self, "}};");
-        add_line!(self, "");
-
-        // values stores the matching action-list or goto value for each column.
-        add_line!(
-            self,
-            "static const uint16_t ts_parse_table_values[PARSE_TABLE_NNZ] = {{",
-        );
-        indent!(self);
-        self.add_chunked_u16_array(&values);
-        dedent!(self);
-        add_line!(self, "}};");
-        add_line!(self, "");
-
-        // Emit empty small_parse_table and map so the struct fields compile.
-        if self.large_state_count < self.parse_table.states.len() {
-            add_line!(
-                self,
-                "static const uint16_t ts_small_parse_table[] = {{0}};"
+        if dense_count + csr_count < n {
+            self.add_small_section(
+                dense_count + csr_count,
+                parse_table_entries,
+                next_parse_action_list_index,
             );
-            add_line!(self, "");
-            add_line!(
-                self,
-                "static const uint32_t ts_small_parse_table_map[] = {{0}};",
-            );
-            add_line!(self, "");
         }
     }
 
-    fn add_chunked_u16_array(&mut self, data: &[u16]) {
-        for chunk in data.chunks(16) {
-            add_whitespace!(self);
-            for val in chunk {
-                add!(self, "{val}, ");
-            }
-            add_line!(self, "");
-        }
-    }
-
-    /// Emit the hybrid (uncompressed) parse table for ABI < 16.
-    ///
-    /// The hybrid format splits states into two tiers: "large" states emit a
-    /// dense 2D `ts_parse_table[LARGE_STATE_COUNT][SYMBOL_COUNT]`, while
-    /// "small" states emit a grouped sparse `ts_small_parse_table[]` with a
-    /// per-state offset map.
-    fn add_hybrid_parse_table(
+    fn add_dense_section(
         &mut self,
+        dense_count: usize,
         parse_table_entries: &mut FxHashMap<ParseTableEntry, usize>,
         next_parse_action_list_index: &mut usize,
     ) {
+        if dense_count == 0 {
+            // The struct field still references ts_parse_table; keep a 1x1
+            // placeholder so the static initializer compiles.
+            add_line!(self, "static const uint16_t ts_parse_table[1][1] = {{{{0}}}};");
+            add_line!(self, "");
+            return;
+        }
         add_line!(
             self,
             "static const uint16_t ts_parse_table[LARGE_STATE_COUNT][SYMBOL_COUNT] = {{",
         );
         indent!(self);
-
         let mut terminal_entries = Vec::new();
         let mut nonterminal_entries = Vec::new();
-
-        for (i, state) in self
-            .parse_table
-            .states
-            .iter()
-            .enumerate()
-            .take(self.large_state_count)
-        {
+        for (i, state) in self.parse_table.states.iter().enumerate().take(dense_count) {
             add_line!(self, "[STATE({i})] = {{");
             indent!(self);
-
-            // Ensure the entries are in a deterministic order, since they are
-            // internally represented as a hash map.
             terminal_entries.clear();
             nonterminal_entries.clear();
             terminal_entries.extend(state.terminal_entries.iter());
@@ -1897,7 +1685,6 @@ impl Generator {
                     }
                 );
             }
-
             for (symbol, entry) in &terminal_entries {
                 let entry_id = Self::get_parse_action_list_id(
                     entry,
@@ -1906,154 +1693,245 @@ impl Generator {
                 );
                 add_line!(self, "[{}] = ACTIONS({entry_id}),", self.symbol_ids[symbol]);
             }
-
             dedent!(self);
             add_line!(self, "}},");
+        }
+        dedent!(self);
+        add_line!(self, "}};");
+        add_line!(self, "");
+    }
+
+    fn add_csr_section(
+        &mut self,
+        dense_count: usize,
+        csr_count: usize,
+        parse_table_entries: &mut FxHashMap<ParseTableEntry, usize>,
+        next_parse_action_list_index: &mut usize,
+    ) {
+        if csr_count == 0 {
+            return;
+        }
+
+        let mut row_offsets = Vec::with_capacity(csr_count + 1);
+        let mut columns: Vec<u16> = Vec::new();
+        let mut values: Vec<u16> = Vec::new();
+        let mut entries_buf: Vec<(u16, u16)> = Vec::new();
+
+        for (state_idx, state) in self
+            .parse_table
+            .states
+            .iter()
+            .enumerate()
+            .skip(dense_count)
+            .take(csr_count)
+        {
+            entries_buf.clear();
+            for (symbol, action) in &state.nonterminal_entries {
+                let col = match self.symbol_order.get(symbol) {
+                    Some(&c) => c,
+                    None => match self.symbol_order.get(&Symbol::end()) {
+                        Some(&c) if *symbol == Symbol::end_of_nonterminal_extra() => c,
+                        _ => continue,
+                    },
+                };
+                let state_id = match action {
+                    GotoAction::Goto(s) => *s,
+                    GotoAction::ShiftExtra => state_idx,
+                };
+                entries_buf.push((col as u16, state_id as u16));
+            }
+            for (symbol, entry) in &state.terminal_entries {
+                let col = match self.symbol_order.get(symbol) {
+                    Some(&c) => c,
+                    None => match self.symbol_order.get(&Symbol::end()) {
+                        Some(&c) if *symbol == Symbol::end_of_nonterminal_extra() => c,
+                        _ => continue,
+                    },
+                };
+                let entry_id = Self::get_parse_action_list_id(
+                    entry,
+                    parse_table_entries,
+                    next_parse_action_list_index,
+                );
+                entries_buf.push((col as u16, entry_id as u16));
+            }
+            entries_buf.sort_unstable_by_key(|&(col, _)| col);
+            row_offsets.push(columns.len() as u32);
+            for &(col, val) in &entries_buf {
+                columns.push(col);
+                values.push(val);
+            }
+        }
+        row_offsets.push(columns.len() as u32);
+        let total_nnz = columns.len();
+
+        add_line!(
+            self,
+            "static const uint32_t ts_parse_table_row_offsets[CSR_STATE_COUNT + 1] = {{",
+        );
+        indent!(self);
+        for (i, &off) in row_offsets.iter().enumerate() {
+            add_line!(self, "[{i}] = {off},");
+        }
+        dedent!(self);
+        add_line!(self, "}};");
+        add_line!(self, "");
+        add_line!(self, "#define PARSE_TABLE_NNZ {total_nnz}");
+        add_line!(self, "");
+        add_line!(
+            self,
+            "static const uint16_t ts_parse_table_columns[PARSE_TABLE_NNZ] = {{",
+        );
+        indent!(self);
+        self.add_chunked_u16_array(&columns);
+        dedent!(self);
+        add_line!(self, "}};");
+        add_line!(self, "");
+        add_line!(
+            self,
+            "static const uint16_t ts_parse_table_values[PARSE_TABLE_NNZ] = {{",
+        );
+        indent!(self);
+        self.add_chunked_u16_array(&values);
+        dedent!(self);
+        add_line!(self, "}};");
+        add_line!(self, "");
+    }
+
+    /// Emit the small-tier parse table for state ids `[small_offset, STATE_COUNT)`.
+    /// Small states are grouped sparse: many lookahead symbols share the same
+    /// action, so we emit one entry per unique action with the symbol list.
+    /// Identical canonical states share the same offset via a hash-keyed dedup.
+    fn add_small_section(
+        &mut self,
+        small_offset: usize,
+        parse_table_entries: &mut FxHashMap<ParseTableEntry, usize>,
+        next_parse_action_list_index: &mut usize,
+    ) {
+        add_line!(self, "static const uint16_t ts_small_parse_table[] = {{");
+        indent!(self);
+
+        let mut next_table_index = 0;
+        let n = self.parse_table.states.len();
+        let mut small_state_indices = Vec::with_capacity(n.saturating_sub(small_offset));
+        let mut seen_data: FxHashMap<u64, usize> = FxHashMap::default();
+        #[expect(clippy::collection_is_never_read, reason = "hasher performs a read")]
+        let mut canonical_data: Vec<u16> = Vec::with_capacity(64);
+        let mut symbols_by_value = FxHashMap::<(usize, SymbolType), Vec<Symbol>>::default();
+        let mut terminal_entries = Vec::new();
+
+        for (state_offset, state) in self
+            .parse_table
+            .states
+            .iter()
+            .enumerate()
+            .skip(small_offset)
+        {
+            symbols_by_value.clear();
+            terminal_entries.clear();
+            terminal_entries.extend(state.terminal_entries.iter());
+            terminal_entries.sort_unstable_by_key(|e| self.symbol_order.get(e.0));
+
+            for (symbol, entry) in &terminal_entries {
+                let entry_id = Self::get_parse_action_list_id(
+                    entry,
+                    parse_table_entries,
+                    next_parse_action_list_index,
+                );
+                symbols_by_value
+                    .entry((entry_id, SymbolType::Terminal))
+                    .or_default()
+                    .push(**symbol);
+            }
+            for (symbol, action) in &state.nonterminal_entries {
+                let state_id = match action {
+                    GotoAction::Goto(i) => *i,
+                    GotoAction::ShiftExtra => state_offset,
+                };
+                symbols_by_value
+                    .entry((state_id, SymbolType::NonTerminal))
+                    .or_default()
+                    .push(*symbol);
+            }
+
+            let mut values_with_symbols = symbols_by_value.drain().collect::<Vec<_>>();
+            values_with_symbols.sort_unstable_by_key(|((value, kind), symbols)| {
+                (symbols.len(), *kind, *value, symbols[0])
+            });
+
+            canonical_data.clear();
+            canonical_data.push(values_with_symbols.len() as u16);
+            for ((value, kind), symbols) in &mut values_with_symbols {
+                canonical_data.push(*kind as u16);
+                canonical_data.push(*value as u16);
+                symbols.sort_unstable();
+                canonical_data.push(symbols.len() as u16);
+                for symbol in symbols.iter() {
+                    canonical_data.push(symbol.kind as u16);
+                    canonical_data.push(symbol.index as u16);
+                }
+            }
+
+            let mut hasher = FxHasher::default();
+            canonical_data.hash(&mut hasher);
+            let key = hasher.finish();
+
+            if let Some(&existing_index) = seen_data.get(&key) {
+                small_state_indices.push(existing_index);
+                continue;
+            }
+            seen_data.insert(key, next_table_index);
+            small_state_indices.push(next_table_index);
+
+            add_line!(self, "[{next_table_index}] = {},", values_with_symbols.len());
+            indent!(self);
+            next_table_index += 1;
+
+            for ((value, kind), symbols) in &mut values_with_symbols {
+                next_table_index += 2 + symbols.len();
+                if *kind == SymbolType::NonTerminal {
+                    add_line!(self, "STATE({value}), {},", symbols.len());
+                } else {
+                    add_line!(self, "ACTIONS({value}), {},", symbols.len());
+                }
+                indent!(self);
+                for symbol in symbols {
+                    add_line!(self, "{},", self.symbol_ids[symbol]);
+                }
+                dedent!(self);
+            }
+            dedent!(self);
         }
 
         dedent!(self);
         add_line!(self, "}};");
         add_line!(self, "");
 
-        if self.large_state_count < self.parse_table.states.len() {
-            add_line!(self, "static const uint16_t ts_small_parse_table[] = {{");
-            indent!(self);
-
-            let mut next_table_index = 0;
-            let mut small_state_indices = Vec::with_capacity(
-                self.parse_table
-                    .states
-                    .len()
-                    .saturating_sub(self.large_state_count),
-            );
-            // Deduplicate small parse table entries: states with identical
-            // grouped symbol/action data share the same table offset.  The
-            // canonical_data buffer is reused across iterations and we key
-            // the dedup map by its hash to avoid per-state allocations.
-            let mut seen_data: FxHashMap<u64, usize> = FxHashMap::default();
-            #[expect(clippy::collection_is_never_read, reason = "hasher performs a read")]
-            let mut canonical_data: Vec<u16> = Vec::with_capacity(64);
-            let mut symbols_by_value = FxHashMap::<(usize, SymbolType), Vec<Symbol>>::default();
-            for (state_offset, state) in self
-                .parse_table
-                .states
-                .iter()
-                .enumerate()
-                .skip(self.large_state_count)
-            {
-                symbols_by_value.clear();
-
-                terminal_entries.clear();
-                terminal_entries.extend(state.terminal_entries.iter());
-                terminal_entries.sort_unstable_by_key(|e| self.symbol_order.get(e.0));
-
-                // In a given parse state, many lookahead symbols have the same actions.
-                // So in the "small state" representation, group symbols by their action
-                // in order to avoid repeating the action.
-                for (symbol, entry) in &terminal_entries {
-                    let entry_id = Self::get_parse_action_list_id(
-                        entry,
-                        parse_table_entries,
-                        next_parse_action_list_index,
-                    );
-                    symbols_by_value
-                        .entry((entry_id, SymbolType::Terminal))
-                        .or_default()
-                        .push(**symbol);
-                }
-                for (symbol, action) in &state.nonterminal_entries {
-                    let state_id = match action {
-                        GotoAction::Goto(i) => *i,
-                        GotoAction::ShiftExtra => state_offset,
-                    };
-                    symbols_by_value
-                        .entry((state_id, SymbolType::NonTerminal))
-                        .or_default()
-                        .push(*symbol);
-                }
-
-                let mut values_with_symbols = symbols_by_value.drain().collect::<Vec<_>>();
-                values_with_symbols.sort_unstable_by_key(|((value, kind), symbols)| {
-                    (symbols.len(), *kind, *value, symbols[0])
-                });
-
-                // Build a canonical byte sequence representing what would be
-                // emitted to ts_small_parse_table for this state.  States with
-                // identical canonical data can share the same table offset.
-                canonical_data.clear();
-                canonical_data.push(values_with_symbols.len() as u16);
-                for ((value, kind), symbols) in &mut values_with_symbols {
-                    canonical_data.push(*kind as u16);
-                    canonical_data.push(*value as u16);
-                    symbols.sort_unstable();
-                    canonical_data.push(symbols.len() as u16);
-                    for symbol in symbols.iter() {
-                        // Use Symbol kind+index directly: symbol_order only
-                        // contains terminal symbols, but small parse table
-                        // entries also reference nonterminal symbols.
-                        canonical_data.push(symbol.kind as u16);
-                        canonical_data.push(symbol.index as u16);
-                    }
-                }
-
-                let mut hasher = FxHasher::default();
-                canonical_data.hash(&mut hasher);
-                let key = hasher.finish();
-
-                if let Some(&existing_index) = seen_data.get(&key) {
-                    small_state_indices.push(existing_index);
-                    continue;
-                }
-                seen_data.insert(key, next_table_index);
-                small_state_indices.push(next_table_index);
-
-                add_line!(
-                    self,
-                    "[{next_table_index}] = {},",
-                    values_with_symbols.len()
-                );
-                indent!(self);
-                next_table_index += 1;
-
-                for ((value, kind), symbols) in &mut values_with_symbols {
-                    next_table_index += 2 + symbols.len();
-                    if *kind == SymbolType::NonTerminal {
-                        add_line!(self, "STATE({value}), {},", symbols.len());
-                    } else {
-                        add_line!(self, "ACTIONS({value}), {},", symbols.len());
-                    }
-
-                    indent!(self);
-                    for symbol in symbols {
-                        add_line!(self, "{},", self.symbol_ids[symbol]);
-                    }
-                    dedent!(self);
-                }
-
-                dedent!(self);
-            }
-
-            dedent!(self);
-            add_line!(self, "}};");
-            add_line!(self, "");
-
+        add_line!(self, "static const uint32_t ts_small_parse_table_map[] = {{");
+        indent!(self);
+        for i in small_offset..n {
             add_line!(
                 self,
-                "static const uint32_t ts_small_parse_table_map[] = {{"
+                "[SMALL_STATE({i})] = {},",
+                small_state_indices[i - small_offset]
             );
-            indent!(self);
-            for i in self.large_state_count..self.parse_table.states.len() {
-                add_line!(
-                    self,
-                    "[SMALL_STATE({i})] = {},",
-                    small_state_indices[i - self.large_state_count]
-                );
+        }
+        dedent!(self);
+        add_line!(self, "}};");
+        add_line!(self, "");
+    }
+
+
+    fn add_chunked_u16_array(&mut self, data: &[u16]) {
+        for chunk in data.chunks(16) {
+            add_whitespace!(self);
+            for val in chunk {
+                add!(self, "{val}, ");
             }
-            dedent!(self);
-            add_line!(self, "}};");
             add_line!(self, "");
         }
     }
+
 
     fn add_parse_action_list(&mut self, parse_table_entries: Vec<(usize, ParseTableEntry)>) {
         add_line!(
@@ -2161,6 +2039,9 @@ impl Generator {
         add_line!(self, ".external_token_count = EXTERNAL_TOKEN_COUNT,");
         add_line!(self, ".state_count = STATE_COUNT,");
         add_line!(self, ".large_state_count = LARGE_STATE_COUNT,");
+        if self.abi_version >= ABI_VERSION_WITH_COMPRESSED_TABLES {
+            add_line!(self, ".csr_state_count = CSR_STATE_COUNT,");
+        }
         add_line!(self, ".production_id_count = PRODUCTION_ID_COUNT,");
         if self.abi_version >= ABI_VERSION_WITH_RESERVED_WORDS {
             add_line!(self, ".supertype_count = SUPERTYPE_COUNT,");
@@ -2173,7 +2054,7 @@ impl Generator {
 
         // Parse table
         add_line!(self, ".parse_table = &ts_parse_table[0][0],");
-        if self.large_state_count < self.parse_table.states.len() {
+        if self.large_state_count + self.csr_state_count < self.parse_table.states.len() {
             add_line!(self, ".small_parse_table = ts_small_parse_table,");
             add_line!(self, ".small_parse_table_map = ts_small_parse_table_map,");
         }
@@ -2254,8 +2135,8 @@ impl Generator {
             add_line!(self, "}},");
         }
 
-        // CSR fields are NULL for grammars that use the hybrid format.
-        if self.use_compressed_tables {
+        // CSR fields are NULL for grammars whose picker assigned no CSR tier.
+        if self.csr_state_count > 0 {
             add_line!(
                 self,
                 ".parse_table_row_offsets = ts_parse_table_row_offsets,"
@@ -2548,13 +2429,9 @@ pub fn render_c_code(
     abi_version: usize,
     semantic_version: Option<(u8, u8, u8)>,
     supertype_symbol_map: BTreeMap<Symbol, Vec<ChildType>>,
-    optimizations: OptLevel,
 ) -> RenderResult<String> {
     if !(ABI_VERSION_MIN..=ABI_VERSION_MAX).contains(&abi_version) {
         Err(RenderError::ABI(abi_version))?;
-    }
-    if optimizations.contains(OptLevel::ForceHybridTable | OptLevel::ForceCompressedTable) {
-        Err(RenderError::ConflictingParseTableFlags)?;
     }
 
     Generator {
@@ -2576,5 +2453,5 @@ pub fn render_c_code(
         supertype_symbol_map,
         ..Default::default()
     }
-    .generate(optimizations)
+    .generate()
 }
