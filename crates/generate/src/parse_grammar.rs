@@ -1,4 +1,4 @@
-use rustc_hash::FxHashSet;
+use rustc_hash::{FxHashMap, FxHashSet};
 
 use log::warn;
 use regex::Regex;
@@ -155,51 +155,135 @@ fn rule_is_referenced(rule: &Rule, target: &str, is_external: bool) -> bool {
     }
 }
 
-fn variable_is_used(
-    grammar_rules: &[(String, Rule)],
-    extras: &[Rule],
-    externals: &[Rule],
-    target_name: &str,
-    in_progress: &mut FxHashSet<String>,
-) -> bool {
-    let root = &grammar_rules.first().unwrap().0;
-    if target_name == root {
-        return true;
-    }
-
-    if extras
-        .iter()
-        .any(|rule| rule_is_referenced(rule, target_name, false))
-    {
-        return true;
-    }
-
-    if externals
-        .iter()
-        .any(|rule| rule_is_referenced(rule, target_name, true))
-    {
-        return true;
-    }
-
-    in_progress.insert(target_name.to_string());
-    let result = grammar_rules
-        .iter()
-        .filter(|(key, _)| *key != target_name)
-        .any(|(name, rule)| {
-            if !rule_is_referenced(rule, target_name, false) || in_progress.contains(name) {
-                return false;
+impl InputGrammar {
+    /// Strip unused rules from the grammar and clean up references to them
+    /// in the surrounding config. (conflicts, supertypes, inline, extras,
+    /// externals, precedences).
+    ///
+    /// A variable is "used" if it is the start rule, the word token, named in
+    /// `extras`/`externals`, or transitively reachable via rule references from
+    /// any of the above.
+    fn normalize(mut self) -> Self {
+        // Compute the used set via forward DFS from the implicit roots
+        // (start rule, word_token, refs in extras and externals).
+        //
+        // Extras count their top-level `NamedSymbol` as a use (so naming
+        // a rule directly in `extras` keeps it), but externals do not (the
+        // external entry is the rule itself, not a reference to one).
+        let used: FxHashSet<String> = {
+            let by_name: FxHashMap<&str, &Rule> = self
+                .variables
+                .iter()
+                .map(|v| (v.name.as_str(), &v.rule))
+                .collect();
+            let mut visited: FxHashSet<&str> = FxHashSet::default();
+            let mut stack: Vec<&str> = Vec::new();
+            if let Some(first) = self.variables.first() {
+                stack.push(first.name.as_str());
             }
-            variable_is_used(grammar_rules, extras, externals, name, in_progress)
-        });
-    in_progress.remove(target_name);
+            if let Some(word) = self.word_token.as_deref() {
+                stack.push(word);
+            }
+            for rule in &self.extra_symbols {
+                collect_referenced_names(rule, false, &mut stack);
+            }
+            for rule in &self.external_tokens {
+                collect_referenced_names(rule, true, &mut stack);
+            }
+            while let Some(name) = stack.pop() {
+                if !visited.insert(name) {
+                    continue;
+                }
+                if let Some(rule) = by_name.get(name) {
+                    collect_referenced_names(rule, false, &mut stack);
+                }
+            }
+            visited.into_iter().map(String::from).collect()
+        };
 
-    result
+        for v in &self.variables {
+            if !used.contains(v.name.as_str()) {
+                continue;
+            }
+            if !self
+                .extra_symbols
+                .iter()
+                .any(|r| rule_is_referenced(r, &v.name, false))
+            {
+                continue;
+            }
+            let inner_rule = match &v.rule {
+                Rule::Metadata { rule, .. } => rule.as_ref(),
+                other => other,
+            };
+            let matches_empty = match inner_rule {
+                Rule::String(s) => s.is_empty(),
+                Rule::Pattern(value, _) => Regex::new(value).is_ok_and(|reg| reg.is_match("")),
+                _ => false,
+            };
+            if matches_empty {
+                warn!(
+                    "Named extra rule `{name}` matches the empty string. \
+                     Inline this to avoid infinite loops while parsing.",
+                    name = v.name,
+                );
+            }
+        }
+
+        // Drop unused variables and clean up any references to them in the
+        // surrounding grammar config.
+        let dropped: Vec<String> = self
+            .variables
+            .iter()
+            .filter(|v| !used.contains(v.name.as_str()))
+            .map(|v| v.name.clone())
+            .collect();
+        self.variables.retain(|v| used.contains(v.name.as_str()));
+        for name in &dropped {
+            self.expected_conflicts.retain(|r| !r.contains(name));
+            self.supertype_symbols.retain(|r| r != name);
+            self.variables_to_inline.retain(|r| r != name);
+            self.extra_symbols
+                .retain(|r| !rule_is_referenced(r, name, true));
+            self.external_tokens
+                .retain(|r| !rule_is_referenced(r, name, true));
+            self.precedence_orderings.retain(|r| {
+                !r.iter()
+                    .any(|e| matches!(e, PrecedenceEntry::Symbol(s) if s == name))
+            });
+        }
+
+        self
+    }
+}
+
+/// Append every `NamedSymbol` name reachable in `rule` to `out`. If
+/// `skip_top_level` is true, a `NamedSymbol` at the root of `rule` is
+/// ignored (used for externals entries, which name themselves).
+fn collect_referenced_names<'a>(rule: &'a Rule, skip_top_level: bool, out: &mut Vec<&'a str>) {
+    match rule {
+        Rule::NamedSymbol(name) => {
+            if !skip_top_level {
+                out.push(name.as_str());
+            }
+        }
+        Rule::Choice(rules) | Rule::Seq(rules) => {
+            for r in rules {
+                collect_referenced_names(r, false, out);
+            }
+        }
+        Rule::Metadata { rule, .. } | Rule::Reserved { rule, .. } => {
+            collect_referenced_names(rule, skip_top_level, out);
+        }
+        Rule::Repeat(inner) => collect_referenced_names(inner, false, out),
+        Rule::Blank | Rule::String(_) | Rule::Pattern(_, _) | Rule::Symbol(_) => {}
+    }
 }
 
 pub(crate) fn parse_grammar(input: &str) -> ParseGrammarResult<InputGrammar> {
-    let mut grammar_json = serde_json::from_str::<GrammarJSON>(input)?;
+    let grammar_json = serde_json::from_str::<GrammarJSON>(input)?;
 
-    let mut extra_symbols =
+    let extra_symbols =
         grammar_json
             .extras
             .into_iter()
@@ -214,7 +298,7 @@ pub(crate) fn parse_grammar(input: &str) -> ParseGrammarResult<InputGrammar> {
                 ParseGrammarResult::Ok(acc)
             })?;
 
-    let mut external_tokens = grammar_json
+    let external_tokens = grammar_json
         .externals
         .into_iter()
         .map(|e| parse_rule(e, false))
@@ -233,72 +317,17 @@ pub(crate) fn parse_grammar(input: &str) -> ParseGrammarResult<InputGrammar> {
         precedence_orderings.push(ordering);
     }
 
-    let mut variables = Vec::with_capacity(grammar_json.rules.len());
-
-    let rules = grammar_json
+    let variables = grammar_json
         .rules
         .into_iter()
-        .map(|(n, r)| Ok((n, parse_rule(serde_json::from_value(r)?, false)?)))
-        .collect::<ParseGrammarResult<Vec<_>>>()?;
-
-    let mut in_progress = FxHashSet::default();
-
-    for (name, rule) in &rules {
-        if grammar_json.word.as_ref().is_none_or(|w| w != name)
-            && !variable_is_used(
-                &rules,
-                &extra_symbols,
-                &external_tokens,
+        .map(|(name, r)| {
+            Ok(Variable {
                 name,
-                &mut in_progress,
-            )
-        {
-            grammar_json.conflicts.retain(|r| !r.contains(name));
-            grammar_json.supertypes.retain(|r| r != name);
-            grammar_json.inline.retain(|r| r != name);
-            extra_symbols.retain(|r| !rule_is_referenced(r, name, true));
-            external_tokens.retain(|r| !rule_is_referenced(r, name, true));
-            precedence_orderings.retain(|r| {
-                !r.iter().any(|e| {
-                    let PrecedenceEntry::Symbol(s) = e else {
-                        return false;
-                    };
-                    s == name
-                })
-            });
-            continue;
-        }
-
-        if extra_symbols
-            .iter()
-            .any(|r| rule_is_referenced(r, name, false))
-        {
-            let inner_rule = if let Rule::Metadata { rule, .. } = rule {
-                rule
-            } else {
-                rule
-            };
-            let matches_empty = match inner_rule {
-                Rule::String(rule_str) => rule_str.is_empty(),
-                Rule::Pattern(value, _) => Regex::new(value).is_ok_and(|reg| reg.is_match("")),
-                _ => false,
-            };
-            if matches_empty {
-                warn!(
-                    concat!(
-                        "Named extra rule `{}` matches the empty string. ",
-                        "Inline this to avoid infinite loops while parsing."
-                    ),
-                    name
-                );
-            }
-        }
-        variables.push(Variable {
-            name: name.clone(),
-            kind: VariableType::Named,
-            rule: rule.clone(),
-        });
-    }
+                kind: VariableType::Named,
+                rule: parse_rule(serde_json::from_value(r)?, false)?,
+            })
+        })
+        .collect::<ParseGrammarResult<Vec<_>>>()?;
 
     let reserved_words = grammar_json
         .reserved
@@ -319,7 +348,7 @@ pub(crate) fn parse_grammar(input: &str) -> ParseGrammarResult<InputGrammar> {
         })
         .collect::<ParseGrammarResult<Vec<_>>>()?;
 
-    Ok(InputGrammar {
+    let grammar = InputGrammar {
         name: grammar_json.name,
         word_token: grammar_json.word,
         expected_conflicts: grammar_json.conflicts,
@@ -330,7 +359,9 @@ pub(crate) fn parse_grammar(input: &str) -> ParseGrammarResult<InputGrammar> {
         extra_symbols,
         external_tokens,
         reserved_words,
-    })
+    }
+    .normalize();
+    Ok(grammar)
 }
 
 fn parse_rule(json: RuleJSON, is_token: bool) -> ParseGrammarResult<Rule> {
