@@ -190,6 +190,14 @@ impl InputGrammar {
             for rule in &self.external_tokens {
                 collect_referenced_names(rule, true, &mut stack);
             }
+            // Reserved-word entries are uses of the named rule (the entry
+            // names a token to reserve in some context). Top-level
+            // `NamedSymbol` counts, same as for extras.
+            for ctx in &self.reserved_words {
+                for rule in &ctx.reserved_words {
+                    collect_referenced_names(rule, false, &mut stack);
+                }
+            }
             while let Some(name) = stack.pop() {
                 if !visited.insert(name) {
                     continue;
@@ -251,6 +259,13 @@ impl InputGrammar {
                 !r.iter()
                     .any(|e| matches!(e, PrecedenceEntry::Symbol(s) if s == name))
             });
+            // Prune entries but keep the context: an intentionally-empty
+            // reserved-word context is a meaningful marker that rule bodies
+            // may reference by name.
+            for ctx in &mut self.reserved_words {
+                ctx.reserved_words
+                    .retain(|r| !rule_is_referenced(r, name, false));
+            }
         }
 
         self
