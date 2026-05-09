@@ -30,6 +30,15 @@ const ABI_VERSION_WITH_RESERVED_WORDS: usize = 15;
 const ABI_VERSION_WITH_COMPRESSED_TABLES: usize = 16;
 const SMALL_STATE_THRESHOLD: usize = 64;
 
+// Picker bias: only place a state in the Small tier if it is at most this
+// fraction of the corresponding CSR cost. CSR (binary search, O(log n))
+// is meaningfully faster at parse time than Small (linear scan over groups,
+// O(group_count + nnz)), so we only switch when Small is clearly smaller.
+// 0.6 keeps each grammar's parse-time delta within roughly the ±10% band
+// that csr-clean already occupies vs master, while delivering ~7pp of the
+// ~11pp size win available from the unbiased picker.
+const SMALL_VS_CSR_BIAS: f64 = 0.6;
+
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 enum Repr {
     Dense,
@@ -630,9 +639,14 @@ impl Generator {
         let mut picks = Vec::with_capacity(n);
 
         for c in standalone_costs {
-            let pick = if c[0] <= c[1] && c[0] <= c[2] {
+            // Picker bias: prefer Csr to Small unless Small is at least
+            // SMALL_VS_CSR_BIAS fraction smaller (Csr binary search is much
+            // faster than Small linear scan at parse time).
+            let small_beats_csr =
+                (c[2] as f64) <= SMALL_VS_CSR_BIAS * (c[1] as f64);
+            let pick = if c[0] <= c[1] && (c[0] <= c[2] || !small_beats_csr) {
                 Repr::Dense
-            } else if c[1] <= c[2] {
+            } else if !small_beats_csr || c[1] <= c[2] {
                 Repr::Csr
             } else {
                 Repr::Small
@@ -661,7 +675,10 @@ impl Generator {
             // First state in the group pays full small_cost (body + map);
             // each subsequent state pays only 4 bytes (its map entry).
             let promoted = standalone_costs[group[0]][2] + 4 * (group.len() - 1);
-            if promoted < current {
+            // Apply the same Csr-vs-Small bias here as the per-state pick:
+            // a tiny dedup win shouldn't drag a whole group out of Csr into
+            // the slower Small linear-scan path.
+            if (promoted as f64) <= SMALL_VS_CSR_BIAS * (current as f64) {
                 for &i in &group {
                     picks[i] = Repr::Small;
                 }
