@@ -404,7 +404,7 @@ fn parse_rule(json: RuleJSON, is_token: bool) -> ParseGrammarResult<Rule> {
         }),
         RuleJSON::TOKEN { content } => parse_rule(*content, true).map(Rule::token),
         RuleJSON::IMMEDIATE_TOKEN { content } => {
-            parse_rule(*content, is_token).map(Rule::immediate_token)
+            parse_rule(*content, true).map(Rule::immediate_token)
         }
     }
 }
