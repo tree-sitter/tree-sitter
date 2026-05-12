@@ -1,11 +1,10 @@
 """PARSER_DESCRIPTION"""
 
-from importlib.resources import files as _files
-
 from ._binding import language
 
 
 def _get_query(name, file):
+    from importlib.resources import files as _files
     try:
         query = _files(f"{__package__}") / file
         globals()[name] = query.read_text()
