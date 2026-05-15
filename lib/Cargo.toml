@@ -47,7 +47,7 @@ streaming-iterator             = "0.1.9"
 tree-sitter-language.workspace = true
 
 [dependencies.wasmtime-c-api]
-version = "36.0.8"
+version = "36.0.9"
 default-features = false
 features         = [ "cranelift", "gc-drc" ]
 optional         = true
