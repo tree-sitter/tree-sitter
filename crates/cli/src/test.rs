@@ -23,7 +23,7 @@ use walkdir::WalkDir;
 
 use super::util;
 use crate::{
-    paint::{color_enabled, paint_opt},
+    paint::{color_enabled, paint},
     parse::{
         ParseDebugType, ParseFileOptions, ParseOutput, ParseStats, ParseTheme, Stats, render_cst,
     },
@@ -491,9 +491,9 @@ impl TestSummary {
                                 let _ = write!(
                                     stats,
                                     "{}",
-                                    paint_opt(
+                                    paint(
                                         Some(AnsiColor::Yellow),
-                                        format!(
+                                        format_args!(
                                             " -- Warning: Slow parse rate ({true_rate:.3} bytes/ms)"
                                         ),
                                     )
@@ -505,7 +505,7 @@ impl TestSummary {
                     writeln!(
                         f,
                         "{test_num:>3}. {result_char} {}{stat_display}",
-                        paint_opt(Some(color), &entry.name),
+                        paint(Some(color), &entry.name),
                     )?;
                 }
                 TestInfo::AssertionTest { .. } => unreachable!(),
@@ -563,7 +563,7 @@ impl TestSummary {
                     } else {
                         &format_sexp(actual, 2)
                     };
-                    writeln!(f, "  {}", paint_opt(Some(AnsiColor::Red), actual))?;
+                    writeln!(f, "  {}", paint(Some(AnsiColor::Red), actual))?;
                 } else {
                     writeln!(f, "\n  {}. {name}:", i + 1)?;
                     if *is_cst {
@@ -601,14 +601,14 @@ impl std::fmt::Display for TestSummary {
                                 f,
                                 "{:>3}. ✓ {} ({assertion_count} assertions)",
                                 test_num,
-                                paint_opt(Some(AnsiColor::Green), &entry.name)
+                                paint(Some(AnsiColor::Green), &entry.name)
                             )?,
                             TestOutcome::AssertionFailed { error } => {
                                 writeln!(
                                     f,
                                     "{:>3}. ✗ {}",
                                     test_num,
-                                    paint_opt(Some(AnsiColor::Red), &entry.name)
+                                    paint(Some(AnsiColor::Red), &entry.name)
                                 )?;
                                 writeln!(f, "{}  {error}", "  ".repeat(depth + 1))?;
                             }
@@ -710,8 +710,8 @@ impl std::fmt::Display for DiffKey {
         write!(
             f,
             "\ncorrect / {} / {}",
-            paint_opt(Some(AnsiColor::Green), "expected"),
-            paint_opt(Some(AnsiColor::Red), "unexpected")
+            paint(Some(AnsiColor::Green), "expected"),
+            paint(Some(AnsiColor::Red), "unexpected")
         )?;
         Ok(())
     }
@@ -753,7 +753,7 @@ impl std::fmt::Display for TestDiff<'_> {
                         write!(
                             f,
                             "{}",
-                            paint_opt(Some(AnsiColor::Green), diff.as_str().unwrap())
+                            paint(Some(AnsiColor::Green), diff.as_str().unwrap())
                         )?;
                     } else {
                         write!(f, "+{diff}")?;
@@ -764,11 +764,7 @@ impl std::fmt::Display for TestDiff<'_> {
                 }
                 ChangeTag::Delete => {
                     if color_enabled() {
-                        write!(
-                            f,
-                            "{}",
-                            paint_opt(Some(AnsiColor::Red), diff.as_str().unwrap())
-                        )?;
+                        write!(f, "{}", paint(Some(AnsiColor::Red), diff.as_str().unwrap()))?;
                     } else {
                         write!(f, "-{diff}")?;
                     }

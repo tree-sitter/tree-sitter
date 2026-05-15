@@ -18,7 +18,7 @@ use tree_sitter::{
     ffi,
 };
 
-use crate::{fuzz::edits::Edit, paint::paint_opt, util};
+use crate::{fuzz::edits::Edit, paint::paint, util};
 
 #[derive(Debug, Default, Serialize, JsonSchema)]
 pub struct Stats {
@@ -325,7 +325,7 @@ pub fn parse_file_at_path(
                 }
                 let color = Some(colors[curr_version % colors.len()]);
                 let prefix = if log_type == LogType::Lex { "  " } else { "" };
-                writeln!(&mut io::stderr(), "{prefix}{}", paint_opt(color, message)).unwrap();
+                writeln!(&mut io::stderr(), "{prefix}{}", paint(color, message)).unwrap();
             }
         })));
     }
@@ -819,19 +819,19 @@ pub fn render_cst<'a, 'b: 'a>(
     Ok(())
 }
 
-fn render_node_text(source: &str) -> String {
-    source
-        .chars()
-        .fold(String::with_capacity(source.len()), |mut acc, c| {
-            if let Some(esc) = escape_invisible(c) {
-                acc.push_str(esc);
-            } else if let Some(esc) = escape_delimiter(c) {
-                acc.push_str(esc);
-            } else {
-                acc.push(c);
+struct CstNodeText<'a>(&'a str);
+
+impl std::fmt::Display for CstNodeText<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use std::fmt::Write as _;
+        for c in self.0.chars() {
+            match escape_invisible(c).or_else(|| escape_delimiter(c)) {
+                Some(esc) => f.write_str(esc)?,
+                None => f.write_char(c)?,
             }
-            acc
-        })
+        }
+        Ok(())
+    }
 }
 
 fn write_node_text(
@@ -854,9 +854,9 @@ fn write_node_text(
         write!(
             out,
             "{}{}{}",
-            paint_opt(quote_color, &String::from(quote)),
-            paint_opt(color, &render_node_text(source)),
-            paint_opt(quote_color, &String::from(quote)),
+            paint(quote_color, quote),
+            paint(color, CstNodeText(source)),
+            paint(quote_color, quote),
         )?;
     } else {
         let multiline = source.contains('\n');
@@ -875,24 +875,34 @@ fn write_node_text(
                 } else {
                     0
                 };
-            let formatted_line = render_line_feed(line, opts);
+            if multiline {
+                writeln!(out)?;
+                if !opts.no_ranges {
+                    write!(
+                        out,
+                        "{}",
+                        CstNodeRange {
+                            opts,
+                            has_field_name: cursor.field_name().is_some(),
+                            is_named,
+                            is_multiline: true,
+                            total_width,
+                            range: node_range,
+                        }
+                    )?;
+                }
+                for _ in 0..=indent_level {
+                    write!(out, "  ")?;
+                }
+            } else {
+                write!(out, " ")?;
+            }
             write!(
                 out,
-                "{}{}{}{}{}{}",
-                if multiline { "\n" } else { " " },
-                if multiline && !opts.no_ranges {
-                    render_node_range(opts, cursor, is_named, true, total_width, node_range)
-                } else {
-                    String::new()
-                },
-                if multiline {
-                    "  ".repeat(indent_level + 1)
-                } else {
-                    String::new()
-                },
-                paint_opt(quote_color, &String::from(quote)),
-                paint_opt(color, &render_node_text(&formatted_line)),
-                paint_opt(quote_color, &String::from(quote)),
+                "{}{}{}",
+                paint(quote_color, quote),
+                paint(color, CstLineFeed { source: line, opts }),
+                paint(quote_color, quote),
             )?;
         }
     }
@@ -900,50 +910,65 @@ fn write_node_text(
     Ok(())
 }
 
-fn render_line_feed(source: &str, opts: &ParseFileOptions) -> String {
-    #[cfg(windows)]
-    let lf = "\r\n";
-    #[cfg(not(windows))]
-    let lf = "\n";
-    source.replace(lf, &paint_opt(opts.parse_theme.line_feed, lf).to_string())
+struct CstLineFeed<'src, 'opt> {
+    source: &'src str,
+    opts: &'src ParseFileOptions<'opt>,
 }
 
-fn render_node_range(
-    opts: &ParseFileOptions,
-    cursor: &TreeCursor,
+impl std::fmt::Display for CstLineFeed<'_, '_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        #[cfg(windows)]
+        let lf = "\r\n";
+        #[cfg(not(windows))]
+        let lf = "\n";
+        let painted = paint(self.opts.parse_theme.line_feed, CstNodeText(lf));
+        let mut parts = self.source.split(lf);
+        if let Some(first) = parts.next() {
+            write!(f, "{}", CstNodeText(first))?;
+        }
+        for part in parts {
+            write!(f, "{painted}{}", CstNodeText(part))?;
+        }
+        Ok(())
+    }
+}
+
+struct CstNodeRange<'src, 'opt> {
+    opts: &'src ParseFileOptions<'opt>,
+    has_field_name: bool,
     is_named: bool,
     is_multiline: bool,
     total_width: usize,
     range: Range,
-) -> String {
-    let has_field_name = cursor.field_name().is_some();
-    let range_color = if is_named && !is_multiline && !has_field_name {
-        opts.parse_theme.row_color_named
-    } else {
-        opts.parse_theme.row_color
-    };
+}
 
-    let remaining_width_start = (total_width
-        - (range.start_point.row as f64).log10() as usize
-        - (range.start_point.column as f64).log10() as usize)
-        .max(1);
-    let remaining_width_end = (total_width
-        - (range.end_point.row as f64).log10() as usize
-        - (range.end_point.column as f64).log10() as usize)
-        .max(1);
-    paint_opt(
-        range_color,
-        format!(
-            "{}:{}{:remaining_width_start$}- {}:{}{:remaining_width_end$}",
-            range.start_point.row,
-            range.start_point.column,
-            ' ',
-            range.end_point.row,
-            range.end_point.column,
-            ' ',
-        ),
-    )
-    .to_string()
+impl std::fmt::Display for CstNodeRange<'_, '_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let start = self.range.start_point;
+        let end = self.range.end_point;
+        let range_color = if self.is_named && !self.is_multiline && !self.has_field_name {
+            self.opts.parse_theme.row_color_named
+        } else {
+            self.opts.parse_theme.row_color
+        };
+        let remaining_width = |row: usize, col: usize| {
+            (self.total_width - (row as f64).log10() as usize - (col as f64).log10() as usize)
+                .max(1)
+        };
+        let remaining_width_start = remaining_width(start.row, start.column);
+        let remaining_width_end = remaining_width(end.row, end.column);
+        write!(
+            f,
+            "{}",
+            paint(
+                range_color,
+                format_args!(
+                    "{}:{}{:remaining_width_start$}- {}:{}{:remaining_width_end$}",
+                    start.row, start.column, ' ', end.row, end.column, ' ',
+                ),
+            )
+        )
+    }
 }
 
 fn cst_render_node(
@@ -961,7 +986,14 @@ fn cst_render_node(
         write!(
             out,
             "{}",
-            render_node_range(opts, cursor, is_named, false, total_width, node.range())
+            CstNodeRange {
+                opts,
+                has_field_name: cursor.field_name().is_some(),
+                is_named,
+                is_multiline: false,
+                total_width,
+                range: node.range(),
+            }
         )?;
     }
     write!(
@@ -979,12 +1011,12 @@ fn cst_render_node(
             write!(
                 out,
                 "{}",
-                paint_opt(opts.parse_theme.field, &format!("{field_name}: "))
+                paint(opts.parse_theme.field, format_args!("{field_name}: "))
             )?;
         }
 
         if node.has_error() || node.is_error() {
-            write!(out, "{}", paint_opt(opts.parse_theme.error, "•"))?;
+            write!(out, "{}", paint(opts.parse_theme.error, "•"))?;
         }
 
         let kind_color = if node.is_error() {
@@ -994,7 +1026,7 @@ fn cst_render_node(
         } else {
             opts.parse_theme.node_kind
         };
-        write!(out, "{}", paint_opt(kind_color, node.kind()))?;
+        write!(out, "{}", paint(kind_color, node.kind()))?;
 
         if node.child_count() == 0 {
             // Node text from a pattern or external scanner
@@ -1009,12 +1041,8 @@ fn cst_render_node(
             )?;
         }
     } else if node.is_missing() {
-        write!(out, "{}: ", paint_opt(opts.parse_theme.missing, "MISSING"))?;
-        write!(
-            out,
-            "\"{}\"",
-            paint_opt(opts.parse_theme.missing, node.kind())
-        )?;
+        write!(out, "{}: ", paint(opts.parse_theme.missing, "MISSING"))?;
+        write!(out, "\"{}\"", paint(opts.parse_theme.missing, node.kind()))?;
     } else {
         // Terminal literals, like "fn"
         write_node_text(

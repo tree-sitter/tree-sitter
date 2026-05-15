@@ -12,7 +12,7 @@ pub fn color_enabled() -> bool {
     *ENABLED.get_or_init(|| std::env::var_os("NO_COLOR").is_none_or(|v| v.is_empty()))
 }
 
-pub fn paint_opt<T>(color: Option<impl Into<Color>>, text: T) -> Paint<T> {
+pub fn paint<T>(color: Option<impl Into<Color>>, text: T) -> Paint<T> {
     Paint(Style::new().fg_color(color.map(Into::into)), text)
 }
 
