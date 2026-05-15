@@ -1,12 +1,8 @@
 use std::io::Write;
 
-use anstyle::{AnsiColor, Color, Style};
 use log::{Level, LevelFilter, Log, Metadata, Record};
 
-pub fn paint(color: Option<impl Into<Color>>, text: &str) -> String {
-    let style = Style::new().fg_color(color.map(Into::into));
-    format!("{style}{text}{style:#}")
-}
+use crate::paint::{Paint, RED, YELLOW};
 
 struct Logger;
 
@@ -17,16 +13,8 @@ impl Log for Logger {
 
     fn log(&self, record: &Record) {
         match record.level() {
-            Level::Error => eprintln!(
-                "{} {}",
-                paint(Some(AnsiColor::Red), "Error:"),
-                record.args()
-            ),
-            Level::Warn => eprintln!(
-                "{} {}",
-                paint(Some(AnsiColor::Yellow), "Warning:"),
-                record.args()
-            ),
+            Level::Error => eprintln!("{} {}", Paint(RED, "Error:"), record.args()),
+            Level::Warn => eprintln!("{} {}", Paint(YELLOW, "Warning:"), record.args()),
             Level::Info | Level::Debug => eprintln!("{}", record.args()),
             Level::Trace => eprintln!(
                 "[{}] {}",

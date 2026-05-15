@@ -1,7 +1,7 @@
 use std::{
     collections::BTreeMap,
     ffi::OsStr,
-    fmt::Display as _,
+    fmt::{Display as _, Write as _},
     fs,
     io::{self, Write},
     path::{Path, PathBuf},
@@ -23,7 +23,7 @@ use walkdir::WalkDir;
 
 use super::util;
 use crate::{
-    logger::paint,
+    paint::{color_enabled, paint_opt},
     parse::{
         ParseDebugType, ParseFileOptions, ParseOutput, ParseStats, ParseTheme, Stats, render_cst,
     },
@@ -169,7 +169,6 @@ pub struct TestOptions<'a> {
     pub update: bool,
     pub open_log: bool,
     pub languages: BTreeMap<&'a str, &'a Language>,
-    pub color: bool,
     pub show_fields: bool,
     pub overview_only: bool,
 }
@@ -208,9 +207,6 @@ pub struct TestSummary {
     // Options passed in from the CLI which control how the summary is displayed
     #[schemars(skip)]
     #[serde(skip)]
-    pub color: bool,
-    #[schemars(skip)]
-    #[serde(skip)]
     pub overview_only: bool,
     #[schemars(skip)]
     #[serde(skip)]
@@ -222,19 +218,13 @@ pub struct TestSummary {
 
 impl TestSummary {
     #[must_use]
-    #[expect(
-        clippy::fn_params_excessive_bools,
-        reason = "these map directly to CLI flags"
-    )]
     pub fn new(
-        color: bool,
         stat_display: TestStats,
         parse_update: bool,
         overview_only: bool,
         json_summary: bool,
     ) -> Self {
         Self {
-            color,
             parse_stat_display: stat_display,
             update: parse_update,
             overview_only,
@@ -498,11 +488,15 @@ impl TestSummary {
                             };
                             // 3 standard deviations below the mean, aka the "Empirical Rule"
                             if *adj_rate < 3.0f64.mul_add(-std_dev, avg) {
-                                stats += &paint(
-                                    self.color.then_some(AnsiColor::Yellow),
-                                    &format!(
-                                        " -- Warning: Slow parse rate ({true_rate:.3} bytes/ms)"
-                                    ),
+                                let _ = write!(
+                                    stats,
+                                    "{}",
+                                    paint_opt(
+                                        Some(AnsiColor::Yellow),
+                                        format!(
+                                            " -- Warning: Slow parse rate ({true_rate:.3} bytes/ms)"
+                                        ),
+                                    )
                                 );
                             }
                             stats
@@ -511,7 +505,7 @@ impl TestSummary {
                     writeln!(
                         f,
                         "{test_num:>3}. {result_char} {}{stat_display}",
-                        paint(self.color.then_some(color), &entry.name),
+                        paint_opt(Some(color), &entry.name),
                     )?;
                 }
                 TestInfo::AssertionTest { .. } => unreachable!(),
@@ -548,7 +542,7 @@ impl TestSummary {
                 )?;
             }
 
-            if self.color {
+            if color_enabled() {
                 DiffKey.fmt(f)?;
             }
             for (
@@ -569,25 +563,16 @@ impl TestSummary {
                     } else {
                         &format_sexp(actual, 2)
                     };
-                    writeln!(
-                        f,
-                        "  {}",
-                        paint(self.color.then_some(AnsiColor::Red), actual)
-                    )?;
+                    writeln!(f, "  {}", paint_opt(Some(AnsiColor::Red), actual))?;
                 } else {
                     writeln!(f, "\n  {}. {name}:", i + 1)?;
                     if *is_cst {
-                        writeln!(
-                            f,
-                            "{}",
-                            TestDiff::new(actual, expected).with_color(self.color)
-                        )?;
+                        writeln!(f, "{}", TestDiff::new(actual, expected))?;
                     } else {
                         writeln!(
                             f,
                             "{}",
                             TestDiff::new(&format_sexp(actual, 2), &format_sexp(expected, 2))
-                                .with_color(self.color,)
                         )?;
                     }
                 }
@@ -616,14 +601,14 @@ impl std::fmt::Display for TestSummary {
                                 f,
                                 "{:>3}. ✓ {} ({assertion_count} assertions)",
                                 test_num,
-                                paint(self.color.then_some(AnsiColor::Green), &entry.name)
+                                paint_opt(Some(AnsiColor::Green), &entry.name)
                             )?,
                             TestOutcome::AssertionFailed { error } => {
                                 writeln!(
                                     f,
                                     "{:>3}. ✗ {}",
                                     test_num,
-                                    paint(self.color.then_some(AnsiColor::Red), &entry.name)
+                                    paint_opt(Some(AnsiColor::Red), &entry.name)
                                 )?;
                                 writeln!(f, "{}  {error}", "  ".repeat(depth + 1))?;
                             }
@@ -725,8 +710,8 @@ impl std::fmt::Display for DiffKey {
         write!(
             f,
             "\ncorrect / {} / {}",
-            paint(Some(AnsiColor::Green), "expected"),
-            paint(Some(AnsiColor::Red), "unexpected")
+            paint_opt(Some(AnsiColor::Green), "expected"),
+            paint_opt(Some(AnsiColor::Red), "unexpected")
         )?;
         Ok(())
     }
@@ -742,23 +727,12 @@ impl DiffKey {
 pub struct TestDiff<'a> {
     pub actual: &'a str,
     pub expected: &'a str,
-    pub color: bool,
 }
 
 impl<'a> TestDiff<'a> {
     #[must_use]
     pub const fn new(actual: &'a str, expected: &'a str) -> Self {
-        Self {
-            actual,
-            expected,
-            color: true,
-        }
-    }
-
-    #[must_use]
-    pub const fn with_color(mut self, color: bool) -> Self {
-        self.color = color;
-        self
+        Self { actual, expected }
     }
 }
 
@@ -768,18 +742,18 @@ impl std::fmt::Display for TestDiff<'_> {
         for diff in diff.iter_all_changes() {
             match diff.tag() {
                 ChangeTag::Equal => {
-                    if self.color {
+                    if color_enabled() {
                         write!(f, "{diff}")?;
                     } else {
                         write!(f, " {diff}")?;
                     }
                 }
                 ChangeTag::Insert => {
-                    if self.color {
+                    if color_enabled() {
                         write!(
                             f,
                             "{}",
-                            paint(Some(AnsiColor::Green), diff.as_str().unwrap())
+                            paint_opt(Some(AnsiColor::Green), diff.as_str().unwrap())
                         )?;
                     } else {
                         write!(f, "+{diff}")?;
@@ -789,8 +763,12 @@ impl std::fmt::Display for TestDiff<'_> {
                     }
                 }
                 ChangeTag::Delete => {
-                    if self.color {
-                        write!(f, "{}", paint(Some(AnsiColor::Red), diff.as_str().unwrap()))?;
+                    if color_enabled() {
+                        write!(
+                            f,
+                            "{}",
+                            paint_opt(Some(AnsiColor::Red), diff.as_str().unwrap())
+                        )?;
                     } else {
                         write!(f, "-{diff}")?;
                     }
@@ -2329,7 +2307,6 @@ Test with cst marker
             update: false,
             open_log: false,
             languages,
-            color: true,
             show_fields: false,
             overview_only: false,
         }
@@ -2356,7 +2333,7 @@ Test with cst marker
             }],
         };
 
-        let mut test_summary = TestSummary::new(true, TestStats::All, false, false, false);
+        let mut test_summary = TestSummary::new(TestStats::All, false, false, false);
         let mut corrected_entries = Vec::new();
         run_tests(
             &mut parser,
@@ -2486,7 +2463,7 @@ Test with cst marker
             ],
         };
 
-        let mut test_summary = TestSummary::new(true, TestStats::All, false, false, false);
+        let mut test_summary = TestSummary::new(TestStats::All, false, false, false);
         let mut corrected_entries = Vec::new();
         run_tests(
             &mut parser,

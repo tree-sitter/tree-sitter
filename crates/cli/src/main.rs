@@ -22,7 +22,7 @@ use tree_sitter_cli::{
     highlight::{self, HighlightOptions},
     init::{JsonConfigOpts, TREE_SITTER_JSON_SCHEMA, generate_grammar_files},
     input::{CliInput, get_input, get_tmp_source_file},
-    logger,
+    logger, paint,
     parse::{self, ParseDebugType, ParseFileOptions, ParseOutput, ParseTheme},
     playground,
     query::{self, QueryFileOptions},
@@ -1044,7 +1044,6 @@ impl Build {
 impl Parse {
     fn run(self, mut loader: loader::Loader, current_dir: &Path) -> Result<()> {
         let config = Config::load(self.config_path)?;
-        let color = env::var("NO_COLOR").map_or(true, |v| v != "1");
         let json_summary = if self.json {
             warn!("--json is deprecated, use --json-summary instead");
             true
@@ -1063,7 +1062,7 @@ impl Parse {
             ParseOutput::Normal
         };
 
-        let parse_theme = if color {
+        let parse_theme = if paint::color_enabled() {
             config
                 .get::<parse::Config>()
                 .with_context(|| "Failed to parse CST theme")?
@@ -1300,7 +1299,6 @@ fn check_test(
 impl Test {
     fn run(self, mut loader: loader::Loader, current_dir: &Path) -> Result<()> {
         let config = Config::load(self.config_path)?;
-        let color = env::var("NO_COLOR").map_or(true, |v| v != "1");
         let stat = self.stat.unwrap_or_default();
 
         loader.debug_build(self.debug_build);
@@ -1342,13 +1340,8 @@ impl Test {
         parser.set_language(language)?;
 
         let test_dir = current_dir.join("test");
-        let mut test_summary = TestSummary::new(
-            color,
-            stat,
-            self.update,
-            self.overview_only,
-            self.json_summary,
-        );
+        let mut test_summary =
+            TestSummary::new(stat, self.update, self.overview_only, self.json_summary);
 
         // Run the corpus tests. Look for them in `test/corpus`.
         let test_corpus_dir = test_dir.join("corpus");
@@ -1363,7 +1356,6 @@ impl Test {
                 update: self.update,
                 open_log: self.open_log,
                 languages: languages.iter().map(|(l, n)| (n.as_str(), l)).collect(),
-                color,
                 show_fields: self.show_fields,
                 overview_only: self.overview_only,
             };

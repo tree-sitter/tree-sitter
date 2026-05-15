@@ -18,7 +18,7 @@ use tree_sitter::{
     ffi,
 };
 
-use crate::{fuzz::edits::Edit, logger::paint, util};
+use crate::{fuzz::edits::Edit, paint::paint_opt, util};
 
 #[derive(Debug, Default, Serialize, JsonSchema)]
 pub struct Stats {
@@ -301,7 +301,6 @@ pub fn parse_file_at_path(
     // Log to stderr if `--debug` was passed
     else if opts.debug != ParseDebugType::Quiet {
         let mut curr_version: usize = 0;
-        let use_color = std::env::var("NO_COLOR").map_or(true, |v| v != "1");
         let debug = opts.debug;
         parser.set_logger(Some(Box::new(move |log_type, message| {
             if debug == ParseDebugType::Normal {
@@ -324,18 +323,9 @@ pub fn parse_file_at_path(
                         .parse()
                         .unwrap();
                 }
-                let color = if use_color {
-                    Some(colors[curr_version % colors.len()])
-                } else {
-                    None
-                };
-                let mut out = if log_type == LogType::Lex {
-                    "  ".to_string()
-                } else {
-                    String::new()
-                };
-                out += &paint(color, message);
-                writeln!(&mut io::stderr(), "{out}").unwrap();
+                let color = Some(colors[curr_version % colors.len()]);
+                let prefix = if log_type == LogType::Lex { "  " } else { "" };
+                writeln!(&mut io::stderr(), "{prefix}{}", paint_opt(color, message)).unwrap();
             }
         })));
     }
@@ -864,9 +854,9 @@ fn write_node_text(
         write!(
             out,
             "{}{}{}",
-            paint(quote_color, &String::from(quote)),
-            paint(color, &render_node_text(source)),
-            paint(quote_color, &String::from(quote)),
+            paint_opt(quote_color, &String::from(quote)),
+            paint_opt(color, &render_node_text(source)),
+            paint_opt(quote_color, &String::from(quote)),
         )?;
     } else {
         let multiline = source.contains('\n');
@@ -900,9 +890,9 @@ fn write_node_text(
                 } else {
                     String::new()
                 },
-                paint(quote_color, &String::from(quote)),
-                paint(color, &render_node_text(&formatted_line)),
-                paint(quote_color, &String::from(quote)),
+                paint_opt(quote_color, &String::from(quote)),
+                paint_opt(color, &render_node_text(&formatted_line)),
+                paint_opt(quote_color, &String::from(quote)),
             )?;
         }
     }
@@ -911,11 +901,11 @@ fn write_node_text(
 }
 
 fn render_line_feed(source: &str, opts: &ParseFileOptions) -> String {
-    if cfg!(windows) {
-        source.replace("\r\n", &paint(opts.parse_theme.line_feed, "\r\n"))
-    } else {
-        source.replace('\n', &paint(opts.parse_theme.line_feed, "\n"))
-    }
+    #[cfg(windows)]
+    let lf = "\r\n";
+    #[cfg(not(windows))]
+    let lf = "\n";
+    source.replace(lf, &paint_opt(opts.parse_theme.line_feed, lf).to_string())
 }
 
 fn render_node_range(
@@ -941,9 +931,9 @@ fn render_node_range(
         - (range.end_point.row as f64).log10() as usize
         - (range.end_point.column as f64).log10() as usize)
         .max(1);
-    paint(
+    paint_opt(
         range_color,
-        &format!(
+        format!(
             "{}:{}{:remaining_width_start$}- {}:{}{:remaining_width_end$}",
             range.start_point.row,
             range.start_point.column,
@@ -953,6 +943,7 @@ fn render_node_range(
             ' ',
         ),
     )
+    .to_string()
 }
 
 fn cst_render_node(
@@ -988,12 +979,12 @@ fn cst_render_node(
             write!(
                 out,
                 "{}",
-                paint(opts.parse_theme.field, &format!("{field_name}: "))
+                paint_opt(opts.parse_theme.field, &format!("{field_name}: "))
             )?;
         }
 
         if node.has_error() || node.is_error() {
-            write!(out, "{}", paint(opts.parse_theme.error, "•"))?;
+            write!(out, "{}", paint_opt(opts.parse_theme.error, "•"))?;
         }
 
         let kind_color = if node.is_error() {
@@ -1003,7 +994,7 @@ fn cst_render_node(
         } else {
             opts.parse_theme.node_kind
         };
-        write!(out, "{}", paint(kind_color, node.kind()))?;
+        write!(out, "{}", paint_opt(kind_color, node.kind()))?;
 
         if node.child_count() == 0 {
             // Node text from a pattern or external scanner
@@ -1018,8 +1009,12 @@ fn cst_render_node(
             )?;
         }
     } else if node.is_missing() {
-        write!(out, "{}: ", paint(opts.parse_theme.missing, "MISSING"))?;
-        write!(out, "\"{}\"", paint(opts.parse_theme.missing, node.kind()))?;
+        write!(out, "{}: ", paint_opt(opts.parse_theme.missing, "MISSING"))?;
+        write!(
+            out,
+            "\"{}\"",
+            paint_opt(opts.parse_theme.missing, node.kind())
+        )?;
     } else {
         // Terminal literals, like "fn"
         write_node_text(

@@ -5,6 +5,7 @@ pub mod highlight;
 pub mod init;
 pub mod input;
 pub mod logger;
+pub mod paint;
 pub mod parse;
 pub mod playground;
 pub mod query;
