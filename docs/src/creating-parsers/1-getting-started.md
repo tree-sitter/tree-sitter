@@ -118,8 +118,9 @@ This should print the following:
 You now have a working parser.
 
 Finally, look back at the [triple-slash][] and [`@ts-check`][ts-check] comments in `grammar.js`; these tell your editor
-to provide documentation and type information as you edit your grammar. For these to work, you must download Tree-sitter's
-TypeScript API from npm into a `node_modules` directory in your project:
+to provide documentation and type information as you edit your grammar. For these to work, install the `tree-sitter-cli`
+npm package into a `node_modules` directory in your project (this works even when `tree-sitter init` did not generate
+Node.js bindings):
 
 ```sh
 npm install # or your package manager of choice
