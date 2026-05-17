@@ -4373,7 +4373,10 @@ static inline bool ts_query_cursor__advance(
               &right_contains_left
             );
             if (left_contains_right) {
-              if (state->step_index == other_state->step_index) {
+              if (
+                state->step_index == other_state->step_index &&
+                (other_state->seeking_immediate_match || !state->seeking_immediate_match)
+              ) {
                 LOG(
                   "  drop shorter state. pattern: %u, step_index: %u\n",
                   state->pattern_index,
@@ -4387,7 +4390,10 @@ static inline bool ts_query_cursor__advance(
               other_state->has_in_progress_alternatives = true;
             }
             if (right_contains_left) {
-              if (state->step_index == other_state->step_index) {
+              if (
+                state->step_index == other_state->step_index &&
+                (state->seeking_immediate_match || !other_state->seeking_immediate_match)
+              ) {
                 LOG(
                   "  drop shorter state. pattern: %u, step_index: %u\n",
                   state->pattern_index,
