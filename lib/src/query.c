@@ -3292,7 +3292,8 @@ bool ts_query__step_is_fallible(
   QueryStep *next_step = array_get(&self->steps, step_index + 1);
   return (
     next_step->depth != PATTERN_DONE_MARKER &&
-    next_step->depth > step->depth &&
+    (next_step->depth > step->depth ||
+        (next_step->depth == step->depth && next_step->is_immediate)) &&
     (!next_step->parent_pattern_guaranteed || step->symbol == WILDCARD_SYMBOL)
   );
 }

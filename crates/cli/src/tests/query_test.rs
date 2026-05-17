@@ -1594,6 +1594,38 @@ fn test_query_matches_with_leading_zero_or_more_repeated_leaf_nodes() {
 }
 
 #[test]
+fn test_matches_with_anchor_sibling_inside_parent() {
+    allocations::record(|| {
+        let language = get_language("rust");
+
+        let query = Query::new(
+            &language,
+            "
+            (source_file
+                (line_comment)
+                .
+                (function_item
+                    name: (identifier) @name)
+            )",
+        )
+        .unwrap();
+
+        assert_query_matches(
+            &language,
+            &query,
+            "
+            // A
+            fn a() {}
+
+            // B
+            fn b() {}
+            ",
+            &[(0, vec![("name", "a")]), (0, vec![("name", "b")])],
+        );
+    });
+}
+
+#[test]
 fn test_query_matches_with_trailing_optional_nodes() {
     allocations::record(|| {
         let language = get_language("javascript");
