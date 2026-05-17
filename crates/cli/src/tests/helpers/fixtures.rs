@@ -1,7 +1,8 @@
 use std::{
+    collections::HashSet,
     env, fs,
     path::{Path, PathBuf},
-    sync::LazyLock,
+    sync::{LazyLock, Mutex},
 };
 
 use anyhow::Context;
@@ -22,6 +23,10 @@ static TEST_LOADER: LazyLock<Loader> = LazyLock::new(|| {
     }
     loader
 });
+
+// Prevents parallel tests from racing on the same per-grammar
+// `src_dir/tree_sitter/` and observing a half-rewritten header.
+static WRITTEN_HEADER_DIRS: LazyLock<Mutex<HashSet<PathBuf>>> = LazyLock::new(Default::default);
 
 #[cfg(feature = "wasm")]
 pub static ENGINE: LazyLock<tree_sitter::wasmtime::Engine> = LazyLock::new(Default::default);
@@ -134,17 +139,22 @@ fn get_test_language_internal(
     };
 
     let header_path = src_dir.join("tree_sitter");
-    fs::create_dir_all(&header_path).unwrap();
-
-    for (file, content) in [
-        ("alloc.h", ALLOC_HEADER),
-        ("array.h", ARRAY_HEADER),
-        ("parser.h", tree_sitter::PARSER_HEADER),
-    ] {
-        let file = header_path.join(file);
-        fs::write(&file, content)
-            .with_context(|| format!("Failed to write {:?}", file.file_name().unwrap()))
-            .unwrap();
+    if WRITTEN_HEADER_DIRS
+        .lock()
+        .unwrap()
+        .insert(header_path.clone())
+    {
+        fs::create_dir_all(&header_path).unwrap();
+        for (file, content) in [
+            ("alloc.h", ALLOC_HEADER),
+            ("array.h", ARRAY_HEADER),
+            ("parser.h", tree_sitter::PARSER_HEADER),
+        ] {
+            let path = header_path.join(file);
+            fs::write(&path, content)
+                .with_context(|| format!("Failed to write {}", path.display()))
+                .unwrap();
+        }
     }
 
     let paths_to_check = if let Some(scanner_path) = &scanner_path {
