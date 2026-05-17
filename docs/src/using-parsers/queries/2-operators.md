@@ -1,5 +1,10 @@
 # Operators
 
+> **Note:** This chapter describes query syntax and behavior. Examples show matching
+> patterns; when behavior depends on edge cases (for example alternation combined with
+> quantifiers), prefer the regression tests in `test/fixtures/queries` as the source of
+> truth until each case is documented with explicit match output here.
+
 ## Capturing Nodes
 
 When matching patterns, you may want to process specific nodes within the pattern. Captures allow you to associate names
