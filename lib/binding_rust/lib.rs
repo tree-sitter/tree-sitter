@@ -3925,9 +3925,35 @@ static mut FREE_FN: unsafe extern "C" fn(ptr: *mut c_void) = free;
 
 /// Sets the memory allocation functions that the core library should use.
 ///
+/// By default, Tree-sitter uses the standard libc allocation functions and aborts
+/// the process when an allocation fails. Pass custom function pointers to override
+/// them at runtime.
+///
+/// Pass `None` for any parameter to keep Tree-sitter's default implementation of
+/// that function. For example, `new_free: None` does **not** route frees through
+/// your `malloc`; it uses libc `free`, matching the C API's `ts_set_allocator`.
+///
+/// If you override only some functions, the defaults for the others still use libc.
+/// `None` for `new_calloc` keeps the default `calloc` (Tree-sitter does not
+/// synthesize calloc from `malloc` + `memset`).
+///
+/// Pointers returned by your `malloc` / `calloc` / `realloc` must satisfy the same
+/// alignment and sizing rules as libc (suitable for any C object Tree-sitter
+/// allocates).
+///
+/// Call this before creating parsers, trees, or other library objects. If you call
+/// it after Tree-sitter has allocated memory, either free everything first or ensure
+/// the new allocator can free pointers allocated by the previous one.
+///
+/// Tree-sitter stores syntax trees in its own arenas; `Node` values are handles into
+/// that storage. Replacing the global allocator affects how that storage is obtained,
+/// not the public `Node` API.
+///
 /// # Safety
 ///
-/// This function uses FFI and mutates a static global.
+/// This function uses FFI and mutates process-wide allocator state. The supplied
+/// functions must be thread-safe if Tree-sitter is used from multiple threads, and
+/// must uphold the same contract as the C `ts_set_allocator` function.
 #[doc(alias = "ts_set_allocator")]
 pub unsafe fn set_allocator(
     new_malloc: Option<unsafe extern "C" fn(size: usize) -> *mut c_void>,
