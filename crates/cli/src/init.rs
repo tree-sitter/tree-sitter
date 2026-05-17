@@ -78,6 +78,7 @@ const TAGS_QUERY_PATH_PLACEHOLDER: &str = "TAGS_QUERY_PATH";
 
 const GRAMMAR_JS_TEMPLATE: &str = include_str!("./templates/grammar.js");
 const PACKAGE_JSON_TEMPLATE: &str = include_str!("./templates/package.json");
+const PACKAGE_JSON_NO_NODE_TEMPLATE: &str = include_str!("./templates/package_no_node.json");
 const GITIGNORE_TEMPLATE: &str = include_str!("./templates/gitignore");
 const GITATTRIBUTES_TEMPLATE: &str = include_str!("./templates/gitattributes");
 const EDITORCONFIG_TEMPLATE: &str = include_str!("./templates/.editorconfig");
@@ -350,7 +351,7 @@ pub fn generate_grammar_files(
 
     let bindings_dir = repo_path.join("bindings");
 
-    generate_common_files(&ctx, &generate_opts)?;
+    generate_common_files(&ctx, &generate_opts, tree_sitter_config.bindings.node)?;
 
     if tree_sitter_config.bindings.rust {
         generate_rust_bindings(&ctx, &generate_opts, &bindings_dir)?;
@@ -380,20 +381,29 @@ pub fn generate_grammar_files(
     Ok(())
 }
 
-fn generate_common_files(ctx: &InitContext, opts: &GenerateOpts) -> Result<()> {
+fn generate_common_files(
+    ctx: &InitContext,
+    opts: &GenerateOpts,
+    node_bindings: bool,
+) -> Result<()> {
     // Create package.json
+    let package_json_template = if node_bindings {
+        PACKAGE_JSON_TEMPLATE
+    } else {
+        PACKAGE_JSON_NO_NODE_TEMPLATE
+    };
     missing_path_else(
         ctx.repo_path.join("package.json"),
         ctx.allow_update,
         |path| {
             generate_file(
                 path,
-                PACKAGE_JSON_TEMPLATE,
+                package_json_template,
                 ctx.dashed_language_name.as_str(),
                 opts,
             )
         },
-        update_package_json,
+        |path| update_package_json(path, node_bindings),
     )?;
 
     // Do not create a grammar.js file in a repo with multiple language configs
@@ -836,8 +846,62 @@ fn generate_java_bindings(
     Ok(())
 }
 
-fn update_package_json(path: &Path) -> Result<()> {
-    let mut contents = fs::read_to_string(path)?
+fn update_package_json(path: &Path, node_bindings: bool) -> Result<()> {
+    let mut contents = fs::read_to_string(path)?;
+    if !node_bindings && contents.contains("node-gyp-build") {
+        info!("Removing Node binding fields from package.json");
+        contents = contents
+            .replace("    \"install\": \"node-gyp-build\",\n", "")
+            .replace("  \"main\": \"bindings/node\",\n", "")
+            .replace("  \"types\": \"bindings/node\",\n", "")
+            .replace("    \"binding.gyp\",\n", "")
+            .replace("    \"prebuilds/**\",\n", "")
+            .replace("    \"bindings/node/*\",\n", "")
+            .replace("    \"*.wasm\"\n", "")
+            .replace(
+                indoc! {r#"
+  "dependencies": {
+    "node-addon-api": "^8.5.0",
+    "node-gyp-build": "^4.8.4"
+  },
+"#},
+                "",
+            )
+            .replace(
+                indoc! {r#"
+    "prebuildify": "^6.0.1",
+"#},
+                "",
+            )
+            .replace("    \"tree-sitter\": \"^0.25.0\",\n", "")
+            .replace(
+                indoc! {r#"
+  "peerDependencies": {
+    "tree-sitter": "^0.25.0"
+  },
+  "peerDependenciesMeta": {
+    "tree-sitter": {
+      "optional": true
+    }
+  },
+"#},
+                "",
+            )
+            .replace("    \"test\": \"node --test bindings/node/*_test.js\"\n", "");
+        if !contents.contains("\"private\"") {
+            contents = contents.replace(
+                "  \"keywords\": [",
+                "  \"private\": true,\n  \"keywords\": [",
+            );
+        }
+        if !contents.contains("tree-sitter-cli") {
+            let dev_deps = format!(
+                "  \"devDependencies\": {{\n    \"tree-sitter-cli\": \"^{CLI_VERSION}\",\n",
+            );
+            contents = contents.replace("  \"devDependencies\": {", &dev_deps);
+        }
+    }
+    let mut contents = contents
         .replace(
             r#""node-addon-api": "^8.3.1""#,
             r#""node-addon-api": "^8.5.0""#,
