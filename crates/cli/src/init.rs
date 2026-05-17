@@ -1721,6 +1721,11 @@ mod template_tests {
     use super::*;
 
     #[test]
+    fn makefile_template_defines_description() {
+        assert!(MAKEFILE_TEMPLATE.contains("DESCRIPTION := PARSER_DESCRIPTION"));
+    }
+
+    #[test]
     fn package_json_templates_match_node_bindings() {
         assert!(PACKAGE_JSON_TEMPLATE.contains("node-gyp-build"));
         assert!(PACKAGE_JSON_TEMPLATE.contains("binding.gyp"));
