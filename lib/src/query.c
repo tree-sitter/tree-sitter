@@ -3287,9 +3287,14 @@ bool ts_query__step_is_fallible(
   const TSQuery *self,
   uint16_t step_index
 ) {
-  ts_assert((uint32_t)step_index + 1 < self->steps.size);
+  unsigned i = 1;
   QueryStep *step = array_get(&self->steps, step_index);
-  QueryStep *next_step = array_get(&self->steps, step_index + 1);
+  QueryStep *next_step;
+  do {
+    ts_assert((uint32_t)step_index + i < self->steps.size);
+    next_step = array_get(&self->steps, step_index + i);
+    i++;
+  } while (next_step->is_pass_through);
   return (
     next_step->depth != PATTERN_DONE_MARKER &&
     (next_step->depth > step->depth ||
