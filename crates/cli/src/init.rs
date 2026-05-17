@@ -1651,3 +1651,13 @@ where
         Ok(PathState::Exists(path))
     }
 }
+
+#[cfg(test)]
+mod template_tests {
+    use super::*;
+
+    #[test]
+    fn makefile_template_defines_description() {
+        assert!(MAKEFILE_TEMPLATE.contains("DESCRIPTION := PARSER_DESCRIPTION"));
+    }
+}
