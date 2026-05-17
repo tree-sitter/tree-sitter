@@ -1715,3 +1715,17 @@ where
         Ok(PathState::Exists(path))
     }
 }
+
+#[cfg(test)]
+mod template_tests {
+    use super::*;
+
+    #[test]
+    fn package_json_templates_match_node_bindings() {
+        assert!(PACKAGE_JSON_TEMPLATE.contains("node-gyp-build"));
+        assert!(PACKAGE_JSON_TEMPLATE.contains("binding.gyp"));
+        assert!(!PACKAGE_JSON_NO_NODE_TEMPLATE.contains("node-gyp-build"));
+        assert!(!PACKAGE_JSON_NO_NODE_TEMPLATE.contains("binding.gyp"));
+        assert!(PACKAGE_JSON_NO_NODE_TEMPLATE.contains("tree-sitter-cli"));
+    }
+}
