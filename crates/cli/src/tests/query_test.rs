@@ -1620,10 +1620,7 @@ fn test_matches_with_anchor_sibling_inside_parent() {
             // B
             fn b() {}
             ",
-            &[
-                (0, vec![("name", "a")]),
-                (0, vec![("name", "b")]),
-            ]
+            &[(0, vec![("name", "a")]), (0, vec![("name", "b")])],
         );
     });
 }
@@ -1655,10 +1652,7 @@ fn test_matches_with_anchor_sibling_with_quantifier_inside_parent() {
             // B
             fn b() {}
             ",
-            &[
-                (0, vec![("name", "a")]),
-                (0, vec![("name", "b")]),
-            ]
+            &[(0, vec![("name", "a")]), (0, vec![("name", "b")])],
         );
     });
 }
@@ -1693,7 +1687,7 @@ fn test_matches_with_anchor_sibling_with_quantifier_captured_inside_parent() {
             &[
                 (0, vec![("doc", "// A"), ("name", "a")]),
                 (0, vec![("doc", "// B"), ("name", "b")]),
-            ]
+            ],
         );
     });
 }
