@@ -1325,7 +1325,7 @@ const TSLanguage *ts_wasm_store_load_language(
   }
 
   bool has_supertypes =
-    wasm_language.abi_version > LANGUAGE_VERSION_WITH_RESERVED_WORDS &&
+    wasm_language.abi_version >= LANGUAGE_VERSION_WITH_RESERVED_WORDS &&
     wasm_language.supertype_count > 0;
 
   int32_t addresses[] = {
