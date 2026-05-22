@@ -72,7 +72,7 @@ export default grammar({
   rules: {
     source_file: $ => repeat($._statement),
 
-    // Three statement forms:
+    // Six statement forms:
     //   expression-statement:   expr ;
     //   standalone-keyword:     neqv_op ;  <-- puts neqv_op and identifier
     //                                          in the SAME initial parse
@@ -92,11 +92,21 @@ export default grammar({
     //                                      <-- keeps neqv_op in ts_lex via
     //                                          the identify_keywords exclusion
     //                                          (conflict-status asymmetry).
+    //   standalone-hi-companion: kw_hi ;  <-- kw_hi uses prec=1; demonstrates
+    //                                          that the token wins at the
+    //                                          "kw-" completion point.
+    //   prefix-hi-companion:    kw_hi expr ;
+    //                                      <-- kw_hi wins even when word
+    //                                          characters follow the hyphen
+    //                                          (identifier continuation pruned,
+    //                                          rescue does not fire).
     _statement: $ => choice(
       seq($._expression, ";"),
       seq($.neqv_op, ";"),
       seq($.neqv_ext, ";"),
       seq($._expression, $.neqv_ext, $._expression, ";"),
+      seq($.kw_hi, ";"),
+      seq($.kw_hi, $._expression, ";"),
     ),
 
     _expression: $ => choice(
@@ -129,9 +139,32 @@ export default grammar({
     //     skip the conflict check.
     neqv_ext: $ => token(prec(0, /neqv-/)),
 
+    // High-precedence companion: demonstrates the intentional-priority case.
+    // Unlike neqv_ext (prec=0 == identifier prec=0), kw_hi uses prec=1:
+    //   * At "kw-" completion: prefer_transition(t.prec=0, completed_prec=1)
+    //     == false, so the identifier word-char continuation IS pruned.
+    //   * The rescue in populate_state does NOT fire: kw_hi is not a keyword
+    //     candidate and is never placed in leaked_keywords.
+    //   * Result: kw_hi wins at "kw-" even when word characters follow,
+    //     unlike neqv_ext where equal precedence lets identifier continue.
+    kw_hi: $ => token(prec(1, /kw-/)),
+
     // Word token.  Internal hyphens are allowed (e.g. "neqv-base" is a
-    // valid identifier), but a trailing hyphen is not, so "neqv-" alone
-    // cannot be an identifier and neqv_ext wins there unambiguously.
+    // valid identifier), but a trailing hyphen is not.
+    //
+    // Disambiguation at the "neqv-" DFA state depends on TWO properties:
+    //
+    //   1. Equal precedence (prec=0 on both neqv_ext and identifier):
+    //      prefer_transition(t.prec=0, completed_prec=0) returns TRUE, so
+    //      the identifier word-char continuation is NOT pruned after neqv_ext
+    //      completes.  If neqv_ext were prec(2), prefer_transition(0, 2)
+    //      would be false and "neqv-base" would be lexed as
+    //      neqv_ext("neqv-") + identifier("base").
+    //
+    //   2. No trailing hyphen in identifier:
+    //      When ";" follows "neqv-", identifier cannot complete (the
+    //      (-\w+)* group requires at least one word character after "-"),
+    //      so neqv_ext is the only complete token and wins unambiguously.
     identifier: $ => /[a-zA-Z]\w*(-\w+)*/
   },
 });

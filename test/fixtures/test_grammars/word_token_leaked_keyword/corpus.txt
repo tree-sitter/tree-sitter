@@ -80,3 +80,26 @@ neqv-;
 
 (source_file
   (neqv_ext))
+
+================================================================
+High-Precedence Companion Wins At Word Boundary
+================================================================
+
+kw-;
+
+---
+
+(source_file
+  (kw_hi))
+
+================================================================
+High-Precedence Companion Wins Over Identifier (Continuation Pruned)
+================================================================
+
+kw-base;
+
+---
+
+(source_file
+  (kw_hi)
+  (identifier))
