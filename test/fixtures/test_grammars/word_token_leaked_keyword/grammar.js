@@ -7,11 +7,11 @@
  *   1. Grammar declares `word: $ => $.identifier`.
  *   2. A keyword token (neqv_op) uses explicit positive precedence via
  *      `token(prec(N, pattern))` with N > 0.
- *   3. A companion "compound-assignment" token exists whose pattern STARTS
- *      with the same characters as the keyword but continues past the keyword
- *      completion point (e.g. "neqv:=" vs "neqv").  The companion token must
- *      be a non-keyword-candidate (it matches strings that `identifier` does
- *      not: "neqv:=" is not a valid identifier).
+ *   3. A companion operator token exists whose pattern STARTS with the same
+ *      characters as the keyword but continues past the keyword completion
+ *      point (e.g. "neqv-" vs "neqv").  The companion token must be a
+ *      non-keyword-candidate (it matches strings that `identifier` does not:
+ *      bare "neqv-" cannot be an identifier because it ends with a hyphen).
  *
  * MECHANISM: why neqv_op stays in ts_lex instead of ts_lex_keywords
  *
@@ -22,7 +22,7 @@
  *
  *   Step A: find states where `neqv_op` and X coexist.  In this grammar,
  *           after a complete LHS `_expression`, both `neqv_op` (binary
- *           operator) and `neqv_assign` (compound assignment) are valid
+ *           operator) and `neqv_ext` (companion operator) are valid
  *           lookaheads, but `identifier` is NOT.
  *
  *   Step B: because identifier is not valid in those states, the "no new
@@ -30,18 +30,18 @@
  *
  *   Step C: compare conflict status of `neqv_op` vs `identifier` vs X:
  *
- *     status_matrix[neqv_op, neqv_assign]:
- *       At "neqv" completion (prec=1), the `:` advance for neqv_assign has
+ *     status_matrix[neqv_op, neqv_ext]:
+ *       At "neqv" completion (prec=1), the `-` advance for neqv_ext has
  *       prec=0 < 1.  prefer_transition() returns FALSE.  MATCHES_PREFIX set.
  *
- *     status_matrix[identifier, neqv_assign]:
- *       At "neqv" completion (prec=0), the `:` advance for neqv_assign has
+ *     status_matrix[identifier, neqv_ext]:
+ *       At "neqv" completion (prec=0), the `-` advance for neqv_ext has
  *       prec=0 == 0.  prefer_transition() returns TRUE.  DOES_MATCH_CONTIN-
- *       UATION is set on neqv_assign side, not on identifier side.
- *       status_matrix[identifier, neqv_assign] stays EMPTY.
+ *       UATION is set on neqv_ext side, not on identifier side.
+ *       status_matrix[identifier, neqv_ext] stays EMPTY.
  *
  *     MATCHES_PREFIX != EMPTY
- *     has_same_conflict_status(neqv_op, identifier, neqv_assign) == false
+ *     has_same_conflict_status(neqv_op, identifier, neqv_ext) == false
  *     neqv_op is EXCLUDED from keywords and stays in ts_lex.
  *
  * DFA BUG: once neqv_op is in ts_lex
@@ -84,14 +84,19 @@ export default grammar({
     //                                          bug manifests: state 8 accepts
     //                                          neqv_op with no identifier
     //                                          continuation.
-    //   compound-assignment:    expr  neqv_assign  expr ;
+    //   standalone-companion:   neqv_ext ;  <-- puts neqv_ext and identifier
+    //                                          in the SAME initial parse state,
+    //                                          allowing the regression tests
+    //                                          below to exercise the boundary.
+    //   binary-with-companion:  expr  neqv_ext  expr ;
     //                                      <-- keeps neqv_op in ts_lex via
     //                                          the identify_keywords exclusion
     //                                          (conflict-status asymmetry).
     _statement: $ => choice(
       seq($._expression, ";"),
       seq($.neqv_op, ";"),
-      seq($._expression, $.neqv_assign, $._expression, ";"),
+      seq($.neqv_ext, ";"),
+      seq($._expression, $.neqv_ext, $._expression, ";"),
     ),
 
     _expression: $ => choice(
@@ -108,22 +113,25 @@ export default grammar({
     // causing the identifier-continuation to be dropped from the DFA.
     neqv_op: $ => token(prec(1, /neqv/)),
 
-    // Compound-assignment operator: same prefix as neqv_op, then ":=".
+    // Companion operator: same prefix as neqv_op, then a hyphen.
     // Critical properties:
-    //   * NOT a keyword candidate: "neqv:=" is not in identifier's language,
-    //     so does_match_different_string(neqv_assign, identifier) = true.
+    //   * NOT a keyword candidate: "neqv-" is not in identifier's language
+    //     (identifiers cannot end with a hyphen), so
+    //     does_match_different_string(neqv_ext, identifier) = true.
     //   * Creates the conflict-status asymmetry between neqv_op and identifier:
-    //       neqv_op  (prec=1) vs neqv_assign: MATCHES_PREFIX
-    //       identifier (prec=0) vs neqv_assign: EMPTY (continuation goes to
-    //         neqv_assign side, not identifier side)
-    //     has_same_conflict_status(neqv_op, identifier, neqv_assign) == false
+    //       neqv_op  (prec=1) vs neqv_ext: MATCHES_PREFIX
+    //       identifier (prec=0) vs neqv_ext: EMPTY (continuation goes to
+    //         neqv_ext side, not identifier side)
+    //     has_same_conflict_status(neqv_op, identifier, neqv_ext) == false
     //     forces neqv_op out of keywords and into ts_lex.
     //   * Appears in operator position where identifier is NOT valid,
     //     so the fast-path ("identifier already valid everywhere") does not
     //     skip the conflict check.
-    neqv_assign: $ => token(prec(0, /neqv:=/)),
+    neqv_ext: $ => token(prec(0, /neqv-/)),
 
-    // Word token.
-    identifier: $ => /[a-zA-Z]\w*/,
+    // Word token.  Internal hyphens are allowed (e.g. "neqv-base" is a
+    // valid identifier), but a trailing hyphen is not, so "neqv-" alone
+    // cannot be an identifier and neqv_ext wins there unambiguously.
+    identifier: $ => /[a-zA-Z]\w*(-\w+)*/
   },
 });
