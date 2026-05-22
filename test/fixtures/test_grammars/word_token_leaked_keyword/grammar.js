@@ -1,0 +1,134 @@
+/**
+ * @file Minimal reproduction of tree-sitter build_lex_table.rs word-token
+ *       transition pruning bug.
+ *
+ * TRIGGER CONDITIONS (all three required):
+ *
+ *   1. Grammar declares `word: $ => $.identifier`.
+ *   2. A keyword token (neqv_op) uses explicit positive precedence via
+ *      `token(prec(N, pattern))` with N > 0.
+ *   3. A companion "compound-assignment" token exists whose pattern STARTS
+ *      with the same characters as the keyword but continues past the keyword
+ *      completion point (e.g. "neqv:=" vs "neqv").  The companion token must
+ *      be a non-keyword-candidate (it matches strings that `identifier` does
+ *      not: "neqv:=" is not a valid identifier).
+ *
+ * MECHANISM: why neqv_op stays in ts_lex instead of ts_lex_keywords
+ *
+ *   `identify_keywords` (build_tables.rs) runs a final filter that excludes
+ *   keyword candidates for which substituting the word token (identifier)
+ *   would introduce new lexical conflicts.  The filter tests each non-keyword
+ *   token X:
+ *
+ *   Step A: find states where `neqv_op` and X coexist.  In this grammar,
+ *           after a complete LHS `_expression`, both `neqv_op` (binary
+ *           operator) and `neqv_assign` (compound assignment) are valid
+ *           lookaheads, but `identifier` is NOT.
+ *
+ *   Step B: because identifier is not valid in those states, the "no new
+ *           conflicts" fast-path does not apply.
+ *
+ *   Step C: compare conflict status of `neqv_op` vs `identifier` vs X:
+ *
+ *     status_matrix[neqv_op, neqv_assign]:
+ *       At "neqv" completion (prec=1), the `:` advance for neqv_assign has
+ *       prec=0 < 1.  prefer_transition() returns FALSE.  MATCHES_PREFIX set.
+ *
+ *     status_matrix[identifier, neqv_assign]:
+ *       At "neqv" completion (prec=0), the `:` advance for neqv_assign has
+ *       prec=0 == 0.  prefer_transition() returns TRUE.  DOES_MATCH_CONTIN-
+ *       UATION is set on neqv_assign side, not on identifier side.
+ *       status_matrix[identifier, neqv_assign] stays EMPTY.
+ *
+ *     MATCHES_PREFIX != EMPTY
+ *     has_same_conflict_status(neqv_op, identifier, neqv_assign) == false
+ *     neqv_op is EXCLUDED from keywords and stays in ts_lex.
+ *
+ * DFA BUG: once neqv_op is in ts_lex
+ *
+ *   In the DFA state after reading "neqv", neqv_op is COMPLETE (prec=1) and
+ *   the identifier continuation transition (prec=0 Advance states) is also
+ *   present.  populate_state() calls
+ *     prefer_transition(t.prec=0, completed_precedence=1)
+ *   0 < 1 returns false, so the identifier-continuation branch is DROPPED.
+ *   Input "neqvbase" is lexed as neqv_op("neqv") + identifier("base")
+ *   instead of the correct identifier("neqvbase").
+ *
+ * FIX: populate_state() checks whether the pruned transition leads to the
+ *   word-token NFA variable; if it does, the transition is KEPT.  Applied
+ *   only to the main lex table (word_token = Some(identifier)).
+ *
+ * @author Chris Fanning
+ * @license MIT
+ */
+
+/// <reference types="tree-sitter-cli/dsl" />
+// @ts-check
+
+export default grammar({
+  name: "pruning",
+
+  // word: declaration is required:
+  //   1. It enables the keyword extraction mechanism (ts_lex_keywords).
+  //   2. The fix sets word_token = Some(identifier), which is only possible
+  //      when a word token is declared.
+  word: $ => $.identifier,
+
+  rules: {
+    source_file: $ => repeat($._statement),
+
+    // Three statement forms:
+    //   expression-statement:   expr ;
+    //   standalone-keyword:     neqv_op ;  <-- puts neqv_op and identifier
+    //                                          in the SAME initial parse
+    //                                          state.  The generator creates
+    //                                          a shared lex_state with both
+    //                                          the neqv-specific prefix path
+    //                                          AND the general identifier
+    //                                          path.  This is where the DFA
+    //                                          bug manifests: state 8 accepts
+    //                                          neqv_op with no identifier
+    //                                          continuation.
+    //   compound-assignment:    expr  neqv_assign  expr ;
+    //                                      <-- keeps neqv_op in ts_lex via
+    //                                          the identify_keywords exclusion
+    //                                          (conflict-status asymmetry).
+    _statement: $ => choice(
+      seq($._expression, ";"),
+      seq($.neqv_op, ";"),
+      seq($._expression, $.neqv_assign, $._expression, ";"),
+    ),
+
+    _expression: $ => choice(
+      $.identifier,
+      $.binary_expr,
+    ),
+
+    binary_expr: $ => prec.left(1,
+      seq($._expression, $.neqv_op, $._expression),
+    ),
+
+    // Keyword with positive precedence (prec=1 > 0 of identifier Advance states).
+    // This satisfies prefer_transition(t.prec=0 < completed=1) == false,
+    // causing the identifier-continuation to be dropped from the DFA.
+    neqv_op: $ => token(prec(1, /[nN][eE][qQ][vV]/)),
+
+    // Compound-assignment operator: same prefix as neqv_op, then ":=".
+    // Critical properties:
+    //   * NOT a keyword candidate: "neqv:=" is not in identifier's language,
+    //     so does_match_different_string(neqv_assign, identifier) = true.
+    //   * Creates the conflict-status asymmetry between neqv_op and identifier:
+    //       neqv_op  (prec=1) vs neqv_assign: MATCHES_PREFIX
+    //       identifier (prec=0) vs neqv_assign: EMPTY (continuation goes to
+    //         neqv_assign side, not identifier side)
+    //     has_same_conflict_status(neqv_op, identifier, neqv_assign) == false
+    //     forces neqv_op out of keywords and into ts_lex.
+    //   * Appears in operator position where identifier is NOT valid,
+    //     so the fast-path ("identifier already valid everywhere") does not
+    //     skip the conflict check.
+    neqv_assign: $ => token(prec(0, /[nN][eE][qQ][vV]:=/)),
+
+    // Word token.
+    identifier: $ => /[a-zA-Z]\w*/,
+  },
+});

@@ -1,0 +1,60 @@
+================================================================
+Identifier Starting With NEQV Keyword Not Split (Bug Reproduction)
+================================================================
+
+neqvbase;
+
+---
+
+(source_file
+  (identifier))
+
+================================================================
+Identifier Starting With NEQV Adjacent To Operator (Bug Reproduction)
+================================================================
+
+neqvbase neqv other;
+
+---
+
+(source_file
+  (binary_expr
+    (identifier)
+    (neqv_op)
+    (identifier)))
+
+================================================================
+NEQV Keyword Recognised Standalone
+================================================================
+
+neqv;
+
+---
+
+(source_file
+  (neqv_op))
+
+================================================================
+NEQV Keyword In Binary Expression
+================================================================
+
+x neqv y;
+
+---
+
+(source_file
+  (binary_expr
+    (identifier)
+    (neqv_op)
+    (identifier)))
+
+================================================================
+Plain Identifier Unaffected
+================================================================
+
+hello;
+
+---
+
+(source_file
+  (identifier))
