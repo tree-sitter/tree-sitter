@@ -58,15 +58,10 @@
  *   word-token NFA variable; if it does, the transition is KEPT.  Applied
  *   only to the main lex table (word_token = Some(identifier)).
  *
- * @author Chris Fanning
- * @license MIT
  */
 
-/// <reference types="tree-sitter-cli/dsl" />
-// @ts-check
-
 export default grammar({
-  name: "pruning",
+  name: "word_token_leaked_keyword",
 
   // word: declaration is required:
   //   1. It enables the keyword extraction mechanism (ts_lex_keywords).
@@ -111,7 +106,7 @@ export default grammar({
     // Keyword with positive precedence (prec=1 > 0 of identifier Advance states).
     // This satisfies prefer_transition(t.prec=0 < completed=1) == false,
     // causing the identifier-continuation to be dropped from the DFA.
-    neqv_op: $ => token(prec(1, /[nN][eE][qQ][vV]/)),
+    neqv_op: $ => token(prec(1, /neqv/)),
 
     // Compound-assignment operator: same prefix as neqv_op, then ":=".
     // Critical properties:
@@ -126,7 +121,7 @@ export default grammar({
     //   * Appears in operator position where identifier is NOT valid,
     //     so the fast-path ("identifier already valid everywhere") does not
     //     skip the conflict check.
-    neqv_assign: $ => token(prec(0, /[nN][eE][qQ][vV]:=/)),
+    neqv_assign: $ => token(prec(0, /neqv:=/)),
 
     // Word token.
     identifier: $ => /[a-zA-Z]\w*/,
