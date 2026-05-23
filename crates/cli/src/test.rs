@@ -1404,6 +1404,12 @@ fn parse_header(
             break;
         }
         let trimmed = lines[line_num].trim();
+        // Reject a blank line in the name region so a literal `===` inside a
+        // test body can't be mistaken for an opening delimiter. Blank lines
+        // between markers are allowed as visual separators.
+        if trimmed.is_empty() && !seen_marker {
+            return None;
+        }
         match trimmed.split('(').next().unwrap() {
             ":skip" => (seen_marker, seen_skip) = (true, true),
             ":platform" => {
@@ -1556,7 +1562,9 @@ fn build_test_entry(
             && suffix_matches(first_suffix, suffix)
         {
             let total_len = delim_len + suffix.len();
-            if total_len > best_total_len {
+            // For ties prefer the later candidate, as an earlier same-length
+            // `---` is a literal in the input.
+            if total_len >= best_total_len {
                 best_divider = Some((delim_len, j));
                 best_total_len = total_len;
             }
@@ -1734,6 +1742,106 @@ abc
                         file_name: None,
                     },
                 ],
+                file_path: None,
+            }
+        );
+    }
+
+    #[test]
+    fn test_parse_test_content_with_equals_in_source_code() {
+        // A literal `===` inside a test body must not be mistaken for an
+        // opening header
+        let entry = parse_test_content(
+            "the-filename".to_string(),
+            r"
+==========
+First
+==========
+a
+===
+b
+---
+(a)
+
+==========
+Second
+==========
+c
+---
+(c)
+        "
+            .trim(),
+            None,
+        );
+
+        assert_eq!(
+            entry,
+            TestEntry::Group {
+                name: "the-filename".to_string(),
+                children: vec![
+                    TestEntry::Example {
+                        name: "First".to_string(),
+                        input: b"a\n===\nb".to_vec(),
+                        output: "(a)".to_string(),
+                        header_delim_len: 10,
+                        divider_delim_len: 3,
+                        has_fields: false,
+                        attributes_str: String::new(),
+                        attributes: TestAttributes::default(),
+                        file_name: None,
+                    },
+                    TestEntry::Example {
+                        name: "Second".to_string(),
+                        input: b"c".to_vec(),
+                        output: "(c)".to_string(),
+                        header_delim_len: 10,
+                        divider_delim_len: 3,
+                        has_fields: false,
+                        attributes_str: String::new(),
+                        attributes: TestAttributes::default(),
+                        file_name: None,
+                    },
+                ],
+                file_path: None,
+            }
+        );
+    }
+
+    #[test]
+    fn test_parse_test_content_with_tied_divider_length() {
+        // When two `---` lines in a body have the same length, the real
+        // divider is the last one.
+        let entry = parse_test_content(
+            "the-filename".to_string(),
+            r"
+==========
+Tied dashes
+==========
+a
+---
+b
+---
+(c)
+        "
+            .trim(),
+            None,
+        );
+
+        assert_eq!(
+            entry,
+            TestEntry::Group {
+                name: "the-filename".to_string(),
+                children: vec![TestEntry::Example {
+                    name: "Tied dashes".to_string(),
+                    input: b"a\n---\nb".to_vec(),
+                    output: "(c)".to_string(),
+                    header_delim_len: 10,
+                    divider_delim_len: 3,
+                    has_fields: false,
+                    attributes_str: String::new(),
+                    attributes: TestAttributes::default(),
+                    file_name: None,
+                }],
                 file_path: None,
             }
         );
