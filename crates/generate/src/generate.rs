@@ -251,6 +251,18 @@ where
             repo_path = path_buf;
             repo_path.join("grammar.js")
         } else {
+            // Given an _explicit_ path to an input file, derive the repo root from the
+            // conventional locations:
+            //     - grammar.js sits inside <root>/
+            //     - grammar.json sits inside <root>/src/
+            let repo_root = match path_buf.extension() {
+                Some(e) if e == "js" => path_buf.parent(),
+                Some(e) if e == "json" => path_buf.parent().and_then(Path::parent),
+                _ => None,
+            };
+            if let Some(root) = repo_root {
+                repo_path = root.to_path_buf();
+            }
             path_buf
         }
     } else {
