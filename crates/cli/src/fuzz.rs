@@ -65,7 +65,7 @@ pub fn new_seed() -> usize {
     int_env_var("TREE_SITTER_SEED").unwrap_or_else(|| {
         let mut rng = rand::rng();
         let seed = rng.random_range(0..=usize::MAX);
-        info!("Seed: {seed}");
+        eprintln!("fuzz seed: {seed}");
         seed
     })
 }
