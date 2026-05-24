@@ -3,8 +3,20 @@ use tree_sitter::{LogType, Node, Parser, Point, Range, Tree};
 use super::{LOG_ENABLED, LOG_GRAPH_ENABLED, scope_sequence::ScopeSequence};
 use crate::util;
 
-pub fn check_consistent_sizes(tree: &Tree, input: &[u8]) {
-    fn check(node: Node, line_offsets: &[usize]) {
+struct SizeCheckFrame<'a> {
+    node: Node<'a>,
+    end_byte: usize,
+    end_point: Point,
+    child_count: u32,
+    child_index: u32,
+    last_child_end_byte: usize,
+    last_child_end_point: Point,
+    some_child_has_changes: bool,
+    actual_named_child_count: usize,
+}
+
+impl SizeCheckFrame<'_> {
+    fn new<'a>(node: Node<'a>, line_offsets: &[usize]) -> SizeCheckFrame<'a> {
         let start_byte = node.start_byte();
         let end_byte = node.end_byte();
         let start_point = node.start_position();
@@ -18,37 +30,21 @@ pub fn check_consistent_sizes(tree: &Tree, input: &[u8]) {
         );
         assert_eq!(end_byte, line_offsets[end_point.row] + end_point.column);
 
-        let mut last_child_end_byte = start_byte;
-        let mut last_child_end_point = start_point;
-        let mut some_child_has_changes = false;
-        let mut actual_named_child_count = 0;
-        for i in 0..node.child_count() {
-            let child = node.child(i).unwrap();
-            assert!(child.start_byte() >= last_child_end_byte);
-            assert!(child.start_position() >= last_child_end_point);
-            check(child, line_offsets);
-            if child.has_changes() {
-                some_child_has_changes = true;
-            }
-            if child.is_named() {
-                actual_named_child_count += 1;
-            }
-            last_child_end_byte = child.end_byte();
-            last_child_end_point = child.end_position();
-        }
-
-        assert_eq!(actual_named_child_count, node.named_child_count());
-
-        if node.child_count() > 0 {
-            assert!(end_byte >= last_child_end_byte);
-            assert!(end_point >= last_child_end_point);
-        }
-
-        if some_child_has_changes {
-            assert!(node.has_changes());
+        SizeCheckFrame {
+            node,
+            end_byte,
+            end_point,
+            child_count: node.child_count(),
+            child_index: 0,
+            last_child_end_byte: start_byte,
+            last_child_end_point: start_point,
+            some_child_has_changes: false,
+            actual_named_child_count: 0,
         }
     }
+}
 
+pub fn check_consistent_sizes(tree: &Tree, input: &[u8]) {
     let mut line_offsets = vec![0];
     for (i, c) in input.iter().enumerate() {
         if *c == b'\n' {
@@ -56,7 +52,41 @@ pub fn check_consistent_sizes(tree: &Tree, input: &[u8]) {
         }
     }
 
-    check(tree.root_node(), &line_offsets);
+    let mut stack: Vec<SizeCheckFrame> = vec![SizeCheckFrame::new(tree.root_node(), &line_offsets)];
+    while let Some(top) = stack.last_mut() {
+        if top.child_index < top.child_count {
+            let i = top.child_index;
+            let child = top.node.child(i).unwrap();
+
+            assert!(child.start_byte() >= top.last_child_end_byte);
+            assert!(child.start_position() >= top.last_child_end_point);
+            if child.has_changes() {
+                top.some_child_has_changes = true;
+            }
+            if child.is_named() {
+                top.actual_named_child_count += 1;
+            }
+            top.last_child_end_byte = child.end_byte();
+            top.last_child_end_point = child.end_position();
+            top.child_index += 1;
+
+            stack.push(SizeCheckFrame::new(child, &line_offsets));
+            continue;
+        }
+
+        let frame = stack.pop().unwrap();
+        assert_eq!(
+            frame.actual_named_child_count,
+            frame.node.named_child_count()
+        );
+        if frame.child_count > 0 {
+            assert!(frame.end_byte >= frame.last_child_end_byte);
+            assert!(frame.end_point >= frame.last_child_end_point);
+        }
+        if frame.some_child_has_changes {
+            assert!(frame.node.has_changes());
+        }
+    }
 }
 
 pub fn check_changed_ranges(old_tree: &Tree, new_tree: &Tree, input: &[u8]) -> Result<(), String> {
