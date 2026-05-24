@@ -162,10 +162,11 @@ typedef struct {
   int32_t supertype_map_slices;
   int32_t supertype_map_entries;
   TSLanguageMetadata metadata;
-  // CSR-compressed parse table (ABI version >= 16)
-  int32_t parse_table_row_offsets;
-  int32_t parse_table_columns;
-  int32_t parse_table_values;
+  // CSR-compressed parse table (ABI version >= 16). `compressed_parse_table`
+  // is a single flat array of interleaved (symbol, value) pairs;
+  // `compressed_parse_table_map` holds uint16_t-indices of row starts.
+  int32_t compressed_parse_table_map;
+  int32_t compressed_parse_table;
 } LanguageInWasmMemory;
 
 // LexerInWasmMemory - The memory layout of a `TSLexer` when compiled to wasm32.
@@ -1337,9 +1338,8 @@ const TSLanguage *ts_wasm_store_load_language(
     wasm_language.parse_table,
     wasm_language.small_parse_table,
     wasm_language.small_parse_table_map,
-    wasm_language.parse_table_row_offsets,
-    wasm_language.parse_table_columns,
-    wasm_language.parse_table_values,
+    wasm_language.compressed_parse_table_map,
+    wasm_language.compressed_parse_table,
     wasm_language.parse_actions,
     wasm_language.symbol_names,
     wasm_language.field_names,
@@ -1603,32 +1603,28 @@ const TSLanguage *ts_wasm_store_load_language(
     language->abi_version >= LANGUAGE_VERSION_WITH_COMPRESSED_TABLES &&
     language->csr_state_count > 0
   ) {
-    language->parse_table_row_offsets = copy(
+    language->compressed_parse_table_map = copy(
       &wasm_memory,
-      wasm_language.parse_table_row_offsets,
+      wasm_language.compressed_parse_table_map,
       (language->csr_state_count + 1) * sizeof(uint32_t),
       &valid_wasm_memory
     );
     if (!valid_wasm_memory) goto invalid_language_memory;
-    uint32_t total_nnz;
+    // The final map entry is the total length of `compressed_parse_table`
+    // in uint16_t units (= 2 * total NNZ entries).
+    uint32_t total_entries_u16;
     if (!wasm_memory__read(
       &wasm_memory,
-      wasm_language.parse_table_row_offsets + language->csr_state_count * sizeof(uint32_t),
-      &total_nnz,
-      sizeof(total_nnz)
+      wasm_language.compressed_parse_table_map + language->csr_state_count * sizeof(uint32_t),
+      &total_entries_u16,
+      sizeof(total_entries_u16)
     )) {
       goto invalid_language_memory;
     }
-    language->parse_table_columns = copy(
+    language->compressed_parse_table = copy(
       &wasm_memory,
-      wasm_language.parse_table_columns,
-      total_nnz * sizeof(uint16_t),
-      &valid_wasm_memory
-    );
-    language->parse_table_values = copy(
-      &wasm_memory,
-      wasm_language.parse_table_values,
-      total_nnz * sizeof(uint16_t),
+      wasm_language.compressed_parse_table,
+      total_entries_u16 * sizeof(uint16_t),
       &valid_wasm_memory
     );
     if (!valid_wasm_memory) goto invalid_language_memory;
@@ -2043,9 +2039,8 @@ void ts_wasm_language_release(const TSLanguage *self) {
     ts_free((void *)self->reserved_words);
     ts_free((void *)self->parse_actions);
     ts_free((void *)self->parse_table);
-    ts_free((void *)self->parse_table_row_offsets);
-    ts_free((void *)self->parse_table_columns);
-    ts_free((void *)self->parse_table_values);
+    ts_free((void *)self->compressed_parse_table_map);
+    ts_free((void *)self->compressed_parse_table);
     ts_free((void *)self->primary_state_ids);
     ts_free((void *)self->public_symbol_map);
     ts_free((void *)self->small_parse_table);

@@ -156,9 +156,14 @@ struct TSLanguage {
   // [0, large_state_count), the CSR tier covers
   // [large_state_count, large_state_count + csr_state_count), and the
   // Small tier covers the rest.
-  const uint32_t *parse_table_row_offsets;
-  const uint16_t *parse_table_columns;
-  const uint16_t *parse_table_values;
+  //
+  // CSR rows live in a single flat array `compressed_parse_table` of
+  // interleaved (symbol, value) pairs sorted by symbol.
+  // `compressed_parse_table_map[i]` is the start of row `i` as a uint16_t
+  // index into `compressed_parse_table`; each row occupies `2 * NNZ_i`
+  // uint16_t slots.
+  const uint32_t *compressed_parse_table_map;
+  const uint16_t *compressed_parse_table;
 };
 
 static inline bool set_contains(const TSCharacterRange *ranges, uint32_t len, int32_t lookahead) {

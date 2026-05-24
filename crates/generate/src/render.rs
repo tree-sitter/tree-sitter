@@ -433,7 +433,11 @@ impl Generator {
         }
 
         // Recount tier boundaries from the (now-sorted) repr vector.
-        self.large_state_count = self.state_repr.iter().filter(|r| **r == Repr::Dense).count();
+        self.large_state_count = self
+            .state_repr
+            .iter()
+            .filter(|r| **r == Repr::Dense)
+            .count();
         self.csr_state_count = self.state_repr.iter().filter(|r| **r == Repr::Csr).count();
     }
 
@@ -566,11 +570,7 @@ impl Generator {
             }
             let group_count = term_groups.len() + nonterm_groups.len();
 
-            out.push([
-                symbol_count * 2,
-                nnz * 4 + 4,
-                2 * nnz + 4 * group_count + 6,
-            ]);
+            out.push([symbol_count * 2, nnz * 4 + 4, 2 * nnz + 4 * group_count + 6]);
         }
         out
     }
@@ -619,7 +619,10 @@ impl Generator {
         }
 
         add_line!(self, "#define PER_STATE_OPT_BYTES {sum_opt}");
-        add_line!(self, "#define PER_STATE_OPT_BYTES_PRE_DEDUP {sum_opt_pre_dedup}");
+        add_line!(
+            self,
+            "#define PER_STATE_OPT_BYTES_PRE_DEDUP {sum_opt_pre_dedup}"
+        );
         add_line!(self, "#define PER_STATE_DENSE_BYTES {sum_dense}");
         add_line!(self, "#define PER_STATE_CSR_BYTES {sum_csr}");
         add_line!(self, "#define PER_STATE_SMALL_BYTES {sum_small}");
@@ -642,8 +645,7 @@ impl Generator {
             // Picker bias: prefer Csr to Small unless Small is at least
             // SMALL_VS_CSR_BIAS fraction smaller (Csr binary search is much
             // faster than Small linear scan at parse time).
-            let small_beats_csr =
-                (c[2] as f64) <= SMALL_VS_CSR_BIAS * (c[1] as f64);
+            let small_beats_csr = (c[2] as f64) <= SMALL_VS_CSR_BIAS * (c[1] as f64);
             let pick = if c[0] <= c[1] && (c[0] <= c[2] || !small_beats_csr) {
                 Repr::Dense
             } else if !small_beats_csr || c[1] <= c[2] {
@@ -660,7 +662,10 @@ impl Generator {
         // since we still verify the promotion is locally cheaper.
         let mut by_hash: FxHashMap<u64, Vec<usize>> = FxHashMap::default();
         for i in 0..n {
-            by_hash.entry(self.canonical_small_hash(i)).or_default().push(i);
+            by_hash
+                .entry(self.canonical_small_hash(i))
+                .or_default()
+                .push(i);
         }
 
         for (_, group) in by_hash.into_iter().filter(|(_, g)| g.len() > 1) {
@@ -1604,10 +1609,7 @@ impl Generator {
             &mut next_parse_action_list_index,
         );
 
-        self.add_three_way_parse_table(
-            &mut parse_table_entries,
-            &mut next_parse_action_list_index,
-        );
+        self.add_three_way_parse_table(&mut parse_table_entries, &mut next_parse_action_list_index);
 
         if next_parse_action_list_index >= usize::from(u16::MAX) {
             Err(RenderError::ParseTable(next_parse_action_list_index))?;
@@ -1629,9 +1631,11 @@ impl Generator {
     ///   * `[0, LARGE_STATE_COUNT)`                                   - Dense
     ///     `ts_parse_table[LARGE_STATE_COUNT][SYMBOL_COUNT]`, O(1) lookup.
     ///   * `[LARGE_STATE_COUNT, LARGE_STATE_COUNT + CSR_STATE_COUNT)` - CSR
-    ///     `ts_parse_table_row_offsets[CSR_STATE_COUNT + 1]`,
-    ///     `ts_parse_table_columns[NNZ]`, `ts_parse_table_values[NNZ]`,
-    ///     O(log n) binary search on columns within the row.
+    ///     `ts_compressed_parse_table_map[CSR_STATE_COUNT + 1]` and
+    ///     `ts_compressed_parse_table[]` (interleaved symbol/value pairs,
+    ///     sorted by symbol within each row). Map entries are uint16_t
+    ///     indices into `ts_compressed_parse_table`. O(log n) binary search
+    ///     by entry within each row.
     ///   * remainder                                                  - Small
     ///     grouped sparse `ts_small_parse_table[]` with
     ///     `ts_small_parse_table_map[]` for offsets, O(group_count + nnz)
@@ -1645,7 +1649,11 @@ impl Generator {
         let dense_count = self.large_state_count;
         let csr_count = self.csr_state_count;
 
-        self.add_dense_section(dense_count, parse_table_entries, next_parse_action_list_index);
+        self.add_dense_section(
+            dense_count,
+            parse_table_entries,
+            next_parse_action_list_index,
+        );
         self.add_csr_section(
             dense_count,
             csr_count,
@@ -1670,7 +1678,10 @@ impl Generator {
         if dense_count == 0 {
             // The struct field still references ts_parse_table; keep a 1x1
             // placeholder so the static initializer compiles.
-            add_line!(self, "static const uint16_t ts_parse_table[1][1] = {{{{0}}}};");
+            add_line!(
+                self,
+                "static const uint16_t ts_parse_table[1][1] = {{{{0}}}};"
+            );
             add_line!(self, "");
             return;
         }
@@ -1729,10 +1740,16 @@ impl Generator {
             return;
         }
 
-        let mut row_offsets = Vec::with_capacity(csr_count + 1);
-        let mut columns: Vec<u16> = Vec::new();
-        let mut values: Vec<u16> = Vec::new();
-        let mut entries_buf: Vec<(u16, u16)> = Vec::new();
+        // Each row contributes `2 * NNZ` uint16_t slots to `entries` (interleaved
+        // symbol/value pairs). `row_offsets[i]` is the uint16_t index where row
+        // `i` begins. The trailing entry is the total uint16_t length.
+        let mut row_offsets: Vec<u32> = Vec::with_capacity(csr_count + 1);
+        // Per-row buffer of (column, value, symbol-identifier) so we can sort by
+        // column and still emit a readable `sym_xxx, value` pair for each entry.
+        let mut entries_buf: Vec<(u16, u16, String)> = Vec::new();
+        // Per-row rendered text lines (e.g. `sym_foo, 42,`).
+        let mut rendered_rows: Vec<Vec<String>> = Vec::with_capacity(csr_count);
+        let mut total_u16: u32 = 0;
 
         for (state_idx, state) in self
             .parse_table
@@ -1755,7 +1772,8 @@ impl Generator {
                     GotoAction::Goto(s) => *s,
                     GotoAction::ShiftExtra => state_idx,
                 };
-                entries_buf.push((col as u16, state_id as u16));
+                let id = self.symbol_ids[symbol].clone();
+                entries_buf.push((col as u16, state_id as u16, id));
             }
             for (symbol, entry) in &state.terminal_entries {
                 let col = match self.symbol_order.get(symbol) {
@@ -1770,21 +1788,24 @@ impl Generator {
                     parse_table_entries,
                     next_parse_action_list_index,
                 );
-                entries_buf.push((col as u16, entry_id as u16));
+                let id = self.symbol_ids[symbol].clone();
+                entries_buf.push((col as u16, entry_id as u16, id));
             }
-            entries_buf.sort_unstable_by_key(|&(col, _)| col);
-            row_offsets.push(columns.len() as u32);
-            for &(col, val) in &entries_buf {
-                columns.push(col);
-                values.push(val);
+            entries_buf.sort_unstable_by_key(|&(col, _, _)| col);
+            row_offsets.push(total_u16);
+            total_u16 += (entries_buf.len() as u32) * 2;
+
+            let mut row_lines = Vec::with_capacity(entries_buf.len());
+            for (_, val, id) in &entries_buf {
+                row_lines.push(format!("{id}, {val},"));
             }
+            rendered_rows.push(row_lines);
         }
-        row_offsets.push(columns.len() as u32);
-        let total_nnz = columns.len();
+        row_offsets.push(total_u16);
 
         add_line!(
             self,
-            "static const uint32_t ts_parse_table_row_offsets[CSR_STATE_COUNT + 1] = {{",
+            "static const uint32_t ts_compressed_parse_table_map[CSR_STATE_COUNT + 1] = {{",
         );
         indent!(self);
         for (i, &off) in row_offsets.iter().enumerate() {
@@ -1793,23 +1814,27 @@ impl Generator {
         dedent!(self);
         add_line!(self, "}};");
         add_line!(self, "");
-        add_line!(self, "#define PARSE_TABLE_NNZ {total_nnz}");
-        add_line!(self, "");
+        // Single flat array of (sym, val) pairs. Designated initializers point
+        // to the uint16_t-index where each CSR row begins, so the source
+        // layout mirrors `ts_compressed_parse_table_map` directly. Array size
+        // is inferred from the initializer.
         add_line!(
             self,
-            "static const uint16_t ts_parse_table_columns[PARSE_TABLE_NNZ] = {{",
+            "static const uint16_t ts_compressed_parse_table[] = {{",
         );
         indent!(self);
-        self.add_chunked_u16_array(&columns);
-        dedent!(self);
-        add_line!(self, "}};");
-        add_line!(self, "");
-        add_line!(
-            self,
-            "static const uint16_t ts_parse_table_values[PARSE_TABLE_NNZ] = {{",
-        );
-        indent!(self);
-        self.add_chunked_u16_array(&values);
+        for (i, row) in rendered_rows.iter().enumerate() {
+            if row.is_empty() {
+                continue;
+            }
+            let off = row_offsets[i];
+            add_line!(self, "[{off}] =");
+            indent!(self);
+            for line in row {
+                add_line!(self, "{line}");
+            }
+            dedent!(self);
+        }
         dedent!(self);
         add_line!(self, "}};");
         add_line!(self, "");
@@ -1900,7 +1925,11 @@ impl Generator {
             seen_data.insert(key, next_table_index);
             small_state_indices.push(next_table_index);
 
-            add_line!(self, "[{next_table_index}] = {},", values_with_symbols.len());
+            add_line!(
+                self,
+                "[{next_table_index}] = {},",
+                values_with_symbols.len()
+            );
             indent!(self);
             next_table_index += 1;
 
@@ -1924,7 +1953,10 @@ impl Generator {
         add_line!(self, "}};");
         add_line!(self, "");
 
-        add_line!(self, "static const uint32_t ts_small_parse_table_map[] = {{");
+        add_line!(
+            self,
+            "static const uint32_t ts_small_parse_table_map[] = {{"
+        );
         indent!(self);
         for i in small_offset..n {
             add_line!(
@@ -1937,18 +1969,6 @@ impl Generator {
         add_line!(self, "}};");
         add_line!(self, "");
     }
-
-
-    fn add_chunked_u16_array(&mut self, data: &[u16]) {
-        for chunk in data.chunks(16) {
-            add_whitespace!(self);
-            for val in chunk {
-                add!(self, "{val}, ");
-            }
-            add_line!(self, "");
-        }
-    }
-
 
     fn add_parse_action_list(&mut self, parse_table_entries: Vec<(usize, ParseTableEntry)>) {
         add_line!(
@@ -2156,10 +2176,9 @@ impl Generator {
         if self.csr_state_count > 0 {
             add_line!(
                 self,
-                ".parse_table_row_offsets = ts_parse_table_row_offsets,"
+                ".compressed_parse_table_map = ts_compressed_parse_table_map,"
             );
-            add_line!(self, ".parse_table_columns = ts_parse_table_columns,");
-            add_line!(self, ".parse_table_values = ts_parse_table_values,");
+            add_line!(self, ".compressed_parse_table = ts_compressed_parse_table,");
         }
 
         dedent!(self);
