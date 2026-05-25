@@ -1306,7 +1306,15 @@ impl Loader {
                 command.arg("-UTREE_SITTER_REUSE_ALLOCATOR");
             } else {
                 command.arg("-shared");
-                command.arg("-Wl,--no-undefined");
+                // Sanitizer builds reference runtime symbols that `--no-undefined`
+                // would reject at link time.
+                let sanitizing = compiler
+                    .args()
+                    .iter()
+                    .any(|a| a.to_str().is_some_and(|s| s.starts_with("-fsanitize=")));
+                if !sanitizing {
+                    command.arg("-Wl,--no-undefined");
+                }
                 #[cfg(target_os = "openbsd")]
                 command.arg("-lc");
             }
