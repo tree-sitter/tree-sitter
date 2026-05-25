@@ -184,6 +184,27 @@ You can enable these helpers by importing them:
 (lldb) command script import /path/to/tree-sitter/lib/lldb_pretty_printers/tree_sitter_types.py
 ```
 
+#### Sanitizers
+
+Tests can be run with AddressSanitizer or UndefinedBehaviorSanitizer to track down memory or UB issues in the C library
+or in grammar parsers. The standard recipe is
+
+```sh
+CFLAGS=-fsanitize=address \
+RUSTFLAGS="-lasan --cfg sanitizing" \
+ASAN_OPTIONS=verify_asan_link_order=0 \
+cargo test
+```
+
+Swap `address` -> `undefined` (and `-lasan` -> `-lubsan`) for UBSAN, or combine them with `-fsanitize=undefined,address`
+and both `-l` flags.
+
+If the loader detects `-fsanitize=` in the compile flags, `-Wl,--no-undefined` is dropped from the grammar link step. This
+lets the grammar's sanitizer runtime symbols be resolved at runtime rather than be rejected at link time.
+
+If you flip between sanitizer and non-sanitizer runs you may pick up cached parser builds from the previous mode in `target/scratch/`.
+Clear that directory to resolve any inconsistencies.
+
 ## Published Packages
 
 The main [`tree-sitter/tree-sitter`][ts repo] repository contains the source code for
