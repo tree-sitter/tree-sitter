@@ -21,7 +21,7 @@ pub static SCRATCH_BASE_DIR: LazyLock<PathBuf> = LazyLock::new(|| {
     result
 });
 
-#[cfg(feature = "wasm")]
+#[cfg(any(feature = "wasm", feature = "wasm-system"))]
 pub static WASM_DIR: LazyLock<PathBuf> = LazyLock::new(|| ROOT_DIR.join("target").join("release"));
 
 pub static SCRATCH_DIR: LazyLock<PathBuf> = LazyLock::new(|| {

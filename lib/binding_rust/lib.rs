@@ -30,10 +30,10 @@ use std::os::windows::io::AsRawHandle;
 pub use streaming_iterator::{StreamingIterator, StreamingIteratorMut};
 use tree_sitter_language::LanguageFn;
 
-#[cfg(feature = "wasm")]
+#[cfg(any(feature = "wasm", feature = "wasm-system"))]
 mod wasm_language;
-#[cfg(feature = "wasm")]
-#[cfg_attr(docsrs, doc(cfg(feature = "wasm")))]
+#[cfg(any(feature = "wasm", feature = "wasm-system"))]
+#[cfg_attr(docsrs, doc(cfg(any(feature = "wasm", feature = "wasm-system"))))]
 pub use wasm_language::*;
 
 /// The latest ABI version that is supported by the current version of the
@@ -444,7 +444,7 @@ pub struct QueryCapture<'tree> {
 #[derive(Debug, PartialEq, Eq)]
 pub enum LanguageError {
     Version(usize),
-    #[cfg(feature = "wasm")]
+    #[cfg(any(feature = "wasm", feature = "wasm-system"))]
     Wasm,
 }
 
@@ -736,11 +736,11 @@ impl Parser {
         let version = language.abi_version();
         if (MIN_COMPATIBLE_LANGUAGE_VERSION..=LANGUAGE_VERSION).contains(&version) {
             #[cfg_attr(
-                not(feature = "wasm"),
+                not(any(feature = "wasm", feature = "wasm-system")),
                 expect(unused_variables, reason = "only used when wasm feature is enabled")
             )]
             let success = unsafe { ffi::ts_parser_set_language(self.0.as_ptr(), language.0) };
-            #[cfg(feature = "wasm")]
+            #[cfg(any(feature = "wasm", feature = "wasm-system"))]
             if !success {
                 return Err(LanguageError::Wasm);
             }
@@ -3773,7 +3773,7 @@ impl fmt::Display for LanguageError {
                     "Incompatible language version {version}. Expected minimum {MIN_COMPATIBLE_LANGUAGE_VERSION}, maximum {LANGUAGE_VERSION}",
                 )
             }
-            #[cfg(feature = "wasm")]
+            #[cfg(any(feature = "wasm", feature = "wasm-system"))]
             Self::Wasm => {
                 write!(f, "Failed to load the Wasm store.")
             }

@@ -30,9 +30,10 @@ harness = false
 name    = "benchmark"
 
 [features]
-default = [ "qjs-rt" ]
-qjs-rt  = [ "tree-sitter-generate/qjs-rt" ]
-wasm    = [ "tree-sitter/wasm", "tree-sitter-loader/wasm" ]
+default     = [ "qjs-rt" ]
+qjs-rt      = [ "tree-sitter-generate/qjs-rt" ]
+wasm        = [ "tree-sitter/wasm", "tree-sitter-loader/wasm" ]
+wasm-system = [ "tree-sitter/wasm-system", "tree-sitter-loader/wasm-system" ]
 
 [dependencies]
 ansi_colours.workspace          = true
