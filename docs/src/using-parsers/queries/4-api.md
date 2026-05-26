@@ -1,4 +1,4 @@
-# The Query API
+https://tree-sitter.github.io/tree-sitter/using-parsers/queries/4-api.html# The Query API
 
 Create a query by specifying a string containing one or more patterns:
 
