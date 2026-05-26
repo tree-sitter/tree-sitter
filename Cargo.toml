@@ -114,7 +114,7 @@ rustc-hash = "2.1.1"
 schemars   = "1.2.1"
 semver     = { features = [ "serde" ], version = "1.0.27" }
 serde      = { features = [ "derive" ], version = "1.0.228" }
-serde_json = { features = [ "preserve_order" ], version = "1.0.149" }
+serde_json = { features = [ "preserve_order" ], version = "1.0.150" }
 similar = "2.7.0"
 streaming-iterator = "0.1.9"
 tempfile = "3.25.0"
