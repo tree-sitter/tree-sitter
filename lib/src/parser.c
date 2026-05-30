@@ -795,7 +795,13 @@ static Subtree ts_parser__reuse_node(
       reason = "is_missing";
     } else if (ts_subtree_is_fragile(result)) {
       reason = "is_fragile";
-    } else if (ts_parser__has_included_range_difference(self, byte_offset, end_byte_offset)) {
+    } else if (ts_parser__has_included_range_difference(
+                 self,
+                 byte_offset,
+                 ts_subtree_is_eof(result)
+                   ? end_byte_offset
+                   : end_byte_offset + ts_subtree_lookahead_bytes(result)
+               )) {
       reason = "contains_different_included_range";
     }
 
