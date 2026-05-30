@@ -775,7 +775,11 @@ pub fn render_cst<'a, 'b: 'a>(
     let total_width = lossy_source_code
         .lines()
         .enumerate()
-        .map(|(row, col)| (row as f64).log10() as usize + (col.len() as f64).log10() as usize + 1)
+        .map(|(row, col)| {
+            row.checked_ilog10().unwrap_or(0) as usize
+                + col.len().checked_ilog10().unwrap_or(0) as usize
+                + 1
+        })
         .max()
         .unwrap_or(1);
     let mut indent_level = usize::from(!opts.no_ranges);
@@ -952,8 +956,11 @@ impl std::fmt::Display for CstNodeRange<'_, '_> {
             self.opts.parse_theme.row_color
         };
         let remaining_width = |row: usize, col: usize| {
-            (self.total_width - (row as f64).log10() as usize - (col as f64).log10() as usize)
-                .max(1)
+            (self
+                .total_width
+                .saturating_sub(row.checked_ilog10().unwrap_or(0) as usize)
+                .saturating_sub(col.checked_ilog10().unwrap_or(0) as usize))
+            .max(1)
         };
         let remaining_width_start = remaining_width(start.row, start.column);
         let remaining_width_end = remaining_width(end.row, end.column);
