@@ -795,3 +795,44 @@ fn get_changed_ranges(
     *tree = new_tree;
     result
 }
+
+// Regression test for an incremental reparse bug where an external
+// scanner's choice depends on lexer->eof() (and thus on the parser's
+// current included ranges). The cached token at byte 0 was emitted when
+// the included range stopped just after the opener. Widening the range
+// to include a later matching delimiter must invalidate that cached
+// token so the scanner re-runs and emits the open form instead of the
+// unclosed form.
+#[test]
+fn test_reuse_invalidates_scanner_token_when_included_range_expands() {
+    let language = get_test_fixture_language("external_lookahead_eof_boundary");
+    let mut parser = Parser::new();
+    parser.set_language(&language).unwrap();
+
+    let source = "``";
+
+    parser
+        .set_included_ranges(&[Range {
+            start_byte: 0,
+            end_byte: 1,
+            start_point: Point::new(0, 0),
+            end_point: Point::new(0, 1),
+        }])
+        .unwrap();
+    let tree1 = parser.parse(source, None).unwrap();
+    assert_eq!(tree1.root_node().to_sexp(), "(document (unclosed_delim))");
+
+    parser
+        .set_included_ranges(&[Range {
+            start_byte: 0,
+            end_byte: 2,
+            start_point: Point::new(0, 0),
+            end_point: Point::new(0, 2),
+        }])
+        .unwrap();
+    let tree2 = parser.parse(source, Some(&tree1)).unwrap();
+    assert_eq!(
+        tree2.root_node().to_sexp(),
+        "(document (span (open_delim) (close_delim)))"
+    );
+}
