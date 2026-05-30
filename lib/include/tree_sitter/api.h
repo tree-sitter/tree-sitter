@@ -300,7 +300,11 @@ const TSRange *ts_parser_included_ranges(
  * 2. [`payload`]: An arbitrary pointer that will be passed to each invocation
  *    of the [`read`] function.
  * 3. [`encoding`]: An indication of how the text is encoded. Either
- *    `TSInputEncodingUTF8` or `TSInputEncodingUTF16`.
+ *    `TSInputEncodingUTF8`, `TSInputEncodingUTF16LE`, `TSInputEncoding16BE`,
+ *    or `TSInputEncodingCustom`.
+ * 4. [`decode`]: A function to read one code point from the given input. This
+ *    function should return the number of bytes consumed and write the code point
+ *    to the [`code_point`] pointer, or write -1 if the input is invalid.
  *
  * This function returns a syntax tree on success, and `NULL` on failure. There
  * are two possible reasons for failure:
@@ -313,6 +317,8 @@ const TSRange *ts_parser_included_ranges(
  * [`payload`]: TSInput::payload
  * [`encoding`]: TSInput::encoding
  * [`bytes_read`]: TSInput::read
+ * [`decode`]: TSInput::decode
+ * [`code_point`]: TSDecodeFunction::code_point
  */
 TSTree *ts_parser_parse(
   TSParser *self,
