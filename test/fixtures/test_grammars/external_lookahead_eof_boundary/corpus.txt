@@ -1,0 +1,13 @@
+=====================
+opened and closed span
+=====================
+``
+---
+(document (span (open_delim) (close_delim)))
+
+==================
+unclosed delimiter
+==================
+`
+---
+(document (unclosed_delim))
