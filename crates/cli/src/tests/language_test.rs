@@ -27,20 +27,25 @@ fn test_lookahead_iterator() {
     assert_eq!(cursor.node().grammar_name(), "identifier");
     assert_ne!(cursor.node().grammar_id(), cursor.node().kind_id());
 
-    let expected_symbols = ["//", "/*", "identifier", "line_comment", "block_comment"];
+    let expected_symbols = ["/*", "//", "block_comment", "identifier", "line_comment"];
+
     let mut lookahead = language.lookahead_iterator(next_state).unwrap();
     assert_eq!(*lookahead.language(), language);
-    assert!(lookahead.iter_names().eq(expected_symbols));
+    let mut actual = lookahead.iter_names().collect::<Vec<_>>();
+    actual.sort_unstable();
+    assert_eq!(actual, expected_symbols);
 
     lookahead.reset_state(next_state);
-    assert!(lookahead.iter_names().eq(expected_symbols));
+    let mut actual = lookahead.iter_names().collect::<Vec<_>>();
+    actual.sort_unstable();
+    assert_eq!(actual, expected_symbols);
 
     lookahead.reset(&language, next_state);
-    assert!(
-        lookahead
-            .map(|s| language.node_kind_for_id(s).unwrap())
-            .eq(expected_symbols)
-    );
+    let mut actual = lookahead
+        .map(|s| language.node_kind_for_id(s).unwrap())
+        .collect::<Vec<_>>();
+    actual.sort_unstable();
+    assert_eq!(actual, expected_symbols);
 }
 
 #[test]

@@ -69,3 +69,11 @@ grammars, the native runtime can be used *after* running `npm install`.
 ### `--disable-optimization`
 
 Disable optimizations when generating the parser. Currently, this only affects the merging of compatible parse states.
+
+### `--table-fmt <MODE>`
+
+Sets the output format of parse tables in parser.c.
+
+- `auto`: Select based on a heuristic to minimize object file size.
+- `hybrid`: Dense 2D table for large states and a grouped sparse small state table.
+- `csr`: CSR-compressed uniform tables.
