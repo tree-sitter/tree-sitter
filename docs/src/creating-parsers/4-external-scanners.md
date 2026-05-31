@@ -138,9 +138,7 @@ The second parameter to this function is the lexer, of type `TSLexer`. The `TSLe
 - **`TSSymbol result_symbol`** — The symbol that was recognized. Your scan function should _assign_ to this field one of
 the values from the `TokenType` enum, described above.
 
-- **`void (*advance)(TSLexer *, bool skip)`** — A function for advancing to the next character. If you pass `true` for
-the second argument, the current character will be treated as whitespace; whitespace won't be included in the text range
-associated with tokens emitted by the external scanner.
+- **`void (*advance)(TSLexer *, bool skip)`** — A function for advancing to the next character. If `skip` is `true`, the current character will be treated as skipped text and will not be included in the text range associated with tokens emitted by the external scanner. This is typically used before a token starts, such as when skipping leading whitespace. After a token has started, `skip` should generally be `false`. In particular, calling `advance(lexer, true)` after `mark_end` can affect the token’s starting position and lead to incorrect or zero-length token ranges.
 
 - **`void (*mark_end)(TSLexer *)`** — A function for marking the end of the recognized token. This allows matching tokens
 that require multiple characters of lookahead. By default, (if you don't call `mark_end`), any character that you moved
