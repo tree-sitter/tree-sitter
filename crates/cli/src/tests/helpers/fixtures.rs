@@ -28,7 +28,7 @@ static TEST_LOADER: LazyLock<Loader> = LazyLock::new(|| {
 // `src_dir/tree_sitter/` and observing a half-rewritten header.
 static WRITTEN_HEADER_DIRS: LazyLock<Mutex<HashSet<PathBuf>>> = LazyLock::new(Default::default);
 
-#[cfg(feature = "wasm")]
+#[cfg(any(feature = "wasm", feature = "wasm-system"))]
 pub static ENGINE: LazyLock<tree_sitter::wasmtime::Engine> = LazyLock::new(Default::default);
 
 pub fn test_loader() -> &'static Loader {
@@ -54,7 +54,7 @@ pub fn get_test_fixture_language(name: &str) -> Language {
     get_test_fixture_language_internal(name, false)
 }
 
-#[cfg(feature = "wasm")]
+#[cfg(any(feature = "wasm", feature = "wasm-system"))]
 pub fn get_test_fixture_language_wasm(name: &str) -> Language {
     get_test_fixture_language_internal(name, true)
 }
@@ -168,7 +168,7 @@ fn get_test_language_internal(
     config.name = name.to_string();
 
     if wasm {
-        #[cfg(feature = "wasm")]
+        #[cfg(any(feature = "wasm", feature = "wasm-system"))]
         {
             let mut loader = Loader::with_parser_lib_path(SCRATCH_DIR.clone());
             loader.use_wasm(&ENGINE);
@@ -177,7 +177,7 @@ fn get_test_language_internal(
             }
             loader.load_language_at_path_with_name(config).unwrap()
         }
-        #[cfg(not(feature = "wasm"))]
+        #[cfg(not(any(feature = "wasm", feature = "wasm-system")))]
         {
             unimplemented!("Wasm feature is not enabled")
         }

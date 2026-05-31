@@ -6,12 +6,17 @@ use std::{
     os::raw::c_char,
 };
 
+#[cfg(not(feature = "wasm-system"))]
 pub use wasmtime_c_api::wasmtime;
+
+#[cfg(feature = "wasm-system")]
+pub use wasmtime;
 
 use crate::{FREE_FN, Language, LanguageError, Parser, ffi};
 
 // Force Cargo to include wasmtime-c-api as a dependency of this crate,
 // even though it is only used by the C code.
+#[cfg(not(feature = "wasm-system"))]
 #[expect(unused, reason = "forces Cargo to link wasmtime-c-api")]
 fn use_wasmtime() {
     wasmtime_c_api::wasm_engine_new();

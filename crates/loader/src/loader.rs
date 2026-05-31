@@ -31,7 +31,7 @@ use tree_sitter::Language;
 use tree_sitter::QueryError;
 #[cfg(feature = "tree-sitter-highlight")]
 use tree_sitter::QueryErrorKind;
-#[cfg(feature = "wasm")]
+#[cfg(any(feature = "wasm", feature = "wasm-system"))]
 use tree_sitter::WasmError;
 #[cfg(feature = "tree-sitter-highlight")]
 use tree_sitter_highlight::HighlightConfiguration;
@@ -130,7 +130,7 @@ pub enum LoaderError {
     WasmTool(#[from] WasmToolError),
     #[error("Unsupported platform for wasi-sdk")]
     WasiSDKPlatform,
-    #[cfg(feature = "wasm")]
+    #[cfg(any(feature = "wasm", feature = "wasm-system"))]
     #[error(transparent)]
     Wasm(#[from] WasmError),
     #[error("Failed to run wasi-sdk clang -- {0}")]
@@ -674,7 +674,7 @@ pub struct Loader {
     force_rebuild: bool,
     verbose: bool,
 
-    #[cfg(feature = "wasm")]
+    #[cfg(any(feature = "wasm", feature = "wasm-system"))]
     wasm_store: Mutex<Option<tree_sitter::WasmStore>>,
 }
 
@@ -823,7 +823,7 @@ impl Loader {
             force_rebuild: false,
             verbose: false,
 
-            #[cfg(feature = "wasm")]
+            #[cfg(any(feature = "wasm", feature = "wasm-system"))]
             wasm_store: Mutex::default(),
         }
     }
@@ -1107,7 +1107,7 @@ impl Loader {
         let output_path = config.output_path.unwrap_or_else(|| {
             let mut path = self.parser_lib_path.join(lib_name);
             path.set_extension(env::consts::DLL_EXTENSION);
-            #[cfg(feature = "wasm")]
+            #[cfg(any(feature = "wasm", feature = "wasm-system"))]
             if self.wasm_store.lock().unwrap().is_some() {
                 path.set_extension("wasm");
             }
@@ -1172,15 +1172,15 @@ impl Loader {
                 Some(_lock) => {
                     // We won the race, so compile with the lock.
                     let compile_wasm;
-                    #[cfg(feature = "wasm")]
+                    #[cfg(any(feature = "wasm", feature = "wasm-system"))]
                     {
                         compile_wasm = self.wasm_store.lock().unwrap().is_some();
                     }
-                    #[cfg(not(feature = "wasm"))]
+                    #[cfg(not(any(feature = "wasm", feature = "wasm-system")))]
                     {
                         compile_wasm = false;
                     };
-                    #[cfg(feature = "wasm")]
+                    #[cfg(any(feature = "wasm", feature = "wasm-system"))]
                     if compile_wasm {
                         self.compile_parser_to_wasm(
                             &config.name,
@@ -1206,7 +1206,7 @@ impl Loader {
             }
         }
 
-        #[cfg(feature = "wasm")]
+        #[cfg(any(feature = "wasm", feature = "wasm-system"))]
         if let Some(wasm_store) = self.wasm_store.lock().unwrap().as_mut() {
             let wasm_bytes = fs::read(&output_path)
                 .map_err(|e| LoaderError::IO(IoError::new(e, Some(output_path.as_path()))))?;
@@ -2034,8 +2034,8 @@ impl Loader {
         self.verbose = verbose;
     }
 
-    #[cfg(feature = "wasm")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "wasm")))]
+    #[cfg(any(feature = "wasm", feature = "wasm-system"))]
+    #[cfg_attr(docsrs, doc(cfg(any(feature = "wasm", feature = "wasm-system"))))]
     pub fn use_wasm(&mut self, engine: &tree_sitter::wasmtime::Engine) {
         *self.wasm_store.lock().unwrap() = Some(tree_sitter::WasmStore::new(engine).unwrap());
     }

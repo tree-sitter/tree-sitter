@@ -229,7 +229,7 @@ struct Parse {
     #[arg(long, short = 'D')]
     pub debug_graph: bool,
     /// Compile parsers to Wasm instead of native dynamic libraries
-    #[arg(long, hide = cfg!(not(feature = "wasm")))]
+    #[arg(long, hide = cfg!(not(any(feature = "wasm", feature = "wasm-system"))))]
     pub wasm: bool,
     /// Output the parse data with graphviz dot
     #[arg(long = "dot")]
@@ -624,11 +624,11 @@ pub enum Shell {
 /// Complete `action` if the wasm feature is enabled, otherwise return an error
 macro_rules! checked_wasm {
     ($action:block) => {
-        #[cfg(feature = "wasm")]
+        #[cfg(any(feature = "wasm", feature = "wasm-system"))]
         {
             $action
         }
-        #[cfg(not(feature = "wasm"))]
+        #[cfg(not(any(feature = "wasm", feature = "wasm-system")))]
         {
             Err(anyhow!("--wasm flag specified, but this build of tree-sitter-cli does not include the wasm feature"))?;
         }

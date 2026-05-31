@@ -16,11 +16,18 @@ fn main() {
     let mut config = cc::Build::new();
 
     println!("cargo:rerun-if-env-changed=CARGO_FEATURE_WASM");
-    if env::var("CARGO_FEATURE_WASM").is_ok() {
+    println!("cargo:rerun-if-env-changed=CARGO_FEATURE_WASM_SYSTEM");
+    if env::var("CARGO_FEATURE_WASM").is_ok() || env::var("CARGO_FEATURE_WASM_SYSTEM").is_ok() {
         config
             .define("TREE_SITTER_FEATURE_WASM", "")
-            .define("static_assert(...)", "")
-            .include(env::var("DEP_WASMTIME_C_API_INCLUDE").unwrap());
+            .define("static_assert(...)", "");
+    }
+    if env::var("CARGO_FEATURE_WASM").is_ok() {
+        config.include(env::var("DEP_WASMTIME_C_API_INCLUDE").unwrap());
+    }
+    if env::var("CARGO_FEATURE_WASM_SYSTEM").is_ok() {
+        config.include("/usr/include");
+        println!("cargo:rustc-link-lib=wasmtime");
     }
 
     let manifest_path = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());

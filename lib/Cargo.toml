@@ -37,9 +37,10 @@ targets      = [ "x86_64-unknown-linux-gnu", "x86_64-pc-windows-gnu" ]
 workspace = true
 
 [features]
-default = [ "std" ]
-std     = [ "regex/std", "regex/perf" ]
-wasm    = [ "std", "wasmtime-c-api" ]
+default     = [ "std" ]
+std         = [ "regex/std", "regex/perf" ]
+wasm        = [ "std", "wasmtime-c-api" ]
+wasm-system = [ "std", "wasmtime" ]
 
 [dependencies]
 regex                          = { default-features = false, features = [ "unicode" ], version = "1.12.3" }
@@ -52,6 +53,12 @@ default-features = false
 features         = [ "cranelift", "gc-drc" ]
 optional         = true
 package          = "wasmtime-c-api-impl"
+
+[dependencies.wasmtime]
+version         = "36"
+default-features = false
+features        = [ "cranelift", "gc-drc" ]
+optional        = true
 
 [build-dependencies]
 bindgen              = { optional = true, version = "0.72.1" }
