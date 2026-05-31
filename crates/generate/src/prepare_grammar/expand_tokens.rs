@@ -2,7 +2,7 @@ use regex_syntax::{
     ParserBuilder,
     hir::{Class, Hir, HirKind},
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use super::ExtractedLexicalGrammar;
@@ -20,7 +20,7 @@ struct NfaBuilder {
 
 pub type ExpandTokensResult<T> = Result<T, ExpandTokensError>;
 
-#[derive(Debug, Error, Serialize)]
+#[derive(Debug, Error, Serialize, Deserialize)]
 pub enum ExpandTokensError {
     #[error(
         "The rule `{0}` matches the empty string.
@@ -35,7 +35,7 @@ unless they are used only as the grammar's start rule.
     ExpandRule(ExpandRuleError),
 }
 
-#[derive(Debug, Error, Serialize)]
+#[derive(Debug, Error, Serialize, Deserialize)]
 pub struct ExpandTokensProcessingError {
     rule: String,
     error: ExpandRuleError,
@@ -139,7 +139,7 @@ pub fn expand_tokens(mut grammar: ExtractedLexicalGrammar) -> ExpandTokensResult
 
 pub type ExpandRuleResult<T> = Result<T, ExpandRuleError>;
 
-#[derive(Debug, Error, Serialize)]
+#[derive(Debug, Error, Serialize, Deserialize)]
 pub enum ExpandRuleError {
     #[error("Grammar error: Unexpected rule {0:?}")]
     UnexpectedRule(Rule),
@@ -151,7 +151,7 @@ pub enum ExpandRuleError {
 
 pub type ExpandRegexResult<T> = Result<T, ExpandRegexError>;
 
-#[derive(Debug, Error, Serialize)]
+#[derive(Debug, Error, Serialize, Deserialize)]
 pub enum ExpandRegexError {
     #[error("{0}")]
     Utf8(String),

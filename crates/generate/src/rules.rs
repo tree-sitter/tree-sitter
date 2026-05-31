@@ -1,11 +1,11 @@
 use std::{collections::BTreeMap, fmt, hash::Hash};
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use super::bitvec::{BitVec, SetBitsIter};
 use super::grammars::VariableType;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum SymbolType {
     External = 0,
     End = 1,
@@ -14,19 +14,19 @@ pub enum SymbolType {
     NonTerminal = 4,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Associativity {
     Left,
     Right,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Alias {
     pub value: String,
     pub is_named: bool,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Default, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Default, Serialize, Deserialize)]
 pub enum Precedence {
     #[default]
     None,
@@ -36,7 +36,7 @@ pub enum Precedence {
 
 pub type AliasMap = BTreeMap<Symbol, Alias>;
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct MetadataParams {
     pub precedence: Precedence,
     pub dynamic_precedence: i32,
@@ -47,13 +47,13 @@ pub struct MetadataParams {
     pub field_name: Option<String>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Symbol {
     pub kind: SymbolType,
     pub index: usize,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Rule {
     Blank,
     String(String),

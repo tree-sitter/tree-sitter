@@ -19,7 +19,7 @@ use indexmap::IndexMap;
 pub use intern_symbols::InternSymbolsError;
 pub use process_inlines::ProcessInlinesError;
 use rustc_hash::{FxHashMap, FxHashSet};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 pub use self::expand_tokens::expand_tokens;
@@ -77,7 +77,7 @@ impl<T, U> Default for IntermediateGrammar<T, U> {
 
 pub type PrepareGrammarResult<T> = Result<T, PrepareGrammarError>;
 
-#[derive(Debug, Error, Serialize)]
+#[derive(Debug, Error, Serialize, Deserialize)]
 #[error(transparent)]
 pub enum PrepareGrammarError {
     ValidatePrecedences(#[from] ValidatePrecedenceError),
@@ -91,14 +91,14 @@ pub enum PrepareGrammarError {
 
 pub type ValidatePrecedenceResult<T> = Result<T, ValidatePrecedenceError>;
 
-#[derive(Debug, Error, Serialize)]
+#[derive(Debug, Error, Serialize, Deserialize)]
 #[error(transparent)]
 pub enum ValidatePrecedenceError {
     Undeclared(#[from] UndeclaredPrecedenceError),
     Ordering(#[from] ConflictingPrecedenceOrderingError),
 }
 
-#[derive(Debug, Error, Serialize)]
+#[derive(Debug, Error, Serialize, Deserialize)]
 pub struct IndirectRecursionError(pub Vec<String>);
 
 impl std::fmt::Display for IndirectRecursionError {
@@ -114,7 +114,7 @@ impl std::fmt::Display for IndirectRecursionError {
     }
 }
 
-#[derive(Debug, Error, Serialize)]
+#[derive(Debug, Error, Serialize, Deserialize)]
 pub struct UndeclaredPrecedenceError {
     pub precedence: String,
     pub rule: String,
@@ -131,7 +131,7 @@ impl std::fmt::Display for UndeclaredPrecedenceError {
     }
 }
 
-#[derive(Debug, Error, Serialize)]
+#[derive(Debug, Error, Serialize, Deserialize)]
 pub struct ConflictingPrecedenceOrderingError {
     pub precedence_1: String,
     pub precedence_2: String,

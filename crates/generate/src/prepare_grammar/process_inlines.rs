@@ -1,6 +1,6 @@
 use rustc_hash::FxHashMap;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::{
@@ -190,7 +190,7 @@ impl InlinedProductionMapBuilder {
 
 pub type ProcessInlinesResult<T> = Result<T, ProcessInlinesError>;
 
-#[derive(Debug, Error, Serialize)]
+#[derive(Debug, Error, Serialize, Deserialize)]
 pub enum ProcessInlinesError {
     #[error("External token `{0}` cannot be inlined")]
     ExternalToken(String),

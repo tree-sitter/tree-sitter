@@ -8,7 +8,7 @@ use std::{
 use rustc_hash::{FxHashMap, FxHashSet};
 
 use crate::LANGUAGE_VERSION;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use super::{
@@ -30,7 +30,7 @@ const ABI_VERSION_WITH_RESERVED_WORDS: usize = 15;
 
 pub type RenderResult<T> = Result<T, RenderError>;
 
-#[derive(Debug, Error, Serialize)]
+#[derive(Debug, Error, Serialize, Deserialize)]
 pub enum RenderError {
     #[error("Parse table action count {0} exceeds maximum value of {max}", max=u16::MAX)]
     ParseTable(usize),

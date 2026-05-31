@@ -12,9 +12,7 @@ use node_types::VariableInfo;
 use rules::{Alias, Symbol};
 #[cfg(feature = "load")]
 use semver::Version;
-#[cfg(feature = "load")]
-use serde::Deserialize;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 mod bitvec;
@@ -68,7 +66,7 @@ pub const PARSER_HEADER: &str = include_str!("parser.h.inc");
 
 pub type GenerateResult<T> = Result<T, GenerateError>;
 
-#[derive(Debug, Error, Serialize)]
+#[derive(Debug, Error, Serialize, Deserialize)]
 pub enum GenerateError {
     #[error("Error with specified path -- {0}")]
     GrammarPath(String),
@@ -94,7 +92,7 @@ pub enum GenerateError {
     SuperTypeCycle(#[from] SuperTypeCycleError),
 }
 
-#[derive(Debug, Error, Serialize)]
+#[derive(Debug, Error, Serialize, Deserialize)]
 pub struct IoError {
     pub error: String,
     pub path: Option<String>,
@@ -124,7 +122,7 @@ impl std::fmt::Display for IoError {
 pub type LoadGrammarFileResult<T> = Result<T, LoadGrammarError>;
 
 #[cfg(feature = "load")]
-#[derive(Debug, Error, Serialize)]
+#[derive(Debug, Error, Serialize, Deserialize)]
 pub enum LoadGrammarError {
     #[error("Path to a grammar file with `.js` or `.json` extension is required")]
     InvalidPath,
@@ -137,7 +135,7 @@ pub enum LoadGrammarError {
 }
 
 #[cfg(feature = "load")]
-#[derive(Debug, Error, Serialize)]
+#[derive(Debug, Error, Serialize, Deserialize)]
 pub enum ParseVersionError {
     #[error("{0}")]
     Version(String),
@@ -151,7 +149,7 @@ pub enum ParseVersionError {
 pub type JSResult<T> = Result<T, JSError>;
 
 #[cfg(feature = "load")]
-#[derive(Debug, Error, Serialize)]
+#[derive(Debug, Error, Serialize, Deserialize)]
 pub enum JSError {
     #[error("Failed to run `{runtime}` -- {error}")]
     JSRuntimeSpawn { runtime: String, error: String },

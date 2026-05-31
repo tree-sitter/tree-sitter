@@ -1,5 +1,5 @@
 use log::warn;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use super::InternedGrammar;
@@ -10,7 +10,7 @@ use crate::{
 
 pub type InternSymbolsResult<T> = Result<T, InternSymbolsError>;
 
-#[derive(Debug, Error, Serialize)]
+#[derive(Debug, Error, Serialize, Deserialize)]
 pub enum InternSymbolsError {
     #[error("A grammar's start rule must be visible.")]
     HiddenStartRule,
