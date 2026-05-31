@@ -58,7 +58,7 @@ pub fn build_tables(
     )?;
     let token_conflict_map = TokenConflictMap::new(lexical_grammar, following_tokens);
     let coincident_token_index = CoincidentTokenIndex::new(&parse_table, lexical_grammar);
-    let keywords = identify_keywords(
+    let (keywords, leaked_keywords) = identify_keywords(
         lexical_grammar,
         &parse_table,
         syntax_grammar.word_token,
@@ -88,6 +88,7 @@ pub fn build_tables(
         syntax_grammar,
         lexical_grammar,
         &keywords,
+        &leaked_keywords,
         &coincident_token_index,
         &token_conflict_map,
     );
@@ -320,15 +321,27 @@ fn populate_external_lex_states(parse_table: &mut ParseTable, syntax_grammar: &S
     }
 }
 
+/// Returns `(promoted_keywords, leaked_keywords)`.
+///
+/// `promoted_keywords` are the keyword candidates that pass every filter and
+/// are extracted by the runtime word-extraction path via `ts_lex_keywords`.
+///
+/// `leaked_keywords` are candidates that were dropped here (either because
+/// another candidate matches the same string, or because substituting the
+/// word token would introduce new lexical conflicts) and therefore remain in
+/// the main `ts_lex` table. They are the keywords whose word-boundary
+/// behavior cannot rely on the runtime word-extraction path and which must
+/// be considered by `LexTableBuilder` when deciding whether to keep a
+/// pruned word-token continuation transition.
 fn identify_keywords(
     lexical_grammar: &LexicalGrammar,
     parse_table: &ParseTable,
     word_token: Option<Symbol>,
     token_conflict_map: &TokenConflictMap,
     coincident_token_index: &CoincidentTokenIndex,
-) -> TokenSet {
+) -> (TokenSet, TokenSet) {
     if word_token.is_none() {
-        return TokenSet::new();
+        return (TokenSet::new(), TokenSet::new());
     }
 
     let word_token = word_token.unwrap();
@@ -358,6 +371,7 @@ fn identify_keywords(
         .collect::<TokenSet>();
 
     // Exclude keyword candidates that shadow another keyword candidate.
+    let mut leaked_keywords = TokenSet::new();
     let keywords = keyword_candidates
         .iter()
         .filter(|token| {
@@ -370,6 +384,7 @@ fn identify_keywords(
                         lexical_grammar.variables[token.index].name,
                         lexical_grammar.variables[other_token.index].name
                     );
+                    leaked_keywords.insert(*token);
                     return false;
                 }
             }
@@ -380,7 +395,7 @@ fn identify_keywords(
     // Exclude keyword candidates for which substituting the keyword capture
     // token would introduce new lexical conflicts with other tokens.
 
-    keywords
+    let promoted = keywords
         .iter()
         .filter(|token| {
             for other_index in 0..lexical_grammar.variables.len() {
@@ -413,6 +428,7 @@ fn identify_keywords(
                         lexical_grammar.variables[token.index].name,
                         lexical_grammar.variables[other_index].name
                     );
+                    leaked_keywords.insert(*token);
                     return false;
                 }
             }
@@ -423,7 +439,9 @@ fn identify_keywords(
             );
             true
         })
-        .collect()
+        .collect();
+
+    (promoted, leaked_keywords)
 }
 
 fn mark_fragile_tokens(parse_table: &mut ParseTable, token_conflict_map: &TokenConflictMap) {
