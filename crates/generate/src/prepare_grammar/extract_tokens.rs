@@ -1,6 +1,6 @@
 use rustc_hash::FxHashMap;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use super::{ExtractedLexicalGrammar, ExtractedSyntaxGrammar, InternedGrammar};
@@ -11,7 +11,7 @@ use crate::{
 
 pub type ExtractTokensResult<T> = Result<T, ExtractTokensError>;
 
-#[derive(Debug, Error, Serialize)]
+#[derive(Debug, Error, Serialize, Deserialize)]
 pub enum ExtractTokensError {
     #[error(
         "The rule `{0}` contains an empty string.
@@ -33,7 +33,7 @@ unless they are used only as the grammar's start rule.
     NonTokenReservedWord(String),
 }
 
-#[derive(Debug, Error, Serialize)]
+#[derive(Debug, Error, Serialize, Deserialize)]
 pub struct NonTerminalWordTokenError {
     pub symbol_name: String,
     pub conflicting_symbol_name: Option<String>,

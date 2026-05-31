@@ -4,7 +4,7 @@ use rustc_hash::FxHashMap;
 #[cfg(feature = "load")]
 use rustc_hash::FxHashSet;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use super::{
@@ -141,7 +141,7 @@ impl ChildQuantity {
 
 pub type VariableInfoResult<T> = Result<T, VariableInfoError>;
 
-#[derive(Debug, Error, Serialize)]
+#[derive(Debug, Error, Serialize, Deserialize)]
 pub enum VariableInfoError {
     #[error(
         "Grammar error: Supertype symbols must always have a single visible child, but `{0}` can have multiple"
@@ -453,7 +453,7 @@ pub fn get_supertype_symbol_map(
 #[cfg(feature = "load")]
 pub type SuperTypeCycleResult<T> = Result<T, SuperTypeCycleError>;
 
-#[derive(Debug, Error, Serialize)]
+#[derive(Debug, Error, Serialize, Deserialize)]
 pub struct SuperTypeCycleError {
     items: Vec<String>,
 }

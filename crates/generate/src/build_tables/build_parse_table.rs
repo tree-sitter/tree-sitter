@@ -7,7 +7,7 @@ use std::{
 use indexmap::{IndexMap, map::Entry};
 use log::warn;
 use rustc_hash::{FxHashMap, FxHashSet, FxHasher};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use super::{
@@ -67,7 +67,7 @@ struct ParseTableBuilder<'a> {
 
 pub type BuildTableResult<T> = Result<T, ParseTableBuilderError>;
 
-#[derive(Debug, Error, Serialize)]
+#[derive(Debug, Error, Serialize, Deserialize)]
 pub enum ParseTableBuilderError {
     #[error("Unresolved conflict for symbol sequence:\n\n{0}")]
     Conflict(#[from] ConflictError),
@@ -81,7 +81,7 @@ pub enum ParseTableBuilderError {
     StateCount(usize),
 }
 
-#[derive(Default, Debug, Serialize, Error)]
+#[derive(Default, Debug, Serialize, Error, Deserialize)]
 pub struct ConflictError {
     pub symbol_sequence: Vec<String>,
     pub conflicting_lookahead: String,
@@ -89,7 +89,7 @@ pub struct ConflictError {
     pub possible_resolutions: Vec<Resolution>,
 }
 
-#[derive(Default, Debug, Serialize, Error)]
+#[derive(Default, Debug, Serialize, Error, Deserialize)]
 pub struct Interpretation {
     pub preceding_symbols: Vec<String>,
     pub variable_name: String,
@@ -101,14 +101,14 @@ pub struct Interpretation {
     pub associativity: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum Resolution {
     Precedence { symbols: Vec<String> },
     Associativity { symbols: Vec<String> },
     AddConflict { symbols: Vec<String> },
 }
 
-#[derive(Debug, Serialize, Error)]
+#[derive(Debug, Serialize, Deserialize, Error)]
 pub struct AmbiguousExtraError {
     pub parent_symbols: Vec<String>,
 }
