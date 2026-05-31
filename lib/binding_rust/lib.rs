@@ -2908,6 +2908,23 @@ impl Query {
         unsafe { ffi::ts_query_disable_pattern(self.ptr.as_ptr(), index as u32) }
     }
 
+    /// Create a deep copy of this query.
+    ///
+    /// Queries are shareable across threads and cursors without cloning. You
+    /// should only need this when you want an independent copy to mutate (e.g.
+    /// via [`disable_capture`][Query::disable_capture] or
+    /// [`disable_pattern`][Query::disable_pattern]).
+    #[doc(alias = "ts_query_copy")]
+    #[must_use]
+    pub fn deep_clone(&self) -> Self {
+        let ptr = unsafe { ffi::ts_query_copy(self.ptr.as_ptr()) };
+        // SAFETY: from_raw_parts re-derives all Rust-side fields from the C
+        // object. The source string is only used for predicate error row
+        // numbers. Since this is a copy of an already-valid query, it cannot
+        // return an error.
+        unsafe { Self::from_raw_parts(ptr, "").unwrap_unchecked() }
+    }
+
     /// Check if a given pattern within a query has a single root node.
     #[doc(alias = "ts_query_is_pattern_rooted")]
     #[must_use]
