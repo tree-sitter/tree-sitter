@@ -3287,12 +3287,18 @@ bool ts_query__step_is_fallible(
   const TSQuery *self,
   uint16_t step_index
 ) {
-  ts_assert((uint32_t)step_index + 1 < self->steps.size);
+  unsigned i = 1;
   QueryStep *step = array_get(&self->steps, step_index);
-  QueryStep *next_step = array_get(&self->steps, step_index + 1);
+  QueryStep *next_step;
+  do {
+    ts_assert((uint32_t)step_index + i < self->steps.size);
+    next_step = array_get(&self->steps, step_index + i);
+    i++;
+  } while (next_step->is_pass_through);
   return (
     next_step->depth != PATTERN_DONE_MARKER &&
-    next_step->depth > step->depth &&
+    (next_step->depth > step->depth ||
+        (next_step->depth == step->depth && next_step->is_immediate)) &&
     (!next_step->parent_pattern_guaranteed || step->symbol == WILDCARD_SYMBOL)
   );
 }
@@ -4372,7 +4378,10 @@ static inline bool ts_query_cursor__advance(
               &right_contains_left
             );
             if (left_contains_right) {
-              if (state->step_index == other_state->step_index) {
+              if (
+                state->step_index == other_state->step_index &&
+                (other_state->seeking_immediate_match || !state->seeking_immediate_match)
+              ) {
                 LOG(
                   "  drop shorter state. pattern: %u, step_index: %u\n",
                   state->pattern_index,
@@ -4386,7 +4395,10 @@ static inline bool ts_query_cursor__advance(
               other_state->has_in_progress_alternatives = true;
             }
             if (right_contains_left) {
-              if (state->step_index == other_state->step_index) {
+              if (
+                state->step_index == other_state->step_index &&
+                (state->seeking_immediate_match || !other_state->seeking_immediate_match)
+              ) {
                 LOG(
                   "  drop shorter state. pattern: %u, step_index: %u\n",
                   state->pattern_index,
