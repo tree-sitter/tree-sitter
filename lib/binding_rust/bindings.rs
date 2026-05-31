@@ -597,6 +597,10 @@ unsafe extern "C" {
     pub fn ts_query_delete(self_: *mut TSQuery);
 }
 unsafe extern "C" {
+    #[doc = " Create a copy of a query."]
+    pub fn ts_query_copy(self_: *const TSQuery) -> *mut TSQuery;
+}
+unsafe extern "C" {
     #[doc = " Get the number of patterns, captures, or string literals in the query."]
     pub fn ts_query_pattern_count(self_: *const TSQuery) -> u32;
 }

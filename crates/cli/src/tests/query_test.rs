@@ -4268,6 +4268,54 @@ fn test_query_disable_pattern() {
 }
 
 #[test]
+fn test_query_deep_clone() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+        let query = Query::new(
+            &language,
+            "
+                (function_declaration
+                    name: (identifier) @name)
+                (function_declaration
+                    body: (statement_block) @body)
+            ",
+        )
+        .unwrap();
+
+        let mut clone = query.deep_clone();
+        clone.disable_pattern(1);
+
+        let source = "function foo() { return 1; }";
+        let mut parser = Parser::new();
+        parser.set_language(&language).unwrap();
+        let tree = parser.parse(source, None).unwrap();
+        let mut cursor = QueryCursor::new();
+
+        // The clone with pattern 1 disabled only produces the @name match.
+        let clone_matches = collect_matches(
+            cursor.matches(&clone, tree.root_node(), source.as_bytes()),
+            &clone,
+            source,
+        );
+        assert_eq!(clone_matches, &[(0, vec![("name", "foo")])]);
+
+        // The original is unaffected and still produces both @name and @body.
+        let original_matches = collect_matches(
+            cursor.matches(&query, tree.root_node(), source.as_bytes()),
+            &query,
+            source,
+        );
+        assert_eq!(
+            original_matches,
+            &[
+                (0, vec![("name", "foo")]),
+                (1, vec![("body", "{ return 1; }")]),
+            ]
+        );
+    });
+}
+
+#[test]
 fn test_query_alternative_predicate_prefix() {
     allocations::record(|| {
         let language = get_language("c");
