@@ -32,6 +32,9 @@ module.exports = async ({ github, context }) => {
     );
 
     const latest_response_label = events[events.length - 1];
+    if (!latest_response_label) {
+      continue;
+    }
 
     const created_at = new Date(latest_response_label.created_at);
     const now = new Date();
@@ -39,7 +42,7 @@ module.exports = async ({ github, context }) => {
     const diffDays = diff / (1000 * 60 * 60 * 24);
 
     if (diffDays > numberOfDaysLimit) {
-      github.rest.issues.update({
+      await github.rest.issues.update({
         owner: owner,
         repo: repo,
         issue_number: number,
@@ -47,7 +50,7 @@ module.exports = async ({ github, context }) => {
         state: "closed",
       });
 
-      github.rest.issues.createComment({
+      await github.rest.issues.createComment({
         owner: owner,
         repo: repo,
         issue_number: number,
