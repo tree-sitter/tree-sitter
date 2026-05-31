@@ -3628,6 +3628,16 @@ impl Drop for Query {
     }
 }
 
+impl Clone for Query {
+    fn clone(&self) -> Self {
+        let ptr = unsafe { ffi::ts_query_copy(self.ptr.as_ptr()) };
+        // SAFETY: from_raw_parts re-derives all fields from the C object. The source string is
+        // only used for predicate error row numbers. Since this is a copy of a valid query, it
+        // cannot return an error.
+        unsafe { Self::from_raw_parts(ptr, "").unwrap_unchecked() }
+    }
+}
+
 impl Drop for QueryCursor {
     fn drop(&mut self) {
         unsafe { ffi::ts_query_cursor_delete(self.ptr.as_ptr()) }
