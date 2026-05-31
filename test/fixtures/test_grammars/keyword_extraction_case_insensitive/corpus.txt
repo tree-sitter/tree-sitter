@@ -1,0 +1,24 @@
+=====================================================
+Identifier prefixed with keyword should not split
+=====================================================
+
+count_foo
+
+---
+
+(expression
+  (variable))
+
+=====================================================
+Exact keyword match should be a unary command
+=====================================================
+
+count x
+
+---
+
+(expression
+  (unary_expression
+    (unary_command)
+    (expression
+      (variable))))
