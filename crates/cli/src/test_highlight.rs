@@ -174,6 +174,14 @@ pub fn iterate_assertions(
 
                 j += 1;
             }
+
+            // Here the inner loop has scanned every highlight that could match this
+            // assertion. If it fell through here (rather than breaking out of
+            // 'highlight_loop), then `i` was not advanced, so re-entering the outer
+            // loop would rescan the same highlights forever causing a hang. The scan
+            // is complete at this point, so we stop because a still-unmatched
+            // assertion is considered a failure.
+            break 'highlight_loop;
         }
 
         if !passed {

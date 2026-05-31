@@ -4,7 +4,7 @@ use tree_sitter_highlight::{Highlight, Highlighter};
 use super::helpers::fixtures::{get_highlight_config, get_language, test_loader};
 use crate::{
     query_testing::{Assertion, Utf8Point, parse_position_comments},
-    test_highlight::get_highlight_positions,
+    test_highlight::{get_highlight_positions, iterate_assertions},
 };
 
 #[test]
@@ -67,4 +67,16 @@ fn test_highlight_test_with_basic_test() {
             (Utf8Point::new(8, 11), Utf8Point::new(8, 19), Highlight(2)), // "function"
         ]
     );
+}
+
+#[test]
+fn test_highlight_test_unmatched_assertion_fails_without_looping() {
+    // An assertion that matches neither the expected name nor the break
+    // condition must fail, not loop forever (tree-sitter/tree-sitter#5645).
+    let highlight_names = vec!["comment".to_string()];
+    let highlights = vec![(Utf8Point::new(0, 0), Utf8Point::new(0, 4), Highlight(0))];
+    let assertions = vec![Assertion::new(0, 0, 1, false, String::from("x"))];
+
+    let result = iterate_assertions(&assertions, &highlights, &highlight_names);
+    assert!(result.is_err());
 }
