@@ -28,6 +28,7 @@
 - [Implementation](./5-implementation.md)
 - [Contributing](./6-contributing.md)
 - [Playground](./7-playground.md)
+- [Debugging](./8-debugging.md)
 
 # Reference Guide
 
