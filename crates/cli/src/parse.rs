@@ -781,7 +781,11 @@ pub fn render_cst<'a, 'b: 'a>(
     let total_width = lossy_source_code
         .lines()
         .enumerate()
-        .map(|(row, col)| (row as f64).log10() as usize + (col.len() as f64).log10() as usize + 1)
+        .map(|(row, col)| {
+            row.checked_ilog10().unwrap_or(0) as usize
+                + col.len().checked_ilog10().unwrap_or(0) as usize
+                + 1
+        })
         .max()
         .unwrap_or(1);
     let mut indent_level = usize::from(!opts.no_ranges);
@@ -923,30 +927,27 @@ fn render_node_range(
     range: Range,
 ) -> String {
     let has_field_name = cursor.field_name().is_some();
+    let start = range.start_point;
+    let end = range.end_point;
     let range_color = if is_named && !is_multiline && !has_field_name {
         opts.parse_theme.row_color_named
     } else {
         opts.parse_theme.row_color
     };
 
-    let remaining_width_start = (total_width
-        - (range.start_point.row as f64).log10() as usize
-        - (range.start_point.column as f64).log10() as usize)
-        .max(1);
-    let remaining_width_end = (total_width
-        - (range.end_point.row as f64).log10() as usize
-        - (range.end_point.column as f64).log10() as usize)
-        .max(1);
+    let remaining_width = |row: usize, col: usize| {
+        (total_width
+            .saturating_sub(row.checked_ilog10().unwrap_or(0) as usize)
+            .saturating_sub(col.checked_ilog10().unwrap_or(0) as usize))
+        .max(1)
+    };
+    let remaining_width_start = remaining_width(start.row, start.column);
+    let remaining_width_end = remaining_width(end.row, end.column);
     paint(
         range_color,
         &format!(
             "{}:{}{:remaining_width_start$}- {}:{}{:remaining_width_end$}",
-            range.start_point.row,
-            range.start_point.column,
-            ' ',
-            range.end_point.row,
-            range.end_point.column,
-            ' ',
+            start.row, start.column, ' ', end.row, end.column, ' ',
         ),
     )
 }
