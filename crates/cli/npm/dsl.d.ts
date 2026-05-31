@@ -180,10 +180,27 @@ interface Grammar<
   >;
 }
 
+/**
+ * The actual output structure returned by the `grammar` function.
+ * This differs from the input Grammar interface:
+ * - The entire structure is nested under a `grammar` key
+ * - All callback functions are replaced with their return values
+ * - Optional fields become required with default empty values
+ */
 type GrammarSchema<RuleName extends string> = {
-  [K in keyof Grammar<RuleName>]: K extends 'rules'
-  ? Record<RuleName, Rule>
-  : Grammar<RuleName>[K];
+  grammar: {
+    name: string;
+    rules: Record<RuleName, Rule>;
+    precedences: RuleOrLiteral[][];
+    conflicts: RuleOrLiteral[][];
+    externals: RuleOrLiteral[];
+    extras: RuleOrLiteral[];
+    inline: RuleOrLiteral[];
+    supertypes: RuleOrLiteral[];
+    word: RuleOrLiteral | undefined;
+    inherits: unknown | undefined;
+    reserved: Record<string, RuleOrLiteral[]>;
+  };
 };
 
 /**
