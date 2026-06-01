@@ -321,18 +321,6 @@ fn populate_external_lex_states(parse_table: &mut ParseTable, syntax_grammar: &S
     }
 }
 
-/// Returns `(promoted_keywords, leaked_keywords)`.
-///
-/// `promoted_keywords` are the keyword candidates that pass every filter and
-/// are extracted by the runtime word-extraction path via `ts_lex_keywords`.
-///
-/// `leaked_keywords` are candidates that were dropped here (either because
-/// another candidate matches the same string, or because substituting the
-/// word token would introduce new lexical conflicts) and therefore remain in
-/// the main `ts_lex` table. They are the keywords whose word-boundary
-/// behavior cannot rely on the runtime word-extraction path and which must
-/// be considered by `LexTableBuilder` when deciding whether to keep a
-/// pruned word-token continuation transition.
 fn identify_keywords(
     lexical_grammar: &LexicalGrammar,
     parse_table: &ParseTable,

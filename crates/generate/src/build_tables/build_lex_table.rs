@@ -34,9 +34,6 @@ pub fn build_lex_table(
     token_conflict_map: &TokenConflictMap,
 ) -> LexTables {
     let keyword_lex_table = if syntax_grammar.word_token.is_some() {
-        // The keyword lex table recognises keywords directly; it does not need
-        // the word-token continuation protection (word_token = None,
-        // leaked_keywords = empty).
         let mut builder = LexTableBuilder::new(lexical_grammar, None, None);
         builder.add_state_for_tokens(keywords);
         builder.table
@@ -150,20 +147,7 @@ struct LexTableBuilder<'a> {
     table: LexTable,
     state_queue: VecDeque<QueueEntry>,
     state_ids_by_nfa_state_set: FxHashMap<(Vec<u32>, bool), usize>,
-    /// The word token (identifier), if any. Used together with
-    /// `leaked_keywords` to decide when to keep a word-token continuation
-    /// transition that would otherwise be pruned by a higher-precedence
-    /// keyword completion.
     word_token: Option<Symbol>,
-    /// Keyword candidates that `identify_keywords` excluded from
-    /// `ts_lex_keywords` and that therefore remain in the main `ts_lex`
-    /// table. For these tokens the runtime word-extraction path is not
-    /// available, so a pruned word-token continuation transition at the
-    /// keyword completion would lose the identifier reading. When the
-    /// completed token is in this set and the pruned transition leads to
-    /// the word token, the transition is kept so the DFA can fall through
-    /// to the longer identifier match. `None` (only used by the keyword
-    /// lex table) disables the rescue entirely.
     leaked_keywords: Option<&'a TokenSet>,
 }
 
@@ -287,23 +271,6 @@ impl<'a> LexTableBuilder<'a> {
                     has_sep,
                 )
             {
-                // Leaked-keyword word-boundary rescue.
-                //
-                // If the completed token is a keyword candidate that
-                // `identify_keywords` excluded from `ts_lex_keywords` (so it
-                // remains in main `ts_lex`), the runtime word-extraction
-                // path is not available for it. In that case the lexer must
-                // still be able to follow a longer word-token (identifier)
-                // continuation out of the keyword-completion state, or
-                // strings like `nextgame` (which starts with the leaked
-                // keyword `NE`) get split at the keyword boundary because
-                // the identifier continuation branch is dropped here.
-                //
-                // For promoted keywords (in `ts_lex_keywords`) and for
-                // grammars without a word token, this rescue does not fire
-                // and pruning proceeds as before, so positive-precedence
-                // alphabetic tokens that are not keyword candidates still
-                // beat the word token as the grammar author intended.
                 let rescue = match (self.word_token, self.leaked_keywords) {
                     (Some(wt), Some(leaked))
                         if leaked.contains(&Symbol::terminal(completed_id)) =>
