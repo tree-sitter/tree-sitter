@@ -242,3 +242,21 @@ fn test_assertions_across_multiple_rows() {
     assert!(result.is_ok());
     assert_eq!(result.unwrap(), 2);
 }
+
+#[test]
+fn test_assertion_should_not_match_highlight_on_later_row() {
+    // Test logic for early exit when highlight is on a later row than the assertion
+    let highlight_names = vec!["keyword".to_string()];
+    let assertions = vec![Assertion::new(0, 5, 3, false, String::from("keyword"))];
+    let highlights = vec![
+        (Utf8Point::new(1, 0), Utf8Point::new(1, 5), Highlight(0)), // wrong row
+    ];
+    let result = iterate_assertions(&assertions, &highlights, &highlight_names);
+
+    assert!(result.is_err());
+    let err = result.unwrap_err().downcast::<Failure>().unwrap();
+    assert_eq!(err.row, 0);
+    assert_eq!(err.column, 7); // end_column
+    assert_eq!(err.expected_highlight, "keyword");
+    assert_eq!(err.actual_highlights, Vec::<String>::new());
+}
