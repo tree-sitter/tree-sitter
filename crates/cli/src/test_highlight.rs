@@ -151,7 +151,9 @@ pub fn iterate_assertions(
                 i += 1;
                 continue;
             }
-            if highlight.0.row >= position.row && highlight.0.column > end_column {
+            if (highlight.0.row > position.row)
+                || (highlight.0.row == position.row && highlight.0.column > end_column)
+            {
                 break;
             }
 
