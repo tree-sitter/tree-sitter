@@ -10,12 +10,12 @@ use std::{
 #[ctor::ctor]
 unsafe fn initialize_allocation_recording() {
     unsafe {
-        tree_sitter::set_allocator(
-            Some(ts_record_malloc),
-            Some(ts_record_calloc),
-            Some(ts_record_realloc),
-            Some(ts_record_free),
-        );
+        tree_sitter::set_allocator(Some(tree_sitter::Allocator {
+            malloc: ts_record_malloc,
+            calloc: ts_record_calloc,
+            realloc: ts_record_realloc,
+            free: ts_record_free,
+        }));
     }
 }
 
