@@ -1,13 +1,15 @@
 """PARSER_DESCRIPTION"""
 
-from importlib.resources import files as _files
-
 from ._binding import language
 
 
 def _get_query(name, file):
+    files = globals().get("_files")
+    if files is None:
+        from importlib.resources import files
+        globals()["_files"] = files
     try:
-        query = _files(f"{__package__}") / file
+        query = files(f"{__package__}") / file
         globals()[name] = query.read_text()
     except FileNotFoundError:
         globals()[name] = None
