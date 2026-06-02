@@ -1510,7 +1510,7 @@ impl Tree {
             let ptr = ffi::ts_tree_included_ranges(self.0.as_ptr(), core::ptr::addr_of_mut!(count));
             let ranges = slice::from_raw_parts(ptr, count as usize);
             let result = ranges.iter().copied().map(Into::into).collect();
-            (FREE_FN)(ptr.cast::<c_void>());
+            ts_free(ptr.cast::<c_void>());
             result
         }
     }
@@ -2039,7 +2039,7 @@ impl<'tree> Node<'tree> {
             .to_str()
             .unwrap()
             .to_string();
-        unsafe { (FREE_FN)(c_string.cast::<c_void>()) };
+        unsafe { ts_free(c_string.cast::<c_void>()) };
         result
     }
 
@@ -3918,27 +3918,56 @@ pub fn wasm_stdlib_symbols() -> impl Iterator<Item = &'static str> {
 }
 
 unsafe extern "C" {
-    fn free(ptr: *mut c_void);
+    static mut ts_current_free: unsafe extern "C" fn(ptr: *mut c_void);
 }
 
-static mut FREE_FN: unsafe extern "C" fn(ptr: *mut c_void) = free;
+/// Frees a pointer that was returned by a tree-sitter C API using whichever `free`
+/// function is currently installed via [`set_allocator`] or [`ffi::ts_set_allocator`].
+#[inline]
+unsafe fn ts_free(ptr: *mut c_void) {
+    let f = unsafe { core::ptr::addr_of!(ts_current_free).read() };
+    unsafe { f(ptr) };
+}
 
-/// Sets the memory allocation functions that the core library should use.
+/// A complete set of memory allocation functions for the core C library.
+#[derive(Copy, Clone)]
+pub struct Allocator {
+    pub malloc: unsafe extern "C" fn(size: usize) -> *mut c_void,
+    pub calloc: unsafe extern "C" fn(nmemb: usize, size: usize) -> *mut c_void,
+    pub realloc: unsafe extern "C" fn(ptr: *mut c_void, size: usize) -> *mut c_void,
+    pub free: unsafe extern "C" fn(ptr: *mut c_void),
+}
+
+/// Replaces the memory allocation functions used by the core C library.
+///
+/// Pass `Some` to install an allocator, or `None` to restore libc defaults.
 ///
 /// # Safety
 ///
-/// This function uses FFI and mutates a static global.
+/// All of the following must hold:
+///
+/// - The four functions must belong to a single allocator family.
+///
+/// - The functions must not return null for non-zero allocs.
+///
+/// - Returned pointers must satisfy the alignment that libc `malloc` provides.
+///
+/// - Call this before any other tree-sitter API call, and do not call it again
+///   while live tree-sitter objects exist.
+///
+/// - This function is not thread-safe.
 #[doc(alias = "ts_set_allocator")]
-pub unsafe fn set_allocator(
-    new_malloc: Option<unsafe extern "C" fn(size: usize) -> *mut c_void>,
-    new_calloc: Option<unsafe extern "C" fn(nmemb: usize, size: usize) -> *mut c_void>,
-    new_realloc: Option<unsafe extern "C" fn(ptr: *mut c_void, size: usize) -> *mut c_void>,
-    new_free: Option<unsafe extern "C" fn(ptr: *mut c_void)>,
-) {
-    unsafe {
-        FREE_FN = new_free.unwrap_or(free);
-        ffi::ts_set_allocator(new_malloc, new_calloc, new_realloc, new_free);
-    }
+pub unsafe fn set_allocator(allocator: Option<Allocator>) {
+    let (m, c, r, f) = match allocator {
+        Some(a) => (
+            Some(a.malloc),
+            Some(a.calloc),
+            Some(a.realloc),
+            Some(a.free),
+        ),
+        None => (None, None, None, None),
+    };
+    unsafe { ffi::ts_set_allocator(m, c, r, f) };
 }
 
 #[cfg(feature = "std")]
