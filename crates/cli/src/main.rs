@@ -1366,16 +1366,20 @@ impl Test {
                 self.json_summary,
             )?;
             test_summary.test_num = 1;
+        } else {
+            warn!("Test corpus not found at {}", test_corpus_dir.display());
         }
 
         // Check that all of the queries are valid.
         let query_dir = current_dir.join("queries");
-        check_test(
-            test::check_queries_at_path(language, &query_dir),
-            &test_summary,
-            self.json_summary,
-        )?;
-        test_summary.test_num = 1;
+        if query_dir.is_dir() {
+            check_test(
+                test::check_queries_at_path(language, &query_dir),
+                &test_summary,
+                self.json_summary,
+            )?;
+            test_summary.test_num = 1;
+        }
 
         // Run the syntax highlighting tests.
         let test_highlight_dir = test_dir.join("highlight");
