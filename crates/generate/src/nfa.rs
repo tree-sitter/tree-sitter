@@ -52,6 +52,7 @@ const END: u32 = char::MAX as u32 + 1;
 
 impl CharacterSet {
     /// Create a character set with a single character.
+    #[must_use]
     pub const fn empty() -> Self {
         Self { ranges: Vec::new() }
     }
@@ -72,6 +73,7 @@ impl CharacterSet {
     }
 
     /// Create a character set with a single character.
+    #[must_use]
     #[expect(
         clippy::single_range_in_vec_init,
         reason = "Vec is the backing store for CharacterSet"
@@ -84,6 +86,7 @@ impl CharacterSet {
 
     /// Create a character set containing all characters *not* present
     /// in this character set.
+    #[must_use]
     pub fn negate(mut self) -> Self {
         let mut i = 0;
         let mut previous_end = 0;
@@ -104,16 +107,20 @@ impl CharacterSet {
         self
     }
 
+    #[must_use]
     pub fn add_char(mut self, c: char) -> Self {
         self.add_int_range(0, c as u32, c as u32 + 1);
         self
     }
 
+    #[must_use]
     pub fn add_range(mut self, start: char, end: char) -> Self {
         self.add_int_range(0, start as u32, end as u32 + 1);
         self
     }
 
+    #[must_use]
+    #[allow(clippy::should_implement_trait)]
     pub fn add(mut self, other: &Self) -> Self {
         let mut index = 0;
         for range in &other.ranges {
@@ -152,6 +159,7 @@ impl CharacterSet {
         i
     }
 
+    #[must_use]
     pub fn does_intersect(&self, other: &Self) -> bool {
         let mut left_ranges = self.ranges.iter();
         let mut right_ranges = other.ranges.iter();
@@ -172,6 +180,7 @@ impl CharacterSet {
     /// Get the set of characters that are present in both this set
     /// and the other set. Remove those common characters from both
     /// of the operands.
+    #[allow(clippy::return_self_not_must_use)]
     pub fn remove_intersection(&mut self, other: &mut Self) -> Self {
         let mut intersection = Vec::new();
         let mut left_i = 0;
@@ -286,6 +295,7 @@ impl CharacterSet {
 
     /// Produces a `CharacterSet` containing every character in `self` that is not present in
     /// `other`.
+    #[allow(clippy::must_use_candidate, clippy::return_self_not_must_use)]
     pub fn difference(mut self, mut other: Self) -> Self {
         self.remove_intersection(&mut other);
         self
@@ -307,6 +317,7 @@ impl CharacterSet {
         self.char_codes().filter_map(char::from_u32)
     }
 
+    #[must_use]
     pub const fn range_count(&self) -> usize {
         self.ranges.len()
     }
@@ -319,12 +330,14 @@ impl CharacterSet {
         })
     }
 
+    #[must_use]
     pub const fn is_empty(&self) -> bool {
         self.ranges.is_empty()
     }
 
     /// Get a reduced list of character ranges, assuming that a given
     /// set of characters can be safely ignored.
+    #[must_use]
     pub fn simplify_ignoring(&self, ruled_out_characters: &Self) -> Self {
         let mut prev_range: Option<Range<u32>> = None;
         Self {
@@ -356,6 +369,7 @@ impl CharacterSet {
         }
     }
 
+    #[must_use]
     pub fn contains_codepoint_range(&self, seek_range: Range<u32>) -> bool {
         let ix = match self.ranges.binary_search_by(|probe| {
             if probe.end <= seek_range.start {
@@ -373,6 +387,7 @@ impl CharacterSet {
             .is_some_and(|range| range.start <= seek_range.start && range.end >= seek_range.end)
     }
 
+    #[must_use]
     pub fn contains(&self, c: char) -> bool {
         self.contains_codepoint_range(c as u32..c as u32 + 1)
     }
@@ -438,6 +453,7 @@ impl Nfa {
         Self { states: Vec::new() }
     }
 
+    #[must_use]
     pub fn last_state_id(&self) -> u32 {
         assert!(!self.states.is_empty());
         self.states.len() as u32 - 1
@@ -456,6 +472,7 @@ impl fmt::Debug for Nfa {
 }
 
 impl<'a> NfaCursor<'a> {
+    #[must_use]
     pub fn new(nfa: &'a Nfa, mut states: Vec<u32>) -> Self {
         let mut result = Self {
             nfa,
@@ -478,6 +495,7 @@ impl<'a> NfaCursor<'a> {
         self.raw_transitions().map(|t| (t.0, t.1))
     }
 
+    #[must_use]
     pub fn transitions(&self) -> Vec<NfaTransition> {
         Self::group_transitions(self.raw_transitions())
     }
@@ -485,6 +503,7 @@ impl<'a> NfaCursor<'a> {
     /// Like [`transitions()`](Self::transitions) but also returns whether any raw NFA transition
     /// is a separator. This is computed in the same pass, avoiding a second
     /// iteration over `state_ids` for callers that need both.
+    #[must_use]
     pub fn transitions_and_any_sep(&self) -> (Vec<NfaTransition>, bool) {
         let mut any_sep = false;
         let result =

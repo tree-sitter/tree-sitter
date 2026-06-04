@@ -94,6 +94,7 @@ pub struct LexTable {
 
 impl ParseTableEntry {
     #[must_use]
+    #[allow(clippy::new_without_default)]
     pub const fn new() -> Self {
         Self {
             reusable: true,
@@ -103,6 +104,7 @@ impl ParseTableEntry {
 }
 
 impl ParseState {
+    #[must_use]
     pub fn is_end_of_non_terminal_extra(&self) -> bool {
         self.terminal_entries
             .contains_key(&Symbol::end_of_nonterminal_extra())

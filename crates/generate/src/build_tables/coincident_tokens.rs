@@ -20,6 +20,7 @@ pub struct CoincidentTokenIndex<'a> {
 }
 
 impl<'a> CoincidentTokenIndex<'a> {
+    #[must_use]
     pub fn new(table: &ParseTable, lexical_grammar: &'a LexicalGrammar) -> Self {
         let n = lexical_grammar.variables.len();
         let row_words = n.div_ceil(64);
@@ -63,10 +64,12 @@ impl<'a> CoincidentTokenIndex<'a> {
         result
     }
 
+    #[must_use]
     pub fn states_with(&self, a: Symbol, b: Symbol) -> &[ParseStateId] {
         &self.entries[self.index(a.index, b.index)]
     }
 
+    #[must_use]
     pub fn contains(&self, a: Symbol, b: Symbol) -> bool {
         let bit_index = a.index * self.n + b.index;
         self.contains_bits[bit_index / 64] & (1u64 << (bit_index % 64)) != 0

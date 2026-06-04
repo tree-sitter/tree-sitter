@@ -47,6 +47,7 @@ impl<'a> TokenConflictMap<'a> {
     ///
     /// This analyzes the possible kinds of overlap between each pair of tokens and stores
     /// them in a matrix.
+    #[must_use]
     pub fn new(grammar: &'a LexicalGrammar, following_tokens: Vec<TokenSet>) -> Self {
         let mut cursor = NfaCursor::new(&grammar.nfa, Vec::new());
         let starting_chars = get_starting_chars(&mut cursor, grammar);
@@ -117,6 +118,7 @@ impl<'a> TokenConflictMap<'a> {
 
     /// Does token `i` match any strings that token `j` also matches, such that token `i`
     /// is preferred over token `j`?
+    #[must_use]
     pub fn has_same_conflict_status(&self, a: usize, b: usize, other: usize) -> bool {
         let left = &self.status_matrix[matrix_index(self.n, a, other)];
         let right = &self.status_matrix[matrix_index(self.n, b, other)];
@@ -124,6 +126,7 @@ impl<'a> TokenConflictMap<'a> {
     }
 
     /// Does token `i` match any strings that token `j` does *not* match?
+    #[must_use]
     pub fn does_match_different_string(&self, i: usize, j: usize) -> bool {
         self.status_matrix[matrix_index(self.n, i, j)]
             .contains(TokenConflictStatus::MATCHES_DIFFERENT_STRING)
@@ -132,12 +135,14 @@ impl<'a> TokenConflictMap<'a> {
     /// Does token `i` match any strings that token `j` also matches, where
     /// token `i` is preferred over token `j`?
     #[inline]
+    #[must_use]
     pub fn does_match_same_string(&self, i: usize, j: usize) -> bool {
         self.status_matrix[matrix_index(self.n, i, j)]
             .contains(TokenConflictStatus::MATCHES_SAME_STRING)
     }
 
     #[inline]
+    #[must_use]
     pub fn does_conflict(&self, i: usize, j: usize) -> bool {
         debug_assert!(i < self.n && j < self.n, "token indices out of bounds");
         // Safety: i < n and j < n imply n*i+j < n*n == status_matrix.len().
@@ -150,12 +155,14 @@ impl<'a> TokenConflictMap<'a> {
     }
 
     /// Does token `i` match any strings that are *prefixes* of strings matched by `j`?
-    #[expect(dead_code)]
     #[inline]
+    #[must_use]
+    #[allow(dead_code)]
     pub fn does_match_prefix(&self, i: usize, j: usize) -> bool {
         self.status_matrix[matrix_index(self.n, i, j)].contains(TokenConflictStatus::MATCHES_PREFIX)
     }
 
+    #[must_use]
     pub fn does_match_shorter_or_longer(&self, i: usize, j: usize) -> bool {
         let entry = self.status_matrix[matrix_index(self.n, i, j)];
         let reverse_entry = self.status_matrix[matrix_index(self.n, j, i)];
@@ -165,6 +172,7 @@ impl<'a> TokenConflictMap<'a> {
     }
 
     #[inline]
+    #[must_use]
     pub fn does_overlap(&self, i: usize, j: usize) -> bool {
         self.status_matrix[matrix_index(self.n, i, j)].intersects(
             TokenConflictStatus::DOES_MATCH_SEPARATORS
@@ -174,6 +182,7 @@ impl<'a> TokenConflictMap<'a> {
         )
     }
 
+    #[must_use]
     pub fn prefer_token(grammar: &LexicalGrammar, left: (i32, usize), right: (i32, usize)) -> bool {
         match left.0.cmp(&right.0) {
             Ordering::Less => false,
@@ -189,6 +198,7 @@ impl<'a> TokenConflictMap<'a> {
         }
     }
 
+    #[must_use]
     pub fn prefer_transition(
         grammar: &LexicalGrammar,
         t: &NfaTransition,
