@@ -520,6 +520,13 @@ module.exports = grammar({
 Although supertype rules are hidden from the syntax tree, they can still be used in queries. See the chapter on
 [Query Syntax][query syntax] for more information.
 
+```admonish warning
+Aliasing a supertype rule makes the node in the alias match the supertype in
+name only and will not be treated as a supertype. For `alias($.foo, $.bar)` a
+query targeting `bar` will not transparently match the supertype's subtypes the
+way a query targeting `foo` would.
+```
+
 # Lexical Analysis
 
 Tree-sitter's parsing process is divided into two phases: parsing (which is described above) and [lexing][lexing] — the
