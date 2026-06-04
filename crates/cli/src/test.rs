@@ -1374,6 +1374,17 @@ struct PendingTest {
     body_start_line: usize,
 }
 
+/// If `token` matches the shape of one of the known test attributes,
+/// then return the prefix
+fn known_attribute(token: &str) -> Option<&str> {
+    let head = token.split('(').next().unwrap_or(token);
+    matches!(
+        head,
+        ":skip" | ":error" | ":fail-fast" | ":cst" | ":platform" | ":language"
+    )
+    .then_some(head)
+}
+
 /// Try to parse a header block (opening `===`, name/markers, closing `===`) starting at
 /// `lines[start_line]`. Returns the parsed header and the line index after the closing `===`,
 /// or `None` if `lines[start_line]` isn't a matching `===` delimiter.
@@ -1432,20 +1443,49 @@ fn parse_header(
                 }
             }
             ":cst" => (seen_marker, cst) = (true, true),
-            _ if !seen_marker => test_name.push_str(lines[line_num]),
-            _ => {}
+            _ if !seen_marker => {
+                // This line is part of the test name. If it contains a token that
+                // looks like an attribute marker, warn the user.
+                let mut warned = false;
+                for token in trimmed.split_whitespace() {
+                    if let Some(attr) = known_attribute(token) {
+                        warn!(
+                            "Test header line `{trimmed}` contains `{attr}`, \
+                             which looks like a test attribute but won't be \
+                             recognized as one. Attributes must appear on \
+                             their own line(s) below the test name."
+                        );
+                        warned = true;
+                    }
+                }
+                // A line that is itself a single `:` prefixed token and didn't
+                // match any known marker is most likely a typo'd attribute.
+                if !warned && trimmed.starts_with(':') && !trimmed.contains(char::is_whitespace) {
+                    warn!("Test header line `{trimmed}` looks like a test attribute but isn't.");
+                }
+                test_name.push_str(lines[line_num]);
+            }
+            _ => {
+                // In the marker region, lines that start with `:` but don't
+                // match any known marker are most likely a typo.
+                if trimmed.starts_with(':') {
+                    warn!("Test header line `{trimmed}` looks like a test attribute but isn't.");
+                }
+            }
         }
         line_num += 1;
     }
 
     if line_num >= lines.len() {
+        warn!("No closing `===` line found for {}", test_name.trim_end());
         return None; // No closing `===` line found.
     }
 
     let expectation = match (seen_skip, seen_error) {
         (true, true) => {
             warn!(
-                "Test '{test_name}' specifies both `:skip` and `:error`. The `:error` attribute will be dropped."
+                "Test '{}' specifies both `:skip` and `:error`. The `:error` attribute will be dropped.",
+                test_name.trim_end()
             );
             TestExpectation::Skip
         }
