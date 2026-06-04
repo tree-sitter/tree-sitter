@@ -646,22 +646,20 @@ pub fn run_tests_at_path(
 }
 
 pub fn check_queries_at_path(language: &Language, path: &Path) -> Result<()> {
-    if path.exists() {
-        for entry in WalkDir::new(path)
-            .into_iter()
-            .filter_map(std::result::Result::ok)
-            .filter(|e| {
-                e.file_type().is_file()
-                    && e.path().extension().and_then(OsStr::to_str) == Some("scm")
-                    && !e.path().starts_with(".")
-            })
-        {
-            let filepath = entry.file_name().to_str().unwrap_or("");
-            let content = fs::read_to_string(entry.path())
-                .with_context(|| format!("Error reading query file {filepath:?}"))?;
-            Query::new(language, &content)
-                .with_context(|| format!("Error in query file {filepath:?}"))?;
-        }
+    for entry in WalkDir::new(path)
+        .into_iter()
+        .filter_map(std::result::Result::ok)
+        .filter(|e| {
+            e.file_type().is_file()
+                && e.path().extension().and_then(OsStr::to_str) == Some("scm")
+                && !e.path().starts_with(".")
+        })
+    {
+        let filepath = entry.file_name().to_str().unwrap_or("");
+        let content = fs::read_to_string(entry.path())
+            .with_context(|| format!("Error reading query file {filepath:?}"))?;
+        Query::new(language, &content)
+            .with_context(|| format!("Error in query file {filepath:?}"))?;
     }
     Ok(())
 }
