@@ -111,24 +111,28 @@ impl Ord for TokenSet {
 }
 
 impl Rule {
+    #[must_use]
     pub fn field(name: String, content: Self) -> Self {
         add_metadata(content, move |params| {
             params.field_name = Some(name);
         })
     }
 
+    #[must_use]
     pub fn alias(content: Self, value: String, is_named: bool) -> Self {
         add_metadata(content, move |params| {
             params.alias = Some(Alias { value, is_named });
         })
     }
 
+    #[must_use]
     pub fn token(content: Self) -> Self {
         add_metadata(content, |params| {
             params.is_token = true;
         })
     }
 
+    #[must_use]
     pub fn immediate_token(content: Self) -> Self {
         add_metadata(content, |params| {
             params.is_token = true;
@@ -136,12 +140,14 @@ impl Rule {
         })
     }
 
+    #[must_use]
     pub fn prec(value: Precedence, content: Self) -> Self {
         add_metadata(content, |params| {
             params.precedence = value;
         })
     }
 
+    #[must_use]
     pub fn prec_left(value: Precedence, content: Self) -> Self {
         add_metadata(content, |params| {
             params.associativity = Some(Associativity::Left);
@@ -149,6 +155,7 @@ impl Rule {
         })
     }
 
+    #[must_use]
     pub fn prec_right(value: Precedence, content: Self) -> Self {
         add_metadata(content, |params| {
             params.associativity = Some(Associativity::Right);
@@ -156,16 +163,19 @@ impl Rule {
         })
     }
 
+    #[must_use]
     pub fn prec_dynamic(value: i32, content: Self) -> Self {
         add_metadata(content, |params| {
             params.dynamic_precedence = value;
         })
     }
 
+    #[must_use]
     pub fn repeat(rule: Self) -> Self {
         Self::Repeat(Box::new(rule))
     }
 
+    #[must_use]
     pub fn choice(rules: Vec<Self>) -> Self {
         let mut elements = Vec::with_capacity(rules.len());
         for rule in rules {
@@ -174,6 +184,7 @@ impl Rule {
         Self::Choice(elements)
     }
 
+    #[must_use]
     pub const fn seq(rules: Vec<Self>) -> Self {
         Self::Seq(rules)
     }
@@ -321,6 +332,7 @@ impl TokenSet {
         }
     }
 
+    #[must_use]
     pub fn with_capacity(n_terminals: usize, n_externals: usize) -> Self {
         Self {
             terminal_bits: BitVec::with_capacity(n_terminals),
@@ -347,6 +359,7 @@ impl TokenSet {
     }
 
     #[inline]
+    #[must_use]
     pub fn contains(&self, symbol: &Symbol) -> bool {
         match symbol.kind {
             SymbolType::NonTerminal => panic!("Cannot store non-terminals in a TokenSet"),
@@ -358,12 +371,14 @@ impl TokenSet {
     }
 
     #[inline]
+    #[must_use]
     pub fn contains_terminal(&self, index: usize) -> bool {
         self.terminal_bits.get(index).unwrap_or(false)
     }
 
     /// Raw u64 word slice backing the terminal bitset.
     #[inline]
+    #[must_use]
     pub const fn terminal_bits_words(&self) -> &[u64] {
         self.terminal_bits.as_slice()
     }
@@ -420,6 +435,7 @@ impl TokenSet {
         false
     }
 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         !self.eof
             && !self.end_of_nonterminal_extra
@@ -427,6 +443,7 @@ impl TokenSet {
             && self.external_bits.as_slice().iter().all(|&w| w == 0)
     }
 
+    #[must_use]
     pub fn len(&self) -> usize {
         usize::from(self.eof)
             + usize::from(self.end_of_nonterminal_extra)

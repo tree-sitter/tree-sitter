@@ -93,6 +93,7 @@ pub struct BitVec {
 }
 
 impl BitVec {
+    #[must_use]
     pub const fn new() -> Self {
         Self {
             data: ptr::NonNull::dangling().as_ptr(),
@@ -101,6 +102,7 @@ impl BitVec {
         }
     }
 
+    #[must_use]
     pub fn with_capacity(n_bits: usize) -> Self {
         let n_words = n_bits.div_ceil(64);
         if n_words == 0 {
@@ -120,6 +122,7 @@ impl BitVec {
 
     /// View the in-use words as a slice.
     #[inline]
+    #[must_use]
     pub const fn as_slice(&self) -> &[u64] {
         let n = self.words_in_use();
         if n == 0 {
@@ -142,10 +145,13 @@ impl BitVec {
         unsafe { std::slice::from_raw_parts_mut(self.data, n) }
     }
 
+    #[must_use]
+    #[allow(clippy::len_without_is_empty)]
     pub const fn len(&self) -> usize {
         self.num_bits as usize
     }
 
+    #[must_use]
     pub fn get(&self, index: usize) -> Option<bool> {
         if index >= self.num_bits as usize {
             return None;
@@ -206,6 +212,7 @@ impl BitVec {
         self.num_bits = new_len as u32;
     }
 
+    #[must_use]
     pub fn last(&self) -> Option<bool> {
         if self.num_bits == 0 {
             return None;
@@ -380,6 +387,7 @@ pub struct SetBitsIter<'a> {
 }
 
 impl<'a> SetBitsIter<'a> {
+    #[must_use]
     pub fn new(data: &'a [u64]) -> Self {
         Self {
             data,
