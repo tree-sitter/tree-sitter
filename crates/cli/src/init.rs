@@ -1060,6 +1060,19 @@ fn update_c_makefile(path: &Path, language_name: &str, opts: &GenerateOpts) -> R
                     "},
             );
         }
+        if !contents.contains("\nDESCRIPTION :=")
+            && let Some(version_line) = contents.lines().find(|l| l.starts_with("VERSION := "))
+        {
+            info!("Adding DESCRIPTION to Makefile");
+            let description = opts.description.map_or_else(
+                || format!("{} grammar for tree-sitter", opts.camel_parser_name),
+                str::to_string,
+            );
+            contents = contents.replace(
+                version_line,
+                &format!("{version_line}\nDESCRIPTION := {description}"),
+            );
+        }
         write_file(path, contents)?;
     }
     Ok(())
