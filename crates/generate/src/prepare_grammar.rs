@@ -35,7 +35,7 @@ use super::{
     },
     rules::{AliasMap, Precedence, Rule, Symbol},
 };
-use crate::grammars::ReservedWordContext;
+use crate::{Diagnostic, grammars::ReservedWordContext};
 
 pub struct IntermediateGrammar<T, U> {
     variables: Vec<Variable>,
@@ -152,6 +152,7 @@ impl std::fmt::Display for ConflictingPrecedenceOrderingError {
 /// for parse table construction.
 pub fn prepare_grammar(
     input_grammar: &InputGrammar,
+    diagnostics: &mut Vec<Diagnostic>,
 ) -> PrepareGrammarResult<(
     SyntaxGrammar,
     LexicalGrammar,
@@ -161,7 +162,7 @@ pub fn prepare_grammar(
     validate_precedences(input_grammar)?;
     validate_indirect_recursion(input_grammar)?;
 
-    let interned_grammar = intern_symbols(input_grammar)?;
+    let interned_grammar = intern_symbols(input_grammar, diagnostics)?;
     let (syntax_grammar, lexical_grammar) = extract_tokens(interned_grammar)?;
     let syntax_grammar = expand_repeats(syntax_grammar);
     let mut syntax_grammar = flatten_grammar(syntax_grammar)?;

@@ -5,7 +5,6 @@ use std::{
 };
 
 use indexmap::{IndexMap, map::Entry};
-use log::warn;
 use rustc_hash::{FxHashMap, FxHashSet, FxHasher};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -15,6 +14,7 @@ use super::{
     item_set_builder::ParseItemSetBuilder,
 };
 use crate::{
+    Diagnostic,
     grammars::{LexicalGrammar, PrecedenceEntry, ReservedWordSetId, SyntaxGrammar, VariableType},
     node_types::VariableInfo,
     rules::{Associativity, Precedence, Symbol, SymbolType, TokenSet},
@@ -266,7 +266,10 @@ impl<'a> ParseTableBuilder<'a> {
         }
     }
 
-    fn build(mut self) -> BuildTableResult<(ParseTable, Vec<ParseStateInfo<'a>>)> {
+    fn build(
+        mut self,
+        diagnostics: &mut Vec<Diagnostic>,
+    ) -> BuildTableResult<(ParseTable, Vec<ParseStateInfo<'a>>)> {
         // Ensure that the empty alias sequence has index 0.
         self.parse_table
             .production_infos
@@ -346,21 +349,13 @@ impl<'a> ParseTableBuilder<'a> {
         }
 
         if !self.actual_conflicts.is_empty() {
-            warn!(
-                "unnecessary conflicts:\n  {}",
-                &self
-                    .actual_conflicts
-                    .iter()
-                    .map(|conflict| {
-                        conflict
-                            .iter()
-                            .map(|symbol| format!("`{}`", self.symbol_name(symbol)))
-                            .collect::<Vec<_>>()
-                            .join(", ")
-                    })
-                    .collect::<Vec<_>>()
-                    .join("\n  ")
-            );
+            let mut conflicts = self
+                .actual_conflicts
+                .iter()
+                .map(|conf| conf.iter().map(|s| self.symbol_name(s)).collect())
+                .collect::<Vec<_>>();
+            conflicts.sort_unstable();
+            diagnostics.push(Diagnostic::UnnecessaryConflicts(conflicts));
         }
 
         Ok((self.parse_table, self.parse_state_info_by_id))
@@ -1147,6 +1142,7 @@ pub fn build_parse_table<'a>(
     lexical_grammar: &'a LexicalGrammar,
     item_set_builder: ParseItemSetBuilder<'a>,
     variable_info: &'a [VariableInfo],
+    diagnostics: &mut Vec<Diagnostic>,
 ) -> BuildTableResult<(ParseTable, Vec<ParseStateInfo<'a>>)> {
     ParseTableBuilder::new(
         syntax_grammar,
@@ -1154,5 +1150,5 @@ pub fn build_parse_table<'a>(
         item_set_builder,
         variable_info,
     )
-    .build()
+    .build(diagnostics)
 }

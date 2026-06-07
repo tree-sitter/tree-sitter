@@ -1,9 +1,9 @@
-use log::warn;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use super::InternedGrammar;
 use crate::{
+    Diagnostic,
     grammars::{InputGrammar, ReservedWordContext, Variable, VariableType},
     rules::{Rule, Symbol},
 };
@@ -24,7 +24,10 @@ pub enum InternSymbolsError {
     UndefinedWordToken(String),
 }
 
-pub(super) fn intern_symbols(grammar: &InputGrammar) -> InternSymbolsResult<InternedGrammar> {
+pub(super) fn intern_symbols(
+    grammar: &InputGrammar,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> InternSymbolsResult<InternedGrammar> {
     let interner = Interner { grammar };
 
     if variable_type_for_name(&grammar.variables[0].name) == VariableType::Hidden {
@@ -36,13 +39,13 @@ pub(super) fn intern_symbols(grammar: &InputGrammar) -> InternSymbolsResult<Inte
         variables.push(Variable {
             name: variable.name.clone(),
             kind: variable_type_for_name(&variable.name),
-            rule: interner.intern_rule(&variable.rule, Some(&variable.name))?,
+            rule: interner.intern_rule(&variable.rule, Some(&variable.name), diagnostics)?,
         });
     }
 
     let mut external_tokens = Vec::with_capacity(grammar.external_tokens.len());
     for external_token in &grammar.external_tokens {
-        let rule = interner.intern_rule(external_token, None)?;
+        let rule = interner.intern_rule(external_token, None, diagnostics)?;
         let (name, kind) = if let Rule::NamedSymbol(name) = external_token {
             (name.clone(), variable_type_for_name(name))
         } else {
@@ -53,7 +56,7 @@ pub(super) fn intern_symbols(grammar: &InputGrammar) -> InternSymbolsResult<Inte
 
     let mut extra_symbols = Vec::with_capacity(grammar.extra_symbols.len());
     for extra_token in &grammar.extra_symbols {
-        extra_symbols.push(interner.intern_rule(extra_token, None)?);
+        extra_symbols.push(interner.intern_rule(extra_token, None, diagnostics)?);
     }
 
     let mut supertype_symbols = Vec::with_capacity(grammar.supertype_symbols.len());
@@ -67,7 +70,7 @@ pub(super) fn intern_symbols(grammar: &InputGrammar) -> InternSymbolsResult<Inte
     for reserved_word_set in &grammar.reserved_words {
         let mut interned_set = Vec::with_capacity(reserved_word_set.reserved_words.len());
         for rule in &reserved_word_set.reserved_words {
-            interned_set.push(interner.intern_rule(rule, None)?);
+            interned_set.push(interner.intern_rule(rule, None, diagnostics)?);
         }
         reserved_words.push(ReservedWordContext {
             name: reserved_word_set.name.clone(),
@@ -129,31 +132,40 @@ struct Interner<'a> {
 }
 
 impl Interner<'_> {
-    fn intern_rule(&self, rule: &Rule, name: Option<&str>) -> InternSymbolsResult<Rule> {
+    fn intern_rule(
+        &self,
+        rule: &Rule,
+        name: Option<&str>,
+        diagnostics: &mut Vec<Diagnostic>,
+    ) -> InternSymbolsResult<Rule> {
         match rule {
             Rule::Choice(elements) => {
-                Self::check_single(elements, name, "choice");
+                Self::check_single(elements, name, true, diagnostics);
                 let mut result = Vec::with_capacity(elements.len());
                 for element in elements {
-                    result.push(self.intern_rule(element, name)?);
+                    result.push(self.intern_rule(element, name, diagnostics)?);
                 }
                 Ok(Rule::Choice(result))
             }
             Rule::Seq(elements) => {
-                Self::check_single(elements, name, "seq");
+                Self::check_single(elements, name, false, diagnostics);
                 let mut result = Vec::with_capacity(elements.len());
                 for element in elements {
-                    result.push(self.intern_rule(element, name)?);
+                    result.push(self.intern_rule(element, name, diagnostics)?);
                 }
                 Ok(Rule::Seq(result))
             }
-            Rule::Repeat(content) => Ok(Rule::Repeat(Box::new(self.intern_rule(content, name)?))),
+            Rule::Repeat(content) => Ok(Rule::Repeat(Box::new(self.intern_rule(
+                content,
+                name,
+                diagnostics,
+            )?))),
             Rule::Metadata { rule, params } => Ok(Rule::Metadata {
-                rule: Box::new(self.intern_rule(rule, name)?),
+                rule: Box::new(self.intern_rule(rule, name, diagnostics)?),
                 params: params.clone(),
             }),
             Rule::Reserved { rule, context_name } => Ok(Rule::Reserved {
-                rule: Box::new(self.intern_rule(rule, name)?),
+                rule: Box::new(self.intern_rule(rule, name, diagnostics)?),
                 context_name: context_name.clone(),
             }),
             Rule::NamedSymbol(name) => self.intern_name(name).map_or_else(
@@ -184,12 +196,19 @@ impl Interner<'_> {
 
     // In the case of a seq or choice rule of 1 element in a hidden rule, weird
     // inconsistent behavior with queries can occur. So we should warn the user about it.
-    fn check_single(elements: &[Rule], name: Option<&str>, kind: &str) {
+    fn check_single(
+        elements: &[Rule],
+        name: Option<&str>,
+        is_choice: bool,
+        diagnostics: &mut Vec<Diagnostic>,
+    ) {
         if elements.len() == 1 && matches!(elements[0], Rule::String(_) | Rule::Pattern(_, _)) {
-            warn!(
-                "rule {} contains a `{kind}` rule with a single element. This is unnecessary.",
-                name.unwrap_or_default()
-            );
+            let name = name.map(str::to_string);
+            diagnostics.push(if is_choice {
+                Diagnostic::UnaryChoice { name }
+            } else {
+                Diagnostic::UnarySeq { name }
+            });
         }
     }
 }
@@ -208,11 +227,14 @@ mod tests {
 
     #[test]
     fn test_basic_repeat_expansion() {
-        let grammar = intern_symbols(&build_grammar(vec![
-            Variable::named("x", Rule::choice(vec![Rule::named("y"), Rule::named("_z")])),
-            Variable::named("y", Rule::named("_z")),
-            Variable::named("_z", Rule::string("a")),
-        ]))
+        let grammar = intern_symbols(
+            &build_grammar(vec![
+                Variable::named("x", Rule::choice(vec![Rule::named("y"), Rule::named("_z")])),
+                Variable::named("y", Rule::named("_z")),
+                Variable::named("_z", Rule::string("a")),
+            ]),
+            &mut Vec::new(),
+        )
         .unwrap();
 
         assert_eq!(
@@ -244,7 +266,7 @@ mod tests {
             .external_tokens
             .extend(vec![Rule::named("y"), Rule::named("z")]);
 
-        let grammar = intern_symbols(&input_grammar).unwrap();
+        let grammar = intern_symbols(&input_grammar, &mut Vec::new()).unwrap();
 
         // Variable `y` is referred to by its internal index.
         // Variable `z` is referred to by its external index.
@@ -276,7 +298,10 @@ mod tests {
 
     #[test]
     fn test_grammar_with_undefined_symbols() {
-        let result = intern_symbols(&build_grammar(vec![Variable::named("x", Rule::named("y"))]));
+        let result = intern_symbols(
+            &build_grammar(vec![Variable::named("x", Rule::named("y"))]),
+            &mut Vec::new(),
+        );
 
         assert!(result.is_err(), "Expected an error but got none");
         let e = result.err().unwrap();
