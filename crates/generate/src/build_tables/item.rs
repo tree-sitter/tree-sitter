@@ -15,6 +15,7 @@ use crate::{
 
 static START_PRODUCTION: LazyLock<Production> = LazyLock::new(|| Production {
     dynamic_precedence: 0,
+    requires_eof_lookahead: false,
     steps: vec![ProductionStep {
         symbol: Symbol {
             index: 0,
@@ -335,6 +336,7 @@ impl Hash for ParseItem<'_> {
         hasher.write_i32(self.production.dynamic_precedence);
         hasher.write_usize(self.production.steps.len());
         hasher.write_i32(i32::from(self.has_preceding_inherited_fields));
+        hasher.write_i32(i32::from(self.production.requires_eof_lookahead));
         self.precedence().hash(hasher);
         self.associativity().hash(hasher);
 
@@ -364,6 +366,7 @@ impl PartialEq for ParseItem<'_> {
             || self.step_index != other.step_index
             || self.production.dynamic_precedence != other.production.dynamic_precedence
             || self.production.steps.len() != other.production.steps.len()
+            || self.production.requires_eof_lookahead != other.production.requires_eof_lookahead
             || self.precedence() != other.precedence()
             || self.associativity() != other.associativity()
             || self.has_preceding_inherited_fields != other.has_preceding_inherited_fields
@@ -411,6 +414,11 @@ impl Ord for ParseItem<'_> {
                     .steps
                     .len()
                     .cmp(&other.production.steps.len())
+            })
+            .then_with(|| {
+                self.production
+                    .requires_eof_lookahead
+                    .cmp(&other.production.requires_eof_lookahead)
             })
             .then_with(|| self.precedence().cmp(other.precedence()))
             .then_with(|| self.associativity().cmp(&other.associativity()))

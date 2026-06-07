@@ -501,6 +501,11 @@ impl<'a> ParseTableBuilder<'a> {
                 let precedence = item.precedence();
                 let associativity = item.associativity();
                 for lookahead in lookaheads.iter() {
+                    // If the production was written with a trailing `eof()`,
+                    // only emit the Reduce under the end-of-input lookahead.
+                    if item.production.requires_eof_lookahead && lookahead != Symbol::end() {
+                        continue;
+                    }
                     let table_entry = self.parse_table.states[state_id]
                         .terminal_entries
                         .entry(lookahead)

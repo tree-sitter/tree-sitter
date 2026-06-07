@@ -386,14 +386,12 @@ declare const token: {
 };
 
 /**
- * Creates an eof rule, matching the end of the input.
- * This is useful in languages where the top level grammar is a repeated
- * sequence of statements followed by a terminator. One might use newlines
- * for a terminator, but the end of the file would also match too.
+ * Matches the end of input. May only appear as the final symbol of a
+ * (possibly nested) sequence; a production ending in `eof()` reduces only
+ * when the lookahead is end-of-input, rather than shifting a token.
  *
- * This rule is a more explicit way to ONLY match the end of the input,
- * and error out if it wasn't found. Multiple usages still point to the same token,
- * so there is no penalty for using this rule multiple times.
+ * Useful when a rule should match either an explicit terminator (e.g. a
+ * newline) or the end of the file.
  */
 declare function eof(): EOFRule;
 

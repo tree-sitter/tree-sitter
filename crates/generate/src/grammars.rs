@@ -91,6 +91,10 @@ pub const NO_RESERVED_WORDS: ReservedWordSetId = ReservedWordSetId(usize::MAX);
 pub struct Production {
     pub steps: Vec<ProductionStep>,
     pub dynamic_precedence: i32,
+    /// True when the production was written ending in `eof()`. The reduce
+    /// action for this production is only emitted under the end-of-input
+    /// lookahead, never as a shift.
+    pub requires_eof_lookahead: bool,
 }
 
 #[derive(Default)]

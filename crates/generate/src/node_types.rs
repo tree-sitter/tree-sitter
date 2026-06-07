@@ -1821,6 +1821,7 @@ mod tests {
                         kind: VariableType::Named,
                         productions: vec![Production {
                             dynamic_precedence: 0,
+                            requires_eof_lookahead: false,
                             steps: vec![
                                 ProductionStep::new(Symbol::terminal(0)),
                                 ProductionStep::new(Symbol::non_terminal(1))
@@ -1834,6 +1835,7 @@ mod tests {
                         kind: VariableType::Hidden,
                         productions: vec![Production {
                             dynamic_precedence: 0,
+                            requires_eof_lookahead: false,
                             steps: vec![ProductionStep::new(Symbol::terminal(1))],
                         }],
                     },
@@ -1844,10 +1846,12 @@ mod tests {
                         productions: vec![
                             Production {
                                 dynamic_precedence: 0,
+                                requires_eof_lookahead: false,
                                 steps: vec![ProductionStep::new(Symbol::terminal(0))],
                             },
                             Production {
                                 dynamic_precedence: 0,
+                                requires_eof_lookahead: false,
                                 steps: vec![
                                     ProductionStep::new(Symbol::terminal(0)),
                                     ProductionStep::new(Symbol::terminal(2))
@@ -1856,6 +1860,7 @@ mod tests {
                             },
                             Production {
                                 dynamic_precedence: 0,
+                                requires_eof_lookahead: false,
                                 steps: vec![
                                     ProductionStep::new(Symbol::terminal(0)),
                                     ProductionStep::new(Symbol::terminal(3))
@@ -1922,6 +1927,7 @@ mod tests {
                         productions: vec![
                             Production {
                                 dynamic_precedence: 0,
+                                requires_eof_lookahead: false,
                                 steps: vec![
                                     ProductionStep::new(Symbol::non_terminal(1))
                                         .with_field_name("field1"),
@@ -1929,6 +1935,7 @@ mod tests {
                             },
                             Production {
                                 dynamic_precedence: 0,
+                                requires_eof_lookahead: false,
                                 steps: vec![],
                             },
                         ],
@@ -1940,10 +1947,12 @@ mod tests {
                         productions: vec![
                             Production {
                                 dynamic_precedence: 0,
+                                requires_eof_lookahead: false,
                                 steps: vec![ProductionStep::new(Symbol::terminal(1))],
                             },
                             Production {
                                 dynamic_precedence: 0,
+                                requires_eof_lookahead: false,
                                 steps: vec![
                                     ProductionStep::new(Symbol::non_terminal(1)),
                                     ProductionStep::new(Symbol::non_terminal(1)),
@@ -1988,6 +1997,7 @@ mod tests {
                         productions: vec![
                             Production {
                                 dynamic_precedence: 0,
+                                requires_eof_lookahead: false,
                                 steps: vec![
                                     ProductionStep::new(Symbol::terminal(0)),
                                     ProductionStep::new(Symbol::non_terminal(1)),
@@ -1996,6 +2006,7 @@ mod tests {
                             },
                             Production {
                                 dynamic_precedence: 0,
+                                requires_eof_lookahead: false,
                                 steps: vec![ProductionStep::new(Symbol::non_terminal(1))],
                             },
                         ],
@@ -2006,6 +2017,7 @@ mod tests {
                         kind: VariableType::Hidden,
                         productions: vec![Production {
                             dynamic_precedence: 0,
+                            requires_eof_lookahead: false,
                             steps: vec![
                                 ProductionStep::new(Symbol::terminal(2)).with_alias(".", false),
                                 ProductionStep::new(Symbol::terminal(3)).with_field_name("field1"),
@@ -2063,6 +2075,7 @@ mod tests {
                         kind: VariableType::Named,
                         productions: vec![Production {
                             dynamic_precedence: 0,
+                            requires_eof_lookahead: false,
                             steps: vec![
                                 ProductionStep::new(Symbol::terminal(0)),
                                 ProductionStep::new(Symbol::non_terminal(1))
@@ -2077,10 +2090,12 @@ mod tests {
                         productions: vec![
                             Production {
                                 dynamic_precedence: 0,
+                                requires_eof_lookahead: false,
                                 steps: vec![ProductionStep::new(Symbol::terminal(2))],
                             },
                             Production {
                                 dynamic_precedence: 0,
+                                requires_eof_lookahead: false,
                                 steps: vec![ProductionStep::new(Symbol::terminal(3))],
                             },
                         ],
