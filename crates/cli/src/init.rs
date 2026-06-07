@@ -737,6 +737,19 @@ pub fn generate_grammar_files(
                                     "}
                                 );
                         }
+                        if !contents.contains("\nDESCRIPTION :=") {
+                            if let Some(version_line) = contents.lines().find(|l| l.starts_with("VERSION := ")) {
+                                info!("Adding DESCRIPTION to Makefile");
+                                let description = generate_opts.description.map_or_else(
+                                    || format!("{} grammar for tree-sitter", generate_opts.camel_parser_name),
+                                    str::to_string,
+                                );
+                                contents = contents.replace(
+                                    version_line,
+                                    &format!("{version_line}\nDESCRIPTION := {description}"),
+                                );
+                            }
+                        }
                         write_file(path, contents)?;
                     }
                     Ok(())
