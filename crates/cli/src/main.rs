@@ -33,7 +33,7 @@ use tree_sitter_cli::{
     wasm,
 };
 use tree_sitter_config::Config;
-use tree_sitter_generate::OptLevel;
+use tree_sitter_generate::{Diagnostic, GenerateError, OptLevel};
 use tree_sitter_highlight::Highlighter;
 use tree_sitter_loader::{self as loader, Bindings, TreeSitterJSON};
 use tree_sitter_tags::TagsContext;
@@ -951,7 +951,8 @@ impl Generate {
             self.json_summary
         };
 
-        if let Err(err) = tree_sitter_generate::generate_parser_in_directory(
+        let mut diagnostics = Vec::new();
+        let result = tree_sitter_generate::generate_parser_in_directory(
             current_dir,
             self.output.as_deref(),
             self.grammar_path.as_deref(),
@@ -964,16 +965,33 @@ impl Generate {
             } else {
                 OptLevel::default()
             },
-        ) {
-            if json_summary {
-                eprintln!("{}", serde_json::to_string_pretty(&err)?);
+            &mut diagnostics,
+        );
+        if json_summary {
+            #[derive(serde::Serialize)]
+            struct Envelope<'a> {
+                diagnostics: &'a [Diagnostic],
+                error: Option<&'a GenerateError>,
+            }
+            let envelope = Envelope {
+                diagnostics: &diagnostics,
+                error: result.as_ref().err(),
+            };
+            eprintln!("{}", serde_json::to_string_pretty(&envelope)?);
+            if result.is_err() {
                 // Exit early to prevent errors from being printed a second time in the caller
                 std::process::exit(1);
-            } else {
+            }
+        } else {
+            for d in &diagnostics {
+                warn!("{d}");
+            }
+            if let Err(err) = result {
                 // Removes extra context associated with the error
                 Err(anyhow!(err.to_string())).with_context(|| "Error when generating parser")?;
             }
         }
+
         if self.build {
             warn!("--build is deprecated, use the `build` command");
             if let Some(path) = self.libdir {

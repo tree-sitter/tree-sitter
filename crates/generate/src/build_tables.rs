@@ -23,7 +23,7 @@ use self::{
     token_conflicts::TokenConflictMap,
 };
 use crate::{
-    OptLevel,
+    Diagnostic, OptLevel,
     grammars::{InlinedProductionMap, LexicalGrammar, SyntaxGrammar},
     nfa::{CharacterSet, NfaCursor},
     node_types::VariableInfo,
@@ -38,6 +38,10 @@ pub struct Tables {
     pub large_character_sets: Vec<(Option<Symbol>, CharacterSet)>,
 }
 
+#[expect(
+    clippy::too_many_arguments,
+    reason = "all parameters are required for table building"
+)]
 pub fn build_tables(
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
@@ -46,6 +50,7 @@ pub fn build_tables(
     inlines: &InlinedProductionMap,
     report_symbol_name: Option<&str>,
     optimizations: OptLevel,
+    diagnostics: &mut Vec<Diagnostic>,
 ) -> BuildTableResult<Tables> {
     let item_set_builder = ParseItemSetBuilder::new(syntax_grammar, lexical_grammar, inlines);
     let following_tokens =
@@ -55,6 +60,7 @@ pub fn build_tables(
         lexical_grammar,
         item_set_builder,
         variable_info,
+        diagnostics,
     )?;
     let token_conflict_map = TokenConflictMap::new(lexical_grammar, following_tokens);
     let coincident_token_index = CoincidentTokenIndex::new(&parse_table, lexical_grammar);
