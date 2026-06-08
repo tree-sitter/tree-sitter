@@ -484,7 +484,7 @@ fn get_existing_tool(
     fs::create_dir_all(&cache_dir).map_err(|error| {
         LoaderError::IO(IoError {
             error,
-            path: Some(cache_dir.to_string_lossy().to_string()),
+            path: Some(cache_dir.clone()),
         })
     })?;
 
@@ -533,7 +533,7 @@ fn download_tool(
     fs::create_dir_all(&tool_dir).map_err(|error| {
         LoaderError::IO(IoError {
             error,
-            path: Some(tool_dir.to_string_lossy().to_string()),
+            path: Some(tool_dir.clone()),
         })
     })?;
 

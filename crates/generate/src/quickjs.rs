@@ -304,7 +304,7 @@ pub fn execute_native_runtime(grammar_path: &Path) -> JSResult<String> {
     let loader = ScriptLoader::default().with_extension("mjs");
     runtime.set_loader(resolver, loader);
 
-    let cwd = std::env::current_dir().map_err(|e| JSError::IO(IoError::new(&e, None)))?;
+    let cwd = std::env::current_dir().map_err(|e| JSError::IO(IoError::new(e, None)))?;
     let relative_path = pathdiff::diff_paths(grammar_path, &cwd)
         .map(|p| p.to_string_lossy().to_string())
         .ok_or(JSError::RelativePath)?;

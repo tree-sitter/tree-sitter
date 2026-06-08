@@ -28,14 +28,14 @@ pub enum ConfigError {
 #[derive(Debug, Error)]
 pub struct IoError {
     pub error: std::io::Error,
-    pub path: Option<String>,
+    pub path: Option<PathBuf>,
 }
 
 impl IoError {
     fn new(error: std::io::Error, path: Option<&Path>) -> Self {
         Self {
             error,
-            path: path.map(|p| p.to_string_lossy().to_string()),
+            path: path.map(Path::to_path_buf),
         }
     }
 }
@@ -44,7 +44,7 @@ impl std::fmt::Display for IoError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.error)?;
         if let Some(ref path) = self.path {
-            write!(f, " ({path})")?;
+            write!(f, " ({})", path.display())?;
         }
         Ok(())
     }

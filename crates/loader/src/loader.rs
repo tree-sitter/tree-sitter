@@ -163,14 +163,14 @@ impl std::fmt::Display for CompilerError {
 #[derive(Debug, Error)]
 pub struct IoError {
     pub error: std::io::Error,
-    pub path: Option<String>,
+    pub path: Option<PathBuf>,
 }
 
 impl IoError {
     fn new(error: std::io::Error, path: Option<&Path>) -> Self {
         Self {
             error,
-            path: path.map(|p| p.to_string_lossy().to_string()),
+            path: path.map(Path::to_path_buf),
         }
     }
 }
@@ -179,7 +179,7 @@ impl std::fmt::Display for IoError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.error)?;
         if let Some(ref path) = self.path {
-            write!(f, " ({path})")?;
+            write!(f, " ({})", path.display())?;
         }
         Ok(())
     }
@@ -1645,7 +1645,7 @@ impl Loader {
         fs::create_dir_all(&cache_dir).map_err(|error| {
             LoaderError::IO(IoError {
                 error,
-                path: Some(cache_dir.to_string_lossy().to_string()),
+                path: Some(cache_dir.clone()),
             })
         })?;
 
@@ -1694,7 +1694,7 @@ impl Loader {
         fs::create_dir_all(&tool_dir).map_err(|error| {
             LoaderError::IO(IoError {
                 error,
-                path: Some(tool_dir.to_string_lossy().to_string()),
+                path: Some(tool_dir.clone()),
             })
         })?;
 
@@ -1702,7 +1702,7 @@ impl Loader {
         let temp_tar_dir = tempfile::tempdir_in(&cache_dir).map_err(|e| {
             LoaderError::IO(IoError {
                 error: e,
-                path: Some(cache_dir.to_string_lossy().to_string()),
+                path: Some(cache_dir.clone()),
             })
         })?;
         let temp_tar_path = temp_tar_dir.path().join(filename);

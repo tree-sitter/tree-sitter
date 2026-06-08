@@ -1,9 +1,10 @@
 use std::collections::BTreeMap;
+use std::path::PathBuf;
 #[cfg(feature = "load")]
 use std::{
     env, fs,
     io::Write,
-    path::{Path, PathBuf},
+    path::Path,
     process::{Command, Stdio},
 };
 
@@ -92,18 +93,18 @@ pub enum GenerateError {
     SuperTypeCycle(#[from] SuperTypeCycleError),
 }
 
-#[derive(Debug, Error, Serialize, Deserialize)]
+#[derive(Debug, Error)]
 pub struct IoError {
-    pub error: String,
-    pub path: Option<String>,
+    pub error: std::io::Error,
+    pub path: Option<PathBuf>,
 }
 
 #[cfg(feature = "load")]
 impl IoError {
-    fn new(error: &std::io::Error, path: Option<&Path>) -> Self {
+    fn new(error: std::io::Error, path: Option<&Path>) -> Self {
         Self {
-            error: error.to_string(),
-            path: path.map(|p| p.to_string_lossy().to_string()),
+            error,
+            path: path.map(Path::to_path_buf),
         }
     }
 }
@@ -112,9 +113,41 @@ impl std::fmt::Display for IoError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.error)?;
         if let Some(ref path) = self.path {
-            write!(f, " ({path})")?;
+            write!(f, " ({})", path.display())?;
         }
         Ok(())
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+struct IoErrorRepr {
+    message: String,
+    raw_os_error: Option<i32>,
+    path: Option<PathBuf>,
+}
+
+impl Serialize for IoError {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        IoErrorRepr {
+            message: self.error.to_string(),
+            raw_os_error: self.error.raw_os_error(),
+            path: self.path.clone(),
+        }
+        .serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for IoError {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let repr = IoErrorRepr::deserialize(deserializer)?;
+        let error = repr.raw_os_error.map_or_else(
+            || std::io::Error::other(repr.message),
+            std::io::Error::from_raw_os_error,
+        );
+        Ok(Self {
+            error,
+            path: repr.path,
+        })
     }
 }
 
@@ -245,7 +278,7 @@ where
             .map_err(|e| GenerateError::GrammarPath(e.to_string()))?
         {
             fs::create_dir_all(&path_buf)
-                .map_err(|e| GenerateError::IO(IoError::new(&e, Some(path_buf.as_path()))))?;
+                .map_err(|e| GenerateError::IO(IoError::new(e, Some(path_buf.as_path()))))?;
             repo_path = path_buf;
             repo_path.join("grammar.js")
         } else {
@@ -275,11 +308,11 @@ where
 
     // Ensure that the output directory exists
     fs::create_dir_all(&src_path)
-        .map_err(|e| GenerateError::IO(IoError::new(&e, Some(src_path.as_path()))))?;
+        .map_err(|e| GenerateError::IO(IoError::new(e, Some(src_path.as_path()))))?;
 
     if grammar_path.file_name().unwrap() != "grammar.json" {
         fs::write(src_path.join("grammar.json"), &grammar_json)
-            .map_err(|e| GenerateError::IO(IoError::new(&e, Some(src_path.as_path()))))?;
+            .map_err(|e| GenerateError::IO(IoError::new(e, Some(src_path.as_path()))))?;
     }
 
     // If our job is only to generate `grammar.json` and not `parser.c`, stop here.
@@ -308,7 +341,7 @@ where
     write_file(&src_path.join("parser.c"), c_code)?;
     write_file(&src_path.join("node-types.json"), node_types_json)?;
     fs::create_dir_all(&header_path)
-        .map_err(|e| GenerateError::IO(IoError::new(&e, Some(header_path.as_path()))))?;
+        .map_err(|e| GenerateError::IO(IoError::new(e, Some(header_path.as_path()))))?;
     write_file(&header_path.join("alloc.h"), ALLOC_HEADER)?;
     write_file(&header_path.join("array.h"), ARRAY_HEADER)?;
     write_file(&header_path.join("parser.h"), PARSER_HEADER)?;
@@ -424,7 +457,7 @@ fn read_grammar_version(repo_path: &Path) -> Result<Option<Version>, ParseVersio
             .exists()
             .then(|| {
                 let contents = fs::read_to_string(path.as_path())
-                    .map_err(|e| ParseVersionError::IO(IoError::new(&e, Some(path.as_path()))))?;
+                    .map_err(|e| ParseVersionError::IO(IoError::new(e, Some(path.as_path()))))?;
                 serde_json::from_str::<TreeSitterJson>(&contents).map_err(|e| {
                     ParseVersionError::JSON(format!("Failed to parse `{}` -- {e}", path.display()))
                 })
@@ -459,7 +492,7 @@ pub fn load_grammar_file(
     match grammar_path.extension().and_then(|e| e.to_str()) {
         Some("js") => Ok(load_js_grammar_file(grammar_path, js_runtime)?),
         Some("json") => Ok(fs::read_to_string(grammar_path)
-            .map_err(|e| LoadGrammarError::IO(IoError::new(&e, Some(grammar_path))))?),
+            .map_err(|e| LoadGrammarError::IO(IoError::new(e, Some(grammar_path))))?),
         _ => Err(LoadGrammarError::FileExtension(grammar_path.to_owned()))?,
     }
 }
@@ -467,7 +500,7 @@ pub fn load_grammar_file(
 #[cfg(feature = "load")]
 fn load_js_grammar_file(grammar_path: &Path, js_runtime: Option<&str>) -> JSResult<String> {
     let grammar_path = dunce::canonicalize(grammar_path)
-        .map_err(|e| JSError::IO(IoError::new(&e, Some(grammar_path))))?;
+        .map_err(|e| JSError::IO(IoError::new(e, Some(grammar_path))))?;
 
     #[cfg(feature = "qjs-rt")]
     if js_runtime == Some("native") {
@@ -557,13 +590,13 @@ fn load_js_grammar_file(grammar_path: &Path, js_runtime: Option<&str>) -> JSResu
                 let mut stdout = std::io::stdout().lock();
                 stdout
                     .write_all(node_output.as_bytes())
-                    .map_err(|e| JSError::IO(IoError::new(&e, None)))?;
+                    .map_err(|e| JSError::IO(IoError::new(e, None)))?;
                 stdout
                     .write_all(b"\n")
-                    .map_err(|e| JSError::IO(IoError::new(&e, None)))?;
+                    .map_err(|e| JSError::IO(IoError::new(e, None)))?;
                 stdout
                     .flush()
-                    .map_err(|e| JSError::IO(IoError::new(&e, None)))?;
+                    .map_err(|e| JSError::IO(IoError::new(e, None)))?;
             }
 
             Ok(serde_json::to_string_pretty(&serde_json::from_str::<
@@ -583,7 +616,7 @@ fn load_js_grammar_file(grammar_path: &Path, js_runtime: Option<&str>) -> JSResu
 
 #[cfg(feature = "load")]
 pub fn write_file(path: &Path, body: impl AsRef<[u8]>) -> GenerateResult<()> {
-    fs::write(path, body).map_err(|e| GenerateError::IO(IoError::new(&e, Some(path))))
+    fs::write(path, body).map_err(|e| GenerateError::IO(IoError::new(e, Some(path))))
 }
 
 #[cfg(test)]
