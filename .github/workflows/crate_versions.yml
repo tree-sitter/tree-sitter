@@ -11,7 +11,7 @@ jobs:
     if: contains(github.event.pull_request.labels.*.name, 'ci:check release') || github.event_name == 'workflow_dispatch'
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6.0.3
 
       - name: Set up Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1

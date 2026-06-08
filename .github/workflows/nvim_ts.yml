@@ -31,12 +31,12 @@ jobs:
       NVIM_DIR: neovim
       NVIM_TS_DIR: nvim-treesitter
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v6.0.3
       - uses: actions-rust-lang/setup-rust-toolchain@v1
       - run: cargo build --profile optimize
 
       - name: Clone Neovim
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6.0.3
         with:
           repository: neovim/neovim
           ref: ${{ env.NVIM_TAG }}
@@ -66,7 +66,7 @@ jobs:
           cmake --build build --config Release
 
       - name: Clone nvim-treesitter
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6.0.3
         with:
           repository: nvim-treesitter/nvim-treesitter
           path: ${{ env.NVIM_TS_DIR }}
