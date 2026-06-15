@@ -31,7 +31,7 @@ jobs:
       - name: Build C library (make)
         run: make -j CFLAGS="$CFLAGS"
         env:
-          CFLAGS: -g -Werror -Wall -Wextra -Wshadow -Wpedantic -Werror=incompatible-pointer-types
+          CFLAGS: -g -Werror -Wall -Wextra -Wshadow -Wpedantic -Werror=incompatible-pointer-types -Werror=strict-aliasing -Wstrict-aliasing=2
 
       - name: Build Wasm Library
         working-directory: lib/binding_web
