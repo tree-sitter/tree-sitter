@@ -206,7 +206,7 @@ jobs:
         make -j CFLAGS="$CFLAGS" CC=$CC AR=$AR
       env:
         PLATFORM: ${{ matrix.platform }}
-        CFLAGS: -g -Werror -Wall -Wextra -Wshadow -Wpedantic -Werror=incompatible-pointer-types
+        CFLAGS: -g -Werror -Wall -Wextra -Wshadow -Wpedantic -Werror=incompatible-pointer-types -Werror=strict-aliasing -Wstrict-aliasing=2
 
     - name: Build C library (CMake)
       if: "!matrix.cross"
