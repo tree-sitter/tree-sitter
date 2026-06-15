@@ -235,7 +235,7 @@ jobs:
 
     - name: Build C library and Rust crate (illumos gmake)
       if: matrix.platform == 'illumos-x64'
-      uses: vmactions/omnios-vm@v1
+      uses: vmactions/omnios-vm@v1.3.2
       with:
         release: r151056-build
         copyback: false
