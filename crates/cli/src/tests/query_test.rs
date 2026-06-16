@@ -418,6 +418,48 @@ fn test_query_errors_on_invalid_predicates() {
 }
 
 #[test]
+fn test_query_errors_on_invalid_ancestor_predicates() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+
+        // An unresolved ancestor type name is a NodeType error (precise offset),
+        // not a silently-ignored predicate.
+        assert_eq!(
+            Query::new(
+                &language,
+                "((identifier) @x (#has-ancestor? @x not_a_real_node))",
+            )
+            .unwrap_err()
+            .kind,
+            QueryErrorKind::NodeType,
+        );
+        assert_eq!(
+            Query::new(
+                &language,
+                "((identifier) @x (#capture-ancestor? @x bogus_node @c))",
+            )
+            .unwrap_err()
+            .kind,
+            QueryErrorKind::NodeType,
+        );
+
+        // Malformed arity / argument order is a Syntax error.
+        for q in [
+            "((identifier) @x (#has-ancestor? @x))", // no type
+            "((identifier) @x (#has-ancestor? statement_block @x))", // anchor not first
+            "((identifier) @x (#capture-ancestor? @x class_declaration))", // missing output
+            "((identifier) @x (#capture-ancestor? @x @c class_declaration))", // wrong order
+        ] {
+            assert_eq!(
+                Query::new(&language, q).unwrap_err().kind,
+                QueryErrorKind::Syntax,
+                "query should be a syntax error: {q}",
+            );
+        }
+    });
+}
+
+#[test]
 fn test_query_errors_on_impossible_patterns() {
     let js_lang = get_language("javascript");
     let rb_lang = get_language("ruby");
@@ -648,6 +690,96 @@ fn test_query_matches_with_simple_pattern() {
                 (0, vec![("fn-name", "one")]),
                 (0, vec![("fn-name", "three")]),
             ],
+        );
+    });
+}
+
+#[test]
+fn test_query_has_ancestor_predicate() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+
+        // `#has-ancestor?` scopes a capture to nodes nested -- at any depth --
+        // inside an enclosing node of the given type. Here only the identifier
+        // within a method body's `statement_block` survives; the class name and
+        // the top-level binding are excluded.
+        let query = Query::new(
+            &language,
+            "((identifier) @x (#has-ancestor? @x statement_block))",
+        )
+        .unwrap();
+
+        assert_query_matches(
+            &language,
+            &query,
+            "class A { foo() { let inside = 1; } }\nlet outside = 2;\n",
+            &[(0, vec![("x", "inside")])],
+        );
+    });
+}
+
+#[test]
+fn test_query_capture_ancestor_predicate() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+
+        // `#capture-ancestor?` gates like `#has-ancestor?` but also binds the
+        // matched ancestor to a fresh capture, so ordinary text predicates can
+        // inspect the enclosing context (e.g. a builder's name). The bound
+        // ancestor is appended after the anchor capture.
+        let query = Query::new(
+            &language,
+            "((identifier) @x (#capture-ancestor? @x class_declaration @ctx))",
+        )
+        .unwrap();
+
+        let class = "class A { foo() { let inside = 1; } }";
+        assert_query_matches(
+            &language,
+            &query,
+            "class A { foo() { let inside = 1; } }\nlet outside = 2;\n",
+            &[
+                (0, vec![("x", "A"), ("ctx", class)]),
+                (0, vec![("x", "inside"), ("ctx", class)]),
+            ],
+        );
+    });
+}
+
+#[test]
+fn test_query_ancestor_predicate_on_streaming_capture_path() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+
+        // `(array "[" ... "]")` is a *guaranteed* pattern: the `[` capture is
+        // streamed by `captures()` before the pattern finishes at `]`. An
+        // ancestor constraint can still reject the (structurally complete)
+        // match at finish time, so the guarantee must be suppressed -- otherwise
+        // the definite `[` capture leaks before the ancestor is ever checked.
+        let query = Query::new(
+            &language,
+            r#"((array "[" @lb "]" @rb) (#has-ancestor? @lb function_declaration))"#,
+        )
+        .unwrap();
+
+        let mut parser = Parser::new();
+        parser.set_language(&language).unwrap();
+
+        // Array with no enclosing function: nothing may be captured.
+        let source = "let a = [1, 2, 3];\n";
+        let tree = parser.parse(source, None).unwrap();
+        let mut cursor = QueryCursor::new();
+        let captures = cursor.captures(&query, tree.root_node(), source.as_bytes());
+        assert!(collect_captures(captures, &query, source).is_empty());
+
+        // Same array inside a function: both brackets are captured.
+        let source = "function f() { let a = [1]; }\n";
+        let tree = parser.parse(source, None).unwrap();
+        let mut cursor = QueryCursor::new();
+        let captures = cursor.captures(&query, tree.root_node(), source.as_bytes());
+        assert_eq!(
+            collect_captures(captures, &query, source),
+            vec![("lb", "["), ("rb", "]")],
         );
     });
 }

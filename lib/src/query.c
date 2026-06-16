@@ -292,6 +292,33 @@ typedef struct {
 } StatePredecessorMap;
 
 /*
+ * AncestorConstraint - the compiled form of a `#has-ancestor?` or
+ * `#capture-ancestor?` predicate. These let a pattern require that a captured
+ * node be nested (at any depth) inside an enclosing node of a given type --
+ * the structural context needed to scope keywords/operators to a monadic
+ * builder block (F# computation expressions, Haskell `do`, OCaml binding
+ * operators, Scala for-comprehensions, ...).
+ *
+ * Enforced structurally at match-finish time by walking the parents of the
+ * anchor capture's node. This keeps the feature in the shared core matcher --
+ * every language binding inherits it for free -- and relies only on tree
+ * structure (node symbols), never on source text. Any text condition on the
+ * enclosing builder (e.g. its name == "query") is layered on top via the
+ * binding's existing `#eq?`/`#any-of?` predicates, which operate on the
+ * ancestor node bound by `#capture-ancestor?`.
+ */
+typedef struct {
+  uint16_t pattern_index;
+  uint16_t anchor_capture_id;
+  uint16_t out_capture_id; // NONE for `#has-ancestor?` (a gate with no binding)
+  // The accepted ancestor types, stored as a slice of `TSQuery.ancestor_symbols`
+  // (any-of semantics). `#has-ancestor?` allows several; `#capture-ancestor?`
+  // has exactly one.
+  uint32_t symbol_offset;
+  uint16_t symbol_count;
+} AncestorConstraint;
+
+/*
  * TSQuery - A tree query, compiled from a string of S-expressions. The query
  * itself is immutable. The mutable state used in the process of executing the
  * query is stored in a `TSQueryCursor`.
@@ -308,6 +335,8 @@ struct TSQuery {
   Array(TSFieldId) negated_fields;
   Array(char) string_buffer;
   Array(TSSymbol) repeat_symbols_with_rootless_patterns;
+  Array(AncestorConstraint) ancestor_constraints;
+  Array(TSSymbol) ancestor_symbols;
   const TSLanguage *language;
   uint16_t wildcard_root_pattern_count;
 };
@@ -614,10 +643,98 @@ static void finished_state_erase(
   }
 }
 
+// Check the `#has-ancestor?` / `#capture-ancestor?` constraints for a finished
+// state's pattern. For each constraint, the anchor capture's node is walked
+// upward until a node of an accepted ancestor type is found (nearest match
+// wins, mirroring the innermost-builder rule). If none is found the match is
+// rejected. For `#capture-ancestor?` the matched ancestor is appended to the
+// state's capture list so the binding's text predicates can inspect it.
+static bool ts_query_cursor__satisfies_ancestor_constraints(
+  TSQueryCursor *self,
+  const QueryState *state
+) {
+  const TSQuery *query = self->query;
+  if (query->ancestor_constraints.size == 0) return true;
+
+  // Fast path: most patterns have no ancestor constraints.
+  bool has_constraint = false;
+  for (uint32_t i = 0; i < query->ancestor_constraints.size; i++) {
+    if (array_get(&query->ancestor_constraints, i)->pattern_index == state->pattern_index) {
+      has_constraint = true;
+      break;
+    }
+  }
+  if (!has_constraint) return true;
+
+  // A constrained pattern must have captured its anchor, so it must own a
+  // capture list. If it doesn't, the constraint cannot be satisfied.
+  if (state->capture_list_id == CAPTURE_LIST_NONE) return false;
+
+  CaptureList *captures = capture_list_pool_get_mut(
+    &self->capture_list_pool, state->capture_list_id
+  );
+
+  for (uint32_t i = 0; i < query->ancestor_constraints.size; i++) {
+    const AncestorConstraint *constraint =
+      array_get(&query->ancestor_constraints, i);
+    if (constraint->pattern_index != state->pattern_index) continue;
+
+    // Locate the anchor node among the state's captures.
+    TSNode anchor;
+    bool found_anchor = false;
+    for (uint32_t c = 0; c < captures->size; c++) {
+      TSQueryCapture *capture = array_get(captures, c);
+      if (capture->index == constraint->anchor_capture_id) {
+        anchor = capture->node;
+        found_anchor = true;
+        break;
+      }
+    }
+    if (!found_anchor) return false;
+
+    // Walk ancestors looking for an accepted type (nearest wins).
+    const TSSymbol *symbols =
+      array_get(&query->ancestor_symbols, constraint->symbol_offset);
+    TSNode ancestor = ts_node_parent(anchor);
+    bool matched = false;
+    while (!ts_node_is_null(ancestor)) {
+      TSSymbol symbol = ts_node_symbol(ancestor);
+      for (uint16_t s = 0; s < constraint->symbol_count; s++) {
+        if (symbol == symbols[s]) {
+          matched = true;
+          break;
+        }
+      }
+      if (matched) break;
+      ancestor = ts_node_parent(ancestor);
+    }
+    if (!matched) return false;
+
+    if (constraint->out_capture_id != NONE) {
+      array_push(captures, ((TSQueryCapture) {
+        .node = ancestor,
+        .index = constraint->out_capture_id,
+      }));
+      // array_push may reallocate; refresh the pointer for later iterations.
+      captures = capture_list_pool_get_mut(
+        &self->capture_list_pool, state->capture_list_id
+      );
+    }
+  }
+
+  return true;
+}
+
 static void ts_query_cursor__push_finished_state(
   TSQueryCursor *self,
   QueryState *state
 ) {
+  // Drop the match if it fails its structural ancestor constraints. The
+  // caller transfers capture-list ownership to us, so release it on rejection.
+  if (!ts_query_cursor__satisfies_ancestor_constraints(self, state)) {
+    capture_list_pool_release(&self->capture_list_pool, state->capture_list_id);
+    return;
+  }
   state->heap_insert_order = self->next_finished_state_id++;
   array_push(&self->finished_states, *state);
 }
@@ -2277,10 +2394,48 @@ static TSQueryError ts_query__parse_predicate(
   }));
   stream_skip_whitespace(stream);
 
+  // The ancestor predicates carry structural meaning that the core enforces,
+  // so they are validated here (arity, argument order, and that each type name
+  // resolves to a grammar symbol) instead of being silently ignored later.
+  // `#capture-ancestor?` also introduces a brand-new capture -- its 2nd capture
+  // argument binds the matched ancestor -- which is registered on demand rather
+  // than required to already appear on a node in the pattern.
+  bool is_has_ancestor =
+    length == 13 && memcmp(predicate_name, "has-ancestor?", 13) == 0;
+  bool is_capture_ancestor =
+    length == 17 && memcmp(predicate_name, "capture-ancestor?", 17) == 0;
+  bool is_ancestor = is_has_ancestor || is_capture_ancestor;
+  uint32_t arg_index = 0;
+  uint32_t capture_arg_count = 0;
+  uint32_t type_arg_count = 0;
+  bool first_arg_is_capture = false;
+  bool last_arg_is_capture = false;
+
   for (;;) {
+    const char *arg_start = stream->input;
+
     if (stream->next == ')') {
       stream_advance(stream);
       stream_skip_whitespace(stream);
+
+      // Validate ancestor-predicate shape now that all arguments are known.
+      // `#has-ancestor?`: (anchor-capture type+) -- the anchor first, then one
+      // or more node types. `#capture-ancestor?`: (anchor-capture type
+      // output-capture) -- exactly one type, bracketed by the two captures.
+      if (
+        (is_has_ancestor && !(
+          arg_index >= 2 && first_arg_is_capture &&
+          capture_arg_count == 1 && type_arg_count >= 1
+        )) ||
+        (is_capture_ancestor && !(
+          arg_index == 3 && first_arg_is_capture && last_arg_is_capture &&
+          capture_arg_count == 2 && type_arg_count == 1
+        ))
+      ) {
+        stream_reset(stream, predicate_name);
+        return TSQueryErrorSyntax;
+      }
+
       array_push(&self->predicate_steps, ((TSQueryPredicateStep) {
         .type = TSQueryPredicateStepTypeDone,
         .value_id = 0,
@@ -2298,16 +2453,30 @@ static TSQueryError ts_query__parse_predicate(
       stream_scan_identifier(stream);
       uint32_t capture_length = (uint32_t)(stream->input - capture_name);
 
-      // Add the capture id to the first step of the pattern
-      int capture_id = symbol_table_id_for_name(
-        &self->captures,
-        capture_name,
-        capture_length
-      );
-      if (capture_id == -1) {
-        stream_reset(stream, capture_name);
-        return TSQueryErrorCapture;
+      // Resolve the capture id. The output capture of `#capture-ancestor?`
+      // is registered on demand; every other capture must already be defined.
+      int capture_id;
+      if (is_capture_ancestor && capture_arg_count == 1) {
+        capture_id = (int)symbol_table_insert_name(
+          &self->captures,
+          capture_name,
+          capture_length
+        );
+      } else {
+        capture_id = symbol_table_id_for_name(
+          &self->captures,
+          capture_name,
+          capture_length
+        );
+        if (capture_id == -1) {
+          stream_reset(stream, capture_name);
+          return TSQueryErrorCapture;
+        }
       }
+      if (arg_index == 0) first_arg_is_capture = true;
+      last_arg_is_capture = true;
+      capture_arg_count++;
+      arg_index++;
 
       array_push(&self->predicate_steps, ((TSQueryPredicateStep) {
         .type = TSQueryPredicateStepTypeCapture,
@@ -2319,11 +2488,25 @@ static TSQueryError ts_query__parse_predicate(
     else if (stream->next == '"') {
       TSQueryError e = ts_query__parse_string_literal(self, stream);
       if (e) return e;
+      // In an ancestor predicate, every non-capture argument names an ancestor
+      // node type and must resolve to a grammar symbol.
+      if (is_ancestor && !ts_language_symbol_for_name(
+        self->language, self->string_buffer.contents, self->string_buffer.size, true
+      ) && !ts_language_symbol_for_name(
+        self->language, self->string_buffer.contents, self->string_buffer.size, false
+      )) {
+        stream_reset(stream, arg_start);
+        return TSQueryErrorNodeType;
+      }
       uint16_t query_id = symbol_table_insert_name(
         &self->predicate_values,
         self->string_buffer.contents,
         self->string_buffer.size
       );
+      if (arg_index == 0) first_arg_is_capture = false;
+      last_arg_is_capture = false;
+      type_arg_count++;
+      arg_index++;
       array_push(&self->predicate_steps, ((TSQueryPredicateStep) {
         .type = TSQueryPredicateStepTypeString,
         .value_id = query_id,
@@ -2335,11 +2518,23 @@ static TSQueryError ts_query__parse_predicate(
       const char *symbol_start = stream->input;
       stream_scan_identifier(stream);
       uint32_t symbol_length = (uint32_t)(stream->input - symbol_start);
+      if (is_ancestor && !ts_language_symbol_for_name(
+        self->language, symbol_start, symbol_length, true
+      ) && !ts_language_symbol_for_name(
+        self->language, symbol_start, symbol_length, false
+      )) {
+        stream_reset(stream, arg_start);
+        return TSQueryErrorNodeType;
+      }
       uint16_t query_id = symbol_table_insert_name(
         &self->predicate_values,
         symbol_start,
         symbol_length
       );
+      if (arg_index == 0) first_arg_is_capture = false;
+      last_arg_is_capture = false;
+      type_arg_count++;
+      arg_index++;
       array_push(&self->predicate_steps, ((TSQueryPredicateStep) {
         .type = TSQueryPredicateStepTypeString,
         .value_id = query_id,
@@ -3005,6 +3200,8 @@ TSQuery *ts_query_new(
     .string_buffer = array_new(),
     .negated_fields = array_new(),
     .repeat_symbols_with_rootless_patterns = array_new(),
+    .ancestor_constraints = array_new(),
+    .ancestor_symbols = array_new(),
     .wildcard_root_pattern_count = 0,
     .language = ts_language_copy(language),
   };
@@ -3041,6 +3238,91 @@ TSQuery *ts_query_new(
       capture_quantifiers_delete(&capture_quantifiers);
       ts_query_delete(self);
       return NULL;
+    }
+
+    // Lower any `#has-ancestor?` / `#capture-ancestor?` predicates in this
+    // pattern into structural AncestorConstraints, resolving the ancestor type
+    // name(s) to grammar symbols. These are enforced by the core matcher at
+    // match-finish time; bindings still see them as (ignored) general
+    // predicates, so no binding changes are required.
+    for (uint32_t pi = start_predicate_step_index; pi < self->predicate_steps.size;) {
+      uint32_t pj = pi;
+      while (
+        pj < self->predicate_steps.size &&
+        array_get(&self->predicate_steps, pj)->type != TSQueryPredicateStepTypeDone
+      ) pj++;
+
+      TSQueryPredicateStep *head = array_get(&self->predicate_steps, pi);
+      if (head->type == TSQueryPredicateStepTypeString) {
+        uint32_t name_len;
+        const char *name = symbol_table_name_for_id(
+          &self->predicate_values, head->value_id, &name_len
+        );
+        bool is_has = name_len == 13 && memcmp(name, "has-ancestor?", 13) == 0;
+        bool is_cap = name_len == 17 && memcmp(name, "capture-ancestor?", 17) == 0;
+        if (is_has || is_cap) {
+          uint32_t symbol_offset = self->ancestor_symbols.size;
+          uint16_t anchor_capture_id = NONE;
+          uint16_t out_capture_id = NONE;
+          uint16_t symbol_count = 0;
+          uint32_t arg = pi + 1;
+
+          // arg 0: the anchor capture, whose node we walk up from.
+          if (
+            arg < pj &&
+            array_get(&self->predicate_steps, arg)->type == TSQueryPredicateStepTypeCapture
+          ) {
+            anchor_capture_id =
+              (uint16_t)array_get(&self->predicate_steps, arg)->value_id;
+            arg++;
+          }
+
+          // The remaining string args are ancestor type names (any-of). A
+          // trailing capture (for `#capture-ancestor?`) binds the ancestor.
+          for (; arg < pj; arg++) {
+            TSQueryPredicateStep *step = array_get(&self->predicate_steps, arg);
+            if (step->type == TSQueryPredicateStepTypeCapture) {
+              if (is_cap) out_capture_id = (uint16_t)step->value_id;
+              continue;
+            }
+            uint32_t type_len;
+            const char *type_name = symbol_table_name_for_id(
+              &self->predicate_values, step->value_id, &type_len
+            );
+            TSSymbol symbol =
+              ts_language_symbol_for_name(self->language, type_name, type_len, true);
+            if (!symbol) {
+              symbol =
+                ts_language_symbol_for_name(self->language, type_name, type_len, false);
+            }
+            if (symbol) {
+              array_push(&self->ancestor_symbols, symbol);
+              symbol_count++;
+            }
+          }
+
+          // parse_predicate has already validated arity and that each type name
+          // resolves, so a well-formed predicate always yields >= 1 symbol.
+          if (anchor_capture_id != NONE && symbol_count > 0) {
+            array_push(&self->ancestor_constraints, ((AncestorConstraint) {
+              .pattern_index = (uint16_t)pattern_index,
+              .anchor_capture_id = anchor_capture_id,
+              .out_capture_id = out_capture_id,
+              .symbol_offset = symbol_offset,
+              .symbol_count = symbol_count,
+            }));
+            if (out_capture_id != NONE) {
+              capture_quantifiers_add_for_id(
+                &capture_quantifiers, out_capture_id, TSQuantifierOne
+              );
+            }
+          } else {
+            self->ancestor_symbols.size = symbol_offset; // keep the array tidy
+          }
+        }
+      }
+
+      pi = (pj < self->predicate_steps.size) ? pj + 1 : pj;
     }
 
     // Maintain a list of capture quantifiers for each pattern
@@ -3154,6 +3436,22 @@ TSQuery *ts_query_new(
     return NULL;
   }
 
+  // A pattern carrying an ancestor constraint can fail at match-finish time
+  // (when the parent walk finds no accepted ancestor) even after matching
+  // structurally. It is therefore NOT guaranteed: clear the guarantee flags on
+  // its steps so that `ts_query_cursor_next_capture` does not stream captures
+  // early via the "definite" path, which runs before the constraint is checked
+  // and would otherwise leak captures that the constraint should reject.
+  for (uint32_t i = 0; i < self->ancestor_constraints.size; i++) {
+    uint16_t constrained = array_get(&self->ancestor_constraints, i)->pattern_index;
+    QueryPattern *pattern = array_get(&self->patterns, constrained);
+    for (uint32_t s = 0; s < pattern->steps.length; s++) {
+      QueryStep *step = array_get(&self->steps, pattern->steps.offset + s);
+      step->root_pattern_guaranteed = false;
+      step->parent_pattern_guaranteed = false;
+    }
+  }
+
   array_delete(&self->string_buffer);
   return self;
 }
@@ -3168,6 +3466,8 @@ void ts_query_delete(TSQuery *self) {
     array_delete(&self->string_buffer);
     array_delete(&self->negated_fields);
     array_delete(&self->repeat_symbols_with_rootless_patterns);
+    array_delete(&self->ancestor_constraints);
+    array_delete(&self->ancestor_symbols);
     ts_language_delete(self->language);
     symbol_table_delete(&self->captures);
     symbol_table_delete(&self->predicate_values);
@@ -4451,7 +4751,11 @@ bool ts_query_cursor_next_match(
   TSQueryCursor *self,
   TSQueryMatch *match
 ) {
-  if (self->finished_states.size == 0) {
+  // Keep advancing until a match actually materializes. A single advance can
+  // report progress yet leave `finished_states` empty if every candidate it
+  // produced was rejected by an ancestor constraint, so loop rather than
+  // assuming one advance yields a finished state.
+  while (self->finished_states.size == 0) {
     if (!ts_query_cursor__advance(self, false)) {
       return false;
     }
