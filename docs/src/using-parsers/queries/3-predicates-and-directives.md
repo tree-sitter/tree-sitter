@@ -126,6 +126,58 @@ to determine whether a given node is a local variable or not, for example:
 
 This pattern would match any builtin variable that is not a local variable, because the `#is-not? local` predicate is used.
 
+## The `has-ancestor?` predicate
+
+The `has-ancestor?` predicate keeps a match only when the captured node is nested — at any depth —
+inside an enclosing node whose type is one of the given node types. It takes a capture followed by
+one or more node-type names, and matches if _any_ of those types is found among the node's
+ancestors. This lets you scope a pattern to its surrounding context without writing out the full
+nesting.
+
+It is useful when a node only takes on a special meaning inside a particular construct. For example,
+this pattern highlights `this` only when it appears inside a class body, leaving top-level uses alone:
+
+```query
+((this) @variable.builtin
+  (#has-ancestor? @variable.builtin class_body))
+```
+
+Multiple node types act as an "any-of" set. The nearest matching ancestor is the one that counts,
+which mirrors the way innermost scopes shadow outer ones.
+
+```query
+((identifier) @local
+  (#has-ancestor? @local statement_block function_declaration))
+```
+
+## The `capture-ancestor?` predicate
+
+The `capture-ancestor?` predicate works like `#has-ancestor?`, but it also _binds_ the matched
+ancestor to a new capture, so you can then apply ordinary text predicates (`#eq?`, `#match?`,
+`#any-of?`) to the enclosing context. It takes exactly three arguments: the capture to test, a single
+ancestor node type, and the output capture that receives the matched ancestor.
+
+This is what you need when several constructs parse to the same node type and you must tell them
+apart by their text. In the illustration below (for a grammar where many builder-style blocks share a
+single `builder_block` node), a set of identifiers should be treated as keywords only inside the
+`query` builder:
+
+```query
+((identifier) @keyword.operator
+  (#any-of? @keyword.operator "select" "where" "join" "group" "order")
+  (#capture-ancestor? @keyword.operator builder_block @_block)
+  (#match? @_block "^query\\b"))
+```
+
+The match is dropped entirely when no ancestor of the given type exists, so the following text
+predicate is never evaluated against an empty capture.
+
+Both `#has-ancestor?` and `#capture-ancestor?` are enforced by the Tree-sitter library itself during
+matching (see the note at the end of this page), rather than by higher-level bindings, so they behave
+identically across every binding. They consider only node types in the syntax tree, never the source
+text — any text condition on the enclosing node is expressed with the standard predicates applied to
+the captured ancestor.
+
 # Directives
 
 Similar to predicates, directives are a way to associate arbitrary metadata with a pattern. The only difference between
@@ -174,6 +226,10 @@ To recap about the predicates and directives Tree-sitter's bindings support:
 
 - `#is?` checks for a property on a capture
 
+- `#has-ancestor?` keeps a match only when the captured node is nested inside one of the given ancestor node types
+
+- `#capture-ancestor?` does the same and binds the matched ancestor to a capture, so it can be tested with the predicates above
+
 - Adding `not-` to the beginning of these predicates will negate the match
 
 - By default, a quantified capture will only match if _all_ the nodes match the predicate
@@ -187,13 +243,18 @@ To recap about the predicates and directives Tree-sitter's bindings support:
 - `#strip!` removes text from a capture
 
 ```admonish info
-Predicates and directives are not handled directly by the Tree-sitter C library.
+Most predicates and directives are not handled directly by the Tree-sitter C library.
 They are just exposed in a structured form so that higher-level code can perform
-the filtering. However, higher-level bindings to Tree-sitter like
+the filtering. Higher-level bindings to Tree-sitter like
 [the Rust Crate][rust crate]
 or the [WebAssembly binding][wasm binding]
 do implement a few common predicates like those explained above. In the future, more "standard" predicates and directives
 may be added.
+
+The `#has-ancestor?` and `#capture-ancestor?` predicates are the exception: because they depend only
+on the structure of the syntax tree (not the source text), they are enforced by the C library itself
+while the query is matched. As a result they apply uniformly in every binding, and a binding does not
+need to implement them to get correct results.
 ```
 
 [cgo]: https://pkg.go.dev/cmd/cgo
