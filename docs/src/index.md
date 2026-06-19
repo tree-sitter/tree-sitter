@@ -36,7 +36,7 @@ There are bindings that allow Tree-sitter to be used from the following language
 - [C# (.NET)](https://github.com/zabbius/dotnet-tree-sitter)
 - [C++](https://github.com/nsumner/cpp-tree-sitter)
 - [Crystal](https://github.com/crystal-lang-tools/crystal-tree-sitter)
-- [D](https://github.com/aminya/d-tree-sitter)
+- [D](https://github.com/gdamore/tree-sitter-d)
 - [Delphi](https://github.com/modersohn/delphi-tree-sitter)
 - [ELisp](https://www.gnu.org/software/emacs/manual/html_node/elisp/Parsing-Program-Source.html)
 - [Go](https://github.com/alexaandru/go-tree-sitter-bare)
