@@ -34,6 +34,9 @@ function blank() {
 }
 
 function field(name, rule) {
+  if (typeof name !== "string" || !/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name)) {
+    throw new Error(`Invalid field name '${name}': field names must start with a letter or underscore, followed by letters, digits, or underscores`);
+  }
   return {
     type: "FIELD",
     name,
