@@ -12,7 +12,7 @@ The Tree-sitter CLI allows you to develop, test, and use Tree-sitter grammars fr
 
 ### Installation
 
-You can install the `tree-sitter-cli` with `cargo-binstall`:
+You can install the `tree-sitter-cli` with [`cargo-binstall`](https://github.com/cargo-bins/cargo-binstall):
 
 ```sh
 cargo binstall tree-sitter-cli
