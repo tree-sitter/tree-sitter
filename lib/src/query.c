@@ -18,6 +18,11 @@
 
 // #define DEBUG_ANALYZE_QUERY
 // #define DEBUG_EXECUTE_QUERY
+// #define DEBUG_QUERY_STEPS
+
+#if defined(DEBUG_QUERY_STEPS) || defined(DEBUG_ANALYZE_QUERY) || defined(DEBUG_EXECUTE_QUERY)
+#define DEBUG_DUMP_STEPS
+#endif
 
 #define MAX_STEP_CAPTURE_COUNT 3
 #define MAX_NEGATED_FIELD_COUNT 8
@@ -1601,6 +1606,44 @@ static void ts_query__perform_analysis(
   }
 }
 
+#ifdef DEBUG_DUMP_STEPS
+static void ts_query__dump_steps(const TSQuery *self, const char *label) {
+  printf("=== STEPS (%s) ===\n", label);
+  for (unsigned i = 0; i < self->steps.size; i++) {
+    const QueryStep *s = array_get(&self->steps, i);
+    if (s->depth == PATTERN_DONE_MARKER) {
+      printf("%3u: DONE\n", i);
+      continue;
+    }
+    printf("%3u: depth=%u sym=%s", i, s->depth,
+      s->symbol == WILDCARD_SYMBOL ? "_" : ts_language_symbol_name(self->language, s->symbol));
+    if (s->supertype_symbol) {
+      printf(" super=%s", ts_language_symbol_name(self->language, s->supertype_symbol));
+    }
+    if (s->field) {
+      printf(" field=%s", ts_language_field_name_for_id(self->language, s->field));
+    }
+    if (s->alternative_index != NONE) printf(" alt=%u", s->alternative_index);
+    if (s->is_immediate) printf(" IMM");
+    if (s->is_pass_through) printf(" PASS");
+    if (s->is_dead_end) printf(" DEAD");
+    if (s->is_last_child) printf(" LAST");
+    if (s->is_named) printf(" NAMED");
+    if (s->is_missing) printf(" MISSING");
+    if (s->is_inside_alternation) printf(" INALT");
+    if (s->contains_captures) printf(" HASCAP");
+    if (s->parent_pattern_guaranteed) printf(" PPG");
+    if (s->root_pattern_guaranteed) printf(" RPG");
+    for (unsigned c = 0; c < MAX_STEP_CAPTURE_COUNT && s->capture_ids[c] != NONE; c++) {
+      uint32_t cap_len;
+      const char *cap_name = symbol_table_name_for_id(&self->captures, s->capture_ids[c], &cap_len);
+      printf(" @%.*s", (int)cap_len, cap_name);
+    }
+    printf("\n");
+  }
+}
+#endif
+
 static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
   Array(uint16_t) non_rooted_pattern_start_steps = array_new();
   for (unsigned i = 0; i < self->pattern_map.size; i++) {
@@ -2038,25 +2081,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
   }
 
   #ifdef DEBUG_ANALYZE_QUERY
-    printf("Steps:\n");
-    for (unsigned i = 0; i < self->steps.size; i++) {
-      QueryStep *step = array_get(&self->steps, i);
-      if (step->depth == PATTERN_DONE_MARKER) {
-        printf("  %u: DONE\n", i);
-      } else {
-        printf(
-          "  %u: {symbol: %s, field: %s, depth: %u, parent_pattern_guaranteed: %d, root_pattern_guaranteed: %d}\n",
-          i,
-          (step->symbol == WILDCARD_SYMBOL)
-            ? "ANY"
-            : ts_language_symbol_name(self->language, step->symbol),
-          (step->field ? ts_language_field_name_for_id(self->language, step->field) : "-"),
-          step->depth,
-          step->parent_pattern_guaranteed,
-          step->root_pattern_guaranteed
-        );
-      }
-    }
+    ts_query__dump_steps(self, "analysis");
   #endif
 
   // Determine which repetition symbols in this language have the possibility
@@ -3148,11 +3173,19 @@ TSQuery *ts_query_new(
     }
   }
 
+  #ifdef DEBUG_DUMP_STEPS
+    ts_query__dump_steps(self, "post-parse");
+  #endif
+
   if (!ts_query__analyze_patterns(self, error_offset)) {
     *error_type = TSQueryErrorStructure;
     ts_query_delete(self);
     return NULL;
   }
+
+  #ifdef DEBUG_DUMP_STEPS
+    ts_query__dump_steps(self, "post-analysis");
+  #endif
 
   array_delete(&self->string_buffer);
   return self;
