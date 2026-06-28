@@ -1,4 +1,4 @@
-VERSION := 0.26.9
+VERSION := 0.26.10
 DESCRIPTION := An incremental parsing system for programming tools
 HOMEPAGE_URL := https://tree-sitter.github.io/tree-sitter/
 
