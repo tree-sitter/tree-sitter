@@ -1693,6 +1693,49 @@ fn test_matches_with_anchor_sibling_with_quantifier_captured_inside_parent() {
 }
 
 #[test]
+fn test_matches_anchored_quantified_sibling_inside_parent() {
+    allocations::record(|| {
+        let language = get_language("c");
+        let query = Query::new(
+            &language,
+            "(translation_unit (comment)* @comment . (declaration) @decl)",
+        )
+        .unwrap();
+        assert_query_matches(
+            &language,
+            &query,
+            "
+void foo() {}
+
+// this one has
+// two comments
+extern int baz;
+
+// this one has a comment
+extern int bar;
+",
+            &[
+                (
+                    0,
+                    vec![
+                        ("comment", "// this one has"),
+                        ("comment", "// two comments"),
+                        ("decl", "extern int baz;"),
+                    ],
+                ),
+                (
+                    0,
+                    vec![
+                        ("comment", "// this one has a comment"),
+                        ("decl", "extern int bar;"),
+                    ],
+                ),
+            ],
+        );
+    });
+}
+
+#[test]
 fn test_query_matches_with_trailing_optional_nodes() {
     allocations::record(|| {
         let language = get_language("javascript");
