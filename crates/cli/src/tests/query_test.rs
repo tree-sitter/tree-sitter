@@ -257,6 +257,51 @@ fn test_query_errors_on_invalid_syntax() {
 }
 
 #[test]
+fn test_query_errors_on_anchor_at_group_edge() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+
+        // Anchors between siblings, or at the first/last position of a *node*
+        // pattern, are valid.
+        assert!(Query::new(&language, "((_) . (_))").is_ok());
+        assert!(Query::new(&language, "(program (_) (_) .)").is_ok());
+        assert!(Query::new(&language, "(program (_)* @x . (_))").is_ok());
+
+        // A `.` at the edge of a *group* is rejected. A group is not a node, so it
+        // has no last child to anchor, and there is no sibling within the group to
+        // anchor to.
+        assert_eq!(
+            Query::new(&language, "((_) .)").unwrap_err(),
+            QueryError {
+                row: 0,
+                offset: 5,
+                column: 5,
+                kind: QueryErrorKind::Syntax,
+                message: [
+                    "((_) .)", //
+                    "     ^"
+                ]
+                .join("\n")
+            }
+        );
+        assert_eq!(
+            Query::new(&language, "(program ((_)+ .)? (_))").unwrap_err(),
+            QueryError {
+                row: 0,
+                offset: 15,
+                column: 15,
+                kind: QueryErrorKind::Syntax,
+                message: [
+                    "(program ((_)+ .)? (_))", //
+                    "               ^"
+                ]
+                .join("\n")
+            }
+        );
+    });
+}
+
+#[test]
 fn test_query_errors_on_invalid_symbols() {
     allocations::record(|| {
         let language = get_language("javascript");
