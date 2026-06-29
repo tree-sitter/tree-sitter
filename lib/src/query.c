@@ -2485,9 +2485,17 @@ static TSQueryError ts_query__parse_pattern(
       CaptureQuantifiers child_capture_quantifiers = capture_quantifiers_new();
       for (;;) {
         if (stream->next == '.') {
+          const char *anchor_start = stream->input;
           child_is_immediate = true;
           stream_advance(stream);
           stream_skip_whitespace(stream);
+          // A `.` at a group's end has no sibling to anchor, and a group is not a
+          // node, so there is no last child to anchor against.
+          if (stream->next == ')') {
+            stream_reset(stream, anchor_start);
+            capture_quantifiers_delete(&child_capture_quantifiers);
+            return TSQueryErrorSyntax;
+          }
         }
         TSQueryError e = ts_query__parse_pattern(
           self,
