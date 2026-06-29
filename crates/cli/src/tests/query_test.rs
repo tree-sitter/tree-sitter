@@ -1258,6 +1258,45 @@ function foo() {}
 }
 
 #[test]
+fn test_query_matches_with_last_child_anchor_after_optional() {
+    allocations::record(|| {
+        let language = get_language("c");
+        let query = Query::new(
+            &language,
+            "(preproc_if (preproc_def)+ @def . (preproc_else)? @else .)",
+        )
+        .unwrap();
+
+        // The optional `(preproc_else)?` is absent, so the trailing anchor's
+        // last-child requirement transfers to the last `preproc_def`. A trailing
+        // comment means the def is not the last child, so nothing matches.
+        assert_query_matches(
+            &language,
+            &query,
+            "
+#if X
+#define A
+// c
+#endif
+",
+            &[],
+        );
+
+        // With the def as the last child, the (else-less) match is allowed.
+        assert_query_matches(
+            &language,
+            &query,
+            "
+#if X
+#define A
+#endif
+",
+            &[(0, vec![("def", "#define A\n")])],
+        );
+    });
+}
+
+#[test]
 fn test_query_matches_with_last_named_child() {
     allocations::record(|| {
         let language = get_language("c");
