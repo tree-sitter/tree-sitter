@@ -34,7 +34,7 @@
         },
         .wasmtime_c_api_aarch64_windows = .{
             .url = "https://github.com/bytecodealliance/wasmtime/releases/download/v36.0.12/wasmtime-v36.0.12-aarch64-windows-c-api.zip",
-            .hash = "",
+            .hash = "N-V-__8AACOXoQRCB0HW3hoqzY9elM7RhAvktyKPoc9gcrgH",
             .lazy = true,
         },
         .wasmtime_c_api_armv7_linux = .{
@@ -49,7 +49,7 @@
         },
         .wasmtime_c_api_i686_windows = .{
             .url = "https://github.com/bytecodealliance/wasmtime/releases/download/v36.0.12/wasmtime-v36.0.12-i686-windows-c-api.zip",
-            .hash = "",
+            .hash = "N-V-__8AAA95hgTHW0bicUn7H_iZ_hbxZLi_ocFWKgnBPD6W",
             .lazy = true,
         },
         .wasmtime_c_api_riscv64gc_linux = .{
@@ -79,7 +79,7 @@
         },
         .wasmtime_c_api_x86_64_mingw = .{
             .url = "https://github.com/bytecodealliance/wasmtime/releases/download/v36.0.12/wasmtime-v36.0.12-x86_64-mingw-c-api.zip",
-            .hash = "",
+            .hash = "N-V-__8AAB99-QSAk8K-cl7VJ_wwN3b-tEhDdfl6oooAPrCn",
             .lazy = true,
         },
         .wasmtime_c_api_x86_64_musl = .{
@@ -89,7 +89,7 @@
         },
         .wasmtime_c_api_x86_64_windows = .{
             .url = "https://github.com/bytecodealliance/wasmtime/releases/download/v36.0.12/wasmtime-v36.0.12-x86_64-windows-c-api.zip",
-            .hash = "",
+            .hash = "N-V-__8AADMnXgUXBPN-f0nK6cooCXxxuqgV4G5zwjwpGHkw",
             .lazy = true,
         },
     },
