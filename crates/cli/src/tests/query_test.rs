@@ -1223,6 +1223,42 @@ fn test_query_matches_with_immediate_siblings() {
 }
 
 #[test]
+fn test_query_matches_with_anchor_after_zero_quantifier() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+        let query = Query::new(
+            &language,
+            "(program (comment)* @doc . (function_declaration name: (identifier) @name))",
+        )
+        .unwrap();
+
+        // No comments and the function is not the first child. An anchor after a
+        // zero-matched quantifier is vacuous, so the function still matches.
+        assert_query_matches(
+            &language,
+            &query,
+            "
+class X {}
+function foo() {}
+",
+            &[(0, vec![("name", "foo")])],
+        );
+
+        // With at least one comment the anchor applies, so the comments must
+        // immediately precede the function.
+        assert_query_matches(
+            &language,
+            &query,
+            "
+// c
+function foo() {}
+",
+            &[(0, vec![("doc", "// c"), ("name", "foo")])],
+        );
+    });
+}
+
+#[test]
 fn test_query_matches_with_last_named_child() {
     allocations::record(|| {
         let language = get_language("c");
