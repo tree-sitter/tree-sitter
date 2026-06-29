@@ -4450,6 +4450,17 @@ static inline bool ts_query_cursor__advance(
                 k--;
               }
 
+              // A `?`/`*` zero-skip past a step that carries a trailing last-child
+              // anchor transfers that requirement to the last matched node. The
+              // skip is only valid if that node really is the last named child.
+              if (
+                child_step->alternative_is_skip &&
+                child_step->is_last_child &&
+                has_later_named_siblings
+              ) {
+                continue;
+              }
+
               QueryState *copy = ts_query_cursor__copy_state(self, &child_state);
               if (copy) {
                 LOG(
