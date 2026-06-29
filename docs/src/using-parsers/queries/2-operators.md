@@ -211,4 +211,37 @@ Without the anchor, non-consecutive pairs like `a, c` and `b, d` would also be m
 
 The restrictions placed on a pattern by an anchor operator ignore anonymous nodes.
 
+### Anchors with Quantifiers and Groups
+
+When an anchor is next to a quantified node (`*`, `+`, `?`), its meaning depends on whether the
+anchor sits _between two patterns_ or _at the edge of a parent node_.
+
+An anchor _between two child patterns_ constrains the two matched nodes to be immediate siblings.
+If one of those patterns is a quantifier that matches zero nodes, there is no node on that side,
+so the anchor imposes no constraint. For example, given
+
+```query
+(translation_unit (comment)* @doc . (function_definition) @function)
+```
+
+a `function_definition` with no preceding `comment` still matches, with `@doc` capturing nothing.
+When comments are present, they must immediately precede the function.
+
+An anchor at the _start or end of a node pattern_ (a leading or trailing `.`) constrains the
+matched sequence to begin at the parent's first, or end at its last, named child. If the pattern
+element next to that edge is a quantifier that matches zero nodes, the constraint applies to the
+nearest node that the pattern _does_ match. For example, given
+
+```query
+(preproc_if (preproc_def)+ @def . (preproc_else)? @else .)
+```
+
+the trailing anchor requires the last matched node to be the parent's last named child: when a
+`preproc_else` is present it must be last. When it is absent, the last `preproc_def` must be last.
+
+An anchor may not appear at the first or last position inside a group `(...)` or an alternation
+`[...]`. A group or alternation is not a node, so it has no first or last child to anchor against,
+and there is no sibling on that side to anchor to. For example, write `(comment)* @doc . (function)`
+rather than `((comment)+ @doc .)? (function)`.
+
 [regex]: https://en.wikipedia.org/wiki/Regular_expression#Basic_concepts
