@@ -180,7 +180,7 @@ depending on where it's placed inside a query.
 
 When `.` is placed before the _first_ child within a parent pattern, the child will only match when it is the first named
 node in the parent. For example, the below pattern matches a given `array` node at most once, assigning the `@the-element`
-capture to the first `identifier` node in the parent `array`:
+capture to the first node in the parent `array`, only if it's an `identifier` node:
 
 ```query
 (array . (identifier) @the-element)
