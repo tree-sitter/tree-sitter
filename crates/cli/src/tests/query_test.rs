@@ -1350,6 +1350,35 @@ fn test_query_matches_with_repeated_leaf_nodes() {
 }
 
 #[test]
+fn test_query_matches_optional_capture_before_uncaptured_required_sibling() {
+    allocations::record(|| {
+        let language = get_language("rust");
+        let query = Query::new(&language, "(block (line_comment)? @doc (line_comment))").unwrap();
+
+        // The optional `(line_comment)? @doc` before an *uncaptured* required
+        // `(line_comment)` yields two candidate completions at the block:
+        //     - one where the optional captured `// a` (the required node is then `// b`),
+        //     - one where the optional matched zero (the required node absorbs `// a`,
+        //     leaving `@doc` unbound).
+        // The zero-match completion's captures are a strict subset of the other's, so the
+        // longest-match rule must drop it (there is exactly one match). This regressed when
+        // the dedup pass gained an early-break. Without the accompanying capture-position
+        // sort, the break skips the subset "loser" and it leaks as an extra empty match.
+        assert_query_matches(
+            &language,
+            &query,
+            "
+            fn f() {
+                // a
+                // b
+            }
+            ",
+            &[(0, vec![("doc", "// a")])],
+        );
+    });
+}
+
+#[test]
 fn test_query_matches_with_optional_nodes_inside_of_repetitions() {
     allocations::record(|| {
         let language = get_language("javascript");
