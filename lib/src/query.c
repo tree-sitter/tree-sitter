@@ -3654,6 +3654,46 @@ void ts_query_cursor__compare_captures(
   }
 }
 
+// Order two in-progress states for the longest-match dedup pass. Within a
+// (start_depth, pattern_index) group, states with no captures sort first, as they are a
+// subset of every other state (so the dedup pass must always compare them). The rest
+// sort by the start byte of their first capture.
+static bool ts_query_cursor__state_precedes(
+  const TSQueryCursor *self,
+  const QueryState *a,
+  const QueryState *b
+) {
+  if (a->start_depth != b->start_depth) return a->start_depth < b->start_depth;
+  if (a->pattern_index != b->pattern_index) return a->pattern_index < b->pattern_index;
+  const CaptureList *a_caps = capture_list_pool_get(&self->capture_list_pool, a->capture_list_id);
+  const CaptureList *b_caps = capture_list_pool_get(&self->capture_list_pool, b->capture_list_id);
+  if ((a_caps->size == 0) != (b_caps->size == 0)) return a_caps->size == 0;
+  if (a_caps->size == 0) return false;
+  return
+    ts_node_start_byte(array_get(a_caps, 0)->node) <
+    ts_node_start_byte(array_get(b_caps, 0)->node);
+}
+
+// Stable-sort the in-progress states with the order dictated by `ts_query_cursor__state_precedes`.
+// This runs once per node, right before the dedup pass.
+static void ts_query_cursor__sort_states_by_capture(TSQueryCursor *self) {
+  QueryStateList *states = &self->states;
+  for (uint32_t i = 1; i < states->size; i++) {
+    // Fast+common path: this state is already ordered after its predecessor, so it does not need
+    // to move.
+    if (!ts_query_cursor__state_precedes(
+      self, array_get(states, i), array_get(states, i - 1)
+    )) continue;
+    QueryState key = *array_get(states, i);
+    uint32_t j = i;
+    do {
+      *array_get(states, j) = *array_get(states, j - 1);
+      j--;
+    } while (j > 0 && ts_query_cursor__state_precedes(self, &key, array_get(states, j - 1)));
+    *array_get(states, j) = key;
+  }
+}
+
 static void ts_query_cursor__add_state(
   TSQueryCursor *self,
   const PatternEntry *pattern
@@ -4345,6 +4385,10 @@ static inline bool ts_query_cursor__advance(
           }
         }
 
+        // Order states by capture position so the dedup pass below can stop scanning a
+        // group once the remaining states are disjoint from the current one.
+        ts_query_cursor__sort_states_by_capture(self);
+
         for (unsigned j = 0; j < self->states.size; j++) {
           QueryState *state = array_get(&self->states, j);
           if (state->dead) {
@@ -4360,7 +4404,10 @@ static inline bool ts_query_cursor__advance(
           for (unsigned k = j + 1; k < self->states.size; k++) {
             QueryState *other_state = array_get(&self->states, k);
 
-            // Query states are kept in ascending order of start_depth and pattern_index.
+            // Query states are kept in ascending order of start_depth and pattern_index, and
+            // (via the above call to `ts_query_cursor__sort_states_by_capture`) in ascending
+            // order of first-capture position within each such group.
+            //
             // Since the longest-match criteria is only used for deduping matches of the same
             // pattern and root node, we only need to perform pairwise comparisons within a
             // small slice of the states array.
@@ -4368,6 +4415,25 @@ static inline bool ts_query_cursor__advance(
               other_state->start_depth != state->start_depth ||
               other_state->pattern_index != state->pattern_index
             ) break;
+
+            // States in a group acquire their first capture in tree-traversal order, so the
+            // group is ordered by first-capture position. Once `other_state`'s captures begin
+            // at or after where `state`'s captures end, `other_state` (and every state after
+            // it in the group) is disjoint from `state`: neither can be a capture-subset of
+            // the other, so there is nothing to drop and no longest-match alternative to
+            // record. Stop scanning `state` against the rest of the group.
+            const CaptureList *state_captures =
+              capture_list_pool_get(&self->capture_list_pool, state->capture_list_id);
+            const CaptureList *other_captures =
+              capture_list_pool_get(&self->capture_list_pool, other_state->capture_list_id);
+            if (
+              state_captures->size > 0 &&
+              other_captures->size > 0 &&
+              ts_node_start_byte(array_get(other_captures, 0)->node) >=
+                ts_node_end_byte(array_get(state_captures, state_captures->size - 1)->node)
+            ) {
+              break;
+            }
 
             bool left_contains_right, right_contains_left;
             ts_query_cursor__compare_captures(
