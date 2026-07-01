@@ -548,7 +548,7 @@ fn all_chars_are_alphabetical(cursor: &NfaCursor) -> bool {
         if is_sep {
             true
         } else {
-            chars.chars().all(|c| c.is_alphabetic() || c == '_')
+            chars.chars().all(|c| c.is_ascii_alphabetic() || c == '_')
         }
     })
 }
