@@ -836,6 +836,8 @@ fn generate_java_bindings(
     Ok(())
 }
 
+// TODO: remove old migrations
+
 fn update_package_json(path: &Path) -> Result<()> {
     let mut contents = fs::read_to_string(path)?
         .replace(
@@ -1249,8 +1251,13 @@ fn update_swift_package(path: &Path) -> Result<()> {
             "atPath: \"src/scanner.c\"",
             "atPath: \"\\(dir)/src/scanner.c\"",
         )
-        .replace("version: \"0.8.0\")", "version: \"0.9.0\")")
-        .replace("(url:", "(name: \"SwiftTreeSitter\", url:");
+        .replace("version: \"0.8.0\")", "version: \"0.10.0\")")
+        .replace("version: \"0.9.0\")", "version: \"0.10.0\")")
+        .replace("(name: \"SwiftTreeSitter\", url:", "(url:")
+        .replace(
+            "    \"SwiftTreeSitter\"",
+            "    .product(name: \"SwiftTreeSitter\", package: \"swift-tree-sitter\")",
+        );
     if !replaced_contents.eq(&contents) {
         info!("Updating Package.swift");
         write_file(path, replaced_contents)?;
