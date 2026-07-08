@@ -1,4 +1,9 @@
-use std::{collections::HashMap, fmt};
+use std::{
+    collections::{BTreeMap, HashMap},
+    fmt,
+};
+
+use crate::node_types::ChildType;
 
 use super::{
     nfa::Nfa,
@@ -74,6 +79,18 @@ pub struct ProductionStep {
     pub alias: Option<Alias>,
     pub field_name: Option<String>,
     pub reserved_word_set_id: ReservedWordSetId,
+}
+
+impl ProductionStep {
+    pub fn child_type(&self, default_aliases: &BTreeMap<Symbol, Alias>) -> ChildType {
+        if let Some(alias) = &self.alias {
+            ChildType::Aliased(alias.clone())
+        } else if let Some(alias) = default_aliases.get(&self.symbol) {
+            ChildType::Aliased(alias.clone())
+        } else {
+            ChildType::Normal(self.symbol)
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]

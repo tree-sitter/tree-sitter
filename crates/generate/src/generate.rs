@@ -33,7 +33,7 @@ mod tables;
 pub use build_tables::ParseTableBuilderError;
 use build_tables::build_tables;
 use grammars::{InlinedProductionMap, InputGrammar, LexicalGrammar, SyntaxGrammar};
-pub use node_types::{SuperTypeCycleError, VariableInfoError};
+pub use node_types::{InvalidSupertypeError, SuperTypeCycleError, VariableInfoError};
 pub use parse_grammar::ParseGrammarError;
 use parse_grammar::parse_grammar;
 pub use prepare_grammar::PrepareGrammarError;
