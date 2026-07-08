@@ -143,10 +143,33 @@ pub type VariableInfoResult<T> = Result<T, VariableInfoError>;
 
 #[derive(Debug, Error, Serialize, Deserialize)]
 pub enum VariableInfoError {
-    #[error(
-        "Grammar error: Supertype symbols must always have a single visible child, but `{0}` can have multiple"
-    )]
-    InvalidSupertype(String),
+    #[error(transparent)]
+    InvalidSupertype(InvalidSupertypeError),
+}
+
+#[derive(Debug, Error, Serialize, Deserialize)]
+pub struct InvalidSupertypeError {
+    supertype: String,
+    child: Option<String>,
+}
+
+impl std::fmt::Display for InvalidSupertypeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let supertype = &self.supertype;
+        write!(
+            f,
+            "Supertypes must have a single visible child, but `{supertype}` can have multiple."
+        )?;
+
+        if let Some(child) = &self.child {
+            write!(
+                f,
+                " The hidden child `{child}` can expand into multiple nodes. Consider making `{child}` visible."
+            )?;
+        }
+
+        Ok(())
+    }
 }
 
 /// Compute a summary of the public-facing structure of each variable in the
@@ -210,13 +233,7 @@ pub fn get_variable_info(
 
                 for step in &production.steps {
                     let child_symbol = step.symbol;
-                    let child_type = if let Some(alias) = &step.alias {
-                        ChildType::Aliased(alias.clone())
-                    } else if let Some(alias) = default_aliases.get(&step.symbol) {
-                        ChildType::Aliased(alias.clone())
-                    } else {
-                        ChildType::Normal(child_symbol)
-                    };
+                    let child_type = step.child_type(default_aliases);
 
                     let child_is_hidden = !child_type_is_visible(&child_type)
                         && !syntax_grammar.supertype_symbols.contains(&child_symbol);
@@ -355,7 +372,28 @@ pub fn get_variable_info(
     for supertype_symbol in &syntax_grammar.supertype_symbols {
         if result[supertype_symbol.index].has_multi_step_production {
             let variable = &syntax_grammar.variables[supertype_symbol.index];
-            Err(VariableInfoError::InvalidSupertype(variable.name.clone()))?;
+            // A symbol can have a multi-step production either directly or via an inlined
+            // anonymous child. In the latter case, we can report a more specific error.
+            let hidden_child_name = variable
+                .productions
+                .iter()
+                .filter(|production| production.steps.len() == 1)
+                .find_map(|production| {
+                    let step = &production.steps[0];
+                    let child_symbol = step.symbol;
+                    let child_type = step.child_type(default_aliases);
+                    let child_is_hidden = !child_type_is_visible(&child_type)
+                        && !syntax_grammar.supertype_symbols.contains(&child_symbol);
+                    (child_is_hidden
+                        && child_symbol.is_non_terminal()
+                        && result[child_symbol.index].has_multi_step_production)
+                        .then(|| syntax_grammar.variables[child_symbol.index].name.clone())
+                });
+
+            Err(VariableInfoError::InvalidSupertype(InvalidSupertypeError {
+                supertype: variable.name.clone(),
+                child: hidden_child_name,
+            }))?;
         }
     }
 
