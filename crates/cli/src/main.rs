@@ -210,7 +210,7 @@ struct Parse {
     pub lib_path: Option<PathBuf>,
     /// If `--lib-path` is used, the name of the language used to extract the
     /// library's language function
-    #[arg(long)]
+    #[arg(long, requires = "lib_path")]
     pub lang_name: Option<String>,
     /// Select a language by the scope instead of a file extension
     #[arg(long)]
@@ -317,7 +317,7 @@ struct Test {
     pub lib_path: Option<PathBuf>,
     /// If `--lib-path` is used, the name of the language used to extract the
     /// library's language function
-    #[arg(long)]
+    #[arg(long, requires = "lib_path")]
     pub lang_name: Option<String>,
     /// Update all syntax trees in corpus files with current parser output
     #[arg(long, short)]
@@ -405,7 +405,7 @@ struct Fuzz {
     pub lib_path: Option<PathBuf>,
     /// If `--lib-path` is used, the name of the language used to extract the
     /// library's language function
-    #[arg(long)]
+    #[arg(long, requires = "lib_path")]
     pub lang_name: Option<String>,
     #[arg(
         long,
@@ -452,7 +452,7 @@ struct Query {
     pub lib_path: Option<PathBuf>,
     /// If `--lib-path` is used, the name of the language used to extract the
     /// library's language function
-    #[arg(long)]
+    #[arg(long, requires = "lib_path")]
     pub lang_name: Option<String>,
     /// Measure execution time
     #[arg(long, short)]
@@ -1121,9 +1121,6 @@ impl Parse {
         let timeout = self.timeout.unwrap_or_default();
 
         let mut has_error = false;
-        let loader_config = config.get()?;
-        loader.find_all_languages(&loader_config)?;
-
         let should_track_stats = self.stat;
         let mut stats = parse::ParseStats::default();
         let debug: ParseDebugType = match self.debug {
@@ -1166,10 +1163,11 @@ impl Parse {
             has_error |= !parse_result.successful;
         };
 
-        if self.lib_path.is_none() && self.lang_name.is_some() {
-            warn!("--lang-name specified without --lib-path. This argument will be ignored.");
-        }
         let lib_info = get_lib_info(self.lib_path.as_ref(), self.lang_name.as_ref(), current_dir);
+        if lib_info.is_none() {
+            let loader_config = config.get()?;
+            loader.find_all_languages(&loader_config)?;
+        }
 
         let input = get_input(
             self.paths_file.as_deref(),
@@ -1337,9 +1335,6 @@ impl Test {
             });
         }
 
-        if self.lib_path.is_none() && self.lang_name.is_some() {
-            warn!("--lang-name specified without --lib-path. This argument will be ignored.");
-        }
         let languages = loader.languages_at_path(current_dir)?;
         let language = if let Some(ref lib_path) = self.lib_path {
             let lib_info =
@@ -1515,9 +1510,6 @@ impl Fuzz {
         loader.sanitize_build(true);
         loader.force_rebuild(self.rebuild || self.grammar_path.is_some());
 
-        if self.lib_path.is_none() && self.lang_name.is_some() {
-            warn!("--lang-name specified without --lib-path. This argument will be ignored.");
-        }
         let languages = loader.languages_at_path(current_dir)?;
         let (language, language_name) = if let Some(ref lib_path) = self.lib_path {
             let lib_info = get_lib_info(Some(lib_path), self.lang_name.as_ref(), current_dir)
@@ -1565,9 +1557,12 @@ impl Fuzz {
 impl Query {
     fn run(self, mut loader: loader::Loader, current_dir: &Path) -> Result<()> {
         let config = Config::load(self.config_path)?;
-        let loader_config = config.get()?;
+        let lib_info = get_lib_info(self.lib_path.as_ref(), self.lang_name.as_ref(), current_dir);
+        if lib_info.is_none() {
+            let loader_config = config.get()?;
+            loader.find_all_languages(&loader_config)?;
+        }
         loader.force_rebuild(self.rebuild || self.grammar_path.is_some());
-        loader.find_all_languages(&loader_config)?;
         let query_path = Path::new(&self.query_path);
 
         let byte_range = parse_range(self.byte_range.as_deref(), |x| x)?;
@@ -1578,11 +1573,6 @@ impl Query {
         })?;
 
         let cancellation_flag = util::cancel_on_signal();
-
-        if self.lib_path.is_none() && self.lang_name.is_some() {
-            warn!("--lang-name specified without --lib-path. This argument will be ignored.");
-        }
-        let lib_info = get_lib_info(self.lib_path.as_ref(), self.lang_name.as_ref(), current_dir);
 
         let input = get_input(
             self.paths_file.as_deref(),
