@@ -1960,7 +1960,7 @@ impl DumpLanguages {
                 concat!(
                     "name: {}\n",
                     "scope: {}\n",
-                    "parser: {:?}\n",
+                    "parser: {}\n",
                     "highlights: {:?}\n",
                     "file_types: {:?}\n",
                     "content_regex: {:?}\n",
@@ -1968,7 +1968,7 @@ impl DumpLanguages {
                 ),
                 configuration.language_name,
                 configuration.scope.as_ref().unwrap_or(&String::new()),
-                language_path,
+                language_path.display(),
                 configuration.highlights_filenames,
                 configuration.file_types,
                 configuration.content_regex,
