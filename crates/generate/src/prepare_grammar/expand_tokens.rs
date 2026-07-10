@@ -275,15 +275,21 @@ impl NfaBuilder {
                         chars = chars.add_range(c.start(), c.end());
                     }
 
-                    // For some reason, the long s `ſ` is included if the letter `s` is in a
-                    // pattern, so we remove it.
-                    if chars.range_count() == 3
-                        && chars
-                            .ranges()
-                            // exact check to ensure that `ſ` wasn't intentionally added.
-                            .all(|r| ['s'..='s', 'S'..='S', 'ſ'..='ſ'].contains(&r))
-                    {
-                        chars = chars.difference(CharacterSet::from_char('ſ'));
+                    // Unicode simple case folding (used when a regex contains the case-insensitive
+                    // 'i' flag) maps exactly two non-ASCII code points onto ASCII letters:
+                    //      - the long s `ſ` (U+017F) folds with `s`
+                    //      - the Kelvin sign `K` (U+212A) folds with `k`
+                    //
+                    // Because of this folding, a case-insensitive pattern that mentions
+                    // `s` or `k` silently pulls in these code points. That is virtually
+                    // never intended, and it prevents such tokens from being extracted
+                    // as keywords (because they are no longer a subset of an ASCII-only
+                    // `word` token). In this case, drop the unicode code point.
+                    for (folded, lower, upper) in [('ſ', 's', 'S'), ('\u{212a}', 'k', 'K')] {
+                        if chars.contains(folded) && chars.contains(lower) && chars.contains(upper)
+                        {
+                            chars = chars.difference(CharacterSet::from_char(folded));
+                        }
                     }
                     self.push_advance(chars, next_state_id);
                     Ok(true)
@@ -726,6 +732,26 @@ mod tests {
                     ("\u{1000A}", Some((2, "\u{1000A}"))),
                     ("\u{1000b}", Some((3, "\u{1000b}"))),
                 ],
+            },
+            // Case-insensitive patterns must not fold in the two non-ASCII code
+            // points that Unicode simple case folding maps onto ASCII letters:
+            // `ſ` (U+017F) onto `s`, and the Kelvin sign `K` (U+212A) onto `k`.
+            Row {
+                rules: vec![Rule::pattern("[sk]+", "i")],
+                separators: vec![],
+                examples: vec![
+                    ("sSkK.", Some((0, "sSkK"))),
+                    ("\u{017f}", None),              // long s, not matched by `s`
+                    ("\u{212a}", None),              // Kelvin sign, not matched by `k`
+                    ("sk\u{212a}", Some((0, "sk"))), // folded code point ends the token
+                ],
+            },
+            // An intentionally-written `ſ`/`K` is preserved: the stripping above
+            // only fires when the ASCII pair it folds with is also present.
+            Row {
+                rules: vec![Rule::pattern("[\u{017f}\u{212a}]+", "")],
+                separators: vec![],
+                examples: vec![("\u{017f}\u{212a}.", Some((0, "\u{017f}\u{212a}")))],
             },
             // Emojis
             Row {
