@@ -2439,9 +2439,7 @@ impl Query {
         }
         let column = offset - line_start;
 
-        let kind;
-        let message;
-        match error_type {
+        let (message, kind) = match error_type {
             // Error types that report names
             ffi::TSQueryErrorNodeType | ffi::TSQueryErrorField | ffi::TSQueryErrorCapture => {
                 let suffix = source.split_at(offset).1;
@@ -2464,27 +2462,29 @@ impl Query {
                         }
                     })
                     .unwrap_or(suffix.len());
-                message = format!("\"{}\"", suffix.split_at(end_offset).0);
-                kind = match error_type {
-                    ffi::TSQueryErrorNodeType => QueryErrorKind::NodeType,
-                    ffi::TSQueryErrorField => QueryErrorKind::Field,
-                    ffi::TSQueryErrorCapture => QueryErrorKind::Capture,
-                    _ => unreachable!(),
-                };
+                (
+                    format!("\"{}\"", suffix.split_at(end_offset).0),
+                    match error_type {
+                        ffi::TSQueryErrorNodeType => QueryErrorKind::NodeType,
+                        ffi::TSQueryErrorField => QueryErrorKind::Field,
+                        ffi::TSQueryErrorCapture => QueryErrorKind::Capture,
+                        _ => unreachable!(),
+                    },
+                )
             }
 
             // Error types that report positions
-            _ => {
-                message = line_containing_error.map_or_else(
+            _ => (
+                line_containing_error.map_or_else(
                     || "Unexpected EOF".to_string(),
                     |line| line.to_string() + "\n" + &" ".repeat(offset - line_start) + "^",
-                );
-                kind = match error_type {
+                ),
+                match error_type {
                     ffi::TSQueryErrorStructure => QueryErrorKind::Structure,
                     _ => QueryErrorKind::Syntax,
-                };
-            }
-        }
+                },
+            ),
+        };
 
         Err(QueryError {
             row,

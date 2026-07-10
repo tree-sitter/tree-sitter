@@ -1117,7 +1117,7 @@ fn test_parsing_with_timeout_during_balancing() {
                 Some(ParseOptions::new().progress_callback(&mut |state| {
                     // Because we've already finished parsing, we should only be resuming the
                     // balancing phase.
-                    assert!(state.current_byte_offset() == current_byte_offset);
+                    assert_eq!(state.current_byte_offset(), current_byte_offset);
                     ControlFlow::Continue(())
                 })),
             )
