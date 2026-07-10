@@ -35,8 +35,102 @@ jobs:
   sanitize:
     uses: ./.github/workflows/sanitize.yml
 
+  # Full build matrix only on push to master/release branches
   build:
+    if: github.event_name == 'push'
     uses: ./.github/workflows/build.yml
+
+  # Lightweight build for PRs - only essential platforms
+  build-pr:
+    if: github.event_name == 'pull_request'
+    name: ${{ matrix.platform }} (${{ matrix.target }}) (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - linux-x64
+          - windows-x64
+          - macos-x64
+
+        include:
+          - { platform: linux-x64   , target: x86_64-unknown-linux-gnu  , os: ubuntu-24.04     }
+          - { platform: windows-x64 , target: x86_64-pc-windows-msvc    , os: windows-2025     }
+          - { platform: macos-x64   , target: x86_64-apple-darwin       , os: macos-15-intel   }
+
+    env:
+      CARGO_TERM_COLOR: always
+      RUSTFLAGS: -D warnings
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v7.0.0
+
+    - name: Set up Rust
+      uses: actions-rust-lang/setup-rust-toolchain@v1
+      with:
+        target: ${{ matrix.target }}
+
+    - name: Install MinGW and Clang (Windows x64 MSYS2)
+      if: matrix.platform == 'windows-x64'
+      uses: msys2/setup-msys2@v2
+      with:
+        install: |
+          mingw-w64-x86_64-toolchain
+          mingw-w64-x86_64-clang
+          mingw-w64-x86_64-make
+          mingw-w64-x86_64-cmake
+
+    - name: Build C library (Windows x64 MSYS2 CMake)
+      if: matrix.platform == 'windows-x64'
+      shell: msys2 {0}
+      run: |
+        cmake -G Ninja -S . -B build/static \
+          -DBUILD_SHARED_LIBS=OFF \
+          -DCMAKE_BUILD_TYPE=Debug \
+          -DCMAKE_COMPILE_WARNING_AS_ERROR=ON \
+          -DCMAKE_C_COMPILER=clang
+        cmake --build build/static
+        rm -rf build/static
+
+    - name: Build C library (make)
+      if: runner.os != 'Windows'
+      run: make -j
+      env:
+        CFLAGS: -g -Werror -Wall -Wextra -Wshadow -Wpedantic -Werror=incompatible-pointer-types -Werror=strict-aliasing -Wstrict-aliasing=2
+
+    - name: Build C library (CMake)
+      if: matrix.platform == 'windows-x64'
+      run: |
+        cmake -S . -B build/shared \
+          -DBUILD_SHARED_LIBS=ON \
+          -DCMAKE_BUILD_TYPE=Debug \
+          -DCMAKE_COMPILE_WARNING_AS_ERROR=ON
+        cmake --build build/shared --verbose
+
+    - name: Check no_std builds
+      working-directory: lib
+      shell: bash
+      run: cargo check --no-default-features --target='${{ matrix.target }}'
+
+    - name: Cache fixtures
+      id: cache
+      uses: ./.github/actions/cache
+
+    - name: Fetch fixtures
+      run: cargo run -p xtask --target='${{ matrix.target }}' -- fetch-fixtures
+
+    - name: Generate fixtures
+      if: steps.cache.outputs.cache-hit != 'true'
+      run: cargo run -p xtask --target='${{ matrix.target }}' -- generate-fixtures
+
+    - name: Run main tests
+      run: cargo test --target='${{ matrix.target }}'
 
   check-wasm-stdlib:
     uses: ./.github/workflows/wasm_stdlib.yml
