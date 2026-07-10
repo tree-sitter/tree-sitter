@@ -348,8 +348,7 @@ impl<'a> ParseTableBuilder<'a> {
         if !self.actual_conflicts.is_empty() {
             warn!(
                 "unnecessary conflicts:\n  {}",
-                &self
-                    .actual_conflicts
+                self.actual_conflicts
                     .iter()
                     .map(|conflict| {
                         conflict

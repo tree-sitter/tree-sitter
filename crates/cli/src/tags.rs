@@ -49,7 +49,7 @@ pub fn generate_tags(
                 &mut stdout,
                 "{indent_str}{:<10}\t | {:<8}\t{} {} - {} `{}`",
                 str::from_utf8(&source[tag.name_range]).unwrap_or(""),
-                &config.syntax_type_name(tag.syntax_type_id),
+                config.syntax_type_name(tag.syntax_type_id),
                 if tag.is_definition { "def" } else { "ref" },
                 tag.span.start,
                 tag.span.end,
@@ -59,7 +59,7 @@ pub fn generate_tags(
                 if docs.len() > 120 {
                     write!(&mut stdout, "\t{:?}...", docs.get(0..120).unwrap_or(""))?;
                 } else {
-                    write!(&mut stdout, "\t{:?}", &docs)?;
+                    write!(&mut stdout, "\t{docs:?}")?;
                 }
             }
             writeln!(&mut stdout)?;
