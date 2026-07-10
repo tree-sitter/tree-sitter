@@ -58,7 +58,7 @@ multiple grammars matched the file using the above two criteria. If the regex ma
 another grammar with no `content-regex`. If the regex does not match, a grammar with no `content-regex` will be preferred
 over this one.
 
-- `injection-regex` — A regex pattern that will be tested against a *language name* ito determine whether this language
+- `injection-regex` — A regex pattern that will be tested against a *language name* to determine whether this language
 should be used for a potential *language injection* site. Language injection is described in more detail in [a later section](#language-injection).
 
 ### Query Paths
@@ -73,12 +73,11 @@ The behaviors of these three files are described in the next section.
 
 ## Queries
 
-Tree-sitter's syntax highlighting system is based on *tree queries*, which are a general system for pattern-matching on Tree-sitter's
-syntax trees. See [this section][pattern matching] of the documentation for more information
-about tree queries.
+Tree-sitter's syntax highlighting system is based on *tree queries*, which are a general system for pattern-matching on
+Tree-sitter's syntax trees. See [this section][pattern matching] of the documentation for more information about tree queries.
 
 Syntax highlighting is controlled by *three* different types of query files that are usually included in the `queries` folder.
-The default names for the query files use the `.scm` file. We chose this extension because it commonly used for files written
+The default names for the query files use the `.scm` file. We chose this extension because it is commonly used for files written
 in [Scheme][scheme], a popular dialect of Lisp, and these query files use a Lisp-like syntax.
 
 ### Highlights
@@ -124,7 +123,7 @@ Suppose we wanted to render this code with the following colors:
 - keywords `func` and `return` in purple
 - function `increment` in blue
 - type `int` in green
-- number `5` brown
+- number `5` in brown
 
 We can assign each of these categories a *highlight name* using a query like this:
 
@@ -170,7 +169,7 @@ Ideally, if a given entity appears in *multiple* places, it should be colored th
 highlighting system can help you to achieve this by keeping track of local scopes and variables.
 
 The *local variables* query is different from the highlights query in that, while the highlights query uses *arbitrary*
-capture names, which can then be mapped to colors, the locals variable query uses a fixed set of capture names, each of
+capture names, which can then be mapped to colors, the local variables query uses a fixed set of capture names, each of
 which has a special meaning.
 
 The capture names are as follows:
@@ -179,6 +178,16 @@ The capture names are as follows:
 - `@local.definition` — indicates that a syntax node contains the *name* of a definition within the current local scope.
 - `@local.reference` — indicates that a syntax node contains the *name*, which *may* refer to an earlier definition within
 some enclosing scope.
+
+Additionally, to ignore certain nodes from being tagged, you can use the `@ignore` capture. This is useful if you want to
+exclude a subset of nodes from being tagged. When writing a query leveraging this, you should ensure this pattern comes
+before any other patterns that would be used for tagging, for example:
+
+```scheme
+(expression (identifier) @ignore)
+
+(identifier) @local.reference
+```
 
 When highlighting a file, Tree-sitter will keep track of the set of scopes that contains any given position, and the set
 of definitions within each scope. When processing a syntax node that is captured as a `local.reference`, Tree-sitter will
@@ -308,11 +317,11 @@ Some source files contain code written in multiple different languages. Examples
 
 - HTML files, which can contain JavaScript inside `<script>` tags and CSS inside `<style>` tags
 - [ERB][erb] files, which contain Ruby inside `<% %>` tags, and HTML outside those tags
-- PHP files, which can contain  HTML between the `<php` tags
+- PHP files, which can contain HTML between the `<php` tags
 - JavaScript files, which contain regular expression syntax within regex literals
 - Ruby, which can contain snippets of code inside heredoc literals, where the heredoc delimiter often indicates the language
 
-All of these examples can be modeled in terms a *parent* syntax tree and one or more *injected* syntax trees, which reside
+All of these examples can be modeled in terms of a *parent* syntax tree and one or more *injected* syntax trees, which reside
 *inside* of certain nodes in the parent tree. The language injection query allows you to specify these "injections" using
 the following captures:
 
@@ -423,7 +432,7 @@ not the `keyword` class.
 ```
 
 [erb]: https://en.wikipedia.org/wiki/ERuby
-[highlight crate]: https://github.com/tree-sitter/tree-sitter/tree/master/highlight
+[highlight crate]: https://github.com/tree-sitter/tree-sitter/tree/master/crates/highlight
 [init-config]: ./cli/init-config.md
 [init]: ./cli/init.md#structure-of-tree-sitterjson
 [js grammar]: https://github.com/tree-sitter/tree-sitter-javascript

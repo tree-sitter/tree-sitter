@@ -1,116 +1,147 @@
 const std = @import("std");
 
 pub fn build(b: *std.Build) !void {
-  const target = b.standardTargetOptions(.{});
-  const optimize = b.standardOptimizeOption(.{});
+    const target = b.standardTargetOptions(.{});
+    const optimize = b.standardOptimizeOption(.{});
 
-  const wasm = b.option(bool, "enable-wasm", "Enable Wasm support") orelse false;
-  const shared = b.option(bool, "build-shared", "Build a shared library") orelse false;
-  const amalgamated = b.option(bool, "amalgamated", "Build using an amalgamated source") orelse false;
+    var threaded: std.Io.Threaded = .init(b.allocator, .{});
+    defer threaded.deinit();
+    const io = threaded.io();
 
-  const lib: *std.Build.Step.Compile = if (!shared) b.addStaticLibrary(.{
-    .name = "tree-sitter",
-    .target = target,
-    .optimize = optimize,
-    .link_libc = true,
-  }) else b.addSharedLibrary(.{
-    .name = "tree-sitter",
-    .pic = true,
-    .target = target,
-    .optimize = optimize,
-    .link_libc = true,
-  });
+    const wasm = b.option(bool, "enable-wasm", "Enable Wasm support") orelse false;
+    const shared = b.option(bool, "build-shared", "Build a shared library") orelse false;
+    const amalgamated = b.option(bool, "amalgamated", "Build using an amalgamated source") orelse false;
 
-  if (amalgamated) {
-    lib.addCSourceFile(.{
-      .file = b.path("lib/src/lib.c"),
-      .flags = &.{"-std=c11"},
+    var tree_sitter = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+        .pic = if (shared) true else null,
     });
-  } else {
-    lib.addCSourceFiles(.{
-      .root = b.path("lib/src"),
-      .files = try findSourceFiles(b),
-      .flags = &.{"-std=c11"},
+    const lib: *std.Build.Step.Compile = b.addLibrary(.{
+        .name = "tree-sitter",
+        .linkage = if (shared) .dynamic else .static,
+        .root_module = tree_sitter,
     });
-  }
 
-  lib.addIncludePath(b.path("lib/include"));
-  lib.addIncludePath(b.path("lib/src"));
-  lib.addIncludePath(b.path("lib/src/wasm"));
-
-  lib.root_module.addCMacro("_POSIX_C_SOURCE", "200112L");
-  lib.root_module.addCMacro("_DEFAULT_SOURCE", "");
-
-  if (wasm) {
-    if (b.lazyDependency(wasmtimeDep(target.result), .{})) |wasmtime| {
-      lib.root_module.addCMacro("TREE_SITTER_FEATURE_WASM", "");
-      lib.addSystemIncludePath(wasmtime.path("include"));
-      lib.addLibraryPath(wasmtime.path("lib"));
-      lib.linkSystemLibrary("wasmtime");
+    if (amalgamated) {
+        tree_sitter.addCSourceFile(.{
+            .file = b.path("lib/src/lib.c"),
+            .flags = &.{"-std=c11"},
+        });
+    } else {
+        const files = try findSourceFiles(b, io);
+        defer b.allocator.free(files);
+        tree_sitter.addCSourceFiles(.{
+            .root = b.path("lib/src"),
+            .files = files,
+            .flags = &.{"-std=c11"},
+        });
     }
-  }
 
-  lib.installHeadersDirectory(b.path("lib/include"), ".", .{});
+    tree_sitter.addIncludePath(b.path("lib/include"));
+    tree_sitter.addIncludePath(b.path("lib/src"));
+    tree_sitter.addIncludePath(b.path("lib/src/wasm"));
 
-  b.installArtifact(lib);
+    tree_sitter.addCMacro("_POSIX_C_SOURCE", "200112L");
+    tree_sitter.addCMacro("_DEFAULT_SOURCE", "");
+    tree_sitter.addCMacro("_BSD_SOURCE", "");
+    tree_sitter.addCMacro("_DARWIN_C_SOURCE", "");
+
+    if (wasm) {
+        if (b.lazyDependency(wasmtimeDep(target.result), .{})) |wasmtime| {
+            tree_sitter.addCMacro("TREE_SITTER_FEATURE_WASM", "");
+            tree_sitter.addSystemIncludePath(wasmtime.path("include"));
+            tree_sitter.addLibraryPath(wasmtime.path("lib"));
+            if (shared) tree_sitter.linkSystemLibrary("wasmtime", .{});
+        }
+    }
+
+    lib.installHeadersDirectory(b.path("lib/include"), ".", .{});
+
+    b.installArtifact(lib);
 }
 
-fn wasmtimeDep(target: std.Target) []const u8 {
-  const arch = target.cpu.arch;
-  const os = target.os.tag;
-  const abi = target.abi;
-  return switch (os) {
-    .linux => switch (arch) {
-      .x86_64 => switch (abi) {
-        .gnu => "wasmtime_c_api_x86_64_linux",
-        .musl => "wasmtime_c_api_x86_64_musl",
-        .android => "wasmtime_c_api_x86_64_android",
-        else => null
-      },
-      .aarch64 => switch (abi) {
-        .gnu => "wasmtime_c_api_aarch64_linux",
-        .android => "wasmtime_c_api_aarch64_android",
-        else => null
-      },
-      .s390x => "wasmtime_c_api_s390x_linux",
-      .riscv64 => "wasmtime_c_api_riscv64gc_linux",
-      else => null
-    },
-    .windows => switch (arch) {
-      .x86_64 => switch (abi) {
-        .gnu => "wasmtime_c_api_x86_64_mingw",
-        .msvc => "wasmtime_c_api_x86_64_windows",
-        else => null
-      },
-      else => null
-    },
-    .macos => switch (arch) {
-      .x86_64 => "wasmtime_c_api_x86_64_macos",
-      .aarch64 => "wasmtime_c_api_aarch64_macos",
-      else => null
-    },
-    else => null
-  } orelse std.debug.panic(
-    "Unsupported target for wasmtime: {s}-{s}-{s}",
-    .{ @tagName(arch), @tagName(os), @tagName(abi) }
-  );
+/// Get the name of the wasmtime dependency for this target.
+pub fn wasmtimeDep(target: std.Target) []const u8 {
+    const arch = target.cpu.arch;
+    const os = target.os.tag;
+    const abi = target.abi;
+    return @as(?[]const u8, switch (os) {
+        .linux => switch (arch) {
+            .x86_64 => switch (abi) {
+                .gnu => "wasmtime_c_api_x86_64_linux",
+                .musl => "wasmtime_c_api_x86_64_musl",
+                .android => "wasmtime_c_api_x86_64_android",
+                else => null,
+            },
+            .aarch64 => switch (abi) {
+                .gnu => "wasmtime_c_api_aarch64_linux",
+                .musl => "wasmtime_c_api_aarch64_musl",
+                .android => "wasmtime_c_api_aarch64_android",
+                else => null,
+            },
+            .x86 => switch (abi) {
+                .gnu => "wasmtime_c_api_i686_linux",
+                else => null,
+            },
+            .arm => switch (abi) {
+                .gnueabi => "wasmtime_c_api_armv7_linux",
+                else => null,
+            },
+            .s390x => switch (abi) {
+                .gnu => "wasmtime_c_api_s390x_linux",
+                else => null,
+            },
+            .riscv64 => switch (abi) {
+                .gnu => "wasmtime_c_api_riscv64gc_linux",
+                else => null,
+            },
+            else => null,
+        },
+        .windows => switch (arch) {
+            .x86_64 => switch (abi) {
+                .gnu => "wasmtime_c_api_x86_64_mingw",
+                .msvc => "wasmtime_c_api_x86_64_windows",
+                else => null,
+            },
+            .aarch64 => switch (abi) {
+                .msvc => "wasmtime_c_api_aarch64_windows",
+                else => null,
+            },
+            .x86 => switch (abi) {
+                .msvc => "wasmtime_c_api_i686_windows",
+                else => null,
+            },
+            else => null,
+        },
+        .macos => switch (arch) {
+            .x86_64 => "wasmtime_c_api_x86_64_macos",
+            .aarch64 => "wasmtime_c_api_aarch64_macos",
+            else => null,
+        },
+        else => null,
+    }) orelse std.debug.panic(
+        "Unsupported target for wasmtime: {s}-{s}-{s}",
+        .{ @tagName(arch), @tagName(os), @tagName(abi) },
+    );
 }
 
-fn findSourceFiles(b: *std.Build) ![]const []const u8 {
-  var sources = std.ArrayList([]const u8).init(b.allocator);
+fn findSourceFiles(b: *std.Build, io: std.Io) ![]const []const u8 {
+    var sources: std.ArrayListUnmanaged([]const u8) = .empty;
 
-  var dir = try b.build_root.handle.openDir("lib/src", .{ .iterate = true });
-  var iter = dir.iterate();
-  defer dir.close();
+    var dir = try b.build_root.handle.openDir(io, "lib/src", .{ .iterate = true });
+    var iter = dir.iterate();
+    defer dir.close(io);
 
-  while (try iter.next()) |entry| {
-    if (entry.kind != .file) continue;
-    const file = entry.name;
-    const ext = std.fs.path.extension(file);
-    if (std.mem.eql(u8, ext, ".c") and !std.mem.eql(u8, file, "lib.c")) {
-      try sources.append(b.dupe(file));
+    while (try iter.next(io)) |entry| {
+        if (entry.kind != .file) continue;
+        const file = entry.name;
+        const ext = std.fs.path.extension(file);
+        if (std.mem.eql(u8, ext, ".c") and !std.mem.eql(u8, file, "lib.c")) {
+            try sources.append(b.allocator, b.dupe(file));
+        }
     }
-  }
 
-  return sources.items;
+    return sources.toOwnedSlice(b.allocator);
 }

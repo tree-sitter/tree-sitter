@@ -11,13 +11,13 @@ include!("./bindings.rs");
 
 #[cfg(unix)]
 #[cfg(feature = "std")]
-extern "C" {
+unsafe extern "C" {
     pub(crate) fn _ts_dup(fd: std::os::raw::c_int) -> std::os::raw::c_int;
 }
 
 #[cfg(windows)]
 #[cfg(feature = "std")]
-extern "C" {
+unsafe extern "C" {
     pub(crate) fn _ts_dup(handle: *mut std::os::raw::c_void) -> std::os::raw::c_int;
 }
 
@@ -54,7 +54,7 @@ impl Parser {
     /// `ptr` must be non-null.
     #[must_use]
     pub const unsafe fn from_raw(ptr: *mut TSParser) -> Self {
-        Self(NonNull::new_unchecked(ptr))
+        Self(unsafe { NonNull::new_unchecked(ptr) })
     }
 
     /// Consumes the [`Parser`], returning a raw pointer to the underlying C structure.
@@ -78,7 +78,7 @@ impl ParseState {
     /// `ptr` must be non-null.
     #[must_use]
     pub const unsafe fn from_raw(ptr: *mut TSParseState) -> Self {
-        Self(NonNull::new_unchecked(ptr))
+        Self(unsafe { NonNull::new_unchecked(ptr) })
     }
 
     /// Consumes the [`ParseState`], returning a raw pointer to the underlying C structure.
@@ -96,7 +96,7 @@ impl Tree {
     /// `ptr` must be non-null.
     #[must_use]
     pub const unsafe fn from_raw(ptr: *mut TSTree) -> Self {
-        Self(NonNull::new_unchecked(ptr))
+        Self(unsafe { NonNull::new_unchecked(ptr) })
     }
 
     /// Consumes the [`Tree`], returning a raw pointer to the underlying C structure.
@@ -149,7 +149,7 @@ impl Query {
     ///
     /// `ptr` must be non-null.
     pub unsafe fn from_raw(ptr: *mut TSQuery, source: &str) -> Result<Self, QueryError> {
-        Self::from_raw_parts(ptr, source)
+        unsafe { Self::from_raw_parts(ptr, source) }
     }
 
     /// Consumes the [`Query`], returning a raw pointer to the underlying C structure.
@@ -168,7 +168,7 @@ impl QueryCursor {
     #[must_use]
     pub const unsafe fn from_raw(ptr: *mut TSQueryCursor) -> Self {
         Self {
-            ptr: NonNull::new_unchecked(ptr),
+            ptr: unsafe { NonNull::new_unchecked(ptr) },
         }
     }
 
@@ -187,7 +187,7 @@ impl QueryCursorState {
     /// `ptr` must be non-null.
     #[must_use]
     pub const unsafe fn from_raw(ptr: *mut TSQueryCursorState) -> Self {
-        Self(NonNull::new_unchecked(ptr))
+        Self(unsafe { NonNull::new_unchecked(ptr) })
     }
 
     /// Consumes the [`QueryCursorState`], returning a raw pointer to the underlying C structure.
@@ -205,7 +205,7 @@ impl LookaheadIterator {
     /// `ptr` must be non-null.
     #[must_use]
     pub const unsafe fn from_raw(ptr: *mut TSLookaheadIterator) -> Self {
-        Self(NonNull::new_unchecked(ptr))
+        Self(unsafe { NonNull::new_unchecked(ptr) })
     }
 
     /// Consumes the [`LookaheadIterator`], returning a raw pointer to the underlying C structure.

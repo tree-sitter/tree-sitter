@@ -1,4 +1,4 @@
-module.exports = grammar({
+export default grammar({
   name: "invisible_start_rule",
   rules: {
     _value: $ => choice($.a, $.b),

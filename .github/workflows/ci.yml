@@ -1,21 +1,14 @@
 name: CI
 
 on:
-  pull_request:
-    paths-ignore:
-      - docs/**
-      - "**/README.md"
-      - CONTRIBUTING.md
-      - LICENSE
-      - cli/src/templates
   push:
-    branches: [master]
-    paths-ignore:
-      - docs/**
-      - "**/README.md"
-      - CONTRIBUTING.md
-      - LICENSE
-      - cli/src/templates
+    branches:
+      - 'master'
+      - 'release-[0-9]+.[0-9]+'
+  pull_request:
+    branches:
+      - 'master'
+      - 'release-[0-9]+.[0-9]+'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -26,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.0
 
       - name: Set up stable Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -34,24 +27,16 @@ jobs:
           toolchain: stable
           components: clippy, rustfmt
 
-      - name: Set up nightly Rust toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          toolchain: nightly
-          components: clippy, rustfmt
-
       - name: Lint files
         run: |
           make lint
           make lint-web
-
-      - name: Lint files (Rust nightly)
-        continue-on-error: true
-        run: |
-          make lint-nightly
 
   sanitize:
     uses: ./.github/workflows/sanitize.yml
 
   build:
     uses: ./.github/workflows/build.yml
+
+  check-wasm-stdlib:
+    uses: ./.github/workflows/wasm_stdlib.yml

@@ -1,4 +1,4 @@
-// TypeScript bindings for emscripten-generated code.  Automatically generated at compile time.
+// TypeScript bindings for emscripten-generated code.  Automatically @generated at compile time.
 declare namespace RuntimeExports {
     function AsciiToString(ptr: number): string;
     function stringToUTF8(str: string, outPtr: number, maxBytesToWrite: number): number;
@@ -11,32 +11,22 @@ declare namespace RuntimeExports {
      *   maximum number of bytes to read. You can omit this parameter to scan the
      *   string until the first 0 byte. If maxBytesToRead is passed, and the string
      *   at [ptr, ptr+maxBytesToReadr[ contains a null byte in the middle, then the
-     *   string will cut short at that byte index (i.e. maxBytesToRead will not
-     *   produce a string of exact length [ptr, ptr+maxBytesToRead[) N.B. mixing
-     *   frequent uses of UTF8ToString() with and without maxBytesToRead may throw
-     *   JS JIT optimizations off, so it is worth to consider consistently using one
+     *   string will cut short at that byte index.
+     * @param {boolean=} ignoreNul - If true, the function will not stop on a NUL character.
      * @return {string}
      */
-    function UTF8ToString(ptr: number, maxBytesToRead?: number): string;
+    function UTF8ToString(ptr: number, maxBytesToRead?: number | undefined, ignoreNul?: boolean | undefined): string;
     function lengthBytesUTF8(str: string): number;
     function stringToUTF16(str: string, outPtr: number, maxBytesToWrite: number): number;
+    type WasmExports = Record<string, () => number>;
+    type LoadWebAssemblyModuleFlags = { loadAsync: boolean } & Record<string, boolean>;
+    type LoadWebAssemblyModuleResult<F extends LoadWebAssemblyModuleFlags> = F extends { loadAsync: true } ? Promise<WasmExports> : F extends { loadAsync: false } ? WasmExports : Promise<WasmExports> | WasmExports;
     /**
      * @param {string=} libName
      * @param {Object=} localScope
      * @param {number=} handle
      */
-    function loadWebAssemblyModule(
-      binary: Uint8Array,
-      flags: {
-        allowUndefined?: boolean,
-        loadAsync?: boolean,
-        global?: boolean,
-        nodelete?: boolean;
-      },
-      libName?: string,
-      localScope?: Record<string, any>,
-      handle?: number
-    ): Promise<Record<string, () => number>>;
+    function loadWebAssemblyModule<F extends LoadWebAssemblyModuleFlags>(binary: Uint8Array | WebAssembly.Module, flags: F, libName?: string, localScope?: Record<string, unknown>, handle?: number): LoadWebAssemblyModuleResult<F>;
     /**
      * @param {number} ptr
      * @param {string} type
@@ -48,14 +38,10 @@ declare namespace RuntimeExports {
      * @param {string} type
      */
     function setValue(ptr: number, value: number, type?: string): void;
-    let currentParseCallback: ((index: number, position: {row: number, column: number}) => string | undefined) | null;
-    let currentLogCallback: ((message: string, isLex: boolean) => void) | null;
-    let currentProgressCallback: ((state: {currentOffset: number}) => void) | null;
-    let currentQueryProgressCallback: ((state: {currentOffset: number}) => void) | null;
     let HEAPF32: Float32Array;
     let HEAPF64: Float64Array;
     let HEAP_DATA_VIEW: DataView;
-    let HEAP8: Int8Array
+    let HEAP8: Int8Array;
     let HEAPU8: Uint8Array;
     let HEAP16: Int16Array;
     let HEAPU16: Uint16Array;
@@ -63,17 +49,17 @@ declare namespace RuntimeExports {
     let HEAPU32: Uint32Array;
     let HEAP64: BigInt64Array;
     let HEAPU64: BigUint64Array;
+    function LE_HEAP_STORE_I64(byteOffset: any, value: any): any;
 }
 interface WasmModule {
   _malloc(_0: number): number;
   _calloc(_0: number, _1: number): number;
   _realloc(_0: number, _1: number): number;
   _free(_0: number): void;
+  _memcmp(_0: number, _1: number, _2: number): number;
   _ts_language_symbol_count(_0: number): number;
   _ts_language_state_count(_0: number): number;
-  _ts_language_version(_0: number): number;
   _ts_language_abi_version(_0: number): number;
-  _ts_language_metadata(_0: number): number;
   _ts_language_name(_0: number): number;
   _ts_language_field_count(_0: number): number;
   _ts_language_next_state(_0: number, _1: number, _2: number): number;
@@ -88,16 +74,10 @@ interface WasmModule {
   _ts_lookahead_iterator_reset(_0: number, _1: number, _2: number): number;
   _ts_lookahead_iterator_next(_0: number): number;
   _ts_lookahead_iterator_current_symbol(_0: number): number;
-  _memset(_0: number, _1: number, _2: number): number;
-  _memcpy(_0: number, _1: number, _2: number): number;
   _ts_parser_delete(_0: number): void;
   _ts_parser_reset(_0: number): void;
   _ts_parser_set_language(_0: number, _1: number): number;
-  _ts_parser_timeout_micros(_0: number): number;
-  _ts_parser_set_timeout_micros(_0: number, _1: number, _2: number): void;
   _ts_parser_set_included_ranges(_0: number, _1: number, _2: number): number;
-  _memmove(_0: number, _1: number, _2: number): number;
-  _memcmp(_0: number, _1: number, _2: number): number;
   _ts_query_new(_0: number, _1: number, _2: number, _3: number, _4: number): number;
   _ts_query_delete(_0: number): void;
   _iswspace(_0: number): number;
@@ -125,6 +105,7 @@ interface WasmModule {
   _ts_parser_included_ranges_wasm(_0: number): void;
   _ts_language_type_is_named_wasm(_0: number, _1: number): number;
   _ts_language_type_is_visible_wasm(_0: number, _1: number): number;
+  _ts_language_metadata_wasm(_0: number): void;
   _ts_language_supertypes_wasm(_0: number): void;
   _ts_language_subtypes_wasm(_0: number, _1: number): void;
   _ts_tree_root_node_wasm(_0: number): void;
@@ -197,10 +178,14 @@ interface WasmModule {
   _ts_node_is_extra_wasm(_0: number): number;
   _ts_node_parse_state_wasm(_0: number): number;
   _ts_node_next_parse_state_wasm(_0: number): number;
-  _ts_query_matches_wasm(_0: number, _1: number, _2: number, _3: number, _4: number, _5: number, _6: number, _7: number, _8: number, _9: number, _10: number): void;
-  _ts_query_captures_wasm(_0: number, _1: number, _2: number, _3: number, _4: number, _5: number, _6: number, _7: number, _8: number, _9: number, _10: number): void;
+  _ts_query_matches_wasm(_0: number, _1: number, _2: number, _3: number, _4: number, _5: number, _6: number, _7: number, _8: number, _9: number, _10: number, _11: number, _12: number, _13: number, _14: number, _15: number): void;
+  _ts_query_captures_wasm(_0: number, _1: number, _2: number, _3: number, _4: number, _5: number, _6: number, _7: number, _8: number, _9: number, _10: number, _11: number, _12: number, _13: number, _14: number, _15: number): void;
+  _memset(_0: number, _1: number, _2: number): number;
+  _memcpy(_0: number, _1: number, _2: number): number;
+  _memmove(_0: number, _1: number, _2: number): number;
   _iswalpha(_0: number): number;
   _iswblank(_0: number): number;
+  _iswpunct(_0: number): number;
   _iswdigit(_0: number): number;
   _iswlower(_0: number): number;
   _iswupper(_0: number): number;
@@ -212,9 +197,13 @@ interface WasmModule {
   _strncpy(_0: number, _1: number, _2: number): number;
   _towlower(_0: number): number;
   _towupper(_0: number): number;
-  _orig$ts_parser_timeout_micros(_0: number): bigint;
-  _orig$ts_parser_set_timeout_micros(_0: number, _1: bigint): void;
 }
 
-export type MainModule = WasmModule & typeof RuntimeExports;
-export default function MainModuleFactory (options?: EmscriptenModule): Promise<MainModule>;
+export type MainModule = WasmModule & typeof RuntimeExports & {
+  currentParseCallback: ((index: number, position: {row: number, column: number}) => string | undefined) | null;
+  currentLogCallback: ((message: string, isLex: boolean) => void) | null;
+  currentProgressCallback: ((state: {currentOffset: number, hasError: boolean}) => void) | null;
+  currentQueryProgressCallback: ((state: {currentOffset: number}) => void) | null;
+};
+
+export default function MainModuleFactory(options?: Partial<EmscriptenModule>): Promise<MainModule>;

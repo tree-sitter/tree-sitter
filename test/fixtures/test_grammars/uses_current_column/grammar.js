@@ -1,4 +1,4 @@
-module.exports = grammar({
+export default grammar({
   name: 'uses_current_column',
 
   externals: $ => [

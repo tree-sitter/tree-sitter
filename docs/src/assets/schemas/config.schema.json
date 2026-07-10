@@ -22,8 +22,15 @@
             "examples": [
               "Rust",
               "HTML"
-            ],
-            "$comment": "This is used in the description and the class names."
+            ]
+          },
+          "title": {
+            "type": "string",
+            "description": "The title of the language.",
+            "examples": [
+              "Rust",
+              "HTML"
+            ]
           },
           "scope": {
             "type": "string",
@@ -181,11 +188,6 @@
               "type": "string",
               "format": "uri",
               "description": "The project's funding link."
-            },
-            "homepage": {
-              "type": "string",
-              "format": "uri",
-              "description": "The project's homepage."
             }
           },
           "additionalProperties": false,
@@ -237,9 +239,7 @@
       "properties": {
         "c": {
           "type": "boolean",
-          "default": true,
-          "const": true,
-          "$comment": "Always generated"
+          "default": true
         },
         "go": {
           "type": "boolean",
@@ -255,9 +255,7 @@
         },
         "node": {
           "type": "boolean",
-          "default": true,
-          "const": true,
-          "$comment": "Always generated (for now)"
+          "default": true
         },
         "python": {
           "type": "boolean",
@@ -265,9 +263,7 @@
         },
         "rust": {
           "type": "boolean",
-          "default": true,
-          "const": true,
-          "$comment": "Always generated"
+          "default": true
         },
         "swift": {
           "type": "boolean",

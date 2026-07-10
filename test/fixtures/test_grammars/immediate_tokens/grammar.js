@@ -3,7 +3,7 @@
 // When there are *no* leading `extras`, an immediate token is preferred over a normal token which
 // would otherwise match.
 
-module.exports = grammar({
+export default grammar({
   name: "immediate_tokens",
 
   extras: $ => [/\s/],

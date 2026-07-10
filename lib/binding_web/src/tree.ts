@@ -1,9 +1,11 @@
-import { INTERNAL, Internal, assertInternal, ParseCallback, Point, Range, Edit, SIZE_OF_NODE, SIZE_OF_INT, SIZE_OF_RANGE, C } from './constants';
+import { INTERNAL, Internal, assertInternal, ParseCallback, Point, Range, SIZE_OF_NODE, SIZE_OF_INT, SIZE_OF_RANGE, C } from './constants';
 import { Language } from './language';
 import { Node } from './node';
 import { TreeCursor } from './tree_cursor';
 import { marshalEdit, marshalPoint, unmarshalNode, unmarshalRange } from './marshal';
 import { TRANSFER_BUFFER } from './parser';
+import { Edit } from './edit';
+import { newFinalizer } from './finalization_registry';
 
 /** @internal */
 export function getText(tree: Tree, startIndex: number, endIndex: number, startPosition: Point): string {
@@ -27,10 +29,14 @@ export function getText(tree: Tree, startIndex: number, endIndex: number, startP
   return result ?? '';
 }
 
+const finalizer = newFinalizer((address: number) => {
+  C._ts_tree_delete(address);
+});
+
 /** A tree that represents the syntactic structure of a source code file. */
 export class Tree {
   /** @internal */
-  private [0] = 0; // Internal handle for WASM
+  private [0] = 0; // Internal handle for Wasm
 
   /** @internal */
   textCallback: ParseCallback;
@@ -44,6 +50,7 @@ export class Tree {
     this[0] = address;
     this.language = language;
     this.textCallback = textCallback;
+    finalizer?.register(this, address, this);
   }
 
   /** Create a shallow copy of the syntax tree. This is very fast. */
@@ -54,6 +61,7 @@ export class Tree {
 
   /** Delete the syntax tree, freeing its resources. */
   delete(): void {
+    finalizer?.unregister(this);
     C._ts_tree_delete(this[0]);
     this[0] = 0;
   }

@@ -1,15 +1,15 @@
 # Query Syntax
 
-A _query_ consists of one or more _patterns_, where each pattern is an [S-expression][s-exp] that matches a certain set of
-nodes in a syntax tree. The expression to match a given node consists of a pair of parentheses containing two things: the
-node's type, and optionally, a series of other S-expressions that match the node's children. For example, this pattern would
-match any `binary_expression` node whose children are both `number_literal` nodes:
+A _query_ consists of one or more _patterns_, where each pattern is an [S-expression][s-exp] that matches a certain set
+of nodes in a syntax tree. The expression to match a given node consists of a pair of parentheses containing two things:
+the node's type, and optionally, a series of other S-expressions that match the node's children. For example, this pattern
+would match any `binary_expression` node whose children are both `number_literal` nodes:
 
 ```query
 (binary_expression (number_literal) (number_literal))
 ```
 
-Children can also be omitted. For example, this would match any `binary_expression` where at least _one_ of child is a
+Children can also be omitted. For example, this would match any `binary_expression` where at least _one_ of its children is a
 `string_literal` node:
 
 ```query
@@ -88,7 +88,7 @@ using `(MISSING)`:
 (MISSING) @missing-node
 ```
 
-This is useful when attempting to detect all syntax errors in a given parse tree, since these missing node are not captured
+This is useful when attempting to detect all syntax errors in a given parse tree, since these missing nodes are not captured
 by `(ERROR)` queries. Specific missing node types can also be queried:
 
 ```scheme
@@ -96,6 +96,32 @@ by `(ERROR)` queries. Specific missing node types can also be queried:
 (MISSING ";") @missing-semicolon
 ```
 
+### Supertype Nodes
+
+Some node types are marked as _supertypes_ in a grammar. A supertype is a node type that contains multiple
+subtypes. For example, in the [JavaScript grammar example][grammar], `expression` is a supertype that can represent any
+kind of expression, such as a `binary_expression`, `call_expression`, or `identifier`. You can use supertypes in queries
+to match any of their subtypes, rather than having to list out each subtype individually. For example, this pattern would
+match any kind of expression, even though it's not a visible node in the syntax tree:
+
+```query
+(expression) @any-expression
+```
+
+To query specific subtypes of a supertype, you can use the syntax `supertype/subtype`. For example, this pattern would
+match a `binary_expression` only if it is a child of `expression`:
+
+```query
+(expression/binary_expression) @binary-expression
+```
+
+This also applies to anonymous nodes. For example, this pattern would match `"()"` only if it is a child of `expression`:
+
+```query
+(expression/"()") @empty-expression
+```
+
+[grammar]: ../../creating-parsers/3-writing-the-grammar.md#structuring-rules-well
 [node-field-names]: ../2-basic-parsing.md#node-field-names
 [named-vs-anonymous-nodes]: ../2-basic-parsing.md#named-vs-anonymous-nodes
 [s-exp]: https://en.wikipedia.org/wiki/S-expression

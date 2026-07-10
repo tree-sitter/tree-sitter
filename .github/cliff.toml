@@ -43,16 +43,16 @@ commit_preprocessors = [
 ]
 # regex for parsing and grouping commits
 commit_parsers = [
-  { message = "!:", group = "<!-- 0 -->Breaking" },
-  { message = "^feat", group = "<!-- 1 -->Features" },
-  { message = "^fix", group = "<!-- 2 -->Bug Fixes" },
-  { message = "^perf", group = "<!-- 3 -->Performance" },
-  { message = "^doc", group = "<!-- 4 -->Documentation" },
-  { message = "^refactor", group = "<!-- 5 -->Refactor" },
-  { message = "^test", group = "<!-- 6 -->Testing" },
-  { message = "^build", group = "<!-- 7 -->Build System and CI" },
-  { message = "^ci", group = "<!-- 7 -->Build System and CI" },
-  { message = ".*", group = "<!-- 8 -->Other" },
+  { group = "<!-- 0 -->Breaking", message = "!:" },
+  { group = "<!-- 1 -->Features", message = "^feat" },
+  { group = "<!-- 2 -->Bug Fixes", message = "^fix" },
+  { group = "<!-- 3 -->Performance", message = "^perf" },
+  { group = "<!-- 4 -->Documentation", message = "^doc" },
+  { group = "<!-- 5 -->Refactor", message = "^refactor" },
+  { group = "<!-- 6 -->Testing", message = "^test" },
+  { group = "<!-- 7 -->Build System and CI", message = "^build" },
+  { group = "<!-- 7 -->Build System and CI", message = "^ci" },
+  { group = "<!-- 8 -->Other", message = ".*" },
 ]
 # filter out the commits that are not matched by commit parsers
 filter_commits = false
@@ -69,4 +69,4 @@ sort_commits = "oldest"
 
 [remote.github]
 owner = "tree-sitter"
-repo = "tree-sitter"
+repo  = "tree-sitter"

@@ -3,6 +3,7 @@ on:
   push:
     branches: [master]
     paths: [docs/**]
+  workflow_dispatch:
 
 jobs:
   deploy-docs:
@@ -15,7 +16,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.0
 
       - name: Set up Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -25,7 +26,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           jq_expr='.assets[] | select(.name | contains("x86_64-unknown-linux-gnu")) | .browser_download_url'
-          url=$(gh api repos/rust-lang/mdbook/releases/latest --jq "$jq_expr")
+          url=$(gh api repos/rust-lang/mdbook/releases/tags/v0.4.52 --jq "$jq_expr")
           mkdir mdbook
           curl -sSL "$url" | tar -xz -C mdbook
           printf '%s/mdbook\n' "$PWD" >> "$GITHUB_PATH"
@@ -37,13 +38,13 @@ jobs:
         run: mdbook build docs
 
       - name: Setup Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
 
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: docs/book
 
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

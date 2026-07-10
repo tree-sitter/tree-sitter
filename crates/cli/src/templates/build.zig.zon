@@ -1,0 +1,22 @@
+.{
+    .name = .tree_sitter_PARSER_NAME,
+    .fingerprint = PARSER_FINGERPRINT,
+    .minimum_zig_version = "0.16.0",
+    .version = "PARSER_VERSION",
+    .dependencies = .{
+        .tree_sitter = .{
+            .url = "git+https://github.com/tree-sitter/zig-tree-sitter#0cf58172e61f6fdd16f681cde42b4acb531a23db",
+            .hash = "tree_sitter-0.26.0-8heIf3CaAQDeVTQc0DMSBhbQAEx5aF-dTen4_LPxMgrv",
+            .lazy = true,
+        },
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "bindings/zig",
+        "src",
+        "queries",
+        "LICENSE",
+        "README.md",
+    },
+}

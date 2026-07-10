@@ -1,7 +1,7 @@
 const RESERVED_NAMES = ["if", "while", "var"];
 const RESERVED_PROPERTY_NAMES = ["var"];
 
-module.exports = grammar({
+export default grammar({
   name: "reserved_words",
 
   reserved: {

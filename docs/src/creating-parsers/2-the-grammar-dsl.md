@@ -12,18 +12,18 @@ it generates its own regex-matching logic based on the Rust regex syntax as part
 used as a convenient way of writing regular expressions in your grammar. You can use Rust regular expressions in your grammar
 DSL through the `RustRegex` class. Simply pass your regex pattern as a string:
 
-```js
-new RustRegex('(?i)[a-z_][a-z0-9_]*') // matches a simple identifier
-```
+  ```js
+  new RustRegex('(?i)[a-z_][a-z0-9_]*') // matches a simple identifier
+  ```
 
-Unlike JavaScript's builtin `RegExp` class, which takes a pattern and flags as separate arguments, `RustRegex` only
-accepts a single pattern string. While it doesn't support separate flags, you can use inline flags within the pattern itself.
-For more details about Rust's regex syntax and capabilities, check out the [Rust regex documentation][rust regex].
+  Unlike JavaScript's builtin `RegExp` class, which takes a pattern and flags as separate arguments, `RustRegex` only
+  accepts a single pattern string. While it doesn't support separate flags, you can use inline flags within the pattern
+  itself. For more details about Rust's regex syntax and capabilities, check out the [Rust regex documentation][rust regex].
 
-- **Regex Limitations** — Only a subset of the Regex engine is actually
-supported. This is due to certain features like lookahead and lookaround assertions
-not feasible to use in an LR(1) grammar, as well as certain flags being unnecessary
-for tree-sitter. However, plenty of features are supported by default:
+  ```admonish note 
+  Only a subset of the Regex engine is actually supported. This is due to certain features like lookahead and lookaround
+  assertions not being feasible to use in an LR(1) grammar, as well as certain flags being unnecessary for tree-sitter. However,
+  plenty of features are supported by default:
 
   - Character classes
   - Character ranges
@@ -33,6 +33,7 @@ for tree-sitter. However, plenty of features are supported by default:
   - Grouping
   - Unicode character escapes
   - Unicode property escapes
+  ```
 
 - **Sequences : `seq(rule1, rule2, ...)`** — This function creates a rule that matches any number of other rules, one after
 another. It is analogous to simply writing multiple symbols next to each other in [EBNF notation][ebnf].
@@ -49,10 +50,10 @@ The previous `repeat` rule is implemented in `repeat1` but is included because i
 - **Options : `optional(rule)`** — This function creates a rule that matches *zero or one* occurrence of a given rule.
 It is analogous to the `[x]` (square bracket) syntax in EBNF notation.
 
-- **Precedence : `prec(number, rule)`** — This function marks the given rule with a numerical precedence, which will be used
-to resolve [*LR(1) Conflicts*][lr-conflict] at parser-generation time. When two rules overlap in a way that represents either
-a true ambiguity or a *local* ambiguity given one token of lookahead, Tree-sitter will try to resolve the conflict by matching
-the rule with the higher precedence. The default precedence of all rules is zero. This works similarly to the
+- **Precedence : `prec(number, rule)`** — This function marks the given rule with a numerical precedence, which will be
+used to resolve [*LR(1) Conflicts*][lr-conflict] at parser-generation time. When two rules overlap in a way that represents
+either a true ambiguity or a *local* ambiguity given one token of lookahead, Tree-sitter will try to resolve the conflict
+by matching the rule with the higher precedence. The default precedence of all rules is zero. This works similarly to the
 [precedence directives][yacc-prec] in Yacc grammars.
 
   This function can also be used to assign lexical precedence to a given
@@ -106,7 +107,7 @@ grammar rules themselves. These fields are:
 
 - **`extras`** — an array of tokens that may appear *anywhere* in the language. This is often used for whitespace and
 comments. The default value of `extras` is to accept whitespace. To control whitespace explicitly, specify
-`extras: $ => []` in your grammar.
+`extras: $ => []` in your grammar. See the section on [using extras][extras] for more details.
 
 - **`inline`** — an array of rule names that should be automatically *removed* from the grammar by replacing all of their
 usages with a copy of their definition. This is useful for rules that are used in multiple places but for which you *don't*
@@ -114,8 +115,8 @@ want to create syntax tree nodes at runtime.
 
 - **`conflicts`** — an array of arrays of rule names. Each inner array represents a set of rules that's involved in an
 *LR(1) conflict* that is *intended to exist* in the grammar. When these conflicts occur at runtime, Tree-sitter will use
-the GLR algorithm to explore all the possible interpretations. If *multiple* parses end up succeeding, Tree-sitter will pick
-the subtree whose corresponding rule has the highest total *dynamic precedence*.
+the GLR algorithm to explore all the possible interpretations. If *multiple* parses end up succeeding, Tree-sitter will
+pick the subtree whose corresponding rule has the highest total *dynamic precedence*.
 
 - **`externals`** — an array of token names which can be returned by an
 [*external scanner*][external-scanners]. External scanners allow you to write custom C code which runs during the lexing
@@ -128,24 +129,31 @@ than globally. Can only be used with parse precedence, not lexical precedence.
 - **`word`** — the name of a token that will match keywords to the
 [keyword extraction][keyword-extraction] optimization.
 
-- **`supertypes`** — an array of hidden rule names which should be considered to be 'supertypes' in the generated
-[*node types* file][static-node-types].
+- **`supertypes`** — an array of rule names which should be considered to be 'supertypes' in the generated
+[*node types* file][static-node-types-supertypes]. Supertype rules are automatically hidden from the parse tree, regardless
+of whether their names start with an underscore. The main use case for supertypes is to group together multiple different
+kinds of nodes under a single abstract category, such as "expression" or "declaration". See the section on [`using supertypes`][supertypes]
+for more details.
 
 - **`reserved`** — similar in structure to the main `rules` property, an object of reserved word sets associated with an
-array of reserved rules. The reserved rule in the array must be a terminal token meaning it must be a string, regex, or token,
-or a terminal rule. The *first* reserved word set in the object is the global word set, meaning it applies to every rule
-in every parse state. However, certain keywords are contextual, depending on the rule. For example, in JavaScript, keywords
-are typically not allowed as ordinary variables, however, they *can* be used as a property name. In this situation, the `reserved`
-function would be used, and the word set to pass in would be the name of the word set that is declared in the `reserved`
-object that corresponds to an empty array, signifying *no* keywords are reserved.
+array of reserved rules. The reserved rule in the array must be a terminal token meaning it must be a string, regex, token,
+or terminal rule. The reserved rule must also exist and be used in the grammar, specifying arbitrary tokens will not work.
+The *first* reserved word set in the object is the global word set, meaning it applies to every rule in every parse state.
+However, certain keywords are contextual, depending on the rule. For example, in JavaScript, keywords are typically not
+allowed as ordinary variables, however, they *can* be used as a property name. In this situation, the `reserved` function
+would be used, and the word set to pass in would be the name of the word set that is declared in the `reserved` object that
+corresponds to an empty array, signifying *no* keywords are reserved.
 
 [bison-dprec]: https://www.gnu.org/software/bison/manual/html_node/Generalized-LR-Parsing.html
 [ebnf]: https://en.wikipedia.org/wiki/Extended_Backus%E2%80%93Naur_form
 [external-scanners]: ./4-external-scanners.md
+[extras]: ./3-writing-the-grammar.md#using-extras
 [keyword-extraction]: ./3-writing-the-grammar.md#keyword-extraction
 [lexical vs parse]: ./3-writing-the-grammar.md#lexical-precedence-vs-parse-precedence
 [lr-conflict]: https://en.wikipedia.org/wiki/LR_parser#Conflicts_in_the_constructed_tables
 [named-vs-anonymous-nodes]: ../using-parsers/2-basic-parsing.md#named-vs-anonymous-nodes
 [rust regex]: https://docs.rs/regex/1.1.8/regex/#grouping-and-flags
 [static-node-types]: ../using-parsers/6-static-node-types.md
+[static-node-types-supertypes]: ../using-parsers/6-static-node-types.md#supertype-nodes
+[supertypes]: ./3-writing-the-grammar.md#using-supertypes
 [yacc-prec]: https://docs.oracle.com/cd/E19504-01/802-5880/6i9k05dh3/index.html

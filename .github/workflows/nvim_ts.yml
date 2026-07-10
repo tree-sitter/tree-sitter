@@ -3,7 +3,11 @@ name: nvim-treesitter parser tests
 on:
   pull_request:
     paths:
-      - 'cli/**'
+      - 'lib/**'
+      - 'crates/cli/**'
+      - 'crates/config/**'
+      - 'crates/generate/**'
+      - 'crates/loader/**'
       - '.github/workflows/nvim_ts.yml'
   workflow_dispatch:
 
@@ -13,7 +17,7 @@ concurrency:
 
 jobs:
   check_compilation:
-    timeout-minutes: 20
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -22,45 +26,71 @@ jobs:
     name: ${{ matrix.os }} - ${{ matrix.type }}
     runs-on: ${{ matrix.os }}
     env:
-      NVIM: ${{ matrix.os == 'windows-latest' && 'nvim-win64\\bin\\nvim.exe' || 'nvim' }}
+      NVIM: ${{ matrix.os == 'windows-latest' && 'nvim.exe' || 'nvim' }}
+      NVIM_TAG: stable
+      NVIM_DIR: neovim
       NVIM_TS_DIR: nvim-treesitter
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.0
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - run: cargo build --profile optimize
 
-      - uses: actions/checkout@v4
+      - name: Clone Neovim
+        uses: actions/checkout@v7.0.0
+        with:
+          repository: neovim/neovim
+          ref: ${{ env.NVIM_TAG }}
+          path: ${{ env.NVIM_DIR }}
+
+      - if: runner.os != 'Windows'
+        name: Setup environment (Posix)
+        run: |
+          echo ${{ github.workspace }}/target/optimize >> "$GITHUB_PATH"
+          echo ${{ github.workspace }}/neovim/build/bin >> "$GITHUB_PATH"
+          echo "VIMRUNTIME=${{ github.workspace }}/neovim/runtime" >> "$GITHUB_ENV"
+
+      - if: runner.os == 'Windows'
+        name: Setup environment (why can't you just be normal?!)
+        run: |
+          ${{ env.NVIM_DIR }}/.github/scripts/env.ps1
+          echo ${{ github.workspace }}/target/optimize >> "$env:GITHUB_PATH"
+          echo ${{ github.workspace }}/neovim/build/bin >> "$env:GITHUB_PATH"
+          echo "VIMRUNTIME=${{ github.workspace }}/neovim/runtime" >> "$env:GITHUB_ENV"
+
+      - name: Build Neovim
+        working-directory: ${{ env.NVIM_DIR }}
+        run: |
+          cmake -S cmake.deps -B .deps -G Ninja -D CMAKE_BUILD_TYPE=Release -D TREESITTER_URL=https://github.com/tree-sitter/tree-sitter/archive/${{ github.event.pull_request.head.sha }}.tar.gz -D DEPS_IGNORE_SHA=TRUE
+          cmake --build .deps --config Release
+          cmake -B build -G Ninja -D CMAKE_BUILD_TYPE=Release
+          cmake --build build --config Release
+
+      - name: Clone nvim-treesitter
+        uses: actions/checkout@v7.0.0
         with:
           repository: nvim-treesitter/nvim-treesitter
           path: ${{ env.NVIM_TS_DIR }}
-          ref: main
-
-      - if: runner.os != 'Windows'
-        run: echo ${{ github.workspace }}/target/release >> $GITHUB_PATH
-
-      - if: runner.os == 'Windows'
-        run: echo ${{ github.workspace }}/target/release >> $env:GITHUB_PATH
-
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-      - run: cargo build --release
-      - uses: ilammy/msvc-dev-cmd@v1
-
-      - name: Install and prepare Neovim
-        run: bash ./scripts/ci-install.sh
-        working-directory: ${{ env.NVIM_TS_DIR }}
 
       - if: matrix.type == 'generate'
         name: Generate and compile parsers
-        run: $NVIM -l ./scripts/install-parsers.lua --generate --max-jobs=2
+        run: $NVIM -l ./scripts/install-parsers.lua --generate --max-jobs=3
         working-directory: ${{ env.NVIM_TS_DIR }}
         shell: bash
 
       - if: matrix.type == 'build'
         name: Compile parsers
-        run: $NVIM -l ./scripts/install-parsers.lua
+        run: $NVIM -l ./scripts/install-parsers.lua --max-jobs=10
         working-directory: ${{ env.NVIM_TS_DIR }}
         shell: bash
 
       - if: "!cancelled()"
-        name: Check query files
+        name: Test parsers
+        run: $NVIM -l ./scripts/check-parsers.lua
+        working-directory: ${{ env.NVIM_TS_DIR }}
+        shell: bash
+
+      - if: "!cancelled()"
+        name: Test queries
         run: $NVIM -l ./scripts/check-queries.lua
         working-directory: ${{ env.NVIM_TS_DIR }}
         shell: bash

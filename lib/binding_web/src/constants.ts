@@ -33,29 +33,6 @@ export interface Range {
   endIndex: number;
 }
 
-/**
- * A summary of a change to a text document.
- */
-export interface Edit {
-  /** The start position of the change. */
-  startPosition: Point;
-
-  /** The end position of the change before the edit. */
-  oldEndPosition: Point;
-
-  /** The end position of the change after the edit. */
-  newEndPosition: Point;
-
-  /** The start index of the change. */
-  startIndex: number;
-
-  /** The end index of the change before the edit. */
-  oldEndIndex: number;
-
-  /** The end index of the change after the edit. */
-  newEndIndex: number;
-}
-
 /** @internal */
 export const SIZE_OF_SHORT = 2;
 
@@ -83,8 +60,8 @@ export const ZERO_POINT: Point = { row: 0, column: 0 };
 export type ParseCallback = (index: number, position: Point) => string | undefined;
 
 /**
-  * A callback that receives the parse state during parsing.
-  */
+ * A callback that receives the parse state during parsing.
+ */
 export type ProgressCallback = (progress: ParseState) => boolean;
 
 /**
@@ -118,7 +95,7 @@ export function isPoint(point?: Point): point is Point {
 /**
  * @internal
  *
- * Sets the Tree-sitter WASM module. This should only be called by the {@link Parser} class via {@link Parser.init}.
+ * Sets the Tree-sitter Wasm module. This should only be called by the {@link Parser} class via {@link Parser.init}.
  */
 export function setModule(module: MainModule) {
   C = module;
@@ -127,7 +104,7 @@ export function setModule(module: MainModule) {
 /**
  * @internal
  *
- * `C` is a convenient shorthand for the Tree-sitter WASM module,
+ * `C` is a convenient shorthand for the Tree-sitter Wasm module,
  * which allows us to call all of the exported functions.
  */
 export let C: MainModule;

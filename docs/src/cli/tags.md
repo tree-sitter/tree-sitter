@@ -25,10 +25,19 @@ Suppress main output.
 
 The path to a file that contains paths to source files to tag.
 
+### `-p/--grammar-path <PATH>`
+
+The path to the directory containing the grammar.
+
 ### `--config-path <CONFIG_PATH>`
 
-The path to an alternative configuration (`config.json`) file. See [the init-config command](./init-config.md) for more information.
+The path to an alternative configuration (`config.json`) file. See [the init-config command](./init-config.md) for more
+information.
 
 ### `-n/--test-number <TEST_NUMBER>`
 
 Generate tags from the contents of a specific test.
+
+### `-r/--rebuild`
+
+Force a rebuild of the parser before running the tags.

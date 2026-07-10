@@ -2,7 +2,7 @@
 // after an external token is consumed. This tests that the logic for determining the repeat rule's
 // "parent" rule works in the presence of external tokens.
 
-module.exports = grammar({
+export default grammar({
     name: 'conflict_in_repeat_rule_after_external_token',
 
     externals: $ => [

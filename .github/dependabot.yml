@@ -4,6 +4,8 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    cooldown:
+      default-days: 3
     commit-message:
       prefix: "build(deps)"
     labels:
@@ -12,10 +14,16 @@ updates:
     groups:
       cargo:
         patterns: ["*"]
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
+    cooldown:
+      default-days: 3
     commit-message:
       prefix: "ci"
     labels:
@@ -23,4 +31,23 @@ updates:
       - "github-actions"
     groups:
       actions:
+        patterns: ["*"]
+
+  - package-ecosystem: "npm"
+    versioning-strategy: increase
+    directories:
+      - "/crates/npm"
+      - "/crates/eslint"
+      - "/lib/binding_web"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 3
+    commit-message:
+      prefix: "build(deps)"
+    labels:
+      - "dependencies"
+      - "npm"
+    groups:
+      npm:
         patterns: ["*"]

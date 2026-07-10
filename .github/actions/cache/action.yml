@@ -10,17 +10,20 @@ outputs:
 runs:
   using: composite
   steps:
-    - uses: actions/cache@v4
+    - uses: actions/cache@v5
       id: cache
       with:
         path: |
           test/fixtures/grammars
           target/release/tree-sitter-*.wasm
         key: fixtures-${{ join(matrix.*, '_') }}-${{ hashFiles(
-          'cli/generate/src/**',
+          'crates/generate/src/**',
           'lib/src/parser.h',
           'lib/src/array.h',
           'lib/src/alloc.h',
-          'xtask/src/*',
+          'lib/src/wasm/wasm-stdlib.h',
+          'crates/loader/wasi-sdk-version',
+          'crates/loader/binaryen-version',
           'test/fixtures/grammars/*/**/src/*.c',
+          'test/fixtures/fixtures.json',
           '.github/actions/cache/action.yml') }}

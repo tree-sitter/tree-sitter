@@ -4,7 +4,7 @@
 // characters. This grammar tests that this escaping works. The test is basically that the generated
 // parser compiles successfully.
 
-module.exports = grammar({
+export default grammar({
     name: "anonymous_tokens_with_escaped_chars",
     rules: {
         first_rule: $ => choice(

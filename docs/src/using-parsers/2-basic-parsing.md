@@ -2,7 +2,8 @@
 
 ## Providing the Code
 
-In the example on the previous page, we parsed source code stored in a simple string using the `ts_parser_parse_string` function:
+In the example on the previous page, we parsed source code stored in a simple string using the `ts_parser_parse_string`
+function:
 
 ```c
 TSTree *ts_parser_parse_string(
@@ -38,15 +39,15 @@ typedef struct {
     uint32_t *bytes_read
   );
   TSInputEncoding encoding;
-  DecodeFunction decode;
+  TSDecodeFunction decode;
 } TSInput;
 ```
 
 If you want to decode text that is not encoded in UTF-8 or UTF-16, you can set the `decode` field of the input to your function
-that will decode text. The signature of the `DecodeFunction` is as follows:
+that will decode text. The signature of the `TSDecodeFunction` is as follows:
 
 ```c
-typedef uint32_t (*DecodeFunction)(
+typedef uint32_t (*TSDecodeFunction)(
   const uint8_t *string,
   uint32_t length,
   int32_t *code_point
@@ -84,6 +85,10 @@ typedef struct {
 } TSPoint;
 TSPoint ts_node_start_point(TSNode);
 TSPoint ts_node_end_point(TSNode);
+```
+
+```admonish note
+A *newline* is considered to be a single line feed (`\n`) character.
 ```
 
 ## Retrieving Nodes
@@ -131,10 +136,10 @@ Consider a grammar rule like this:
 if_statement: $ => seq("if", "(", $._expression, ")", $._statement);
 ```
 
-A syntax node representing an `if_statement` in this language would have 5 children: the condition expression, the body statement,
-as well as the `if`, `(`, and `)` tokens. The expression and the statement would be marked as _named_ nodes, because they
-have been given explicit names in the grammar. But the `if`, `(`, and `)` nodes would _not_ be named nodes, because they
-are represented in the grammar as simple strings.
+A syntax node representing an `if_statement` in this language would have 5 children: the condition expression, the body
+statement, as well as the `if`, `(`, and `)` tokens. The expression and the statement would be marked as _named_ nodes,
+because they have been given explicit names in the grammar. But the `if`, `(`, and `)` nodes would _not_ be named nodes,
+because they are represented in the grammar as simple strings.
 
 You can check whether any given node is named:
 

@@ -13,7 +13,7 @@ This family of predicates allows you to match against a single capture or string
 value.
 
 The first argument to this predicate must be a capture, but the second can be either a capture to
-compare the two captures' text, or a string to compare first capture's text
+compare the two captures' text, or a string to compare the first capture's text
 against.
 
 The base predicate is `#eq?`, but its complement, `#not-eq?`, can be used to _not_
@@ -128,19 +128,19 @@ This pattern would match any builtin variable that is not a local variable, beca
 
 # Directives
 
-Similar to predicates, directives are a way to associate arbitrary metadata with a pattern. The only difference between predicates
-and directives is that directives end in a `!` character instead of `?` character.
+Similar to predicates, directives are a way to associate arbitrary metadata with a pattern. The only difference between
+predicates and directives is that directives end in a `!` character instead of `?` character.
 
 Tree-sitter's CLI supports the following directives by default:
 
 ## The `set!` directive
 
-This directive allows you to associate key-value pairs with a pattern. The key and value can be any arbitrary text that you
-see fit.
+This directive allows you to associate key-value pairs with a pattern. The key and value can be any arbitrary text that
+you see fit.
 
 ```query
 ((comment) @injection.content
-  (#lua-match? @injection.content "/[*\/][!*\/]<?[^a-zA-Z]")
+  (#match? @injection.content "/[*\/][!*\/]<?[^a-zA-Z]")
   (#set! injection.language "doxygen"))
 ```
 
@@ -156,15 +156,15 @@ another capture are preserved. It takes two arguments, both of which are capture
 ### The `#strip!` directive
 
 The `#strip!` directive allows you to remove text from a capture. It takes two arguments: the first is the capture to strip
-text from, and the second is a regular expression to match against the text. Any text matched by the regular expression will
-be removed from the text associated with the capture.
+text from, and the second is a regular expression to match against the text. Any text matched by the regular expression
+will be removed from the text associated with the capture.
 
 For an example on the `#select-adjacent!` and `#strip!` directives,
 view the [code navigation](../../4-code-navigation.md#examples) documentation.
 
 ## Recap
 
-To recap about the predicates and directives Tree-Sitter's bindings support:
+To recap about the predicates and directives Tree-sitter's bindings support:
 
 - `#eq?` checks for a direct match against a capture or string
 

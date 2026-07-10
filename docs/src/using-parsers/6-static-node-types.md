@@ -13,7 +13,7 @@ following entries:
 
 Every object in this array has these two entries:
 
-- `"type"` — A string that indicates, which grammar rule the node represents. This corresponds to the `ts_node_type` function
+- `"type"` — A string that indicates which grammar rule the node represents. This corresponds to the `ts_node_type` function
 described [here][syntax nodes].
 - `"named"` — A boolean that indicates whether this kind of node corresponds to a rule name in the grammar or just a string
 literal. See [here][named-vs-anonymous-nodes] for more info.
@@ -108,9 +108,13 @@ In Tree-sitter grammars, there are usually certain rules that represent abstract
 "type", "declaration"). In the `grammar.js` file, these are often written as [hidden rules][hidden rules]
 whose definition is a simple [`choice`][grammar dsl] where each member is just a single symbol.
 
-Normally, hidden rules are not mentioned in the node types file, since they don't appear in the syntax tree. But if you add
-a hidden rule to the grammar's [`supertypes` list][grammar dsl], then it _will_ show up in the node
-types file, with the following special entry:
+Each member of that `choice` must resolve to a single _visible_ node. A named rule always satisfies this, even when its
+own definition has several children. A [hidden rule][hidden rules] is inlined into its parent, so a hidden member whose
+definition can produce more than one node is not permitted in this position.
+
+Normally, hidden rules are not mentioned in the node types file, since they don't appear in the syntax tree. But if you
+add a hidden rule to the grammar's [`supertypes` list][grammar dsl], then it _will_ show up in the node types file, with
+the following special entry:
 
 - `"subtypes"` — An array of objects that specify the _types_ of nodes that this 'supertype' node can wrap.
 

@@ -1,7 +1,7 @@
 # Writing the Grammar
 
-Writing a grammar requires creativity. There are an infinite number of CFGs (context-free grammars) that can be used to describe
-any given language. To produce a good Tree-sitter parser, you need to create a grammar with two important properties:
+Writing a grammar requires creativity. There are an infinite number of CFGs (context-free grammars) that can be used to
+describe any given language. To produce a good Tree-sitter parser, you need to create a grammar with two important properties:
 
 1. **An intuitive structure** — Tree-sitter's output is a [concrete syntax tree][cst]; each node in the tree corresponds
 directly to a [terminal or non-terminal symbol][non-terminal] in the grammar. So to produce an easy-to-analyze tree, there
@@ -25,7 +25,7 @@ It's usually a good idea to find a formal specification for the language you're 
 most likely contain a context-free grammar. As you read through the rules of this CFG, you will probably discover a complex
 and cyclic graph of relationships. It might be unclear how you should navigate this graph as you define your grammar.
 
-Although languages have very different constructs, their constructs can often be categorized in to similar groups like
+Although languages have very different constructs, their constructs can often be categorized into similar groups like
 _Declarations_, _Definitions_, _Statements_, _Expressions_, _Types_ and _Patterns_. In writing your grammar, a good first
 step is to create just enough structure to include all of these basic _groups_ of symbols. For a language like Go,
 you might start with something like this:
@@ -74,11 +74,11 @@ you might start with something like this:
 
     return_statement: $ => seq(
       'return',
-      $._expression,
+      $.expression,
       ';'
     ),
 
-    _expression: $ => choice(
+    expression: $ => choice(
       $.identifier,
       $.number
       // TODO: other kinds of expressions
@@ -139,8 +139,8 @@ instead. It's often useful to check your progress by trying to parse some real c
 ## Structuring Rules Well
 
 Imagine that you were just starting work on the [Tree-sitter JavaScript parser][tree-sitter-javascript]. Naively, you might
-try to directly mirror the structure of the [ECMAScript Language Spec][ecmascript-spec]. To illustrate the problem with this
-approach, consider the following line of code:
+try to directly mirror the structure of the [ECMAScript Language Spec][ecmascript-spec]. To illustrate the problem with
+this approach, consider the following line of code:
 
 ```js
 return x + y;
@@ -181,16 +181,17 @@ which are unrelated to the actual code.
 
 ## Standard Rule Names
 
-Tree-sitter places no restrictions on how to name the rules of your grammar. It can be helpful, however, to follow certain conventions
-used by many other established grammars in the ecosystem. Some of these well-established patterns are listed below:
+Tree-sitter places no restrictions on how to name the rules of your grammar. It can be helpful, however, to follow certain
+conventions used by many other established grammars in the ecosystem. Some of these well-established patterns are listed
+below:
 
 - `source_file`: Represents an entire source file, this rule is commonly used as the root node for a grammar,
-- `expression`/`statement`: Used to represent statements and expressions for a given language. Commonly defined as a choice between several
-more specific sub-expression/sub-statement rules.
+- `expression`/`statement`: Used to represent statements and expressions for a given language. Commonly defined as a choice
+between several more specific sub-expression/sub-statement rules.
 - `block`: Used as the parent node for block scopes, with its children representing the block's contents.
 - `type`: Represents the types of a language such as `int`, `char`, and `void`.
-- `identifier`: Used for constructs like variable names, function arguments, and object fields; this rule is commonly used as the `word`
-token in grammars.
+- `identifier`: Used for constructs like variable names, function arguments, and object fields; this rule is commonly used
+as the `word` token in grammars.
 - `string`: Used to represent `"string literals"`.
 - `comment`: Used to represent comments, this rule is commonly used as an `extra`.
 
@@ -202,7 +203,7 @@ To produce a readable syntax tree, we'd like to model JavaScript expressions usi
 {
   // ...
 
-  _expression: $ => choice(
+  expression: $ => choice(
     $.identifier,
     $.unary_expression,
     $.binary_expression,
@@ -210,14 +211,14 @@ To produce a readable syntax tree, we'd like to model JavaScript expressions usi
   ),
 
   unary_expression: $ => choice(
-    seq('-', $._expression),
-    seq('!', $._expression),
+    seq('-', $.expression),
+    seq('!', $.expression),
     // ...
   ),
 
   binary_expression: $ => choice(
-    seq($._expression, '*', $._expression),
-    seq($._expression, '+', $._expression),
+    seq($.expression, '*', $.expression),
+    seq($.expression, '+', $.expression),
     // ...
   ),
 }
@@ -252,7 +253,7 @@ ambiguity.
 For an expression like `-a * b`, it's not clear whether the `-` operator applies to the `a * b` or just to the `a`. This
 is where the `prec` function [described in the previous page][grammar dsl] comes into play. By wrapping a rule with `prec`,
 we can indicate that certain sequence of symbols should _bind to each other more tightly_ than others. For example, the
-`'-', $._expression` sequence in `unary_expression` should bind more tightly than the `$._expression, '+', $._expression`
+`'-', $.expression` sequence in `unary_expression` should bind more tightly than the `$.expression, '+', $.expression`
 sequence in `binary_expression`:
 
 ```js
@@ -263,8 +264,8 @@ sequence in `binary_expression`:
     prec(
       2,
       choice(
-        seq("-", $._expression),
-        seq("!", $._expression),
+        seq("-", $.expression),
+        seq("!", $.expression),
         // ...
       ),
     );
@@ -299,8 +300,8 @@ This is where `prec.left` and `prec.right` come into use. We want to select the 
   // ...
 
   binary_expression: $ => choice(
-    prec.left(2, seq($._expression, '*', $._expression)),
-    prec.left(1, seq($._expression, '+', $._expression)),
+    prec.left(2, seq($.expression, '*', $.expression)),
+    prec.left(1, seq($.expression, '+', $.expression)),
     // ...
   ),
 }
@@ -308,12 +309,12 @@ This is where `prec.left` and `prec.right` come into use. We want to select the 
 
 ## Using Conflicts
 
-Sometimes, conflicts are actually desirable. In our JavaScript grammar, expressions and patterns can create intentional ambiguity.
-A construct like `[x, y]` could be legitimately parsed as both an array literal (like in `let a = [x, y]`) or as a destructuring
-pattern (like in `let [x, y] = arr`).
+Sometimes, conflicts are actually desirable. In our JavaScript grammar, expressions and patterns can create intentional
+ambiguity. A construct like `[x, y]` could be legitimately parsed as both an array literal (like in `let a = [x, y]`) or
+as a destructuring pattern (like in `let [x, y] = arr`).
 
 ```js
-module.exports = grammar({
+export default grammar({
   name: "javascript",
 
   rules: {
@@ -371,7 +372,7 @@ structured like that, but this conflict is actually present in the
 
 ## Hiding Rules
 
-You may have noticed in the above examples that some grammar rule name like `_expression` and `_type` began with an underscore.
+You may have noticed in the above examples that some grammar rule names like `_expression` and `_type` began with an underscore.
 Starting a rule's name with an underscore causes the rule to be _hidden_ in the syntax tree. This is useful for rules like
 `_expression` in the grammars above, which always just wrap a single child node. If these nodes were not hidden, they would
 add substantial depth and noise to the syntax tree without making it any easier to understand.
@@ -394,6 +395,137 @@ function_definition: $ =>
 ```
 
 Adding fields like this allows you to retrieve nodes using the [field APIs][field-names-section].
+
+## Using Extras
+
+Extras are tokens that can appear anywhere in the grammar, without being explicitly mentioned in a rule. This is useful
+for things like whitespace and comments, which can appear between any two tokens in most programming languages. To define
+an extra, you can use the `extras` function:
+
+```js
+module.exports = grammar({
+  name: "my_language",
+
+  extras: ($) => [
+    /\s/, // whitespace
+    $.comment,
+  ],
+
+  rules: {
+    comment: ($) =>
+      token(
+        choice(seq("//", /.*/), seq("/*", /[^*]*\*+([^/*][^*]*\*+)*/, "/")),
+      ),
+  },
+});
+```
+
+```admonish warning
+When adding more complicated tokens to `extras`, it's preferable to associate the pattern
+with a rule. This way, you avoid the lexer inlining this pattern in a bunch of spots,
+which can dramatically reduce the parser size.
+```
+
+For example, instead of defining the `comment` token inline in `extras`:
+
+```js
+// ❌ Less preferable
+
+const comment = token(
+  choice(seq("//", /.*/), seq("/*", /[^*]*\*+([^/*][^*]*\*+)*/, "/")),
+);
+
+module.exports = grammar({
+  name: "my_language",
+  extras: ($) => [
+    /\s/, // whitespace
+    comment,
+  ],
+  rules: {
+    // ...
+  },
+});
+```
+
+We can define it as a rule and then reference it in `extras`:
+
+```js
+// ✅ More preferable
+
+module.exports = grammar({
+  name: "my_language",
+
+  extras: ($) => [
+    /\s/, // whitespace
+    $.comment,
+  ],
+
+  rules: {
+    // ...
+
+    comment: ($) =>
+      token(
+        choice(seq("//", /.*/), seq("/*", /[^*]*\*+([^/*][^*]*\*+)*/, "/")),
+      ),
+  },
+});
+```
+
+```admonish note
+Tree-sitter intentionally simplifies the whitespace character class, `\s`, to `[ \t\n\r]` as a performance
+optimization. This is because typically users do not require the full Unicode definition of whitespace.
+```
+
+## Using Supertypes
+
+Some rules in your grammar will represent abstract categories of syntax nodes, such as "expression", "type", or "declaration".
+These rules are often defined as simple choices between several other rules. For example, in the JavaScript grammar, the
+`_expression` rule is defined as a choice between many different kinds of expressions:
+
+```js
+expression: $ => choice(
+  $.identifier,
+  $.unary_expression,
+  $.binary_expression,
+  $.call_expression,
+  $.member_expression,
+  // ...
+),
+```
+
+By default, Tree-sitter will generate a visible node type for each of these abstract category rules, which can lead to
+unnecessarily deep and complex syntax trees. To avoid this, you can add these abstract category rules to the grammar's `supertypes`
+definition. Tree-sitter will then treat these rules as _supertypes_, and will not generate visible node types for them in
+the syntax tree.
+
+```js
+module.exports = grammar({
+  name: "javascript",
+
+  supertypes: $ => [
+    $.expression,
+  ],
+
+  rules: {
+    expression: $ => choice(
+      $.identifier,
+      // ...
+    ),
+
+    // ...
+  },
+});
+```
+
+Although supertype rules are hidden from the syntax tree, they can still be used in queries. See the chapter on
+[Query Syntax][query syntax] for more information.
+
+```admonish warning
+Aliasing a supertype rule makes the node in the alias match the supertype in
+name only and will not be treated as a supertype. For `alias($.foo, $.bar)` a
+query targeting `bar` will not transparently match the supertype's subtypes the
+way a query targeting `foo` would.
+```
 
 # Lexical Analysis
 
@@ -439,8 +571,8 @@ as mentioned in the previous page, is `token(prec(N, ...))`.
 ## Keywords
 
 Many languages have a set of _keyword_ tokens (e.g. `if`, `for`, `return`), as well as a more general token (e.g. `identifier`)
-that matches any word, including many of the keyword strings. For example, JavaScript has a keyword `instanceof`, which is
-used as a binary operator, like this:
+that matches any word, including many of the keyword strings. For example, JavaScript has a keyword `instanceof`, which
+is used as a binary operator, like this:
 
 ```js
 if (a instanceof Something) b();
@@ -473,7 +605,7 @@ grammar({
   word: $ => $.identifier,
 
   rules: {
-    _expression: $ =>
+    expression: $ =>
       choice(
         $.identifier,
         $.unary_expression,
@@ -483,13 +615,13 @@ grammar({
 
     binary_expression: $ =>
       choice(
-        prec.left(1, seq($._expression, "instanceof", $._expression)),
+        prec.left(1, seq($.expression, "instanceof", $.expression)),
         // ...
       ),
 
     unary_expression: $ =>
       choice(
-        prec.left(2, seq("typeof", $._expression)),
+        prec.left(2, seq("typeof", $.expression)),
         // ...
       ),
 
@@ -526,5 +658,6 @@ rule that's called something else, you should just alias the word token instead,
 [field-names-section]: ../using-parsers/2-basic-parsing.md#node-field-names
 [non-terminal]: https://en.wikipedia.org/wiki/Terminal_and_nonterminal_symbols
 [peg]: https://en.wikipedia.org/wiki/Parsing_expression_grammar
+[query syntax]: ../using-parsers/queries/1-syntax.md#supertype-nodes
 [tree-sitter-javascript]: https://github.com/tree-sitter/tree-sitter-javascript
 [yacc]: https://en.wikipedia.org/wiki/Yacc

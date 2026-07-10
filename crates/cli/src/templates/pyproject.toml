@@ -1,0 +1,30 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires      = [ "setuptools>=62.4.0", "wheel" ]
+
+[project]
+authors = [ { email = "PARSER_AUTHOR_EMAIL", name = "PARSER_AUTHOR_NAME" } ]
+classifiers = [
+  "Intended Audience :: Developers",
+  "Topic :: Software Development :: Compilers",
+  "Topic :: Text Processing :: Linguistic",
+  "Typing :: Typed",
+]
+description = "PARSER_DESCRIPTION"
+keywords = [ "incremental", "parsing", "tree-sitter", "PARSER_NAME" ]
+license.text = "PARSER_LICENSE"
+name = "tree-sitter-PARSER_NAME"
+readme = "README.md"
+requires-python = ">=3.10"
+version = "PARSER_VERSION"
+
+[project.urls]
+Funding  = "FUNDING_URL"
+Homepage = "PARSER_URL"
+
+[project.optional-dependencies]
+core = [ "tree-sitter~=0.24" ]
+
+[tool.cibuildwheel]
+build          = "cp310-*"
+build-frontend = "build"

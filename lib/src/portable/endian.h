@@ -18,13 +18,16 @@
 #if defined(HAVE_ENDIAN_H) || \
     defined(__linux__) || \
     defined(__GNU__) || \
+    defined(__HAIKU__) || \
     defined(__illumos__) || \
+    defined(__redox__) || \
     defined(__NetBSD__) || \
     defined(__OpenBSD__) || \
     defined(__CYGWIN__) || \
     defined(__MSYS__) || \
     defined(__EMSCRIPTEN__) || \
-    defined(__wasi__)
+    defined(__wasi__) || \
+    defined(__wasm__)
 
 #if defined(__NetBSD__)
 #define _NETBSD_SOURCE 1
@@ -37,6 +40,25 @@
     defined(__DragonFly__)
 
 # include <sys/endian.h>
+
+#elif defined(__sun)
+
+#    include <sys/byteorder.h>
+
+#    define htobe16(x) BE_16(x)
+#    define htole16(x) LE_16(x)
+#    define be16toh(x) BE_16(x)
+#    define le16toh(x) LE_16(x)
+
+#    define htobe32(x) BE_32(x)
+#    define htole32(x) LE_32(x)
+#    define be32toh(x) BE_32(x)
+#    define le32toh(x) LE_32(x)
+
+#    define htobe64(x) BE_64(x)
+#    define htole64(x) LE_64(x)
+#    define be64toh(x) BE_64(x)
+#    define le64toh(x) LE_64(x)
 
 #elif defined(__APPLE__)
 #    define __BYTE_ORDER    BYTE_ORDER

@@ -17,13 +17,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout script
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.0
         with:
           sparse-checkout: .github/scripts/close_unresponsive.js
           sparse-checkout-cone-mode: false
 
       - name: Run script
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const script = require('./.github/scripts/close_unresponsive.js')
@@ -35,13 +35,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout script
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.0
         with:
           sparse-checkout: .github/scripts/remove_response_label.js
           sparse-checkout-cone-mode: false
 
       - name: Run script
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const script = require('./.github/scripts/remove_response_label.js')

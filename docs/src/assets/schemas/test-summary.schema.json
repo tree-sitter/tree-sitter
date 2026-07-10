@@ -1,0 +1,247 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TestSummary",
+  "description": "A stateful object used to collect results from running a grammar's test suite",
+  "type": "object",
+  "properties": {
+    "parse_results": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TestResult"
+      }
+    },
+    "parse_failures": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TestFailure"
+      }
+    },
+    "parse_stats": {
+      "$ref": "#/$defs/Stats"
+    },
+    "highlight_results": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TestResult"
+      }
+    },
+    "tag_results": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TestResult"
+      }
+    },
+    "query_results": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TestResult"
+      }
+    }
+  },
+  "required": [
+    "parse_results",
+    "parse_failures",
+    "parse_stats",
+    "highlight_results",
+    "tag_results",
+    "query_results"
+  ],
+  "$defs": {
+    "TestResult": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "children": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/TestResult"
+              }
+            }
+          },
+          "required": [
+            "children"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "outcome": {
+              "$ref": "#/$defs/TestOutcome"
+            },
+            "parse_rate": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "format": "double"
+            },
+            "test_num": {
+              "type": "integer",
+              "format": "uint",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "outcome",
+            "parse_rate",
+            "test_num"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "outcome": {
+              "$ref": "#/$defs/TestOutcome"
+            },
+            "test_num": {
+              "type": "integer",
+              "format": "uint",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "outcome",
+            "test_num"
+          ]
+        }
+      ]
+    },
+    "TestOutcome": {
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "Passed",
+            "Failed",
+            "Updated",
+            "Skipped",
+            "Platform"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "AssertionPassed": {
+              "type": "object",
+              "properties": {
+                "assertion_count": {
+                  "type": "integer",
+                  "format": "uint",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "assertion_count"
+              ]
+            }
+          },
+          "required": [
+            "AssertionPassed"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "AssertionFailed": {
+              "type": "object",
+              "properties": {
+                "error": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "error"
+              ]
+            }
+          },
+          "required": [
+            "AssertionFailed"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "TestFailure": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "actual": {
+          "type": "string"
+        },
+        "expected": {
+          "type": "string"
+        },
+        "is_cst": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "actual",
+        "expected",
+        "is_cst"
+      ]
+    },
+    "Stats": {
+      "type": "object",
+      "properties": {
+        "successful_parses": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        },
+        "total_parses": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        },
+        "total_bytes": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        },
+        "total_duration": {
+          "$ref": "#/$defs/Duration"
+        }
+      },
+      "required": [
+        "successful_parses",
+        "total_parses",
+        "total_bytes",
+        "total_duration"
+      ]
+    },
+    "Duration": {
+      "type": "object",
+      "properties": {
+        "secs": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "nanos": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "secs",
+        "nanos"
+      ]
+    }
+  }
+}

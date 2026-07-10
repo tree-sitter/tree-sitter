@@ -2,7 +2,7 @@
 // validity of an *internal* token. This is done by including the names of that internal token
 // (`line_break`) in the grammar's `externals` field.
 
-module.exports = grammar({
+export default grammar({
     name: 'external_and_internal_tokens',
 
     externals: $ => [

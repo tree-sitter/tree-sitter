@@ -110,6 +110,69 @@ This pattern would match a set of possible keyword tokens, capturing them as `@k
 ] @keyword
 ```
 
+Alternations can have quantified alternants, and then can have their own
+quantifiers as well. See the following examples for an illustration of how these
+cases work:
+
+```query
+;;; SOURCE CODE ;;;
+; #include <foo>
+; #include <bar>
+; #include <baz>
+; // comment
+;;;;;;;;;;;;;;;;;;;
+
+[
+  (preproc_include)
+  (comment)
+]+ @capture
+; ^ Produces one match with four captures:
+; [
+;   "#include <foo>\n",
+;   "#include <bar>\n",
+;   "#include <baz>\n",
+;   "// comment",
+; ]
+;
+; Regex equivalent: [ab]+
+
+[
+  (preproc_include)+
+  (comment)
+] @capture
+; ^ Produces two matches; one with three captures, and one with one capture:
+; [
+;   "#include <foo>\n",
+;   "#include <bar>\n",
+;   "#include <baz>\n",
+; ],
+; [
+;   "// comment",
+; ]
+;
+; Regex equivalent: a+|b
+
+[
+  (preproc_include)
+  (comment)
+] @capture
+; ^ Produces four matches, each with one capture:
+; [
+;   "#include <foo>\n",
+; ],
+; [
+;   "#include <bar>\n",
+; ],
+; [
+;   "#include <baz>\n",
+; ],
+; [
+;   "// comment",
+; ]
+;
+; Regex equivalent: [ab]
+```
+
 ## Anchors
 
 The anchor operator, `.`, is used to constrain the ways in which child patterns are matched. It has different behaviors
@@ -117,7 +180,7 @@ depending on where it's placed inside a query.
 
 When `.` is placed before the _first_ child within a parent pattern, the child will only match when it is the first named
 node in the parent. For example, the below pattern matches a given `array` node at most once, assigning the `@the-element`
-capture to the first `identifier` node in the parent `array`:
+capture to the first node in the parent `array`, only if it's an `identifier` node:
 
 ```query
 (array . (identifier) @the-element)
@@ -147,5 +210,38 @@ The pattern below, given a long dotted name like `a.b.c.d`, will only match pair
 Without the anchor, non-consecutive pairs like `a, c` and `b, d` would also be matched.
 
 The restrictions placed on a pattern by an anchor operator ignore anonymous nodes.
+
+### Anchors with Quantifiers and Groups
+
+When an anchor is next to a quantified node (`*`, `+`, `?`), its meaning depends on whether the
+anchor sits _between two patterns_ or _at the edge of a parent node_.
+
+An anchor _between two child patterns_ constrains the two matched nodes to be immediate siblings.
+If one of those patterns is a quantifier that matches zero nodes, there is no node on that side,
+so the anchor imposes no constraint. For example, given
+
+```query
+(translation_unit (comment)* @doc . (function_definition) @function)
+```
+
+a `function_definition` with no preceding `comment` still matches, with `@doc` capturing nothing.
+When comments are present, they must immediately precede the function.
+
+An anchor at the _start or end of a node pattern_ (a leading or trailing `.`) constrains the
+matched sequence to begin at the parent's first, or end at its last, named child. If the pattern
+element next to that edge is a quantifier that matches zero nodes, the constraint applies to the
+nearest node that the pattern _does_ match. For example, given
+
+```query
+(preproc_if (preproc_def)+ @def . (preproc_else)? @else .)
+```
+
+the trailing anchor requires the last matched node to be the parent's last named child: when a
+`preproc_else` is present it must be last. When it is absent, the last `preproc_def` must be last.
+
+An anchor may not appear at the first or last position inside a group `(...)` or an alternation
+`[...]`. A group or alternation is not a node, so it has no first or last child to anchor against,
+and there is no sibling on that side to anchor to. For example, write `(comment)* @doc . (function)`
+rather than `((comment)+ @doc .)? (function)`.
 
 [regex]: https://en.wikipedia.org/wiki/Regular_expression#Basic_concepts

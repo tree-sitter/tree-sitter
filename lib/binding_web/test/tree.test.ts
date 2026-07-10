@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
-import type { Point, Language, Tree, Edit, TreeCursor } from '../src';
-import { Parser } from '../src';
+import type { Point, Language, Tree, TreeCursor } from '../src';
+import { Parser, Edit } from '../src';
 import helper from './helper';
 
 let JavaScript: Language;
@@ -103,14 +103,14 @@ describe('Tree', () => {
       );
 
       sourceCode = 'abc + defg + hij';
-      tree.edit({
+      tree.edit(new Edit({
         startIndex: 2,
         oldEndIndex: 2,
         newEndIndex: 5,
         startPosition: { row: 0, column: 2 },
         oldEndPosition: { row: 0, column: 2 },
         newEndPosition: { row: 0, column: 5 },
-      });
+      }));
 
       const tree2 = parser.parse(sourceCode, tree)!;
       expect(tree2.rootNode.toString()).toBe(
@@ -402,14 +402,14 @@ function spliceInput(input: string, startIndex: number, lengthRemoved: number, n
   const newEndPosition = getExtent(input.slice(0, newEndIndex));
   return [
     input,
-    {
+    new Edit({
       startIndex,
       startPosition,
       oldEndIndex,
       oldEndPosition,
       newEndIndex,
       newEndPosition,
-    },
+    }),
   ];
 }
 

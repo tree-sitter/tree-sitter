@@ -1,4 +1,4 @@
-name: Check WASM Exports
+name: Check Wasm Exports
 
 on:
   pull_request:
@@ -11,14 +11,14 @@ on:
     paths:
       - lib/include/tree_sitter/api.h
       - lib/binding_rust/bindings.rs
-      - lib/CMakeLists.txt
+      - CMakeLists.txt
 
 jobs:
   check-wasm-exports:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.0
 
       - name: Set up stable Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -31,11 +31,11 @@ jobs:
       - name: Build C library (make)
         run: make -j CFLAGS="$CFLAGS"
         env:
-          CFLAGS: -g -Werror -Wall -Wextra -Wshadow -Wpedantic -Werror=incompatible-pointer-types
+          CFLAGS: -g -Werror -Wall -Wextra -Wshadow -Wpedantic -Werror=incompatible-pointer-types -Werror=strict-aliasing -Wstrict-aliasing=2
 
-      - name: Build WASM Library
+      - name: Build Wasm Library
         working-directory: lib/binding_web
         run: npm ci && npm run build:debug
 
-      - name: Check WASM exports
+      - name: Check Wasm exports
         run: cargo xtask check-wasm-exports

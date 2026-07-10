@@ -3,6 +3,7 @@ import { Node } from './node';
 import { marshalNode, unmarshalCaptures } from './marshal';
 import { TRANSFER_BUFFER } from './parser';
 import { Language } from './language';
+import { newFinalizer } from './finalization_registry';
 
 const PREDICATE_STEP_TYPE_CAPTURE = 1;
 
@@ -20,11 +21,31 @@ export interface QueryOptions {
   /** The end position of the range to query */
   endPosition?: Point;
 
+  /** The start position of the range to query  Only the matches that are fully
+   *  contained within provided range will be returned.
+   **/
+  startContainingPosition?: Point;
+
+  /** The end position of the range to query  Only the matches that are fully
+   *  contained within provided range will be returned.
+   **/
+  endContainingPosition?: Point;
+
   /** The start index of the range to query */
   startIndex?: number;
 
   /** The end index of the range to query */
   endIndex?: number;
+
+  /** The start index of the range to query  Only the matches that are fully
+   *  contained within provided range will be returned.
+   **/
+  startContainingIndex?: number;
+
+  /** The end index of the range to query  Only the matches that are fully
+   *  contained within provided range will be returned.
+   **/
+  endContainingIndex?: number;
 
   /**
    * The maximum number of in-progress matches for this query.
@@ -49,14 +70,6 @@ export interface QueryOptions {
    * Set to `null` to remove the maximum start depth.
    */
   maxStartDepth?: number;
-
-  /**
-   * The maximum duration in microseconds that query execution should be allowed to
-   * take before halting.
-   *
-   * If query execution takes longer than this, it will halt early, returning an empty array.
-   */
-  timeoutMicros?: number;
 
   /**
    * A function that will be called periodically during the execution of the query to check
@@ -116,9 +129,6 @@ export interface QueryCapture {
 
 /** A match of a {@link Query} to a particular set of {@link Node}s. */
 export interface QueryMatch {
-  /** @deprecated since version 0.25.0, use `patternIndex` instead. */
-  pattern: number;
-
   /** The index of the pattern that matched. */
   patternIndex: number;
 
@@ -497,9 +507,13 @@ function parsePattern(
   }
 }
 
+const finalizer = newFinalizer((address: number) => {
+  C._ts_query_delete(address);
+});
+
 export class Query {
   /** @internal */
-  private [0] = 0; // Internal handle for WASM
+  private [0] = 0; // Internal handle for Wasm
 
   /** @internal */
   private exceededMatchLimit: boolean;
@@ -678,10 +692,12 @@ export class Query {
     this.assertedProperties = assertedProperties;
     this.refutedProperties = refutedProperties;
     this.exceededMatchLimit = false;
+    finalizer?.register(this, address, this);
   }
 
   /** Delete the query, freeing its resources. */
   delete(): void {
+    finalizer?.unregister(this);
     C._ts_query_delete(this[0]);
     this[0] = 0;
   }
@@ -706,9 +722,12 @@ export class Query {
     const endPosition = options.endPosition ?? ZERO_POINT;
     const startIndex = options.startIndex ?? 0;
     const endIndex = options.endIndex ?? 0;
+    const startContainingPosition = options.startContainingPosition ?? ZERO_POINT;
+    const endContainingPosition = options.endContainingPosition ?? ZERO_POINT;
+    const startContainingIndex = options.startContainingIndex ?? 0;
+    const endContainingIndex = options.endContainingIndex ?? 0;
     const matchLimit = options.matchLimit ?? 0xFFFFFFFF;
     const maxStartDepth = options.maxStartDepth ?? 0xFFFFFFFF;
-    const timeoutMicros = options.timeoutMicros ?? 0;
     const progressCallback = options.progressCallback;
 
     if (typeof matchLimit !== 'number') {
@@ -727,6 +746,18 @@ export class Query {
       throw new Error('`startPosition` cannot be greater than `endPosition`');
     }
 
+    if (endContainingIndex !== 0 && startContainingIndex > endContainingIndex) {
+      throw new Error('`startContainingIndex` cannot be greater than `endContainingIndex`');
+    }
+
+    if (endContainingPosition !== ZERO_POINT && (
+      startContainingPosition.row > endContainingPosition.row ||
+      (startContainingPosition.row === endContainingPosition.row &&
+        startContainingPosition.column > endContainingPosition.column)
+    )) {
+      throw new Error('`startContainingPosition` cannot be greater than `endContainingPosition`');
+    }
+
     if (progressCallback) {
       C.currentQueryProgressCallback = progressCallback;
     }
@@ -742,9 +773,14 @@ export class Query {
       endPosition.column,
       startIndex,
       endIndex,
+      startContainingPosition.row,
+      startContainingPosition.column,
+      endContainingPosition.row,
+      endContainingPosition.column,
+      startContainingIndex,
+      endContainingIndex,
       matchLimit,
       maxStartDepth,
-      timeoutMicros,
     );
 
     const rawCount = C.getValue(TRANSFER_BUFFER, 'i32');
@@ -765,7 +801,7 @@ export class Query {
       address = unmarshalCaptures(this, node.tree, address, patternIndex, captures);
 
       if (this.textPredicates[patternIndex].every((p) => p(captures))) {
-        result[filteredCount] = { pattern: patternIndex, patternIndex, captures };
+        result[filteredCount] = { patternIndex, captures };
         const setProperties = this.setProperties[patternIndex];
         result[filteredCount].setProperties = setProperties;
         const assertedProperties = this.assertedProperties[patternIndex];
@@ -801,9 +837,12 @@ export class Query {
     const endPosition = options.endPosition ?? ZERO_POINT;
     const startIndex = options.startIndex ?? 0;
     const endIndex = options.endIndex ?? 0;
+    const startContainingPosition = options.startContainingPosition ?? ZERO_POINT;
+    const endContainingPosition = options.endContainingPosition ?? ZERO_POINT;
+    const startContainingIndex = options.startContainingIndex ?? 0;
+    const endContainingIndex = options.endContainingIndex ?? 0;
     const matchLimit = options.matchLimit ?? 0xFFFFFFFF;
     const maxStartDepth = options.maxStartDepth ?? 0xFFFFFFFF;
-    const timeoutMicros = options.timeoutMicros ?? 0;
     const progressCallback = options.progressCallback;
 
     if (typeof matchLimit !== 'number') {
@@ -822,6 +861,18 @@ export class Query {
       throw new Error('`startPosition` cannot be greater than `endPosition`');
     }
 
+    if (endContainingIndex !== 0 && startContainingIndex > endContainingIndex) {
+      throw new Error('`startContainingIndex` cannot be greater than `endContainingIndex`');
+    }
+
+    if (endContainingPosition !== ZERO_POINT && (
+      startContainingPosition.row > endContainingPosition.row ||
+      (startContainingPosition.row === endContainingPosition.row &&
+        startContainingPosition.column > endContainingPosition.column)
+    )) {
+      throw new Error('`startContainingPosition` cannot be greater than `endContainingPosition`');
+    }
+
     if (progressCallback) {
       C.currentQueryProgressCallback = progressCallback;
     }
@@ -837,9 +888,14 @@ export class Query {
       endPosition.column,
       startIndex,
       endIndex,
+      startContainingPosition.row,
+      startContainingPosition.column,
+      endContainingPosition.row,
+      endContainingPosition.column,
+      startContainingIndex,
+      endContainingIndex,
       matchLimit,
       maxStartDepth,
-      timeoutMicros,
     );
 
     const count = C.getValue(TRANSFER_BUFFER, 'i32');

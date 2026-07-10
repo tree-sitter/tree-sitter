@@ -17,13 +17,15 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     permissions:
+      id-token: write
+      attestations: write
       contents: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.0
 
       - name: Download build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: artifacts
 
@@ -43,14 +45,24 @@ jobs:
           for platform in $(cd artifacts; ls | sed 's/^tree-sitter\.//'); do
             exe=$(ls artifacts/tree-sitter.$platform/tree-sitter*)
             gzip --stdout --name $exe > target/tree-sitter-$platform.gz
+            zip -j9 target/tree-sitter-cli-$platform.zip $exe
           done
           rm -rf artifacts
           ls -l target/
 
+      - name: Generate attestations
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: |
+            target/tree-sitter-*.gz
+            target/tree-sitter-cli-*.zip
+            target/web-tree-sitter.tar.gz
+
       - name: Create release
         run: |-
-          gh release create ${{ github.ref_name }} \
+          gh release create $GITHUB_REF_NAME \
             target/tree-sitter-*.gz \
+            target/tree-sitter-cli-*.zip \
             target/web-tree-sitter.tar.gz
         env:
           GH_TOKEN: ${{ github.token }}
@@ -58,35 +70,47 @@ jobs:
   crates_io:
     name: Publish packages to Crates.io
     runs-on: ubuntu-latest
+    environment: crates
+    permissions:
+      id-token: write
+      contents: read
     needs: release
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.0
 
       - name: Set up Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
 
+      - name: Set up registry token
+        id: auth
+        uses: rust-lang/crates-io-auth-action@v1
+
       - name: Publish crates to Crates.io
         uses: katyo/publish-crates@v2
         with:
-          registry-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          registry-token: ${{ steps.auth.outputs.token }}
 
   npm:
     name: Publish packages to npmjs.com
     runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      id-token: write
+      contents: read
     needs: release
     strategy:
       fail-fast: false
       matrix:
-        directory: [cli/npm, lib/binding_web]
+        directory: [crates/cli/npm, lib/binding_web]
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.0
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6.4.0
         with:
-          node-version: 20
+          node-version: 24
           registry-url: https://registry.npmjs.org
 
       - name: Set up Rust
@@ -101,9 +125,8 @@ jobs:
           npm run build:debug
           CJS=true npm run build
           CJS=true npm run build:debug
+          npm run build:dts
 
       - name: Publish to npmjs.com
         working-directory: ${{ matrix.directory }}
         run: npm publish
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
