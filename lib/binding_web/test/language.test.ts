@@ -4,6 +4,7 @@ import { LookaheadIterator, Language } from '../src';
 import { Parser } from '../src';
 import { C } from '../src/constants';
 import { readFile } from 'fs/promises';
+import { pathToFileURL } from 'url';
 
 let JavaScript: Language;
 let Rust: Language;
@@ -53,6 +54,24 @@ describe('Language', () => {
   });
 
   describe('.load', () => {
+    it('loads a language from a file URL', async () => {
+      const wasmURL = pathToFileURL(languageURL('javascript'));
+      expect(wasmURL).toBeInstanceOf(URL);
+
+      const lang = await Language.load(wasmURL);
+      expect(lang.name).toBe('javascript');
+
+      // Verify the language actually works by parsing a snippet
+      const parser = new Parser();
+      parser.setLanguage(lang);
+      const tree = parser.parse('const x = 1;');
+      expect(tree).not.toBeNull();
+      expect(tree!.rootNode.type).toBe('program');
+      expect(tree!.rootNode.childCount).toBe(1);
+      expect(tree!.rootNode.firstChild!.type).toBe('lexical_declaration');
+      parser.delete();
+    });
+
     it('reports when an async-loaded module has no language function', async () => {
       const loadWebAssemblyModule = C.loadWebAssemblyModule;
       const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);

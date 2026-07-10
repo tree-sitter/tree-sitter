@@ -227,9 +227,10 @@ export class Language {
 
   /**
    * Load a language from a WebAssembly module.
-   * The module can be provided as a path to a file or as a buffer.
+   * The module can be provided as a path to a file, a `URL` to a file, or as a
+   * buffer.
    */
-  static async load(input: string | Uint8Array): Promise<Language> {
+  static async load(input: string | URL | Uint8Array): Promise<Language> {
     let binary: Uint8Array | WebAssembly.Module;
     if (input instanceof Uint8Array) {
       binary = input;
