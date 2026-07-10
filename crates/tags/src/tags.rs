@@ -516,13 +516,10 @@ where
                         // reuse results from the previous tag.
                         let mut prev_utf16_column = 0;
                         let mut prev_utf8_byte = name_range.start - span.start.column;
-                        let line_info = self.prev_line_info.as_ref().and_then(|info| {
-                            if info.utf8_position.row == span.start.row {
-                                Some(info)
-                            } else {
-                                None
-                            }
-                        });
+                        let line_info = self
+                            .prev_line_info
+                            .as_ref()
+                            .filter(|&info| info.utf8_position.row == span.start.row);
                         let line_range = if let Some(line_info) = line_info {
                             if line_info.utf8_position.column <= span.start.column {
                                 prev_utf8_byte = line_info.utf8_byte;

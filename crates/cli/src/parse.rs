@@ -380,8 +380,10 @@ pub fn parse_file_at_path(
     let tree = match encoding {
         Some(encoding) if encoding == ffi::TSInputEncodingUTF16LE => {
             let source_code_utf16 = source_code
-                .chunks_exact(2)
-                .map(|chunk| u16::from_le_bytes([chunk[0], chunk[1]]))
+                .as_chunks::<2>()
+                .0
+                .iter()
+                .map(|&chunk| u16::from_le_bytes(chunk))
                 .collect::<Vec<_>>();
             parser.parse_utf16_le_with_options(
                 &mut |i, _| {
@@ -397,8 +399,10 @@ pub fn parse_file_at_path(
         }
         Some(encoding) if encoding == ffi::TSInputEncodingUTF16BE => {
             let source_code_utf16 = source_code
-                .chunks_exact(2)
-                .map(|chunk| u16::from_be_bytes([chunk[0], chunk[1]]))
+                .as_chunks::<2>()
+                .0
+                .iter()
+                .map(|&chunk| u16::from_be_bytes(chunk))
                 .collect::<Vec<_>>();
             parser.parse_utf16_be_with_options(
                 &mut |i, _| {
