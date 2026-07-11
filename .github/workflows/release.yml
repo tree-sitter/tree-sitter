@@ -44,6 +44,7 @@ jobs:
 
           for platform in $(cd artifacts; ls | sed 's/^tree-sitter\.//'); do
             exe=$(ls artifacts/tree-sitter.$platform/tree-sitter*)
+            chmod +x $exe
             gzip --stdout --name $exe > target/tree-sitter-$platform.gz
             zip -j9 target/tree-sitter-cli-$platform.zip $exe
           done
