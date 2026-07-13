@@ -77,8 +77,8 @@ pub enum Error {
     Regex(#[from] regex::Error),
     #[error("Cancelled")]
     Cancelled,
-    #[error("Invalid language")]
-    InvalidLanguage,
+    #[error("Invalid language: {0}")]
+    InvalidLanguage(#[from] tree_sitter::LanguageError),
     #[error(
         "Invalid capture @{0}. Expected one of: @definition.*, @reference.*, @doc, @name, @local.(scope|definition|reference)."
     )]
@@ -286,9 +286,7 @@ impl TagsContext {
         source: &'a [u8],
         cancellation_flag: Option<&'a AtomicUsize>,
     ) -> Result<(impl Iterator<Item = Result<Tag, Error>> + 'a, bool), Error> {
-        self.parser
-            .set_language(&config.language)
-            .map_err(|_| Error::InvalidLanguage)?;
+        self.parser.set_language(&config.language)?;
         self.parser.reset();
         let tree = self
             .parser
