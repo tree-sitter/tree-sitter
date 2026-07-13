@@ -496,7 +496,7 @@ fn test_highlighting_cancellation() {
     let found_cancellation_error = events.any(|event| match event {
         Ok(_) => false,
         Err(Error::Cancelled) => true,
-        Err(Error::InvalidLanguage | Error::Unknown) => {
+        Err(Error::InvalidLanguage(_) | Error::Unknown) => {
             unreachable!("Unexpected error type while iterating events")
         }
     });
