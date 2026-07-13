@@ -211,6 +211,7 @@ Subtree ts_subtree_new_error_node(
 Subtree ts_subtree_new_missing_leaf(
   SubtreePool *pool,
   TSSymbol symbol,
+  TSStateId state,
   Length padding,
   uint32_t lookahead_bytes,
   const TSLanguage *language
