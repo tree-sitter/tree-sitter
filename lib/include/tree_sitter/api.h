@@ -591,6 +591,11 @@ bool ts_node_is_error(TSNode self);
 
 /**
  * Get this node's parse state.
+ *
+ * For a missing node, this is the state from the recovery path that was
+ * selected by the parser. It can be used with [`ts_lookahead_iterator_new`] to
+ * inspect the symbols that are valid in that state. This does not necessarily
+ * include every symbol that could be recovered by inserting a missing node.
 */
 TSStateId ts_node_parse_state(TSNode self);
 
@@ -1328,7 +1333,8 @@ const char *ts_language_name(const TSLanguage *self);
  * Lookahead iterators can be useful to generate suggestions and improve syntax
  * error diagnostics. To get symbols valid in an ERROR node, use the lookahead
  * iterator on its first leaf node state. For `MISSING` nodes, a lookahead
- * iterator created on the previous non-extra leaf node may be appropriate.
+ * iterator created on the previous non-extra leaf node, or using the node's
+ * parse state may be appropriate.
 */
 TSLookaheadIterator *ts_lookahead_iterator_new(const TSLanguage *self, TSStateId state);
 

@@ -669,9 +669,11 @@ impl Language {
     ///
     /// Lookahead iterators can be useful to generate suggestions and improve
     /// syntax error diagnostics. To get symbols valid in an `ERROR` node, use the
-    /// lookahead iterator on its first leaf node state. For `MISSING` nodes, a
-    /// lookahead iterator created on the previous non-extra leaf node may be
-    /// appropriate.
+    /// lookahead iterator on its first leaf node state. For a missing node, use
+    /// the node's [`parse_state`](Node::parse_state). Keep in mind that lookahead
+    /// symbols are valid in that parse state, but are not necessarily valid
+    /// continuations in the context of the actual following token or guaranteed
+    /// to be considered during error recovery.
     #[doc(alias = "ts_lookahead_iterator_new")]
     #[must_use]
     pub fn lookahead_iterator(&self, state: u16) -> Option<LookaheadIterator> {
@@ -1667,7 +1669,14 @@ impl<'tree> Node<'tree> {
         unsafe { ffi::ts_node_is_error(self.0) }
     }
 
-    /// Get this node's parse state.
+    /// Get the parse state immediately before this node.
+    ///
+    /// For a missing node, this is the state from the recovery path that was
+    /// selected by the parser. It can be used with
+    /// [`Language::lookahead_iterator`] to inspect the symbols that are valid in
+    /// that state. This does not necessarily include every symbol that could be
+    /// recovered by inserting a missing node, because the recovery process can
+    /// consider multiple stack versions.
     #[doc(alias = "ts_node_parse_state")]
     #[must_use]
     pub fn parse_state(&self) -> u16 {
