@@ -123,7 +123,7 @@ pub unsafe extern "C" fn ts_tagger_add_language(
             Err(Error::Query(_)) => TSTagsError::InvalidQuery,
             Err(Error::Regex(_)) => TSTagsError::InvalidRegex,
             Err(Error::Cancelled) => TSTagsError::Timeout,
-            Err(Error::InvalidLanguage) => TSTagsError::InvalidLanguage,
+            Err(Error::InvalidLanguage(_)) => TSTagsError::InvalidLanguage,
             Err(Error::InvalidCapture(_)) => TSTagsError::InvalidCapture,
         }
     }
@@ -171,7 +171,7 @@ pub unsafe extern "C" fn ts_tagger_tag(
                 }
                 Err(e) => {
                     return match e {
-                        Error::InvalidLanguage => TSTagsError::InvalidLanguage,
+                        Error::InvalidLanguage(_) => TSTagsError::InvalidLanguage,
                         _ => TSTagsError::Timeout,
                     };
                 }
