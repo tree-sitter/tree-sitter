@@ -95,8 +95,8 @@ pub struct Highlight(pub usize);
 pub enum Error {
     #[error("Cancelled")]
     Cancelled,
-    #[error("Invalid language")]
-    InvalidLanguage,
+    #[error("Invalid language: {0}")]
+    InvalidLanguage(#[from] tree_sitter::LanguageError),
     #[error("Unknown error")]
     Unknown,
 }
@@ -541,10 +541,7 @@ impl<'a> HighlightIterLayer<'a> {
         let mut queue = Vec::new();
         loop {
             if highlighter.parser.set_included_ranges(&ranges).is_ok() {
-                highlighter
-                    .parser
-                    .set_language(&config.language)
-                    .map_err(|_| Error::InvalidLanguage)?;
+                highlighter.parser.set_language(&config.language)?;
 
                 let progress_callack = &mut |_: &ParseState| {
                     if let Some(cancellation_flag) = cancellation_flag {

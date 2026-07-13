@@ -416,7 +416,7 @@ impl TSHighlighter {
             });
             match result {
                 Err(Error::Cancelled | Error::Unknown) => ErrorCode::Timeout,
-                Err(Error::InvalidLanguage) => ErrorCode::InvalidLanguage,
+                Err(Error::InvalidLanguage(_)) => ErrorCode::InvalidLanguage,
                 Ok(()) => ErrorCode::Ok,
             }
         } else {
