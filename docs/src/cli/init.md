@@ -19,7 +19,7 @@ the `init` command will prompt the user for the required fields. See [below](./i
 the full documentation of the structure of this file.
 - `package.json` - The `npm` manifest for the parser. This file is required for some `tree-sitter` subcommands, and if the
 grammar has dependencies (e.g., another published base grammar that this grammar extends).
-- `grammar.js` - An empty template for the main grammar file; see [the section on creating parsers](../2-creating-parser).
+- `grammar.js` - An empty template for the main grammar file; see [the section on creating parsers](../creating-parsers).
 
 ### Language bindings
 
