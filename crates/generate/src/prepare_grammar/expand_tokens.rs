@@ -1,5 +1,5 @@
 use regex_syntax::{
-    hir::{Class, Hir, HirKind},
+    hir::{Class, ClassUnicode, ClassUnicodeRange, Hir, HirKind},
     ParserBuilder,
 };
 use serde::Serialize;
@@ -15,6 +15,7 @@ use crate::{
 struct NfaBuilder {
     nfa: Nfa,
     is_sep: bool,
+    case_insensitive: bool,
     precedence_stack: Vec<i32>,
 }
 
@@ -79,6 +80,7 @@ pub fn expand_tokens(mut grammar: ExtractedLexicalGrammar) -> ExpandTokensResult
     let mut builder = NfaBuilder {
         nfa: Nfa::new(),
         is_sep: true,
+        case_insensitive: false,
         precedence_stack: vec![0],
     };
 
@@ -159,6 +161,38 @@ pub enum ExpandRegexError {
     Assertion,
 }
 
+/// Case-fold `base` for the `i` flag, keeping folding ASCII-safe.
+///
+/// `regex_syntax`'s own case folding is Unicode simple folding, which maps two
+/// non-ASCII code points onto ASCII letters:
+///     - the long s `ſ` (U+017F) onto `s`
+///     - the Kelvin sign `K` (U+212A) onto `k`
+///
+/// This leaks non-ASCII code points into otherwise-ASCII tokens, which is virtually
+/// never intended and also stops such tokens from being extracted as keywords. So
+/// we parse patterns unfolded and fold here instead: fold via `regex_syntax`, then
+/// drop those two code points *only when folding introduced them*. A set that already
+/// contained `ſ`/`K` (an explicit literal, or a broad class like `[^"]` or `\p{L}`)
+/// keeps them.
+fn case_fold_ascii_safe(base: &CharacterSet) -> CharacterSet {
+    let mut class = ClassUnicode::new(
+        base.ranges()
+            .map(|r| ClassUnicodeRange::new(*r.start(), *r.end())),
+    );
+    class.case_fold_simple();
+
+    let mut folded = CharacterSet::empty();
+    for r in class.ranges() {
+        folded = folded.add_range(r.start(), r.end());
+    }
+    for exotic in ['\u{017f}', '\u{212a}'] {
+        if folded.contains(exotic) && !base.contains(exotic) {
+            folded = folded.difference(CharacterSet::from_char(exotic));
+        }
+    }
+    folded
+}
+
 impl NfaBuilder {
     fn expand_rule(&mut self, rule: &Rule, mut next_state_id: u32) -> ExpandRuleResult<bool> {
         match rule {
@@ -175,14 +209,18 @@ impl NfaBuilder {
                     .replace(r"\W", r"[^0-9A-Za-z_]")
                     .replace(r"\S", r"[^\t-\r ]")
                     .replace(r"\D", r"[^0-9]");
+                // Parse WITHOUT case folding and fold ourselves (see
+                // `case_fold_ascii_safe`). Letting `regex_syntax` fold would pull the
+                // long s `ſ` and Kelvin sign `K` into ASCII `s`/`k`.
                 let mut parser = ParserBuilder::new()
-                    .case_insensitive(f.contains('i'))
+                    .case_insensitive(false)
                     .unicode(true)
                     .utf8(false)
                     .build();
                 let hir = parser
                     .parse(&s)
                     .map_err(|e| ExpandRuleError::Parse(e.to_string()))?;
+                self.case_insensitive = f.contains('i');
                 self.expand_regex(&hir, next_state_id)
                     .map_err(ExpandRuleError::ExpandRegex)
             }
@@ -262,6 +300,11 @@ impl NfaBuilder {
                     .rev()
                 {
                     let char_set = CharacterSet::from_char(character);
+                    let char_set = if self.case_insensitive {
+                        case_fold_ascii_safe(&char_set)
+                    } else {
+                        char_set
+                    };
                     self.push_advance(char_set, next_state_id);
                     next_state_id = self.nfa.last_state_id();
                 }
@@ -274,27 +317,21 @@ impl NfaBuilder {
                     for c in class.ranges() {
                         chars = chars.add_range(c.start(), c.end());
                     }
-
-                    // Unicode simple case folding (used when a regex contains the case-insensitive
-                    // 'i' flag) maps exactly two non-ASCII code points onto ASCII letters:
-                    //      - the long s `ſ` (U+017F) folds with `s`
-                    //      - the Kelvin sign `K` (U+212A) folds with `k`
-                    //
-                    // Because of this folding, a case-insensitive pattern that mentions
-                    // `s` or `k` silently pulls in these code points. That is virtually
-                    // never intended, and it prevents such tokens from being extracted
-                    // as keywords (because they are no longer a subset of an ASCII-only
-                    // `word` token). In this case, drop the unicode code point.
-                    for (folded, lower, upper) in [('ſ', 's', 'S'), ('\u{212a}', 'k', 'K')] {
-                        if chars.contains(folded) && chars.contains(lower) && chars.contains(upper)
-                        {
-                            chars = chars.difference(CharacterSet::from_char(folded));
-                        }
+                    if self.case_insensitive {
+                        chars = case_fold_ascii_safe(&chars);
                     }
                     self.push_advance(chars, next_state_id);
                     Ok(true)
                 }
                 Class::Bytes(bytes_class) => {
+                    // Byte classes only come from non-Unicode `(?-u:...)` groups, which
+                    // JS regex syntax can't express, so this is currently unreachable
+                    // from grammar patterns. Byte folding is ASCII-only (bytes are <= 0xFF)
+                    // so it can never introduce `ſ`/`K` and needs no special handling.
+                    let mut bytes_class = bytes_class.clone();
+                    if self.case_insensitive {
+                        bytes_class.case_fold_simple();
+                    }
                     let mut chars = CharacterSet::default();
                     for c in bytes_class.ranges() {
                         chars = chars.add_range(c.start().into(), c.end().into());
@@ -746,12 +783,36 @@ mod tests {
                     ("sk\u{212a}", Some((0, "sk"))), // folded code point ends the token
                 ],
             },
-            // An intentionally-written `ſ`/`K` is preserved: the stripping above
-            // only fires when the ASCII pair it folds with is also present.
+            // A broad class carrying `/i` (a negated class, `\p{L}`, ...) keeps
+            // `ſ`/`K`: folding never *introduces* them here (the class already
+            // contains them), so there is nothing to drop.
+            Row {
+                rules: vec![Rule::pattern("[^\"]", "i")],
+                separators: vec![],
+                examples: vec![
+                    ("\u{017f}", Some((0, "\u{017f}"))), // long s kept under /i
+                    ("\u{212a}", Some((0, "\u{212a}"))), // Kelvin sign kept under /i
+                    ("s", Some((0, "s"))),
+                ],
+            },
+            // An intentionally-written `ſ`/`K` is preserved: with no `i` flag
+            // nothing is folded at all.
             Row {
                 rules: vec![Rule::pattern("[\u{017f}\u{212a}]+", "")],
                 separators: vec![],
                 examples: vec![("\u{017f}\u{212a}.", Some((0, "\u{017f}\u{212a}")))],
+            },
+            // Without the `i` flag nothing is folded, so a broad class such as
+            // `[^"]` must keep `ſ`/`K` instead of stripping them as fold artifacts.
+            Row {
+                rules: vec![Rule::pattern("[^\"]", "")],
+                separators: vec![],
+                examples: vec![
+                    ("a", Some((0, "a"))),
+                    ("\u{017f}", Some((0, "\u{017f}"))), // long s
+                    ("\u{212a}", Some((0, "\u{212a}"))), // Kelvin sign
+                    ("\"", None),                        // the one excluded character
+                ],
             },
             // Emojis
             Row {
