@@ -1422,24 +1422,18 @@ fn generate_file(
         replacement = replacement
             .replace(
                 PARSER_URL_STRIPPED_PLACEHOLDER,
-                &repository.replace("https://", "").to_lowercase(),
+                &repository.replace("https://", ""),
             )
-            .replace(PARSER_URL_PLACEHOLDER, &repository.to_lowercase());
+            .replace(PARSER_URL_PLACEHOLDER, repository);
     } else {
         replacement = replacement
             .replace(
                 PARSER_URL_STRIPPED_PLACEHOLDER,
-                &format!(
-                    "github.com/tree-sitter/tree-sitter-{}",
-                    language_name.to_lowercase()
-                ),
+                &format!("github.com/tree-sitter/tree-sitter-{language_name}"),
             )
             .replace(
                 PARSER_URL_PLACEHOLDER,
-                &format!(
-                    "https://github.com/tree-sitter/tree-sitter-{}",
-                    language_name.to_lowercase()
-                ),
+                &format!("https://github.com/tree-sitter/tree-sitter-{language_name}"),
             );
     }
 
