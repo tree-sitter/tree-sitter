@@ -1215,6 +1215,7 @@ fn update_python_setup_py(path: &Path, language_name: &str, opts: &GenerateOpts)
     if !contents.contains("build_ext") {
         info!("Replacing setup.py");
         generate_file(path, SETUP_PY_TEMPLATE, language_name, opts)?;
+        return Ok(());
     }
     if !contents.contains(" and not get_config_var") {
         info!("Updating Python free-threading support in setup.py");
