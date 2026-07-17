@@ -239,6 +239,21 @@ nearest node that the pattern _does_ match. For example, given
 the trailing anchor requires the last matched node to be the parent's last named child: when a
 `preproc_else` is present it must be last. When it is absent, the last `preproc_def` must be last.
 
+Similarly, if an optionally quantified node is anchored between two siblings and matches zero nodes,
+both sibling anchors collapse into one, constraining the outer nodes together. For example, given
+
+```query
+(translation_unit
+  (declaration) @a
+  .
+  (comment)*
+  .
+  (function_definition) @b)
+```
+
+If there are no comments, `(declaration)` and `(function_definition)` must be immediate siblings
+in order for the query to match.
+
 An anchor may not appear at the first or last position inside a group `(...)` or an alternation
 `[...]`. A group or alternation is not a node, so it has no first or last child to anchor against,
 and there is no sibling on that side to anchor to. For example, write `(comment)* @doc . (function)`
