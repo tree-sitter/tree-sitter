@@ -1297,6 +1297,46 @@ fn test_query_matches_with_last_child_anchor_after_optional() {
 }
 
 #[test]
+fn test_query_matches_with_anchors_on_both_sides_of_zero_quantifier() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+        let query = Query::new(
+            &language,
+            "(program (lexical_declaration) @a . (comment)* . (function_declaration) @b)",
+        )
+        .unwrap();
+
+        // Anchors on both sides of a zero-matched quantifier collapse into a single
+        // adjacency constraint: with no comments, the declaration must be immediately
+        // followed by the function.
+        assert_query_matches(
+            &language,
+            &query,
+            "
+const a = 1;
+const b = 2;
+function foo() {}
+",
+            &[(0, vec![("a", "const b = 2;"), ("b", "function foo() {}")])],
+        );
+
+        // With a comment present the quantifier is non-zero, so the anchors apply
+        // normally: the comment must sit immediately between the declaration and the
+        // function.
+        assert_query_matches(
+            &language,
+            &query,
+            "
+const b = 2;
+// c
+function foo() {}
+",
+            &[(0, vec![("a", "const b = 2;"), ("b", "function foo() {}")])],
+        );
+    });
+}
+
+#[test]
 fn test_query_matches_with_last_named_child() {
     allocations::record(|| {
         let language = get_language("c");
