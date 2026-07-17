@@ -4445,8 +4445,12 @@ static inline bool ts_query_cursor__advance(
                   copy->seeking_immediate_match = true;
                 }
                 // Taking a `?`/`*` zero-skip means the quantified subpattern matched
-                // nothing, so an immediately-following anchor is vacuous for this copy.
-                if (child_step->alternative_is_skip) {
+                // nothing, so an immediately-following anchor is vacuous for this copy,
+                // UNLESS the skipped step carried a leading anchor of its own. In that
+                // case the adjacency transfers through the empty run to the step we skip
+                // to, so `A . Q* . B` with zero `Q` still requires `A` and `B` to be
+                // immediate siblings.
+                if (child_step->alternative_is_skip && !child_step->is_immediate) {
                   copy->skipped_quantifier = true;
                 }
               }
