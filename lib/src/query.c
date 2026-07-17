@@ -4445,13 +4445,26 @@ static inline bool ts_query_cursor__advance(
                   copy->seeking_immediate_match = true;
                 }
                 // Taking a `?`/`*` zero-skip means the quantified subpattern matched
-                // nothing, so an immediately-following anchor is vacuous for this copy,
-                // UNLESS the skipped step carried a leading anchor of its own. In that
-                // case the adjacency transfers through the empty run to the step we skip
-                // to, so `A . Q* . B` with zero `Q` still requires `A` and `B` to be
-                // immediate siblings.
-                if (child_step->alternative_is_skip && !child_step->is_immediate) {
-                  copy->skipped_quantifier = true;
+                // nothing. How an adjacent anchor behaves then depends on where it sat:
+                if (child_step->alternative_is_skip) {
+                  if (!child_step->is_immediate) {
+                    // No leading anchor on the skipped step, so an immediately-following
+                    // anchor on the skip target is vacuous (`Q* . B` with zero `Q` lets
+                    // `B` match anywhere).
+                    copy->skipped_quantifier = true;
+                  } else if (
+                    array_get(&self->query->steps, child_state->step_index - 1)->depth <
+                    child_step->depth
+                  ) {
+                    // The skipped step was the parent's first child pattern and carried a
+                    // leading *boundary* anchor (`(P . Q* Y)`). Transfer the first-child
+                    // requirement to the skip target so it survives the empty run: `Y`
+                    // must still be the parent's first named child.
+                    copy->seeking_immediate_match = true;
+                  }
+                  // Otherwise the skipped step carried a leading *between* anchor
+                  // (`A . Q* ...`): with zero `Q` that adjacency vanishes, while the skip
+                  // target's own anchor, if any, still applies (`A . Q* . B` stays adjacent).
                 }
               }
             }

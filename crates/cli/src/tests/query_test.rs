@@ -1337,6 +1337,52 @@ function foo() {}
 }
 
 #[test]
+fn test_query_matches_with_leading_anchor_before_zero_quantifier() {
+    allocations::record(|| {
+        let language = get_language("c");
+        let query = Query::new(
+            &language,
+            "(translation_unit . (comment)* (function_definition) @f)",
+        )
+        .unwrap();
+
+        // The leading `.` anchors the comment run to the parent's first child. When the
+        // run matches zero comments, that first-child requirement transfers to the
+        // function, so it matches only when it is itself the first child.
+        assert_query_matches(
+            &language,
+            &query,
+            "
+int main() {}
+",
+            &[(0, vec![("f", "int main() {}")])],
+        );
+
+        // The function is the second child, so with no leading comments it must not match.
+        assert_query_matches(
+            &language,
+            &query,
+            "
+int a;
+int main() {}
+",
+            &[],
+        );
+
+        // With a leading comment the run starts at the first child and the function follows.
+        assert_query_matches(
+            &language,
+            &query,
+            "
+// c
+int main() {}
+",
+            &[(0, vec![("f", "int main() {}")])],
+        );
+    });
+}
+
+#[test]
 fn test_query_matches_with_last_named_child() {
     allocations::record(|| {
         let language = get_language("c");
