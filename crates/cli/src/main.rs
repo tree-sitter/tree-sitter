@@ -6,7 +6,7 @@ use std::{
 
 use anstyle::{AnsiColor, Color, Style};
 use anyhow::{Context, Result, anyhow};
-use clap::{Args, Command, FromArgMatches as _, Subcommand, ValueEnum, crate_authors};
+use clap::{ArgGroup, Args, Command, FromArgMatches as _, Subcommand, ValueEnum, crate_authors};
 use clap_complete::generate;
 use dialoguer::{Confirm, FuzzySelect, Input, MultiSelect, theme::ColorfulTheme};
 use heck::ToUpperCamelCase;
@@ -195,6 +195,7 @@ struct Build {
 
 #[derive(Args)]
 #[command(alias = "p")]
+#[command(group(ArgGroup::new("graph_output").multiple(true)))]
 struct Parse {
     /// The path to a file with paths to source file(s)
     #[arg(long = "paths")]
@@ -226,13 +227,13 @@ struct Parse {
     #[arg(long, short = '0')]
     pub debug_build: bool,
     /// Produce the log.html file with debug graphs
-    #[arg(long, short = 'D')]
+    #[arg(long, short = 'D', group = "graph_output")]
     pub debug_graph: bool,
     /// Compile parsers to Wasm instead of native dynamic libraries
     #[arg(long, hide = cfg!(not(feature = "wasm")))]
     pub wasm: bool,
     /// Output the parse data with graphviz dot
-    #[arg(long = "dot")]
+    #[arg(long = "dot", group = "graph_output")]
     pub output_dot: bool,
     /// Output the parse data in XML format
     #[arg(long = "xml", short = 'x')]
@@ -266,8 +267,8 @@ struct Parse {
     /// The encoding of the input files
     #[arg(long)]
     pub encoding: Option<Encoding>,
-    /// Open `log.html` in the default browser, if `--debug-graph` is supplied
-    #[arg(long)]
+    /// Open `log.html` in the default browser, if `--debug-graph` or `--dot` is supplied
+    #[arg(long, requires = "graph_output")]
     pub open_log: bool,
     /// Deprecated: use --json-summary
     #[arg(long, conflicts_with = "json_summary", conflicts_with = "stat")]
@@ -335,7 +336,7 @@ struct Test {
     #[arg(long, hide = cfg!(not(feature = "wasm")))]
     pub wasm: bool,
     /// Open `log.html` in the default browser, if `--debug-graph` is supplied
-    #[arg(long)]
+    #[arg(long, requires = "debug_graph")]
     pub open_log: bool,
     /// The path to an alternative config.json file
     #[arg(long)]
@@ -508,13 +509,13 @@ struct Highlight {
     #[arg(long, short = 'H')]
     pub html: bool,
     /// When generating HTML, use css classes rather than inline styles
-    #[arg(long)]
+    #[arg(long, requires = "html")]
     pub css_classes: bool,
     /// Check that highlighting captures conform strictly to standards
     #[arg(long)]
     pub check: bool,
     /// The path to a file with captures
-    #[arg(long)]
+    #[arg(long, requires = "check")]
     pub captures_path: Option<PathBuf>,
     /// The paths to files with queries
     #[arg(long, num_args = 1..)]
