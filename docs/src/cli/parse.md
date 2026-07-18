@@ -88,7 +88,7 @@ in `UTF-16BE` or `UTF-16LE`. If no `BOM` is present, `UTF-8` is the default. One
 
 ### `--open-log`
 
-When using the `--debug-graph` option, open the log file in the default browser.
+When using the `--debug-graph` or `--dot` options, open the log file in the default browser.
 
 ### `-j/--json-summary`
 
