@@ -12,6 +12,7 @@ use std::{
 use ansi_colours::{ansi256_from_rgb, rgb_from_ansi256};
 use anstyle::{Ansi256Color, AnsiColor, Color, Effects, RgbColor};
 use anyhow::Result;
+use clap::ValueEnum;
 use log::{info, warn};
 use serde::{Deserialize, Deserializer, Serialize, Serializer, ser::SerializeMap};
 use serde_json::{Value, json};
@@ -26,8 +27,9 @@ pub const HTML_HEAD_HEADER: &str = "
   <style>
     body {
       font-family: monospace
-    }
-    .line-number {
+    }";
+
+pub const HTML_LINE_NUMBER_STYLE: &str = "    .line-number {
       user-select: none;
       text-align: right;
       color: rgba(27,31,35,.3);
@@ -35,8 +37,7 @@ pub const HTML_HEAD_HEADER: &str = "
     }
     .line {
       white-space: pre;
-    }
-  </style>";
+    }";
 
 pub const HTML_BODY_HEADER: &str = "
 </head>
@@ -308,12 +309,36 @@ fn terminal_supports_truecolor() -> bool {
         .is_ok_and(|truecolor| truecolor == "truecolor" || truecolor == "24bit")
 }
 
+/// The kind of HTML emitted when highlighting to HTML.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum HtmlOutput {
+    /// A complete, self-contained document wrapping a plain
+    /// `<div class="highlight"><pre><code>` block.
+    Document,
+    /// A complete document with a line-number column (a `<table>` layout).
+    #[value(name = "line-numbers")]
+    NumberedDocument,
+    /// Only the code markup, without the surrounding document.
+    Fragment,
+}
+
+/// How token colors are applied in HTML output.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum HtmlStyling {
+    /// `class="..."` spans plus a generated `<style>` carrying the theme's colors.
+    Classes,
+    /// `style="..."` spans with the colors inlined.
+    Inline,
+    /// `class="..."` spans with no colors emitted (supply your own stylesheet).
+    Minimal,
+}
+
 pub struct HighlightOptions {
     pub theme: Theme,
     pub check: bool,
     pub captures_path: Option<PathBuf>,
-    pub inline_styles: bool,
-    pub html: bool,
+    /// `None` for regular output, `Some((layout, style))` when emitting HTML.
+    pub html: Option<(HtmlOutput, HtmlStyling)>,
     pub quiet: bool,
     pub print_time: bool,
     pub cancellation_flag: Arc<AtomicUsize>,
@@ -395,19 +420,25 @@ pub fn highlight(
     )?;
     let theme = &opts.theme;
 
-    if !opts.quiet && print_name {
+    // A fragment is pure code markup, so it must not be prefixed with the filename.
+    let html_fragment = opts
+        .html
+        .is_some_and(|(layout, _)| layout == HtmlOutput::Fragment);
+    if !opts.quiet && print_name && !html_fragment {
         writeln!(&mut stdout, "{name}")?;
     }
 
-    if opts.html {
-        if !opts.quiet {
+    if let Some((layout, style)) = opts.html {
+        if !opts.quiet && layout != HtmlOutput::Fragment {
             writeln!(&mut stdout, "{HTML_HEAD_HEADER}")?;
-            writeln!(&mut stdout, "  <style>")?;
-            let names = theme.highlight_names.iter();
-            let styles = theme.styles.iter();
-            for (name, style) in names.zip(styles) {
-                if let Some(css) = &style.css {
-                    writeln!(&mut stdout, "    .{name} {{ {css}; }}")?;
+            if layout == HtmlOutput::NumberedDocument {
+                writeln!(&mut stdout, "{HTML_LINE_NUMBER_STYLE}")?;
+            }
+            if style == HtmlStyling::Classes {
+                for (name, style) in theme.highlight_names.iter().zip(&theme.styles) {
+                    if let Some(css) = &style.css {
+                        writeln!(&mut stdout, "    .{name} {{ {css}; }}")?;
+                    }
                 }
             }
             writeln!(&mut stdout, "  </style>")?;
@@ -416,7 +447,7 @@ pub fn highlight(
 
         let mut renderer = HtmlRenderer::new();
         renderer.render(events, &source, &move |highlight, output| {
-            if opts.inline_styles {
+            if style == HtmlStyling::Inline {
                 output.extend(b"style='");
                 output.extend(
                     theme.styles[highlight.0]
@@ -438,16 +469,29 @@ pub fn highlight(
         })?;
 
         if !opts.quiet {
-            writeln!(&mut stdout, "<table>")?;
-            for (i, line) in renderer.lines().enumerate() {
+            if layout == HtmlOutput::NumberedDocument {
+                writeln!(&mut stdout, "<table>")?;
+                for (i, line) in renderer.lines().enumerate() {
+                    writeln!(
+                        &mut stdout,
+                        "<tr><td class=line-number>{}</td><td class=line>{line}</td></tr>",
+                        i + 1,
+                    )?;
+                }
+                writeln!(&mut stdout, "</table>")?;
+            } else {
+                let mut body = renderer.lines().collect::<String>();
+                if body.ends_with('\n') {
+                    body.pop();
+                }
                 writeln!(
                     &mut stdout,
-                    "<tr><td class=line-number>{}</td><td class=line>{line}</td></tr>",
-                    i + 1,
+                    "<div class=\"highlight\">\n<pre><code>{body}</code></pre>\n</div>",
                 )?;
             }
-            writeln!(&mut stdout, "</table>")?;
-            writeln!(&mut stdout, "{HTML_FOOTER}")?;
+            if layout != HtmlOutput::Fragment {
+                writeln!(&mut stdout, "{HTML_FOOTER}")?;
+            }
         }
     } else {
         let mut style_stack = vec![theme.default_style().ansi];
