@@ -1772,6 +1772,13 @@ static bool ts_parser__advance(
       }
     }
 
+    // If the current lookahead token is not valid and the parser is
+    // already in the error state, restart the error recovery process.
+    if (state == ERROR_STATE) {
+      ts_parser__recover(self, version, lookahead);
+      return true;
+    }
+
     // If the current lookahead token is not valid and the previous subtree on
     // the stack was reused from an old tree, then it wasn't actually valid to
     // reuse that previous subtree. Remove it from the stack, and in its place,
