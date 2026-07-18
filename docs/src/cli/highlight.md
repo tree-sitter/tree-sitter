@@ -14,9 +14,23 @@ tree-sitter highlight [OPTIONS] [PATHS]... # Aliases: hi
 
 Output an HTML document with syntax highlighting.
 
-### `--css-classes`
+### `--layout <LAYOUT>`
 
-Output HTML with CSS classes instead of inline styles.
+When generating HTML, the document structure to emit. One of:
+
+- `document` (default): a complete, self-contained HTML document wrapping a plain `<div class="highlight"><pre><code>`
+  block.
+- `line-numbers`: a complete document with a line-number column (a `<table>` layout).
+- `fragment`: only the code markup, without the surrounding `<head>`/`<style>`/`<body>` document, so it can be embedded
+  in an existing page.
+
+### `--style <STYLE>`
+
+When generating HTML, how token colors are applied. One of:
+
+- `classes` (default): `class="..."` spans plus a generated `<style>` block carrying the theme's colors.
+- `inline`: `style="..."` spans with the colors inlined, so the markup is self-contained.
+- `minimal`: `class="..."` spans with no colors emitted (supply your own stylesheet).
 
 ### `--check`
 
