@@ -1056,8 +1056,13 @@ pub fn generate_grammar_files(
                             "https://github.com/ChimeHQ/SwiftTreeSitter",
                             "https://github.com/tree-sitter/swift-tree-sitter",
                         )
-                        .replace("version: \"0.8.0\")", "version: \"0.9.0\")")
-                        .replace("(url:", "(name: \"SwiftTreeSitter\", url:");
+                        .replace("version: \"0.8.0\")", "version: \"0.10.0\")")
+                        .replace("version: \"0.9.0\")", "version: \"0.10.0\")")
+                        .replace("(name: \"SwiftTreeSitter\", url:", "(url:")
+                        .replace(
+                            "    \"SwiftTreeSitter\"",
+                            "    .product(name: \"SwiftTreeSitter\", package: \"swift-tree-sitter\")",
+                        );
                     if !replaced_contents.eq(&contents) {
                         info!("Updating tree-sitter dependency in Package.swift");
                         write_file(path, replaced_contents)?;
