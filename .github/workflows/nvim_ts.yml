@@ -21,7 +21,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, windows-latest, xcode-27]
         type: [generate, build]
     name: ${{ matrix.os }} - ${{ matrix.type }}
     runs-on: ${{ matrix.os }}
