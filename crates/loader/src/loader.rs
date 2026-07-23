@@ -24,7 +24,7 @@ use etcetera::BaseStrategy as _;
 use fs4::fs_std::FileExt;
 use libloading::{Library, Symbol};
 use log::{error, info, warn};
-use once_cell::unsync::OnceCell;
+use once_cell::sync::OnceCell;
 use regex::{Regex, RegexBuilder};
 use semver::Version;
 use serde::{Deserialize, Deserializer, Serialize};
@@ -632,8 +632,6 @@ impl<'a> CompileConfig<'a> {
         }
     }
 }
-
-unsafe impl Sync for Loader {}
 
 impl Loader {
     pub fn new() -> LoaderResult<Self> {
