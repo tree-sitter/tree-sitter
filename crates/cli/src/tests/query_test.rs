@@ -5046,6 +5046,71 @@ fn test_query_is_pattern_guaranteed_at_step() {
                 ("(heredoc_end)", true),
             ],
         },
+        Row {
+            description: "error child steps are never guaranteed",
+            language: get_language("java"),
+            pattern: r"
+            (superclass (ERROR))
+            ",
+            results_by_substring: &[("(ERROR)", false)],
+        },
+        Row {
+            description: "bare missing steps are never guaranteed",
+            language: get_language("java"),
+            pattern: r"
+            (class_declaration (MISSING))
+            ",
+            results_by_substring: &[("(MISSING)", false)],
+        },
+        Row {
+            description: "typed missing steps are never guaranteed",
+            language: get_language("java"),
+            pattern: r"
+            (class_declaration (MISSING identifier))
+            ",
+            results_by_substring: &[("(MISSING identifier)", false)],
+        },
+        Row {
+            description: "children of an error parent are never guaranteed",
+            language: get_language("java"),
+            pattern: r"
+            (ERROR (identifier))
+            ",
+            results_by_substring: &[("(identifier)", false)],
+        },
+        Row {
+            description: "steps after an error step are never guaranteed",
+            language: get_language("java"),
+            pattern: r#"
+            (labeled_statement (ERROR) ":")
+            "#,
+            results_by_substring: &[("(ERROR)", false), ("\":\"", false)],
+        },
+        Row {
+            description: "steps after a missing step are never guaranteed",
+            language: get_language("java"),
+            pattern: r"
+            (class_declaration (MISSING identifier) (class_body))
+            ",
+            results_by_substring: &[("(class_body)", false)],
+        },
+        Row {
+            description: "an error pattern does not affect a following pattern",
+            language: get_language("java"),
+            pattern: r"
+            (class_declaration [(ERROR)+ (superclass)])
+            (class_declaration (class_body) @b)
+            ",
+            results_by_substring: &[("(class_body) @b", true)],
+        },
+        Row {
+            description: "steps reachable through a quantifier skip path stay guaranteed",
+            language: get_language("java"),
+            pattern: r#"
+            (class_body "{" (MISSING)? "}")
+            "#,
+            results_by_substring: &[(r#""}""#, true)],
+        },
         // TODO: figure out why line comments, an extra, are no longer allowed *anywhere*
         // likely culprits are the fact that it's no longer a token itself or that it uses an
         // external token
@@ -6350,6 +6415,165 @@ fn test_query_allows_error_nodes_with_children() {
         let matches = cursor.matches(&query, root, code.as_bytes());
         let matches = collect_matches(matches, &query, code);
         assert_eq!(matches, &[(0, vec![("error", ".bar")])]);
+    });
+}
+
+#[test]
+fn test_query_captures_no_phantom_for_unmatched_error_and_missing_steps() {
+    allocations::record(|| {
+        let language = get_language("java");
+
+        // Queries with ERROR/MISSING steps that never match must produce no
+        // captures: https://github.com/tree-sitter/tree-sitter/issues/5079
+        let cases: &[(&str, &str)] = &[
+            ("class A extends B {\n}\n", "(superclass (ERROR)) @a"),
+            ("class A extends B {\n}\n", "(superclass (MISSING)) @a"),
+            (
+                "class A extends B {\n}\n",
+                "(class_declaration [(identifier) (superclass)] (ERROR)) @c",
+            ),
+            (
+                "class A extends B {\n}\n",
+                "(class_declaration [(identifier) (superclass)] (MISSING)) @c",
+            ),
+            (
+                "class A extends B {\n}\n",
+                "(class_declaration (MISSING identifier)) @a",
+            ),
+            ("class A extends {\n}\n", "(ERROR (identifier)) @e"),
+            (
+                "class A { void m() { foo: %% ; } }\n",
+                "(labeled_statement (ERROR) @e \":\")",
+            ),
+            (
+                "class A { void m() { x y z ~ } }\n",
+                "(block (ERROR (type_identifier) @x (block)))",
+            ),
+        ];
+
+        let mut parser = Parser::new();
+        parser.set_language(&language).unwrap();
+        let mut parsed = None;
+        for &(source, pattern) in cases {
+            if parsed.as_ref().is_none_or(|(s, _)| *s != source) {
+                parsed = Some((source, parser.parse(source, None).unwrap()));
+            }
+            let (_, tree) = parsed.as_ref().unwrap();
+
+            let query = Query::new(&language, pattern).unwrap();
+
+            let mut cursor = QueryCursor::new();
+            let captures = cursor.captures(&query, tree.root_node(), source.as_bytes());
+            assert_eq!(
+                collect_captures(captures, &query, source),
+                Vec::<(&str, &str)>::new(),
+                "captures for pattern: {pattern}"
+            );
+
+            assert_query_matches(&language, &query, source, &[]);
+        }
+    });
+}
+
+#[test]
+fn test_query_matches_error_pattern_on_later_sibling() {
+    allocations::record(|| {
+        let language = get_language("java");
+
+        // A pattern whose ERROR-bearing candidate is not the first sibling
+        // must still match; both cases found no match before the fix.
+        let cases: &[(&str, &str, (&str, &str))] = &[
+            (
+                "class A { }\nclass B ~~ { }\n",
+                "(program (class_declaration (ERROR))) @whole",
+                ("whole", "class A { }\nclass B ~~ { }\n"),
+            ),
+            (
+                "class A { void m() { one: ; two: %% ; } }\n",
+                "(block (labeled_statement (ERROR))) @whole",
+                ("whole", "{ one: ; two: %% ; }"),
+            ),
+        ];
+
+        for (source, pattern, expected) in cases {
+            let query = Query::new(&language, pattern).unwrap();
+            assert_query_matches(&language, &query, source, &[(0, vec![*expected])]);
+        }
+    });
+}
+
+#[test]
+fn test_query_captures_real_error_nodes_are_still_captured() {
+    allocations::record(|| {
+        let language = get_language("java");
+
+        // Invalid source: error recovery wraps `extends` in an ERROR node
+        // that is a child of the class declaration.
+        let code = "class A extends {\n}\n";
+
+        let mut parser = Parser::new();
+        parser.set_language(&language).unwrap();
+        let tree = parser.parse(code, None).unwrap();
+        assert!(tree.root_node().has_error());
+
+        for (pattern, expected) in [
+            ("(ERROR) @e", ("e", "extends")),
+            ("(class_declaration (ERROR) @e)", ("e", "extends")),
+            (
+                "(class_declaration (ERROR)) @c",
+                ("c", "class A extends {\n}"),
+            ),
+        ] {
+            let query = Query::new(&language, pattern).unwrap();
+
+            let mut cursor = QueryCursor::new();
+            let captures = cursor.captures(&query, tree.root_node(), code.as_bytes());
+            assert_eq!(
+                collect_captures(captures, &query, code),
+                vec![expected],
+                "captures for pattern: {pattern}"
+            );
+
+            assert_query_matches(&language, &query, code, &[(0, vec![expected])]);
+        }
+    });
+}
+
+#[test]
+fn test_query_captures_real_missing_nodes_are_still_captured() {
+    allocations::record(|| {
+        let language = get_language("java");
+
+        // Invalid source: error recovery inserts a zero-width MISSING ";"
+        // inside the field declaration.
+        let code = "class A {\n  int x = 1\n}\n";
+
+        let mut parser = Parser::new();
+        parser.set_language(&language).unwrap();
+        let tree = parser.parse(code, None).unwrap();
+        assert!(tree.root_node().has_error());
+
+        for (pattern, expected) in [
+            ("(MISSING) @m", ("m", "")),
+            ("(MISSING \";\") @m", ("m", "")),
+            ("(field_declaration (MISSING)) @f", ("f", "int x = 1")),
+            (
+                "(field_declaration (MISSING \";\")?) @f",
+                ("f", "int x = 1"),
+            ),
+        ] {
+            let query = Query::new(&language, pattern).unwrap();
+
+            let mut cursor = QueryCursor::new();
+            let captures = cursor.captures(&query, tree.root_node(), code.as_bytes());
+            assert_eq!(
+                collect_captures(captures, &query, code),
+                vec![expected],
+                "captures for pattern: {pattern}"
+            );
+
+            assert_query_matches(&language, &query, code, &[(0, vec![expected])]);
+        }
     });
 }
 
