@@ -19,7 +19,7 @@ use tree_sitter_cli::{
         DEFAULT_EDIT_COUNT, DEFAULT_ITERATION_COUNT, EDIT_COUNT, FuzzOptions, ITERATION_COUNT,
         LOG_ENABLED, LOG_GRAPH_ENABLED, START_SEED, fuzz_language_corpus,
     },
-    highlight::{self, HighlightOptions},
+    highlight::{self, HighlightOptions, HtmlOutput, HtmlStyling},
     init::{JsonConfigOpts, TREE_SITTER_JSON_SCHEMA, generate_grammar_files},
     input::{CliInput, get_input, get_tmp_source_file},
     logger, paint,
@@ -508,9 +508,15 @@ struct Highlight {
     /// Generate highlighting as an HTML document
     #[arg(long, short = 'H')]
     pub html: bool,
-    /// When generating HTML, use css classes rather than inline styles
-    #[arg(long, requires = "html")]
+    /// Deprecated: use `--style classes`
+    #[arg(long, requires = "html", conflicts_with = "style")]
     pub css_classes: bool,
+    /// When generating HTML, the document structure to emit
+    #[arg(long, requires = "html", value_enum, default_value = "document")]
+    pub layout: HtmlOutput,
+    /// When generating HTML, how token colors are applied
+    #[arg(long, requires = "html", value_enum, default_value = "classes")]
+    pub style: HtmlStyling,
     /// Check that highlighting captures conform strictly to standards
     #[arg(long)]
     pub check: bool,
@@ -1704,12 +1710,19 @@ impl Highlight {
             Encoding::Utf16BE => ffi::TSInputEncodingUTF16BE,
         });
 
+        let style = if self.css_classes {
+            // TODO: Remove during the 0.28 release cycle
+            warn!("--css-classes is deprecated, use --style classes instead");
+            HtmlStyling::Classes
+        } else {
+            self.style
+        };
+
         let options = HighlightOptions {
             theme: theme_config.theme,
             check: self.check,
             captures_path: self.captures_path,
-            inline_styles: !self.css_classes,
-            html: self.html,
+            html: self.html.then_some((self.layout, style)),
             quiet: self.quiet,
             print_time: self.time,
             cancellation_flag: cancellation_flag.clone(),
