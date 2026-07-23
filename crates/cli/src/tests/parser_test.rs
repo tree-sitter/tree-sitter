@@ -66,9 +66,13 @@ fn test_parsing_with_logging() {
     parser.set_language(&get_language("rust")).unwrap();
 
     let mut messages = Vec::new();
-    parser.set_logger(Some(Box::new(|log_type, message| {
-        messages.push((log_type, message.to_string()));
-    })));
+    // SAFETY: the logger borrows `messages` and is only invoked during the
+    // `parse` call below while `messages` is in scope.
+    unsafe {
+        parser.set_logger_unchecked(Some(Box::new(|log_type, message| {
+            messages.push((log_type, message.to_string()));
+        })));
+    }
 
     parser
         .parse(
@@ -1785,11 +1789,15 @@ fn test_parsing_with_scanner_logging() {
         .unwrap();
 
     let mut found = false;
-    parser.set_logger(Some(Box::new(|log_type, message| {
-        if log_type == LogType::Lex && message == "Found a percent string" {
-            found = true;
-        }
-    })));
+    // SAFETY: the logger borrows `found` and is only invoked during the `parse`
+    // call below, while `found` is in scope.
+    unsafe {
+        parser.set_logger_unchecked(Some(Box::new(|log_type, message| {
+            if log_type == LogType::Lex && message == "Found a percent string" {
+                found = true;
+            }
+        })));
+    }
 
     let source_code = "x + %(sup (external) scanner?)";
 
