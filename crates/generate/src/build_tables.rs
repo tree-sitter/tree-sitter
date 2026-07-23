@@ -64,7 +64,7 @@ pub fn build_tables(
     )?;
     let token_conflict_map = TokenConflictMap::new(lexical_grammar, following_tokens);
     let coincident_token_index = CoincidentTokenIndex::new(&parse_table, lexical_grammar);
-    let keywords = identify_keywords(
+    let (keywords, leaked_keywords) = identify_keywords(
         lexical_grammar,
         &parse_table,
         syntax_grammar.word_token,
@@ -94,6 +94,7 @@ pub fn build_tables(
         syntax_grammar,
         lexical_grammar,
         &keywords,
+        &leaked_keywords,
         &coincident_token_index,
         &token_conflict_map,
     );
@@ -332,9 +333,9 @@ fn identify_keywords(
     word_token: Option<Symbol>,
     token_conflict_map: &TokenConflictMap,
     coincident_token_index: &CoincidentTokenIndex,
-) -> TokenSet {
+) -> (TokenSet, TokenSet) {
     if word_token.is_none() {
-        return TokenSet::new();
+        return (TokenSet::new(), TokenSet::new());
     }
 
     let word_token = word_token.unwrap();
@@ -364,6 +365,7 @@ fn identify_keywords(
         .collect::<TokenSet>();
 
     // Exclude keyword candidates that shadow another keyword candidate.
+    let mut leaked_keywords = TokenSet::new();
     let keywords = keyword_candidates
         .iter()
         .filter(|token| {
@@ -376,6 +378,7 @@ fn identify_keywords(
                         lexical_grammar.variables[token.index].name,
                         lexical_grammar.variables[other_token.index].name
                     );
+                    leaked_keywords.insert(*token);
                     return false;
                 }
             }
@@ -386,7 +389,7 @@ fn identify_keywords(
     // Exclude keyword candidates for which substituting the keyword capture
     // token would introduce new lexical conflicts with other tokens.
 
-    keywords
+    let promoted = keywords
         .iter()
         .filter(|token| {
             for other_index in 0..lexical_grammar.variables.len() {
@@ -419,6 +422,7 @@ fn identify_keywords(
                         lexical_grammar.variables[token.index].name,
                         lexical_grammar.variables[other_index].name
                     );
+                    leaked_keywords.insert(*token);
                     return false;
                 }
             }
@@ -429,7 +433,9 @@ fn identify_keywords(
             );
             true
         })
-        .collect()
+        .collect();
+
+    (promoted, leaked_keywords)
 }
 
 fn mark_fragile_tokens(parse_table: &mut ParseTable, token_conflict_map: &TokenConflictMap) {
