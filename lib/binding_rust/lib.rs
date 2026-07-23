@@ -2315,13 +2315,14 @@ impl LookaheadIterator {
     /// Get the current symbol name of the lookahead iterator.
     #[doc(alias = "ts_lookahead_iterator_current_symbol_name")]
     #[must_use]
-    pub fn current_symbol_name(&self) -> &'static str {
+    pub fn current_symbol_name(&self) -> Option<&'static str> {
         unsafe {
-            CStr::from_ptr(ffi::ts_lookahead_iterator_current_symbol_name(
-                self.0.as_ptr(),
-            ))
-            .to_str()
-            .unwrap()
+            let name = ffi::ts_lookahead_iterator_current_symbol_name(self.0.as_ptr());
+            if name.is_null() {
+                None
+            } else {
+                Some(CStr::from_ptr(name).to_str().unwrap())
+            }
         }
     }
 
@@ -2354,8 +2355,7 @@ impl Iterator for LookaheadNamesIterator<'_> {
 
     #[doc(alias = "ts_lookahead_iterator_next")]
     fn next(&mut self) -> Option<Self::Item> {
-        unsafe { ffi::ts_lookahead_iterator_next(self.0.0.as_ptr()) }
-            .then(|| self.0.current_symbol_name())
+        self.0.next().and_then(|_| self.0.current_symbol_name())
     }
 }
 
