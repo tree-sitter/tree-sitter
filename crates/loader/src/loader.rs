@@ -21,7 +21,7 @@ use std::{
 use etcetera::BaseStrategy as _;
 use libloading::{Library, Symbol};
 use log::{error, info, warn};
-use once_cell::unsync::OnceCell;
+use once_cell::sync::OnceCell;
 use regex::{Regex, RegexBuilder};
 use semver::Version;
 use serde::{Deserialize, Deserializer, Serialize};
@@ -710,8 +710,6 @@ impl<'a> CompileConfig<'a> {
         }
     }
 }
-
-unsafe impl Sync for Loader {}
 
 /// Generate a temporary file path for atomic writes. The temp file is a hidden
 /// dotfile alongside the target, tagged with the current process and thread id
