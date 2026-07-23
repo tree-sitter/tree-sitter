@@ -2049,6 +2049,45 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
     }
   }
 
+  // MISSING and ERROR nodes exist only in error-recovery regions the analysis
+  // does not model: steps reachable only through one are never guaranteed.
+  for (unsigned i = 0; i < self->patterns.size; i++) {
+    QueryPattern *pattern = array_get(&self->patterns, i);
+    unsigned start = pattern->steps.offset;
+    unsigned end = start + pattern->steps.length;
+    bool has_fallible_step = false;
+    bool clear_to_end = false;
+    unsigned clear_until = start;
+    for (unsigned j = start; j < end; j++) {
+      QueryStep *step = array_get(&self->steps, j);
+      if (step->depth == PATTERN_DONE_MARKER) break;
+      if (step->is_missing || step->symbol == ts_builtin_sym_error) {
+        has_fallible_step = true;
+        if (step->alternative_is_skip && !clear_to_end) {
+          if (step->alternative_index > clear_until) {
+            clear_until = step->alternative_index;
+          }
+        } else {
+          clear_to_end = true;
+        }
+      }
+      if ((clear_to_end || j < clear_until) && !step->is_dead_end) {
+        step->parent_pattern_guaranteed = false;
+        step->root_pattern_guaranteed = false;
+      }
+    }
+    if (has_fallible_step) {
+      for (unsigned j = start; j < end; j++) {
+        QueryStep *step = array_get(&self->steps, j);
+        if (step->depth == PATTERN_DONE_MARKER) break;
+        if (step->is_dead_end) {
+          step->parent_pattern_guaranteed = false;
+          step->root_pattern_guaranteed = false;
+        }
+      }
+    }
+  }
+
   // Propagate fallibility. If a pattern is fallible at a given step, then it is
   // fallible at all of its preceding steps.
   bool done = self->steps.size == 0;
