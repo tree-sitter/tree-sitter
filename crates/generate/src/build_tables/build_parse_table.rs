@@ -770,6 +770,7 @@ impl<'a> ParseTableBuilder<'a> {
 
             // If the SHIFT action has higher precedence, remove all the REDUCE actions.
             let mut shift_is_less = false;
+            let mut shift_is_equal = false;
             let mut shift_is_more = false;
             for p in shift_precedence {
                 match Self::compare_precedence(
@@ -781,21 +782,16 @@ impl<'a> ParseTableBuilder<'a> {
                 ) {
                     Ordering::Greater => shift_is_more = true,
                     Ordering::Less => shift_is_less = true,
-                    Ordering::Equal => {}
+                    Ordering::Equal => shift_is_equal = true,
                 }
             }
 
-            if shift_is_more && !shift_is_less {
+            if shift_is_more {
                 entry.actions.drain(0..entry.actions.len() - 1);
-            }
-            // If the REDUCE actions have higher precedence, remove the SHIFT action.
-            else if shift_is_less && !shift_is_more {
-                entry.actions.pop();
-                conflicting_items.retain(|item| item.is_done());
             }
             // If the SHIFT and REDUCE actions have the same precedence, consider
             // the REDUCE actions' associativity.
-            else if !shift_is_less && !shift_is_more {
+            else if shift_is_equal {
                 considered_associativity = true;
 
                 // If all Reduce actions are left associative, remove the SHIFT action.
@@ -814,6 +810,11 @@ impl<'a> ParseTableBuilder<'a> {
                     }
                     _ => {}
                 }
+            }
+            // If the REDUCE actions have higher precedence, remove the SHIFT action.
+            else if shift_is_less {
+                entry.actions.pop();
+                conflicting_items.retain(|item| item.is_done());
             }
         }
 
