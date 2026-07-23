@@ -301,7 +301,10 @@ pub enum LogType {
 type FieldId = NonZeroU16;
 
 /// A callback that receives log messages during parsing.
-type Logger<'a> = Box<dyn FnMut(LogType, &str) + 'a>;
+type Logger = Box<dyn FnMut(LogType, &str) + Send + 'static>;
+
+/// A callback that receives log messages during parsing, with relaxed constraints.
+type UnsafeLogger<'a> = Box<dyn FnMut(LogType, &str) + Send + 'a>;
 
 /// A callback that receives the parse state during parsing.
 type ParseProgressCallback<'a> = &'a mut dyn FnMut(&ParseState) -> ControlFlow<()>;
@@ -767,8 +770,24 @@ impl Parser {
     }
 
     /// Set the logging callback that the parser should use during parsing.
+    ///
+    /// To log through a callback that borrows non-`'static` data, see
+    /// [`set_logger_unchecked`](Parser::set_logger_unchecked).
     #[doc(alias = "ts_parser_set_logger")]
     pub fn set_logger(&mut self, logger: Option<Logger>) {
+        // SAFETY: `Logger` is `Send + 'static`
+        unsafe { self.set_logger_unchecked(logger) };
+    }
+
+    /// Set the logging callback, allowing the callback to borrow non-`'static`
+    /// data. See [`set_logger`](Parser::set_logger).
+    ///
+    /// # Safety
+    ///
+    /// Any data borrowed by `logger` must remain valid until the logger is
+    /// removed. Equivalently, the parser must not be used to parse once the
+    /// borrowed data has gone out of scope.
+    pub unsafe fn set_logger_unchecked(&mut self, logger: Option<UnsafeLogger<'_>>) {
         let prev_logger = unsafe { ffi::ts_parser_logger(self.0.as_ptr()) };
         if !prev_logger.payload.is_null() {
             drop(unsafe { Box::from_raw(prev_logger.payload.cast::<Logger>()) });
