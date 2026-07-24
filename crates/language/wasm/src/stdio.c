@@ -106,14 +106,6 @@ static int ptr_to_str(void *ptr, char *buffer) {
   return 2 + len;
 }
 
-char *strncpy(char *dest, const char *src, size_t n) {
-  char *d = dest;
-  const char *s = src;
-  while (n-- && (*d++ = *s++));
-  if (n == (size_t)-1) *d = '\0';
-  return dest;
-}
-
 static int write_formatted_to_buffer(
   char *buffer,
   size_t buffer_size,
