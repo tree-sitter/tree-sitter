@@ -42,7 +42,7 @@ describe('Language', () => {
       })) as unknown as typeof C.loadWebAssemblyModule;
 
       try {
-        expect(() => Language.loadSync({} as WebAssembly.Module)).toThrow(
+        expect(() => Language.loadSync({})).toThrow(
           'Language.loadSync failed: no language function found in Wasm file',
         );
         expect(log).toHaveBeenCalledWith(expect.stringContaining('not_a_language'));
