@@ -335,6 +335,15 @@ void ts_subtree_compress(
   }
 }
 
+// The part of an error node's cost that penalizes the extent it spans, as
+// opposed to the cost of its contents.
+static inline uint32_t ts_subtree__error_extent_cost(Length size) {
+  return
+    ERROR_COST_PER_RECOVERY +
+    ERROR_COST_PER_SKIPPED_CHAR * size.bytes +
+    ERROR_COST_PER_SKIPPED_LINE * size.extent.row;
+}
+
 // Assign all of the node's properties that depend on its children.
 void ts_subtree_summarize_children(
   MutableSubtree self,
@@ -443,10 +452,7 @@ void ts_subtree_summarize_children(
     self.ptr->symbol == ts_builtin_sym_error ||
     self.ptr->symbol == ts_builtin_sym_error_repeat
   ) {
-    self.ptr->error_cost +=
-      ERROR_COST_PER_RECOVERY +
-      ERROR_COST_PER_SKIPPED_CHAR * self.ptr->size.bytes +
-      ERROR_COST_PER_SKIPPED_LINE * self.ptr->size.extent.row;
+    self.ptr->error_cost += ts_subtree__error_extent_cost(self.ptr->size);
   }
 
   if (self.ptr->child_count > 0) {
