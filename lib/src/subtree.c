@@ -395,20 +395,25 @@ void ts_subtree_summarize_children(
       lookahead_end_byte = child_lookahead_end_byte;
     }
 
-    if (ts_subtree_symbol(child) != ts_builtin_sym_error_repeat) {
-      self.ptr->error_cost += ts_subtree_error_cost(child);
-    }
-
     uint32_t grandchild_count = ts_subtree_child_count(child);
-    if (
-      self.ptr->symbol == ts_builtin_sym_error ||
-      self.ptr->symbol == ts_builtin_sym_error_repeat
-    ) {
-      if (!ts_subtree_extra(child) && !(ts_subtree_is_error(child) && grandchild_count == 0)) {
-        if (ts_subtree_visible(child)) {
-          self.ptr->error_cost += ERROR_COST_PER_SKIPPED_TREE;
-        } else if (grandchild_count > 0) {
-          self.ptr->error_cost += ERROR_COST_PER_SKIPPED_TREE * child.ptr->visible_child_count;
+    if (ts_subtree_symbol(child) == ts_builtin_sym_error_repeat) {
+      // Refund an `_ERROR` child's extent penalty, which this node re-charges
+      // as part of its own extent below, so that the grouping is cost-neutral.
+      uint32_t extent_cost = ts_subtree__error_extent_cost(ts_subtree_size(child));
+      ts_assert(ts_subtree_error_cost(child) >= extent_cost);
+      self.ptr->error_cost += ts_subtree_error_cost(child) - extent_cost;
+    } else {
+      self.ptr->error_cost += ts_subtree_error_cost(child);
+      if (
+        self.ptr->symbol == ts_builtin_sym_error ||
+        self.ptr->symbol == ts_builtin_sym_error_repeat
+      ) {
+        if (!ts_subtree_extra(child) && !(ts_subtree_is_error(child) && grandchild_count == 0)) {
+          if (ts_subtree_visible(child)) {
+            self.ptr->error_cost += ERROR_COST_PER_SKIPPED_TREE;
+          } else if (grandchild_count > 0) {
+            self.ptr->error_cost += ERROR_COST_PER_SKIPPED_TREE * child.ptr->visible_child_count;
+          }
         }
       }
     }
