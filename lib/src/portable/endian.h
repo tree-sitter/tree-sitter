@@ -42,23 +42,53 @@
 # include <sys/endian.h>
 
 #elif defined(__sun)
+#    define __LITTLE_ENDIAN 1234
+#    define __BIG_ENDIAN    4321
+#    define __PDP_ENDIAN    3412
 
-#    include <sys/byteorder.h>
+#    if defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 
-#    define htobe16(x) BE_16(x)
-#    define htole16(x) LE_16(x)
-#    define be16toh(x) BE_16(x)
-#    define le16toh(x) LE_16(x)
+#        define __BYTE_ORDER __LITTLE_ENDIAN
 
-#    define htobe32(x) BE_32(x)
-#    define htole32(x) LE_32(x)
-#    define be32toh(x) BE_32(x)
-#    define le32toh(x) LE_32(x)
+#        define htobe16(x) __builtin_bswap16(x)
+#        define htole16(x) (x)
+#        define be16toh(x) __builtin_bswap16(x)
+#        define le16toh(x) (x)
 
-#    define htobe64(x) BE_64(x)
-#    define htole64(x) LE_64(x)
-#    define be64toh(x) BE_64(x)
-#    define le64toh(x) LE_64(x)
+#        define htobe32(x) __builtin_bswap32(x)
+#        define htole32(x) (x)
+#        define be32toh(x) __builtin_bswap32(x)
+#        define le32toh(x) (x)
+
+#        define htobe64(x) __builtin_bswap64(x)
+#        define htole64(x) (x)
+#        define be64toh(x) __builtin_bswap64(x)
+#        define le64toh(x) (x)
+
+#    elif defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+
+#        define __BYTE_ORDER __BIG_ENDIAN
+
+#        define htobe16(x) (x)
+#        define htole16(x) __builtin_bswap16(x)
+#        define be16toh(x) (x)
+#        define le16toh(x) __builtin_bswap16(x)
+
+#        define htobe32(x) (x)
+#        define htole32(x) __builtin_bswap32(x)
+#        define be32toh(x) (x)
+#        define le32toh(x) __builtin_bswap32(x)
+
+#        define htobe64(x) (x)
+#        define htole64(x) __builtin_bswap64(x)
+#        define be64toh(x) (x)
+#        define le64toh(x) __builtin_bswap64(x)
+
+#    else
+
+#        error byte order not supported
+
+#    endif
 
 #elif defined(__APPLE__)
 #    define __BYTE_ORDER    BYTE_ORDER
