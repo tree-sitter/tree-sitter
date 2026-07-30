@@ -216,12 +216,36 @@ impl Minimizer<'_> {
             })
             .collect::<Vec<_>>();
 
+        // Merging states that disagree on consuming separator characters would
+        // corrupt token extents; the lex table's grouping gate refuses the same.
+        let has_separator_consumption = self.token_conflict_map.has_any_separator_consumption();
+        let consumptions = if has_separator_consumption {
+            self.parse_table
+                .states
+                .iter()
+                .map(|state| {
+                    self.token_conflict_map.separator_consumption_chars_for(
+                        state
+                            .terminal_entries
+                            .keys()
+                            .copied()
+                            .chain(state.reserved_words.iter()),
+                    )
+                })
+                .collect::<Vec<_>>()
+        } else {
+            Vec::new()
+        };
+
         split_state_id_groups(
             &self.parse_table.states,
             &mut state_ids_by_group_id,
             &mut group_ids_by_state_id,
             0,
-            |left, right, groups| self.states_conflict(left, right, groups, &entry_maps),
+            |left, right, groups| {
+                (has_separator_consumption && consumptions[left.id] != consumptions[right.id])
+                    || self.states_conflict(left, right, groups, &entry_maps)
+            },
         );
 
         // Precompute per-state sorted shift actions and nonterminal goto actions.

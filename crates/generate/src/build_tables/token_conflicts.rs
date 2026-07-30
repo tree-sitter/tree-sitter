@@ -8,7 +8,7 @@ use crate::{
     build_tables::item::TokenSetDisplay,
     grammars::{LexicalGrammar, SyntaxGrammar},
     nfa::{CharacterSet, NfaCursor, NfaTransition},
-    rules::TokenSet,
+    rules::{Symbol, TokenSet},
 };
 
 bitflags! {
@@ -30,6 +30,7 @@ pub struct TokenConflictMap<'a> {
     following_tokens: Vec<TokenSet>,
     starting_chars_by_index: Vec<CharacterSet>,
     following_chars_by_index: Vec<CharacterSet>,
+    separator_consumption_chars_by_index: Vec<CharacterSet>,
     grammar: &'a LexicalGrammar,
     /// Per-row bitsets for fast batch conflict checks.
     /// Row `i` spans `[i * row_words .. (i+1) * row_words]`.
@@ -52,6 +53,7 @@ impl<'a> TokenConflictMap<'a> {
         let mut cursor = NfaCursor::new(&grammar.nfa, Vec::new());
         let starting_chars = get_starting_chars(&mut cursor, grammar);
         let following_chars = get_following_chars(&starting_chars, &following_tokens);
+        let separator_consumption = get_separator_consumption_chars(&mut cursor, grammar);
 
         // Pre-compute O(1) lookup: NFA state ID->owning variable index.
         // Replaces repeated O(log n) binary searches in compute_conflict_status.
@@ -109,6 +111,7 @@ impl<'a> TokenConflictMap<'a> {
             following_tokens,
             starting_chars_by_index: starting_chars,
             following_chars_by_index: following_chars,
+            separator_consumption_chars_by_index: separator_consumption,
             grammar,
             conflict_or_prefix_bits,
             overlap_either_bits,
@@ -123,6 +126,36 @@ impl<'a> TokenConflictMap<'a> {
         let left = &self.status_matrix[matrix_index(self.n, a, other)];
         let right = &self.status_matrix[matrix_index(self.n, b, other)];
         left == right
+    }
+
+    /// The characters token `i` can consume inside the leading separator region.
+    #[must_use]
+    pub fn separator_consumption_chars(&self, i: usize) -> &CharacterSet {
+        &self.separator_consumption_chars_by_index[i]
+    }
+
+    /// The union over a token set, for callers that gate on whole sets.
+    #[must_use]
+    pub fn separator_consumption_chars_for(
+        &self,
+        tokens: impl IntoIterator<Item = Symbol>,
+    ) -> CharacterSet {
+        let mut result = CharacterSet::empty();
+        for token in tokens {
+            if token.is_terminal() {
+                result = result.add(self.separator_consumption_chars(token.index));
+            }
+        }
+        result
+    }
+
+    /// Whether any token consumes separator characters at all; false makes
+    /// both merge gates vacuous.
+    #[must_use]
+    pub fn has_any_separator_consumption(&self) -> bool {
+        self.separator_consumption_chars_by_index
+            .iter()
+            .any(|chars| chars.ranges().next().is_some())
     }
 
     /// Does token `i` match any strings that token `j` does *not* match?
@@ -295,6 +328,92 @@ fn get_starting_chars(cursor: &mut NfaCursor, grammar: &LexicalGrammar) -> Vec<C
             all_chars = all_chars.add(chars);
         }
         result.push(all_chars);
+    }
+    result
+}
+
+/// Per token, the characters it can consume where a separator could have
+/// consumed them too; only there can a token start land inside skipped text.
+fn get_separator_consumption_chars(
+    cursor: &mut NfaCursor,
+    grammar: &LexicalGrammar,
+) -> Vec<CharacterSet> {
+    // Any non-immediate token's entry state can drive the separator side.
+    let mut separator_cursor = NfaCursor::new(&grammar.nfa, Vec::new());
+    let mut separator_start = None;
+    for variable in &grammar.variables {
+        separator_cursor.reset(vec![variable.start_state]);
+        if separator_cursor
+            .transition_chars()
+            .any(|(_, is_separator)| is_separator)
+        {
+            separator_start = Some(variable.start_state);
+            break;
+        }
+    }
+    let Some(separator_start) = separator_start else {
+        return vec![CharacterSet::empty(); grammar.variables.len()];
+    };
+
+    let mut result = Vec::with_capacity(grammar.variables.len());
+    let mut visited = FxHashSet::default();
+    let mut queue = Vec::new();
+    let mut advanced_chars = CharacterSet::empty();
+    let mut shared_scratch = CharacterSet::empty();
+    for variable in &grammar.variables {
+        let mut consumable_chars = CharacterSet::empty();
+        visited.clear();
+        queue.clear();
+        queue.push((vec![variable.start_state], vec![separator_start]));
+        while let Some((token_states, separator_states)) = queue.pop() {
+            cursor.reset(token_states);
+            separator_cursor.reset(separator_states);
+            if !visited.insert((cursor.state_ids.clone(), separator_cursor.state_ids.clone())) {
+                continue;
+            }
+
+            let mut main_chars = CharacterSet::empty();
+            for (chars, is_separator) in cursor.transition_chars() {
+                if !is_separator {
+                    main_chars = main_chars.add(chars);
+                }
+            }
+            let mut separator_chars = CharacterSet::empty();
+            for (chars, is_separator) in separator_cursor.transition_chars() {
+                if is_separator {
+                    separator_chars = separator_chars.add(chars);
+                }
+            }
+
+            let shared_chars = main_chars.intersection(separator_chars);
+            if shared_chars.ranges().next().is_none() {
+                continue;
+            }
+            consumable_chars = consumable_chars.add(&shared_chars);
+
+            let separator_transitions = separator_cursor.transitions();
+            for transition in cursor.transitions() {
+                if transition.is_separator {
+                    continue;
+                }
+                advanced_chars.assign(&transition.characters);
+                shared_scratch.assign(&shared_chars);
+                let advanced = advanced_chars.remove_intersection(&mut shared_scratch);
+                if advanced.ranges().next().is_none() {
+                    continue;
+                }
+                // Follow every group covering these characters: grouping
+                // marks a transition separator only if every contributor is.
+                let mut separator_next = Vec::new();
+                for separator_transition in &separator_transitions {
+                    if separator_transition.characters.does_intersect(&advanced) {
+                        separator_next.extend_from_slice(&separator_transition.states);
+                    }
+                }
+                queue.push((transition.states.clone(), separator_next));
+            }
+        }
+        result.push(consumable_chars);
     }
     result
 }
@@ -524,6 +643,159 @@ mod tests {
             token_map.starting_chars_by_index[1],
             CharacterSet::empty().add_range('d', 'e')
         );
+    }
+
+    #[test]
+    fn test_separator_consumption_characters() {
+        let grammar = expand_tokens(ExtractedLexicalGrammar {
+            separators: vec![Rule::pattern("\\s", "")],
+            variables: vec![
+                Variable {
+                    name: "make".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::string("make"),
+                },
+                Variable {
+                    name: "ws_colon".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::seq(vec![Rule::pattern("\\s*", ""), Rule::string(":")]),
+                },
+                Variable {
+                    name: "space_p".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::string(" p"),
+                },
+                Variable {
+                    name: "space_newline_q".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::string(" \nq"),
+                },
+            ],
+        })
+        .unwrap();
+
+        let token_map = TokenConflictMap::new(&grammar, Vec::new());
+        let consumption =
+            |name: &str| token_map.separator_consumption_chars(index_of_var(&grammar, name));
+
+        assert_eq!(*consumption("make"), CharacterSet::empty());
+        assert_eq!(*consumption("space_p"), CharacterSet::from_char(' '));
+        // The closure looks past the first character while consumed text stays
+        // inside the separator set: `' \nq'` consumes `'\n'` at depth 2.
+        assert_eq!(
+            *consumption("space_newline_q"),
+            CharacterSet::empty().add_char(' ').add_char('\n')
+        );
+        assert!(consumption("ws_colon").contains(' '));
+        assert!(consumption("ws_colon").contains('\n'));
+    }
+
+    #[test]
+    fn test_separator_consumption_characters_inside_a_multi_character_separator() {
+        let grammar = expand_tokens(ExtractedLexicalGrammar {
+            separators: vec![Rule::pattern("[ \\t]", ""), Rule::pattern("#[ab]*", "")],
+            variables: vec![
+                Variable {
+                    name: "hash_ap".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::string("#ap"),
+                },
+                Variable {
+                    name: "hash_bq".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::string("#bq"),
+                },
+            ],
+        })
+        .unwrap();
+
+        let token_map = TokenConflictMap::new(&grammar, Vec::new());
+        let consumption =
+            |name: &str| token_map.separator_consumption_chars(index_of_var(&grammar, name));
+
+        // `'a'` and `'b'` begin no separator, but `#[ab]*` consumes them after
+        // `'#'`, so the two tokens diverge inside the region.
+        assert_eq!(
+            *consumption("hash_ap"),
+            CharacterSet::empty().add_char('#').add_char('a')
+        );
+        assert_eq!(
+            *consumption("hash_bq"),
+            CharacterSet::empty().add_char('#').add_char('b')
+        );
+    }
+
+    #[test]
+    fn test_separator_consumption_characters_of_an_immediate_token() {
+        let grammar = expand_tokens(ExtractedLexicalGrammar {
+            separators: vec![Rule::pattern("\\s", "")],
+            variables: vec![
+                Variable {
+                    name: "make".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::string("make"),
+                },
+                Variable {
+                    name: "immediate_space_p".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::immediate_token(Rule::string(" p")),
+                },
+                Variable {
+                    name: "immediate_two_spaces".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::immediate_token(Rule::string("  p")),
+                },
+            ],
+        })
+        .unwrap();
+
+        let token_map = TokenConflictMap::new(&grammar, Vec::new());
+        let consumption =
+            |name: &str| token_map.separator_consumption_chars(index_of_var(&grammar, name));
+
+        // An immediate token has no separator prefix of its own, so measuring it
+        // against its own automaton would score empty and let it pool.
+        assert_eq!(
+            *consumption("immediate_space_p"),
+            CharacterSet::from_char(' ')
+        );
+        assert_eq!(
+            *consumption("immediate_two_spaces"),
+            CharacterSet::from_char(' ')
+        );
+        assert_eq!(*consumption("make"), CharacterSet::empty());
+    }
+
+    #[test]
+    fn test_separator_consumption_characters_of_an_immediate_token_inside_a_separator() {
+        let grammar = expand_tokens(ExtractedLexicalGrammar {
+            separators: vec![Rule::pattern("[ \\t]", ""), Rule::pattern("#[ab]*", "")],
+            variables: vec![
+                Variable {
+                    name: "immediate_hash_ax".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::immediate_token(Rule::string("#ax")),
+                },
+                Variable {
+                    name: "hash_z".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::string("#z"),
+                },
+            ],
+        })
+        .unwrap();
+
+        let token_map = TokenConflictMap::new(&grammar, Vec::new());
+        let consumption =
+            |name: &str| token_map.separator_consumption_chars(index_of_var(&grammar, name));
+
+        // The immediate token reaches the comment's interior `'a'` while `#z`
+        // stops at `'#'`, so their consumption must differ.
+        assert_eq!(
+            *consumption("immediate_hash_ax"),
+            CharacterSet::empty().add_char('#').add_char('a')
+        );
+        assert_eq!(*consumption("hash_z"), CharacterSet::from_char('#'));
     }
 
     #[test]

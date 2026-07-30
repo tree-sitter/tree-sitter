@@ -1670,6 +1670,243 @@ fn test_parsing_with_included_ranges_and_missing_tokens() {
 }
 
 #[test]
+fn test_lexed_tokens_do_not_start_on_skipped_whitespace() {
+    let mut parser = Parser::new();
+    parser
+        .set_language(&get_test_fixture_language("token_with_separator_prefix"))
+        .unwrap();
+
+    // The `\s*`-prefixed colon token elsewhere in the grammar must not make
+    // tokens in unrelated parse states absorb the whitespace before them.
+    let tree = parser.parse("error make {}", None).unwrap();
+    let statement = tree.root_node().child(0).unwrap();
+    let make = statement.child(1).unwrap();
+    assert_eq!(make.kind(), "make");
+    assert_eq!(
+        (make.start_position(), make.end_position()),
+        (Point::new(0, 6), Point::new(0, 10))
+    );
+    assert_eq!(
+        statement.child(2).unwrap().start_position(),
+        Point::new(0, 11)
+    );
+
+    let tree = parser.parse("error make -f {}", None).unwrap();
+    let statement = tree.root_node().child(0).unwrap();
+    assert_eq!(
+        statement.child(1).unwrap().start_position(),
+        Point::new(0, 6)
+    );
+    let flag = statement.child(2).unwrap();
+    assert_eq!(flag.kind(), "flag");
+    assert_eq!(flag.start_position(), Point::new(0, 11));
+    assert_eq!(
+        statement.child(3).unwrap().start_position(),
+        Point::new(0, 14)
+    );
+
+    // Removing the unrelated optional flag must not move any token extent.
+    let grammar_json = load_grammar_file(
+        &fixtures_dir()
+            .join("test_grammars")
+            .join("token_with_separator_prefix")
+            .join("grammar.js"),
+        None,
+    )
+    .unwrap();
+    let mut grammar: serde_json::Value = serde_json::from_str(&grammar_json).unwrap();
+    // A distinct name keeps this variant's generated parser out of the scratch
+    // directory that other tests build from the pristine fixture.
+    grammar["name"] = "token_with_separator_prefix_no_flag".into();
+    let statement_members = grammar["rules"]["error_statement"]["members"]
+        .as_array_mut()
+        .unwrap();
+    let removed = statement_members.remove(2);
+    assert_eq!(removed["type"], "CHOICE");
+    let (parser_name, parser_code) = generate_parser(&grammar.to_string()).unwrap();
+    parser
+        .set_language(&get_test_language(&parser_name, &parser_code, None))
+        .unwrap();
+    let tree = parser.parse("error make {}", None).unwrap();
+    let statement = tree.root_node().child(0).unwrap();
+    assert_eq!(
+        statement.child(1).unwrap().start_position(),
+        Point::new(0, 6)
+    );
+    assert_eq!(
+        statement.child(2).unwrap().start_position(),
+        Point::new(0, 11)
+    );
+}
+
+#[test]
+fn test_separator_prefix_owner_state_extents_are_the_documented_residual() {
+    let mut parser = Parser::new();
+    parser
+        .set_language(&get_test_fixture_language("token_with_separator_prefix"))
+        .unwrap();
+
+    // Deliberate residual, pinned so changing it is a decision: a state that
+    // owns the `\s*:` token is not protected, only states that do not.
+    let tree = parser.parse("  : x", None).unwrap();
+    let colon = tree.root_node().child(0).unwrap().child(0).unwrap();
+    assert_eq!(colon.kind(), ":");
+    assert_eq!(
+        (colon.start_position(), colon.end_position()),
+        (Point::new(0, 0), Point::new(0, 3))
+    );
+
+    let tree = parser.parse("  error make {}", None).unwrap();
+    let error = tree.root_node().child(0).unwrap().child(0).unwrap();
+    assert_eq!(error.kind(), "error");
+    assert_eq!(
+        (error.start_position(), error.end_position()),
+        (Point::new(0, 0), Point::new(0, 7))
+    );
+}
+
+#[test]
+fn test_equal_separator_prefix_consumption_does_not_leak_deeper_consumption() {
+    let mut parser = Parser::new();
+    parser
+        .set_language(&get_test_fixture_language(
+            "tokens_with_divergent_separator_prefixes",
+        ))
+        .unwrap();
+
+    // Both states consume `' '` first, but only the second's token consumes
+    // `'\n'` next; that must not reach the first, which skips it.
+    let tree = parser.parse("1 \nmake", None).unwrap();
+    let a = tree.root_node().child(0).unwrap();
+    let make = a.child(1).unwrap();
+    assert_eq!(make.kind(), "make");
+    assert_eq!(
+        (make.start_position(), make.end_position()),
+        (Point::new(1, 0), Point::new(1, 4))
+    );
+}
+
+#[test]
+fn test_tokens_consuming_extra_interior_do_not_leak_consumption() {
+    let mut parser = Parser::new();
+    parser
+        .set_language(&get_test_fixture_language(
+            "tokens_consuming_extra_interior",
+        ))
+        .unwrap();
+
+    // `'b'` begins no extra but the `#[ab]*` comment consumes it, so the
+    // `#ap`-owning state must still skip the whole comment.
+    let tree = parser.parse("1#bmake", None).unwrap();
+    let s1 = tree.root_node().child(0).unwrap();
+    let make = s1.child(1).unwrap();
+    assert_eq!(make.kind(), "make");
+    assert_eq!(
+        (make.start_position(), make.end_position()),
+        (Point::new(0, 3), Point::new(0, 7))
+    );
+}
+
+#[test]
+fn test_immediate_tokens_do_not_leak_separator_consumption() {
+    let mut parser = Parser::new();
+    parser
+        .set_language(&get_test_fixture_language(
+            "immediate_token_on_separator_char",
+        ))
+        .unwrap();
+
+    // The immediate token consumes `' '` first, so its state must not pool
+    // with this one; forcing its consumption empty makes `make` absorb it.
+    let tree = parser.parse("2 make", None).unwrap();
+    let s2 = tree.root_node().child(0).unwrap();
+    let make = s2.child(1).unwrap();
+    assert_eq!(make.kind(), "make");
+    assert_eq!(
+        (make.start_position(), make.end_position()),
+        (Point::new(0, 2), Point::new(0, 6))
+    );
+}
+
+#[test]
+fn test_immediate_tokens_do_not_leak_extra_interior_consumption() {
+    let mut parser = Parser::new();
+    parser
+        .set_language(&get_test_fixture_language(
+            "immediate_token_in_extra_interior",
+        ))
+        .unwrap();
+
+    // An immediate token is measured at every depth: this one reaches the
+    // comment's interior, so the `#z`-owning state still skips the comment.
+    let tree = parser.parse("2#amake", None).unwrap();
+    let s2 = tree.root_node().child(0).unwrap();
+    let make = s2.child(1).unwrap();
+    assert_eq!(make.kind(), "make");
+    assert_eq!(
+        (make.start_position(), make.end_position()),
+        (Point::new(0, 3), Point::new(0, 7))
+    );
+}
+
+#[test]
+fn test_minimized_parse_states_do_not_gain_separator_consumption() {
+    let mut parser = Parser::new();
+    parser
+        .set_language(&get_test_fixture_language(
+            "separator_prefix_reduce_lookahead",
+        ))
+        .unwrap();
+
+    // Merging the same-core reduce states must not import the other context's
+    // `\s*:` lookahead into positions that never had it.
+    let tree = parser.parse("b i j  y", None).unwrap();
+    let y = tree.root_node().child(2).unwrap();
+    assert_eq!(y.kind(), "y");
+    assert_eq!(
+        (y.start_position(), y.end_position()),
+        (Point::new(0, 7), Point::new(0, 8))
+    );
+}
+
+#[test]
+fn test_fresh_and_incremental_parses_agree_on_token_extents() {
+    let mut parser = Parser::new();
+    parser
+        .set_language(&get_test_fixture_language("token_with_separator_prefix"))
+        .unwrap();
+
+    let mut tree = parser.parse("error make -f {}", None).unwrap();
+    tree.edit(&InputEdit {
+        start_byte: 11,
+        old_end_byte: 14,
+        new_end_byte: 11,
+        start_position: Point::new(0, 11),
+        old_end_position: Point::new(0, 14),
+        new_end_position: Point::new(0, 11),
+    });
+    let incremental = parser.parse("error make {}", Some(&tree)).unwrap();
+    let fresh = parser.parse("error make {}", None).unwrap();
+
+    fn collect_extents(node: tree_sitter::Node, out: &mut Vec<(String, Point, Point)>) {
+        out.push((
+            node.kind().to_string(),
+            node.start_position(),
+            node.end_position(),
+        ));
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            collect_extents(child, out);
+        }
+    }
+    let mut incremental_extents = Vec::new();
+    collect_extents(incremental.root_node(), &mut incremental_extents);
+    let mut fresh_extents = Vec::new();
+    collect_extents(fresh.root_node(), &mut fresh_extents);
+    assert_eq!(incremental_extents, fresh_extents);
+}
+
+#[test]
 fn test_grammars_that_can_hang_on_eof() {
     let (parser_name, parser_code) = generate_parser(
         r#"

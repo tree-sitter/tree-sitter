@@ -24,6 +24,12 @@ pub struct LexTables {
     pub large_character_sets: Vec<(Option<Symbol>, CharacterSet)>,
 }
 
+struct TokenSetGroup {
+    tokens: TokenSet,
+    parse_state_ids: Vec<ParseStateId>,
+    separator_consumption_chars: CharacterSet,
+}
+
 pub fn build_lex_table(
     parse_table: &mut ParseTable,
     syntax_grammar: &SyntaxGrammar,
@@ -40,9 +46,11 @@ pub fn build_lex_table(
         LexTable::default()
     };
 
-    let mut parse_state_ids_by_token_set = Vec::<(TokenSet, Vec<ParseStateId>)>::new();
+    let has_separator_consumption = token_conflict_map.has_any_separator_consumption();
+
+    let mut groups = Vec::<TokenSetGroup>::new();
     for (i, state) in parse_table.states.iter().enumerate() {
-        let tokens = state
+        let tokens: TokenSet = state
             .terminal_entries
             .keys()
             .copied()
@@ -61,30 +69,43 @@ pub fn build_lex_table(
                 }
             })
             .collect();
+        let separator_consumption_chars = if has_separator_consumption {
+            token_conflict_map.separator_consumption_chars_for(tokens.terminals())
+        } else {
+            CharacterSet::empty()
+        };
 
         let mut did_merge = false;
-        for entry in &mut parse_state_ids_by_token_set {
-            if merge_token_set(
-                &mut entry.0,
-                &tokens,
-                token_conflict_map,
-                coincident_token_index,
-            ) {
+        for group in &mut groups {
+            // Sets that disagree on consuming separator characters must not
+            // share a lex state, or the innocent one advances where it skips.
+            if group.separator_consumption_chars == separator_consumption_chars
+                && merge_token_set(
+                    &mut group.tokens,
+                    &tokens,
+                    token_conflict_map,
+                    coincident_token_index,
+                )
+            {
                 did_merge = true;
-                entry.1.push(i);
+                group.parse_state_ids.push(i);
                 break;
             }
         }
 
         if !did_merge {
-            parse_state_ids_by_token_set.push((tokens, vec![i]));
+            groups.push(TokenSetGroup {
+                tokens,
+                parse_state_ids: vec![i],
+                separator_consumption_chars,
+            });
         }
     }
 
     let mut builder = LexTableBuilder::new(lexical_grammar);
-    for (tokens, parse_state_ids) in parse_state_ids_by_token_set {
-        let lex_state_id = builder.add_state_for_tokens(&tokens);
-        for id in parse_state_ids {
+    for group in groups {
+        let lex_state_id = builder.add_state_for_tokens(&group.tokens);
+        for id in group.parse_state_ids {
             parse_table.states[id].lex_state_id = lex_state_id;
         }
     }
@@ -457,5 +478,296 @@ fn sort_states(table: &mut LexTable, parse_table: &mut ParseTable) {
     // Update the parse table's lex state references
     for state in &mut parse_table.states {
         state.lex_state_id = new_ids_by_old_id[state.lex_state_id];
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        OptLevel,
+        grammars::{InputGrammar, Variable, VariableType},
+        node_types::get_variable_info,
+        prepare_grammar::prepare_grammar,
+        rules::Rule,
+        tables::ParseState,
+    };
+
+    #[test]
+    fn test_separator_chars_skipped_when_no_token_consumes_them() {
+        let input_grammar = InputGrammar {
+            name: "token_with_separator_prefix".to_string(),
+            extra_symbols: vec![Rule::pattern("[ \\t]", "")],
+            variables: vec![
+                named_variable(
+                    "program",
+                    Rule::choice(vec![Rule::named("error_statement"), Rule::named("entry")]),
+                ),
+                named_variable(
+                    "error_statement",
+                    Rule::seq(vec![
+                        Rule::string("error"),
+                        Rule::string("make"),
+                        Rule::choice(vec![Rule::named("flag"), Rule::Blank]),
+                        Rule::named("record"),
+                    ]),
+                ),
+                named_variable("flag", Rule::string("-f")),
+                named_variable(
+                    "entry",
+                    Rule::seq(vec![
+                        Rule::token(Rule::seq(vec![
+                            Rule::pattern("\\s*", ""),
+                            Rule::string(":"),
+                        ])),
+                        Rule::string("x"),
+                    ]),
+                ),
+                named_variable(
+                    "record",
+                    Rule::seq(vec![Rule::string("{"), Rule::string("}")]),
+                ),
+            ],
+            ..Default::default()
+        };
+
+        let (tables, lexical_grammar) = build_tables_for(&input_grammar);
+
+        let token = |name: &str| {
+            Symbol::terminal(
+                lexical_grammar
+                    .variables
+                    .iter()
+                    .position(|v| v.name == name)
+                    .unwrap(),
+            )
+        };
+        let make = token("make");
+        let ws_colon = token("entry_token1");
+
+        let space_action = |parse_state: &ParseState| {
+            tables.main_lex_table.states[parse_state.lex_state_id]
+                .advance_actions
+                .iter()
+                .find_map(|(chars, action)| chars.contains(' ').then_some(action.in_main_token))
+                .unwrap()
+        };
+
+        let mut innocent_states = 0;
+        for state in &tables.parse_table.states {
+            if state.terminal_entries.contains_key(&make)
+                && !state.terminal_entries.contains_key(&ws_colon)
+            {
+                innocent_states += 1;
+                assert!(
+                    !space_action(state),
+                    "expected a skip on ' ' in a parse state expecting `make`",
+                );
+            }
+        }
+        assert!(innocent_states > 0);
+
+        // A state owning the consuming token keeps its consume transition.
+        let owner = tables
+            .parse_table
+            .states
+            .iter()
+            .find(|state| state.terminal_entries.contains_key(&ws_colon))
+            .unwrap();
+        assert!(space_action(owner));
+    }
+
+    fn build_tables_for(
+        input_grammar: &InputGrammar,
+    ) -> (crate::build_tables::Tables, LexicalGrammar) {
+        let mut diagnostics = Vec::new();
+        let (syntax_grammar, lexical_grammar, inlines, simple_aliases) =
+            prepare_grammar(input_grammar, &mut diagnostics).unwrap();
+        let variable_info =
+            get_variable_info(&syntax_grammar, &lexical_grammar, &simple_aliases).unwrap();
+        let tables = crate::build_tables::build_tables(
+            &syntax_grammar,
+            &lexical_grammar,
+            &simple_aliases,
+            &variable_info,
+            &inlines,
+            None,
+            OptLevel::default(),
+            &mut diagnostics,
+        )
+        .unwrap();
+        (tables, lexical_grammar)
+    }
+
+    fn named_variable(name: &str, rule: Rule) -> Variable {
+        Variable {
+            name: name.to_string(),
+            kind: VariableType::Named,
+            rule,
+        }
+    }
+
+    #[test]
+    fn test_clean_grammar_scores_no_consumption_at_any_parse_state() {
+        let input_grammar = InputGrammar {
+            name: "clean_grammar".to_string(),
+            extra_symbols: vec![Rule::pattern("\\s", "")],
+            variables: vec![named_variable(
+                "program",
+                Rule::seq(vec![Rule::string("make"), Rule::string(":")]),
+            )],
+            ..Default::default()
+        };
+
+        let (tables, lexical_grammar) = build_tables_for(&input_grammar);
+        let token_conflict_map = TokenConflictMap::new(
+            &lexical_grammar,
+            vec![TokenSet::new(); lexical_grammar.variables.len()],
+        );
+
+        // Empty everywhere means neither gate can refuse a merge the old rules
+        // accept.
+        assert!(!token_conflict_map.has_any_separator_consumption());
+        for state in &tables.parse_table.states {
+            assert_eq!(
+                token_conflict_map.separator_consumption_chars_for(
+                    state
+                        .terminal_entries
+                        .keys()
+                        .copied()
+                        .chain(state.reserved_words.iter())
+                ),
+                CharacterSet::empty(),
+            );
+        }
+    }
+
+    #[test]
+    fn test_states_with_divergent_separator_prefixes_do_not_share_lex_states() {
+        let input_grammar = InputGrammar {
+            name: "tokens_with_divergent_separator_prefixes".to_string(),
+            extra_symbols: vec![Rule::pattern("\\s", "")],
+            variables: vec![
+                named_variable(
+                    "program",
+                    Rule::choice(vec![Rule::named("a"), Rule::named("b"), Rule::named("c")]),
+                ),
+                named_variable(
+                    "a",
+                    Rule::seq(vec![
+                        Rule::string("1"),
+                        Rule::choice(vec![Rule::named("ap"), Rule::string("make")]),
+                    ]),
+                ),
+                named_variable(
+                    "b",
+                    Rule::seq(vec![
+                        Rule::string("2"),
+                        Rule::choice(vec![Rule::named("bq"), Rule::string("zz")]),
+                    ]),
+                ),
+                named_variable("c", Rule::seq(vec![Rule::string("3"), Rule::named("tabz")])),
+                named_variable("ap", Rule::token(Rule::string(" p"))),
+                named_variable("bq", Rule::token(Rule::string(" \nq"))),
+                named_variable("tabz", Rule::token(Rule::string("\tz"))),
+            ],
+            ..Default::default()
+        };
+
+        let (tables, lexical_grammar) = build_tables_for(&input_grammar);
+        let token = |name: &str| {
+            Symbol::terminal(
+                lexical_grammar
+                    .variables
+                    .iter()
+                    .position(|v| v.name == name)
+                    .unwrap(),
+            )
+        };
+        let space_p = token("ap");
+        let make = token("make");
+        let space_newline_q = token("bq");
+
+        // `' p'` and `' \nq'` share a first character but diverge at depth 2,
+        // so their states must differ. State 0 owns both and is excluded.
+        let state_owning = |own: Symbol, foreign: Symbol| {
+            tables
+                .parse_table
+                .states
+                .iter()
+                .enumerate()
+                .find(|(i, state)| {
+                    *i != 0
+                        && state.terminal_entries.contains_key(&own)
+                        && !state.terminal_entries.contains_key(&foreign)
+                })
+                .unwrap()
+                .1
+        };
+        let first_context = state_owning(space_p, space_newline_q);
+        let second_context = state_owning(space_newline_q, space_p);
+        assert!(first_context.terminal_entries.contains_key(&make));
+        assert_ne!(first_context.lex_state_id, second_context.lex_state_id);
+    }
+
+    #[test]
+    fn test_minimization_does_not_union_divergent_separator_consumption() {
+        let input_grammar = InputGrammar {
+            name: "separator_prefix_reduce_lookahead".to_string(),
+            extra_symbols: vec![Rule::pattern("[ \\t\\n]", "")],
+            variables: vec![
+                named_variable(
+                    "program",
+                    Rule::choice(vec![
+                        Rule::seq(vec![
+                            Rule::string("a"),
+                            Rule::named("item"),
+                            Rule::token(Rule::seq(vec![
+                                Rule::pattern("\\s*", ""),
+                                Rule::string(":"),
+                            ])),
+                            Rule::string("x"),
+                        ]),
+                        Rule::seq(vec![
+                            Rule::string("b"),
+                            Rule::named("item"),
+                            Rule::string("y"),
+                        ]),
+                    ]),
+                ),
+                named_variable(
+                    "item",
+                    Rule::seq(vec![Rule::string("i"), Rule::string("j")]),
+                ),
+            ],
+            ..Default::default()
+        };
+
+        let (tables, lexical_grammar) = build_tables_for(&input_grammar);
+        let token = |name: &str| {
+            Symbol::terminal(
+                lexical_grammar
+                    .variables
+                    .iter()
+                    .position(|v| v.name == name)
+                    .unwrap(),
+            )
+        };
+        let ws_colon = token("program_token1");
+        let y = token("y");
+
+        // A merged same-core state would own both the `\s*:` token and `y`,
+        // importing consumption into `y`'s positions. State 0 is excluded.
+        assert!(
+            !tables
+                .parse_table
+                .states
+                .iter()
+                .enumerate()
+                .any(|(i, state)| i != 0
+                    && state.terminal_entries.contains_key(&ws_colon)
+                    && state.terminal_entries.contains_key(&y)),
+            "a minimized parse state owns both the `\\s*:` token and `y`",
+        );
     }
 }

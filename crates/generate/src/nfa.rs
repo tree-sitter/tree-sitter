@@ -301,6 +301,13 @@ impl CharacterSet {
         self
     }
 
+    /// Produces a `CharacterSet` containing every character that is present in both `self`
+    /// and `other`.
+    #[must_use]
+    pub fn intersection(mut self, mut other: Self) -> Self {
+        self.remove_intersection(&mut other)
+    }
+
     /// Produces a `CharacterSet` containing every character that is in _exactly one_ of `self` or
     /// `other`, but is not present in both sets.
     #[cfg(test)]

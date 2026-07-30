@@ -1,0 +1,19 @@
+==================================
+Keyword after whitespace
+==================================
+
+2 make
+
+---
+
+(program (s2 (make)))
+
+==================================
+Immediate token consuming a space
+==================================
+
+1 p
+
+---
+
+(program (s1 (imm_space)))
