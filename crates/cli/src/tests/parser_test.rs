@@ -1670,6 +1670,44 @@ fn test_parsing_with_included_ranges_and_missing_tokens() {
 }
 
 #[test]
+fn test_lexed_tokens_do_not_start_on_skipped_whitespace() {
+    let mut parser = Parser::new();
+    parser
+        .set_language(&get_test_fixture_language("token_with_separator_prefix"))
+        .unwrap();
+
+    // A `\s*`-prefixed token elsewhere must not make unrelated tokens absorb whitespace.
+    let tree = parser.parse("error make {}", None).unwrap();
+    let statement = tree.root_node().child(0).unwrap();
+    let make = statement.child(1).unwrap();
+    assert_eq!(make.kind(), "make");
+    assert_eq!((make.start_byte(), make.end_byte()), (6, 10));
+    assert_eq!(statement.child(2).unwrap().start_byte(), 11);
+
+    // The same token still keeps whitespace it matches itself.
+    let tree = parser.parse("  : x", None).unwrap();
+    let colon = tree.root_node().child(0).unwrap().child(0).unwrap();
+    assert_eq!(colon.kind(), ":");
+    assert_eq!((colon.start_byte(), colon.end_byte()), (0, 3));
+}
+
+#[test]
+fn test_minimized_parse_states_do_not_gain_separator_consumption() {
+    let mut parser = Parser::new();
+    parser
+        .set_language(&get_test_fixture_language(
+            "separator_prefix_reduce_lookahead",
+        ))
+        .unwrap();
+
+    // Merging same-core reduce states must not import the other context's `\s*:` lookahead.
+    let tree = parser.parse("b i j  y", None).unwrap();
+    let y = tree.root_node().child(2).unwrap();
+    assert_eq!(y.kind(), "y");
+    assert_eq!((y.start_byte(), y.end_byte()), (7, 8));
+}
+
+#[test]
 fn test_grammars_that_can_hang_on_eof() {
     let (parser_name, parser_code) = generate_parser(
         r#"

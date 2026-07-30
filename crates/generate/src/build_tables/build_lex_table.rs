@@ -346,6 +346,13 @@ fn merge_token_set(
         return false;
     }
 
+    // Disagreeing sets can't share a lex state: one would advance where the other skips.
+    if token_conflict_map.separator_consumption_chars(tokens.terminals())
+        != token_conflict_map.separator_consumption_chars(other.terminals())
+    {
+        return false;
+    }
+
     tokens.insert_all(other);
     true
 }

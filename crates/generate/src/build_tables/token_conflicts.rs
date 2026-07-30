@@ -8,7 +8,7 @@ use crate::{
     build_tables::item::TokenSetDisplay,
     grammars::{LexicalGrammar, SyntaxGrammar},
     nfa::{CharacterSet, NfaCursor, NfaTransition},
-    rules::TokenSet,
+    rules::{Symbol, TokenSet},
 };
 
 bitflags! {
@@ -30,6 +30,7 @@ pub struct TokenConflictMap<'a> {
     following_tokens: Vec<TokenSet>,
     starting_chars_by_index: Vec<CharacterSet>,
     following_chars_by_index: Vec<CharacterSet>,
+    separator_consumption_chars_by_index: Vec<CharacterSet>,
     grammar: &'a LexicalGrammar,
     /// Per-row bitsets for fast batch conflict checks.
     /// Row `i` spans `[i * row_words .. (i+1) * row_words]`.
@@ -52,6 +53,7 @@ impl<'a> TokenConflictMap<'a> {
         let mut cursor = NfaCursor::new(&grammar.nfa, Vec::new());
         let starting_chars = get_starting_chars(&mut cursor, grammar);
         let following_chars = get_following_chars(&starting_chars, &following_tokens);
+        let separator_consumption = get_separator_consumption_chars(&mut cursor, grammar);
 
         // Pre-compute O(1) lookup: NFA state ID->owning variable index.
         // Replaces repeated O(log n) binary searches in compute_conflict_status.
@@ -109,6 +111,7 @@ impl<'a> TokenConflictMap<'a> {
             following_tokens,
             starting_chars_by_index: starting_chars,
             following_chars_by_index: following_chars,
+            separator_consumption_chars_by_index: separator_consumption,
             grammar,
             conflict_or_prefix_bits,
             overlap_either_bits,
@@ -123,6 +126,19 @@ impl<'a> TokenConflictMap<'a> {
         let left = &self.status_matrix[matrix_index(self.n, a, other)];
         let right = &self.status_matrix[matrix_index(self.n, b, other)];
         left == right
+    }
+
+    #[must_use]
+    pub fn separator_consumption_chars(
+        &self,
+        tokens: impl IntoIterator<Item = Symbol>,
+    ) -> CharacterSet {
+        tokens
+            .into_iter()
+            .filter(Symbol::is_terminal)
+            .fold(CharacterSet::empty(), |chars, token| {
+                chars.add(&self.separator_consumption_chars_by_index[token.index])
+            })
     }
 
     /// Does token `i` match any strings that token `j` does *not* match?
@@ -295,6 +311,61 @@ fn get_starting_chars(cursor: &mut NfaCursor, grammar: &LexicalGrammar) -> Vec<C
             all_chars = all_chars.add(chars);
         }
         result.push(all_chars);
+    }
+    result
+}
+
+/// Per token, the characters it consumes where a separator could have consumed them too.
+fn get_separator_consumption_chars(
+    cursor: &mut NfaCursor,
+    grammar: &LexicalGrammar,
+) -> Vec<CharacterSet> {
+    let mut sep_cursor = NfaCursor::new(&grammar.nfa, Vec::new());
+    let Some(sep_start) = grammar.variables.iter().map(|v| v.start_state).find(|&id| {
+        sep_cursor.reset(vec![id]);
+        sep_cursor.transition_chars().any(|(_, is_sep)| is_sep)
+    }) else {
+        return vec![CharacterSet::empty(); grammar.variables.len()];
+    };
+
+    let mut result = Vec::with_capacity(grammar.variables.len());
+    let mut visited = FxHashSet::default();
+    let mut queue = Vec::new();
+    for variable in &grammar.variables {
+        let mut consumable_chars = CharacterSet::empty();
+        visited.clear();
+        queue.clear();
+        queue.push((vec![variable.start_state], vec![sep_start]));
+        while let Some((token_states, sep_states)) = queue.pop() {
+            cursor.reset(token_states);
+            sep_cursor.reset(sep_states);
+            if !visited.insert((cursor.state_ids.clone(), sep_cursor.state_ids.clone())) {
+                continue;
+            }
+
+            // Grouping marks a transition separator only if every contributor is.
+            let sep_chars = sep_cursor
+                .transition_chars()
+                .filter(|(_, is_sep)| *is_sep)
+                .fold(CharacterSet::empty(), |chars, (next, _)| chars.add(next));
+            let sep_transitions = sep_cursor.transitions();
+            for mut transition in cursor.transitions().into_iter().filter(|t| !t.is_separator) {
+                let advanced = transition
+                    .characters
+                    .remove_intersection(&mut sep_chars.clone());
+                if advanced.is_empty() {
+                    continue;
+                }
+                consumable_chars = consumable_chars.add(&advanced);
+                let sep_next = sep_transitions
+                    .iter()
+                    .filter(|t| t.characters.does_intersect(&advanced))
+                    .flat_map(|t| t.states.iter().copied())
+                    .collect();
+                queue.push((transition.states, sep_next));
+            }
+        }
+        result.push(consumable_chars);
     }
     result
 }
@@ -527,6 +598,54 @@ mod tests {
     }
 
     #[test]
+    fn test_separator_consumption_characters() {
+        let grammar = expand_tokens(ExtractedLexicalGrammar {
+            separators: vec![Rule::pattern("\\s", ""), Rule::pattern("#[ab]*", "")],
+            variables: vec![
+                named_var("make", Rule::string("make")),
+                named_var(
+                    "ws_colon",
+                    Rule::seq(vec![Rule::pattern("\\s*", ""), Rule::string(":")]),
+                ),
+                named_var("space_p", Rule::string(" p")),
+                named_var("space_newline_q", Rule::string(" \nq")),
+                named_var(
+                    "immediate_space_p",
+                    Rule::immediate_token(Rule::string(" p")),
+                ),
+                named_var("hash_ap", Rule::string("#ap")),
+                named_var("hash_bq", Rule::string("#bq")),
+                named_var(
+                    "immediate_hash_ax",
+                    Rule::immediate_token(Rule::string("#ax")),
+                ),
+                named_var("hash_z", Rule::string("#z")),
+            ],
+        })
+        .unwrap();
+
+        let token_map = TokenConflictMap::new(&grammar, Vec::new());
+        let consumption = |name: &str| {
+            &token_map.separator_consumption_chars_by_index[index_of_var(&grammar, name)]
+        };
+        let chars = |s: &str| {
+            s.chars()
+                .fold(CharacterSet::empty(), CharacterSet::add_char)
+        };
+
+        assert_eq!(*consumption("make"), chars(""));
+        assert_eq!(*consumption("space_p"), chars(" "));
+        assert_eq!(*consumption("space_newline_q"), chars(" \n"));
+        assert_eq!(*consumption("immediate_space_p"), chars(" "));
+        assert_eq!(*consumption("hash_ap"), chars("#a"));
+        assert_eq!(*consumption("hash_bq"), chars("#b"));
+        assert_eq!(*consumption("immediate_hash_ax"), chars("#a"));
+        assert_eq!(*consumption("hash_z"), chars("#"));
+        assert!(consumption("ws_colon").contains(' '));
+        assert!(consumption("ws_colon").contains('\n'));
+    }
+
+    #[test]
     fn test_token_conflicts() {
         let grammar = expand_tokens(ExtractedLexicalGrammar {
             separators: Vec::new(),
@@ -633,6 +752,14 @@ mod tests {
 
         assert!(token_map.does_match_shorter_or_longer(var("anything"), var("x")));
         assert!(!token_map.does_match_shorter_or_longer(var("x"), var("anything")));
+    }
+
+    fn named_var(name: &str, rule: Rule) -> Variable {
+        Variable {
+            name: name.to_string(),
+            kind: VariableType::Named,
+            rule,
+        }
     }
 
     fn index_of_var(grammar: &LexicalGrammar, name: &str) -> usize {

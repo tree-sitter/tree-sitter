@@ -216,12 +216,27 @@ impl Minimizer<'_> {
             })
             .collect::<Vec<_>>();
 
+        // Merging states that disagree here would corrupt token extents.
+        let consumptions = self
+            .parse_table
+            .states
+            .iter()
+            .map(|state| {
+                let tokens = state.terminal_entries.keys().copied();
+                self.token_conflict_map
+                    .separator_consumption_chars(tokens.chain(state.reserved_words.iter()))
+            })
+            .collect::<Vec<_>>();
+
         split_state_id_groups(
             &self.parse_table.states,
             &mut state_ids_by_group_id,
             &mut group_ids_by_state_id,
             0,
-            |left, right, groups| self.states_conflict(left, right, groups, &entry_maps),
+            |left, right, groups| {
+                consumptions[left.id] != consumptions[right.id]
+                    || self.states_conflict(left, right, groups, &entry_maps)
+            },
         );
 
         // Precompute per-state sorted shift actions and nonterminal goto actions.

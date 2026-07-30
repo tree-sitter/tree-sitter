@@ -1,0 +1,19 @@
+==================================
+Keywords before a record
+==================================
+
+error make {}
+
+---
+
+(program (error_statement (record)))
+
+==================================
+Separator-prefixed token
+==================================
+
+  : x
+
+---
+
+(program (entry))
