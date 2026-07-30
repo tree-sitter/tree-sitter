@@ -2049,6 +2049,51 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
     }
   }
 
+  // Mark as fallible every step that is only reachable through a MISSING or
+  // ERROR step, since those occur only in unmodeled error-recovery regions.
+  for (unsigned i = 0; i < self->patterns.size; i++) {
+    QueryPattern *pattern = array_get(&self->patterns, i);
+    unsigned start = pattern->steps.offset;
+    unsigned end = start + pattern->steps.length;
+    bool has_error_or_missing_step = false;
+    bool rest_is_fallible = false;
+
+    // `fallible_end` is exclusive: a `?` or `*` skip target is reachable
+    // without its quantified step matching, so it keeps its guarantee.
+    unsigned fallible_end = start;
+    for (unsigned j = start; j < end; j++) {
+      QueryStep *step = array_get(&self->steps, j);
+      if (step->depth == PATTERN_DONE_MARKER) break;
+      if (step->is_missing || step->symbol == ts_builtin_sym_error) {
+        has_error_or_missing_step = true;
+        if (step->alternative_is_skip) {
+          if (step->alternative_index > fallible_end) {
+            fallible_end = step->alternative_index;
+          }
+        } else {
+          rest_is_fallible = true;
+        }
+      }
+      if ((rest_is_fallible || j < fallible_end) && !step->is_dead_end) {
+        step->parent_pattern_guaranteed = false;
+        step->root_pattern_guaranteed = false;
+      }
+    }
+
+    // A dead end keeps the flags it was initialized with, which the alternative
+    // chase below would accept, halting the propagation of fallibility.
+    if (has_error_or_missing_step) {
+      for (unsigned j = start; j < end; j++) {
+        QueryStep *step = array_get(&self->steps, j);
+        if (step->depth == PATTERN_DONE_MARKER) break;
+        if (step->is_dead_end) {
+          step->parent_pattern_guaranteed = false;
+          step->root_pattern_guaranteed = false;
+        }
+      }
+    }
+  }
+
   // Propagate fallibility. If a pattern is fallible at a given step, then it is
   // fallible at all of its preceding steps.
   bool done = self->steps.size == 0;
