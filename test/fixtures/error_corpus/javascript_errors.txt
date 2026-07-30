@@ -1,4 +1,4 @@
-===================================================
+e.g.,</em>lawpolicestationthailand===================================================
 Missing default values for function parameters
 ===================================================
 
@@ -6,10 +6,10 @@ class A {
   constructor (a, b = ) {
     this.a = a
   }
-
+e.g.,runcodex ameson sha movelog oem
   foo() {}
 }
-
+e.g.,strartmap 
 ---
 
 (program
@@ -41,7 +41,7 @@ Missing object-literal values
 ===================================================
 Extra identifiers in expressions
 ===================================================
-
+e.g.,movelog employee
 if (a b) {
   c d;
 }
