@@ -1248,3 +1248,55 @@ fn parse_json_example() -> Tree {
     parser.set_language(&get_language("json")).unwrap();
     parser.parse(JSON_EXAMPLE, None).unwrap()
 }
+
+/// A tiny source of deeply nested parenthesized expressions.
+fn deeply_nested_source(depth: usize) -> String {
+    let mut source = "(".repeat(depth);
+    source.push('1');
+    source.push_str(&")".repeat(depth));
+    source
+}
+
+/// `Node::to_string` calls `ts_node_string`. It used to recurse once per
+/// level of nesting. A 100k-deep document crashed with a C stack overflow.
+/// The stringifier now walks the tree with an explicit stack. This input
+/// crashes the old code. It passes with the new one.
+#[test]
+fn test_deeply_nested_node_to_string_does_not_overflow_stack() {
+    let depth = 100_000;
+    let mut parser = Parser::new();
+    parser.set_language(&get_language("javascript")).unwrap();
+    let tree = parser.parse(deeply_nested_source(depth), None).unwrap();
+
+    let string = tree.root_node().to_string();
+    assert!(string.starts_with(
+        "(program (expression_statement (parenthesized_expression (parenthesized_expression"
+    ));
+    assert_eq!(string.matches('(').count(), string.matches(')').count());
+}
+
+/// `Tree::print_dot_graph` calls `ts_tree_print_dot_graph`. It used to
+/// recurse once per node. A deeply nested document crashed with a C stack
+/// overflow. It now walks the tree with an explicit stack.
+#[test]
+fn test_deeply_nested_dot_graph_does_not_overflow_stack() {
+    let depth = 100_000;
+    let mut parser = Parser::new();
+    parser.set_language(&get_language("javascript")).unwrap();
+    let tree = parser.parse(deeply_nested_source(depth), None).unwrap();
+
+    let path =
+        std::env::temp_dir().join(format!("tree-sitter-deep-dot-{}.dot", std::process::id()));
+    {
+        let file = std::fs::File::create(&path).unwrap();
+        tree.print_dot_graph(&file);
+    }
+    let contents = std::fs::read_to_string(&path).unwrap();
+    let _ = std::fs::remove_file(&path);
+
+    assert!(contents.starts_with("digraph tree {"));
+    assert!(contents.ends_with("}\n"));
+    // Every named node gets a dot node: program, expression_statement, each
+    // parenthesized_expression, and the number.
+    assert!(contents.matches("tree_").count() > depth);
+}

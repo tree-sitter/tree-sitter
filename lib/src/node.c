@@ -177,14 +177,23 @@ static bool ts_subtree_has_trailing_empty_descendant(
   Subtree self,
   Subtree other
 ) {
-  for (unsigned i = ts_subtree_child_count(self) - 1; i + 1 > 0; i--) {
-    Subtree child = ts_subtree_children(self)[i];
-    if (ts_subtree_total_bytes(child) > 0) break;
-    if (child.ptr == other.ptr || ts_subtree_has_trailing_empty_descendant(child, other)) {
-      return true;
+  Array(Subtree) stack = array_new();
+  array_push(&stack, self);
+  bool result = false;
+  while (stack.size > 0) {
+    Subtree node = array_pop(&stack);
+    if (node.ptr == other.ptr) {
+      result = true;
+      break;
+    }
+    for (unsigned i = ts_subtree_child_count(node); i > 0; i--) {
+      Subtree child = ts_subtree_children(node)[i - 1];
+      if (ts_subtree_total_bytes(child) > 0) break;
+      array_push(&stack, child);
     }
   }
-  return false;
+  array_delete(&stack);
+  return result;
 }
 
 static inline TSNode ts_node__prev_sibling(TSNode self, bool include_anonymous) {
@@ -562,32 +571,70 @@ TSNode ts_node_child_with_descendant(TSNode self, TSNode descendant) {
   uint32_t end_byte = ts_node_end_byte(descendant);
   bool is_empty = start_byte == end_byte;
 
-  do {
-    NodeChildIterator iter = ts_node_iterate_children(&self);
-    do {
-      if (
-        !ts_node_child_iterator_next(&iter, &self)
-        || ts_node_start_byte(self) > start_byte
-      ) {
-        return ts_node__null();
-      }
-      if (self.id == descendant.id) {
-        return self;
-      }
+  typedef struct {
+    TSNode descended_child;
+    TSNode scan_node;
+    NodeChildIterator scan_iter;
+  } DescendFrame;
 
-      // If the descendant is empty, and the end byte is within `self`,
-      // we check whether `self` contains it or not.
-      if (is_empty && iter.position.bytes >= end_byte && ts_node_child_count(self) > 0) {
-        TSNode child = ts_node_child_with_descendant(self, descendant);
-        // If the child is not null, return self if it's relevant, else return the child
-        if (!ts_node_is_null(child)) {
-          return ts_node__is_relevant(self, true) ? self : child;
-        }
-      }
-    } while ((is_empty ? iter.position.bytes <= end_byte : iter.position.bytes < end_byte) || ts_node_child_count(self) == 0);
-  } while (!ts_node__is_relevant(self, true));
+  Array(DescendFrame) stack = array_new();
+  TSNode node = self;
+  NodeChildIterator iter = ts_node_iterate_children(&node);
+  TSNode result = ts_node__null();
+  TSNode child = ts_node__null();
 
-  return self;
+scan:
+  while (ts_node_child_iterator_next(&iter, &child)) {
+    if (ts_node_start_byte(child) > start_byte) goto no_descendant;
+    if (child.id == descendant.id) {
+      result = child;
+      goto found;
+    }
+
+    // `child` contains the empty descendant position.
+    if (is_empty && iter.position.bytes >= end_byte && ts_node_child_count(child) > 0) {
+      array_push(&stack, ((DescendFrame) { child, node, iter }));
+      node = child;
+      iter = ts_node_iterate_children(&node);
+      goto scan;
+    }
+
+    if ((is_empty ? iter.position.bytes <= end_byte : iter.position.bytes < end_byte) || ts_node_child_count(child) == 0) {
+      continue;
+    }
+
+    // `child` contains the descendant position and extends past it.
+    if (ts_node__is_relevant(child, true)) {
+      result = child;
+      goto found;
+    }
+    node = child;
+    iter = ts_node_iterate_children(&node);
+    goto scan;
+  }
+
+no_descendant:
+  if (stack.size > 0) {
+    DescendFrame frame = array_pop(&stack);
+    node = frame.scan_node;
+    iter = frame.scan_iter;
+    goto scan;
+  }
+  goto done;
+
+found:
+  // The descent chain is `stack`, shallowest first. The answer is the
+  // outermost relevant node.
+  for (uint32_t i = 0; i < stack.size; i++) {
+    if (ts_node__is_relevant(stack.contents[i].descended_child, true)) {
+      result = stack.contents[i].descended_child;
+      break;
+    }
+  }
+
+done:
+  array_delete(&stack);
+  return result;
 }
 
 TSNode ts_node_child(TSNode self, uint32_t child_index) {
@@ -599,76 +646,111 @@ TSNode ts_node_named_child(TSNode self, uint32_t child_index) {
 }
 
 TSNode ts_node_child_by_field_id(TSNode self, TSFieldId field_id) {
-recur:
-  if (!field_id || ts_node_child_count(self) == 0) return ts_node__null();
+  // A field search can descend into hidden nodes with inherited fields.
+  typedef struct {
+    TSNode self;
+    NodeChildIterator iterator;
+    const TSFieldMapEntry *field_map;
+    const TSFieldMapEntry *field_map_end;
+  } FieldSearchFrame;
 
-  const TSFieldMapEntry *field_map, *field_map_end;
-  ts_language_field_map(
-    self.tree->language,
-    ts_node__subtree(self).ptr->production_id,
-    &field_map,
-    &field_map_end
-  );
-  if (field_map == field_map_end) return ts_node__null();
+  if (!field_id) return ts_node__null();
+  Array(FieldSearchFrame) stack = array_new();
 
-  // The field mappings are sorted by their field id. Scan all
-  // the mappings to find the ones for the given field id.
-  while (field_map->field_id < field_id) {
-    field_map++;
-    if (field_map == field_map_end) return ts_node__null();
-  }
-  while (field_map_end[-1].field_id > field_id) {
-    field_map_end--;
-    if (field_map == field_map_end) return ts_node__null();
-  }
+  NodeChildIterator iterator = {0};
+  const TSFieldMapEntry *field_map = NULL, *field_map_end = NULL;
+  bool started = false;
 
-  TSNode child;
-  NodeChildIterator iterator = ts_node_iterate_children(&self);
-  while (ts_node_child_iterator_next(&iterator, &child)) {
-    if (!ts_subtree_extra(ts_node__subtree(child))) {
+  for (;;) {
+    if (!started) {
+      if (ts_node_child_count(self) == 0) goto not_found;
+
+      ts_language_field_map(
+        self.tree->language,
+        ts_node__subtree(self).ptr->production_id,
+        &field_map,
+        &field_map_end
+      );
+      if (field_map == field_map_end) goto not_found;
+
+      // Find the field mappings sorted by field id.
+      while (field_map->field_id < field_id) {
+        field_map++;
+        if (field_map == field_map_end) goto not_found;
+      }
+      while (field_map_end[-1].field_id > field_id) {
+        field_map_end--;
+        if (field_map == field_map_end) goto not_found;
+      }
+
+      iterator = ts_node_iterate_children(&self);
+      started = true;
+    }
+
+    bool descended = false;
+    TSNode child;
+    while (ts_node_child_iterator_next(&iterator, &child)) {
+      if (ts_subtree_extra(ts_node__subtree(child))) continue;
+
       uint32_t index = iterator.structural_child_index - 1;
       if (index < field_map->child_index) continue;
 
       // Hidden nodes' fields are "inherited" by their visible parent.
       if (field_map->inherited) {
 
-        // If this is the *last* possible child node for this field,
-        // then perform a tail call to avoid recursion.
+        // This is the last field-map entry for this field. Do a tail descent.
         if (field_map + 1 == field_map_end) {
           self = child;
-          goto recur;
+          descended = true;
+          started = false;
+          break;
         }
 
-        // Otherwise, descend into this child, but if it doesn't contain
-        // the field, continue searching subsequent children.
-        else {
-          TSNode result = ts_node_child_by_field_id(child, field_id);
-          if (result.id) return result;
-          field_map++;
-          if (field_map == field_map_end) return ts_node__null();
-        }
+        // If it has no field, search the later children.
+        array_push(&stack, ((FieldSearchFrame) { self, iterator, field_map, field_map_end }));
+        self = child;
+        descended = true;
+        started = false;
+        break;
       }
 
-      else if (ts_node__is_relevant(child, true)) {
+      if (ts_node__is_relevant(child, true)) {
+        array_delete(&stack);
         return child;
       }
 
-      // If the field refers to a hidden node with visible children,
-      // return the first visible child.
-      else if (ts_node_child_count(child) > 0 ) {
+      // The field may refer to a hidden node. Return its first visible
+      // child.
+      if (ts_node_child_count(child) > 0) {
+        array_delete(&stack);
         return ts_node_child(child, 0);
       }
 
-      // Otherwise, continue searching subsequent children.
-      else {
-        field_map++;
-        if (field_map == field_map_end) return ts_node__null();
-      }
+      field_map++;
+      if (field_map == field_map_end) goto not_found;
     }
+
+    if (descended) continue;
+
+    if (stack.size > 0) {
+      FieldSearchFrame frame = array_pop(&stack);
+      self = frame.self;
+      iterator = frame.iterator;
+      field_map = frame.field_map;
+      field_map_end = frame.field_map_end;
+      field_map++;
+      if (field_map == field_map_end) goto not_found;
+      continue;
+    }
+
+    goto not_found;
   }
 
+not_found:
+  array_delete(&stack);
   return ts_node__null();
 }
+
 
 static inline const char *ts_node__field_name_from_language(TSNode self, uint32_t structural_child_index) {
     const TSFieldMapEntry *field_map, *field_map_end;

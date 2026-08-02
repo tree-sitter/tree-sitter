@@ -998,57 +998,99 @@ char *ts_subtree_string(
 void ts_subtree__print_dot_graph(const Subtree *self, uint32_t start_offset,
                                  const TSLanguage *language, TSSymbol alias_symbol,
                                  FILE *f) {
-  TSSymbol subtree_symbol = ts_subtree_symbol(*self);
-  TSSymbol symbol = alias_symbol ? alias_symbol : subtree_symbol;
-  uint32_t end_offset = start_offset + ts_subtree_total_bytes(*self);
-  fprintf(f, "tree_%p [label=\"", (void *)self);
-  ts_language_write_symbol_as_dot_string(language, f, symbol);
-  fprintf(f, "\"");
+  // An `is_edge` frame emits the parent→child edge after the child subtree.
+  // The other fields hold the arguments of a recursive call.
+  typedef struct {
+    const Subtree *parent;
+    const Subtree *self;
+    uint32_t start_offset;
+    TSSymbol alias_symbol;
+    bool is_edge;
+    uint32_t child_index;
+  } DotGraphFrame;
 
-  if (ts_subtree_child_count(*self) == 0) fprintf(f, ", shape=plaintext");
-  if (ts_subtree_extra(*self)) fprintf(f, ", fontcolor=gray");
-  if (ts_subtree_has_changes(*self)) fprintf(f, ", color=green, penwidth=2");
+  Array(DotGraphFrame) stack = array_new();
+  array_push(&stack, ((DotGraphFrame) { NULL, self, start_offset, alias_symbol, false, 0 }));
 
-  fprintf(f, ", tooltip=\""
-    "range: %u - %u\n"
-    "state: %d\n"
-    "error-cost: %u\n"
-    "has-changes: %u\n"
-    "depends-on-column: %u\n"
-    "descendant-count: %u\n"
-    "repeat-depth: %u\n"
-    "lookahead-bytes: %u",
-    start_offset, end_offset,
-    ts_subtree_parse_state(*self),
-    ts_subtree_error_cost(*self),
-    ts_subtree_has_changes(*self),
-    ts_subtree_depends_on_column(*self),
-    ts_subtree_visible_descendant_count(*self),
-    ts_subtree_repeat_depth(*self),
-    ts_subtree_lookahead_bytes(*self)
-  );
+  while (stack.size > 0) {
+    DotGraphFrame frame = array_pop(&stack);
 
-  if (ts_subtree_is_error(*self) && ts_subtree_child_count(*self) == 0 && self->ptr->lookahead_char != 0) {
-    fprintf(f, "\ncharacter: '%c'", self->ptr->lookahead_char);
-  }
-
-  fprintf(f, "\"]\n");
-
-  uint32_t child_start_offset = start_offset;
-  uint32_t child_info_offset =
-    language->max_alias_sequence_length *
-    ts_subtree_production_id(*self);
-  for (uint32_t i = 0, n = ts_subtree_child_count(*self); i < n; i++) {
-    const Subtree *child = &ts_subtree_children(*self)[i];
-    TSSymbol subtree_alias_symbol = 0;
-    if (!ts_subtree_extra(*child) && child_info_offset) {
-      subtree_alias_symbol = language->alias_sequences[child_info_offset];
-      child_info_offset++;
+    if (frame.is_edge) {
+      fprintf(f, "tree_%p -> tree_%p [tooltip=%u]\n", (void *)frame.parent, (void *)frame.self, frame.child_index);
+      continue;
     }
-    ts_subtree__print_dot_graph(child, child_start_offset, language, subtree_alias_symbol, f);
-    fprintf(f, "tree_%p -> tree_%p [tooltip=%u]\n", (void *)self, (void *)child, i);
-    child_start_offset += ts_subtree_total_bytes(*child);
+
+    const Subtree *node = frame.self;
+    TSSymbol subtree_symbol = ts_subtree_symbol(*node);
+    TSSymbol symbol = frame.alias_symbol ? frame.alias_symbol : subtree_symbol;
+    uint32_t end_offset = frame.start_offset + ts_subtree_total_bytes(*node);
+    fprintf(f, "tree_%p [label=\"", (void *)node);
+    ts_language_write_symbol_as_dot_string(language, f, symbol);
+    fprintf(f, "\"");
+
+    if (ts_subtree_child_count(*node) == 0) fprintf(f, ", shape=plaintext");
+    if (ts_subtree_extra(*node)) fprintf(f, ", fontcolor=gray");
+    if (ts_subtree_has_changes(*node)) fprintf(f, ", color=green, penwidth=2");
+
+    fprintf(f, ", tooltip=\""
+      "range: %u - %u\n"
+      "state: %d\n"
+      "error-cost: %u\n"
+      "has-changes: %u\n"
+      "depends-on-column: %u\n"
+      "descendant-count: %u\n"
+      "repeat-depth: %u\n"
+      "lookahead-bytes: %u",
+      frame.start_offset, end_offset,
+      ts_subtree_parse_state(*node),
+      ts_subtree_error_cost(*node),
+      ts_subtree_has_changes(*node),
+      ts_subtree_depends_on_column(*node),
+      ts_subtree_visible_descendant_count(*node),
+      ts_subtree_repeat_depth(*node),
+      ts_subtree_lookahead_bytes(*node)
+    );
+
+    if (ts_subtree_is_error(*node) && ts_subtree_child_count(*node) == 0 && node->ptr->lookahead_char != 0) {
+      fprintf(f, "\ncharacter: '%c'", node->ptr->lookahead_char);
+    }
+
+    fprintf(f, "\"]\n");
+
+    uint32_t child_count = ts_subtree_child_count(*node);
+    if (child_count > 0) {
+      // Collect the children in forward order, push them in reverse. Put an
+      // edge frame under each child, so the edge prints after the subtree.
+      typedef struct {
+        const Subtree *child;
+        uint32_t start_offset;
+        TSSymbol alias_symbol;
+      } ChildInfo;
+      Array(ChildInfo) children = array_new();
+      uint32_t child_start_offset = frame.start_offset;
+      uint32_t child_info_offset =
+        language->max_alias_sequence_length *
+        ts_subtree_production_id(*node);
+      for (uint32_t i = 0; i < child_count; i++) {
+        const Subtree *child = &ts_subtree_children(*node)[i];
+        TSSymbol subtree_alias_symbol = 0;
+        if (!ts_subtree_extra(*child) && child_info_offset) {
+          subtree_alias_symbol = language->alias_sequences[child_info_offset];
+          child_info_offset++;
+        }
+        array_push(&children, ((ChildInfo) { child, child_start_offset, subtree_alias_symbol }));
+        child_start_offset += ts_subtree_total_bytes(*child);
+      }
+      for (uint32_t i = children.size; i > 0; i--) {
+        ChildInfo ci = children.contents[i - 1];
+        array_push(&stack, ((DotGraphFrame) { node, ci.child, 0, 0, true, i - 1 }));
+        array_push(&stack, ((DotGraphFrame) { NULL, ci.child, ci.start_offset, ci.alias_symbol, false, 0 }));
+      }
+      array_delete(&children);
+    }
   }
+
+  array_delete(&stack);
 }
 
 void ts_subtree_print_dot_graph(Subtree self, const TSLanguage *language, FILE *f) {
