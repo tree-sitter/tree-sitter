@@ -5,8 +5,8 @@ use rand::{SeedableRng, prelude::StdRng};
 use streaming_iterator::StreamingIterator;
 use tree_sitter::{
     CaptureQuantifier, InputEdit, Language, Node, Parser, Point, Query, QueryCursor,
-    QueryCursorOptions, QueryError, QueryErrorKind, QueryPredicate, QueryPredicateArg,
-    QueryProperty, Range,
+    QueryCursorOptions, QueryCursorState, QueryError, QueryErrorKind, QueryPredicate,
+    QueryPredicateArg, QueryProperty, Range,
 };
 use tree_sitter_generate::load_grammar_file;
 use unindent::Unindent;
@@ -6022,21 +6022,21 @@ fn test_query_execution_with_timeout() {
     let tree = parser.parse(&source_code, None).unwrap();
 
     let query = Query::new(&language, "(function_declaration) @function").unwrap();
-    let mut cursor = QueryCursor::new();
-
     let start_time = std::time::Instant::now();
+    let mut progress_callback = |_: &QueryCursorState| {
+        if start_time.elapsed().as_micros() > 1000 {
+            ControlFlow::Break(())
+        } else {
+            ControlFlow::Continue(())
+        }
+    };
+    let mut cursor = QueryCursor::new();
     let matches = cursor
         .matches_with_options(
             &query,
             tree.root_node(),
             source_code.as_bytes(),
-            QueryCursorOptions::new().progress_callback(&mut |_| {
-                if start_time.elapsed().as_micros() > 1000 {
-                    ControlFlow::Break(())
-                } else {
-                    ControlFlow::Continue(())
-                }
-            }),
+            QueryCursorOptions::new().progress_callback(&mut progress_callback),
         )
         .count();
     assert!(matches < 1000);
@@ -6045,6 +6045,33 @@ fn test_query_execution_with_timeout() {
         .matches(&query, tree.root_node(), source_code.as_bytes())
         .count();
     assert_eq!(matches, 1000);
+}
+
+#[test]
+fn test_query_progress_callback_lives_as_long_as_matches() {
+    let language = get_language("javascript");
+    let mut parser = Parser::new();
+    parser.set_language(&language).unwrap();
+
+    let source_code = "function foo() {}\n".repeat(1000);
+    let tree = parser.parse(&source_code, None).unwrap();
+    let query = Query::new(&language, "(function_declaration) @function").unwrap();
+
+    let mut cursor = QueryCursor::new();
+    let mut callback_was_called = false;
+    let mut progress_callback = |_: &QueryCursorState| {
+        callback_was_called = true;
+        ControlFlow::Continue(())
+    };
+    let matches = cursor.matches_with_options(
+        &query,
+        tree.root_node(),
+        source_code.as_bytes(),
+        QueryCursorOptions::new().progress_callback(&mut progress_callback),
+    );
+
+    assert_eq!(matches.count(), 1000);
+    assert!(callback_was_called);
 }
 
 #[test]

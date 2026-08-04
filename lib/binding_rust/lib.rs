@@ -276,9 +276,12 @@ impl<'a> QueryCursorOptions<'a> {
     }
 }
 
-struct QueryCursorOptionsDrop(*mut ffi::TSQueryCursorOptions);
+struct QueryCursorOptionsDrop<'options>(
+    *mut ffi::TSQueryCursorOptions,
+    PhantomData<QueryProgressCallback<'options>>,
+);
 
-impl Drop for QueryCursorOptionsDrop {
+impl Drop for QueryCursorOptionsDrop<'_> {
     fn drop(&mut self) {
         unsafe {
             if !(*self.0).payload.is_null() {
@@ -398,14 +401,14 @@ pub struct QueryMatch<'cursor, 'tree> {
 }
 
 /// A sequence of [`QueryMatch`]es associated with a given [`QueryCursor`].
-pub struct QueryMatches<'query, 'tree, T: TextProvider<I>, I: AsRef<[u8]>> {
+pub struct QueryMatches<'query, 'tree, 'options, T: TextProvider<I>, I: AsRef<[u8]>> {
     ptr: *mut ffi::TSQueryCursor,
     query: &'query Query,
     text_provider: T,
     buffer1: Vec<u8>,
     buffer2: Vec<u8>,
     current_match: Option<QueryMatch<'query, 'tree>>,
-    _options: Option<QueryCursorOptionsDrop>,
+    _options: Option<QueryCursorOptionsDrop<'options>>,
     _phantom: PhantomData<(&'tree (), I)>,
 }
 
@@ -413,14 +416,14 @@ pub struct QueryMatches<'query, 'tree, T: TextProvider<I>, I: AsRef<[u8]>> {
 ///
 /// During iteration, each element contains a [`QueryMatch`] and index. The index can
 /// be used to access the new capture inside of the [`QueryMatch::captures`]'s [`captures`].
-pub struct QueryCaptures<'query, 'tree, T: TextProvider<I>, I: AsRef<[u8]>> {
+pub struct QueryCaptures<'query, 'tree, 'options, T: TextProvider<I>, I: AsRef<[u8]>> {
     ptr: *mut ffi::TSQueryCursor,
     query: &'query Query,
     text_provider: T,
     buffer1: Vec<u8>,
     buffer2: Vec<u8>,
     current_match: Option<(QueryMatch<'query, 'tree>, usize)>,
-    _options: Option<QueryCursorOptionsDrop>,
+    _options: Option<QueryCursorOptionsDrop<'options>>,
     _phantom: PhantomData<(&'tree (), I)>,
 }
 
@@ -3088,7 +3091,7 @@ impl QueryCursor {
         query: &'query Query,
         node: Node<'tree>,
         text_provider: T,
-    ) -> QueryMatches<'query, 'tree, T, I> {
+    ) -> QueryMatches<'query, 'tree, 'static, T, I> {
         let ptr = self.ptr.as_ptr();
         unsafe { ffi::ts_query_cursor_exec(ptr, query.ptr.as_ptr(), node.0) };
         QueryMatches {
@@ -3114,6 +3117,7 @@ impl QueryCursor {
         'query,
         'cursor: 'query,
         'tree,
+        'options,
         T: TextProvider<I>,
         I: AsRef<[u8]>,
     >(
@@ -3121,8 +3125,8 @@ impl QueryCursor {
         query: &'query Query,
         node: Node<'tree>,
         text_provider: T,
-        options: QueryCursorOptions,
-    ) -> QueryMatches<'query, 'tree, T, I> {
+        options: QueryCursorOptions<'options>,
+    ) -> QueryMatches<'query, 'tree, 'options, T, I> {
         unsafe extern "C" fn progress(state: *mut ffi::TSQueryCursorState) -> bool {
             unsafe {
                 let callback = (*state)
@@ -3138,10 +3142,13 @@ impl QueryCursor {
         }
 
         let query_options = options.progress_callback.map(|cb| {
-            QueryCursorOptionsDrop(Box::into_raw(Box::new(ffi::TSQueryCursorOptions {
-                payload: Box::into_raw(Box::new(cb)).cast::<c_void>(),
-                progress_callback: Some(progress),
-            })))
+            QueryCursorOptionsDrop(
+                Box::into_raw(Box::new(ffi::TSQueryCursorOptions {
+                    payload: Box::into_raw(Box::new(cb)).cast::<c_void>(),
+                    progress_callback: Some(progress),
+                })),
+                PhantomData,
+            )
         });
 
         let ptr = self.ptr.as_ptr();
@@ -3180,7 +3187,7 @@ impl QueryCursor {
         query: &'query Query,
         node: Node<'tree>,
         text_provider: T,
-    ) -> QueryCaptures<'query, 'tree, T, I> {
+    ) -> QueryCaptures<'query, 'tree, 'static, T, I> {
         let ptr = self.ptr.as_ptr();
         unsafe { ffi::ts_query_cursor_exec(ptr, query.ptr.as_ptr(), node.0) };
         QueryCaptures {
@@ -3205,6 +3212,7 @@ impl QueryCursor {
         'query,
         'cursor: 'query,
         'tree,
+        'options,
         T: TextProvider<I>,
         I: AsRef<[u8]>,
     >(
@@ -3212,8 +3220,8 @@ impl QueryCursor {
         query: &'query Query,
         node: Node<'tree>,
         text_provider: T,
-        options: QueryCursorOptions,
-    ) -> QueryCaptures<'query, 'tree, T, I> {
+        options: QueryCursorOptions<'options>,
+    ) -> QueryCaptures<'query, 'tree, 'options, T, I> {
         unsafe extern "C" fn progress(state: *mut ffi::TSQueryCursorState) -> bool {
             unsafe {
                 let callback = (*state)
@@ -3229,10 +3237,13 @@ impl QueryCursor {
         }
 
         let query_options = options.progress_callback.map(|cb| {
-            QueryCursorOptionsDrop(Box::into_raw(Box::new(ffi::TSQueryCursorOptions {
-                payload: Box::into_raw(Box::new(cb)).cast::<c_void>(),
-                progress_callback: Some(progress),
-            })))
+            QueryCursorOptionsDrop(
+                Box::into_raw(Box::new(ffi::TSQueryCursorOptions {
+                    payload: Box::into_raw(Box::new(cb)).cast::<c_void>(),
+                    progress_callback: Some(progress),
+                })),
+                PhantomData,
+            )
         });
 
         let ptr = self.ptr.as_ptr();
@@ -3510,7 +3521,7 @@ impl QueryProperty {
 /// underlying object in the C library gets updated on each iteration. Copies would
 /// have their internal state overwritten, leading to Undefined Behavior
 impl<'query, 'tree, T: TextProvider<I>, I: AsRef<[u8]>> StreamingIterator
-    for QueryMatches<'query, 'tree, T, I>
+    for QueryMatches<'query, 'tree, '_, T, I>
 {
     type Item = QueryMatch<'query, 'tree>;
 
@@ -3540,14 +3551,14 @@ impl<'query, 'tree, T: TextProvider<I>, I: AsRef<[u8]>> StreamingIterator
     }
 }
 
-impl<T: TextProvider<I>, I: AsRef<[u8]>> StreamingIteratorMut for QueryMatches<'_, '_, T, I> {
+impl<T: TextProvider<I>, I: AsRef<[u8]>> StreamingIteratorMut for QueryMatches<'_, '_, '_, T, I> {
     fn get_mut(&mut self) -> Option<&mut Self::Item> {
         self.current_match.as_mut()
     }
 }
 
 impl<'query, 'tree, T: TextProvider<I>, I: AsRef<[u8]>> StreamingIterator
-    for QueryCaptures<'query, 'tree, T, I>
+    for QueryCaptures<'query, 'tree, '_, T, I>
 {
     type Item = (QueryMatch<'query, 'tree>, usize);
 
@@ -3583,13 +3594,13 @@ impl<'query, 'tree, T: TextProvider<I>, I: AsRef<[u8]>> StreamingIterator
     }
 }
 
-impl<T: TextProvider<I>, I: AsRef<[u8]>> StreamingIteratorMut for QueryCaptures<'_, '_, T, I> {
+impl<T: TextProvider<I>, I: AsRef<[u8]>> StreamingIteratorMut for QueryCaptures<'_, '_, '_, T, I> {
     fn get_mut(&mut self) -> Option<&mut Self::Item> {
         self.current_match.as_mut()
     }
 }
 
-impl<T: TextProvider<I>, I: AsRef<[u8]>> QueryMatches<'_, '_, T, I> {
+impl<T: TextProvider<I>, I: AsRef<[u8]>> QueryMatches<'_, '_, '_, T, I> {
     #[doc(alias = "ts_query_cursor_set_byte_range")]
     pub fn set_byte_range(&mut self, range: ops::Range<usize>) {
         unsafe {
@@ -3605,7 +3616,7 @@ impl<T: TextProvider<I>, I: AsRef<[u8]>> QueryMatches<'_, '_, T, I> {
     }
 }
 
-impl<T: TextProvider<I>, I: AsRef<[u8]>> QueryCaptures<'_, '_, T, I> {
+impl<T: TextProvider<I>, I: AsRef<[u8]>> QueryCaptures<'_, '_, '_, T, I> {
     #[doc(alias = "ts_query_cursor_set_byte_range")]
     pub fn set_byte_range(&mut self, range: ops::Range<usize>) {
         unsafe {
