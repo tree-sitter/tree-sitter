@@ -1,4 +1,4 @@
-VERSION := 0.26.0
+VERSION := 0.27.0
 DESCRIPTION := An incremental parsing system for programming tools
 HOMEPAGE_URL := https://tree-sitter.github.io/tree-sitter/
 
@@ -22,9 +22,9 @@ OBJ := $(SRC:.c=.o)
 
 # define default flags, and override to append mandatory flags
 ARFLAGS := rcs
-CFLAGS ?= -O3 -Wall -Wextra -Wshadow -Wpedantic -Werror=incompatible-pointer-types
+CFLAGS ?= -O3 -Wall -Wextra -Wshadow -Wpedantic -Werror=incompatible-pointer-types -Werror=strict-aliasing -Wstrict-aliasing=2
 override CFLAGS += -std=c11 -fPIC -fvisibility=hidden
-override CFLAGS += -D_POSIX_C_SOURCE=200112L -D_DEFAULT_SOURCE
+override CFLAGS += -D_POSIX_C_SOURCE=200112L -D_DEFAULT_SOURCE -D_BSD_SOURCE -D_DARWIN_C_SOURCE
 override CFLAGS += -Ilib/src -Ilib/src/wasm -Ilib/include
 
 # ABI versioning
@@ -75,6 +75,10 @@ tree-sitter.pc: lib/tree-sitter.pc.in
 		-e 's|@PROJECT_HOMEPAGE_URL@|$(HOMEPAGE_URL)|' \
 		-e 's|@CMAKE_INSTALL_PREFIX@|$(PREFIX)|' $< > $@
 
+shared: libtree-sitter.$(SOEXT)
+
+static: libtree-sitter.a
+
 clean:
 	$(RM) $(OBJ) tree-sitter.pc libtree-sitter.a libtree-sitter.$(SOEXT) libtree-stitter.dll.a
 
@@ -102,7 +106,7 @@ uninstall:
 		'$(DESTDIR)$(PCLIBDIR)'/tree-sitter.pc
 	rmdir '$(DESTDIR)$(INCLUDEDIR)'/tree_sitter
 
-.PHONY: all install uninstall clean
+.PHONY: all shared static install uninstall clean
 
 
 ##### Dev targets #####
@@ -118,7 +122,6 @@ test-wasm:
 
 lint:
 	cargo update --workspace --locked --quiet
-	cargo check --workspace --all-targets
 	cargo fmt --all --check
 	cargo clippy --workspace --all-targets -- -D warnings
 

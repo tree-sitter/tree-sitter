@@ -49,10 +49,6 @@ const TSSymbol *ts_language_subtypes(
   return &self->supertype_map_entries[slice.index];
 }
 
-uint32_t ts_language_version(const TSLanguage *self) {
-  return self->abi_version;
-}
-
 uint32_t ts_language_abi_version(const TSLanguage *self) {
   return self->abi_version;
 }
@@ -186,7 +182,7 @@ TSSymbol ts_language_symbol_for_name(
   uint32_t length,
   bool is_named
 ) {
-  if (!strncmp(string, "ERROR", length)) return ts_builtin_sym_error;
+  if (is_named && !strncmp(string, "ERROR", length)) return ts_builtin_sym_error;
   uint16_t count = (uint16_t)ts_language_symbol_count(self);
   for (TSSymbol i = 0; i < count; i++) {
     TSSymbolMetadata metadata = ts_language_symbol_metadata(self, i);

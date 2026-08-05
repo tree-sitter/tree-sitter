@@ -1,23 +1,22 @@
 use std::{fs, path::Path};
 
-use anstyle::AnsiColor;
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use tree_sitter::Point;
 use tree_sitter_highlight::{Highlight, HighlightConfiguration, HighlightEvent, Highlighter};
 use tree_sitter_loader::{Config, Loader};
 
-use super::{
-    query_testing::{parse_position_comments, to_utf8_point, Assertion, Utf8Point},
-    test::paint,
+use crate::{
+    query_testing::{Assertion, Utf8Point, parse_position_comments, to_utf8_point},
+    test::{TestInfo, TestOutcome, TestResult, TestSummary},
     util,
 };
 
 #[derive(Debug)]
 pub struct Failure {
-    row: usize,
-    column: usize,
-    expected_highlight: String,
-    actual_highlights: Vec<String>,
+    pub(crate) row: usize,
+    pub(crate) column: usize,
+    pub(crate) expected_highlight: String,
+    pub(crate) actual_highlights: Vec<String>,
 }
 
 impl std::error::Error for Failure {}
@@ -48,19 +47,7 @@ pub fn test_highlights(
     loader_config: &Config,
     highlighter: &mut Highlighter,
     directory: &Path,
-    use_color: bool,
-) -> Result<()> {
-    println!("syntax highlighting:");
-    test_highlights_indented(loader, loader_config, highlighter, directory, use_color, 2)
-}
-
-fn test_highlights_indented(
-    loader: &Loader,
-    loader_config: &Config,
-    highlighter: &mut Highlighter,
-    directory: &Path,
-    use_color: bool,
-    indent_level: usize,
+    test_summary: &mut TestSummary,
 ) -> Result<()> {
     let mut failed = false;
 
@@ -68,25 +55,22 @@ fn test_highlights_indented(
         let highlight_test_file = highlight_test_file?;
         let test_file_path = highlight_test_file.path();
         let test_file_name = highlight_test_file.file_name();
-        print!(
-            "{indent:indent_level$}",
-            indent = "",
-            indent_level = indent_level * 2
-        );
         if test_file_path.is_dir() && test_file_path.read_dir()?.next().is_some() {
-            println!("{}:", test_file_name.to_string_lossy());
-            if test_highlights_indented(
+            test_summary
+                .highlight_results
+                .add_group(test_file_name.to_string_lossy().as_ref());
+            if test_highlights(
                 loader,
                 loader_config,
                 highlighter,
                 &test_file_path,
-                use_color,
-                indent_level + 1,
+                test_summary,
             )
             .is_err()
             {
                 failed = true;
             }
+            test_summary.highlight_results.pop_traversal();
         } else {
             let (language, language_config) = loader
                 .language_configuration_for_file_name(&test_file_path)?
@@ -98,7 +82,12 @@ fn test_highlights_indented(
                 })?;
             let highlight_config = language_config
                 .highlight_config(language, None)?
-                .ok_or_else(|| anyhow!("No highlighting config found for {test_file_path:?}"))?;
+                .ok_or_else(|| {
+                    anyhow!(
+                        "No highlighting config found for {}",
+                        test_file_path.display()
+                    )
+                })?;
             match test_highlight(
                 loader,
                 highlighter,
@@ -106,39 +95,34 @@ fn test_highlights_indented(
                 fs::read(&test_file_path)?.as_slice(),
             ) {
                 Ok(assertion_count) => {
-                    println!(
-                        "✓ {} ({assertion_count} assertions)",
-                        paint(
-                            use_color.then_some(AnsiColor::Green),
-                            test_file_name.to_string_lossy().as_ref()
-                        ),
-                    );
+                    test_summary.highlight_results.add_case(TestResult {
+                        name: test_file_name.to_string_lossy().to_string(),
+                        info: TestInfo::AssertionTest {
+                            outcome: TestOutcome::AssertionPassed { assertion_count },
+                            test_num: test_summary.test_num,
+                        },
+                    });
                 }
                 Err(e) => {
-                    println!(
-                        "✗ {}",
-                        paint(
-                            use_color.then_some(AnsiColor::Red),
-                            test_file_name.to_string_lossy().as_ref()
-                        )
-                    );
-                    println!(
-                        "{indent:indent_level$}  {e}",
-                        indent = "",
-                        indent_level = indent_level * 2
-                    );
+                    test_summary.highlight_results.add_case(TestResult {
+                        name: test_file_name.to_string_lossy().to_string(),
+                        info: TestInfo::AssertionTest {
+                            outcome: TestOutcome::AssertionFailed {
+                                error: e.to_string(),
+                            },
+                            test_num: test_summary.test_num,
+                        },
+                    });
                     failed = true;
                 }
             }
+            test_summary.test_num += 1;
         }
     }
 
-    if failed {
-        Err(anyhow!(""))
-    } else {
-        Ok(())
-    }
+    if failed { Err(anyhow!("")) } else { Ok(()) }
 }
+
 pub fn iterate_assertions(
     assertions: &[Assertion],
     highlights: &[(Utf8Point, Utf8Point, Highlight)],
@@ -155,49 +139,48 @@ pub fn iterate_assertions(
         expected_capture_name: expected_highlight,
     } in assertions
     {
-        let mut passed = false;
-        let mut end_column = position.column + length - 1;
+        // Iterate through all of the highlights that start at or before this assertion's
+        // position, looking for one that matches the assertion.
         actual_highlights.clear();
-
-        // The assertions are ordered by position, so skip past all of the highlights that
-        // end at or before this assertion's position.
-        'highlight_loop: while let Some(highlight) = highlights.get(i) {
+        let mut passed = false;
+        let end_column = position.column + length - 1;
+        for highlight in &highlights[i..] {
+            // The assertions are ordered by position, so skip past all of the highlights that
+            // end at or before this assertion's position.
             if highlight.1 <= *position {
                 i += 1;
                 continue;
             }
+            if (highlight.0.row > position.row)
+                || (highlight.0.row == position.row && highlight.0.column > end_column)
+            {
+                break;
+            }
 
-            // Iterate through all of the highlights that start at or before this assertion's
-            // position, looking for one that matches the assertion.
-            let mut j = i;
-            while let (false, Some(highlight)) = (passed, highlights.get(j)) {
-                end_column = position.column + length - 1;
-                if highlight.0.row >= position.row && highlight.0.column > end_column {
-                    break 'highlight_loop;
-                }
-
-                // If the highlight matches the assertion, or if the highlight doesn't
-                // match the assertion but it's negative, this test passes. Otherwise,
-                // add this highlight to the list of actual highlights that span the
-                // assertion's position, in order to generate an error message in the event
-                // of a failure.
-                let highlight_name = &highlight_names[(highlight.2).0];
-                if (*highlight_name == *expected_highlight) == *negative {
-                    actual_highlights.push(highlight_name);
-                } else {
-                    passed = true;
-                    break 'highlight_loop;
-                }
-
-                j += 1;
+            // If the highlight matches the assertion, or if the highlight doesn't
+            // match the assertion but it's negative, this test passes. Otherwise,
+            // add this highlight to the list of actual highlights that span the
+            // assertion's position, in order to generate an error message in the event
+            // of a failure.
+            let highlight_name = &highlight_names[(highlight.2).0];
+            if (*highlight_name == *expected_highlight) == *negative {
+                actual_highlights.push(highlight_name);
+            } else {
+                passed = true;
+                break;
             }
         }
 
         if !passed {
+            let mut expected = String::with_capacity(expected_highlight.len() + 1);
+            if *negative {
+                expected.push('!');
+            }
+            expected.push_str(expected_highlight);
             return Err(Failure {
                 row: position.row,
                 column: end_column,
-                expected_highlight: expected_highlight.clone(),
+                expected_highlight: expected,
                 actual_highlights: actual_highlights.into_iter().cloned().collect(),
             }
             .into());
@@ -236,9 +219,11 @@ pub fn get_highlight_positions(
     let mut highlight_stack = Vec::new();
     let source = String::from_utf8_lossy(source);
     let mut char_indices = source.char_indices();
-    for event in highlighter.highlight(highlight_config, source.as_bytes(), None, |string| {
-        loader.highlight_config_for_injection_string(string)
-    })? {
+    for event in
+        highlighter.highlight(highlight_config, source.as_bytes(), None, None, |string| {
+            loader.highlight_config_for_injection_string(string)
+        })?
+    {
         match event? {
             HighlightEvent::HighlightStart(h) => highlight_stack.push(h),
             HighlightEvent::HighlightEnd => {

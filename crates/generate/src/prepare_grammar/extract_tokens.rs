@@ -1,7 +1,6 @@
-use std::collections::HashMap;
+use rustc_hash::FxHashMap;
 
-use anyhow::Result;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use super::{ExtractedLexicalGrammar, ExtractedSyntaxGrammar, InternedGrammar};
@@ -12,7 +11,7 @@ use crate::{
 
 pub type ExtractTokensResult<T> = Result<T, ExtractTokensError>;
 
-#[derive(Debug, Error, Serialize)]
+#[derive(Debug, Error, Serialize, Deserialize)]
 pub enum ExtractTokensError {
     #[error(
         "The rule `{0}` contains an empty string.
@@ -22,6 +21,8 @@ unless they are used only as the grammar's start rule.
 "
     )]
     EmptyString(String),
+    #[error("Terminal rule '{0}' cannot be used as a supertype")]
+    SupertypeTerminal(String),
     #[error("Rule '{0}' cannot be used as both an external token and a non-terminal rule")]
     ExternalTokenNonTerminal(String),
     #[error("Non-symbol rules cannot be used as external tokens")]
@@ -32,7 +33,7 @@ unless they are used only as the grammar's start rule.
     NonTokenReservedWord(String),
 }
 
-#[derive(Debug, Error, Serialize)]
+#[derive(Debug, Error, Serialize, Deserialize)]
 pub struct NonTerminalWordTokenError {
     pub symbol_name: String,
     pub conflicting_symbol_name: Option<String>,
@@ -88,24 +89,24 @@ pub(super) fn extract_tokens(
     // will need to have their indices decremented.
     let mut variables = Vec::with_capacity(grammar.variables.len());
     let mut symbol_replacer = SymbolReplacer {
-        replacements: HashMap::new(),
+        replacements: FxHashMap::default(),
     };
     for (i, variable) in grammar.variables.into_iter().enumerate() {
         if let Rule::Symbol(Symbol {
             kind: SymbolType::Terminal,
             index,
         }) = variable.rule
+            && i > 0
+            && extractor.extracted_usage_counts[index] == 1
         {
-            if i > 0 && extractor.extracted_usage_counts[index] == 1 {
-                let lexical_variable = &mut lexical_variables[index];
-                if lexical_variable.kind == VariableType::Auxiliary
-                    || variable.kind != VariableType::Hidden
-                {
-                    lexical_variable.kind = variable.kind;
-                    lexical_variable.name = variable.name;
-                    symbol_replacer.replacements.insert(i, index);
-                    continue;
-                }
+            let lexical_variable = &mut lexical_variables[index];
+            if lexical_variable.kind == VariableType::Auxiliary
+                || variable.kind != VariableType::Hidden
+            {
+                lexical_variable.kind = variable.kind;
+                lexical_variable.name = variable.name;
+                symbol_replacer.replacements.insert(i, index);
+                continue;
             }
         }
         variables.push(variable);
@@ -129,11 +130,18 @@ pub(super) fn extract_tokens(
         })
         .collect();
 
-    let supertype_symbols = grammar
+    let supertype_symbols: Vec<Symbol> = grammar
         .supertype_symbols
         .into_iter()
         .map(|symbol| symbol_replacer.replace_symbol(symbol))
         .collect();
+    for supertype_symbol in &supertype_symbols {
+        if supertype_symbol.is_terminal() {
+            Err(ExtractTokensError::SupertypeTerminal(
+                lexical_variables[supertype_symbol.index].name.clone(),
+            ))?;
+        }
+    }
 
     let variables_to_inline = grammar
         .variables_to_inline
@@ -153,7 +161,7 @@ pub(super) fn extract_tokens(
         }
     }
 
-    let mut external_tokens = Vec::new();
+    let mut external_tokens = Vec::with_capacity(grammar.external_tokens.len());
     for external_token in grammar.external_tokens {
         let rule = symbol_replacer.replace_symbols_in_rule(&external_token.rule);
         if let Rule::Symbol(symbol) = rule {
@@ -213,7 +221,12 @@ pub(super) fn extract_tokens(
             {
                 reserved_words.push(Symbol::terminal(index));
             } else {
-                let token_name = match &reserved_rule {
+                let rule = if let Rule::Metadata { rule, .. } = &reserved_rule {
+                    rule.as_ref()
+                } else {
+                    &reserved_rule
+                };
+                let token_name = match rule {
                     Rule::String(s) => s.clone(),
                     Rule::Pattern(p, _) => p.clone(),
                     _ => "unknown".to_string(),
@@ -255,7 +268,7 @@ struct TokenExtractor {
 }
 
 struct SymbolReplacer {
-    replacements: HashMap<usize, usize>,
+    replacements: FxHashMap<usize, usize>,
 }
 
 impl TokenExtractor {
@@ -469,7 +482,7 @@ mod test {
                         ])
                     ]))
                 ),
-                // The pattern "e" was only used in once place: as the definition of `rule_1`,
+                // The pattern "e" was only used in one place: as the definition of `rule_1`,
                 // so that rule was moved to the lexical grammar. The pattern "b" appeared in
                 // two places, so it was not moved into the lexical grammar.
                 Variable::named("rule_2", Rule::terminal(1)),
@@ -586,14 +599,13 @@ mod test {
         ]);
         grammar.external_tokens = vec![Variable::named("rule_1", Rule::non_terminal(1))];
 
-        match extract_tokens(grammar) {
-            Err(e) => {
-                assert_eq!(e.to_string(), "Rule 'rule_1' cannot be used as both an external token and a non-terminal rule");
-            }
-            _ => {
-                panic!("Expected an error but got no error");
-            }
-        }
+        let result = extract_tokens(grammar);
+        assert!(result.is_err(), "Expected an error but got no error");
+        let err = result.err().unwrap();
+        assert_eq!(
+            err.to_string(),
+            "Rule 'rule_1' cannot be used as both an external token and a non-terminal rule"
+        );
     }
 
     #[test]
@@ -624,11 +636,13 @@ mod test {
 
     #[test]
     fn test_extraction_with_empty_string() {
-        assert!(extract_tokens(build_grammar(vec![
-            Variable::named("rule_0", Rule::non_terminal(1)),
-            Variable::hidden("_rule_1", Rule::string("")),
-        ]))
-        .is_err());
+        assert!(
+            extract_tokens(build_grammar(vec![
+                Variable::named("rule_0", Rule::non_terminal(1)),
+                Variable::hidden("_rule_1", Rule::string("")),
+            ]))
+            .is_err()
+        );
     }
 
     fn build_grammar(variables: Vec<Variable>) -> InternedGrammar {

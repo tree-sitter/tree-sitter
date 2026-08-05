@@ -1,4 +1,3 @@
-#include <time.h>
 #include <stdio.h>
 #include <limits.h>
 #include <stdbool.h>
@@ -6,8 +5,6 @@
 #include "tree_sitter/api.h"
 #include "./alloc.h"
 #include "./array.h"
-#include "./atomic.h"
-#include "./clock.h"
 #include "./error_costs.h"
 #include "./get_changed_ranges.h"
 #include "./language.h"
@@ -81,7 +78,7 @@ static const unsigned MAX_VERSION_COUNT = 6;
 static const unsigned MAX_VERSION_COUNT_OVERFLOW = 4;
 static const unsigned MAX_SUMMARY_DEPTH = 16;
 static const unsigned MAX_COST_DIFFERENCE = 18 * ERROR_COST_PER_SKIPPED_TREE;
-static const unsigned OP_COUNT_PER_PARSER_TIMEOUT_CHECK = 100;
+static const unsigned OP_COUNT_PER_PARSER_CALLBACK_CHECK = 100;
 
 typedef struct {
   Subtree token;
@@ -104,11 +101,8 @@ struct TSParser {
   ReusableNode reusable_node;
   void *external_scanner_payload;
   FILE *dot_graph_file;
-  TSClock end_clock;
-  TSDuration timeout_duration;
   unsigned accept_count;
   unsigned operation_count;
-  const volatile size_t *cancellation_flag;
   Subtree old_tree;
   TSRangeArray included_range_differences;
   TSParseOptions parse_options;
@@ -396,20 +390,24 @@ static void ts_parser__external_scanner_destroy(
 static unsigned ts_parser__external_scanner_serialize(
   TSParser *self
 ) {
+  uint32_t length;
   if (ts_language_is_wasm(self->language)) {
-    return ts_wasm_store_call_scanner_serialize(
+    length = ts_wasm_store_call_scanner_serialize(
       self->wasm_store,
       (uintptr_t)self->external_scanner_payload,
       self->lexer.debug_buffer
     );
+    if (ts_wasm_store_has_error(self->wasm_store)) {
+      self->has_scanner_error = true;
+    }
   } else {
-    uint32_t length = self->language->external_scanner.serialize(
+    length = self->language->external_scanner.serialize(
       self->external_scanner_payload,
       self->lexer.debug_buffer
     );
-    ts_assert(length <= TREE_SITTER_SERIALIZATION_BUFFER_SIZE);
-    return length;
   }
+  ts_assert(length <= TREE_SITTER_SERIALIZATION_BUFFER_SIZE);
+  return length;
 }
 
 static void ts_parser__external_scanner_deserialize(
@@ -797,7 +795,13 @@ static Subtree ts_parser__reuse_node(
       reason = "is_missing";
     } else if (ts_subtree_is_fragile(result)) {
       reason = "is_fragile";
-    } else if (ts_parser__has_included_range_difference(self, byte_offset, end_byte_offset)) {
+    } else if (ts_parser__has_included_range_difference(
+                 self,
+                 byte_offset,
+                 ts_subtree_is_eof(result)
+                   ? end_byte_offset
+                   : end_byte_offset + ts_subtree_lookahead_bytes(result)
+               )) {
       reason = "contains_different_included_range";
     }
 
@@ -1100,6 +1104,35 @@ static void ts_parser__accept(
   ts_stack_halt(self->stack, version);
 }
 
+static bool ts_parser__process_candidate_recovery_actions(
+  TSParser *self,
+  const TSParseAction *actions,
+  uint32_t action_count
+) {
+  bool has_shift_action = false;
+  for (uint32_t i = 0; i < action_count; i++) {
+    TSParseAction action = actions[i];
+    switch (action.type) {
+      case TSParseActionTypeShift:
+      case TSParseActionTypeRecover:
+        if (!action.shift.extra && !action.shift.repetition) has_shift_action = true;
+        break;
+      case TSParseActionTypeReduce:
+        if (action.reduce.child_count > 0)
+          ts_reduce_action_set_add(&self->reduce_actions, (ReduceAction) {
+            .symbol = action.reduce.symbol,
+            .count = action.reduce.child_count,
+            .dynamic_precedence = action.reduce.dynamic_precedence,
+            .production_id = action.reduce.production_id,
+          });
+        break;
+      default:
+        break;
+    }
+  }
+  return has_shift_action;
+}
+
 static bool ts_parser__do_all_potential_reductions(
   TSParser *self,
   StackVersion starting_version,
@@ -1126,37 +1159,33 @@ static bool ts_parser__do_all_potential_reductions(
     bool has_shift_action = false;
     array_clear(&self->reduce_actions);
 
-    TSSymbol first_symbol, end_symbol;
     if (lookahead_symbol != 0) {
-      first_symbol = lookahead_symbol;
-      end_symbol = lookahead_symbol + 1;
-    } else {
-      first_symbol = 1;
-      end_symbol = self->language->token_count;
-    }
-
-    for (TSSymbol symbol = first_symbol; symbol < end_symbol; symbol++) {
       TableEntry entry;
-      ts_language_table_entry(self->language, state, symbol, &entry);
-      for (uint32_t j = 0; j < entry.action_count; j++) {
-        TSParseAction action = entry.actions[j];
-        switch (action.type) {
-          case TSParseActionTypeShift:
-          case TSParseActionTypeRecover:
-            if (!action.shift.extra && !action.shift.repetition) has_shift_action = true;
-            break;
-          case TSParseActionTypeReduce:
-            if (action.reduce.child_count > 0)
-              ts_reduce_action_set_add(&self->reduce_actions, (ReduceAction) {
-                .symbol = action.reduce.symbol,
-                .count = action.reduce.child_count,
-                .dynamic_precedence = action.reduce.dynamic_precedence,
-                .production_id = action.reduce.production_id,
-              });
-            break;
-          default:
-            break;
+      ts_language_table_entry(self->language, state, lookahead_symbol, &entry);
+      has_shift_action = ts_parser__process_candidate_recovery_actions(self, entry.actions, entry.action_count);
+    } else {
+      LookaheadIterator iter = ts_language_lookaheads(self->language, state);
+      while (ts_lookahead_iterator__next(&iter)) {
+        // only terminal tokens are valid lookaheads for reduction decisions
+        if (iter.symbol == ts_builtin_sym_end || iter.symbol >= self->language->token_count) continue;
+        if (ts_parser__process_candidate_recovery_actions(self, iter.actions, iter.action_count))
+          has_shift_action = true;
+      }
+
+      // Sort reduce_actions by symbol descending to ensure deterministic
+      // ordering. The LookaheadIterator may visit symbols in a different
+      // order than the original linear scan (group order vs symbol order
+      // for small parse states), which can produce different orderings.
+      // Since reductions are applied sequentially and the last reduction
+      // version survives, the order affects error recovery outcomes.
+      for (uint32_t j = 1; j < self->reduce_actions.size; j++) {
+        ReduceAction key = self->reduce_actions.contents[j];
+        int32_t k = (int32_t)j - 1;
+        while (k >= 0 && self->reduce_actions.contents[k].symbol < key.symbol) {
+          self->reduce_actions.contents[k + 1] = self->reduce_actions.contents[k];
+          k--;
         }
+        self->reduce_actions.contents[k + 1] = key;
       }
     }
 
@@ -1537,7 +1566,7 @@ static void ts_parser__handle_error(
 
 static bool ts_parser__check_progress(TSParser *self, Subtree *lookahead, const uint32_t *position, unsigned operations) {
   self->operation_count += operations;
-  if (self->operation_count >= OP_COUNT_PER_PARSER_TIMEOUT_CHECK) {
+  if (self->operation_count >= OP_COUNT_PER_PARSER_CALLBACK_CHECK) {
     self->operation_count = 0;
   }
   if (position != NULL) {
@@ -1546,12 +1575,7 @@ static bool ts_parser__check_progress(TSParser *self, Subtree *lookahead, const 
   }
   if (
     self->operation_count == 0 &&
-    (
-      // TODO(amaanq): remove cancellation flag & clock checks before 0.26
-      (self->cancellation_flag && atomic_load(self->cancellation_flag)) ||
-      (!clock_is_null(self->end_clock) && clock_is_gt(clock_now(), self->end_clock)) ||
-      (self->parse_options.progress_callback && self->parse_options.progress_callback(&self->parse_state))
-    )
+    (self->parse_options.progress_callback && self->parse_options.progress_callback(&self->parse_state))
   ) {
     if (lookahead && lookahead->ptr) {
       ts_subtree_release(&self->tree_pool, *lookahead);
@@ -1611,7 +1635,7 @@ static bool ts_parser__advance(
       }
     }
 
-    // If a cancellation flag, timeout, or progress callback was provided, then check every
+    // If a progress callback was provided, then check every
     // time a fixed number of parse actions has been processed.
     if (!ts_parser__check_progress(self, &lookahead, &position, 1)) {
       return false;
@@ -1746,6 +1770,13 @@ static bool ts_parser__advance(
         lookahead = ts_subtree_from_mut(mutable_lookahead);
         continue;
       }
+    }
+
+    // If the current lookahead token is not valid and the parser is
+    // already in the error state, restart the error recovery process.
+    if (state == ERROR_STATE) {
+      ts_parser__recover(self, version, lookahead);
+      return true;
     }
 
     // If the current lookahead token is not valid and the previous subtree on
@@ -1949,14 +1980,11 @@ TSParser *ts_parser_new(void) {
   self->finished_tree = NULL_SUBTREE;
   self->reusable_node = reusable_node_new();
   self->dot_graph_file = NULL;
-  self->cancellation_flag = NULL;
-  self->timeout_duration = 0;
   self->language = NULL;
   self->has_scanner_error = false;
   self->has_error = false;
   self->canceled_balancing = false;
   self->external_scanner_payload = NULL;
-  self->end_clock = clock_null();
   self->operation_count = 0;
   self->old_tree = NULL_SUBTREE;
   self->included_range_differences = (TSRangeArray) array_new();
@@ -2042,22 +2070,6 @@ void ts_parser_print_dot_graphs(TSParser *self, int fd) {
   }
 }
 
-const size_t *ts_parser_cancellation_flag(const TSParser *self) {
-  return (const size_t *)self->cancellation_flag;
-}
-
-void ts_parser_set_cancellation_flag(TSParser *self, const size_t *flag) {
-  self->cancellation_flag = (const volatile size_t *)flag;
-}
-
-uint64_t ts_parser_timeout_micros(const TSParser *self) {
-  return duration_to_micros(self->timeout_duration);
-}
-
-void ts_parser_set_timeout_micros(TSParser *self, uint64_t timeout_micros) {
-  self->timeout_duration = duration_from_micros(timeout_micros);
-}
-
 bool ts_parser_set_included_ranges(
   TSParser *self,
   const TSRange *ranges,
@@ -2115,11 +2127,6 @@ TSTree *ts_parser_parse(
   self->included_range_difference_index = 0;
 
   self->operation_count = 0;
-  if (self->timeout_duration) {
-    self->end_clock = clock_after(clock_now(), self->timeout_duration);
-  } else {
-    self->end_clock = clock_null();
-  }
 
   if (ts_parser_has_outstanding_parse(self)) {
     LOG("resume_parsing");
@@ -2210,7 +2217,7 @@ balance:
   ts_assert(self->finished_tree.ptr);
   if (!ts_parser__balance_subtree(self)) {
     self->canceled_balancing = true;
-    return false;
+    return NULL;
   }
   self->canceled_balancing = false;
   LOG("done");

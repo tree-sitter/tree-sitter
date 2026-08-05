@@ -3,7 +3,7 @@ use std::{collections::BTreeSet, ffi::OsStr, fs, path::Path, process::Command, s
 use anyhow::{Context, Result};
 use bindgen::RustTarget;
 
-use crate::{bail_on_err, GenerateFixtures};
+use crate::{GenerateFixtures, bail_on_err};
 
 const HEADER_PATH: &str = "lib/include/tree_sitter/api.h";
 
@@ -30,7 +30,7 @@ pub fn run_fixtures(args: &GenerateFixtures) -> Result<()> {
 
         println!(
             "Regenerating {grammar_name} parser{}",
-            if args.wasm { " to wasm" } else { "" }
+            if args.wasm { " to Wasm" } else { "" }
         );
 
         if args.wasm {
@@ -68,9 +68,11 @@ pub fn run_bindings() -> Result<()> {
     let output = Command::new("cargo")
         .args(["metadata", "--format-version", "1"])
         .output()
-        .unwrap();
+        .context("Failed to execute cargo metadata")?;
+    bail_on_err(&output, "Failed to run cargo metadata")?;
 
-    let metadata = serde_json::from_slice::<serde_json::Value>(&output.stdout).unwrap();
+    let metadata = serde_json::from_slice::<serde_json::Value>(&output.stdout)
+        .context("Failed to parse cargo metadata output")?;
 
     let Some(rust_version) = metadata
         .get("packages")
@@ -118,7 +120,7 @@ pub fn run_bindings() -> Result<()> {
 
     bindings
         .write_to_file("lib/binding_rust/bindings.rs")
-        .with_context(|| "Failed to write bindings")
+        .context("Failed to write bindings")
 }
 
 pub fn run_wasm_exports() -> Result<()> {
@@ -183,7 +185,11 @@ fn find_grammar_files(
         .flat_map(|entry| {
             let path = entry.path();
             if path.is_dir() && !path.to_string_lossy().contains("node_modules") {
-                Box::new(find_grammar_files(path.to_str().unwrap())) as Box<dyn Iterator<Item = _>>
+                Box::new(
+                    find_grammar_files(path.to_str().unwrap())
+                        .collect::<Vec<_>>()
+                        .into_iter(),
+                ) as Box<dyn Iterator<Item = _>>
             } else if path.is_file() && path.file_name() == Some(OsStr::new("grammar.js")) {
                 Box::new(std::iter::once(Ok(path))) as _
             } else {

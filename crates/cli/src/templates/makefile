@@ -1,6 +1,7 @@
 LANGUAGE_NAME := tree-sitter-KEBAB_PARSER_NAME
 HOMEPAGE_URL := PARSER_URL
 VERSION := PARSER_VERSION
+DESCRIPTION := PARSER_DESCRIPTION
 
 # repository
 SRC_DIR := src
@@ -72,6 +73,9 @@ $(LANGUAGE_NAME).pc: bindings/c/$(LANGUAGE_NAME).pc.in
 		-e 's|@PROJECT_HOMEPAGE_URL@|$(HOMEPAGE_URL)|' \
 		-e 's|@CMAKE_INSTALL_PREFIX@|$(PREFIX)|' $< > $@
 
+$(SRC_DIR)/grammar.json: grammar.js
+	$(TS) generate --no-parser $^
+
 $(PARSER): $(SRC_DIR)/grammar.json
 	$(TS) generate $^
 
@@ -104,7 +108,7 @@ uninstall:
 	$(RM) -r '$(DESTDIR)$(DATADIR)'/tree-sitter/queries/KEBAB_PARSER_NAME
 
 clean:
-	$(RM) $(OBJS) $(LANGUAGE_NAME).pc lib$(LANGUAGE_NAME).a lib$(LANGUAGE_NAME).$(SOEXT) lib$(LANGUAGE_NAME).lib
+	$(RM) $(OBJS) $(LANGUAGE_NAME).pc lib$(LANGUAGE_NAME).a lib$(LANGUAGE_NAME).$(SOEXT) lib$(LANGUAGE_NAME).dll.a
 
 test:
 	$(TS) test

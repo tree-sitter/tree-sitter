@@ -1,4 +1,4 @@
-module.exports = grammar({
+export default grammar({
   name: "get_col_eof",
 
   externals: $ => [

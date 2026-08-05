@@ -25,11 +25,14 @@
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
+    "composite": true,
+    "isolatedModules": true,
   },
   "include": [
-    "src/**/*",
-    "script/**/*",
-    "test/**/*",
+    "src/*.ts",
+    "script/*",
+    "test/*",
+    "lib/*.ts"
   ],
   "exclude": [
     "node_modules",

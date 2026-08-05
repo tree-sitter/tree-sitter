@@ -1,21 +1,22 @@
 use std::{
     collections::HashSet,
+    env,
     io::BufRead,
     path::PathBuf,
     process::{Command, Stdio},
     time::Duration,
 };
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use notify::{
-    event::{AccessKind, AccessMode},
     EventKind, RecursiveMode,
+    event::{AccessKind, AccessMode},
 };
 use notify_debouncer_full::new_debouncer;
 
-use crate::{bail_on_err, watch_wasm, CheckWasmExports};
+use crate::{CheckWasmExports, bail_on_err, watch_wasm};
 
-const EXCLUDES: [&str; 28] = [
+const EXCLUDES: [&str; 26] = [
     // Unneeded because the JS side has its own way of implementing it
     "ts_node_child_by_field_name",
     "ts_node_edit",
@@ -25,11 +26,9 @@ const EXCLUDES: [&str; 28] = [
     "ts_node_eq",
     "ts_tree_cursor_current_field_name",
     "ts_lookahead_iterator_current_symbol_name",
-    // Not used in wasm
+    // Not used in Wasm
     "ts_init",
     "ts_set_allocator",
-    "ts_parser_set_cancellation_flag",
-    "ts_parser_cancellation_flag",
     "ts_parser_print_dot_graphs",
     "ts_tree_print_dot_graph",
     "ts_parser_set_wasm_store",
@@ -44,10 +43,10 @@ const EXCLUDES: [&str; 28] = [
     "ts_node_error_root",
     // Query cursor is not managed by user in web bindings
     "ts_query_cursor_delete",
-    "ts_query_cursor_timeout_micros",
     "ts_query_cursor_match_limit",
     "ts_query_cursor_remove_match",
-    "ts_query_cursor_timeout_micros",
+    "ts_query_cursor_set_point_range",
+    "ts_query_cursor_set_containing_byte_range",
 ];
 
 pub fn run(args: &CheckWasmExports) -> Result<()> {
@@ -87,19 +86,20 @@ fn check_wasm_exports() -> Result<()> {
             .map_while(Result::ok)
             .skip_while(|line| !line.contains("- func"))
             .filter_map(|line| {
-                if line.contains("func") {
-                    if let Some(function) = line.split_whitespace().nth(2).map(String::from) {
-                        let trimmed = function.trim_start_matches('<').trim_end_matches('>');
-                        if trimmed.starts_with("ts") && !trimmed.contains("__") {
-                            return Some(trimmed.to_string());
-                        }
+                if line.contains("func")
+                    && let Some(function) = line.split_whitespace().nth(2).map(String::from)
+                {
+                    let trimmed = function.trim_start_matches('<').trim_end_matches('>');
+                    if trimmed.starts_with("ts") && !trimmed.contains("__") {
+                        return Some(trimmed.to_string());
                     }
                 }
                 None
             }),
     );
 
-    let nm_child = Command::new("nm")
+    let nm_cmd = env::var("NM").unwrap_or_else(|_| "nm".to_owned());
+    let nm_child = Command::new(nm_cmd)
         .arg("-W")
         .arg("-U")
         .arg("libtree-sitter.so")
@@ -127,7 +127,7 @@ fn check_wasm_exports() -> Result<()> {
 
     if !missing.is_empty() {
         Err(anyhow!(format!(
-            "Unmatched wasm exports:\n{}",
+            "Unmatched Wasm exports:\n{}",
             missing.join("\n")
         )))?;
     }

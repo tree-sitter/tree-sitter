@@ -21,7 +21,6 @@ where
     let mut parser = Parser::new();
     parser.set_language(&language).unwrap();
     let tree = parser.parse_with_options(callback, None, None).unwrap();
-    // eprintln!("{}", tree.clone().root_node().to_sexp());
     assert_eq!("comment", tree.root_node().child(0).unwrap().kind());
     (tree, language)
 }
@@ -108,15 +107,30 @@ fn test_text_provider_for_arc_of_bytes_slice() {
 }
 
 #[test]
+fn test_text_provider_for_vec_utf16_text() {
+    let source_text = "你好".encode_utf16().collect::<Vec<_>>();
+
+    let language = get_language("c");
+    let mut parser = Parser::new();
+    parser.set_language(&language).unwrap();
+    let tree = parser.parse_utf16_le(&source_text, None).unwrap();
+
+    let tree_text = tree.root_node().utf16_text(&source_text);
+    assert_eq!(source_text, tree_text);
+}
+
+#[test]
 fn test_text_provider_callback_with_str_slice() {
     let text: &str = "// comment";
 
     check_parsing(text, |_node: Node<'_>| iter::once(text));
     check_parsing_callback(
         &mut |offset, _point| {
-            (offset < text.len())
-                .then_some(text.as_bytes())
-                .unwrap_or_default()
+            if offset < text.len() {
+                text.as_bytes()
+            } else {
+                Default::default()
+            }
         },
         |_node: Node<'_>| iter::once(text),
     );
@@ -128,9 +142,11 @@ fn test_text_provider_callback_with_owned_string_slice() {
 
     check_parsing_callback(
         &mut |offset, _point| {
-            (offset < text.len())
-                .then_some(text.as_bytes())
-                .unwrap_or_default()
+            if offset < text.len() {
+                text.as_bytes()
+            } else {
+                Default::default()
+            }
         },
         |_node: Node<'_>| {
             let slice: String = text.to_owned();
@@ -145,9 +161,11 @@ fn test_text_provider_callback_with_owned_bytes_vec_slice() {
 
     check_parsing_callback(
         &mut |offset, _point| {
-            (offset < text.len())
-                .then_some(text.as_bytes())
-                .unwrap_or_default()
+            if offset < text.len() {
+                text.as_bytes()
+            } else {
+                Default::default()
+            }
         },
         |_node: Node<'_>| {
             let slice = text.to_owned().into_bytes();
@@ -162,9 +180,11 @@ fn test_text_provider_callback_with_owned_arc_of_bytes_slice() {
 
     check_parsing_callback(
         &mut |offset, _point| {
-            (offset < text.len())
-                .then_some(text.as_bytes())
-                .unwrap_or_default()
+            if offset < text.len() {
+                text.as_bytes()
+            } else {
+                Default::default()
+            }
         },
         |_node: Node<'_>| {
             let slice: Arc<[u8]> = text.to_owned().into_bytes().into();

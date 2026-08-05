@@ -3,7 +3,7 @@ use tree_sitter_tags::TagsContext;
 
 use super::helpers::fixtures::{get_language, get_tags_config};
 use crate::{
-    query_testing::{parse_position_comments, Assertion, Utf8Point},
+    query_testing::{Assertion, Utf8Point, parse_position_comments},
     test_tags::get_tag_positions,
 };
 

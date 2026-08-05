@@ -1,9 +1,11 @@
 use std::{
-    collections::{hash_map::Entry, HashMap, VecDeque},
+    collections::{VecDeque, hash_map::Entry},
     mem,
 };
 
-use log::info;
+use rustc_hash::FxHashMap;
+
+use log::debug;
 
 use super::{coincident_tokens::CoincidentTokenIndex, token_conflicts::TokenConflictMap};
 use crate::{
@@ -65,7 +67,6 @@ pub fn build_lex_table(
             if merge_token_set(
                 &mut entry.0,
                 &tokens,
-                lexical_grammar,
                 token_conflict_map,
                 coincident_token_index,
             ) {
@@ -140,7 +141,7 @@ struct LexTableBuilder<'a> {
     cursor: NfaCursor<'a>,
     table: LexTable,
     state_queue: VecDeque<QueueEntry>,
-    state_ids_by_nfa_state_set: HashMap<(Vec<u32>, bool), usize>,
+    state_ids_by_nfa_state_set: FxHashMap<(Vec<u32>, bool), usize>,
 }
 
 impl<'a> LexTableBuilder<'a> {
@@ -150,7 +151,7 @@ impl<'a> LexTableBuilder<'a> {
             cursor: NfaCursor::new(&lexical_grammar.nfa, vec![]),
             table: LexTable::default(),
             state_queue: VecDeque::new(),
-            state_ids_by_nfa_state_set: HashMap::new(),
+            state_ids_by_nfa_state_set: FxHashMap::default(),
         }
     }
 
@@ -176,7 +177,7 @@ impl<'a> LexTableBuilder<'a> {
         let (state_id, is_new) = self.add_state(nfa_states, eof_valid);
 
         if is_new {
-            info!(
+            debug!(
                 "entry point state: {state_id}, tokens: {:?}",
                 tokens
                     .iter()
@@ -223,20 +224,19 @@ impl<'a> LexTableBuilder<'a> {
         // The EOF state is represented as an empty list of NFA states.
         let mut completion = None;
         for (id, prec) in self.cursor.completions() {
-            if let Some((prev_id, prev_precedence)) = completion {
-                if TokenConflictMap::prefer_token(
+            if let Some((prev_id, prev_precedence)) = completion
+                && TokenConflictMap::prefer_token(
                     self.lexical_grammar,
                     (prev_precedence, prev_id),
                     (prec, id),
-                ) {
-                    continue;
-                }
+                )
+            {
+                continue;
             }
             completion = Some((id, prec));
         }
 
-        let transitions = self.cursor.transitions();
-        let has_sep = self.cursor.transition_chars().any(|(_, sep)| sep);
+        let (transitions, has_sep) = self.cursor.transitions_and_any_sep();
 
         // If EOF is a valid lookahead token, add a transition predicated on the null
         // character that leads to the empty set of NFA states.
@@ -249,16 +249,16 @@ impl<'a> LexTableBuilder<'a> {
         }
 
         for transition in transitions {
-            if let Some((completed_id, completed_precedence)) = completion {
-                if !TokenConflictMap::prefer_transition(
+            if let Some((completed_id, completed_precedence)) = completion
+                && !TokenConflictMap::prefer_transition(
                     self.lexical_grammar,
                     &transition,
                     completed_id,
                     completed_precedence,
                     has_sep,
-                ) {
-                    continue;
-                }
+                )
+            {
+                continue;
             }
 
             let (next_state_id, _) =
@@ -280,34 +280,70 @@ impl<'a> LexTableBuilder<'a> {
     }
 }
 
-fn merge_token_set(
-    tokens: &mut TokenSet,
-    other: &TokenSet,
-    lexical_grammar: &LexicalGrammar,
+fn check_token_conflicts(
+    i: usize,
+    set_without_terminal: &TokenSet,
     token_conflict_map: &TokenConflictMap,
     coincident_token_index: &CoincidentTokenIndex,
 ) -> bool {
-    for i in 0..lexical_grammar.variables.len() {
-        let symbol = Symbol::terminal(i);
-        let set_without_terminal = match (tokens.contains_terminal(i), other.contains_terminal(i)) {
-            (true, false) => other,
-            (false, true) => tokens,
-            _ => continue,
-        };
+    let wpr = token_conflict_map.row_words;
+    let row_start = i * wpr;
+    let set_bits = set_without_terminal.terminal_bits_words();
 
-        for existing_token in set_without_terminal.terminals() {
-            if token_conflict_map.does_conflict(i, existing_token.index)
-                || token_conflict_map.does_match_prefix(i, existing_token.index)
-            {
-                return false;
-            }
-            if !coincident_token_index.contains(symbol, existing_token)
-                && (token_conflict_map.does_overlap(existing_token.index, i)
-                    || token_conflict_map.does_overlap(i, existing_token.index))
-            {
-                return false;
-            }
+    // Does terminal i conflict with or match-prefix any terminal in the set?
+    let conflict_row = &token_conflict_map.conflict_or_prefix_bits[row_start..row_start + wpr];
+    for (&c, &s) in conflict_row.iter().zip(set_bits) {
+        if c & s != 0 {
+            return true;
         }
+    }
+
+    // Does terminal i overlap (in either direction) with any non-coincident terminal in the set?
+    let overlap_row = &token_conflict_map.overlap_either_bits[row_start..row_start + wpr];
+    let coincident_row = &coincident_token_index.row_bits[row_start..row_start + wpr];
+    for ((&o, &s), &c) in overlap_row.iter().zip(set_bits).zip(coincident_row) {
+        if o & s & !c != 0 {
+            return true;
+        }
+    }
+
+    false
+}
+
+fn merge_token_set(
+    tokens: &mut TokenSet,
+    other: &TokenSet,
+    token_conflict_map: &TokenConflictMap,
+    coincident_token_index: &CoincidentTokenIndex,
+) -> bool {
+    if tokens
+        .terminals()
+        .filter(|terminal| !other.contains_terminal(terminal.index))
+        .any(|terminal| {
+            check_token_conflicts(
+                terminal.index,
+                other,
+                token_conflict_map,
+                coincident_token_index,
+            )
+        })
+    {
+        return false;
+    }
+
+    if other
+        .terminals()
+        .filter(|terminal| !tokens.contains_terminal(terminal.index))
+        .any(|terminal| {
+            check_token_conflicts(
+                terminal.index,
+                tokens,
+                token_conflict_map,
+                coincident_token_index,
+            )
+        })
+    {
+        return false;
     }
 
     tokens.insert_all(other);
@@ -317,7 +353,7 @@ fn merge_token_set(
 fn minimize_lex_table(table: &mut LexTable, parse_table: &mut ParseTable) {
     // Initially group the states by their accept action and their
     // valid lookahead characters.
-    let mut state_ids_by_signature = HashMap::new();
+    let mut state_ids_by_signature = FxHashMap::default();
     for (i, state) in table.states.iter().enumerate() {
         let signature = (
             i == 0,

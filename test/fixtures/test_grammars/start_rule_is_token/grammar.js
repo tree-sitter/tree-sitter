@@ -1,4 +1,4 @@
-module.exports = grammar({
+export default grammar({
   name: 'start_rule_is_token',
 
   rules: {

@@ -3,18 +3,18 @@ mod build_wasm;
 mod bump;
 mod check_wasm_exports;
 mod clippy;
+mod embed_sources;
 mod fetch;
 mod generate;
 mod test;
-mod upgrade_emscripten;
+mod test_schema;
 mod upgrade_wasmtime;
 
-use std::path::Path;
+use std::{path::Path, process::Command};
 
 use anstyle::{AnsiColor, Color, Style};
 use anyhow::Result;
-use clap::{crate_authors, Args, Command, FromArgMatches as _, Subcommand};
-use git2::{Oid, Repository};
+use clap::{Args, FromArgMatches as _, Subcommand, crate_authors};
 use semver::Version;
 
 #[derive(Subcommand)]
@@ -22,14 +22,14 @@ use semver::Version;
 enum Commands {
     /// Runs `cargo benchmark` with some optional environment variables set.
     Benchmark(Benchmark),
-    /// Compile the Tree-sitter WASM library. This will create two files in the
+    /// Compile the Tree-sitter Wasm library. This will create two files in the
     /// `lib/binding_web` directory: `web-tree-sitter.js` and `web-tree-sitter.wasm`.
     BuildWasm(BuildWasm),
-    /// Compile the Tree-sitter WASM standard library.
+    /// Compile the Tree-sitter Wasm standard library.
     BuildWasmStdlib,
     /// Bumps the version of the workspace.
     BumpVersion(BumpVersion),
-    /// Checks that WASM exports are synced.
+    /// Checks that Wasm exports are synced.
     CheckWasmExports(CheckWasmExports),
     /// Runs `cargo clippy`.
     Clippy(Clippy),
@@ -41,16 +41,16 @@ enum Commands {
     GenerateBindings,
     /// Generates the fixtures for testing tree-sitter.
     GenerateFixtures(GenerateFixtures),
-    /// Generate the list of exports from Tree-sitter WASM files.
+    /// Generates the JSON schema for the test runner summary.
+    GenerateTestSchema,
+    /// Generate the list of exports from Tree-sitter Wasm files.
     GenerateWasmExports,
     /// Run the test suite
     Test(Test),
-    /// Run the WASM test suite
+    /// Run the Wasm test suite
     TestWasm,
     /// Upgrade the wasmtime dependency.
     UpgradeWasmtime(UpgradeWasmtime),
-    /// Upgrade the emscripten file.
-    UpgradeEmscripten,
 }
 
 #[derive(Args)]
@@ -97,8 +97,8 @@ struct BuildWasm {
 #[derive(Args)]
 struct BumpVersion {
     /// The version to bump to.
-    #[arg(long, short)]
-    version: Option<Version>,
+    #[arg(index = 1, required = true)]
+    version: Version,
 }
 
 #[derive(Args)]
@@ -120,7 +120,7 @@ struct Clippy {
 
 #[derive(Args)]
 struct GenerateFixtures {
-    /// Generates the parser to WASM
+    /// Generates the parser to Wasm
     #[arg(long, short)]
     wasm: bool,
 }
@@ -156,7 +156,7 @@ struct Test {
     /// Don't capture the output
     #[arg(long)]
     nocapture: bool,
-    /// Enable the wasm tests.
+    /// Enable the Wasm tests.
     #[arg(long, short)]
     wasm: bool,
 }
@@ -181,10 +181,10 @@ fn main() {
     let result = run();
     if let Err(err) = &result {
         // Ignore BrokenPipe errors
-        if let Some(error) = err.downcast_ref::<std::io::Error>() {
-            if error.kind() == std::io::ErrorKind::BrokenPipe {
-                return;
-            }
+        if let Some(error) = err.downcast_ref::<std::io::Error>()
+            && error.kind() == std::io::ErrorKind::BrokenPipe
+        {
+            return;
         }
         if !err.to_string().is_empty() {
             eprintln!("{err:?}");
@@ -200,7 +200,7 @@ fn run() -> Result<()> {
     );
     let version: &'static str = Box::leak(version.into_boxed_str());
 
-    let cli = Command::new("xtask")
+    let cli = clap::Command::new("xtask")
         .help_template(
             "\
 {before-help}{name} {version}
@@ -225,18 +225,20 @@ fn run() -> Result<()> {
         Commands::CheckWasmExports(check_options) => check_wasm_exports::run(&check_options)?,
         Commands::Clippy(clippy_options) => clippy::run(&clippy_options)?,
         Commands::FetchEmscripten => fetch::run_emscripten()?,
-        Commands::FetchFixtures => fetch::run_fixtures()?,
+        Commands::FetchFixtures => {
+            fetch::run_fixtures()?;
+        }
         Commands::GenerateBindings => generate::run_bindings()?,
         Commands::GenerateFixtures(generate_fixtures_options) => {
             generate::run_fixtures(&generate_fixtures_options)?;
         }
+        Commands::GenerateTestSchema => test_schema::run_test_schema()?,
         Commands::GenerateWasmExports => generate::run_wasm_exports()?,
         Commands::Test(test_options) => test::run(&test_options)?,
         Commands::TestWasm => test::run_wasm()?,
         Commands::UpgradeWasmtime(upgrade_wasmtime_options) => {
             upgrade_wasmtime::run(&upgrade_wasmtime_options)?;
         }
-        Commands::UpgradeEmscripten => upgrade_emscripten::run()?,
     }
 
     Ok(())
@@ -290,27 +292,34 @@ const fn get_styles() -> clap::builder::Styles {
         .placeholder(Style::new().fg_color(Some(Color::Ansi(AnsiColor::White))))
 }
 
-pub fn create_commit(repo: &Repository, msg: &str, paths: &[&str]) -> Result<Oid> {
-    let mut index = repo.index()?;
+pub fn create_commit(msg: &str, paths: &[&str]) -> Result<String> {
     for path in paths {
-        index.add_path(Path::new(path))?;
+        let output = Command::new("git").args(["add", path]).output()?;
+        if !output.status.success() {
+            anyhow::bail!(
+                "Failed to add {path}: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+        }
     }
 
-    index.write()?;
+    let output = Command::new("git").args(["commit", "-m", msg]).output()?;
+    if !output.status.success() {
+        anyhow::bail!(
+            "Failed to commit: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
 
-    let tree_id = index.write_tree()?;
-    let tree = repo.find_tree(tree_id)?;
-    let signature = repo.signature()?;
-    let parent_commit = repo.revparse_single("HEAD")?.peel_to_commit()?;
+    let output = Command::new("git").args(["rev-parse", "HEAD"]).output()?;
+    if !output.status.success() {
+        anyhow::bail!(
+            "Failed to get commit SHA: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
 
-    Ok(repo.commit(
-        Some("HEAD"),
-        &signature,
-        &signature,
-        msg,
-        &tree,
-        &[&parent_commit],
-    )?)
+    Ok(String::from_utf8(output.stdout)?.trim().to_string())
 }
 
 #[macro_export]

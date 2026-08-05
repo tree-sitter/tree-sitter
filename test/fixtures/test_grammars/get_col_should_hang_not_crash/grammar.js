@@ -1,4 +1,4 @@
-module.exports = grammar({
+export default grammar({
   name: 'get_col_should_hang_not_crash',
 
   externals: $ => [

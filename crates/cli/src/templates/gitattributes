@@ -40,3 +40,7 @@ Package.resolved linguist-generated
 bindings/zig/* linguist-generated
 build.zig linguist-generated
 build.zig.zon linguist-generated
+
+# Java bindings
+pom.xml linguist-generated
+bindings/java/** linguist-generated

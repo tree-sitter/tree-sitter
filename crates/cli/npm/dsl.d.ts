@@ -10,6 +10,7 @@ type PrecRightRule = { type: 'PREC_RIGHT'; content: Rule; value: number };
 type PrecRule = { type: 'PREC'; content: Rule; value: number };
 type Repeat1Rule = { type: 'REPEAT1'; content: Rule };
 type RepeatRule = { type: 'REPEAT'; content: Rule };
+type ReservedRule = { type: 'RESERVED'; content: Rule; context_name: string };
 type SeqRule = { type: 'SEQ'; members: Rule[] };
 type StringRule = { type: 'STRING'; value: string };
 type SymbolRule<Name extends string> = { type: 'SYMBOL'; name: Name };
@@ -28,17 +29,16 @@ type Rule =
   | PrecRule
   | Repeat1Rule
   | RepeatRule
+  | ReservedRule
   | SeqRule
   | StringRule
   | SymbolRule<string>
   | TokenRule;
 
-class RustRegex {
+declare class RustRegex {
   value: string;
 
-  constructor(pattern: string) {
-    this.value = pattern;
-  }
+  constructor(pattern: string);
 }
 
 type RuleOrLiteral = Rule | RegExp | RustRegex | string;
@@ -167,6 +167,17 @@ interface Grammar<
    * @see https://tree-sitter.github.io/tree-sitter/creating-parsers/3-writing-the-grammar#keyword-extraction
    */
   word?: ($: GrammarSymbols<RuleName | BaseGrammarRuleName>) => RuleOrLiteral;
+
+
+  /**
+   * Mapping of names to reserved word sets. The first reserved word set is the
+   * global word set, meaning it applies to every rule in every parse state.
+   * The other word sets can be used with the `reserved` function.
+   */
+  reserved?: Record<
+    string,
+    ($: GrammarSymbols<RuleName | BaseGrammarRuleName>) => RuleOrLiteral[]
+  >;
 }
 
 type GrammarSchema<RuleName extends string> = {
@@ -251,7 +262,7 @@ declare function optional(rule: RuleOrLiteral): ChoiceRule;
  * @see https://docs.oracle.com/cd/E19504-01/802-5880/6i9k05dh3/index.html
  */
 declare const prec: {
-  (value: String | number, rule: RuleOrLiteral): PrecRule;
+  (value: string | number, rule: RuleOrLiteral): PrecRule;
 
   /**
    * Marks the given rule as left-associative (and optionally applies a
@@ -267,7 +278,7 @@ declare const prec: {
    * @see https://docs.oracle.com/cd/E19504-01/802-5880/6i9k05dh3/index.html
    */
   left(rule: RuleOrLiteral): PrecLeftRule;
-  left(value: String | number, rule: RuleOrLiteral): PrecLeftRule;
+  left(value: string | number, rule: RuleOrLiteral): PrecLeftRule;
 
   /**
    * Marks the given rule as right-associative (and optionally applies a
@@ -283,7 +294,7 @@ declare const prec: {
    * @see https://docs.oracle.com/cd/E19504-01/802-5880/6i9k05dh3/index.html
    */
   right(rule: RuleOrLiteral): PrecRightRule;
-  right(value: String | number, rule: RuleOrLiteral): PrecRightRule;
+  right(value: string | number, rule: RuleOrLiteral): PrecRightRule;
 
   /**
    * Marks the given rule with a numerical precedence which will be used to
@@ -300,7 +311,7 @@ declare const prec: {
    *
    * @see https://www.gnu.org/software/bison/manual/html_node/Generalized-LR-Parsing.html
    */
-  dynamic(value: String | number, rule: RuleOrLiteral): PrecDynamicRule;
+  dynamic(value: string | number, rule: RuleOrLiteral): PrecDynamicRule;
 };
 
 /**
@@ -321,6 +332,15 @@ declare function repeat(rule: RuleOrLiteral): RepeatRule;
 declare function repeat1(rule: RuleOrLiteral): Repeat1Rule;
 
 /**
+ * Overrides the global reserved word set for a given rule. The word set name
+ * should be defined in the `reserved` field in the grammar.
+ *
+ * @param wordset name of the reserved word set
+ * @param rule rule that will use the reserved word set
+ */
+declare function reserved(wordset: string, rule: RuleOrLiteral): ReservedRule;
+
+/**
  * Creates a rule that matches any number of other rules, one after another.
  * It is analogous to simply writing multiple symbols next to each other
  * in EBNF notation.
@@ -338,7 +358,7 @@ declare function sym<Name extends string>(name: Name): SymbolRule<Name>;
 
 /**
  * Marks the given rule as producing only a single token. Tree-sitter's
- * default is to treat each String or RegExp literal in the grammar as a
+ * default is to treat each string or RegExp literal in the grammar as a
  * separate token. Each token is matched separately by the lexer and
  * returned as its own leaf node in the tree. The token function allows
  * you to express a complex rule using the DSL functions (rather

@@ -23,10 +23,7 @@ grammar({
 });
 ```
 
-Then, add another C source file to your project. Its path must be src/scanner.c for the CLI to recognize it. Be sure to add
-this file to the sources section of your `binding.gyp` file so that it will be included when your project is compiled by
-Node.js and uncomment the appropriate block in your bindings/rust/build.rs file so that it will be included in your Rust
-crate.
+Then, add another C source file to your project. Its path must be src/scanner.c for the CLI to recognize it.
 
 In this new source file, define an [`enum`][enum] type containing the names of all of your external tokens. The ordering
 of this enum must match the order in your grammar's `externals` array; the actual names do not matter.
@@ -103,7 +100,7 @@ void tree_sitter_my_language_external_scanner_deserialize(
 }
 ```
 
-This function should _restore_ the state of your scanner based the bytes that were previously written by the `serialize`
+This function should _restore_ the state of your scanner based on the bytes that were previously written by the `serialize`
 function. It is called with a pointer to your scanner, a pointer to the buffer of bytes, and the number of bytes that should
 be read. It is good practice to explicitly erase your scanner state variables at the start of this function, before restoring
 their values from the byte buffer.
@@ -121,7 +118,7 @@ to check if the next character (or set of characters) invalidates the token.
 
 - Return `true` from the scanning function, indicating that a token was successfully lexed.
 
-Tree-sitter will then push resulting node to the parse stack, and the input position will remain where it reached at the
+Tree-sitter will then push the resulting node to the parse stack, and the input position will remain where it reached at the
 point `lexer->mark_end` was called.
 
 ```c
@@ -141,15 +138,17 @@ The second parameter to this function is the lexer, of type `TSLexer`. The `TSLe
 - **`TSSymbol result_symbol`** — The symbol that was recognized. Your scan function should _assign_ to this field one of
 the values from the `TokenType` enum, described above.
 
-- **`void (*advance)(TSLexer *, bool skip)`** — A function for advancing to the next character. If you pass `true` for
-the second argument, the current character will be treated as whitespace; whitespace won't be included in the text range
-associated with tokens emitted by the external scanner.
+- **`void (*advance)(TSLexer *, bool skip)`** — A function for advancing to the next character. If `skip` is `true`, the
+current character will be treated as skipped text and will not be included in the text range associated with tokens emitted
+by the external scanner. This is typically used before a token starts, such as when skipping leading whitespace. After a
+token has started, `skip` should generally be `false`. In particular, calling `advance(lexer, true)` after `mark_end` can
+affect the token's starting position and lead to incorrect or zero-length token ranges.
 
 - **`void (*mark_end)(TSLexer *)`** — A function for marking the end of the recognized token. This allows matching tokens
-that require multiple characters of lookahead. By default, (if you don't call `mark_end`), any character that you moved past
-using the `advance` function will be included in the size of the token. But once you call `mark_end`, then any later calls
-to `advance` will _not_ increase the size of the returned token. You can call `mark_end` multiple times to increase the size
-of the token.
+that require multiple characters of lookahead. By default, (if you don't call `mark_end`), any character that you moved
+past using the `advance` function will be included in the size of the token. But once you call `mark_end`, then any later
+calls to `advance` will _not_ increase the size of the returned token. You can call `mark_end` multiple times to increase
+the size of the token.
 
 - **`uint32_t (*get_column)(TSLexer *)`** — A function for querying the current column position of the lexer. It returns
 the number of codepoints since the start of the current line. The codepoint position is recalculated on every call to this
@@ -188,9 +187,9 @@ if (valid_symbols[INDENT] || valid_symbols[DEDENT]) {
 
 ### Allocator
 
-Instead of using libc's `malloc`, `calloc`, `realloc`, and `free`, you should use the versions prefixed with `ts_` from `tree_sitter/alloc.h`.
-These macros can allow a potential consumer to override the default allocator with their own implementation, but by default
-will use the libc functions.
+Instead of using libc's `malloc`, `calloc`, `realloc`, and `free`, you should use the versions prefixed with `ts_` from
+`tree_sitter/alloc.h`. These macros can allow a potential consumer to override the default allocator with their own implementation,
+but by default will use the libc functions.
 
 As a consumer of the tree-sitter core library as well as any parser libraries that might use allocations, you can enable
 overriding the default allocator and have it use the same one as the library allocator, of which you can set with `ts_set_allocator`.
@@ -198,7 +197,8 @@ To enable this overriding in scanners, you must compile them with the `TREE_SITT
 the library must be linked into your final app dynamically, since it needs to resolve the internal functions at runtime.
 If you are compiling an executable binary that uses the core library, but want to load parsers dynamically at runtime, then
 you will have to use a special linker flag on Unix. For non-Darwin systems, that would be `--dynamic-list` and for Darwin
-systems, that would be `-exported_symbols_list`. The CLI does exactly this, so you can use it as a reference (check out `cli/build.rs`).
+systems, that would be `-exported_symbols_list`. The CLI does exactly this, so you can use it as a reference (check out
+`cli/build.rs`).
 
 For example, assuming you wanted to allocate 100 bytes for your scanner, you'd do so like the following example:
 
@@ -221,7 +221,7 @@ void* tree_sitter_my_language_external_scanner_create() {
 If you need to use array-like types in your scanner, such as tracking a stack of indentations or tags, you should use the
 array macros from `tree_sitter/array.h`.
 
-There are quite a few of them provided for you, but here's how you could get started tracking some . Check out the header
+There are quite a few of them provided for you, but here's how you could get started tracking some state. Check out the header
 itself for more detailed documentation.
 
 ```admonish attention
@@ -296,9 +296,10 @@ bool tree_sitter_my_language_external_scanner_scan(
 
 ## Other External Scanner Details
 
-External scanners have priority over Tree-sitter's normal lexing process. When a token listed in the externals array is valid
-at a given position, the external scanner is called first. This makes external scanners a powerful way to override Tree-sitter's
-default lexing behavior, especially for cases that can't be handled with regular lexical rules, parsing, or dynamic precedence.
+External scanners have priority over Tree-sitter's normal lexing process. When a token listed in the externals array is
+valid at a given position, the external scanner is called first. This makes external scanners a powerful way to override
+Tree-sitter's default lexing behavior, especially for cases that can't be handled with regular lexical rules, parsing, or
+dynamic precedence.
 
 During error recovery, Tree-sitter's first step is to call the external scanner's scan function with all tokens marked as
 valid. Your scanner should detect and handle this case appropriately. One simple approach is to add an unused "sentinel"

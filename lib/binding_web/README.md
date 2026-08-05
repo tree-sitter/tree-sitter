@@ -46,7 +46,7 @@ file to your `public` directory. You can do this automatically with a `postinsta
 You can also use this module with [deno](https://deno.land/):
 
 ```js
-import Parser from "npm:web-tree-sitter";
+import { Parser } from "npm:web-tree-sitter";
 await Parser.init();
 // the library is ready
 ```
@@ -174,7 +174,9 @@ For example, you can download the JavaScript `.wasm` file from the tree-sitter-j
 You can also generate the `.wasm` file for your desired grammar. Shown below is an example of how to generate the `.wasm`
 file for the JavaScript grammar.
 
-**IMPORTANT**: [Emscripten][emscripten], [Docker][docker], or [Podman][podman] need to be installed.
+> [!NOTE]
+> Since v0.26.1, `tree-sitter build --wasm` uses [wasi-sdk][] and will automatically download it on first use.
+> No additional tools need to be installed.
 
 First install `tree-sitter-cli`, and the tree-sitter language for which to generate `.wasm`
 (`tree-sitter-javascript` in this example):
@@ -209,6 +211,18 @@ const Parser = require('web-tree-sitter');
 })();
 ```
 
+### Loading a pre-compiled WebAssembly module
+
+Some environments, such as Cloudflare Workers and Vercel Edge Functions, import
+`.wasm` files as `WebAssembly.Module` objects. You can pass those modules to `Language.loadSync`:
+
+```javascript
+import treeSitterJavaScript from 'tree-sitter-javascript.wasm';
+// treeSitterJavaScript is of type `WebAssembly.Module`
+const JavaScript = Language.loadSync(treeSitterJavaScript);
+parser.setLanguage(JavaScript);
+```
+
 ### Running .wasm in browser
 
 `web-tree-sitter` can run in the browser, but there are some common pitfalls.
@@ -217,10 +231,10 @@ const Parser = require('web-tree-sitter');
 
 `web-tree-sitter` needs to load the `tree-sitter.wasm` file. By default, it assumes that this file is available in the
 same path as the JavaScript code. Therefore, if the code is being served from `http://localhost:3000/bundle.js`, then
-the wasm file should be at `http://localhost:3000/tree-sitter.wasm`.
+the Wasm file should be at `http://localhost:3000/tree-sitter.wasm`.
 
 For server side frameworks like NextJS, this can be tricky as pages are often served from a path such as
-`http://localhost:3000/_next/static/chunks/pages/index.js`. The loader will therefore look for the wasm file at
+`http://localhost:3000/_next/static/chunks/pages/index.js`. The loader will therefore look for the Wasm file at
 `http://localhost:3000/_next/static/chunks/pages/tree-sitter.wasm`. The solution is to pass a `locateFile` function in
 the `moduleOptions` argument to `Parser.init()`:
 
@@ -232,8 +246,8 @@ await Parser.init({
 });
 ```
 
-`locateFile` takes in two parameters, `scriptName`, i.e. the wasm file name, and `scriptDirectory`, i.e. the directory
-where the loader expects the script to be. It returns the path where the loader will look for the wasm file. In the NextJS
+`locateFile` takes in two parameters, `scriptName`, i.e. the Wasm file name, and `scriptDirectory`, i.e. the directory
+where the loader expects the script to be. It returns the path where the loader will look for the Wasm file. In the NextJS
 case, we want to return just the `scriptName` so that the loader will look at `http://localhost:3000/tree-sitter.wasm`
 and not `http://localhost:3000/_next/static/chunks/pages/tree-sitter.wasm`.
 
@@ -263,3 +277,4 @@ following to your webpack config:
 [node bindings]: https://github.com/tree-sitter/node-tree-sitter
 [npm module]: https://www.npmjs.com/package/web-tree-sitter
 [podman]: https://podman.io
+[wasi-sdk]: https://github.com/WebAssembly/wasi-sdk

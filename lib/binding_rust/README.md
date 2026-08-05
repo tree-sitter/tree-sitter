@@ -98,11 +98,11 @@ assert_eq!(
 );
 ```
 
-## Using WASM Grammar Files
+## Using Wasm Grammar Files
 
 > Requires the feature **wasm** to be enabled.
 
-First, create a parser with a WASM store:
+First, create a parser with a Wasm store:
 
 ```rust
 use tree_sitter::{wasmtime::Engine, Parser, WasmStore};
@@ -114,7 +114,7 @@ let mut parser = Parser::new();
 parser.set_wasm_store(store).unwrap();
 ```
 
-Then, load the language from a WASM file:
+Then, load the language from a Wasm file:
 
 ```rust
 const JAVASCRIPT_GRAMMAR: &[u8] = include_bytes!("path/to/tree-sitter-javascript.wasm");

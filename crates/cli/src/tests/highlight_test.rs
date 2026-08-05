@@ -4,13 +4,13 @@ use std::{
     os::raw::c_char,
     ptr, slice, str,
     sync::{
-        atomic::{AtomicUsize, Ordering},
         LazyLock,
+        atomic::{AtomicUsize, Ordering},
     },
 };
 
 use tree_sitter_highlight::{
-    c, Error, Highlight, HighlightConfiguration, HighlightEvent, Highlighter, HtmlRenderer,
+    Error, Highlight, HighlightConfiguration, HighlightEvent, Highlighter, HtmlRenderer, c,
 };
 
 use super::helpers::fixtures::{get_highlight_config, get_language, get_language_queries_path};
@@ -481,10 +481,11 @@ fn test_highlighting_cancellation() {
 
     // The initial `highlight` call, which eagerly parses the outer document, should not fail.
     let mut highlighter = Highlighter::new();
-    let events = highlighter
+    let mut events = highlighter
         .highlight(
             &HTML_HIGHLIGHT,
             source.as_bytes(),
+            None,
             Some(&cancellation_flag),
             injection_callback,
         )
@@ -492,14 +493,18 @@ fn test_highlighting_cancellation() {
 
     // Iterating the scopes should not panic. It should return an error once the
     // cancellation is detected.
-    for event in events {
-        if let Err(e) = event {
-            assert_eq!(e, Error::Cancelled);
-            return;
+    let found_cancellation_error = events.any(|event| match event {
+        Ok(_) => false,
+        Err(Error::Cancelled) => true,
+        Err(Error::InvalidLanguage(_) | Error::Unknown) => {
+            unreachable!("Unexpected error type while iterating events")
         }
-    }
+    });
 
-    panic!("Expected an error while iterating highlighter");
+    assert!(
+        found_cancellation_error,
+        "Expected a cancellation error while iterating events"
+    );
 }
 
 #[test]
@@ -723,6 +728,7 @@ fn to_html<'a>(
         language_config,
         src,
         None,
+        None,
         &test_language_for_injection_string,
     )?;
 
@@ -743,7 +749,10 @@ fn to_html<'a>(
         .collect())
 }
 
-#[allow(clippy::type_complexity)]
+#[expect(
+    clippy::type_complexity,
+    reason = "return type represents structured highlight tokens"
+)]
 fn to_token_vector<'a>(
     src: &'a str,
     language_config: &'a HighlightConfiguration,
@@ -756,6 +765,7 @@ fn to_token_vector<'a>(
     let events = highlighter.highlight(
         language_config,
         src,
+        None,
         None,
         &test_language_for_injection_string,
     )?;

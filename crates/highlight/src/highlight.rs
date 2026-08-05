@@ -1,4 +1,4 @@
-#![doc = include_str!("../README.md")]
+#![cfg_attr(not(any(test, doctest)), doc = include_str!("../README.md"))]
 
 pub mod c_lib;
 use core::slice;
@@ -7,10 +7,11 @@ use std::{
     iter,
     marker::PhantomData,
     mem::{self, MaybeUninit},
-    ops, str,
+    ops::{self, ControlFlow},
+    str,
     sync::{
-        atomic::{AtomicUsize, Ordering},
         LazyLock,
+        atomic::{AtomicUsize, Ordering},
     },
 };
 
@@ -18,8 +19,8 @@ pub use c_lib as c;
 use streaming_iterator::StreamingIterator;
 use thiserror::Error;
 use tree_sitter::{
-    ffi, Language, LossyUtf8, Node, ParseOptions, Parser, Point, Query, QueryCapture,
-    QueryCaptures, QueryCursor, QueryError, QueryMatch, Range, TextProvider, Tree,
+    Language, LossyUtf8, Node, ParseOptions, ParseState, Parser, Point, Query, QueryCapture,
+    QueryCaptures, QueryCursor, QueryError, QueryMatch, Range, TextProvider, Tree, ffi,
 };
 
 const CANCELLATION_CHECK_INTERVAL: usize = 100;
@@ -94,8 +95,8 @@ pub struct Highlight(pub usize);
 pub enum Error {
     #[error("Cancelled")]
     Cancelled,
-    #[error("Invalid language")]
-    InvalidLanguage,
+    #[error("Invalid language: {0}")]
+    InvalidLanguage(#[from] tree_sitter::LanguageError),
     #[error("Unknown error")]
     Unknown,
 }
@@ -166,6 +167,7 @@ where
     F: FnMut(&str) -> Option<&'a HighlightConfiguration> + 'a,
 {
     source: &'a [u8],
+    encoding: Option<u32>,
     language_name: &'a str,
     byte_offset: usize,
     highlighter: &'a mut Highlighter,
@@ -188,7 +190,7 @@ struct HighlightIterLayer<'a> {
     depth: usize,
 }
 
-pub struct _QueryCaptures<'query, 'tree: 'query, T: TextProvider<I>, I: AsRef<[u8]>> {
+pub struct _QueryCaptures<'query, 'tree, T: TextProvider<I>, I: AsRef<[u8]>> {
     ptr: *mut ffi::TSQueryCursor,
     query: &'query Query,
     text_provider: T,
@@ -207,24 +209,30 @@ struct _QueryMatch<'cursor, 'tree> {
 }
 
 impl<'tree> _QueryMatch<'_, 'tree> {
+    #[expect(
+        clippy::used_underscore_items,
+        reason = "mirrors internal QueryMatch layout for transmute"
+    )]
     fn new(m: &ffi::TSQueryMatch, cursor: *mut ffi::TSQueryCursor) -> Self {
         _QueryMatch {
             _cursor: cursor,
             _id: m.id,
             _pattern_index: m.pattern_index as usize,
-            _captures: (m.capture_count > 0)
-                .then(|| unsafe {
+            _captures: if m.capture_count > 0 {
+                unsafe {
                     slice::from_raw_parts(
                         m.captures.cast::<QueryCapture<'tree>>(),
                         m.capture_count as usize,
                     )
-                })
-                .unwrap_or_default(),
+                }
+            } else {
+                Default::default()
+            },
         }
     }
 }
 
-impl<'query, 'tree: 'query, T: TextProvider<I>, I: AsRef<[u8]>> Iterator
+impl<'query, 'tree, T: TextProvider<I>, I: AsRef<[u8]>> Iterator
     for _QueryCaptures<'query, 'tree, T, I>
 {
     type Item = (QueryMatch<'query, 'tree>, usize);
@@ -239,6 +247,10 @@ impl<'query, 'tree: 'query, T: TextProvider<I>, I: AsRef<[u8]>> Iterator
                     m.as_mut_ptr(),
                     core::ptr::addr_of_mut!(capture_index),
                 ) {
+                    #[expect(
+                        clippy::transmute_undefined_repr,
+                        reason = "intentional transmute between mirror types"
+                    )]
                     let result = std::mem::transmute::<_QueryMatch, QueryMatch>(_QueryMatch::new(
                         &m.assume_init(),
                         self.ptr,
@@ -275,7 +287,7 @@ impl Highlighter {
         }
     }
 
-    pub fn parser(&mut self) -> &mut Parser {
+    pub const fn parser(&mut self) -> &mut Parser {
         &mut self.parser
     }
 
@@ -284,11 +296,13 @@ impl Highlighter {
         &'a mut self,
         config: &'a HighlightConfiguration,
         source: &'a [u8],
+        encoding: Option<u32>,
         cancellation_flag: Option<&'a AtomicUsize>,
         mut injection_callback: impl FnMut(&str) -> Option<&'a HighlightConfiguration> + 'a,
     ) -> Result<impl Iterator<Item = Result<HighlightEvent, Error>> + 'a, Error> {
         let layers = HighlightIterLayer::new(
             source,
+            encoding,
             None,
             self,
             cancellation_flag,
@@ -305,6 +319,7 @@ impl Highlighter {
         assert_ne!(layers.len(), 0);
         let mut result = HighlightIter {
             source,
+            encoding,
             language_name: &config.language_name,
             byte_offset: 0,
             injection_callback,
@@ -343,11 +358,13 @@ impl HighlightConfiguration {
         locals_query: &str,
     ) -> Result<Self, QueryError> {
         // Concatenate the query strings, keeping track of the start offset of each section.
-        let mut query_source = String::new();
+        let mut query_source = String::with_capacity(
+            injection_query.len() + locals_query.len() + highlights_query.len(),
+        );
         query_source.push_str(injection_query);
-        let locals_query_offset = query_source.len();
+        let locals_query_offset = injection_query.len();
         query_source.push_str(locals_query);
-        let highlights_query_offset = query_source.len();
+        let highlights_query_offset = injection_query.len() + locals_query.len();
         query_source.push_str(highlights_query);
 
         // Construct a single query by concatenating the three query strings, but record the
@@ -451,7 +468,7 @@ impl HighlightConfiguration {
     /// and `function.builtin.constructor`, but will not match `function.method`.
     ///
     /// When highlighting, results are returned as `Highlight` values, which contain the index
-    /// of the matched highlight this list of highlight names.
+    /// of the matched highlight in this list of highlight names.
     pub fn configure(&mut self, recognized_names: &[impl AsRef<str>]) {
         let mut capture_parts = Vec::new();
         self.highlight_indices.clear();
@@ -505,9 +522,13 @@ impl<'a> HighlightIterLayer<'a> {
     /// In the event that the new layer contains "combined injections" (injections where multiple
     /// disjoint ranges are parsed as one syntax tree), these will be eagerly processed and
     /// added to the returned vector.
-    #[allow(clippy::too_many_arguments)]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "all parameters are required for layer initialization"
+    )]
     fn new<F: FnMut(&str) -> Option<&'a HighlightConfiguration> + 'a>(
         source: &'a [u8],
+        encoding: Option<u32>,
         parent_name: Option<&str>,
         highlighter: &mut Highlighter,
         cancellation_flag: Option<&'a AtomicUsize>,
@@ -520,31 +541,77 @@ impl<'a> HighlightIterLayer<'a> {
         let mut queue = Vec::new();
         loop {
             if highlighter.parser.set_included_ranges(&ranges).is_ok() {
-                highlighter
-                    .parser
-                    .set_language(&config.language)
-                    .map_err(|_| Error::InvalidLanguage)?;
+                highlighter.parser.set_language(&config.language)?;
 
-                let tree = highlighter
-                    .parser
-                    .parse_with_options(
-                        &mut |i, _| {
-                            if i < source.len() {
-                                &source[i..]
-                            } else {
-                                &[]
-                            }
-                        },
-                        None,
-                        Some(ParseOptions::new().progress_callback(&mut |_| {
-                            if let Some(cancellation_flag) = cancellation_flag {
-                                cancellation_flag.load(Ordering::SeqCst) != 0
-                            } else {
-                                false
-                            }
-                        })),
-                    )
-                    .ok_or(Error::Cancelled)?;
+                let progress_callack = &mut |_: &ParseState| {
+                    if let Some(cancellation_flag) = cancellation_flag {
+                        if cancellation_flag.load(Ordering::SeqCst) != 0 {
+                            ControlFlow::Break(())
+                        } else {
+                            ControlFlow::Continue(())
+                        }
+                    } else {
+                        ControlFlow::Continue(())
+                    }
+                };
+                let parse_opts = ParseOptions::new().progress_callback(progress_callack);
+
+                let tree = match encoding {
+                    Some(encoding) if encoding == ffi::TSInputEncodingUTF16LE => {
+                        let source_code_utf16 = source
+                            .as_chunks::<2>()
+                            .0
+                            .iter()
+                            .map(|&chunk| u16::from_le_bytes(chunk))
+                            .collect::<Vec<_>>();
+                        highlighter
+                            .parser
+                            .parse_utf16_le_with_options(
+                                &mut |i, _| {
+                                    if i < source_code_utf16.len() {
+                                        &source_code_utf16[i..]
+                                    } else {
+                                        &[]
+                                    }
+                                },
+                                None,
+                                Some(parse_opts),
+                            )
+                            .ok_or(Error::Cancelled)?
+                    }
+                    Some(encoding) if encoding == ffi::TSInputEncodingUTF16BE => {
+                        let source_code_utf16 = source
+                            .as_chunks::<2>()
+                            .0
+                            .iter()
+                            .map(|&chunk| u16::from_be_bytes(chunk))
+                            .collect::<Vec<_>>();
+                        highlighter
+                            .parser
+                            .parse_utf16_be_with_options(
+                                &mut |i, _| {
+                                    if i < source_code_utf16.len() {
+                                        &source_code_utf16[i..]
+                                    } else {
+                                        &[]
+                                    }
+                                },
+                                None,
+                                Some(parse_opts),
+                            )
+                            .ok_or(Error::Cancelled)?
+                    }
+                    _ => highlighter
+                        .parser
+                        .parse_with_options(
+                            &mut |i, _| {
+                                if i < source.len() { &source[i..] } else { &[] }
+                            },
+                            None,
+                            Some(parse_opts),
+                        )
+                        .ok_or(Error::Cancelled)?,
+                };
                 let mut cursor = highlighter.cursors.pop().unwrap_or_default();
 
                 // Process combined injections.
@@ -572,21 +639,19 @@ impl<'a> HighlightIterLayer<'a> {
                     }
                     for (lang_name, content_nodes, includes_children) in injections_by_pattern_index
                     {
-                        if let (Some(lang_name), false) = (lang_name, content_nodes.is_empty()) {
-                            if let Some(next_config) = (injection_callback)(lang_name) {
-                                let ranges = Self::intersect_ranges(
-                                    &ranges,
-                                    &content_nodes,
-                                    includes_children,
-                                );
-                                if !ranges.is_empty() {
-                                    queue.push((next_config, depth + 1, ranges));
-                                }
+                        if let (Some(lang_name), false) = (lang_name, content_nodes.is_empty())
+                            && let Some(next_config) = (injection_callback)(lang_name)
+                        {
+                            let ranges =
+                                Self::intersect_ranges(&ranges, &content_nodes, includes_children);
+                            if !ranges.is_empty() {
+                                queue.push((next_config, depth + 1, ranges));
                             }
                         }
                     }
                 }
 
+                // SAFETY:
                 // The `captures` iterator borrows the `Tree` and the `QueryCursor`, which
                 // prevents them from being moved. But both of these values are really just
                 // pointers, so it's actually ok to move them.
@@ -594,6 +659,10 @@ impl<'a> HighlightIterLayer<'a> {
                 let cursor_ref = unsafe {
                     mem::transmute::<&mut QueryCursor, &'static mut QueryCursor>(&mut cursor)
                 };
+                #[expect(
+                    clippy::transmute_undefined_repr,
+                    reason = "intentional transmute between mirror types"
+                )]
                 let captures = unsafe {
                     std::mem::transmute::<QueryCaptures<_, _>, _QueryCaptures<_, _>>(
                         cursor_ref.captures(&config.query, tree_ref.root_node(), source),
@@ -778,11 +847,11 @@ where
             if let Some(sort_key) = self.layers[0].sort_key() {
                 let mut i = 0;
                 while i + 1 < self.layers.len() {
-                    if let Some(next_offset) = self.layers[i + 1].sort_key() {
-                        if next_offset < sort_key {
-                            i += 1;
-                            continue;
-                        }
+                    if let Some(next_offset) = self.layers[i + 1].sort_key()
+                        && next_offset < sort_key
+                    {
+                        i += 1;
+                        continue;
                     }
                     break;
                 }
@@ -864,11 +933,11 @@ where
                 // If any previous highlight ends before this node starts, then before
                 // processing this capture, emit the source code up until the end of the
                 // previous highlight, and an end event for that highlight.
-                if let Some(end_byte) = layer.highlight_end_stack.last().copied() {
-                    if end_byte <= range.start {
-                        layer.highlight_end_stack.pop();
-                        return self.emit_event(end_byte, Some(HighlightEvent::HighlightEnd));
-                    }
+                if let Some(end_byte) = layer.highlight_end_stack.last().copied()
+                    && end_byte <= range.start
+                {
+                    layer.highlight_end_stack.pop();
+                    return self.emit_event(end_byte, Some(HighlightEvent::HighlightEnd));
                 }
             }
             // If there are no more captures, then emit any remaining highlight end events.
@@ -900,31 +969,32 @@ where
 
                 // If a language is found with the given name, then add a new language layer
                 // to the highlighted document.
-                if let (Some(language_name), Some(content_node)) = (language_name, content_node) {
-                    if let Some(config) = (self.injection_callback)(language_name) {
-                        let ranges = HighlightIterLayer::intersect_ranges(
-                            &self.layers[0].ranges,
-                            &[content_node],
-                            include_children,
-                        );
-                        if !ranges.is_empty() {
-                            match HighlightIterLayer::new(
-                                self.source,
-                                Some(self.language_name),
-                                self.highlighter,
-                                self.cancellation_flag,
-                                &mut self.injection_callback,
-                                config,
-                                self.layers[0].depth + 1,
-                                ranges,
-                            ) {
-                                Ok(layers) => {
-                                    for layer in layers {
-                                        self.insert_layer(layer);
-                                    }
+                if let (Some(language_name), Some(content_node)) = (language_name, content_node)
+                    && let Some(config) = (self.injection_callback)(language_name)
+                {
+                    let ranges = HighlightIterLayer::intersect_ranges(
+                        &self.layers[0].ranges,
+                        &[content_node],
+                        include_children,
+                    );
+                    if !ranges.is_empty() {
+                        match HighlightIterLayer::new(
+                            self.source,
+                            self.encoding,
+                            Some(self.language_name),
+                            self.highlighter,
+                            self.cancellation_flag,
+                            &mut self.injection_callback,
+                            config,
+                            self.layers[0].depth + 1,
+                            ranges,
+                        ) {
+                            Ok(layers) => {
+                                for layer in layers {
+                                    self.insert_layer(layer);
                                 }
-                                Err(e) => return Some(Err(e)),
                             }
+                            Err(e) => return Some(Err(e)),
                         }
                     }
                 }
@@ -1026,11 +1096,13 @@ where
             // Otherwise, this capture must represent a highlight.
             // If this exact range has already been highlighted by an earlier pattern, or by
             // a different layer, then skip over this one.
-            if let Some((last_start, last_end, last_depth)) = self.last_highlight_range {
-                if range.start == last_start && range.end == last_end && layer.depth < last_depth {
-                    self.sort_layers();
-                    continue 'main;
-                }
+            if let Some((last_start, last_end, last_depth)) = self.last_highlight_range
+                && range.start == last_start
+                && range.end == last_end
+                && layer.depth < last_depth
+            {
+                self.sort_layers();
+                continue 'main;
             }
 
             // Once a highlighting pattern is found for the current node, keep iterating over
@@ -1098,7 +1170,7 @@ impl HtmlRenderer {
         result
     }
 
-    pub fn set_carriage_return_highlight(&mut self, highlight: Option<Highlight>) {
+    pub const fn set_carriage_return_highlight(&mut self, highlight: Option<Highlight>) {
         self.carriage_return_highlight = highlight;
     }
 
@@ -1214,20 +1286,22 @@ impl HtmlRenderer {
                 self.last_carriage_return = Some(self.html.len());
                 continue;
             }
-            if let Some(offset) = self.last_carriage_return.take() {
-                if c != b'\n' {
-                    self.add_carriage_return(offset, attribute_callback);
-                }
+            if let Some(offset) = self.last_carriage_return.take()
+                && c != b'\n'
+            {
+                self.add_carriage_return(offset, attribute_callback);
             }
 
             // At line boundaries, close and re-open all of the open tags.
             if c == b'\n' {
-                highlights.iter().for_each(|_| self.end_highlight());
+                for _ in highlights {
+                    self.end_highlight();
+                }
                 self.html.push(c);
                 self.line_offsets.push(self.html.len() as u32);
-                highlights
-                    .iter()
-                    .for_each(|scope| self.start_highlight(*scope, attribute_callback));
+                for scope in highlights {
+                    self.start_highlight(*scope, attribute_callback);
+                }
             } else if let Some(escape) = html_escape(c) {
                 self.html.extend_from_slice(escape);
             } else {
@@ -1265,28 +1339,22 @@ fn injection_for_match<'a>(
             // In addition to specifying the language name via the text of a
             // captured node, it can also be hard-coded via a `#set!` predicate
             // that sets the injection.language key.
-            "injection.language" => {
-                if language_name.is_none() {
-                    language_name = prop.value.as_ref().map(std::convert::AsRef::as_ref);
-                }
+            "injection.language" if language_name.is_none() => {
+                language_name = prop.value.as_ref().map(std::convert::AsRef::as_ref);
             }
 
             // Setting the `injection.self` key can be used to specify that the
             // language name should be the same as the language of the current
             // layer.
-            "injection.self" => {
-                if language_name.is_none() {
-                    language_name = Some(config.language_name.as_str());
-                }
+            "injection.self" if language_name.is_none() => {
+                language_name = Some(config.language_name.as_str());
             }
 
             // Setting the `injection.parent` key can be used to specify that
             // the language name should be the same as the language of the
             // parent layer
-            "injection.parent" => {
-                if language_name.is_none() {
-                    language_name = parent_name;
-                }
+            "injection.parent" if language_name.is_none() => {
+                language_name = parent_name;
             }
 
             // By default, injections do not include the *children* of an

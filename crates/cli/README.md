@@ -7,20 +7,20 @@
 [npmjs.com]: https://www.npmjs.org/package/tree-sitter-cli
 [npmjs.com badge]: https://img.shields.io/npm/v/tree-sitter-cli.svg?color=%23BF4A4A
 
-The Tree-sitter CLI allows you to develop, test, and use Tree-sitter grammars from the command line. It works on `MacOS`, `Linux`, and `Windows`.
+The Tree-sitter CLI allows you to develop, test, and use Tree-sitter grammars from the command line. It works on `MacOS`,
+`Linux`, and `Windows`.
 
 ### Installation
 
-You can install the `tree-sitter-cli` with `cargo`:
+You can install the `tree-sitter-cli` with [`cargo-binstall`](https://github.com/cargo-bins/cargo-binstall):
 
 ```sh
-cargo install --locked tree-sitter-cli
+cargo binstall tree-sitter-cli
 ```
 
-or with `npm`:
-
+or you can build it from source:
 ```sh
-npm install tree-sitter-cli
+cargo install --locked tree-sitter-cli
 ```
 
 You can also download a pre-built binary for your platform from [the releases page].
@@ -34,9 +34,11 @@ The `tree-sitter` binary itself has no dependencies, but specific commands have 
 
 ### Commands
 
-* `generate` - The `tree-sitter generate` command will generate a Tree-sitter parser based on the grammar in the current working directory. See [the documentation] for more information.
+* `generate` - The `tree-sitter generate` command will generate a Tree-sitter parser based on the grammar in the current
+  working directory. See [the documentation] for more information.
 
-* `test` - The `tree-sitter test` command will run the unit tests for the Tree-sitter parser in the current working directory. See [the documentation] for more information.
+* `test` - The `tree-sitter test` command will run the unit tests for the Tree-sitter parser in the current working directory.
+  See [the documentation] for more information.
 
 * `parse` - The `tree-sitter parse` command will parse a file (or list of files) using Tree-sitter parsers.
 

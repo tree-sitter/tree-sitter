@@ -1,4 +1,4 @@
-module.exports = grammar({
+export default grammar({
   name: "external_unicode_column_alignment",
 
   externals: $ => [

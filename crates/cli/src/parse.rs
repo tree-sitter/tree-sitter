@@ -1,24 +1,26 @@
 use std::{
     fmt, fs,
-    io::{self, StdoutLock, Write},
+    io::{self, Write},
+    ops::ControlFlow,
     path::{Path, PathBuf},
     sync::atomic::{AtomicUsize, Ordering},
     time::{Duration, Instant},
 };
 
 use anstyle::{AnsiColor, Color, RgbColor};
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use clap::ValueEnum;
+use log::info;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use tree_sitter::{
-    ffi, InputEdit, Language, LogType, ParseOptions, ParseState, Parser, Point, Range, Tree,
-    TreeCursor,
+    InputEdit, Language, LogType, ParseOptions, ParseState, Parser, Point, Range, Tree, TreeCursor,
+    ffi,
 };
 
-use super::util;
-use crate::{fuzz::edits::Edit, test::paint};
+use crate::{fuzz::edits::Edit, paint::paint, util};
 
-#[derive(Debug, Default, Serialize)]
+#[derive(Debug, Default, Serialize, JsonSchema)]
 pub struct Stats {
     pub successful_parses: usize,
     pub total_parses: usize,
@@ -229,10 +231,21 @@ impl ParseSummary {
     }
 }
 
-#[derive(Serialize, Debug, Default)]
+#[derive(Serialize, Debug)]
 pub struct ParseStats {
     pub parse_summaries: Vec<ParseSummary>,
     pub cumulative_stats: Stats,
+    pub source_count: usize,
+}
+
+impl Default for ParseStats {
+    fn default() -> Self {
+        Self {
+            parse_summaries: Vec::new(),
+            cumulative_stats: Stats::default(),
+            source_count: 1,
+        }
+    }
 }
 
 #[derive(Serialize, ValueEnum, Debug, Copy, Clone, Default, Eq, PartialEq)]
@@ -273,6 +286,10 @@ pub fn parse_file_at_path(
     max_path_length: usize,
     opts: &mut ParseFileOptions,
 ) -> Result<()> {
+    #[expect(
+        clippy::collection_is_never_read,
+        reason = "value is held for its Drop side effect"
+    )]
     let mut _log_session = None;
     parser.set_language(language)?;
     let mut source_code = fs::read(path).with_context(|| format!("Error reading {name:?}"))?;
@@ -284,7 +301,6 @@ pub fn parse_file_at_path(
     // Log to stderr if `--debug` was passed
     else if opts.debug != ParseDebugType::Quiet {
         let mut curr_version: usize = 0;
-        let use_color = std::env::var("NO_COLOR").map_or(true, |v| v != "1");
         let debug = opts.debug;
         parser.set_logger(Some(Box::new(move |log_type, message| {
             if debug == ParseDebugType::Normal {
@@ -293,13 +309,13 @@ pub fn parse_file_at_path(
                 }
                 writeln!(&mut io::stderr(), "{message}").unwrap();
             } else {
+                #[rustfmt::skip]
                 let colors = &[
-                    AnsiColor::White,
-                    AnsiColor::Red,
-                    AnsiColor::Blue,
-                    AnsiColor::Green,
-                    AnsiColor::Cyan,
-                    AnsiColor::Yellow,
+                    AnsiColor::White, AnsiColor::Red, AnsiColor::Blue, AnsiColor::Green,
+                    AnsiColor::Cyan, AnsiColor::Yellow, AnsiColor::Magenta,
+                    AnsiColor::BrightWhite, AnsiColor::BrightRed, AnsiColor::BrightBlue,
+                    AnsiColor::BrightGreen, AnsiColor::BrightCyan, AnsiColor::BrightYellow,
+                    AnsiColor::BrightMagenta,
                 ];
                 if message.starts_with("process version:") {
                     let comma_idx = message.find(',').unwrap();
@@ -307,30 +323,21 @@ pub fn parse_file_at_path(
                         .parse()
                         .unwrap();
                 }
-                let color = if use_color {
-                    Some(colors[curr_version])
-                } else {
-                    None
-                };
-                let mut out = if log_type == LogType::Lex {
-                    "  ".to_string()
-                } else {
-                    String::new()
-                };
-                out += &paint(color, message);
-                writeln!(&mut io::stderr(), "{out}").unwrap();
+                let color = Some(colors[curr_version % colors.len()]);
+                let prefix = if log_type == LogType::Lex { "  " } else { "" };
+                writeln!(&mut io::stderr(), "{prefix}{}", paint(color, message)).unwrap();
             }
         })));
     }
 
     let parse_time = Instant::now();
 
-    #[inline(always)]
+    #[inline]
     fn is_utf16_le_bom(bom_bytes: &[u8]) -> bool {
         bom_bytes == [0xFF, 0xFE]
     }
 
-    #[inline(always)]
+    #[inline]
     fn is_utf16_be_bom(bom_bytes: &[u8]) -> bool {
         bom_bytes == [0xFE, 0xFF]
     }
@@ -355,17 +362,17 @@ pub fn parse_file_at_path(
     // after the specified number of microseconds.
     let start_time = Instant::now();
     let progress_callback = &mut |_: &ParseState| {
-        if let Some(cancellation_flag) = opts.cancellation_flag {
-            if cancellation_flag.load(Ordering::SeqCst) != 0 {
-                return true;
-            }
+        if let Some(cancellation_flag) = opts.cancellation_flag
+            && cancellation_flag.load(Ordering::SeqCst) != 0
+        {
+            return ControlFlow::Break(());
         }
 
-        if opts.timeout > 0 && start_time.elapsed().as_micros() > opts.timeout as u128 {
-            return true;
+        if opts.timeout > 0 && start_time.elapsed().as_micros() > u128::from(opts.timeout) {
+            return ControlFlow::Break(());
         }
 
-        false
+        ControlFlow::Continue(())
     };
 
     let parse_opts = ParseOptions::new().progress_callback(progress_callback);
@@ -373,8 +380,10 @@ pub fn parse_file_at_path(
     let tree = match encoding {
         Some(encoding) if encoding == ffi::TSInputEncodingUTF16LE => {
             let source_code_utf16 = source_code
-                .chunks_exact(2)
-                .map(|chunk| u16::from_le_bytes([chunk[0], chunk[1]]))
+                .as_chunks::<2>()
+                .0
+                .iter()
+                .map(|&chunk| u16::from_le_bytes(chunk))
                 .collect::<Vec<_>>();
             parser.parse_utf16_le_with_options(
                 &mut |i, _| {
@@ -390,8 +399,10 @@ pub fn parse_file_at_path(
         }
         Some(encoding) if encoding == ffi::TSInputEncodingUTF16BE => {
             let source_code_utf16 = source_code
-                .chunks_exact(2)
-                .map(|chunk| u16::from_be_bytes([chunk[0], chunk[1]]))
+                .as_chunks::<2>()
+                .0
+                .iter()
+                .map(|&chunk| u16::from_be_bytes(chunk))
                 .collect::<Vec<_>>();
             parser.parse_utf16_be_with_options(
                 &mut |i, _| {
@@ -420,11 +431,11 @@ pub fn parse_file_at_path(
     let parse_duration = parse_time.elapsed();
 
     let stdout = io::stdout();
-    let mut stdout = stdout.lock();
+    let mut stdout = io::BufWriter::with_capacity(64 * 1024, stdout.lock());
 
     if let Some(mut tree) = tree {
         if opts.debug_graph && !opts.edits.is_empty() {
-            println!("BEFORE:\n{}", String::from_utf8_lossy(&source_code));
+            info!("BEFORE:\n{}", String::from_utf8_lossy(&source_code));
         }
 
         let edit_time = Instant::now();
@@ -434,7 +445,7 @@ pub fn parse_file_at_path(
             tree = parser.parse(&source_code, Some(&tree)).unwrap();
 
             if opts.debug_graph {
-                println!("AFTER {i}:\n{}", String::from_utf8_lossy(&source_code));
+                info!("AFTER {i}:\n{}", String::from_utf8_lossy(&source_code));
             }
         }
         let edit_duration = edit_time.elapsed();
@@ -497,67 +508,27 @@ pub fn parse_file_at_path(
                 }
             }
             cursor.reset(tree.root_node());
-            println!();
+            writeln!(&mut stdout)?;
         }
 
         if opts.output == ParseOutput::Cst {
-            let lossy_source_code = String::from_utf8_lossy(&source_code);
-            let total_width = lossy_source_code
-                .lines()
-                .enumerate()
-                .map(|(row, col)| {
-                    (row as f64).log10() as usize + (col.len() as f64).log10() as usize + 1
-                })
-                .max()
-                .unwrap_or(1);
-            let mut indent_level = 1;
-            let mut did_visit_children = false;
-            let mut in_error = false;
-            loop {
-                if did_visit_children {
-                    if cursor.goto_next_sibling() {
-                        did_visit_children = false;
-                    } else if cursor.goto_parent() {
-                        did_visit_children = true;
-                        indent_level -= 1;
-                        if !cursor.node().has_error() {
-                            in_error = false;
-                        }
-                    } else {
-                        break;
-                    }
-                } else {
-                    cst_render_node(
-                        opts,
-                        &mut cursor,
-                        &source_code,
-                        &mut stdout,
-                        total_width,
-                        indent_level,
-                        in_error,
-                    )?;
-                    if cursor.goto_first_child() {
-                        did_visit_children = false;
-                        indent_level += 1;
-                        if cursor.node().has_error() {
-                            in_error = true;
-                        }
-                    } else {
-                        did_visit_children = true;
-                    }
-                }
-            }
-            cursor.reset(tree.root_node());
-            println!();
+            render_cst(&source_code, &tree, &mut cursor, opts, &mut stdout)?;
         }
 
         if opts.output == ParseOutput::Xml {
             let mut needs_newline = false;
-            let mut indent_level = 0;
+            let mut indent_level = 2;
             let mut did_visit_children = false;
             let mut had_named_children = false;
             let mut tags = Vec::<&str>::new();
-            writeln!(&mut stdout, "<?xml version=\"1.0\"?>")?;
+
+            // If we're parsing the first file, write the header
+            if opts.stats.parse_summaries.is_empty() {
+                writeln!(&mut stdout, "<?xml version=\"1.0\"?>")?;
+                writeln!(&mut stdout, "<sources>")?;
+            }
+            writeln!(&mut stdout, "  <source name=\"{}\">", path.display())?;
+
             loop {
                 let node = cursor.node();
                 let is_named = node.is_named();
@@ -571,10 +542,10 @@ pub fn parse_file_at_path(
                         }
                         write!(&mut stdout, "</{}>", tag.expect("there is a tag"))?;
                         // we only write a line in the case where it's the last sibling
-                        if let Some(parent) = node.parent() {
-                            if parent.child(parent.child_count() - 1).unwrap() == node {
-                                stdout.write_all(b"\n")?;
-                            }
+                        if let Some(parent) = node.parent()
+                            && parent.child(parent.child_count() - 1).unwrap() == node
+                        {
+                            stdout.write_all(b"\n")?;
                         }
                         needs_newline = true;
                     }
@@ -608,11 +579,11 @@ pub fn parse_file_at_path(
                         }
                         let start = node.start_position();
                         let end = node.end_position();
-                        write!(&mut stdout, " srow=\"{}\"", start.row)?;
-                        write!(&mut stdout, " scol=\"{}\"", start.column)?;
-                        write!(&mut stdout, " erow=\"{}\"", end.row)?;
-                        write!(&mut stdout, " ecol=\"{}\"", end.column)?;
-                        write!(&mut stdout, ">")?;
+                        write!(
+                            &mut stdout,
+                            " srow=\"{}\" scol=\"{}\" erow=\"{}\" ecol=\"{}\">",
+                            start.row, start.column, end.row, end.column
+                        )?;
                         tags.push(node.kind());
                         needs_newline = true;
                     }
@@ -636,8 +607,14 @@ pub fn parse_file_at_path(
                     }
                 }
             }
+            writeln!(&mut stdout)?;
+            writeln!(&mut stdout, "  </source>")?;
+
+            // If we parsed the last file, write the closing tag for the `sources` header
+            if opts.stats.parse_summaries.len() == opts.stats.source_count - 1 {
+                writeln!(&mut stdout, "</sources>")?;
+            }
             cursor.reset(tree.root_node());
-            println!();
         }
 
         if opts.output == ParseOutput::Dot {
@@ -695,10 +672,9 @@ pub fn parse_file_at_path(
                 width = max_path_length
             )?;
             if let Some(node) = first_error {
-                let start = node.start_position();
-                let end = node.end_position();
-                let mut node_text = String::new();
-                for c in node.kind().chars() {
+                let node_kind = node.kind();
+                let mut node_text = String::with_capacity(node_kind.len());
+                for c in node_kind.chars() {
                     if let Some(escaped) = escape_invisible(c) {
                         node_text += escaped;
                     } else {
@@ -715,6 +691,9 @@ pub fn parse_file_at_path(
                 } else {
                     write!(&mut stdout, "{node_text}")?;
                 }
+
+                let start = node.start_position();
+                let end = node.end_position();
                 write!(
                     &mut stdout,
                     " [{}, {}] - [{}, {}])",
@@ -781,22 +760,91 @@ const fn escape_invisible(c: char) -> Option<&'static str> {
     })
 }
 
-fn render_node_text(source: &str) -> String {
-    source
-        .chars()
-        .fold(String::with_capacity(source.len()), |mut acc, c| {
-            if let Some(esc) = escape_invisible(c) {
-                acc.push_str(esc);
-            } else {
-                acc.push(c);
-            }
-            acc
+const fn escape_delimiter(c: char) -> Option<&'static str> {
+    Some(match c {
+        '`' => "\\`",
+        '\"' => "\\\"",
+        _ => return None,
+    })
+}
+
+pub fn render_cst<'a, 'b: 'a>(
+    source_code: &[u8],
+    tree: &'b Tree,
+    cursor: &mut TreeCursor<'a>,
+    opts: &ParseFileOptions,
+    out: &mut impl Write,
+) -> Result<()> {
+    let lossy_source_code = String::from_utf8_lossy(source_code);
+    let total_width = lossy_source_code
+        .lines()
+        .enumerate()
+        .map(|(row, col)| {
+            row.checked_ilog10().unwrap_or(0) as usize
+                + col.len().checked_ilog10().unwrap_or(0) as usize
+                + 1
         })
+        .max()
+        .unwrap_or(1);
+    let mut indent_level = usize::from(!opts.no_ranges);
+    let mut did_visit_children = false;
+    let mut in_error = false;
+    loop {
+        if did_visit_children {
+            if cursor.goto_next_sibling() {
+                did_visit_children = false;
+            } else if cursor.goto_parent() {
+                did_visit_children = true;
+                indent_level -= 1;
+                if !cursor.node().has_error() {
+                    in_error = false;
+                }
+            } else {
+                break;
+            }
+        } else {
+            cst_render_node(
+                opts,
+                cursor,
+                source_code,
+                out,
+                total_width,
+                indent_level,
+                in_error,
+            )?;
+            if cursor.goto_first_child() {
+                did_visit_children = false;
+                indent_level += 1;
+                if cursor.node().has_error() {
+                    in_error = true;
+                }
+            } else {
+                did_visit_children = true;
+            }
+        }
+    }
+    cursor.reset(tree.root_node());
+    Ok(())
+}
+
+struct CstNodeText<'a>(&'a str);
+
+impl std::fmt::Display for CstNodeText<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use std::fmt::Write as _;
+        for c in self.0.chars() {
+            match escape_invisible(c).or_else(|| escape_delimiter(c)) {
+                Some(esc) => f.write_str(esc)?,
+                None => f.write_char(c)?,
+            }
+        }
+        Ok(())
+    }
 }
 
 fn write_node_text(
     opts: &ParseFileOptions,
-    stdout: &mut StdoutLock<'static>,
+    out: &mut impl Write,
     cursor: &TreeCursor,
     is_named: bool,
     source: &str,
@@ -807,16 +855,16 @@ fn write_node_text(
     let (quote, quote_color) = if is_named {
         ('`', opts.parse_theme.backtick)
     } else {
-        ('\"', color.map(|c| c.into()))
+        ('\"', color.map(std::convert::Into::into))
     };
 
     if !is_named {
         write!(
-            stdout,
+            out,
             "{}{}{}",
-            paint(quote_color, &String::from(quote)),
-            paint(color, &render_node_text(source)),
-            paint(quote_color, &String::from(quote)),
+            paint(quote_color, quote),
+            paint(color, CstNodeText(source)),
+            paint(quote_color, quote),
         )?;
     } else {
         let multiline = source.contains('\n');
@@ -835,92 +883,110 @@ fn write_node_text(
                 } else {
                     0
                 };
-            let formatted_line = render_line_feed(line, opts);
-            if !opts.no_ranges {
-                write!(
-                    stdout,
-                    "{}{}{}{}{}{}",
-                    if multiline { "\n" } else { "" },
-                    if multiline {
-                        render_node_range(opts, cursor, is_named, true, total_width, node_range)
-                    } else {
-                        String::new()
-                    },
-                    if multiline {
-                        "  ".repeat(indent_level + 1)
-                    } else {
-                        String::new()
-                    },
-                    paint(quote_color, &String::from(quote)),
-                    &paint(color, &render_node_text(&formatted_line)),
-                    paint(quote_color, &String::from(quote)),
-                )?;
+            if multiline {
+                writeln!(out)?;
+                if !opts.no_ranges {
+                    write!(
+                        out,
+                        "{}",
+                        CstNodeRange {
+                            opts,
+                            has_field_name: cursor.field_name().is_some(),
+                            is_named,
+                            is_multiline: true,
+                            total_width,
+                            range: node_range,
+                        }
+                    )?;
+                }
+                for _ in 0..=indent_level {
+                    write!(out, "  ")?;
+                }
             } else {
-                write!(
-                    stdout,
-                    "\n{}{}{}{}",
-                    "  ".repeat(indent_level + 1),
-                    paint(quote_color, &String::from(quote)),
-                    &paint(color, &render_node_text(&formatted_line)),
-                    paint(quote_color, &String::from(quote)),
-                )?;
+                write!(out, " ")?;
             }
+            write!(
+                out,
+                "{}{}{}",
+                paint(quote_color, quote),
+                paint(color, CstLineFeed { source: line, opts }),
+                paint(quote_color, quote),
+            )?;
         }
     }
 
     Ok(())
 }
 
-fn render_line_feed(source: &str, opts: &ParseFileOptions) -> String {
-    if cfg!(windows) {
-        source.replace("\r\n", &paint(opts.parse_theme.line_feed, "\r\n"))
-    } else {
-        source.replace('\n', &paint(opts.parse_theme.line_feed, "\n"))
+struct CstLineFeed<'src, 'opt> {
+    source: &'src str,
+    opts: &'src ParseFileOptions<'opt>,
+}
+
+impl std::fmt::Display for CstLineFeed<'_, '_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        #[cfg(windows)]
+        let lf = "\r\n";
+        #[cfg(not(windows))]
+        let lf = "\n";
+        let painted = paint(self.opts.parse_theme.line_feed, CstNodeText(lf));
+        let mut parts = self.source.split(lf);
+        if let Some(first) = parts.next() {
+            write!(f, "{}", CstNodeText(first))?;
+        }
+        for part in parts {
+            write!(f, "{painted}{}", CstNodeText(part))?;
+        }
+        Ok(())
     }
 }
 
-fn render_node_range(
-    opts: &ParseFileOptions,
-    cursor: &TreeCursor,
+struct CstNodeRange<'src, 'opt> {
+    opts: &'src ParseFileOptions<'opt>,
+    has_field_name: bool,
     is_named: bool,
     is_multiline: bool,
     total_width: usize,
     range: Range,
-) -> String {
-    let has_field_name = cursor.field_name().is_some();
-    let range_color = if is_named && !is_multiline && !has_field_name {
-        opts.parse_theme.row_color_named
-    } else {
-        opts.parse_theme.row_color
-    };
+}
 
-    let remaining_width_start = (total_width
-        - (range.start_point.row as f64).log10() as usize
-        - (range.start_point.column as f64).log10() as usize)
-        .max(1);
-    let remaining_width_end = (total_width
-        - (range.end_point.row as f64).log10() as usize
-        - (range.end_point.column as f64).log10() as usize)
-        .max(1);
-    paint(
-        range_color,
-        &format!(
-            "{}:{}{:remaining_width_start$}- {}:{}{:remaining_width_end$}",
-            range.start_point.row,
-            range.start_point.column,
-            ' ',
-            range.end_point.row,
-            range.end_point.column,
-            ' ',
-        ),
-    )
+impl std::fmt::Display for CstNodeRange<'_, '_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let start = self.range.start_point;
+        let end = self.range.end_point;
+        let range_color = if self.is_named && !self.is_multiline && !self.has_field_name {
+            self.opts.parse_theme.row_color_named
+        } else {
+            self.opts.parse_theme.row_color
+        };
+        let remaining_width = |row: usize, col: usize| {
+            (self
+                .total_width
+                .saturating_sub(row.checked_ilog10().unwrap_or(0) as usize)
+                .saturating_sub(col.checked_ilog10().unwrap_or(0) as usize))
+            .max(1)
+        };
+        let remaining_width_start = remaining_width(start.row, start.column);
+        let remaining_width_end = remaining_width(end.row, end.column);
+        write!(
+            f,
+            "{}",
+            paint(
+                range_color,
+                format_args!(
+                    "{}:{}{:remaining_width_start$}- {}:{}{:remaining_width_end$}",
+                    start.row, start.column, ' ', end.row, end.column, ' ',
+                ),
+            )
+        )
+    }
 }
 
 fn cst_render_node(
     opts: &ParseFileOptions,
-    cursor: &mut TreeCursor,
+    cursor: &TreeCursor,
     source_code: &[u8],
-    stdout: &mut StdoutLock<'static>,
+    out: &mut impl Write,
     total_width: usize,
     indent_level: usize,
     in_error: bool,
@@ -929,13 +995,20 @@ fn cst_render_node(
     let is_named = node.is_named();
     if !opts.no_ranges {
         write!(
-            stdout,
+            out,
             "{}",
-            render_node_range(opts, cursor, is_named, false, total_width, node.range())
+            CstNodeRange {
+                opts,
+                has_field_name: cursor.field_name().is_some(),
+                is_named,
+                is_multiline: false,
+                total_width,
+                range: node.range(),
+            }
         )?;
     }
     write!(
-        stdout,
+        out,
         "{}{}",
         "  ".repeat(indent_level),
         if in_error && !node.has_error() {
@@ -947,14 +1020,14 @@ fn cst_render_node(
     if is_named {
         if let Some(field_name) = cursor.field_name() {
             write!(
-                stdout,
+                out,
                 "{}",
-                paint(opts.parse_theme.field, &format!("{field_name}: "))
+                paint(opts.parse_theme.field, format_args!("{field_name}: "))
             )?;
         }
 
         if node.has_error() || node.is_error() {
-            write!(stdout, "{}", paint(opts.parse_theme.error, "•"))?;
+            write!(out, "{}", paint(opts.parse_theme.error, "•"))?;
         }
 
         let kind_color = if node.is_error() {
@@ -964,13 +1037,13 @@ fn cst_render_node(
         } else {
             opts.parse_theme.node_kind
         };
-        write!(stdout, "{} ", paint(kind_color, node.kind()))?;
+        write!(out, "{}", paint(kind_color, node.kind()))?;
 
         if node.child_count() == 0 {
             // Node text from a pattern or external scanner
             write_node_text(
                 opts,
-                stdout,
+                out,
                 cursor,
                 is_named,
                 &String::from_utf8_lossy(&source_code[node.start_byte()..node.end_byte()]),
@@ -979,17 +1052,13 @@ fn cst_render_node(
             )?;
         }
     } else if node.is_missing() {
-        write!(stdout, "{}: ", paint(opts.parse_theme.missing, "MISSING"))?;
-        write!(
-            stdout,
-            "\"{}\"",
-            paint(opts.parse_theme.missing, node.kind())
-        )?;
+        write!(out, "{}: ", paint(opts.parse_theme.missing, "MISSING"))?;
+        write!(out, "\"{}\"", paint(opts.parse_theme.missing, node.kind()))?;
     } else {
         // Terminal literals, like "fn"
         write_node_text(
             opts,
-            stdout,
+            out,
             cursor,
             is_named,
             node.kind(),
@@ -997,7 +1066,7 @@ fn cst_render_node(
             (total_width, indent_level),
         )?;
     }
-    writeln!(stdout)?;
+    writeln!(out)?;
 
     Ok(())
 }
@@ -1024,10 +1093,13 @@ pub fn perform_edit(tree: &mut Tree, input: &mut Vec<u8>, edit: &Edit) -> Result
 
 fn parse_edit_flag(source_code: &[u8], flag: &str) -> Result<Edit> {
     let error = || {
-        anyhow!(concat!(
-            "Invalid edit string '{}'. ",
-            "Edit strings must match the pattern '<START_BYTE_OR_POSITION> <REMOVED_LENGTH> <NEW_TEXT>'"
-        ), flag)
+        anyhow!(
+            concat!(
+                "Invalid edit string '{}'. ",
+                "Edit strings must match the pattern '<START_BYTE_OR_POSITION> <REMOVED_LENGTH> <NEW_TEXT>'"
+            ),
+            flag
+        )
     };
 
     // Three whitespace-separated parts:
@@ -1068,12 +1140,12 @@ pub fn offset_for_position(input: &[u8], position: Point) -> Result<usize> {
     let mut offset = 0;
     let mut iter = memchr::memchr_iter(b'\n', input);
     loop {
-        if let Some(pos) = iter.next() {
-            if row < position.row {
-                row += 1;
-                offset = pos;
-                continue;
-            }
+        if let Some(pos) = iter.next()
+            && row < position.row
+        {
+            row += 1;
+            offset = pos;
+            continue;
         }
         offset += 1;
         break;

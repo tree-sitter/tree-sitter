@@ -3,20 +3,29 @@ import { marshalNode, marshalPoint, marshalTreeCursor, unmarshalNode, unmarshalP
 import { Node } from './node';
 import { TRANSFER_BUFFER } from './parser';
 import { getText, Tree } from './tree';
+import { newFinalizer } from './finalization_registry';
+
+const finalizer = newFinalizer((address: number) => {
+  C._ts_tree_cursor_delete_wasm(address);
+});
 
 /** A stateful object for walking a syntax {@link Tree} efficiently. */
 export class TreeCursor {
   /** @internal */
-  private [0] = 0; // Internal handle for WASM
+  // @ts-expect-error: never read
+  private [0] = 0; // Internal handle for Wasm
 
   /** @internal */
-  private [1] = 0; // Internal handle for WASM
+  // @ts-expect-error: never read
+  private [1] = 0; // Internal handle for Wasm
 
   /** @internal */
-  private [2] = 0; // Internal handle for WASM
+  // @ts-expect-error: never read
+  private [2] = 0; // Internal handle for Wasm
 
   /** @internal */
-  private [3] = 0; // Internal handle for WASM
+  // @ts-expect-error: never read
+  private [3] = 0; // Internal handle for Wasm
 
   /** @internal */
   private tree: Tree;
@@ -26,6 +35,7 @@ export class TreeCursor {
     assertInternal(internal);
     this.tree = tree;
     unmarshalTreeCursor(this);
+    finalizer?.register(this, this.tree[0], this);
   }
 
   /** Creates a deep copy of the tree cursor. This allocates new memory. */
@@ -38,6 +48,7 @@ export class TreeCursor {
 
   /** Delete the tree cursor, freeing its resources. */
   delete(): void {
+    finalizer?.unregister(this);
     marshalTreeCursor(this);
     C._ts_tree_cursor_delete_wasm(this.tree[0]);
     this[0] = this[1] = this[2] = 0;

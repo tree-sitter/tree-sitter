@@ -4,14 +4,14 @@ use std::{
     process::{Command, Stdio},
 };
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use regex::Regex;
 
-use crate::{bail_on_err, Test};
+use crate::{Test, bail_on_err};
 
 pub fn run(args: &Test) -> Result<()> {
     let test_flags = if args.address_sanitizer {
-        env::set_var("CFLAGS", "-fsanitize=undefined,address");
+        unsafe { env::set_var("CFLAGS", "-fsanitize=undefined,address") };
 
         // When the Tree-sitter C library is compiled with the address sanitizer, the address
         // sanitizer runtime library needs to be linked into the final test executable. When
@@ -21,12 +21,14 @@ pub fn run(args: &Test) -> Result<()> {
         bail_on_err(&output, "Failed to get clang runtime dir")?;
         let runtime_dir = String::from_utf8(output.stdout)?;
         if runtime_dir.contains("/Xcode.app/") {
-            env::set_var(
-                "RUSTFLAGS",
-                format!(
-                    "-C link-arg=-L{runtime_dir} -C link-arg=-lclang_rt.asan_osx_dynamic -C link-arg=-Wl,-rpath,{runtime_dir}"
-                ),
-            );
+            unsafe {
+                env::set_var(
+                    "RUSTFLAGS",
+                    format!(
+                        "-C link-arg=-L{runtime_dir} -C link-arg=-lclang_rt.asan_osx_dynamic -C link-arg=-Wl,-rpath,{runtime_dir}"
+                    ),
+                );
+            };
         }
 
         // Specify a `--target` explicitly. This is required for address sanitizer support.
@@ -46,82 +48,83 @@ pub fn run(args: &Test) -> Result<()> {
         String::new()
     };
     if let Some(language) = &args.language {
-        env::set_var("TREE_SITTER_LANGUAGE", language);
+        unsafe {
+            env::set_var("TREE_SITTER_LANGUAGE", language);
+        }
     }
     if let Some(example) = &args.example {
-        env::set_var("TREE_SITTER_EXAMPLE_INCLUDE", example);
+        unsafe {
+            env::set_var("TREE_SITTER_EXAMPLE_INCLUDE", example);
+        }
     }
     if let Some(seed) = args.seed {
-        env::set_var("TREE_SITTER_SEED", seed.to_string());
+        unsafe {
+            env::set_var("TREE_SITTER_SEED", seed.to_string());
+        }
     }
     if let Some(iterations) = args.iterations {
-        env::set_var("TREE_SITTER_ITERATIONS", iterations.to_string());
+        unsafe {
+            env::set_var("TREE_SITTER_ITERATIONS", iterations.to_string());
+        }
     }
     if args.debug {
-        env::set_var("TREE_SITTER_LOG", "1");
+        unsafe {
+            env::set_var("TREE_SITTER_LOG", "1");
+        }
     }
     if args.debug_graph {
-        env::set_var("TREE_SITTER_LOG_GRAPHS", "1");
+        unsafe {
+            env::set_var("TREE_SITTER_LOG_GRAPHS", "1");
+        }
     }
 
-    let run_tests = |subdir: &str| -> Result<()> {
-        if args.g {
-            let mut cargo_cmd = Command::new("cargo");
-            cargo_cmd
-                .current_dir(subdir)
-                .arg("test")
-                .arg(&test_flags)
-                .arg("--no-run")
-                .arg("--message-format=json");
+    if args.g {
+        let mut cargo_cmd = Command::new("cargo");
+        cargo_cmd
+            .arg("test")
+            .arg("--all")
+            .arg(&test_flags)
+            .arg("--no-run")
+            .arg("--message-format=json");
 
-            #[cfg(target_os = "windows")]
-            cargo_cmd.arg("--").arg("--test-threads=1");
+        let cargo_cmd = cargo_cmd.stdout(Stdio::piped()).spawn()?;
 
-            let cargo_cmd = cargo_cmd.stdout(Stdio::piped()).spawn()?;
-
-            let jq_cmd = Command::new("jq")
+        let jq_cmd = Command::new("jq")
             .arg("-rs")
             .arg(r#"map(select(.target.name == "tree_sitter_cli" and .executable))[0].executable"#)
             .stdin(cargo_cmd.stdout.unwrap())
             .output()?;
 
-            let test_binary = String::from_utf8(jq_cmd.stdout)?;
+        let test_binary = String::from_utf8(jq_cmd.stdout)?;
 
-            let mut lldb_cmd = Command::new("lldb");
-            lldb_cmd.arg(test_binary.trim()).arg("--").args(&args.args);
-            bail_on_err(
-                &lldb_cmd.spawn()?.wait_with_output()?,
-                &format!("Failed to run {lldb_cmd:?}"),
-            )
-        } else {
-            let mut cargo_cmd = Command::new("cargo");
-            cargo_cmd.current_dir(subdir).arg("test");
-            if args.wasm {
-                cargo_cmd.arg("--features").arg("wasm");
-            }
-            if !test_flags.is_empty() {
-                cargo_cmd.arg(&test_flags);
-            }
-            cargo_cmd.args(&args.args);
-
-            #[cfg(target_os = "windows")]
-            cargo_cmd.arg("--").arg("--test-threads=1");
-
-            if args.nocapture {
-                #[cfg(not(target_os = "windows"))]
-                cargo_cmd.arg("--");
-
-                cargo_cmd.arg("--nocapture");
-            }
-            bail_on_err(
-                &cargo_cmd.spawn()?.wait_with_output()?,
-                &format!("Failed to run {cargo_cmd:?}"),
-            )
+        let mut lldb_cmd = Command::new("lldb");
+        lldb_cmd.arg(test_binary.trim()).arg("--").args(&args.args);
+        bail_on_err(
+            &lldb_cmd.spawn()?.wait_with_output()?,
+            &format!("Failed to run {lldb_cmd:?}"),
+        )?;
+    } else {
+        let mut cargo_cmd = Command::new("cargo");
+        cargo_cmd.arg("test").arg("--all");
+        if args.wasm {
+            cargo_cmd.arg("--features").arg("wasm");
         }
-    };
+        if !test_flags.is_empty() {
+            cargo_cmd.arg(&test_flags);
+        }
+        cargo_cmd.args(&args.args);
 
-    run_tests(".")?;
-    run_tests("crates/generate")?;
+        if args.nocapture {
+            #[cfg(not(target_os = "windows"))]
+            cargo_cmd.arg("--");
+
+            cargo_cmd.arg("--nocapture");
+        }
+        bail_on_err(
+            &cargo_cmd.spawn()?.wait_with_output()?,
+            &format!("Failed to run {cargo_cmd:?}"),
+        )?;
+    }
 
     Ok(())
 }

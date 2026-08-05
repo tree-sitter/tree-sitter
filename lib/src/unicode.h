@@ -53,8 +53,14 @@ static inline uint32_t ts_decode_utf16_le(
   uint32_t length,
   int32_t *code_point
 ) {
+  if (length < 2) {
+    *code_point = TS_DECODE_ERROR;
+    return length;
+  }
   uint32_t i = 0;
-  U16_NEXT_LE(((uint16_t *)string), i, length, *code_point);
+  // length is in bytes; U16_NEXT indexes into uint16_t*, so its length
+  // parameter must be in code units (length / 2), not bytes.
+  U16_NEXT_LE(((uint16_t *)string), i, length / 2, *code_point);
   return i * 2;
 }
 
@@ -63,8 +69,14 @@ static inline uint32_t ts_decode_utf16_be(
   uint32_t length,
   int32_t *code_point
 ) {
+  if (length < 2) {
+    *code_point = TS_DECODE_ERROR;
+    return length;
+  }
   uint32_t i = 0;
-  U16_NEXT_BE(((uint16_t *)string), i, length, *code_point);
+  // length is in bytes; U16_NEXT indexes into uint16_t*, so its length
+  // parameter must be in code units (length / 2), not bytes.
+  U16_NEXT_BE(((uint16_t *)string), i, length / 2, *code_point);
   return i * 2;
 }
 

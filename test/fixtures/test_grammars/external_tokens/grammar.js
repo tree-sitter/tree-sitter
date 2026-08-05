@@ -2,7 +2,7 @@
 // that track the nesting depth of parentheses, similar to Ruby's percent
 // string literals.
 
-module.exports = grammar({
+export default grammar({
   name: "external_tokens",
 
   externals: $ => [

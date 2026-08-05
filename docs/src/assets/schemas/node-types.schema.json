@@ -1,0 +1,108 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Tree-sitter node types specification",
+  "type": "array",
+  "items": {
+    "$ref": "#/definitions/NodeInfo"
+  },
+  "definitions": {
+    "NodeInfo": {
+      "type": "object",
+      "required": [
+        "type",
+        "named"
+      ],
+      "properties": {
+        "type": {
+          "type": "string"
+        },
+        "named": {
+          "type": "boolean"
+        },
+        "root": {
+          "type": "boolean",
+          "default": false
+        },
+        "extra": {
+          "type": "boolean",
+          "default": false
+        },
+        "fields": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/FieldInfo"
+          }
+        },
+        "children": {
+          "$ref": "#/definitions/FieldInfo"
+        },
+        "subtypes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/NodeType"
+          }
+        }
+      },
+      "oneOf": [
+        {
+          "description": "Regular node",
+          "properties": {
+            "subtypes": false
+          }
+        },
+        {
+          "description": "Supertype node",
+          "required": [
+            "subtypes"
+          ],
+          "properties": {
+            "children": false,
+            "fields": false
+          }
+        }
+      ]
+    },
+    "NodeType": {
+      "type": "object",
+      "required": [
+        "type",
+        "named"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "The kind of node type"
+        },
+        "named": {
+          "type": "boolean",
+          "description": "Whether the node type is named"
+        }
+      }
+    },
+    "FieldInfo": {
+      "type": "object",
+      "required": [
+        "multiple",
+        "required",
+        "types"
+      ],
+      "properties": {
+        "multiple": {
+          "type": "boolean",
+          "default": false
+        },
+        "required": {
+          "type": "boolean",
+          "default": true
+        },
+        "types": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/definitions/NodeType"
+          }
+        }
+      }
+    }
+  }
+}

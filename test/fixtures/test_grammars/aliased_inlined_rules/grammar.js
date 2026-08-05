@@ -2,7 +2,7 @@
 // shows that you can alias a rule that would otherwise be anonymous, and it will then appear as a
 // named node.
 
-module.exports = grammar({
+export default grammar({
     name: 'aliased_inlined_rules',
 
     extras: $ => [/\s/],

@@ -1,7 +1,7 @@
 // This grammar shows that `ALIAS` rules can be applied directly to `TOKEN` and `IMMEDIATE_TOKEN`
 // rules.
 
-module.exports = grammar({
+export default grammar({
     name: 'aliased_token_rules',
 
     extras: $ => [/\s/],

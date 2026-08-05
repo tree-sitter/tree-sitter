@@ -69,9 +69,7 @@ pub(super) fn extract_default_aliases(
             SymbolType::External => &mut external_status_list[symbol.index],
             SymbolType::NonTerminal => &mut non_terminal_status_list[symbol.index],
             SymbolType::Terminal => &mut terminal_status_list[symbol.index],
-            SymbolType::End | SymbolType::EndOfNonTerminalExtra => {
-                panic!("Unexpected end token")
-            }
+            SymbolType::End | SymbolType::EndOfNonTerminalExtra => panic!("Unexpected end token"),
         };
         status.appears_unaliased = true;
     }
@@ -93,7 +91,7 @@ pub(super) fn extract_default_aliases(
             .map(|(i, status)| (Symbol::external(i), status)),
     );
 
-    // For each symbol that always appears aliased, find the alias the occurs most often,
+    // For each symbol that always appears aliased, find the alias that occurs most often,
     // and designate that alias as the symbol's "default alias". Store all of these
     // default aliases in a map that will be returned.
     let mut result = AliasMap::new();

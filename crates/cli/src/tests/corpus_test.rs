@@ -1,24 +1,25 @@
 use std::{collections::HashMap, env, fs};
 
+use anyhow::Context;
 use tree_sitter::Parser;
 use tree_sitter_proc_macro::test_with_seed;
 
 use crate::{
     fuzz::{
+        EDIT_COUNT, EXAMPLE_EXCLUDE, EXAMPLE_INCLUDE, ITERATION_COUNT, LANGUAGE_FILTER,
+        LOG_GRAPH_ENABLED, START_SEED,
         corpus_test::{
             check_changed_ranges, check_consistent_sizes, get_parser, set_included_ranges,
         },
         edits::{get_random_edit, invert_edit},
         flatten_tests, new_seed,
         random::Rand,
-        EDIT_COUNT, EXAMPLE_EXCLUDE, EXAMPLE_INCLUDE, ITERATION_COUNT, LANGUAGE_FILTER,
-        LOG_GRAPH_ENABLED, START_SEED,
     },
     parse::perform_edit,
-    test::{parse_tests, print_diff, print_diff_key, strip_sexp_fields},
+    test::{DiffKey, TestDiff, parse_tests, strip_sexp_fields},
     tests::{
         allocations,
-        helpers::fixtures::{fixtures_dir, get_language, get_test_language, SCRATCH_BASE_DIR},
+        helpers::fixtures::{SCRATCH_BASE_DIR, fixtures_dir, get_language, get_test_language},
     },
 };
 
@@ -119,10 +120,10 @@ pub fn test_language_corpus(
     skipped: Option<&[&str]>,
     language_dir: Option<&str>,
 ) {
-    if let Some(filter) = LANGUAGE_FILTER.as_ref() {
-        if language_name != filter {
-            return;
-        }
+    if let Some(filter) = LANGUAGE_FILTER.as_ref()
+        && language_name != filter
+    {
+        return;
     }
 
     let language_dir = language_dir.unwrap_or_default();
@@ -184,12 +185,12 @@ pub fn test_language_corpus(
     println!();
     for (test_index, test) in tests.iter().enumerate() {
         let test_name = format!("{language_name} - {}", test.name);
-        if let Some(skipped) = skipped.as_mut() {
-            if let Some(counter) = skipped.get_mut(test_name.as_str()) {
-                println!("  {test_index}. {test_name} - SKIPPED");
-                *counter += 1;
-                continue;
-            }
+        if let Some(skipped) = skipped.as_mut()
+            && let Some(counter) = skipped.get_mut(test_name.as_str())
+        {
+            println!("  {test_index}. {test_name} - SKIPPED");
+            *counter += 1;
+            continue;
         }
 
         println!("  {test_index}. {test_name}");
@@ -208,15 +209,14 @@ pub fn test_language_corpus(
 
             if actual_output != test.output {
                 println!("Incorrect initial parse for {test_name}");
-                print_diff_key();
-                print_diff(&actual_output, &test.output, true);
+                DiffKey::print();
+                println!("{}", TestDiff::new(&actual_output, &test.output));
                 println!();
                 return false;
             }
 
             true
-        })
-        .unwrap();
+        });
 
         if !passed {
             failure_count += 1;
@@ -274,7 +274,9 @@ pub fn test_language_corpus(
                 // Check that the new tree is consistent.
                 check_consistent_sizes(&tree2, &input);
                 if let Err(message) = check_changed_ranges(&tree, &tree2, &input) {
-                    println!("\nUnexpected scope change in seed {seed} with start seed {start_seed}\n{message}\n\n",);
+                    println!(
+                        "\nUnexpected scope change in seed {seed} with start seed {start_seed}\n{message}\n\n",
+                    );
                     return false;
                 }
 
@@ -297,8 +299,8 @@ pub fn test_language_corpus(
 
                 if actual_output != test.output {
                     println!("Incorrect parse for {test_name} - seed {seed}");
-                    print_diff_key();
-                    print_diff(&actual_output, &test.output, true);
+                    DiffKey::print();
+                    println!("{}", TestDiff::new(&actual_output, &test.output));
                     println!();
                     return false;
                 }
@@ -306,12 +308,14 @@ pub fn test_language_corpus(
                 // Check that the edited tree is consistent.
                 check_consistent_sizes(&tree3, &input);
                 if let Err(message) = check_changed_ranges(&tree2, &tree3, &input) {
-                    println!("Unexpected scope change in seed {seed} with start seed {start_seed}\n{message}\n\n");
+                    println!(
+                        "Unexpected scope change in seed {seed} with start seed {start_seed}\n{message}\n\n"
+                    );
                     return false;
                 }
 
                 true
-            }).unwrap();
+            });
 
             if !passed {
                 failure_count += 1;
@@ -351,10 +355,10 @@ fn test_feature_corpus_files() {
         let language_name = entry.file_name();
         let language_name = language_name.to_str().unwrap();
 
-        if let Some(filter) = LANGUAGE_FILTER.as_ref() {
-            if language_name != filter {
-                continue;
-            }
+        if let Some(filter) = LANGUAGE_FILTER.as_ref()
+            && language_name != filter
+        {
+            continue;
         }
 
         let test_path = entry.path();
@@ -363,9 +367,19 @@ fn test_feature_corpus_files() {
             grammar_path = test_path.join("grammar.json");
         }
         let error_message_path = test_path.join("expected_error.txt");
-        let grammar_json = tree_sitter_generate::load_grammar_file(&grammar_path, None).unwrap();
-        let generate_result =
-            tree_sitter_generate::generate_parser_for_grammar(&grammar_json, Some((0, 0, 0)));
+        let grammar_json = tree_sitter_generate::load_grammar_file(&grammar_path, None)
+            .with_context(|| {
+                format!(
+                    "Could not load grammar file for test language '{language_name}' at {}",
+                    grammar_path.display()
+                )
+            })
+            .unwrap();
+        let generate_result = tree_sitter_generate::generate_parser_for_grammar(
+            &grammar_json,
+            Some((0, 0, 0)),
+            &mut Vec::new(),
+        );
 
         if error_message_path.exists() {
             if EXAMPLE_INCLUDE.is_some() || EXAMPLE_EXCLUDE.is_some() {
@@ -381,17 +395,17 @@ fn test_feature_corpus_files() {
                 let actual_message = e.to_string().replace("\r\n", "\n");
                 if expected_message != actual_message {
                     eprintln!(
-                        "Unexpected error message.\n\nExpected:\n\n{expected_message}\nActual:\n\n{actual_message}\n",
+                        "Unexpected error message.\n\nExpected:\n\n`{expected_message}`\nActual:\n\n`{actual_message}`\n",
                     );
                     failure_count += 1;
                 }
             } else {
-                eprintln!("Expected error message but got none for test grammar '{language_name}'",);
+                eprintln!("Expected error message but got none for test grammar '{language_name}'");
                 failure_count += 1;
             }
         } else {
             if let Err(e) = &generate_result {
-                eprintln!("Unexpected error for test grammar '{language_name}':\n{e}",);
+                eprintln!("Unexpected error for test grammar '{language_name}':\n{e}");
                 failure_count += 1;
                 continue;
             }
@@ -421,13 +435,12 @@ fn test_feature_corpus_files() {
                     if actual_output == test.output {
                         true
                     } else {
-                        print_diff_key();
-                        print_diff(&actual_output, &test.output, true);
+                        DiffKey::print();
+                        print!("{}", TestDiff::new(&actual_output, &test.output));
                         println!();
                         false
                     }
-                })
-                .unwrap();
+                });
 
                 if !passed {
                     failure_count += 1;

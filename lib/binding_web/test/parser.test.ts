@@ -437,7 +437,7 @@ describe('Parser', () => {
       // The callback is called at the end of parsing, however, what we're asserting here is that
       // parsing ends immediately as the error is detected. This is verified by checking the offset
       // of the last byte processed is the length of the erroneous code we inserted, aka, 1002, or
-      // 1000 + the length of the erroneous code. Note that in this WASM test, we multiply the offset
+      // 1000 + the length of the erroneous code. Note that in this Wasm test, we multiply the offset
       // by 2 because JavaScript strings are UTF-16 encoded.
       expect(offset).toBe((1000 + erroneousCode.length) * 2);
       expect(tree).toBeNull();

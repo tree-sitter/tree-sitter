@@ -3,7 +3,8 @@
 Tree-sitter can be used in conjunction with its [query language][query language] as a part of code navigation systems.
 An example of such a system can be seen in the `tree-sitter tags` command, which emits a textual dump of the interesting
 syntactic nodes in its file argument. A notable application of this is GitHub's support for [search-based code navigation][gh search].
-This document exists to describe how to integrate with such systems, and how to extend this functionality to any language with a Tree-sitter grammar.
+This document exists to describe how to integrate with such systems, and how to extend this functionality to any language
+with a Tree-sitter grammar.
 
 ## Tagging and captures
 
@@ -12,9 +13,9 @@ entities. Having found them, you use a syntax capture to label the entity and it
 
 The essence of a given tag lies in two pieces of data: the _role_ of the entity that is matched
 (i.e. whether it is a definition or a reference) and the _kind_ of that entity, which describes how the entity is used
-(i.e. whether it's a class definition, function call, variable reference, and so on). Our convention is to use a syntax capture
-following the `@role.kind` capture name format, and another inner capture, always called `@name`, that pulls out the name
-of a given identifier.
+(i.e. whether it's a class definition, function call, variable reference, and so on). Our convention is to use a syntax
+capture following the `@role.kind` capture name format, and another inner capture, always called `@name`, that pulls out
+the name of a given identifier.
 
 You may optionally include a capture named `@doc` to bind a docstring. For convenience purposes, the tagging system provides
 two built-in functions, `#select-adjacent!` and `#strip!` that are convenient for removing comment syntax from a docstring.

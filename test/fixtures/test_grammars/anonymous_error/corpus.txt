@@ -1,0 +1,9 @@
+======================
+A simple error literal
+======================
+
+ERROR
+
+---
+
+(document)

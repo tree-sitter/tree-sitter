@@ -5,6 +5,7 @@
 "iswblank",
 "iswdigit",
 "iswlower",
+"iswpunct",
 "iswspace",
 "iswupper",
 "iswxdigit",

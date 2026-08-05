@@ -1,10 +1,9 @@
-use tree_sitter::{Node, Parser, Point, Tree};
+use tree_sitter::{InputEdit, Node, Parser, Point, Tree};
 use tree_sitter_generate::load_grammar_file;
 
 use super::{
-    get_random_edit,
+    Rand, get_random_edit,
     helpers::fixtures::{fixtures_dir, get_language, get_test_language},
-    Rand,
 };
 use crate::{
     parse::perform_edit,
@@ -286,7 +285,10 @@ fn test_parent_of_zero_width_node() {
 
     assert_eq!(block.to_string(), "(block)");
     assert_eq!(block_parent.kind(), "function_definition");
-    assert_eq!(block_parent.to_string(), "(function_definition name: (identifier) parameters: (parameters (identifier)) body: (block))");
+    assert_eq!(
+        block_parent.to_string(),
+        "(function_definition name: (identifier) parameters: (parameters (identifier)) body: (block))"
+    );
 
     assert_eq!(
         root.child_with_descendant(block).unwrap(),
@@ -452,7 +454,7 @@ fn test_node_child_by_field_name_with_extra_hidden_children() {
     // In the Python grammar, some fields are applied to `suite` nodes,
     // which consist of an invisible `indent` token followed by a block.
     // Check that when searching for a child with a field name, we don't
-    //
+    // return a hidden child node.
     let tree = parser.parse("while a:\n  pass", None).unwrap();
     let while_node = tree.root_node().child(0).unwrap();
     assert_eq!(while_node.kind(), "while_statement");
@@ -844,6 +846,92 @@ fn test_node_is_error() {
 }
 
 #[test]
+fn test_edit_point() {
+    let edit = InputEdit {
+        start_byte: 5,
+        old_end_byte: 5,
+        new_end_byte: 10,
+        start_position: Point::new(0, 5),
+        old_end_position: Point::new(0, 5),
+        new_end_position: Point::new(0, 10),
+    };
+
+    // Point after edit
+    let mut point = Point::new(0, 8);
+    let mut byte = 8;
+    edit.edit_point(&mut point, &mut byte);
+    assert_eq!(point, Point::new(0, 13));
+    assert_eq!(byte, 13);
+
+    // Point before edit
+    let mut point = Point::new(0, 2);
+    let mut byte = 2;
+    edit.edit_point(&mut point, &mut byte);
+    assert_eq!(point, Point::new(0, 2));
+    assert_eq!(byte, 2);
+
+    // Point at edit start
+    let mut point = Point::new(0, 5);
+    let mut byte = 5;
+    edit.edit_point(&mut point, &mut byte);
+    assert_eq!(point, Point::new(0, 10));
+    assert_eq!(byte, 10);
+}
+
+#[test]
+fn test_edit_range() {
+    use tree_sitter::{InputEdit, Point, Range};
+
+    let edit = InputEdit {
+        start_byte: 10,
+        old_end_byte: 15,
+        new_end_byte: 20,
+        start_position: Point::new(1, 0),
+        old_end_position: Point::new(1, 5),
+        new_end_position: Point::new(2, 0),
+    };
+
+    // Range after edit
+    let mut range = Range {
+        start_byte: 20,
+        end_byte: 25,
+        start_point: Point::new(2, 0),
+        end_point: Point::new(2, 5),
+    };
+    edit.edit_range(&mut range);
+    assert_eq!(range.start_byte, 25);
+    assert_eq!(range.end_byte, 30);
+    assert_eq!(range.start_point, Point::new(3, 0));
+    assert_eq!(range.end_point, Point::new(3, 5));
+
+    // Range before edit
+    let mut range = Range {
+        start_byte: 5,
+        end_byte: 8,
+        start_point: Point::new(0, 5),
+        end_point: Point::new(0, 8),
+    };
+    edit.edit_range(&mut range);
+    assert_eq!(range.start_byte, 5);
+    assert_eq!(range.end_byte, 8);
+    assert_eq!(range.start_point, Point::new(0, 5));
+    assert_eq!(range.end_point, Point::new(0, 8));
+
+    // Range overlapping edit
+    let mut range = Range {
+        start_byte: 8,
+        end_byte: 12,
+        start_point: Point::new(0, 8),
+        end_point: Point::new(1, 2),
+    };
+    edit.edit_range(&mut range);
+    assert_eq!(range.start_byte, 8);
+    assert_eq!(range.end_byte, 10);
+    assert_eq!(range.start_point, Point::new(0, 8));
+    assert_eq!(range.end_point, Point::new(1, 0));
+}
+
+#[test]
 fn test_node_sexp() {
     let mut parser = Parser::new();
     parser.set_language(&get_language("javascript")).unwrap();
@@ -862,6 +950,13 @@ fn test_node_sexp() {
 
 #[test]
 fn test_node_field_names() {
+    // - "x":
+    //      This isn't used in the test, but prevents `_hidden_rule1` from being eliminated as a
+    //      unit reduction.
+    // - "_hidden_rule1":
+    //      Fields pointing to hidden nodes with a single child resolve to the child.
+    // - "_hidden_rule2":
+    //      Fields within hidden nodes can be referenced through the parent node.
     let (parser_name, parser_code) = generate_parser(
         r#"
         {
@@ -884,8 +979,6 @@ fn test_node_field_names() {
                                 {"type": "STRING", "value": "child-1"},
                                 {"type": "BLANK"},
 
-                                // This isn't used in the test, but prevents `_hidden_rule1`
-                                // from being eliminated as a unit reduction.
                                 {
                                     "type": "ALIAS",
                                     "value": "x",
@@ -906,7 +999,6 @@ fn test_node_field_names() {
                     ]
                 },
 
-                // Fields pointing to hidden nodes with a single child resolve to the child.
                 "_hidden_rule1": {
                     "type": "CHOICE",
                     "members": [
@@ -915,7 +1007,6 @@ fn test_node_field_names() {
                     ]
                 },
 
-                // Fields within hidden nodes can be referenced through the parent node.
                 "_hidden_rule2": {
                     "type": "SEQ",
                     "members": [

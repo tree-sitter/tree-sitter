@@ -90,7 +90,7 @@ fn detect_language_by_first_line_regex() {
 }
 
 #[test]
-fn detect_langauge_by_double_barrel_file_extension() {
+fn detect_language_by_double_barrel_file_extension() {
     let blade_dir = tree_sitter_dir(
         r#"{
   "grammars": [
@@ -120,6 +120,52 @@ fn detect_langauge_by_double_barrel_file_extension() {
     assert_eq!(config[0].scope.as_ref().unwrap(), "source.blade");
 
     let file_name = blade_dir.path().join("foo.blade.php");
+    fs::write(&file_name, "").unwrap();
+    assert_eq!(
+        get_lang_scope(&loader, &file_name),
+        Some("source.blade".into())
+    );
+}
+
+#[test]
+fn detect_language_with_dots_in_filename() {
+    let blade_dir = tree_sitter_dir(
+        r#"{
+  "grammars": [
+    {
+      "name": "blade_dots",
+      "path": ".",
+      "scope": "source.blade",
+      "file-types": [
+        "blade.php"
+      ]
+    },
+    {
+      "name": "php_dots",
+      "path": ".",
+      "scope": "source.php",
+      "file-types": [
+        "php"
+      ]
+    }
+  ],
+  "metadata": {
+    "version": "0.0.1"
+  }
+}
+"#,
+        "blade_dots",
+    );
+
+    let mut loader = Loader::with_parser_lib_path(scratch_dir().to_path_buf());
+    let config = loader
+        .find_language_configurations_at_path(blade_dir.path(), false)
+        .unwrap();
+
+    // this is just to validate that we can read the tree-sitter.json correctly
+    assert_eq!(config[0].scope.as_ref().unwrap(), "source.blade");
+
+    let file_name = blade_dir.path().join("foo.bar.baz.blade.php");
     fs::write(&file_name, "").unwrap();
     assert_eq!(
         get_lang_scope(&loader, &file_name),

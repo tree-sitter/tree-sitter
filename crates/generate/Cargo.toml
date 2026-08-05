@@ -1,17 +1,17 @@
 [package]
-name = "tree-sitter-generate"
-version.workspace = true
-description = "Library for generating C source code from a tree-sitter grammar"
-authors.workspace = true
-edition.workspace = true
+name                   = "tree-sitter-generate"
+version.workspace      = true
+description            = "Library for generating C source code from a tree-sitter grammar"
+authors.workspace      = true
+edition.workspace      = true
 rust-version.workspace = true
-readme = "README.md"
-homepage.workspace = true
-repository.workspace = true
-documentation = "https://docs.rs/tree-sitter-generate"
-license.workspace = true
-keywords.workspace = true
-categories.workspace = true
+readme                 = "README.md"
+homepage.workspace     = true
+repository.workspace   = true
+documentation          = "https://docs.rs/tree-sitter-generate"
+license.workspace      = true
+keywords.workspace     = true
+categories.workspace   = true
 
 [lib]
 path = "src/generate.rs"
@@ -19,23 +19,31 @@ path = "src/generate.rs"
 [lints]
 workspace = true
 
+[features]
+default = [ "qjs-rt" ]
+load    = [ "dep:semver" ]
+qjs-rt  = [ "load", "rquickjs", "pathdiff" ]
+
 [dependencies]
-anyhow.workspace = true
-heck.workspace = true
+bitflags = "2.11.1"
+dunce = "1.0.5"
 indexmap.workspace = true
-indoc.workspace = true
 log.workspace = true
+pathdiff = { optional = true, version = "0.2.3" }
 regex.workspace = true
 regex-syntax.workspace = true
+rquickjs = { features = [
+  "bindgen",
+  "loader",
+  "macro",
+  "phf",
+], optional = true, version = "0.12.2" }
 rustc-hash.workspace = true
-semver.workspace = true
+semver = { optional = true, workspace = true }
 serde.workspace = true
 serde_json.workspace = true
-smallbitvec.workspace = true
 thiserror.workspace = true
 topological-sort.workspace = true
 
-tree-sitter.workspace = true
-
-[target.'cfg(windows)'.dependencies]
-url.workspace = true
+[dev-dependencies]
+tempfile.workspace = true

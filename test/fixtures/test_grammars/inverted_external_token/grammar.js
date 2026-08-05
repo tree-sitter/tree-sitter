@@ -1,4 +1,4 @@
-module.exports = grammar({
+export default grammar({
   name: "inverted_external_token",
 
   externals: $ => [$.line_break],

@@ -1,13 +1,12 @@
-use std::{fs, sync::LazyLock};
+use std::fs;
 
 use streaming_iterator::StreamingIterator;
-use tree_sitter::{
-    wasmtime::Engine, Parser, Query, QueryCursor, WasmError, WasmErrorKind, WasmStore,
+use tree_sitter::{Parser, Query, QueryCursor, WasmError, WasmErrorKind, WasmStore};
+
+use crate::tests::helpers::{
+    allocations,
+    fixtures::{ENGINE, WASM_DIR, get_test_fixture_language_wasm},
 };
-
-use crate::tests::helpers::{allocations, fixtures::WASM_DIR};
-
-static ENGINE: LazyLock<Engine> = LazyLock::new(Engine::default);
 
 #[test]
 fn test_wasm_stdlib_symbols() {
@@ -74,7 +73,10 @@ fn test_load_wasm_rust_language() {
         parser.set_wasm_store(store).unwrap();
         parser.set_language(&language).unwrap();
         let tree = parser.parse("fn main() {}", None).unwrap();
-        assert_eq!(tree.root_node().to_sexp(), "(source_file (function_item name: (identifier) parameters: (parameters) body: (block)))");
+        assert_eq!(
+            tree.root_node().to_sexp(),
+            "(source_file (function_item name: (identifier) parameters: (parameters) body: (block)))"
+        );
     });
 }
 
@@ -88,7 +90,66 @@ fn test_load_wasm_javascript_language() {
         parser.set_wasm_store(store).unwrap();
         parser.set_language(&language).unwrap();
         let tree = parser.parse("const a = b\nconst c = d", None).unwrap();
-        assert_eq!(tree.root_node().to_sexp(), "(program (lexical_declaration (variable_declarator name: (identifier) value: (identifier))) (lexical_declaration (variable_declarator name: (identifier) value: (identifier))))");
+        assert_eq!(
+            tree.root_node().to_sexp(),
+            "(program (lexical_declaration (variable_declarator name: (identifier) value: (identifier))) (lexical_declaration (variable_declarator name: (identifier) value: (identifier))))"
+        );
+    });
+}
+
+#[test]
+fn test_load_wasm_python_language() {
+    allocations::record(|| {
+        let mut store = WasmStore::new(&ENGINE).unwrap();
+        let mut parser = Parser::new();
+        let wasm = fs::read(WASM_DIR.join("tree-sitter-python.wasm")).unwrap();
+        let language = store.load_language("python", &wasm).unwrap();
+        parser.set_wasm_store(store).unwrap();
+        parser.set_language(&language).unwrap();
+        let tree = parser.parse("a = b\nc = d", None).unwrap();
+        assert_eq!(
+            tree.root_node().to_sexp(),
+            "(module (expression_statement (assignment left: (identifier) right: (identifier))) (expression_statement (assignment left: (identifier) right: (identifier))))"
+        );
+    });
+}
+
+#[test]
+fn test_load_fixture_language_wasm() {
+    allocations::record(|| {
+        let store = WasmStore::new(&ENGINE).unwrap();
+        let mut parser = Parser::new();
+        let language = get_test_fixture_language_wasm("epsilon_external_tokens");
+        parser.set_wasm_store(store).unwrap();
+        parser.set_language(&language).unwrap();
+        let tree = parser.parse("hello", None).unwrap();
+        assert_eq!(tree.root_node().to_sexp(), "(document (zero_width))");
+    });
+}
+
+#[test]
+fn test_wasm_realloc_smaller_size() {
+    allocations::record(|| {
+        let store = WasmStore::new(&ENGINE).unwrap();
+        let mut parser = Parser::new();
+        let language = get_test_fixture_language_wasm("wasm_realloc_overflow_heap");
+        parser.set_wasm_store(store).unwrap();
+        parser.set_language(&language).unwrap();
+        let tree = parser.parse("hello", None).unwrap();
+        assert_eq!(tree.root_node().to_sexp(), "(document (zero_width))");
+    });
+}
+
+#[test]
+fn test_wasm_realloc_clobber_region() {
+    allocations::record(|| {
+        let store = WasmStore::new(&ENGINE).unwrap();
+        let mut parser = Parser::new();
+        let language = get_test_fixture_language_wasm("wasm_realloc_clobber_region");
+        parser.set_wasm_store(store).unwrap();
+        parser.set_language(&language).unwrap();
+        let tree = parser.parse("hello", None).unwrap();
+        assert_eq!(tree.root_node().to_sexp(), "(document (zero_width))");
     });
 }
 
@@ -116,7 +177,7 @@ fn test_load_multiple_wasm_languages() {
         let mut query_cursor = QueryCursor::new();
 
         // First, parse with the store that originally loaded the languages.
-        // Then parse with a new parser and wasm store, so that the languages
+        // Then parse with a new parser and Wasm store, so that the languages
         // are added one-by-one, in between parses.
         for mut parser in [parser, parser2] {
             for _ in 0..2 {
@@ -206,12 +267,18 @@ fn test_reset_wasm_store() {
         parser.set_wasm_store(parser_store).unwrap();
         parser.set_language(&language).unwrap();
         let tree = parser.parse("fn main() {}", None).unwrap();
-        assert_eq!(tree.root_node().to_sexp(), "(source_file (function_item name: (identifier) parameters: (parameters) body: (block)))");
+        assert_eq!(
+            tree.root_node().to_sexp(),
+            "(source_file (function_item name: (identifier) parameters: (parameters) body: (block)))"
+        );
 
         let parser_store = WasmStore::new(&ENGINE).unwrap();
         parser.set_wasm_store(parser_store).unwrap();
         let tree = parser.parse("fn main() {}", None).unwrap();
-        assert_eq!(tree.root_node().to_sexp(), "(source_file (function_item name: (identifier) parameters: (parameters) body: (block)))");
+        assert_eq!(
+            tree.root_node().to_sexp(),
+            "(source_file (function_item name: (identifier) parameters: (parameters) body: (block)))"
+        );
     });
 }
 
@@ -226,7 +293,7 @@ fn test_load_wasm_errors() {
             store.load_language("rust", bad_wasm).unwrap_err(),
             WasmError {
                 kind: WasmErrorKind::Parse,
-                message: "failed to parse dylink section of wasm module".into(),
+                message: "failed to parse dylink section of Wasm module".into(),
             }
         );
 
@@ -243,6 +310,55 @@ fn test_load_wasm_errors() {
         assert_eq!(
             store.load_language("rust", &bad_wasm).unwrap_err().kind,
             WasmErrorKind::Compile,
+        );
+    });
+}
+
+#[test]
+fn test_load_wasm_language_with_reserved_words() {
+    // This test exercises a grammar with multiple reserved word sets loaded via WASM.
+    allocations::record(|| {
+        let store = WasmStore::new(&ENGINE).unwrap();
+        let language = get_test_fixture_language_wasm("reserved_words");
+
+        let mut parser = Parser::new();
+        parser.set_wasm_store(store).unwrap();
+        parser.set_language(&language).unwrap();
+
+        // "if" and "while" are globally reserved, so using them as identifiers
+        // should produce an error recovery.
+        let tree = parser
+            .parse("var a =\n\nif (something) {\n  c();\n}", None)
+            .unwrap();
+        assert_eq!(
+            tree.root_node().to_sexp(),
+            concat!(
+                "(program ",
+                "(ERROR (identifier)) ",
+                "(if_statement (parenthesized_expression (identifier)) ",
+                "(block (expression_statement (call_expression (identifier))))))",
+            )
+        );
+
+        // "if" and "while" are NOT reserved in the 'property' context, so they
+        // can appear as object keys without error.
+        let tree = parser
+            .parse("var x = {\n  if: a,\n  while: b,\n};", None)
+            .unwrap();
+        assert_eq!(
+            tree.root_node().to_sexp(),
+            concat!(
+                "(program (var_declaration (identifier) (object ",
+                "(pair (identifier) (identifier)) (pair (identifier) (identifier)))))"
+            )
+        );
+
+        // "var" IS reserved in the 'property' context, so using it as a property
+        // key triggers error recovery.
+        let tree = parser.parse("var x = {\nvar y = z;", None).unwrap();
+        assert_eq!(
+            tree.root_node().to_sexp(),
+            "(program (ERROR (identifier)) (var_declaration (identifier) (identifier)))"
         );
     });
 }

@@ -1,66 +1,91 @@
 use std::{
     collections::BTreeMap,
     ffi::OsStr,
-    fmt::Write as _,
+    fmt::{Display as _, Write as _},
     fs,
     io::{self, Write},
     path::{Path, PathBuf},
     str,
-    sync::LazyLock,
     time::Duration,
 };
 
-use anstyle::{AnsiColor, Color, Style};
-use anyhow::{anyhow, Context, Result};
+use anstyle::AnsiColor;
+use anyhow::{Context, Result, anyhow};
 use clap::ValueEnum;
 use indoc::indoc;
-use regex::{
-    bytes::{Regex as ByteRegex, RegexBuilder as ByteRegexBuilder},
-    Regex,
-};
+use log::warn;
+use regex::Regex;
+use schemars::{JsonSchema, Schema, SchemaGenerator};
+use serde::Serialize;
 use similar::{ChangeTag, TextDiff};
-use tree_sitter::{format_sexp, Language, LogType, Parser, Query, Tree};
+use tree_sitter::{Language, LogType, Parser, Query, Tree, format_sexp};
 use walkdir::WalkDir;
 
 use super::util;
-use crate::parse::Stats;
+use crate::{
+    paint::{color_enabled, paint},
+    parse::{
+        ParseDebugType, ParseFileOptions, ParseOutput, ParseStats, ParseTheme, Stats, render_cst,
+    },
+};
 
-static HEADER_REGEX: LazyLock<ByteRegex> = LazyLock::new(|| {
-    ByteRegexBuilder::new(
-        r"^(?x)
-           (?P<equals>(?:=+){3,})
-           (?P<suffix1>[^=\r\n][^\r\n]*)?
-           \r?\n
-           (?P<test_name_and_markers>(?:([^=\r\n]|\s+:)[^\r\n]*\r?\n)+)
-           ===+
-           (?P<suffix2>[^=\r\n][^\r\n]*)?\r?\n",
-    )
-    .multi_line(true)
-    .build()
-    .unwrap()
-});
+/// Check if a line consists of 3+ repetitions of `ch` followed by an optional suffix.
+///
+/// Returns `Some((delim_len, suffix))` if so, where `suffix` is the part after the
+/// repeated characters (empty string if no suffix). Returns `None` otherwise.
+fn parse_delimiter_line(line: &str, c: char) -> Option<(usize, &str)> {
+    let delim_len = line.len() - line.trim_start_matches(c).len();
+    if delim_len < 3 {
+        return None;
+    }
+    let suffix = line[delim_len..].trim_end_matches(['\r', '\n']);
+    Some((delim_len, suffix))
+}
 
-static DIVIDER_REGEX: LazyLock<ByteRegex> = LazyLock::new(|| {
-    ByteRegexBuilder::new(r"^(?P<hyphens>(?:-+){3,})(?P<suffix>[^-\r\n][^\r\n]*)?\r?\n")
-        .multi_line(true)
-        .build()
-        .unwrap()
-});
+/// Normalize expected sexp output: remove comment lines (lines starting with `;`),
+/// collapse whitespace, and remove spaces before closing parens.
+fn normalize_sexp_output(raw: &str) -> (String, bool) {
+    let mut result = String::with_capacity(raw.len());
+    let mut prev_was_space = false;
 
-static COMMENT_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?m)^\s*;.*$").unwrap());
+    for line in raw.lines() {
+        // Skip comment lines: lines whose first non-whitespace character is `;`
+        if line.trim_start().starts_with(';') {
+            continue;
+        }
+        for ch in line.chars() {
+            if ch.is_whitespace() {
+                if !prev_was_space && !result.is_empty() {
+                    result.push(' ');
+                    prev_was_space = true;
+                }
+            } else {
+                if ch == ')' && prev_was_space {
+                    result.pop(); // remove trailing space before `)`
+                }
+                result.push(ch);
+                prev_was_space = false;
+            }
+        }
+        // Line boundary counts as whitespace
+        if !result.is_empty() && !prev_was_space {
+            result.push(' ');
+            prev_was_space = true;
+        }
+    }
 
-static WHITESPACE_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\s+").unwrap());
+    // No leading whitespace
+    let result = result.trim_end().to_string();
+    let has_fields = result.contains(": (");
 
-static SEXP_FIELD_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r" \w+: \(").unwrap());
-
-static POINT_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"\s*\[\s*\d+\s*,\s*\d+\s*\]\s*").unwrap());
+    (result, has_fields)
+}
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum TestEntry {
     Group {
         name: String,
-        children: Vec<TestEntry>,
+        children: Vec<Self>,
         file_path: Option<PathBuf>,
     },
     Example {
@@ -78,11 +103,30 @@ pub enum TestEntry {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TestAttributes {
-    pub skip: bool,
     pub platform: bool,
     pub fail_fast: bool,
-    pub error: bool,
+    pub expectation: TestExpectation,
+    pub cst: bool,
     pub languages: Vec<Box<str>>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TestExpectation {
+    Pass,
+    Error,
+    Skip,
+}
+
+impl TestAttributes {
+    #[must_use]
+    fn skip(&self) -> bool {
+        self.expectation == TestExpectation::Skip
+    }
+
+    #[must_use]
+    fn error(&self) -> bool {
+        self.expectation == TestExpectation::Error
+    }
 }
 
 impl Default for TestEntry {
@@ -98,16 +142,16 @@ impl Default for TestEntry {
 impl Default for TestAttributes {
     fn default() -> Self {
         Self {
-            skip: false,
             platform: true,
             fail_fast: false,
-            error: false,
+            expectation: TestExpectation::Pass,
+            cst: false,
             languages: vec!["".into()],
         }
     }
 }
 
-#[derive(ValueEnum, Default, Copy, Clone, PartialEq, Eq)]
+#[derive(ValueEnum, Default, Debug, Copy, Clone, PartialEq, Eq, Serialize)]
 pub enum TestStats {
     All,
     #[default]
@@ -116,7 +160,6 @@ pub enum TestStats {
 }
 
 pub struct TestOptions<'a> {
-    pub output: &'a mut String,
     pub path: PathBuf,
     pub debug: bool,
     pub debug_graph: bool,
@@ -126,24 +169,496 @@ pub struct TestOptions<'a> {
     pub update: bool,
     pub open_log: bool,
     pub languages: BTreeMap<&'a str, &'a Language>,
-    pub color: bool,
-    pub test_num: usize,
-    /// Whether a test ran for the nth line in `output`, the true parse rate, and the adjusted
-    /// parse rate
-    pub parse_rates: &'a mut Vec<(bool, Option<(f64, f64)>)>,
-    pub stat_display: TestStats,
-    pub stats: &'a mut Stats,
     pub show_fields: bool,
     pub overview_only: bool,
 }
 
-pub fn run_tests_at_path(parser: &mut Parser, opts: &mut TestOptions) -> Result<()> {
-    let test_entry = parse_tests(&opts.path)?;
-    let mut _log_session = None;
+/// A stateful object used to collect results from running a grammar's test suite
+#[derive(Debug, Default, Serialize, JsonSchema)]
+pub struct TestSummary {
+    // Parse test results and associated data
+    #[schemars(schema_with = "schema_as_array")]
+    #[serde(serialize_with = "serialize_as_array")]
+    pub parse_results: TestResultHierarchy,
+    pub parse_failures: Vec<TestFailure>,
+    pub parse_stats: Stats,
+    #[schemars(skip)]
+    #[serde(skip)]
+    pub has_parse_errors: bool,
+    #[schemars(skip)]
+    #[serde(skip)]
+    pub parse_stat_display: TestStats,
 
-    if opts.debug_graph {
-        _log_session = Some(util::log_graphs(parser, "log.html", opts.open_log)?);
-    } else if opts.debug {
+    // Other test results
+    #[schemars(schema_with = "schema_as_array")]
+    #[serde(serialize_with = "serialize_as_array")]
+    pub highlight_results: TestResultHierarchy,
+    #[schemars(schema_with = "schema_as_array")]
+    #[serde(serialize_with = "serialize_as_array")]
+    pub tag_results: TestResultHierarchy,
+    #[schemars(schema_with = "schema_as_array")]
+    #[serde(serialize_with = "serialize_as_array")]
+    pub query_results: TestResultHierarchy,
+
+    // Data used during construction
+    #[schemars(skip)]
+    #[serde(skip)]
+    pub test_num: usize,
+    // Options passed in from the CLI which control how the summary is displayed
+    #[schemars(skip)]
+    #[serde(skip)]
+    pub use_markers: bool,
+    #[schemars(skip)]
+    #[serde(skip)]
+    pub overview_only: bool,
+    #[schemars(skip)]
+    #[serde(skip)]
+    pub update: bool,
+    #[schemars(skip)]
+    #[serde(skip)]
+    pub json: bool,
+}
+
+impl TestSummary {
+    #[must_use]
+    pub fn new(
+        stat_display: TestStats,
+        parse_update: bool,
+        overview_only: bool,
+        json_summary: bool,
+    ) -> Self {
+        Self {
+            parse_stat_display: stat_display,
+            update: parse_update,
+            overview_only,
+            json: json_summary,
+            test_num: 1,
+            ..Default::default()
+        }
+    }
+}
+
+#[derive(Debug, Default, JsonSchema)]
+pub struct TestResultHierarchy {
+    root_group: Vec<TestResult>,
+    traversal_idxs: Vec<usize>,
+}
+
+fn serialize_as_array<S>(results: &TestResultHierarchy, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    results.root_group.serialize(serializer)
+}
+
+fn schema_as_array(schema_gen: &mut SchemaGenerator) -> Schema {
+    schema_gen.subschema_for::<Vec<TestResult>>()
+}
+
+/// Stores arbitrarily nested parent test groups and child cases. Supports creation
+/// in DFS traversal order
+impl TestResultHierarchy {
+    /// Signifies the start of a new group's traversal during construction.
+    fn push_traversal(&mut self, idx: usize) {
+        self.traversal_idxs.push(idx);
+    }
+
+    /// Signifies the end of the current group's traversal during construction.
+    /// Must be paired with a prior call to [`TestResultHierarchy::add_group`].
+    pub fn pop_traversal(&mut self) {
+        self.traversal_idxs.pop();
+    }
+
+    /// Adds a new group as a child of the current group. Caller is responsible
+    /// for calling [`TestResultHierarchy::pop_traversal`] once the group is done
+    /// being traversed.
+    pub fn add_group(&mut self, group_name: &str) {
+        let new_group_idx = self.curr_group_len();
+        self.push(TestResult {
+            name: group_name.to_string(),
+            info: TestInfo::Group {
+                children: Vec::new(),
+            },
+        });
+        self.push_traversal(new_group_idx);
+    }
+
+    /// Adds a new test example as a child of the current group.
+    /// Asserts that `test_case.info` is not [`TestInfo::Group`].
+    pub fn add_case(&mut self, test_case: TestResult) {
+        assert!(!matches!(test_case.info, TestInfo::Group { .. }));
+        self.push(test_case);
+    }
+
+    /// Adds a new `TestResult` to the current group.
+    fn push(&mut self, result: TestResult) {
+        // If there are no traversal steps, we're adding to the root
+        if self.traversal_idxs.is_empty() {
+            self.root_group.push(result);
+            return;
+        }
+
+        #[expect(
+            clippy::manual_let_else,
+            reason = "mutable borrow in match arm prevents let-else"
+        )]
+        let mut curr_group = match self.root_group[self.traversal_idxs[0]].info {
+            TestInfo::Group { ref mut children } => children,
+            _ => unreachable!(),
+        };
+        for idx in self.traversal_idxs.iter().skip(1) {
+            curr_group = match curr_group[*idx].info {
+                TestInfo::Group { ref mut children } => children,
+                _ => unreachable!(),
+            };
+        }
+
+        curr_group.push(result);
+    }
+
+    fn curr_group_len(&self) -> usize {
+        if self.traversal_idxs.is_empty() {
+            return self.root_group.len();
+        }
+
+        #[expect(
+            clippy::manual_let_else,
+            reason = "destructuring borrow in match arm prevents let-else"
+        )]
+        let mut curr_group = match self.root_group[self.traversal_idxs[0]].info {
+            TestInfo::Group { ref children } => children,
+            _ => unreachable!(),
+        };
+        for idx in self.traversal_idxs.iter().skip(1) {
+            curr_group = match curr_group[*idx].info {
+                TestInfo::Group { ref children } => children,
+                _ => unreachable!(),
+            };
+        }
+        curr_group.len()
+    }
+
+    #[expect(
+        clippy::iter_without_into_iter,
+        reason = "IntoIterator not needed for this internal type"
+    )]
+    #[must_use]
+    pub fn iter(&self) -> TestResultIterWithDepth<'_> {
+        let mut stack = Vec::with_capacity(self.root_group.len());
+        for child in self.root_group.iter().rev() {
+            stack.push((0, child));
+        }
+        TestResultIterWithDepth { stack }
+    }
+}
+
+pub struct TestResultIterWithDepth<'a> {
+    stack: Vec<(usize, &'a TestResult)>,
+}
+
+impl<'a> Iterator for TestResultIterWithDepth<'a> {
+    type Item = (usize, &'a TestResult);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.stack.pop().inspect(|(depth, result)| {
+            if let TestInfo::Group { children } = &result.info {
+                for child in children.iter().rev() {
+                    self.stack.push((depth + 1, child));
+                }
+            }
+        })
+    }
+}
+
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct TestResult {
+    pub name: String,
+    #[schemars(flatten)]
+    #[serde(flatten)]
+    pub info: TestInfo,
+}
+
+#[derive(Debug, Serialize, JsonSchema)]
+#[schemars(untagged)]
+#[serde(untagged)]
+pub enum TestInfo {
+    Group {
+        children: Vec<TestResult>,
+    },
+    ParseTest {
+        outcome: TestOutcome,
+        // True parse rate, adjusted parse rate
+        #[schemars(schema_with = "parse_rate_schema")]
+        #[serde(serialize_with = "serialize_parse_rates")]
+        parse_rate: Option<(f64, f64)>,
+        test_num: usize,
+    },
+    AssertionTest {
+        outcome: TestOutcome,
+        test_num: usize,
+    },
+}
+
+#[expect(
+    clippy::ref_option,
+    reason = "signature required by serde serialize_with"
+)]
+fn serialize_parse_rates<S>(
+    parse_rate: &Option<(f64, f64)>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    match parse_rate {
+        None => serializer.serialize_none(),
+        Some((first, _)) => serializer.serialize_some(first),
+    }
+}
+
+fn parse_rate_schema(schema_gen: &mut SchemaGenerator) -> Schema {
+    schema_gen.subschema_for::<Option<f64>>()
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, JsonSchema)]
+pub enum TestOutcome {
+    // Parse outcomes
+    Passed,
+    Failed,
+    Updated,
+    Skipped,
+    Platform,
+
+    // Highlight/Tag/Query outcomes
+    AssertionPassed { assertion_count: usize },
+    AssertionFailed { error: String },
+}
+
+impl TestSummary {
+    fn fmt_parse_results(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let (count, total_adj_parse_time) = self
+            .parse_results
+            .iter()
+            .filter_map(|(_, result)| match result.info {
+                TestInfo::Group { .. } => None,
+                TestInfo::ParseTest { parse_rate, .. } => parse_rate,
+                TestInfo::AssertionTest { .. } => unreachable!(),
+            })
+            .fold((0usize, 0.0f64), |(count, rate_accum), (_, adj_rate)| {
+                (count + 1, rate_accum + adj_rate)
+            });
+
+        let avg = total_adj_parse_time / count as f64;
+        let std_dev = {
+            let variance = self
+                .parse_results
+                .iter()
+                .filter_map(|(_, result)| match result.info {
+                    TestInfo::Group { .. } => None,
+                    TestInfo::ParseTest { parse_rate, .. } => parse_rate,
+                    TestInfo::AssertionTest { .. } => unreachable!(),
+                })
+                .map(|(_, rate_i)| (rate_i - avg).powi(2))
+                .sum::<f64>()
+                / count as f64;
+            variance.sqrt()
+        };
+
+        for (depth, entry) in self.parse_results.iter() {
+            write!(f, "{}", "  ".repeat(depth + 1))?;
+            match &entry.info {
+                TestInfo::Group { .. } => writeln!(f, "{}:", entry.name)?,
+                TestInfo::ParseTest {
+                    outcome,
+                    parse_rate,
+                    test_num,
+                } => {
+                    let (color, result_char) = match outcome {
+                        TestOutcome::Passed => (AnsiColor::Green, "✓"),
+                        TestOutcome::Failed => (AnsiColor::Red, "✗"),
+                        TestOutcome::Updated => (AnsiColor::Blue, "✓"),
+                        TestOutcome::Skipped => (AnsiColor::Yellow, "⌀"),
+                        TestOutcome::Platform => (AnsiColor::Magenta, "⌀"),
+                        _ => unreachable!(),
+                    };
+                    let stat_display = match (self.parse_stat_display, parse_rate) {
+                        (TestStats::TotalOnly, _) | (_, None) => String::new(),
+                        (display, Some((true_rate, adj_rate))) => {
+                            let mut stats = if display == TestStats::All {
+                                format!(" ({true_rate:.3} bytes/ms)")
+                            } else {
+                                String::new()
+                            };
+                            // 3 standard deviations below the mean, aka the "Empirical Rule"
+                            if *adj_rate < 3.0f64.mul_add(-std_dev, avg) {
+                                let _ = write!(
+                                    stats,
+                                    "{}",
+                                    paint(
+                                        Some(AnsiColor::Yellow),
+                                        format_args!(
+                                            " -- Warning: Slow parse rate ({true_rate:.3} bytes/ms)"
+                                        ),
+                                    )
+                                );
+                            }
+                            stats
+                        }
+                    };
+                    writeln!(
+                        f,
+                        "{test_num:>3}. {result_char} {}{stat_display}",
+                        paint(Some(color), &entry.name),
+                    )?;
+                }
+                TestInfo::AssertionTest { .. } => unreachable!(),
+            }
+        }
+
+        // Parse failure info
+        if !self.parse_failures.is_empty() && self.update && !self.has_parse_errors {
+            writeln!(
+                f,
+                "\n{} update{}:\n",
+                self.parse_failures.len(),
+                if self.parse_failures.len() == 1 {
+                    ""
+                } else {
+                    "s"
+                }
+            )?;
+
+            for (i, TestFailure { name, .. }) in self.parse_failures.iter().enumerate() {
+                writeln!(f, "  {}. {name}", i + 1)?;
+            }
+        } else if !self.parse_failures.is_empty() && !self.overview_only {
+            if !self.has_parse_errors {
+                writeln!(
+                    f,
+                    "\n{} failure{}:",
+                    self.parse_failures.len(),
+                    if self.parse_failures.len() == 1 {
+                        ""
+                    } else {
+                        "s"
+                    }
+                )?;
+            }
+
+            if color_enabled() {
+                DiffKey.fmt(f)?;
+            }
+            for (
+                i,
+                TestFailure {
+                    name,
+                    actual,
+                    expected,
+                    is_cst,
+                },
+            ) in self.parse_failures.iter().enumerate()
+            {
+                if expected == "NO ERROR" {
+                    writeln!(f, "\n  {}. {name}:\n", i + 1)?;
+                    writeln!(f, "  Expected an ERROR node, but got:")?;
+                    let actual = if *is_cst {
+                        actual
+                    } else {
+                        &format_sexp(actual, 2)
+                    };
+                    writeln!(f, "  {}", paint(Some(AnsiColor::Red), actual))?;
+                } else {
+                    writeln!(f, "\n  {}. {name}:", i + 1)?;
+                    if *is_cst {
+                        writeln!(
+                            f,
+                            "{}",
+                            TestDiff::new(actual, expected).with_markers(self.use_markers)
+                        )?;
+                    } else {
+                        writeln!(
+                            f,
+                            "{}",
+                            TestDiff::new(&format_sexp(actual, 2), &format_sexp(expected, 2))
+                                .with_markers(self.use_markers)
+                        )?;
+                    }
+                }
+            }
+        } else {
+            writeln!(f)?;
+        }
+
+        Ok(())
+    }
+}
+
+impl std::fmt::Display for TestSummary {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.fmt_parse_results(f)?;
+
+        let mut render_assertion_results =
+            |name: &str, results: &TestResultHierarchy| -> std::fmt::Result {
+                writeln!(f, "{name}:")?;
+                for (depth, entry) in results.iter() {
+                    write!(f, "{}", "  ".repeat(depth + 2))?;
+                    match &entry.info {
+                        TestInfo::Group { .. } => writeln!(f, "{}", entry.name)?,
+                        TestInfo::AssertionTest { outcome, test_num } => match outcome {
+                            TestOutcome::AssertionPassed { assertion_count } => writeln!(
+                                f,
+                                "{:>3}. ✓ {} ({assertion_count} assertions)",
+                                test_num,
+                                paint(Some(AnsiColor::Green), &entry.name)
+                            )?,
+                            TestOutcome::AssertionFailed { error } => {
+                                writeln!(
+                                    f,
+                                    "{:>3}. ✗ {}",
+                                    test_num,
+                                    paint(Some(AnsiColor::Red), &entry.name)
+                                )?;
+                                writeln!(f, "{}  {error}", "  ".repeat(depth + 1))?;
+                            }
+                            _ => unreachable!(),
+                        },
+                        TestInfo::ParseTest { .. } => unreachable!(),
+                    }
+                }
+                Ok(())
+            };
+
+        if !self.highlight_results.root_group.is_empty() {
+            render_assertion_results("syntax highlighting", &self.highlight_results)?;
+        }
+
+        if !self.tag_results.root_group.is_empty() {
+            render_assertion_results("tags", &self.tag_results)?;
+        }
+
+        if !self.query_results.root_group.is_empty() {
+            render_assertion_results("queries", &self.query_results)?;
+        }
+
+        write!(f, "{}", self.parse_stats)?;
+
+        Ok(())
+    }
+}
+
+pub fn run_tests_at_path(
+    parser: &mut Parser,
+    opts: &TestOptions,
+    test_summary: &mut TestSummary,
+) -> Result<()> {
+    let test_entry = parse_tests(&opts.path)?;
+
+    let _log_session = if opts.debug_graph {
+        Some(util::log_graphs(parser, "log.html", opts.open_log)?)
+    } else {
+        None
+    };
+    if opts.debug {
         parser.set_logger(Some(Box::new(|log_type, message| {
             if log_type == LogType::Lex {
                 io::stderr().write_all(b"  ").unwrap();
@@ -152,212 +667,188 @@ pub fn run_tests_at_path(parser: &mut Parser, opts: &mut TestOptions) -> Result<
         })));
     }
 
-    let mut failures = Vec::new();
     let mut corrected_entries = Vec::new();
-    let mut has_parse_errors = false;
     run_tests(
         parser,
         test_entry,
         opts,
-        0,
-        &mut failures,
+        test_summary,
         &mut corrected_entries,
-        &mut has_parse_errors,
+        true,
     )?;
-
-    let (count, total_adj_parse_time) = opts
-        .parse_rates
-        .iter()
-        .flat_map(|(_, rates)| rates)
-        .fold((0usize, 0.0f64), |(count, rate_accum), (_, adj_rate)| {
-            (count + 1, rate_accum + adj_rate)
-        });
-
-    let avg = total_adj_parse_time / count as f64;
-    let std_dev = {
-        let variance = opts
-            .parse_rates
-            .iter()
-            .flat_map(|(_, rates)| rates)
-            .map(|(_, rate_i)| (rate_i - avg).powi(2))
-            .sum::<f64>()
-            / count as f64;
-        variance.sqrt()
-    };
-
-    for ((is_test, rates), out_line) in opts.parse_rates.iter().zip(opts.output.lines()) {
-        let stat_display = if !is_test {
-            // Test group, no actual parsing took place
-            String::new()
-        } else {
-            match (opts.stat_display, rates) {
-                (TestStats::TotalOnly, _) | (_, None) => String::new(),
-                (display, Some((true_rate, adj_rate))) => {
-                    let mut stats = if display == TestStats::All {
-                        format!(" ({true_rate:.3} bytes/ms)")
-                    } else {
-                        String::new()
-                    };
-                    // 3 standard deviations below the mean, aka the "Empirical Rule"
-                    if *adj_rate < 3.0f64.mul_add(-std_dev, avg) {
-                        stats += &paint(
-                            opts.color.then_some(AnsiColor::Red),
-                            &format!(" -- Warning: Slow parse rate ({true_rate:.3} bytes/ms)"),
-                        );
-                    }
-                    stats
-                }
-            }
-        };
-        println!("{out_line}{stat_display}");
-    }
 
     parser.stop_printing_dot_graphs();
 
-    if failures.is_empty() {
+    if test_summary.parse_failures.is_empty() || (opts.update && !test_summary.has_parse_errors) {
         Ok(())
+    } else if opts.update && test_summary.has_parse_errors {
+        Err(anyhow!(indoc! {"
+                Some tests failed to parse with unexpected `ERROR` or `MISSING` nodes, as shown above, and cannot be updated automatically.
+                Either fix the grammar or manually update the tests if this is expected."}))
     } else {
-        println!();
-
-        if opts.update && !has_parse_errors {
-            if failures.len() == 1 {
-                println!("1 update:\n");
-            } else {
-                println!("{} updates:\n", failures.len());
-            }
-
-            for (i, (name, ..)) in failures.iter().enumerate() {
-                println!("  {}. {name}", i + 1);
-            }
-
-            Ok(())
-        } else {
-            has_parse_errors = opts.update && has_parse_errors;
-
-            if !opts.overview_only {
-                if !has_parse_errors {
-                    if failures.len() == 1 {
-                        println!("1 failure:");
-                    } else {
-                        println!("{} failures:", failures.len());
-                    }
-                }
-
-                if opts.color {
-                    print_diff_key();
-                }
-                for (i, (name, actual, expected)) in failures.iter().enumerate() {
-                    if expected == "NO ERROR" {
-                        println!("\n  {}. {name}:\n", i + 1);
-                        println!("  Expected an ERROR node, but got:");
-                        println!(
-                            "  {}",
-                            paint(
-                                opts.color.then_some(AnsiColor::Red),
-                                &format_sexp(actual, 2)
-                            )
-                        );
-                    } else {
-                        println!("\n  {}. {name}:", i + 1);
-                        let actual = format_sexp(actual, 2);
-                        let expected = format_sexp(expected, 2);
-                        print_diff(&actual, &expected, opts.color);
-                    }
-                }
-            }
-
-            if has_parse_errors {
-                Err(anyhow!(indoc! {"
-                    Some tests failed to parse with unexpected `ERROR` or `MISSING` nodes, as shown above, and cannot be updated automatically.
-                    Either fix the grammar or manually update the tests if this is expected."}))
-            } else {
-                Err(anyhow!(""))
-            }
-        }
+        Err(anyhow!(""))
     }
 }
 
 pub fn check_queries_at_path(language: &Language, path: &Path) -> Result<()> {
-    if path.exists() {
-        for entry in WalkDir::new(path)
-            .into_iter()
-            .filter_map(std::result::Result::ok)
-            .filter(|e| {
-                e.file_type().is_file()
-                    && e.path().extension().and_then(OsStr::to_str) == Some("scm")
-                    && !e.path().starts_with(".")
-            })
-        {
-            let filepath = entry.file_name().to_str().unwrap_or("");
-            let content = fs::read_to_string(entry.path())
-                .with_context(|| format!("Error reading query file {filepath:?}"))?;
-            Query::new(language, &content)
-                .with_context(|| format!("Error in query file {filepath:?}"))?;
-        }
+    for entry in WalkDir::new(path)
+        .into_iter()
+        .filter_map(std::result::Result::ok)
+        .filter(|e| {
+            e.file_type().is_file()
+                && e.path().extension().and_then(OsStr::to_str) == Some("scm")
+                && !e.path().starts_with(".")
+        })
+    {
+        let filepath = entry.file_name().to_str().unwrap_or("");
+        let content = fs::read_to_string(entry.path())
+            .with_context(|| format!("Error reading query file {filepath:?}"))?;
+        Query::new(language, &content)
+            .with_context(|| format!("Error in query file {filepath:?}"))?;
     }
     Ok(())
 }
 
-pub fn print_diff_key() {
-    println!(
-        "\ncorrect / {} / {}",
-        paint(Some(AnsiColor::Green), "expected"),
-        paint(Some(AnsiColor::Red), "unexpected")
-    );
+pub struct DiffKey;
+
+impl std::fmt::Display for DiffKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "\ncorrect / {} / {}",
+            paint(Some(AnsiColor::Green), "expected"),
+            paint(Some(AnsiColor::Red), "unexpected")
+        )?;
+        Ok(())
+    }
 }
 
-pub fn print_diff(actual: &str, expected: &str, use_color: bool) {
-    let diff = TextDiff::from_lines(actual, expected);
-    for diff in diff.iter_all_changes() {
-        match diff.tag() {
-            ChangeTag::Equal => {
-                if use_color {
-                    print!("{diff}");
-                } else {
-                    print!(" {diff}");
-                }
-            }
-            ChangeTag::Insert => {
-                if use_color {
-                    print!("{}", paint(Some(AnsiColor::Green), diff.as_str().unwrap()));
-                } else {
-                    print!("+{diff}");
-                }
-                if diff.missing_newline() {
-                    println!();
-                }
-            }
-            ChangeTag::Delete => {
-                if use_color {
-                    print!("{}", paint(Some(AnsiColor::Red), diff.as_str().unwrap()));
-                } else {
-                    print!("-{diff}");
-                }
-                if diff.missing_newline() {
-                    println!();
-                }
-            }
+impl DiffKey {
+    /// Writes [`DiffKey`] to stdout
+    pub fn print() {
+        println!("{Self}");
+    }
+}
+
+pub struct TestDiff<'a> {
+    pub actual: &'a str,
+    pub expected: &'a str,
+    /// Force `+`/`-` markers even when color is enabled. Markers are always
+    /// shown when color is disabled, regardless of this flag.
+    pub use_markers: bool,
+}
+
+impl<'a> TestDiff<'a> {
+    #[must_use]
+    pub const fn new(actual: &'a str, expected: &'a str) -> Self {
+        Self {
+            actual,
+            expected,
+            use_markers: false,
         }
     }
 
-    println!();
+    #[must_use]
+    pub const fn with_markers(mut self, use_markers: bool) -> Self {
+        self.use_markers = use_markers;
+        self
+    }
 }
 
-pub fn paint(color: Option<impl Into<Color>>, text: &str) -> String {
-    let style = Style::new().fg_color(color.map(Into::into));
-    format!("{style}{text}{style:#}")
+impl std::fmt::Display for TestDiff<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let use_markers = !color_enabled() || self.use_markers;
+        let text_diff = TextDiff::from_lines(self.actual, self.expected);
+        for diff in text_diff.iter_all_changes() {
+            let tag = diff.tag();
+            let (symbol, color) = match tag {
+                ChangeTag::Equal => (' ', None),
+                ChangeTag::Insert => ('+', Some(AnsiColor::Green)),
+                ChangeTag::Delete => ('-', Some(AnsiColor::Red)),
+            };
+            match (color, use_markers) {
+                (Some(color), true) => {
+                    write!(f, "{}", paint(Some(color), format!("{symbol}{diff}")))?;
+                }
+                (Some(color), false) => {
+                    write!(f, "{}", paint(Some(color), diff))?;
+                }
+                (None, true) => write!(f, "{symbol}{diff}")?,
+                (None, false) => write!(f, "{diff}")?,
+            }
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct TestFailure {
+    name: String,
+    actual: String,
+    expected: String,
+    is_cst: bool,
+}
+
+impl TestFailure {
+    fn new<T, U, V>(name: T, actual: U, expected: V, is_cst: bool) -> Self
+    where
+        T: Into<String>,
+        U: Into<String>,
+        V: Into<String>,
+    {
+        Self {
+            name: name.into(),
+            actual: actual.into(),
+            expected: expected.into(),
+            is_cst,
+        }
+    }
+}
+
+struct TestCorrection {
+    name: String,
+    input: String,
+    output: String,
+    attributes_str: String,
+    header_delim_len: usize,
+    divider_delim_len: usize,
+}
+
+impl TestCorrection {
+    fn new<T, U, V, W>(
+        name: T,
+        input: U,
+        output: V,
+        attributes_str: W,
+        header_delim_len: usize,
+        divider_delim_len: usize,
+    ) -> Self
+    where
+        T: Into<String>,
+        U: Into<String>,
+        V: Into<String>,
+        W: Into<String>,
+    {
+        Self {
+            name: name.into(),
+            input: input.into(),
+            output: output.into(),
+            attributes_str: attributes_str.into(),
+            header_delim_len,
+            divider_delim_len,
+        }
+    }
 }
 
 /// This will return false if we want to "fail fast". It will bail and not parse any more tests.
-#[allow(clippy::too_many_arguments)]
 fn run_tests(
     parser: &mut Parser,
     test_entry: TestEntry,
-    opts: &mut TestOptions,
-    mut indent_level: u32,
-    failures: &mut Vec<(String, String, String)>,
-    corrected_entries: &mut Vec<(String, String, String, String, usize, usize)>,
-    has_parse_errors: &mut bool,
+    opts: &TestOptions,
+    test_summary: &mut TestSummary,
+    corrected_entries: &mut Vec<TestCorrection>,
+    is_root: bool,
 ) -> Result<bool> {
     match test_entry {
         TestEntry::Example {
@@ -371,29 +862,29 @@ fn run_tests(
             attributes,
             ..
         } => {
-            write!(opts.output, "{}", "  ".repeat(indent_level as usize))?;
-
-            if attributes.skip {
-                writeln!(
-                    opts.output,
-                    "{:>3}. ⌀ {}",
-                    opts.test_num,
-                    paint(opts.color.then_some(AnsiColor::Yellow), &name),
-                )?;
-                opts.parse_rates.push((true, None));
-                opts.test_num += 1;
+            if attributes.skip() {
+                test_summary.parse_results.add_case(TestResult {
+                    name,
+                    info: TestInfo::ParseTest {
+                        outcome: TestOutcome::Skipped,
+                        parse_rate: None,
+                        test_num: test_summary.test_num,
+                    },
+                });
+                test_summary.test_num += 1;
                 return Ok(true);
             }
 
             if !attributes.platform {
-                writeln!(
-                    opts.output,
-                    "{:>3}. ⌀ {}",
-                    opts.test_num,
-                    paint(opts.color.then_some(AnsiColor::Magenta), &name),
-                )?;
-                opts.parse_rates.push((true, None));
-                opts.test_num += 1;
+                test_summary.parse_results.add_case(TestResult {
+                    name,
+                    info: TestInfo::ParseTest {
+                        outcome: TestOutcome::Platform,
+                        parse_rate: None,
+                        test_num: test_summary.test_num,
+                    },
+                });
+                test_summary.test_num += 1;
                 return Ok(true);
             }
 
@@ -407,36 +898,43 @@ fn run_tests(
                 }
                 let start = std::time::Instant::now();
                 let tree = parser.parse(&input, None).unwrap();
-                {
+                let parse_rate = {
                     let parse_time = start.elapsed();
-                    let true_parse_rate = tree.root_node().byte_range().len() as f64
-                        / (parse_time.as_nanos() as f64 / 1_000_000.0);
+                    let byte_len = tree.root_node().byte_range().len();
+                    let true_parse_rate =
+                        byte_len as f64 / (parse_time.as_nanos() as f64 / 1_000_000.0);
                     let adj_parse_rate = adjusted_parse_rate(&tree, parse_time);
 
-                    opts.parse_rates
-                        .push((true, Some((true_parse_rate, adj_parse_rate))));
-                    opts.stats.total_parses += 1;
-                    opts.stats.total_duration += parse_time;
-                    opts.stats.total_bytes += tree.root_node().byte_range().len();
-                }
+                    test_summary.parse_stats.total_parses += 1;
+                    test_summary.parse_stats.total_duration += parse_time;
+                    test_summary.parse_stats.total_bytes += byte_len;
 
-                if attributes.error {
+                    Some((true_parse_rate, adj_parse_rate))
+                };
+
+                if attributes.error() {
                     if tree.root_node().has_error() {
-                        writeln!(
-                            opts.output,
-                            "{:>3}. ✓ {}",
-                            opts.test_num,
-                            paint(opts.color.then_some(AnsiColor::Green), &name),
-                        )?;
-                        opts.stats.successful_parses += 1;
+                        test_summary.parse_results.add_case(TestResult {
+                            name: name.clone(),
+                            info: TestInfo::ParseTest {
+                                outcome: TestOutcome::Passed,
+                                parse_rate,
+                                test_num: test_summary.test_num,
+                            },
+                        });
+                        test_summary.parse_stats.successful_parses += 1;
                         if opts.update {
                             let input = String::from_utf8(input.clone()).unwrap();
-                            let output = format_sexp(&output, 0);
-                            corrected_entries.push((
-                                name.clone(),
+                            let output = if attributes.cst {
+                                output.clone()
+                            } else {
+                                format_sexp(&output, 0)
+                            };
+                            corrected_entries.push(TestCorrection::new(
+                                &name,
                                 input,
                                 output,
-                                attributes_str.clone(),
+                                &attributes_str,
                                 header_delim_len,
                                 divider_delim_len,
                             ));
@@ -445,26 +943,38 @@ fn run_tests(
                         if opts.update {
                             let input = String::from_utf8(input.clone()).unwrap();
                             // Keep the original `expected` output if the actual output has no error
-                            let output = format_sexp(&output, 0);
-                            corrected_entries.push((
-                                name.clone(),
+                            let output = if attributes.cst {
+                                output.clone()
+                            } else {
+                                format_sexp(&output, 0)
+                            };
+                            corrected_entries.push(TestCorrection::new(
+                                &name,
                                 input,
                                 output,
-                                attributes_str.clone(),
+                                &attributes_str,
                                 header_delim_len,
                                 divider_delim_len,
                             ));
                         }
-                        writeln!(
-                            opts.output,
-                            "{:>3}. ✗ {}",
-                            opts.test_num,
-                            paint(opts.color.then_some(AnsiColor::Red), &name),
-                        )?;
-                        failures.push((
-                            name.clone(),
-                            tree.root_node().to_sexp(),
-                            "NO ERROR".to_string(),
+                        test_summary.parse_results.add_case(TestResult {
+                            name: name.clone(),
+                            info: TestInfo::ParseTest {
+                                outcome: TestOutcome::Failed,
+                                parse_rate,
+                                test_num: test_summary.test_num,
+                            },
+                        });
+                        let actual = if attributes.cst {
+                            render_test_cst(&input, &tree)?
+                        } else {
+                            tree.root_node().to_sexp()
+                        };
+                        test_summary.parse_failures.push(TestFailure::new(
+                            &name,
+                            actual,
+                            "NO ERROR",
+                            attributes.cst,
                         ));
                     }
 
@@ -472,27 +982,37 @@ fn run_tests(
                         return Ok(false);
                     }
                 } else {
-                    let mut actual = tree.root_node().to_sexp();
-                    if !(opts.show_fields || has_fields) {
+                    let mut actual = if attributes.cst {
+                        render_test_cst(&input, &tree)?
+                    } else {
+                        tree.root_node().to_sexp()
+                    };
+                    if !(attributes.cst || opts.show_fields || has_fields) {
                         actual = strip_sexp_fields(&actual);
                     }
 
                     if actual == output {
-                        writeln!(
-                            opts.output,
-                            "{:>3}. ✓ {}",
-                            opts.test_num,
-                            paint(opts.color.then_some(AnsiColor::Green), &name),
-                        )?;
-                        opts.stats.successful_parses += 1;
+                        test_summary.parse_results.add_case(TestResult {
+                            name: name.clone(),
+                            info: TestInfo::ParseTest {
+                                outcome: TestOutcome::Passed,
+                                parse_rate,
+                                test_num: test_summary.test_num,
+                            },
+                        });
+                        test_summary.parse_stats.successful_parses += 1;
                         if opts.update {
                             let input = String::from_utf8(input.clone()).unwrap();
-                            let output = format_sexp(&output, 0);
-                            corrected_entries.push((
-                                name.clone(),
+                            let output = if attributes.cst {
+                                actual
+                            } else {
+                                format_sexp(&output, 0)
+                            };
+                            corrected_entries.push(TestCorrection::new(
+                                &name,
                                 input,
                                 output,
-                                attributes_str.clone(),
+                                &attributes_str,
                                 header_delim_len,
                                 divider_delim_len,
                             ));
@@ -500,51 +1020,62 @@ fn run_tests(
                     } else {
                         if opts.update {
                             let input = String::from_utf8(input.clone()).unwrap();
-                            let expected_output = format_sexp(&output, 0);
-                            let actual_output = format_sexp(&actual, 0);
+                            let (expected_output, actual_output) = if attributes.cst {
+                                (output.clone(), actual.clone())
+                            } else {
+                                (format_sexp(&output, 0), format_sexp(&actual, 0))
+                            };
 
-                            // Only bail early before updating if the actual is not the output,
-                            // sometimes users want to test cases that
-                            // are intended to have errors, hence why this
-                            // check isn't shown above
+                            // Only bail early before updating if `actual` does not match `output`.
+                            // Sometimes users want to test cases that are intended to have
+                            // errors, hence why this check isn't shown above.
                             if actual.contains("ERROR") || actual.contains("MISSING") {
-                                *has_parse_errors = true;
+                                test_summary.has_parse_errors = true;
 
                                 // keep the original `expected` output if the actual output has an
                                 // error
-                                corrected_entries.push((
-                                    name.clone(),
+                                corrected_entries.push(TestCorrection::new(
+                                    &name,
                                     input,
                                     expected_output,
-                                    attributes_str.clone(),
+                                    &attributes_str,
                                     header_delim_len,
                                     divider_delim_len,
                                 ));
                             } else {
-                                corrected_entries.push((
-                                    name.clone(),
+                                corrected_entries.push(TestCorrection::new(
+                                    &name,
                                     input,
                                     actual_output,
-                                    attributes_str.clone(),
+                                    &attributes_str,
                                     header_delim_len,
                                     divider_delim_len,
                                 ));
-                                writeln!(
-                                    opts.output,
-                                    "{:>3}. ✓ {}",
-                                    opts.test_num,
-                                    paint(opts.color.then_some(AnsiColor::Blue), &name),
-                                )?;
+                                test_summary.parse_results.add_case(TestResult {
+                                    name: name.clone(),
+                                    info: TestInfo::ParseTest {
+                                        outcome: TestOutcome::Updated,
+                                        parse_rate,
+                                        test_num: test_summary.test_num,
+                                    },
+                                });
                             }
                         } else {
-                            writeln!(
-                                opts.output,
-                                "{:>3}. ✗ {}",
-                                opts.test_num,
-                                paint(opts.color.then_some(AnsiColor::Red), &name),
-                            )?;
+                            test_summary.parse_results.add_case(TestResult {
+                                name: name.clone(),
+                                info: TestInfo::ParseTest {
+                                    outcome: TestOutcome::Failed,
+                                    parse_rate,
+                                    test_num: test_summary.test_num,
+                                },
+                            });
                         }
-                        failures.push((name.clone(), actual, output.clone()));
+                        test_summary.parse_failures.push(TestFailure::new(
+                            &name,
+                            actual,
+                            &output,
+                            attributes.cst,
+                        ));
 
                         if attributes.fail_fast {
                             return Ok(false);
@@ -557,7 +1088,7 @@ fn run_tests(
                     parser.set_language(opts.languages.values().next().unwrap())?;
                 }
             }
-            opts.test_num += 1;
+            test_summary.test_num += 1;
         }
         TestEntry::Group {
             name,
@@ -568,16 +1099,13 @@ fn run_tests(
                 return Ok(true);
             }
 
-            indent_level += 1;
-            let failure_count = failures.len();
-            let mut has_printed = false;
+            let mut ran_test_in_group = false;
 
             let matches_filter = |name: &str, file_name: &Option<String>, opts: &TestOptions| {
                 if let (Some(test_file_path), Some(filter_file_name)) = (file_name, &opts.file_name)
+                    && !filter_file_name.eq(test_file_path)
                 {
-                    if !filter_file_name.eq(test_file_path) {
-                        return false;
-                    }
+                    return false;
                 }
                 if let Some(include) = &opts.include {
                     include.is_match(name)
@@ -588,16 +1116,10 @@ fn run_tests(
                 }
             };
 
-            let should_skip = |entry: &TestEntry, opts: &TestOptions| match entry {
-                TestEntry::Example {
-                    name, file_name, ..
-                } => !matches_filter(name, file_name, opts),
-                TestEntry::Group { .. } => false,
-            };
-
             for child in children {
                 if let TestEntry::Example {
                     ref name,
+                    ref file_name,
                     ref input,
                     ref output,
                     ref attributes_str,
@@ -605,49 +1127,40 @@ fn run_tests(
                     divider_delim_len,
                     ..
                 } = child
+                    && !matches_filter(name, file_name, opts)
                 {
-                    if should_skip(&child, opts) {
+                    if opts.update {
                         let input = String::from_utf8(input.clone()).unwrap();
                         let output = format_sexp(output, 0);
-                        corrected_entries.push((
-                            name.clone(),
+                        corrected_entries.push(TestCorrection::new(
+                            name,
                             input,
                             output,
-                            attributes_str.clone(),
+                            attributes_str,
                             header_delim_len,
                             divider_delim_len,
                         ));
-
-                        opts.test_num += 1;
-
-                        continue;
                     }
+
+                    test_summary.test_num += 1;
+                    continue;
                 }
-                if !has_printed && indent_level > 1 {
-                    has_printed = true;
-                    writeln!(
-                        opts.output,
-                        "{}{name}:",
-                        "  ".repeat((indent_level - 1) as usize)
-                    )?;
-                    opts.parse_rates.push((false, None));
+
+                if !ran_test_in_group && !is_root {
+                    test_summary.parse_results.add_group(&name);
+                    ran_test_in_group = true;
                 }
-                if !run_tests(
-                    parser,
-                    child,
-                    opts,
-                    indent_level,
-                    failures,
-                    corrected_entries,
-                    has_parse_errors,
-                )? {
+                if !run_tests(parser, child, opts, test_summary, corrected_entries, false)? {
                     // fail fast
                     return Ok(false);
                 }
             }
+            // Now that we're done traversing the children of the current group, pop
+            // the index
+            test_summary.parse_results.pop_traversal();
 
             if let Some(file_path) = file_path {
-                if opts.update && failures.len() - failure_count > 0 {
+                if opts.update {
                     write_tests(&file_path, corrected_entries)?;
                 }
                 corrected_entries.clear();
@@ -655,6 +1168,28 @@ fn run_tests(
         }
     }
     Ok(true)
+}
+
+/// Convenience wrapper to render a CST for a test entry.
+fn render_test_cst(input: &[u8], tree: &Tree) -> Result<String> {
+    let mut rendered_cst: Vec<u8> = Vec::new();
+    let mut cursor = tree.walk();
+    let opts = ParseFileOptions {
+        edits: &[],
+        output: ParseOutput::Cst,
+        stats: &mut ParseStats::default(),
+        print_time: false,
+        timeout: 0,
+        debug: ParseDebugType::Quiet,
+        debug_graph: false,
+        cancellation_flag: None,
+        encoding: None,
+        open_log: false,
+        no_ranges: false,
+        parse_theme: &ParseTheme::empty(),
+    };
+    render_cst(input, tree, &mut cursor, &opts, &mut rendered_cst)?;
+    Ok(String::from_utf8_lossy(&rendered_cst).trim().to_string())
 }
 
 // Parse time is interpreted in ns before converting to ms to avoid truncation issues
@@ -669,20 +1204,26 @@ pub fn adjusted_parse_rate(tree: &Tree, parse_time: Duration) -> f64 {
     )
 }
 
-fn write_tests(
-    file_path: &Path,
-    corrected_entries: &[(String, String, String, String, usize, usize)],
-) -> Result<()> {
+fn write_tests(file_path: &Path, corrected_entries: &[TestCorrection]) -> Result<()> {
     let mut buffer = fs::File::create(file_path)?;
     write_tests_to_buffer(&mut buffer, corrected_entries)
 }
 
 fn write_tests_to_buffer(
     buffer: &mut impl Write,
-    corrected_entries: &[(String, String, String, String, usize, usize)],
+    corrected_entries: &[TestCorrection],
 ) -> Result<()> {
-    for (i, (name, input, output, attributes_str, header_delim_len, divider_delim_len)) in
-        corrected_entries.iter().enumerate()
+    for (
+        i,
+        TestCorrection {
+            name,
+            input,
+            output,
+            attributes_str,
+            header_delim_len,
+            divider_delim_len,
+        },
+    ) in corrected_entries.iter().enumerate()
     {
         if i > 0 {
             writeln!(buffer)?;
@@ -739,216 +1280,308 @@ pub fn parse_tests(path: &Path) -> io::Result<TestEntry> {
     }
 }
 
+/// Replace ` word: (` with ` (` throughout the string.
+/// Intended to operate on `to_sexp()` output where elements are separated by single spaces.
 #[must_use]
 pub fn strip_sexp_fields(sexp: &str) -> String {
-    SEXP_FIELD_REGEX.replace_all(sexp, " (").to_string()
+    let mut result = String::with_capacity(sexp.len());
+    let mut remaining = sexp;
+    while let Some(pos) = remaining.find(": (") {
+        // Walk backwards from the `:` to find the field name and preceding space.
+        if let Some(space_pos) = remaining[..pos].rfind(' ') {
+            let word = &remaining[space_pos + 1..pos];
+            if !word.is_empty() && word.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_') {
+                // Emit everything up to and including the space, then `(`
+                result.push_str(&remaining[..=space_pos]);
+                result.push('(');
+                remaining = &remaining[pos + 3..];
+                continue;
+            }
+        }
+        // Not a field pattern — emit through `: (` and keep going
+        result.push_str(&remaining[..pos + 3]);
+        remaining = &remaining[pos + 3..];
+    }
+    result.push_str(remaining);
+    result
 }
 
+/// Remove `[row, col]` point annotations from sexp strings, including surrounding whitespace.
+/// Matches the pattern: `\s* [ \s* digits \s* , \s* digits \s* ] \s*`
 #[must_use]
 pub fn strip_points(sexp: &str) -> String {
-    POINT_REGEX.replace_all(sexp, "").to_string()
+    let mut result = String::with_capacity(sexp.len());
+    let mut skip_until = 0;
+    for (i, c) in sexp.char_indices() {
+        if i < skip_until {
+            continue;
+        }
+        if let Some(point_len) = try_match_point(&sexp[i..]) {
+            skip_until = i + point_len;
+        } else {
+            result.push(c);
+        }
+    }
+    result
+}
+
+/// Try to match `\s*[\s*\d+\s*,\s*\d+\s*]\s*` from the start of `text`.
+/// Returns the length of the match, or `None` if no match.
+fn try_match_point(text: &str) -> Option<usize> {
+    let mut j = count_whitespace(text);
+    j += expect_char(&text[j..], '[')?;
+    j += count_whitespace(&text[j..]);
+    j += expect_digits(&text[j..])?;
+    j += count_whitespace(&text[j..]);
+    j += expect_char(&text[j..], ',')?;
+    j += count_whitespace(&text[j..]);
+    j += expect_digits(&text[j..])?;
+    j += count_whitespace(&text[j..]);
+    j += expect_char(&text[j..], ']')?;
+    Some(j + count_whitespace(&text[j..]))
+}
+
+fn count_whitespace(text: &str) -> usize {
+    text.char_indices()
+        .take_while(|(_, c)| c.is_whitespace())
+        .last()
+        .map_or(0, |(i, c)| i + c.len_utf8())
+}
+
+fn expect_char(text: &str, expected: char) -> Option<usize> {
+    text.starts_with(expected).then_some(expected.len_utf8())
+}
+
+fn expect_digits(text: &str) -> Option<usize> {
+    let end = text
+        .char_indices()
+        .take_while(|(_, c)| c.is_ascii_digit())
+        .last()
+        .map(|(i, c)| i + c.len_utf8())?;
+    Some(end)
+}
+
+/// Check if a delimiter line's suffix matches the file's first suffix.
+fn suffix_matches(first_suffix: Option<&str>, suffix: &str) -> bool {
+    match (first_suffix, suffix.is_empty()) {
+        (None, true) => true,
+        (Some(fs), false) => fs == suffix,
+        _ => false,
+    }
+}
+
+/// Parsed header info stored between iterations while we wait to discover the body boundaries.
+struct PendingTest {
+    name: String,
+    attributes_str: String,
+    header_delim_len: usize,
+    attributes: TestAttributes,
+    body_start_line: usize,
+}
+
+/// If `token` matches the shape of one of the known test attributes,
+/// then return the prefix
+fn known_attribute(token: &str) -> Option<&str> {
+    let head = token.split('(').next().unwrap_or(token);
+    matches!(
+        head,
+        ":skip" | ":error" | ":fail-fast" | ":cst" | ":platform" | ":language"
+    )
+    .then_some(head)
+}
+
+/// Try to parse a header block (opening `===`, name/markers, closing `===`) starting at
+/// `lines[start_line]`. Returns the parsed header and the line index after the closing `===`,
+/// or `None` if `lines[start_line]` isn't a matching `===` delimiter.
+fn parse_header(
+    lines: &[&str],
+    first_suffix: Option<&str>,
+    start_line: usize,
+) -> Option<(PendingTest, usize)> {
+    let (header_delim_len, suffix) = parse_delimiter_line(lines[start_line], '=')?;
+    if !suffix_matches(first_suffix, suffix) {
+        return None;
+    }
+
+    // Collect name and attribute lines until the closing `===` line.
+    let mut test_name = String::new();
+    let mut seen_marker = false;
+    let mut seen_skip = false;
+    let mut seen_error = false;
+    let (mut platform, mut fail_fast, mut cst, mut languages) = (None, false, false, vec![]);
+
+    let mut line_num = start_line + 1; // start past opening === line
+    while line_num < lines.len() {
+        if let Some((_, closing_suffix)) = parse_delimiter_line(lines[line_num], '=')
+            && suffix_matches(first_suffix, closing_suffix)
+        {
+            break;
+        }
+        let trimmed = lines[line_num].trim();
+        // Reject a blank line in the name region so a literal `===` inside a
+        // test body can't be mistaken for an opening delimiter. Blank lines
+        // between markers are allowed as visual separators.
+        if trimmed.is_empty() && !seen_marker {
+            return None;
+        }
+        match trimmed.split('(').next().unwrap() {
+            ":skip" => (seen_marker, seen_skip) = (true, true),
+            ":platform" => {
+                if let Some(platforms) = trimmed.strip_prefix(':').and_then(|s| {
+                    s.strip_prefix("platform(")
+                        .and_then(|s| s.strip_suffix(')'))
+                }) {
+                    seen_marker = true;
+                    platform =
+                        Some(platform.unwrap_or(false) || platforms.trim() == std::env::consts::OS);
+                }
+            }
+            ":fail-fast" => (seen_marker, fail_fast) = (true, true),
+            ":error" => (seen_marker, seen_error) = (true, true),
+            ":language" => {
+                if let Some(lang) = trimmed.strip_prefix(':').and_then(|s| {
+                    s.strip_prefix("language(")
+                        .and_then(|s| s.strip_suffix(')'))
+                }) {
+                    seen_marker = true;
+                    languages.push(lang.into());
+                }
+            }
+            ":cst" => (seen_marker, cst) = (true, true),
+            _ if !seen_marker => {
+                // This line is part of the test name. If it contains a token that
+                // looks like an attribute marker, warn the user.
+                let mut warned = false;
+                for token in trimmed.split_whitespace() {
+                    if let Some(attr) = known_attribute(token) {
+                        warn!(
+                            "Test header line `{trimmed}` contains `{attr}`, \
+                             which looks like a test attribute but won't be \
+                             recognized as one. Attributes must appear on \
+                             their own line(s) below the test name."
+                        );
+                        warned = true;
+                    }
+                }
+                // A line that is itself a single `:` prefixed token and didn't
+                // match any known marker is most likely a typo'd attribute.
+                if !warned && trimmed.starts_with(':') && !trimmed.contains(char::is_whitespace) {
+                    warn!("Test header line `{trimmed}` looks like a test attribute but isn't.");
+                }
+                test_name.push_str(lines[line_num]);
+            }
+            _ => {
+                // In the marker region, lines that start with `:` but don't
+                // match any known marker are most likely a typo.
+                if trimmed.starts_with(':') {
+                    warn!("Test header line `{trimmed}` looks like a test attribute but isn't.");
+                }
+            }
+        }
+        line_num += 1;
+    }
+
+    if line_num >= lines.len() {
+        warn!("No closing `===` line found for {}", test_name.trim_end());
+        return None; // No closing `===` line found.
+    }
+
+    let expectation = match (seen_skip, seen_error) {
+        (true, true) => {
+            warn!(
+                "Test '{}' specifies both `:skip` and `:error`. The `:error` attribute will be dropped.",
+                test_name.trim_end()
+            );
+            TestExpectation::Skip
+        }
+        (false, false) => TestExpectation::Pass,
+        (true, false) => TestExpectation::Skip,
+        (false, true) => TestExpectation::Error,
+    };
+
+    // Build attributes string from the content between test name and closing delimiter.
+    let name_and_markers: String = lines[start_line + 1..line_num].iter().copied().collect();
+    let attributes_str = name_and_markers
+        .strip_prefix(&test_name)
+        .unwrap_or("")
+        .trim_end()
+        .to_string();
+
+    if languages.is_empty() {
+        languages.push("".into());
+    }
+
+    let pending = PendingTest {
+        name: test_name.trim_end().to_string(),
+        attributes_str,
+        header_delim_len,
+        attributes: TestAttributes {
+            platform: platform.unwrap_or(true),
+            fail_fast,
+            expectation,
+            cst,
+            languages,
+        },
+        body_start_line: line_num + 1,
+    };
+
+    Some((pending, line_num + 1)) // +1 to consume the closing `===` line
 }
 
 fn parse_test_content(name: String, content: &str, file_path: Option<PathBuf>) -> TestEntry {
     let mut children = Vec::new();
-    let bytes = content.as_bytes();
-    let mut prev_name = String::new();
-    let mut prev_attributes_str = String::new();
-    let mut prev_header_end = 0;
+    let lines = content.split_inclusive('\n').collect::<Vec<_>>();
 
-    // Find the first test header in the file, and determine if it has a
-    // custom suffix. If so, then this suffix will be used to identify
-    // all subsequent headers and divider lines in the file.
-    let first_suffix = HEADER_REGEX
-        .captures(bytes)
-        .and_then(|c| c.name("suffix1"))
-        .map(|m| String::from_utf8_lossy(m.as_bytes()));
+    // Determine the suffix from the first `===` line in the file.
+    let first_suffix = lines
+        .iter()
+        .find_map(|line| match parse_delimiter_line(line, '=')? {
+            (_, suffix) if !suffix.is_empty() => Some(suffix.to_string()),
+            _ => None,
+        });
 
-    // Find all of the `===` test headers, which contain the test names.
-    // Ignore any matches whose suffix does not match the first header
-    // suffix in the file.
-    let header_matches = HEADER_REGEX.captures_iter(bytes).filter_map(|c| {
-        let header_delim_len = c.name("equals").map_or(80, |m| m.as_bytes().len());
-        let suffix1 = c
-            .name("suffix1")
-            .map(|m| String::from_utf8_lossy(m.as_bytes()));
-        let suffix2 = c
-            .name("suffix2")
-            .map(|m| String::from_utf8_lossy(m.as_bytes()));
+    // Scan for header blocks and build test entries from the bodies between them.
+    let mut line_num = 0;
+    let mut prev_test: Option<PendingTest> = None;
 
-        let (mut skip, mut platform, mut fail_fast, mut error, mut languages) =
-            (false, None, false, false, vec![]);
+    while line_num < lines.len() {
+        let Some((pending, body_start_line)) =
+            parse_header(&lines, first_suffix.as_deref(), line_num)
+        else {
+            line_num += 1;
+            continue;
+        };
 
-        let test_name_and_markers = c
-            .name("test_name_and_markers")
-            .map_or("".as_bytes(), |m| m.as_bytes());
+        let opening_line = line_num;
+        line_num = body_start_line;
 
-        let mut test_name = String::new();
-        let mut attributes_str = String::new();
-
-        let mut seen_marker = false;
-
-        let test_name_and_markers = str::from_utf8(test_name_and_markers).unwrap();
-        for line in test_name_and_markers
-            .split_inclusive('\n')
-            .filter(|s| !s.is_empty())
+        // Process the PREVIOUS test's body now that we know where it ends.
+        if let Some(prev) = prev_test
+            && let Some(entry) = build_test_entry(
+                &lines[prev.body_start_line..opening_line],
+                first_suffix.as_deref(),
+                prev,
+                file_path.as_deref(),
+            )
         {
-            let trimmed_line = line.trim();
-            match trimmed_line.split('(').next().unwrap() {
-                ":skip" => (seen_marker, skip) = (true, true),
-                ":platform" => {
-                    if let Some(platforms) = trimmed_line.strip_prefix(':').and_then(|s| {
-                        s.strip_prefix("platform(")
-                            .and_then(|s| s.strip_suffix(')'))
-                    }) {
-                        seen_marker = true;
-                        platform = Some(
-                            platform.unwrap_or(false) || platforms.trim() == std::env::consts::OS,
-                        );
-                    }
-                }
-                ":fail-fast" => (seen_marker, fail_fast) = (true, true),
-                ":error" => (seen_marker, error) = (true, true),
-                ":language" => {
-                    if let Some(lang) = trimmed_line.strip_prefix(':').and_then(|s| {
-                        s.strip_prefix("language(")
-                            .and_then(|s| s.strip_suffix(')'))
-                    }) {
-                        seen_marker = true;
-                        languages.push(lang.into());
-                    }
-                }
-                _ if !seen_marker => {
-                    test_name.push_str(line);
-                }
-                _ => {}
-            }
-        }
-        attributes_str.push_str(test_name_and_markers.strip_prefix(&test_name).unwrap());
-
-        // prefer skip over error, both shouldn't be set
-        if skip {
-            error = false;
+            children.push(entry);
         }
 
-        // add a default language if none are specified, will defer to the first language
-        if languages.is_empty() {
-            languages.push("".into());
-        }
-
-        if suffix1 == first_suffix && suffix2 == first_suffix {
-            let header_range = c.get(0).unwrap().range();
-            let test_name = if test_name.is_empty() {
-                None
-            } else {
-                Some(test_name.trim_end().to_string())
-            };
-            let attributes_str = if attributes_str.is_empty() {
-                None
-            } else {
-                Some(attributes_str.trim_end().to_string())
-            };
-            Some((
-                header_delim_len,
-                header_range,
-                test_name,
-                attributes_str,
-                TestAttributes {
-                    skip,
-                    platform: platform.unwrap_or(true),
-                    fail_fast,
-                    error,
-                    languages,
-                },
-            ))
-        } else {
-            None
-        }
-    });
-
-    let (mut prev_header_len, mut prev_attributes) = (80, TestAttributes::default());
-    for (header_delim_len, header_range, test_name, attributes_str, attributes) in header_matches
-        .chain(Some((
-            80,
-            bytes.len()..bytes.len(),
-            None,
-            None,
-            TestAttributes::default(),
-        )))
-    {
-        // Find the longest line of dashes following each test description. That line
-        // separates the input from the expected output. Ignore any matches whose suffix
-        // does not match the first suffix in the file.
-        if prev_header_end > 0 {
-            let divider_range = DIVIDER_REGEX
-                .captures_iter(&bytes[prev_header_end..header_range.start])
-                .filter_map(|m| {
-                    let divider_delim_len = m.name("hyphens").map_or(80, |m| m.as_bytes().len());
-                    let suffix = m
-                        .name("suffix")
-                        .map(|m| String::from_utf8_lossy(m.as_bytes()));
-                    if suffix == first_suffix {
-                        let range = m.get(0).unwrap().range();
-                        Some((
-                            divider_delim_len,
-                            (prev_header_end + range.start)..(prev_header_end + range.end),
-                        ))
-                    } else {
-                        None
-                    }
-                })
-                .max_by_key(|(_, range)| range.len());
-
-            if let Some((divider_delim_len, divider_range)) = divider_range {
-                if let Ok(output) = str::from_utf8(&bytes[divider_range.end..header_range.start]) {
-                    let mut input = bytes[prev_header_end..divider_range.start].to_vec();
-
-                    // Remove trailing newline from the input.
-                    input.pop();
-                    #[cfg(target_os = "windows")]
-                    if input.last() == Some(&b'\r') {
-                        input.pop();
-                    }
-
-                    // Remove all comments
-                    let output = COMMENT_REGEX.replace_all(output, "").to_string();
-
-                    // Normalize the whitespace in the expected output.
-                    let output = WHITESPACE_REGEX.replace_all(output.trim(), " ");
-                    let output = output.replace(" )", ")");
-
-                    // Identify if the expected output has fields indicated. If not, then
-                    // fields will not be checked.
-                    let has_fields = SEXP_FIELD_REGEX.is_match(&output);
-
-                    let file_name = if let Some(ref path) = file_path {
-                        path.file_name().map(|n| n.to_string_lossy().to_string())
-                    } else {
-                        None
-                    };
-
-                    let t = TestEntry::Example {
-                        name: prev_name,
-                        input,
-                        output,
-                        header_delim_len: prev_header_len,
-                        divider_delim_len,
-                        has_fields,
-                        attributes_str: prev_attributes_str,
-                        attributes: prev_attributes,
-                        file_name,
-                    };
-
-                    children.push(t);
-                }
-            }
-        }
-        prev_attributes = attributes;
-        prev_name = test_name.unwrap_or_default();
-        prev_attributes_str = attributes_str.unwrap_or_default();
-        prev_header_len = header_delim_len;
-        prev_header_end = header_range.end;
+        prev_test = Some(pending);
     }
+
+    // Process the last test's body (terminated by end of content).
+    if let Some(prev) = prev_test
+        && let Some(entry) = build_test_entry(
+            &lines[prev.body_start_line..],
+            first_suffix.as_deref(),
+            prev,
+            file_path.as_deref(),
+        )
+    {
+        children.push(entry);
+    }
+
     TestEntry::Group {
         name,
         children,
@@ -956,8 +1589,82 @@ fn parse_test_content(name: String, content: &str, file_path: Option<PathBuf>) -
     }
 }
 
+/// Build a single test entry from the body lines between a header and the next header.
+/// Finds the longest matching `---` divider to separate input from expected output.
+fn build_test_entry(
+    body_lines: &[&str],
+    first_suffix: Option<&str>,
+    pending: PendingTest,
+    file_path: Option<&Path>,
+) -> Option<TestEntry> {
+    // Find the longest `---` divider line in the body whose suffix matches.
+    let mut best_divider: Option<(usize, usize)> = None; // (delim_len, line_index)
+    let mut best_total_len = 0;
+    for (j, line) in body_lines.iter().enumerate() {
+        if let Some((delim_len, suffix)) = parse_delimiter_line(line, '-')
+            && suffix_matches(first_suffix, suffix)
+        {
+            let total_len = delim_len + suffix.len();
+            // For ties prefer the later candidate, as an earlier same-length
+            // `---` is a literal in the input.
+            if total_len >= best_total_len {
+                best_divider = Some((delim_len, j));
+                best_total_len = total_len;
+            }
+        }
+    }
+
+    let (divider_delim_len, divider_line) = best_divider?;
+
+    // Input: lines before the divider (as bytes), with trailing newline stripped.
+    let mut input = body_lines[..divider_line]
+        .iter()
+        .flat_map(|l| l.as_bytes())
+        .copied()
+        .collect::<Vec<_>>();
+    // Remove trailing newline.
+    if input.last() == Some(&b'\n') {
+        input.pop();
+    }
+    if input.last() == Some(&b'\r') {
+        input.pop();
+    }
+
+    // Output: lines after the divider.
+    let output_str = body_lines[divider_line + 1..]
+        .iter()
+        .copied()
+        .collect::<String>();
+
+    let (output, has_fields) = if pending.attributes.cst {
+        (output_str.trim().to_string(), false)
+    } else {
+        normalize_sexp_output(&output_str)
+    };
+
+    let file_name = file_path
+        .and_then(|p| p.file_name())
+        .map(|n| n.to_string_lossy().to_string());
+
+    Some(TestEntry::Example {
+        name: pending.name,
+        input,
+        output,
+        header_delim_len: pending.header_delim_len,
+        divider_delim_len,
+        has_fields,
+        attributes_str: pending.attributes_str,
+        attributes: pending.attributes,
+        file_name,
+    })
+}
+
 #[cfg(test)]
 mod tests {
+    use serde_json::json;
+
+    use crate::tests::get_language;
+
     use super::*;
 
     #[test]
@@ -1084,6 +1791,106 @@ abc
     }
 
     #[test]
+    fn test_parse_test_content_with_equals_in_source_code() {
+        // A literal `===` inside a test body must not be mistaken for an
+        // opening header
+        let entry = parse_test_content(
+            "the-filename".to_string(),
+            r"
+==========
+First
+==========
+a
+===
+b
+---
+(a)
+
+==========
+Second
+==========
+c
+---
+(c)
+        "
+            .trim(),
+            None,
+        );
+
+        assert_eq!(
+            entry,
+            TestEntry::Group {
+                name: "the-filename".to_string(),
+                children: vec![
+                    TestEntry::Example {
+                        name: "First".to_string(),
+                        input: b"a\n===\nb".to_vec(),
+                        output: "(a)".to_string(),
+                        header_delim_len: 10,
+                        divider_delim_len: 3,
+                        has_fields: false,
+                        attributes_str: String::new(),
+                        attributes: TestAttributes::default(),
+                        file_name: None,
+                    },
+                    TestEntry::Example {
+                        name: "Second".to_string(),
+                        input: b"c".to_vec(),
+                        output: "(c)".to_string(),
+                        header_delim_len: 10,
+                        divider_delim_len: 3,
+                        has_fields: false,
+                        attributes_str: String::new(),
+                        attributes: TestAttributes::default(),
+                        file_name: None,
+                    },
+                ],
+                file_path: None,
+            }
+        );
+    }
+
+    #[test]
+    fn test_parse_test_content_with_tied_divider_length() {
+        // When two `---` lines in a body have the same length, the real
+        // divider is the last one.
+        let entry = parse_test_content(
+            "the-filename".to_string(),
+            r"
+==========
+Tied dashes
+==========
+a
+---
+b
+---
+(c)
+        "
+            .trim(),
+            None,
+        );
+
+        assert_eq!(
+            entry,
+            TestEntry::Group {
+                name: "the-filename".to_string(),
+                children: vec![TestEntry::Example {
+                    name: "Tied dashes".to_string(),
+                    input: b"a\n---\nb".to_vec(),
+                    output: "(c)".to_string(),
+                    header_delim_len: 10,
+                    divider_delim_len: 3,
+                    has_fields: false,
+                    attributes_str: String::new(),
+                    attributes: TestAttributes::default(),
+                    file_name: None,
+                }],
+                file_path: None,
+            }
+        );
+    }
+
+    #[test]
     fn test_format_sexp() {
         assert_eq!(format_sexp("", 0), "");
         assert_eq!(
@@ -1136,7 +1943,7 @@ abc
     fn test_write_tests_to_buffer() {
         let mut buffer = Vec::new();
         let corrected_entries = vec![
-            (
+            TestCorrection::new(
                 "title 1".to_string(),
                 "input 1".to_string(),
                 "output 1".to_string(),
@@ -1144,7 +1951,7 @@ abc
                 80,
                 80,
             ),
-            (
+            TestCorrection::new(
                 "title 2".to_string(),
                 "input 2".to_string(),
                 "output 2".to_string(),
@@ -1489,10 +2296,10 @@ a
                     has_fields: false,
                     attributes_str: ":skip".to_string(),
                     attributes: TestAttributes {
-                        skip: true,
                         platform: true,
                         fail_fast: false,
-                        error: false,
+                        expectation: TestExpectation::Skip,
+                        cst: false,
                         languages: vec!["".into()]
                     },
                     file_name: None,
@@ -1522,6 +2329,16 @@ Test with bad platform marker
 a
 ---
 (b)
+
+====================
+Test with cst marker
+:cst
+====================
+1
+---
+0:0 - 1:0   source_file
+0:0 - 0:1   expression
+0:0 - 0:1     number_literal `1`
 ",
                 std::env::consts::OS,
                 if std::env::consts::OS == "linux" {
@@ -1548,10 +2365,10 @@ a
                         has_fields: false,
                         attributes_str: format!(":platform({})\n:fail-fast", std::env::consts::OS),
                         attributes: TestAttributes {
-                            skip: false,
                             platform: true,
                             fail_fast: true,
-                            error: false,
+                            expectation: TestExpectation::Pass,
+                            cst: false,
                             languages: vec!["".into()]
                         },
                         file_name: None,
@@ -1569,16 +2386,322 @@ a
                             ":platform(linux)\n\n:language(foo)".to_string()
                         },
                         attributes: TestAttributes {
-                            skip: false,
                             platform: false,
                             fail_fast: false,
-                            error: false,
+                            expectation: TestExpectation::Pass,
+                            cst: false,
                             languages: vec!["foo".into()]
+                        },
+                        file_name: None,
+                    },
+                    TestEntry::Example {
+                        name: "Test with cst marker".to_string(),
+                        input: b"1".to_vec(),
+                        output: "0:0 - 1:0   source_file
+0:0 - 0:1   expression
+0:0 - 0:1     number_literal `1`"
+                            .to_string(),
+                        header_delim_len: 20,
+                        divider_delim_len: 3,
+                        has_fields: false,
+                        attributes_str: ":cst".to_string(),
+                        attributes: TestAttributes {
+                            platform: true,
+                            fail_fast: false,
+                            expectation: TestExpectation::Pass,
+                            cst: true,
+                            languages: vec!["".into()]
                         },
                         file_name: None,
                     }
                 ]
             }
+        );
+    }
+
+    fn clear_parse_rate(result: &mut TestResult) {
+        let test_case_info = &mut result.info;
+        match test_case_info {
+            TestInfo::ParseTest { parse_rate, .. } => {
+                assert!(parse_rate.is_some());
+                *parse_rate = None;
+            }
+            TestInfo::Group { .. } | TestInfo::AssertionTest { .. } => {
+                panic!("Unexpected test result")
+            }
+        }
+    }
+
+    fn c_parser_and_language() -> (Parser, Language) {
+        let mut parser = Parser::new();
+        let language = get_language("c");
+        parser
+            .set_language(&language)
+            .expect("Failed to set language");
+        (parser, language)
+    }
+
+    fn c_test_options(language: &Language) -> TestOptions<'_> {
+        let mut languages = BTreeMap::new();
+        languages.insert("c", language);
+        TestOptions {
+            path: PathBuf::from("foo"),
+            debug: true,
+            debug_graph: false,
+            include: None,
+            exclude: None,
+            file_name: None,
+            update: false,
+            open_log: false,
+            languages,
+            show_fields: false,
+            overview_only: false,
+        }
+    }
+
+    #[test]
+    fn run_tests_single_passing() {
+        let (mut parser, language) = c_parser_and_language();
+        let opts = c_test_options(&language);
+
+        let test_entry = TestEntry::Group {
+            name: "foo".to_string(),
+            file_path: None,
+            children: vec![TestEntry::Example {
+                name: "C Test 1".to_string(),
+                input: b"1;\n".to_vec(),
+                output: "(translation_unit (expression_statement (number_literal)))".to_string(),
+                header_delim_len: 25,
+                divider_delim_len: 3,
+                has_fields: false,
+                attributes_str: String::new(),
+                attributes: TestAttributes::default(),
+                file_name: None,
+            }],
+        };
+
+        let mut test_summary = TestSummary::new(TestStats::All, false, false, false);
+        let mut corrected_entries = Vec::new();
+        run_tests(
+            &mut parser,
+            test_entry,
+            &opts,
+            &mut test_summary,
+            &mut corrected_entries,
+            true,
+        )
+        .expect("Failed to run tests");
+
+        // parse rates will always be different, so we need to clear out these
+        // fields to reliably assert equality below
+        clear_parse_rate(&mut test_summary.parse_results.root_group[0]);
+        test_summary.parse_stats.total_duration = Duration::from_secs(0);
+
+        let json_results = serde_json::to_string(&test_summary).unwrap();
+
+        assert_eq!(
+            json_results,
+            json!({
+              "parse_results": [
+                {
+                  "name": "C Test 1",
+                  "outcome": "Passed",
+                  "parse_rate": null,
+                  "test_num": 1
+                }
+              ],
+              "parse_failures": [],
+              "parse_stats": {
+                "successful_parses": 1,
+                "total_parses": 1,
+                "total_bytes": 3,
+                "total_duration": {
+                  "secs": 0,
+                  "nanos": 0,
+                }
+              },
+              "highlight_results": [],
+              "tag_results": [],
+              "query_results": []
+            })
+            .to_string()
+        );
+    }
+
+    #[test]
+    fn run_tests_fail_fast() {
+        let (mut parser, language) = c_parser_and_language();
+        let opts = c_test_options(&language);
+
+        let test_entry = TestEntry::Group {
+            name: "corpus".to_string(),
+            file_path: None,
+            children: vec![
+                TestEntry::Group {
+                    name: "group1".to_string(),
+                    // This test passes
+                    children: vec![TestEntry::Example {
+                        name: "C Test 1".to_string(),
+                        input: b"1;\n".to_vec(),
+                        output: "(translation_unit (expression_statement (number_literal)))"
+                            .to_string(),
+                        header_delim_len: 25,
+                        divider_delim_len: 3,
+                        has_fields: false,
+                        attributes_str: String::new(),
+                        attributes: TestAttributes::default(),
+                        file_name: None,
+                    }],
+                    file_path: None,
+                },
+                TestEntry::Group {
+                    name: "group2".to_string(),
+                    children: vec![
+                        // This test passes
+                        TestEntry::Example {
+                            name: "C Test 2".to_string(),
+                            input: b"1;\n".to_vec(),
+                            output: "(translation_unit (expression_statement (number_literal)))"
+                                .to_string(),
+                            header_delim_len: 25,
+                            divider_delim_len: 3,
+                            has_fields: false,
+                            attributes_str: String::new(),
+                            attributes: TestAttributes::default(),
+                            file_name: None,
+                        },
+                        // This test fails, and is marked with fail-fast
+                        TestEntry::Example {
+                            name: "C Test 3".to_string(),
+                            input: b"1;\n".to_vec(),
+                            output: "(translation_unit (expression_statement (string_literal)))"
+                                .to_string(),
+                            header_delim_len: 25,
+                            divider_delim_len: 3,
+                            has_fields: false,
+                            attributes_str: String::new(),
+                            attributes: TestAttributes {
+                                fail_fast: true,
+                                ..Default::default()
+                            },
+                            file_name: None,
+                        },
+                    ],
+                    file_path: None,
+                },
+                // This group never runs because of the previous failure
+                TestEntry::Group {
+                    name: "group3".to_string(),
+                    // This test fails, and is marked with fail-fast
+                    children: vec![TestEntry::Example {
+                        name: "C Test 4".to_string(),
+                        input: b"1;\n".to_vec(),
+                        output: "(translation_unit (expression_statement (number_literal)))"
+                            .to_string(),
+                        header_delim_len: 25,
+                        divider_delim_len: 3,
+                        has_fields: false,
+                        attributes_str: String::new(),
+                        attributes: TestAttributes::default(),
+                        file_name: None,
+                    }],
+                    file_path: None,
+                },
+            ],
+        };
+
+        let mut test_summary = TestSummary::new(TestStats::All, false, false, false);
+        let mut corrected_entries = Vec::new();
+        run_tests(
+            &mut parser,
+            test_entry,
+            &opts,
+            &mut test_summary,
+            &mut corrected_entries,
+            true,
+        )
+        .expect("Failed to run tests");
+
+        // parse rates will always be different, so we need to clear out these
+        // fields to reliably assert equality below
+        {
+            let test_group_1_info = &mut test_summary.parse_results.root_group[0].info;
+            match test_group_1_info {
+                TestInfo::Group { children, .. } => clear_parse_rate(&mut children[0]),
+                TestInfo::ParseTest { .. } | TestInfo::AssertionTest { .. } => {
+                    panic!("Unexpected test result");
+                }
+            }
+            let test_group_2_info = &mut test_summary.parse_results.root_group[1].info;
+            match test_group_2_info {
+                TestInfo::Group { children, .. } => {
+                    clear_parse_rate(&mut children[0]);
+                    clear_parse_rate(&mut children[1]);
+                }
+                TestInfo::ParseTest { .. } | TestInfo::AssertionTest { .. } => {
+                    panic!("Unexpected test result");
+                }
+            }
+            test_summary.parse_stats.total_duration = Duration::from_secs(0);
+        }
+
+        let json_results = serde_json::to_string(&test_summary).unwrap();
+
+        assert_eq!(
+            json_results,
+            json!({
+              "parse_results": [
+                {
+                  "name": "group1",
+                  "children": [
+                    {
+                      "name": "C Test 1",
+                      "outcome": "Passed",
+                      "parse_rate": null,
+                      "test_num": 1
+                    }
+                  ]
+                },
+                {
+                  "name": "group2",
+                  "children": [
+                    {
+                      "name": "C Test 2",
+                      "outcome": "Passed",
+                      "parse_rate": null,
+                      "test_num": 2
+                    },
+                    {
+                      "name": "C Test 3",
+                      "outcome": "Failed",
+                      "parse_rate": null,
+                      "test_num": 3
+                    }
+                  ]
+                }
+              ],
+              "parse_failures": [
+                {
+                  "name": "C Test 3",
+                  "actual": "(translation_unit (expression_statement (number_literal)))",
+                  "expected": "(translation_unit (expression_statement (string_literal)))",
+                  "is_cst": false,
+                }
+              ],
+              "parse_stats": {
+                "successful_parses": 2,
+                "total_parses": 3,
+                "total_bytes": 9,
+                "total_duration": {
+                  "secs": 0,
+                  "nanos": 0,
+                }
+              },
+              "highlight_results": [],
+              "tag_results": [],
+              "query_results": []
+            })
+            .to_string()
         );
     }
 }

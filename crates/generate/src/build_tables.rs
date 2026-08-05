@@ -6,22 +6,24 @@ mod item_set_builder;
 mod minimize_parse_table;
 mod token_conflicts;
 
-use std::collections::{BTreeSet, HashMap};
+use std::collections::BTreeSet;
 
 pub use build_lex_table::LARGE_CHARACTER_RANGE_COUNT;
 use build_parse_table::BuildTableResult;
 pub use build_parse_table::ParseTableBuilderError;
-use log::info;
+use log::{debug, info};
+use rustc_hash::FxHashMap;
 
 use self::{
     build_lex_table::build_lex_table,
-    build_parse_table::{build_parse_table, ParseStateInfo},
+    build_parse_table::{ParseStateInfo, build_parse_table},
     coincident_tokens::CoincidentTokenIndex,
     item_set_builder::ParseItemSetBuilder,
     minimize_parse_table::minimize_parse_table,
     token_conflicts::TokenConflictMap,
 };
 use crate::{
+    Diagnostic, OptLevel,
     grammars::{InlinedProductionMap, LexicalGrammar, SyntaxGrammar},
     nfa::{CharacterSet, NfaCursor},
     node_types::VariableInfo,
@@ -36,6 +38,10 @@ pub struct Tables {
     pub large_character_sets: Vec<(Option<Symbol>, CharacterSet)>,
 }
 
+#[expect(
+    clippy::too_many_arguments,
+    reason = "all parameters are required for table building"
+)]
 pub fn build_tables(
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
@@ -43,6 +49,8 @@ pub fn build_tables(
     variable_info: &[VariableInfo],
     inlines: &InlinedProductionMap,
     report_symbol_name: Option<&str>,
+    optimizations: OptLevel,
+    diagnostics: &mut Vec<Diagnostic>,
 ) -> BuildTableResult<Tables> {
     let item_set_builder = ParseItemSetBuilder::new(syntax_grammar, lexical_grammar, inlines);
     let following_tokens =
@@ -52,6 +60,7 @@ pub fn build_tables(
         lexical_grammar,
         item_set_builder,
         variable_info,
+        diagnostics,
     )?;
     let token_conflict_map = TokenConflictMap::new(lexical_grammar, following_tokens);
     let coincident_token_index = CoincidentTokenIndex::new(&parse_table, lexical_grammar);
@@ -78,6 +87,7 @@ pub fn build_tables(
         simple_aliases,
         &token_conflict_map,
         &keywords,
+        optimizations,
     );
     let lex_tables = build_lex_table(
         &mut parse_table,
@@ -88,7 +98,7 @@ pub fn build_tables(
         &token_conflict_map,
     );
     populate_external_lex_states(&mut parse_table, syntax_grammar);
-    mark_fragile_tokens(&mut parse_table, lexical_grammar, &token_conflict_map);
+    mark_fragile_tokens(&mut parse_table, &token_conflict_map);
 
     if let Some(report_symbol_name) = report_symbol_name {
         report_state_info(
@@ -98,6 +108,10 @@ pub fn build_tables(
             &parse_state_info,
             report_symbol_name,
         );
+    }
+
+    if parse_table.states.len() > u16::MAX as usize {
+        Err(ParseTableBuilderError::StateCount(parse_table.states.len()))?;
     }
 
     Ok(Tables {
@@ -114,7 +128,9 @@ fn get_following_tokens(
     inlines: &InlinedProductionMap,
     builder: &ParseItemSetBuilder,
 ) -> Vec<TokenSet> {
-    let mut result = vec![TokenSet::new(); lexical_grammar.variables.len()];
+    let n_terminals = lexical_grammar.variables.len();
+    let n_externals = syntax_grammar.external_tokens.len();
+    let mut result = vec![TokenSet::with_capacity(n_terminals, n_externals); n_terminals];
     let productions = syntax_grammar
         .variables
         .iter()
@@ -172,7 +188,7 @@ fn populate_error_state(
             if conflicts_with_other_tokens {
                 None
             } else {
-                info!(
+                debug!(
                     "error recovery - token {} has no conflicts",
                     lexical_grammar.variables[i].name
                 );
@@ -193,19 +209,18 @@ fn populate_error_state(
         if !conflict_free_tokens.contains(&symbol)
             && !keywords.contains(&symbol)
             && syntax_grammar.word_token != Some(symbol)
-        {
-            if let Some(t) = conflict_free_tokens.iter().find(|t| {
+            && let Some(t) = conflict_free_tokens.iter().find(|t| {
                 !coincident_token_index.contains(symbol, *t)
                     && token_conflict_map.does_conflict(symbol.index, t.index)
-            }) {
-                info!(
-                    "error recovery - exclude token {} because of conflict with {}",
-                    lexical_grammar.variables[i].name, lexical_grammar.variables[t.index].name
-                );
-                continue;
-            }
+            })
+        {
+            debug!(
+                "error recovery - exclude token {} because of conflict with {}",
+                lexical_grammar.variables[i].name, lexical_grammar.variables[t.index].name
+            );
+            continue;
         }
-        info!(
+        debug!(
             "error recovery - include token {}",
             lexical_grammar.variables[i].name
         );
@@ -276,7 +291,7 @@ fn populate_used_symbols(
 }
 
 fn populate_external_lex_states(parse_table: &mut ParseTable, syntax_grammar: &SyntaxGrammar) {
-    let mut external_tokens_by_corresponding_internal_token = HashMap::new();
+    let mut external_tokens_by_corresponding_internal_token = FxHashMap::default();
     for (i, external_token) in syntax_grammar.external_tokens.iter().enumerate() {
         if let Some(symbol) = external_token.corresponding_internal_token {
             external_tokens_by_corresponding_internal_token.insert(symbol.index, i);
@@ -292,12 +307,11 @@ fn populate_external_lex_states(parse_table: &mut ParseTable, syntax_grammar: &S
         for token in parse_table.states[i].terminal_entries.keys() {
             if token.is_external() {
                 external_tokens.insert(*token);
-            } else if token.is_terminal() {
-                if let Some(index) =
+            } else if token.is_terminal()
+                && let Some(index) =
                     external_tokens_by_corresponding_internal_token.get(&token.index)
-                {
-                    external_tokens.insert(Symbol::external(*index));
-                }
+            {
+                external_tokens.insert(Symbol::external(*index));
             }
         }
 
@@ -338,7 +352,7 @@ fn identify_keywords(
                 && token_conflict_map.does_match_same_string(i, word_token.index)
                 && !token_conflict_map.does_match_different_string(i, word_token.index)
             {
-                info!(
+                debug!(
                     "Keywords - add candidate {}",
                     lexical_grammar.variables[i].name
                 );
@@ -357,7 +371,7 @@ fn identify_keywords(
                 if other_token != *token
                     && token_conflict_map.does_match_same_string(other_token.index, token.index)
                 {
-                    info!(
+                    debug!(
                         "Keywords - exclude {} because it matches the same string as {}",
                         lexical_grammar.variables[token.index].name,
                         lexical_grammar.variables[other_token.index].name
@@ -371,7 +385,8 @@ fn identify_keywords(
 
     // Exclude keyword candidates for which substituting the keyword capture
     // token would introduce new lexical conflicts with other tokens.
-    let keywords = keywords
+
+    keywords
         .iter()
         .filter(|token| {
             for other_index in 0..lexical_grammar.variables.len() {
@@ -399,7 +414,7 @@ fn identify_keywords(
                     word_token.index,
                     other_index,
                 ) {
-                    info!(
+                    debug!(
                         "Keywords - exclude {} because of conflict with {}",
                         lexical_grammar.variables[token.index].name,
                         lexical_grammar.variables[other_index].name
@@ -408,36 +423,28 @@ fn identify_keywords(
                 }
             }
 
-            info!(
+            debug!(
                 "Keywords - include {}",
                 lexical_grammar.variables[token.index].name,
             );
             true
         })
-        .collect();
-
-    keywords
+        .collect()
 }
 
-fn mark_fragile_tokens(
-    parse_table: &mut ParseTable,
-    lexical_grammar: &LexicalGrammar,
-    token_conflict_map: &TokenConflictMap,
-) {
-    let n = lexical_grammar.variables.len();
-    let mut valid_tokens_mask = Vec::with_capacity(n);
+fn mark_fragile_tokens(parse_table: &mut ParseTable, token_conflict_map: &TokenConflictMap) {
+    let mut valid_terminal_indices = Vec::new();
     for state in &mut parse_table.states {
-        valid_tokens_mask.clear();
-        valid_tokens_mask.resize(n, false);
+        valid_terminal_indices.clear();
         for token in state.terminal_entries.keys() {
             if token.is_terminal() {
-                valid_tokens_mask[token.index] = true;
+                valid_terminal_indices.push(token.index);
             }
         }
         for (token, entry) in &mut state.terminal_entries {
             if token.is_terminal() {
-                for (i, is_valid) in valid_tokens_mask.iter().enumerate() {
-                    if *is_valid && token_conflict_map.does_overlap(i, token.index) {
+                for &i in &valid_terminal_indices {
+                    if token_conflict_map.does_overlap(i, token.index) {
                         entry.reusable = false;
                         break;
                     }
@@ -480,14 +487,14 @@ fn report_state_info<'a>(
         .max()
         .unwrap();
     for (symbol, states) in &symbols_with_state_indices {
-        eprintln!(
+        info!(
             "{:width$}\t{}",
             syntax_grammar.variables[symbol.index].name,
             states.len(),
             width = max_symbol_name_length
         );
     }
-    eprintln!();
+    info!("");
 
     let state_indices = if report_symbol_name == "*" {
         Some(&all_state_indices)
@@ -510,20 +517,25 @@ fn report_state_info<'a>(
         for state_index in state_indices {
             let id = parse_table.states[state_index].id;
             let (preceding_symbols, item_set) = &parse_state_info[id];
-            eprintln!("state index: {state_index}");
-            eprintln!("state id: {id}");
-            eprint!("symbol sequence:");
-            for symbol in preceding_symbols {
-                let name = if symbol.is_terminal() {
-                    &lexical_grammar.variables[symbol.index].name
-                } else if symbol.is_external() {
-                    &syntax_grammar.external_tokens[symbol.index].name
-                } else {
-                    &syntax_grammar.variables[symbol.index].name
-                };
-                eprint!(" {name}");
-            }
-            eprintln!(
+            info!("state index: {state_index}");
+            info!("state id: {id}");
+            info!(
+                "symbol sequence: {}",
+                preceding_symbols
+                    .iter()
+                    .map(|symbol| {
+                        if symbol.is_terminal() {
+                            lexical_grammar.variables[symbol.index].name.clone()
+                        } else if symbol.is_external() {
+                            syntax_grammar.external_tokens[symbol.index].name.clone()
+                        } else {
+                            syntax_grammar.variables[symbol.index].name.clone()
+                        }
+                    })
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            );
+            info!(
                 "\nitems:\n{}",
                 item::ParseItemSetDisplay(item_set, syntax_grammar, lexical_grammar),
             );

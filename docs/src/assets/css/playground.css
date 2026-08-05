@@ -54,6 +54,23 @@
   display: inline-block;
 }
 
+.language-container {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+#language-version {
+  color: var(--light-text);
+  font-size: 14px;
+  font-weight: 500;
+  padding: 4px 8px;
+  background: var(--light-bg);
+  border-radius: 4px;
+  border: 1px solid var(--light-border);
+}
+
 #language-select {
   background-color: var(--light-bg);
   border: 1px solid var(--light-border);
@@ -67,6 +84,53 @@
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 8px center;
+}
+
+#copy-button {
+  background: none;
+  border: 1px solid var(--light-border);
+  border-radius: 4px;
+  padding: 6px;
+  cursor: pointer;
+  color: var(--light-text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 8px;
+}
+
+#copy-button:hover {
+  background-color: var(--primary-color-alpha);
+  border-color: var(--light-hover-border);
+}
+
+#copy-button:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px var(--primary-color-alpha);
+}
+
+.toast {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background-color: var(--lighbt-bg);
+  color: var(--light-text);
+  padding: 12px 16px;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  font-size: 14px;
+  font-weight: 500;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all 0.3s ease;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .select-button {
@@ -264,11 +328,31 @@ input[type="checkbox"]:focus {
 .coal,
 .navy {
 
+  & #language-version,
   & #language-select,
+  & #copy-button,
   & .select-button {
     background-color: var(--dark-bg);
     border-color: var(--dark-border);
     color: var(--dark-text);
+  }
+
+  & #copy-button:hover,
+  & #language-select:hover,
+  & .select-button:hover {
+    border-color: var(--dark-border);
+    background-color: var(--primary-color-alpha-dark);
+  }
+
+  & .toast {
+    background-color: var(--dark-bg);
+    color: var(--dark-text);
+  }
+
+  #language-select:focus,
+  & .select-button:focus {
+    border-color: #79c0ff;
+    box-shadow: 0 0 0 2px var(--primary-color-alpha-dark);
   }
 
   & input[type="checkbox"] {

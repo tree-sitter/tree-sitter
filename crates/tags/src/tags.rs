@@ -1,4 +1,4 @@
-#![doc = include_str!("../README.md")]
+#![cfg_attr(not(any(test, doctest)), doc = include_str!("../README.md"))]
 
 pub mod c_lib;
 
@@ -7,7 +7,7 @@ use std::{
     collections::HashMap,
     ffi::{CStr, CString},
     mem,
-    ops::Range,
+    ops::{ControlFlow, Range},
     os::raw::c_char,
     str,
     sync::atomic::{AtomicUsize, Ordering},
@@ -77,9 +77,11 @@ pub enum Error {
     Regex(#[from] regex::Error),
     #[error("Cancelled")]
     Cancelled,
-    #[error("Invalid language")]
-    InvalidLanguage,
-    #[error("Invalid capture @{0}. Expected one of: @definition.*, @reference.*, @doc, @name, @local.(scope|definition|reference).")]
+    #[error("Invalid language: {0}")]
+    InvalidLanguage(#[from] tree_sitter::LanguageError),
+    #[error(
+        "Invalid capture @{0}. Expected one of: @definition.*, @reference.*, @doc, @name, @local.(scope|definition|reference)."
+    )]
     InvalidCapture(String),
 }
 
@@ -274,7 +276,7 @@ impl TagsContext {
         }
     }
 
-    pub fn parser(&mut self) -> &mut Parser {
+    pub const fn parser(&mut self) -> &mut Parser {
         &mut self.parser
     }
 
@@ -284,31 +286,30 @@ impl TagsContext {
         source: &'a [u8],
         cancellation_flag: Option<&'a AtomicUsize>,
     ) -> Result<(impl Iterator<Item = Result<Tag, Error>> + 'a, bool), Error> {
-        self.parser
-            .set_language(&config.language)
-            .map_err(|_| Error::InvalidLanguage)?;
+        self.parser.set_language(&config.language)?;
         self.parser.reset();
         let tree = self
             .parser
             .parse_with_options(
                 &mut |i, _| {
-                    if i < source.len() {
-                        &source[i..]
-                    } else {
-                        &[]
-                    }
+                    if i < source.len() { &source[i..] } else { &[] }
                 },
                 None,
                 Some(ParseOptions::new().progress_callback(&mut |_| {
                     if let Some(cancellation_flag) = cancellation_flag {
-                        cancellation_flag.load(Ordering::SeqCst) != 0
+                        if cancellation_flag.load(Ordering::SeqCst) != 0 {
+                            ControlFlow::Break(())
+                        } else {
+                            ControlFlow::Continue(())
+                        }
                     } else {
-                        false
+                        ControlFlow::Continue(())
                     }
                 })),
             )
             .ok_or(Error::Cancelled)?;
 
+        // SAFETY:
         // The `matches` iterator borrows the `Tree`, which prevents it from being
         // moved. But the tree is really just a pointer, so it's actually ok to
         // move it.
@@ -359,16 +360,15 @@ where
 
             // If there is a queued tag for an earlier node in the syntax tree, then pop
             // it off of the queue and return it.
-            if let Some(last_entry) = self.tag_queue.last() {
-                if self.tag_queue.len() > 1
-                    && self.tag_queue[0].0.name_range.end < last_entry.0.name_range.start
-                {
-                    let tag = self.tag_queue.remove(0).0;
-                    if tag.is_ignored() {
-                        continue;
-                    }
-                    return Some(Ok(tag));
+            if let Some(last_entry) = self.tag_queue.last()
+                && self.tag_queue.len() > 1
+                && self.tag_queue[0].0.name_range.end < last_entry.0.name_range.start
+            {
+                let tag = self.tag_queue.remove(0).0;
+                if tag.is_ignored() {
+                    continue;
                 }
+                return Some(Ok(tag));
             }
 
             // If there is another match, then compute its tag and add it to the
@@ -386,14 +386,14 @@ where
                                 inherits: pattern_info.local_scope_inherits,
                                 local_defs: Vec::new(),
                             });
-                        } else if index == self.config.local_definition_capture_index {
-                            if let Some(scope) = self.scopes.iter_mut().rev().find(|scope| {
+                        } else if index == self.config.local_definition_capture_index
+                            && let Some(scope) = self.scopes.iter_mut().rev().find(|scope| {
                                 scope.range.start <= range.start && scope.range.end >= range.end
-                            }) {
-                                scope.local_defs.push(LocalDef {
-                                    name: &self.source[range.clone()],
-                                });
-                            }
+                            })
+                        {
+                            scope.local_defs.push(LocalDef {
+                                name: &self.source[range.clone()],
+                            });
                         }
                     }
                     continue;
@@ -514,13 +514,10 @@ where
                         // reuse results from the previous tag.
                         let mut prev_utf16_column = 0;
                         let mut prev_utf8_byte = name_range.start - span.start.column;
-                        let line_info = self.prev_line_info.as_ref().and_then(|info| {
-                            if info.utf8_position.row == span.start.row {
-                                Some(info)
-                            } else {
-                                None
-                            }
-                        });
+                        let line_info = self
+                            .prev_line_info
+                            .as_ref()
+                            .filter(|&info| info.utf8_position.row == span.start.row);
                         let line_range = if let Some(line_info) = line_info {
                             if line_info.utf8_position.column <= span.start.column {
                                 prev_utf8_byte = line_info.utf8_byte;

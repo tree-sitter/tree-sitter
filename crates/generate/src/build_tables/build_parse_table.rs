@@ -1,12 +1,12 @@
 use std::{
     cmp::Ordering,
-    collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque},
+    collections::{BTreeMap, BTreeSet, VecDeque},
     hash::BuildHasherDefault,
 };
 
-use indexmap::{map::Entry, IndexMap};
-use rustc_hash::FxHasher;
-use serde::Serialize;
+use indexmap::{IndexMap, map::Entry};
+use rustc_hash::{FxHashMap, FxHashSet, FxHasher};
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use super::{
@@ -14,6 +14,7 @@ use super::{
     item_set_builder::ParseItemSetBuilder,
 };
 use crate::{
+    Diagnostic,
     grammars::{LexicalGrammar, PrecedenceEntry, ReservedWordSetId, SyntaxGrammar, VariableType},
     node_types::VariableInfo,
     rules::{Associativity, Precedence, Symbol, SymbolType, TokenSet},
@@ -55,18 +56,18 @@ struct ParseTableBuilder<'a> {
     syntax_grammar: &'a SyntaxGrammar,
     lexical_grammar: &'a LexicalGrammar,
     variable_info: &'a [VariableInfo],
-    core_ids_by_core: HashMap<ParseItemSetCore<'a>, usize>,
+    core_ids_by_core: FxHashMap<ParseItemSetCore<'a>, usize>,
     state_ids_by_item_set: IndexMap<ParseItemSet<'a>, ParseStateId, BuildHasherDefault<FxHasher>>,
     parse_state_info_by_id: Vec<ParseStateInfo<'a>>,
     parse_state_queue: VecDeque<ParseStateQueueEntry>,
     non_terminal_extra_states: Vec<(Symbol, usize)>,
-    actual_conflicts: HashSet<Vec<Symbol>>,
+    actual_conflicts: FxHashSet<Vec<Symbol>>,
     parse_table: ParseTable,
 }
 
 pub type BuildTableResult<T> = Result<T, ParseTableBuilderError>;
 
-#[derive(Debug, Error, Serialize)]
+#[derive(Debug, Error, Serialize, Deserialize)]
 pub enum ParseTableBuilderError {
     #[error("Unresolved conflict for symbol sequence:\n\n{0}")]
     Conflict(#[from] ConflictError),
@@ -76,9 +77,11 @@ pub enum ParseTableBuilderError {
         "The non-terminal rule `{0}` is used in a non-terminal `extra` rule, which is not allowed."
     )]
     ImproperNonTerminalExtra(String),
+    #[error("State count `{0}` exceeds the max value {max}.", max=u16::MAX)]
+    StateCount(usize),
 }
 
-#[derive(Default, Debug, Serialize)]
+#[derive(Default, Debug, Serialize, Error, Deserialize)]
 pub struct ConflictError {
     pub symbol_sequence: Vec<String>,
     pub conflicting_lookahead: String,
@@ -86,7 +89,7 @@ pub struct ConflictError {
     pub possible_resolutions: Vec<Resolution>,
 }
 
-#[derive(Default, Debug, Serialize)]
+#[derive(Default, Debug, Serialize, Error, Deserialize)]
 pub struct Interpretation {
     pub preceding_symbols: Vec<String>,
     pub variable_name: String,
@@ -98,14 +101,14 @@ pub struct Interpretation {
     pub associativity: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum Resolution {
     Precedence { symbols: Vec<String> },
     Associativity { symbols: Vec<String> },
     AddConflict { symbols: Vec<String> },
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize, Error)]
 pub struct AmbiguousExtraError {
     pub parent_symbols: Vec<String>,
 }
@@ -235,9 +238,6 @@ impl std::fmt::Display for AmbiguousExtraError {
     }
 }
 
-impl std::error::Error for ConflictError {}
-impl std::error::Error for AmbiguousExtraError {}
-
 impl<'a> ParseTableBuilder<'a> {
     fn new(
         syntax_grammar: &'a SyntaxGrammar,
@@ -252,7 +252,7 @@ impl<'a> ParseTableBuilder<'a> {
             variable_info,
             non_terminal_extra_states: Vec::new(),
             state_ids_by_item_set: IndexMap::default(),
-            core_ids_by_core: HashMap::new(),
+            core_ids_by_core: FxHashMap::default(),
             parse_state_info_by_id: Vec::new(),
             parse_state_queue: VecDeque::new(),
             actual_conflicts: syntax_grammar.expected_conflicts.iter().cloned().collect(),
@@ -266,7 +266,10 @@ impl<'a> ParseTableBuilder<'a> {
         }
     }
 
-    fn build(mut self) -> BuildTableResult<(ParseTable, Vec<ParseStateInfo<'a>>)> {
+    fn build(
+        mut self,
+        diagnostics: &mut Vec<Diagnostic>,
+    ) -> BuildTableResult<(ParseTable, Vec<ParseStateInfo<'a>>)> {
         // Ensure that the empty alias sequence has index 0.
         self.parse_table
             .production_infos
@@ -326,9 +329,10 @@ impl<'a> ParseTableBuilder<'a> {
                 ))?;
             }
 
-            self.non_terminal_extra_states
-                .push((terminal, self.parse_table.states.len()));
-            self.add_parse_state(&Vec::new(), &Vec::new(), item_set);
+            // Add the parse state, and *then* push the terminal and the state id into the
+            // list of nonterminal extra states
+            let state_id = self.add_parse_state(&Vec::new(), &Vec::new(), item_set);
+            self.non_terminal_extra_states.push((terminal, state_id));
         }
 
         while let Some(entry) = self.parse_state_queue.pop_front() {
@@ -345,17 +349,13 @@ impl<'a> ParseTableBuilder<'a> {
         }
 
         if !self.actual_conflicts.is_empty() {
-            println!("Warning: unnecessary conflicts");
-            for conflict in &self.actual_conflicts {
-                println!(
-                    "  {}",
-                    conflict
-                        .iter()
-                        .map(|symbol| format!("`{}`", self.symbol_name(symbol)))
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                );
-            }
+            let mut conflicts = self
+                .actual_conflicts
+                .iter()
+                .map(|conf| conf.iter().map(|s| self.symbol_name(s)).collect())
+                .collect::<Vec<_>>();
+            conflicts.sort_unstable();
+            diagnostics.push(Diagnostic::UnnecessaryConflicts(conflicts));
         }
 
         Ok((self.parse_table, self.parse_state_info_by_id))
@@ -412,7 +412,7 @@ impl<'a> ParseTableBuilder<'a> {
         let mut terminal_successors = BTreeMap::new();
         let mut non_terminal_successors = BTreeMap::new();
         let mut lookaheads_with_conflicts = TokenSet::new();
-        let mut reduction_infos = HashMap::<Symbol, ReductionInfo>::new();
+        let mut reduction_infos = FxHashMap::<Symbol, ReductionInfo>::default();
 
         // Each item in the item set contributes to either or a Shift action or a Reduce
         // action in this state.
@@ -474,11 +474,22 @@ impl<'a> ParseTableBuilder<'a> {
                 let action = if item.is_augmented() {
                     ParseAction::Accept
                 } else {
+                    // These values are narrowed to u16 to reduce the size of
+                    // ParseAction. No real-world grammar approaches these limits.
+                    debug_assert!(
+                        u16::try_from(item.step_index).is_ok(),
+                        "production step count exceeds u16::MAX"
+                    );
+                    let production_id = self.get_production_id(item);
+                    debug_assert!(
+                        u16::try_from(production_id).is_ok(),
+                        "production info id exceeds u16::MAX"
+                    );
                     ParseAction::Reduce {
                         symbol,
-                        child_count: item.step_index as usize,
+                        child_count: item.step_index as u16,
                         dynamic_precedence: item.production.dynamic_precedence,
-                        production_id: self.get_production_id(item),
+                        production_id: production_id as u16,
                     }
                 };
 
@@ -548,10 +559,10 @@ impl<'a> ParseTableBuilder<'a> {
             let entry = self.parse_table.states[state_id]
                 .terminal_entries
                 .entry(symbol);
-            if let Entry::Occupied(e) = &entry {
-                if !e.get().actions.is_empty() {
-                    lookaheads_with_conflicts.insert(symbol);
-                }
+            if let Entry::Occupied(e) = &entry
+                && !e.get().actions.is_empty()
+            {
+                lookaheads_with_conflicts.insert(symbol);
             }
 
             entry
@@ -611,7 +622,7 @@ impl<'a> ParseTableBuilder<'a> {
                             None
                         }
                     })
-                    .collect::<HashSet<_>>();
+                    .collect::<FxHashSet<_>>();
                 let parent_symbol_names = parent_symbols
                     .iter()
                     .map(|&variable_index| {
@@ -759,6 +770,7 @@ impl<'a> ParseTableBuilder<'a> {
 
             // If the SHIFT action has higher precedence, remove all the REDUCE actions.
             let mut shift_is_less = false;
+            let mut shift_is_equal = false;
             let mut shift_is_more = false;
             for p in shift_precedence {
                 match Self::compare_precedence(
@@ -770,7 +782,7 @@ impl<'a> ParseTableBuilder<'a> {
                 ) {
                     Ordering::Greater => shift_is_more = true,
                     Ordering::Less => shift_is_less = true,
-                    Ordering::Equal => {}
+                    Ordering::Equal => shift_is_equal = true,
                 }
             }
 
@@ -779,10 +791,30 @@ impl<'a> ParseTableBuilder<'a> {
             }
             // If the REDUCE actions have higher precedence, remove the SHIFT action.
             else if shift_is_less && !shift_is_more {
-                entry.actions.pop();
-                conflicting_items.retain(|item| item.is_done());
+                // Exception: if one SHIFT interpretation ties the REDUCE actions in
+                // precedence while another has lower precedence, and the REDUCE
+                // actions are purely right associative, honor that right
+                // associativity by shifting rather than reducing. The
+                // lower-precedence interpretation coexists with the tying one, so on
+                // its own it must not force a REDUCE that would flip the tie to left
+                // associative.
+                if shift_is_equal
+                    && matches!(
+                        (
+                            reduction_info.has_left_assoc,
+                            reduction_info.has_non_assoc,
+                            reduction_info.has_right_assoc,
+                        ),
+                        (false, false, true)
+                    )
+                {
+                    entry.actions.drain(0..entry.actions.len() - 1);
+                } else {
+                    entry.actions.pop();
+                    conflicting_items.retain(|item| item.is_done());
+                }
             }
-            // If the SHIFT and REDUCE actions have the same predence, consider
+            // If the SHIFT and REDUCE actions have the same precedence, consider
             // the REDUCE actions' associativity.
             else if !shift_is_less && !shift_is_more {
                 considered_associativity = true;
@@ -855,9 +887,9 @@ impl<'a> ParseTableBuilder<'a> {
         for symbol in preceding_symbols {
             conflict_error
                 .symbol_sequence
-                .push(self.symbol_name(symbol).to_string());
+                .push(self.symbol_name(symbol));
         }
-        conflict_error.conflicting_lookahead = self.symbol_name(&conflicting_lookahead).to_string();
+        conflict_error.conflicting_lookahead = self.symbol_name(&conflicting_lookahead);
 
         let interpretations = conflicting_items
             .iter()
@@ -865,7 +897,7 @@ impl<'a> ParseTableBuilder<'a> {
                 let preceding_symbols = preceding_symbols
                     .iter()
                     .take(preceding_symbols.len() - item.step_index as usize)
-                    .map(|symbol| self.symbol_name(symbol).to_string())
+                    .map(|symbol| self.symbol_name(symbol))
                     .collect::<Vec<_>>();
 
                 let variable_name = self.syntax_grammar.variables[item.variable_index as usize]
@@ -876,7 +908,7 @@ impl<'a> ParseTableBuilder<'a> {
                     .production
                     .steps
                     .iter()
-                    .map(|step| self.symbol_name(&step.symbol).to_string())
+                    .map(|step| self.symbol_name(&step.symbol))
                     .collect::<Vec<_>>();
 
                 let precedence = match item.precedence() {
@@ -892,7 +924,7 @@ impl<'a> ParseTableBuilder<'a> {
                     production_step_symbols,
                     step_index: item.step_index,
                     done: item.is_done(),
-                    conflicting_lookahead: self.symbol_name(&conflicting_lookahead).to_string(),
+                    conflicting_lookahead: self.symbol_name(&conflicting_lookahead),
                     precedence,
                     associativity,
                 }
@@ -1131,6 +1163,7 @@ pub fn build_parse_table<'a>(
     lexical_grammar: &'a LexicalGrammar,
     item_set_builder: ParseItemSetBuilder<'a>,
     variable_info: &'a [VariableInfo],
+    diagnostics: &mut Vec<Diagnostic>,
 ) -> BuildTableResult<(ParseTable, Vec<ParseStateInfo<'a>>)> {
     ParseTableBuilder::new(
         syntax_grammar,
@@ -1138,5 +1171,5 @@ pub fn build_parse_table<'a>(
         item_set_builder,
         variable_info,
     )
-    .build()
+    .build(diagnostics)
 }

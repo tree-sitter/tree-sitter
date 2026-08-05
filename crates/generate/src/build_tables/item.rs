@@ -7,8 +7,8 @@ use std::{
 
 use crate::{
     grammars::{
-        LexicalGrammar, Production, ProductionStep, ReservedWordSetId, SyntaxGrammar,
-        NO_RESERVED_WORDS,
+        LexicalGrammar, NO_RESERVED_WORDS, Production, ProductionStep, ReservedWordSetId,
+        SyntaxGrammar,
     },
     rules::{Associativity, Precedence, Symbol, SymbolType, TokenSet},
 };
@@ -53,9 +53,10 @@ pub struct ParseItem<'a> {
     pub has_preceding_inherited_fields: bool,
 }
 
-/// A [`ParseItemSet`] represents a set of in-progress matches of productions in a
-/// grammar, and for each in-progress match, a set of "lookaheads" - tokens that
-/// are allowed to *follow* the in-progress rule. This object corresponds directly
+/// Represents a set of in-progress matches of productions in a grammar.
+///
+/// For each in-progress match, a set of "lookaheads" (tokens that are allowed to
+/// *follow* the in-progress rule) are included. This object corresponds directly
 /// to a state in the final parse table.
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub struct ParseItemSet<'a> {
@@ -95,6 +96,7 @@ pub struct ParseItemSetDisplay<'a>(
 );
 
 impl<'a> ParseItem<'a> {
+    #[must_use]
     pub fn start() -> Self {
         ParseItem {
             variable_index: u32::MAX,
@@ -104,23 +106,28 @@ impl<'a> ParseItem<'a> {
         }
     }
 
+    #[must_use]
     pub fn step(&self) -> Option<&'a ProductionStep> {
         self.production.steps.get(self.step_index as usize)
     }
 
+    #[must_use]
     pub fn symbol(&self) -> Option<Symbol> {
         self.step().map(|step| step.symbol)
     }
 
+    #[must_use]
     pub fn associativity(&self) -> Option<Associativity> {
         self.prev_step().and_then(|step| step.associativity)
     }
 
+    #[must_use]
     pub fn precedence(&self) -> &Precedence {
         self.prev_step()
             .map_or(&Precedence::None, |step| &step.precedence)
     }
 
+    #[must_use]
     pub fn prev_step(&self) -> Option<&'a ProductionStep> {
         if self.step_index > 0 {
             Some(&self.production.steps[self.step_index as usize - 1])
@@ -130,7 +137,7 @@ impl<'a> ParseItem<'a> {
     }
 
     #[must_use]
-    pub fn is_done(&self) -> bool {
+    pub const fn is_done(&self) -> bool {
         self.step_index as usize == self.production.steps.len()
     }
 
@@ -152,6 +159,7 @@ impl<'a> ParseItem<'a> {
 
     /// Create an item identical to this one, but with a different production.
     /// This is used when dynamically "inlining" certain symbols in a production.
+    #[must_use]
     pub const fn substitute_production(&self, production: &'a Production) -> Self {
         let mut result = *self;
         result.production = production;
@@ -160,6 +168,7 @@ impl<'a> ParseItem<'a> {
 }
 
 impl<'a> ParseItemSet<'a> {
+    #[inline]
     pub fn insert(&mut self, item: ParseItem<'a>) -> &mut ParseItemSetEntry<'a> {
         match self.entries.binary_search_by(|e| e.item.cmp(&item)) {
             Err(i) => {
@@ -177,6 +186,7 @@ impl<'a> ParseItemSet<'a> {
         }
     }
 
+    #[must_use]
     pub fn core(&self) -> ParseItemSetCore<'a> {
         ParseItemSetCore {
             entries: self.entries.iter().map(|e| e.item).collect(),
@@ -204,7 +214,7 @@ impl fmt::Display for ParseItemDisplay<'_> {
                     || step.reserved_word_set_id != ReservedWordSetId::default()
                 {
                     write!(f, " (")?;
-                    if step.precedence.is_none() {
+                    if !step.precedence.is_none() {
                         write!(f, " {}", step.precedence)?;
                     }
                     if let Some(associativity) = step.associativity {
@@ -357,6 +367,7 @@ impl Hash for ParseItem<'_> {
 }
 
 impl PartialEq for ParseItem<'_> {
+    #[inline]
     fn eq(&self, other: &Self) -> bool {
         if self.variable_index != other.variable_index
             || self.step_index != other.step_index
@@ -394,6 +405,7 @@ impl PartialEq for ParseItem<'_> {
 }
 
 impl Ord for ParseItem<'_> {
+    #[inline]
     fn cmp(&self, other: &Self) -> Ordering {
         self.step_index
             .cmp(&other.step_index)

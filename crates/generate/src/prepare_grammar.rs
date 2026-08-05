@@ -8,17 +8,18 @@ mod process_inlines;
 
 use std::{
     cmp::Ordering,
-    collections::{hash_map, HashMap, HashSet},
+    collections::{BTreeSet, hash_map},
     mem,
 };
 
-use anyhow::Result;
 pub use expand_tokens::ExpandTokensError;
 pub use extract_tokens::ExtractTokensError;
 pub use flatten_grammar::FlattenGrammarError;
+use indexmap::IndexMap;
 pub use intern_symbols::InternSymbolsError;
 pub use process_inlines::ProcessInlinesError;
-use serde::Serialize;
+use rustc_hash::{FxHashMap, FxHashSet};
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 pub use self::expand_tokens::expand_tokens;
@@ -34,7 +35,7 @@ use super::{
     },
     rules::{AliasMap, Precedence, Rule, Symbol},
 };
-use crate::grammars::ReservedWordContext;
+use crate::{Diagnostic, grammars::ReservedWordContext};
 
 pub struct IntermediateGrammar<T, U> {
     variables: Vec<Variable>,
@@ -76,10 +77,11 @@ impl<T, U> Default for IntermediateGrammar<T, U> {
 
 pub type PrepareGrammarResult<T> = Result<T, PrepareGrammarError>;
 
-#[derive(Debug, Error, Serialize)]
+#[derive(Debug, Error, Serialize, Deserialize)]
 #[error(transparent)]
 pub enum PrepareGrammarError {
     ValidatePrecedences(#[from] ValidatePrecedenceError),
+    ValidateIndirectRecursion(#[from] IndirectRecursionError),
     InternSymbols(#[from] InternSymbolsError),
     ExtractTokens(#[from] ExtractTokensError),
     FlattenGrammar(#[from] FlattenGrammarError),
@@ -89,14 +91,30 @@ pub enum PrepareGrammarError {
 
 pub type ValidatePrecedenceResult<T> = Result<T, ValidatePrecedenceError>;
 
-#[derive(Debug, Error, Serialize)]
+#[derive(Debug, Error, Serialize, Deserialize)]
 #[error(transparent)]
 pub enum ValidatePrecedenceError {
     Undeclared(#[from] UndeclaredPrecedenceError),
     Ordering(#[from] ConflictingPrecedenceOrderingError),
 }
 
-#[derive(Debug, Error, Serialize)]
+#[derive(Debug, Error, Serialize, Deserialize)]
+pub struct IndirectRecursionError(pub Vec<String>);
+
+impl std::fmt::Display for IndirectRecursionError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Grammar contains an indirectly recursive rule: ")?;
+        for (i, symbol) in self.0.iter().enumerate() {
+            if i > 0 {
+                write!(f, " -> ")?;
+            }
+            write!(f, "{symbol}")?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Error, Serialize, Deserialize)]
 pub struct UndeclaredPrecedenceError {
     pub precedence: String,
     pub rule: String,
@@ -113,7 +131,7 @@ impl std::fmt::Display for UndeclaredPrecedenceError {
     }
 }
 
-#[derive(Debug, Error, Serialize)]
+#[derive(Debug, Error, Serialize, Deserialize)]
 pub struct ConflictingPrecedenceOrderingError {
     pub precedence_1: String,
     pub precedence_2: String,
@@ -134,6 +152,7 @@ impl std::fmt::Display for ConflictingPrecedenceOrderingError {
 /// for parse table construction.
 pub fn prepare_grammar(
     input_grammar: &InputGrammar,
+    diagnostics: &mut Vec<Diagnostic>,
 ) -> PrepareGrammarResult<(
     SyntaxGrammar,
     LexicalGrammar,
@@ -141,8 +160,9 @@ pub fn prepare_grammar(
     AliasMap,
 )> {
     validate_precedences(input_grammar)?;
+    validate_indirect_recursion(input_grammar)?;
 
-    let interned_grammar = intern_symbols(input_grammar)?;
+    let interned_grammar = intern_symbols(input_grammar, diagnostics)?;
     let (syntax_grammar, lexical_grammar) = extract_tokens(interned_grammar)?;
     let syntax_grammar = expand_repeats(syntax_grammar);
     let mut syntax_grammar = flatten_grammar(syntax_grammar)?;
@@ -150,6 +170,83 @@ pub fn prepare_grammar(
     let default_aliases = extract_default_aliases(&mut syntax_grammar, &lexical_grammar);
     let inlines = process_inlines(&syntax_grammar, &lexical_grammar)?;
     Ok((syntax_grammar, lexical_grammar, inlines, default_aliases))
+}
+
+/// Check for indirect recursion cycles in the grammar that can cause infinite loops while
+/// parsing. An indirect recursion cycle occurs when a non-terminal can derive itself through
+/// a chain of single-symbol productions (e.g., A -> B, B -> A).
+fn validate_indirect_recursion(grammar: &InputGrammar) -> Result<(), IndirectRecursionError> {
+    let mut epsilon_transitions: IndexMap<&str, BTreeSet<String>> = IndexMap::new();
+
+    for variable in &grammar.variables {
+        let productions = get_single_symbol_productions(&variable.rule);
+        // Filter out rules that *directly* reference themselves, as this doesn't
+        // cause a parsing loop.
+        let filtered: BTreeSet<String> = productions
+            .into_iter()
+            .filter(|s| s != &variable.name)
+            .collect();
+        epsilon_transitions.insert(variable.name.as_str(), filtered);
+    }
+
+    for start_symbol in epsilon_transitions.keys() {
+        let mut visited = BTreeSet::new();
+        let mut path = Vec::new();
+        if let Some((start_idx, end_idx)) =
+            get_cycle(start_symbol, &epsilon_transitions, &mut visited, &mut path)
+        {
+            let cycle_symbols = path[start_idx..=end_idx]
+                .iter()
+                .map(|s| (*s).to_string())
+                .collect();
+            return Err(IndirectRecursionError(cycle_symbols));
+        }
+    }
+
+    Ok(())
+}
+
+fn get_single_symbol_productions(rule: &Rule) -> BTreeSet<String> {
+    match rule {
+        Rule::NamedSymbol(name) => BTreeSet::from([name.clone()]),
+        Rule::Choice(choices) => choices
+            .iter()
+            .flat_map(get_single_symbol_productions)
+            .collect(),
+        Rule::Metadata { rule, .. } => get_single_symbol_productions(rule),
+        _ => BTreeSet::new(),
+    }
+}
+
+/// Perform a depth-first search to detect cycles in single state transitions.
+fn get_cycle<'a>(
+    current: &'a str,
+    transitions: &'a IndexMap<&'a str, BTreeSet<String>>,
+    visited: &mut BTreeSet<&'a str>,
+    path: &mut Vec<&'a str>,
+) -> Option<(usize, usize)> {
+    if let Some(first_idx) = path.iter().position(|s| *s == current) {
+        path.push(current);
+        return Some((first_idx, path.len() - 1));
+    }
+
+    if visited.contains(current) {
+        return None;
+    }
+
+    path.push(current);
+    visited.insert(current);
+
+    if let Some(next_symbols) = transitions.get(current) {
+        for next in next_symbols {
+            if let Some(cycle) = get_cycle(next, transitions, visited, path) {
+                return Some(cycle);
+            }
+        }
+    }
+
+    path.pop();
+    None
 }
 
 /// Check that all of the named precedences used in the grammar are declared
@@ -161,7 +258,7 @@ fn validate_precedences(grammar: &InputGrammar) -> ValidatePrecedenceResult<()> 
     fn validate(
         rule_name: &str,
         rule: &Rule,
-        names: &HashSet<&String>,
+        names: &FxHashSet<&String>,
     ) -> ValidatePrecedenceResult<()> {
         match rule {
             Rule::Repeat(rule) => validate(rule_name, rule, names),
@@ -169,13 +266,13 @@ fn validate_precedences(grammar: &InputGrammar) -> ValidatePrecedenceResult<()> 
                 .iter()
                 .try_for_each(|e| validate(rule_name, e, names)),
             Rule::Metadata { rule, params } => {
-                if let Precedence::Name(n) = &params.precedence {
-                    if !names.contains(n) {
-                        Err(UndeclaredPrecedenceError {
-                            precedence: n.to_string(),
-                            rule: rule_name.to_string(),
-                        })?;
-                    }
+                if let Precedence::Name(n) = &params.precedence
+                    && !names.contains(n)
+                {
+                    Err(UndeclaredPrecedenceError {
+                        precedence: n.clone(),
+                        rule: rule_name.to_string(),
+                    })?;
                 }
                 validate(rule_name, rule, names)?;
                 Ok(())
@@ -186,7 +283,7 @@ fn validate_precedences(grammar: &InputGrammar) -> ValidatePrecedenceResult<()> 
 
     // For any two precedence names `a` and `b`, if `a` comes before `b`
     // in some list, then it cannot come *after* `b` in any list.
-    let mut pairs = HashMap::new();
+    let mut pairs = FxHashMap::default();
     for list in &grammar.precedence_orderings {
         for (i, mut entry1) in list.iter().enumerate() {
             for mut entry2 in list.iter().skip(i + 1) {
@@ -226,7 +323,7 @@ fn validate_precedences(grammar: &InputGrammar) -> ValidatePrecedenceResult<()> 
                 None
             }
         })
-        .collect::<HashSet<&String>>();
+        .collect::<FxHashSet<&String>>();
     for variable in &grammar.variables {
         validate(&variable.name, &variable.rule, &precedence_names)?;
     }

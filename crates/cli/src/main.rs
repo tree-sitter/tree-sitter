@@ -5,34 +5,38 @@ use std::{
 };
 
 use anstyle::{AnsiColor, Color, Style};
-use anyhow::{anyhow, Context, Result};
-use clap::{crate_authors, Args, Command, FromArgMatches as _, Subcommand, ValueEnum};
+use anyhow::{Context, Result, anyhow};
+use clap::{ArgGroup, Args, Command, FromArgMatches as _, Subcommand, ValueEnum, crate_authors};
 use clap_complete::generate;
-use dialoguer::{theme::ColorfulTheme, Confirm, FuzzySelect, Input, MultiSelect};
+use dialoguer::{Confirm, FuzzySelect, Input, MultiSelect, theme::ColorfulTheme};
 use heck::ToUpperCamelCase;
+use log::{error, info, warn};
 use regex::Regex;
 use semver::Version as SemverVersion;
-use tree_sitter::{ffi, Parser, Point};
+use tree_sitter::{Parser, Point, ffi};
 use tree_sitter_cli::{
     fuzz::{
-        fuzz_language_corpus, FuzzOptions, EDIT_COUNT, ITERATION_COUNT, LOG_ENABLED,
-        LOG_GRAPH_ENABLED, START_SEED,
+        DEFAULT_EDIT_COUNT, DEFAULT_ITERATION_COUNT, EDIT_COUNT, FuzzOptions, ITERATION_COUNT,
+        LOG_ENABLED, LOG_GRAPH_ENABLED, START_SEED, fuzz_language_corpus,
     },
-    highlight::{self, HighlightOptions},
-    init::{generate_grammar_files, get_root_path, JsonConfigOpts},
-    input::{get_input, get_tmp_source_file, CliInput},
-    logger,
+    highlight::{self, HighlightOptions, HtmlOutput, HtmlStyling},
+    init::{JsonConfigOpts, TREE_SITTER_JSON_SCHEMA, generate_grammar_files},
+    input::{CliInput, get_input, get_tmp_source_file},
+    logger, paint,
     parse::{self, ParseDebugType, ParseFileOptions, ParseOutput, ParseTheme},
-    playground, query,
+    playground,
+    query::{self, QueryFileOptions},
     tags::{self, TagsOptions},
-    test::{self, TestOptions, TestStats},
-    test_highlight, test_tags, util, version, wasm,
+    test::{self, TestOptions, TestStats, TestSummary},
+    test_highlight, test_tags, util,
+    version::{self, BumpLevel},
+    wasm,
 };
 use tree_sitter_config::Config;
+use tree_sitter_generate::{Diagnostic, GenerateError, OptLevel};
 use tree_sitter_highlight::Highlighter;
 use tree_sitter_loader::{self as loader, Bindings, TreeSitterJSON};
 use tree_sitter_tags::TagsContext;
-use url::Url;
 
 const BUILD_VERSION: &str = env!("CARGO_PKG_VERSION");
 const BUILD_SHA: Option<&'static str> = option_env!("BUILD_SHA");
@@ -53,7 +57,7 @@ enum Commands {
     Parse(Parse),
     /// Run a parser's tests
     Test(Test),
-    /// Increment the version of a grammar
+    /// Display or increment the version of a grammar
     Version(Version),
     /// Fuzz a parser
     Fuzz(Fuzz),
@@ -85,17 +89,6 @@ struct Init {
     pub grammar_path: Option<PathBuf>,
 }
 
-#[derive(Clone, Debug, Default, ValueEnum, PartialEq, Eq)]
-enum GenerationStage {
-    /// Generate `grammar.json` and `node-types.json`
-    Json,
-    /// Generate `parser.c` and related files
-    #[default]
-    Parser,
-    /// Compile to a library
-    Lib,
-}
-
 #[derive(Args)]
 #[command(alias = "gen", alias = "g")]
 struct Generate {
@@ -118,29 +111,40 @@ struct Generate {
                 )
     )]
     pub abi_version: Option<String>,
-    /// Which generation stage to end after
+    /// Only generate `grammar.json` and `node-types.json`
     #[arg(long)]
-    #[clap(value_enum, default_value_t=GenerationStage::Parser)]
-    pub stage: GenerationStage,
-    /// Deprecated: use --stage=lib.
-    #[arg(long, short = 'b', conflicts_with = "stage")]
+    pub no_parser: bool,
+    /// Deprecated: use the `build` command
+    #[arg(long, short = 'b')]
     pub build: bool,
-    /// Compile a parser in debug mode
+    /// Deprecated: use the `build` command
     #[arg(long, short = '0')]
     pub debug_build: bool,
-    /// The path to the directory containing the parser library
+    /// Deprecated: use the `build` command
     #[arg(long, value_name = "PATH")]
     pub libdir: Option<PathBuf>,
     /// The path to output the generated source files
     #[arg(long, short, value_name = "DIRECTORY")]
     pub output: Option<PathBuf>,
     /// Produce a report of the states for the given rule, use `-` to report every rule
-    #[arg(long)]
+    #[arg(long, conflicts_with = "json", conflicts_with = "json_summary")]
     pub report_states_for_rule: Option<String>,
-    /// Report conflicts in a JSON format
-    #[arg(long)]
+    /// Deprecated: use --json-summary
+    #[arg(
+        long,
+        conflicts_with = "json_summary",
+        conflicts_with = "report_states_for_rule"
+    )]
     pub json: bool,
+    /// Report conflicts in a JSON format
+    #[arg(
+        long,
+        conflicts_with = "json",
+        conflicts_with = "report_states_for_rule"
+    )]
+    pub json_summary: bool,
     /// The name or path of the JavaScript runtime to use for generating parsers
+    #[cfg(not(feature = "qjs-rt"))]
     #[arg(
         long,
         value_name = "EXECUTABLE",
@@ -148,17 +152,30 @@ struct Generate {
         default_value = "node"
     )]
     pub js_runtime: Option<String>,
+
+    #[cfg(feature = "qjs-rt")]
+    #[arg(
+        long,
+        value_name = "EXECUTABLE",
+        env = "TREE_SITTER_JS_RUNTIME",
+        default_value = "node"
+    )]
+    /// The name or path of the JavaScript runtime to use for generating parsers, specify `native`
+    /// to use the native `QuickJS` runtime
+    pub js_runtime: Option<String>,
+
+    /// Disable optimizations when generating the parser. Currently, this only affects
+    /// the merging of compatible parse states.
+    #[arg(long)]
+    pub disable_optimizations: bool,
 }
 
 #[derive(Args)]
 #[command(alias = "b")]
 struct Build {
-    /// Build a WASM module instead of a dynamic library
+    /// Build a Wasm module instead of a dynamic library
     #[arg(short, long)]
     pub wasm: bool,
-    /// No longer used.
-    #[arg(short, long)]
-    pub docker: bool,
     /// The path to output the compiled file
     #[arg(short, long)]
     pub output: Option<PathBuf>,
@@ -171,10 +188,14 @@ struct Build {
     /// Compile a parser in debug mode
     #[arg(long, short = '0')]
     pub debug: bool,
+    /// Display verbose build information
+    #[arg(short, long)]
+    pub verbose: bool,
 }
 
 #[derive(Args)]
 #[command(alias = "p")]
+#[command(group(ArgGroup::new("graph_output").multiple(true)))]
 struct Parse {
     /// The path to a file with paths to source file(s)
     #[arg(long = "paths")]
@@ -182,27 +203,37 @@ struct Parse {
     /// The source file(s) to use
     #[arg(num_args=1..)]
     pub paths: Option<Vec<PathBuf>>,
-    /// The path to the tree-sitter grammar directory
-    #[arg(long, short = 'p')]
+    /// The path to the tree-sitter grammar directory, implies --rebuild
+    #[arg(long, short = 'p', conflicts_with = "rebuild")]
     pub grammar_path: Option<PathBuf>,
+    /// The path to the parser's dynamic library
+    #[arg(long, short = 'l')]
+    pub lib_path: Option<PathBuf>,
+    /// If `--lib-path` is used, the name of the language used to extract the
+    /// library's language function
+    #[arg(long, requires = "lib_path")]
+    pub lang_name: Option<String>,
     /// Select a language by the scope instead of a file extension
     #[arg(long)]
     pub scope: Option<String>,
     /// Show parsing debug log
     #[arg(long, short = 'd')] // TODO: Rework once clap adds `default_missing_value_t`
-    #[allow(clippy::option_option)]
+    #[expect(
+        clippy::option_option,
+        reason = "required by clap for optional flag with optional value"
+    )]
     pub debug: Option<Option<ParseDebugType>>,
     /// Compile a parser in debug mode
     #[arg(long, short = '0')]
     pub debug_build: bool,
     /// Produce the log.html file with debug graphs
-    #[arg(long, short = 'D')]
+    #[arg(long, short = 'D', group = "graph_output")]
     pub debug_graph: bool,
-    /// Compile parsers to wasm instead of native dynamic libraries
-    #[arg(long)]
+    /// Compile parsers to Wasm instead of native dynamic libraries
+    #[arg(long, hide = cfg!(not(feature = "wasm")))]
     pub wasm: bool,
     /// Output the parse data with graphviz dot
-    #[arg(long = "dot")]
+    #[arg(long = "dot", group = "graph_output")]
     pub output_dot: bool,
     /// Output the parse data in XML format
     #[arg(long = "xml", short = 'x')]
@@ -210,8 +241,8 @@ struct Parse {
     /// Output the parse data in a pretty-printed CST format
     #[arg(long = "cst", short = 'c')]
     pub output_cst: bool,
-    /// Show parsing statistic
-    #[arg(long, short)]
+    /// Show parsing statistics
+    #[arg(long, short, conflicts_with = "json", conflicts_with = "json_summary")]
     pub stat: bool,
     /// Interrupt the parsing process by timeout (µs)
     #[arg(long)]
@@ -222,7 +253,10 @@ struct Parse {
     /// Suppress main output
     #[arg(long, short)]
     pub quiet: bool,
-    #[allow(clippy::doc_markdown)]
+    #[expect(
+        clippy::doc_markdown,
+        reason = "doc string contains format syntax, not code identifiers"
+    )]
     /// Apply edits in the format: \"row,col|position delcount insert_text\", can be supplied
     /// multiple times
     #[arg(
@@ -233,12 +267,15 @@ struct Parse {
     /// The encoding of the input files
     #[arg(long)]
     pub encoding: Option<Encoding>,
-    /// Open `log.html` in the default browser, if `--debug-graph` is supplied
-    #[arg(long)]
+    /// Open `log.html` in the default browser, if `--debug-graph` or `--dot` is supplied
+    #[arg(long, requires = "graph_output")]
     pub open_log: bool,
-    /// Output parsing results in a JSON format
-    #[arg(long, short = 'j')]
+    /// Deprecated: use --json-summary
+    #[arg(long, conflicts_with = "json_summary", conflicts_with = "stat")]
     pub json: bool,
+    /// Output parsing results in a JSON format
+    #[arg(long, short = 'j', conflicts_with = "json", conflicts_with = "stat")]
+    pub json_summary: bool,
     /// The path to an alternative config.json file
     #[arg(long)]
     pub config_path: Option<PathBuf>,
@@ -256,9 +293,9 @@ struct Parse {
 
 #[derive(ValueEnum, Clone)]
 pub enum Encoding {
-    Utf8,
-    Utf16LE,
-    Utf16BE,
+    Utf8 = 0,
+    Utf16LE = 1,
+    Utf16BE = 2,
 }
 
 #[derive(Args)]
@@ -273,9 +310,16 @@ struct Test {
     /// Only run corpus test cases from a given filename
     #[arg(long)]
     pub file_name: Option<String>,
-    /// The path to the tree-sitter grammar directory
-    #[arg(long, short = 'p')]
+    /// The path to the tree-sitter grammar directory, implies --rebuild
+    #[arg(long, short = 'p', conflicts_with = "rebuild")]
     pub grammar_path: Option<PathBuf>,
+    /// The path to the parser's dynamic library
+    #[arg(long, short = 'l')]
+    pub lib_path: Option<PathBuf>,
+    /// If `--lib-path` is used, the name of the language used to extract the
+    /// library's language function
+    #[arg(long, requires = "lib_path")]
+    pub lang_name: Option<String>,
     /// Update all syntax trees in corpus files with current parser output
     #[arg(long, short)]
     pub update: bool,
@@ -288,11 +332,11 @@ struct Test {
     /// Produce the log.html file with debug graphs
     #[arg(long, short = 'D')]
     pub debug_graph: bool,
-    /// Compile parsers to wasm instead of native dynamic libraries
-    #[arg(long)]
+    /// Compile parsers to Wasm instead of native dynamic libraries
+    #[arg(long, hide = cfg!(not(feature = "wasm")))]
     pub wasm: bool,
     /// Open `log.html` in the default browser, if `--debug-graph` is supplied
-    #[arg(long)]
+    #[arg(long, requires = "debug_graph")]
     pub open_log: bool,
     /// The path to an alternative config.json file
     #[arg(long)]
@@ -300,6 +344,9 @@ struct Test {
     /// Force showing fields in test diffs
     #[arg(long)]
     pub show_fields: bool,
+    /// Force showing '+' and '-' in test diffs
+    #[arg(long)]
+    pub show_diff_markers: bool,
     /// Show parsing statistics
     #[arg(long)]
     pub stat: Option<TestStats>,
@@ -309,18 +356,37 @@ struct Test {
     /// Show only the pass-fail overview tree
     #[arg(long)]
     pub overview_only: bool,
+    /// Output the test summary in a JSON format
+    #[arg(long)]
+    pub json_summary: bool,
 }
 
 #[derive(Args)]
 #[command(alias = "publish")]
-/// Increment the version of a grammar
+#[expect(
+    clippy::struct_field_names,
+    reason = "field names map to CLI arguments"
+)]
+/// Display or increment the version of a grammar
 struct Version {
-    #[arg(num_args = 1)]
     /// The version to bump to
-    pub version: SemverVersion,
+    #[arg(
+        conflicts_with = "bump",
+        long_help = "\
+        The version to bump to\n\
+        \n\
+        Examples:\n    \
+            tree-sitter version: display the current version\n    \
+            tree-sitter version <version>: bump to specified version\n    \
+            tree-sitter version --bump <level>: automatic bump"
+    )]
+    pub version: Option<SemverVersion>,
     /// The path to the tree-sitter grammar directory
     #[arg(long, short = 'p')]
     pub grammar_path: Option<PathBuf>,
+    /// Automatically bump from the current version
+    #[arg(long, value_enum, conflicts_with = "version")]
+    pub bump: Option<BumpLevel>,
 }
 
 #[derive(Args)]
@@ -332,14 +398,25 @@ struct Fuzz {
     /// Subdirectory to the language
     #[arg(long)]
     pub subdir: Option<PathBuf>,
-    /// The path to the tree-sitter grammar directory
-    #[arg(long, short = 'p')]
+    /// The path to the tree-sitter grammar directory, implies --rebuild
+    #[arg(long, short = 'p', conflicts_with = "rebuild")]
     pub grammar_path: Option<PathBuf>,
-    /// Maximum number of edits to perform per fuzz test
+    /// The path to the parser's dynamic library
     #[arg(long)]
+    pub lib_path: Option<PathBuf>,
+    /// If `--lib-path` is used, the name of the language used to extract the
+    /// library's language function
+    #[arg(long, requires = "lib_path")]
+    pub lang_name: Option<String>,
+    #[arg(
+        long,
+        help=format!("Maximum number of edits to perform per fuzz test (Default: {DEFAULT_EDIT_COUNT})")
+    )]
     pub edits: Option<usize>,
-    /// Number of fuzzing iterations to run per test
-    #[arg(long)]
+    #[arg(
+        long,
+        help=format!("Number of fuzzing iterations to run per test (Default: {DEFAULT_ITERATION_COUNT})")
+    )]
     pub iterations: Option<usize>,
     /// Only fuzz corpus test cases whose name matches the given regex
     #[arg(long, short)]
@@ -360,13 +437,24 @@ struct Fuzz {
 
 #[derive(Args)]
 #[command(alias = "q")]
+#[expect(
+    clippy::struct_field_names,
+    reason = "field names map to CLI arguments"
+)]
 struct Query {
     /// Path to a file with queries
     #[arg(index = 1, required = true)]
     query_path: PathBuf,
-    /// The path to the tree-sitter grammar directory
-    #[arg(long, short = 'p')]
+    /// The path to the tree-sitter grammar directory, implies --rebuild
+    #[arg(long, short = 'p', conflicts_with = "rebuild")]
     pub grammar_path: Option<PathBuf>,
+    /// The path to the parser's dynamic library
+    #[arg(long, short = 'l')]
+    pub lib_path: Option<PathBuf>,
+    /// If `--lib-path` is used, the name of the language used to extract the
+    /// library's language function
+    #[arg(long, requires = "lib_path")]
+    pub lang_name: Option<String>,
     /// Measure execution time
     #[arg(long, short)]
     pub time: bool,
@@ -385,6 +473,14 @@ struct Query {
     /// The range of rows in which the query will be executed
     #[arg(long)]
     pub row_range: Option<String>,
+    /// The range of byte offsets in which the query will be executed. Only the matches that are fully contained within the provided
+    /// byte range will be returned.
+    #[arg(long)]
+    pub containing_byte_range: Option<String>,
+    /// The range of rows in which the query will be executed. Only the matches that are fully contained within the provided row range
+    /// will be returned.
+    #[arg(long)]
+    pub containing_row_range: Option<String>,
     /// Select a language by the scope instead of a file extension
     #[arg(long)]
     pub scope: Option<String>,
@@ -401,6 +497,9 @@ struct Query {
     #[arg(long, short = 'n')]
     #[clap(conflicts_with = "paths", conflicts_with = "paths_file")]
     pub test_number: Option<u32>,
+    /// Force rebuild the parser
+    #[arg(short, long)]
+    pub rebuild: bool,
 }
 
 #[derive(Args)]
@@ -409,14 +508,20 @@ struct Highlight {
     /// Generate highlighting as an HTML document
     #[arg(long, short = 'H')]
     pub html: bool,
-    /// When generating HTML, use css classes rather than inline styles
-    #[arg(long)]
+    /// Deprecated: use `--style classes`
+    #[arg(long, requires = "html", conflicts_with = "style")]
     pub css_classes: bool,
+    /// When generating HTML, the document structure to emit
+    #[arg(long, requires = "html", value_enum, default_value = "document")]
+    pub layout: HtmlOutput,
+    /// When generating HTML, how token colors are applied
+    #[arg(long, requires = "html", value_enum, default_value = "classes")]
+    pub style: HtmlStyling,
     /// Check that highlighting captures conform strictly to standards
     #[arg(long)]
     pub check: bool,
     /// The path to a file with captures
-    #[arg(long)]
+    #[arg(long, requires = "check")]
     pub captures_path: Option<PathBuf>,
     /// The paths to files with queries
     #[arg(long, num_args = 1..)]
@@ -436,8 +541,8 @@ struct Highlight {
     /// The source file(s) to use
     #[arg(num_args = 1..)]
     pub paths: Option<Vec<PathBuf>>,
-    /// The path to the tree-sitter grammar directory
-    #[arg(long, short = 'p')]
+    /// The path to the tree-sitter grammar directory, implies --rebuild
+    #[arg(long, short = 'p', conflicts_with = "rebuild")]
     pub grammar_path: Option<PathBuf>,
     /// The path to an alternative config.json file
     #[arg(long)]
@@ -446,6 +551,12 @@ struct Highlight {
     #[arg(long, short = 'n')]
     #[clap(conflicts_with = "paths", conflicts_with = "paths_file")]
     pub test_number: Option<u32>,
+    /// Force rebuild the parser
+    #[arg(short, long)]
+    pub rebuild: bool,
+    /// The encoding of the input files
+    #[arg(long)]
+    pub encoding: Option<Encoding>,
 }
 
 #[derive(Args)]
@@ -465,8 +576,8 @@ struct Tags {
     /// The source file(s) to use
     #[arg(num_args = 1..)]
     pub paths: Option<Vec<PathBuf>>,
-    /// The path to the tree-sitter grammar directory
-    #[arg(long, short = 'p')]
+    /// The path to the tree-sitter grammar directory, implies --rebuild
+    #[arg(long, short = 'p', conflicts_with = "rebuild")]
     pub grammar_path: Option<PathBuf>,
     /// The path to an alternative config.json file
     #[arg(long)]
@@ -475,6 +586,9 @@ struct Tags {
     #[arg(long, short = 'n')]
     #[clap(conflicts_with = "paths", conflicts_with = "paths_file")]
     pub test_number: Option<u32>,
+    /// Force rebuild the parser
+    #[arg(short, long)]
+    pub rebuild: bool,
 }
 
 #[derive(Args)]
@@ -483,9 +597,12 @@ struct Playground {
     /// Don't open in default browser
     #[arg(long, short)]
     pub quiet: bool,
-    /// Path to the directory containing the grammar and wasm files
+    /// Path to the directory containing the grammar and Wasm files
     #[arg(long)]
     pub grammar_path: Option<PathBuf>,
+    /// Export playground files to specified directory instead of serving them
+    #[arg(long, short)]
+    pub export: Option<PathBuf>,
 }
 
 #[derive(Args)]
@@ -514,6 +631,20 @@ pub enum Shell {
     Nushell,
 }
 
+/// Complete `action` if the wasm feature is enabled, otherwise return an error
+macro_rules! checked_wasm {
+    ($action:block) => {
+        #[cfg(feature = "wasm")]
+        {
+            $action
+        }
+        #[cfg(not(feature = "wasm"))]
+        {
+            Err(anyhow!("--wasm flag specified, but this build of tree-sitter-cli does not include the wasm feature"))?;
+        }
+    };
+}
+
 impl InitConfig {
     fn run() -> Result<()> {
         if let Ok(Some(config_path)) = Config::find_config_file() {
@@ -526,7 +657,7 @@ impl InitConfig {
         config.add(tree_sitter_loader::Config::initial())?;
         config.add(tree_sitter_cli::highlight::ThemeConfig::default())?;
         config.save()?;
-        println!(
+        info!(
             "Saved initial configuration to {}",
             config.location.display()
         );
@@ -591,15 +722,10 @@ impl Init {
             };
 
             let repository = |name: &str| {
-                Input::<Url>::with_theme(&ColorfulTheme::default())
+                Input::<String>::with_theme(&ColorfulTheme::default())
                     .with_prompt("Repository URL")
                     .allow_empty(true)
-                    .default(
-                        Url::parse(&format!(
-                            "https://github.com/tree-sitter/tree-sitter-{name}"
-                        ))
-                        .expect("Failed to parse default repository URL"),
-                    )
+                    .default(format!("https://github.com/tree-sitter/tree-sitter-{name}"))
                     .show_default(false)
                     .interact_text()
             };
@@ -608,18 +734,8 @@ impl Init {
                 Input::<String>::with_theme(&ColorfulTheme::default())
                     .with_prompt("Funding URL")
                     .allow_empty(true)
-                    .validate_with(|input: &String| {
-                        if input.trim().is_empty()
-                            || Url::parse(input)
-                                .is_ok_and(|u| u.scheme() == "http" || u.scheme() == "https")
-                        {
-                            Ok(())
-                        } else {
-                            Err("The URL must start with 'http://' or 'https://'")
-                        }
-                    })
                     .interact_text()
-                    .map(|e| (!e.trim().is_empty()).then(|| Url::parse(&e).unwrap()))
+                    .map(|e| Some(e.trim().to_string()))
             };
 
             let scope = |name: &str| {
@@ -686,15 +802,16 @@ impl Init {
                 Input::<String>::with_theme(&ColorfulTheme::default())
                     .with_prompt("Author URL")
                     .allow_empty(true)
-                    .validate_with(|input: &String| -> Result<(), &str> {
-                        if input.trim().is_empty() || Url::parse(input).is_ok() {
-                            Ok(())
-                        } else {
-                            Err("This is not a valid URL")
-                        }
-                    })
                     .interact_text()
-                    .map(|e| (!e.trim().is_empty()).then(|| Url::parse(&e).unwrap()))
+                    .map(|e| Some(e.trim().to_string()))
+            };
+
+            let namespace = || {
+                Input::<String>::with_theme(&ColorfulTheme::default())
+                    .with_prompt("Package namespace")
+                    .default("io.github.tree-sitter".to_string())
+                    .allow_empty(true)
+                    .interact()
             };
 
             let bindings = || {
@@ -702,7 +819,7 @@ impl Init {
 
                 let enabled = MultiSelect::new()
                     .with_prompt("Bindings")
-                    .items_checked(&languages)
+                    .items_checked(languages.iter().copied())
                     .interact()?
                     .into_iter()
                     .map(|i| languages[i].0);
@@ -726,6 +843,7 @@ impl Init {
                 "author",
                 "email",
                 "url",
+                "namespace",
                 "bindings",
                 "exit",
             ];
@@ -746,6 +864,7 @@ impl Init {
                         "author" => opts.author = author()?,
                         "email" => opts.email = email()?,
                         "url" => opts.url = url()?,
+                        "namespace" => opts.namespace = Some(namespace()?),
                         "bindings" => opts.bindings = bindings()?,
                         "exit" => break,
                         _ => unreachable!(),
@@ -760,7 +879,7 @@ impl Init {
 
             // Loop for editing the configuration
             loop {
-                println!(
+                info!(
                     "Your current configuration:\n{}",
                     serde_json::to_string_pretty(&opts)?
                 );
@@ -774,7 +893,7 @@ impl Init {
 
                 let idx = FuzzySelect::with_theme(&ColorfulTheme::default())
                     .with_prompt("Which field would you like to change?")
-                    .items(&choices)
+                    .items(choices)
                     .interact()?;
 
                 set_choice!(choices[idx]);
@@ -782,10 +901,26 @@ impl Init {
 
             (opts.name.clone(), Some(opts))
         } else {
-            let mut json = serde_json::from_str::<TreeSitterJSON>(
-                &fs::read_to_string(current_dir.join("tree-sitter.json"))
-                    .with_context(|| "Failed to read tree-sitter.json")?,
-            )?;
+            let old_config = fs::read_to_string(current_dir.join("tree-sitter.json"))
+                .with_context(|| "Failed to read tree-sitter.json")?;
+
+            let mut json = serde_json::from_str::<TreeSitterJSON>(&old_config)?;
+            if json.schema.is_none() {
+                json.schema = Some(TREE_SITTER_JSON_SCHEMA.to_string());
+            }
+
+            let new_config = format!("{}\n", serde_json::to_string_pretty(&json)?);
+            // Write the re-serialized config back, as newly added optional boolean fields
+            // will be included with explicit `false`s rather than implicit `null`s
+            if self.update && !old_config.trim().eq(new_config.trim()) {
+                info!("Updating tree-sitter.json");
+                fs::write(
+                    current_dir.join("tree-sitter.json"),
+                    serde_json::to_string_pretty(&json)?,
+                )
+                .with_context(|| "Failed to write tree-sitter.json")?;
+            }
+
             (json.grammars.swap_remove(0).name, None)
         };
 
@@ -803,7 +938,7 @@ impl Init {
 impl Generate {
     fn run(self, mut loader: loader::Loader, current_dir: &Path) -> Result<()> {
         if self.log {
-            logger::init();
+            logger::enable_debug();
         }
         let abi_version =
             self.abi_version
@@ -815,30 +950,57 @@ impl Generate {
                         version.parse().expect("invalid abi version flag")
                     }
                 });
-        if self.build {
-            // TODO: remove the `--build` argument in 0.27
-            // TODO: migrate to `warn!` once https://github.com/tree-sitter/tree-sitter/pull/4604 is merged
-            eprintln!("Warning: --build is deprecated, use --stage=lib instead");
-        }
-        if let Err(err) = tree_sitter_generate::generate_parser_in_directory(
+
+        let json_summary = if self.json {
+            warn!("--json is deprecated, use --json-summary instead");
+            true
+        } else {
+            self.json_summary
+        };
+
+        let mut diagnostics = Vec::new();
+        let result = tree_sitter_generate::generate_parser_in_directory(
             current_dir,
             self.output.as_deref(),
             self.grammar_path.as_deref(),
             abi_version,
             self.report_states_for_rule.as_deref(),
             self.js_runtime.as_deref(),
-            self.stage != GenerationStage::Json,
-        ) {
-            if self.json {
-                eprintln!("{}", serde_json::to_string_pretty(&err)?);
+            !self.no_parser,
+            if self.disable_optimizations {
+                OptLevel::empty()
+            } else {
+                OptLevel::default()
+            },
+            &mut diagnostics,
+        );
+        if json_summary {
+            #[derive(serde::Serialize)]
+            struct Envelope<'a> {
+                diagnostics: &'a [Diagnostic],
+                error: Option<&'a GenerateError>,
+            }
+            let envelope = Envelope {
+                diagnostics: &diagnostics,
+                error: result.as_ref().err(),
+            };
+            eprintln!("{}", serde_json::to_string_pretty(&envelope)?);
+            if result.is_err() {
                 // Exit early to prevent errors from being printed a second time in the caller
                 std::process::exit(1);
-            } else {
+            }
+        } else {
+            for d in &diagnostics {
+                warn!("{d}");
+            }
+            if let Err(err) = result {
                 // Removes extra context associated with the error
                 Err(anyhow!(err.to_string())).with_context(|| "Error when generating parser")?;
             }
         }
-        if self.stage == GenerationStage::Lib || self.build {
+
+        if self.build {
+            warn!("--build is deprecated, use the `build` command");
             if let Some(path) = self.libdir {
                 loader = loader::Loader::with_parser_lib_path(path);
             }
@@ -853,28 +1015,30 @@ impl Build {
     fn run(self, mut loader: loader::Loader, current_dir: &Path) -> Result<()> {
         let grammar_path = current_dir.join(self.path.unwrap_or_default());
 
-        if self.docker {
-            eprintln!("Warning: --docker flag is no longer used, and will be removed in a future release.");
-        }
+        loader.debug_build(self.debug);
+        loader.verbose_build(self.verbose);
 
         if self.wasm {
             let output_path = self.output.map(|path| current_dir.join(path));
-            let root_path = get_root_path(&grammar_path.join("tree-sitter.json"))?;
-            wasm::compile_language_to_wasm(
-                &loader,
-                Some(&root_path),
-                &grammar_path,
-                current_dir,
-                output_path,
-            )?;
+            wasm::compile_language_to_wasm(&loader, &grammar_path, current_dir, output_path)?;
         } else {
             let output_path = if let Some(ref path) = self.output {
                 let path = Path::new(path);
-                if path.is_absolute() {
+                let full_path = if path.is_absolute() {
                     path.to_path_buf()
                 } else {
                     current_dir.join(path)
-                }
+                };
+                let parent_path = full_path
+                    .parent()
+                    .context("Output path must have a parent")?;
+                let name = full_path
+                    .file_name()
+                    .context("Output path must have a filename")?;
+                fs::create_dir_all(parent_path).context("Failed to create output path")?;
+                let mut canon_path = parent_path.canonicalize().context("Invalid output path")?;
+                canon_path.push(name);
+                canon_path
             } else {
                 let file_name = grammar_path
                     .file_stem()
@@ -895,15 +1059,11 @@ impl Build {
                 (false, false) => &[],
             };
 
-            loader.debug_build(self.debug);
             loader.force_rebuild(true);
 
-            let config = Config::load(None)?;
-            let loader_config = config.get()?;
-            loader.find_all_languages(&loader_config).unwrap();
             loader
                 .compile_parser_at_path(&grammar_path, output_path, flags)
-                .unwrap();
+                .context("Failed to compile parser")?;
         }
         Ok(())
     }
@@ -912,20 +1072,25 @@ impl Build {
 impl Parse {
     fn run(self, mut loader: loader::Loader, current_dir: &Path) -> Result<()> {
         let config = Config::load(self.config_path)?;
-        let color = env::var("NO_COLOR").map_or(true, |v| v != "1");
+        let json_summary = if self.json {
+            warn!("--json is deprecated, use --json-summary instead");
+            true
+        } else {
+            self.json_summary
+        };
         let output = if self.output_dot {
             ParseOutput::Dot
         } else if self.output_xml {
             ParseOutput::Xml
         } else if self.output_cst {
             ParseOutput::Cst
-        } else if self.quiet || self.json {
+        } else if self.quiet || json_summary {
             ParseOutput::Quiet
         } else {
             ParseOutput::Normal
         };
 
-        let parse_theme = if color {
+        let parse_theme = if paint::color_enabled() {
             config
                 .get::<parse::Config>()
                 .with_context(|| "Failed to parse CST theme")?
@@ -948,23 +1113,21 @@ impl Parse {
         let mut parser = Parser::new();
 
         loader.debug_build(self.debug_build);
-        loader.force_rebuild(self.rebuild);
+        loader.force_rebuild(self.rebuild || self.grammar_path.is_some());
 
-        #[cfg(feature = "wasm")]
         if self.wasm {
-            let engine = tree_sitter::wasmtime::Engine::default();
-            parser
-                .set_wasm_store(tree_sitter::WasmStore::new(&engine).unwrap())
-                .unwrap();
-            loader.use_wasm(&engine);
+            checked_wasm!({
+                let engine = tree_sitter::wasmtime::Engine::default();
+                parser
+                    .set_wasm_store(tree_sitter::WasmStore::new(&engine).unwrap())
+                    .unwrap();
+                loader.use_wasm(&engine);
+            });
         }
 
         let timeout = self.timeout.unwrap_or_default();
 
         let mut has_error = false;
-        let loader_config = config.get()?;
-        loader.find_all_languages(&loader_config)?;
-
         let should_track_stats = self.stat;
         let mut stats = parse::ParseStats::default();
         let debug: ParseDebugType = match self.debug {
@@ -993,7 +1156,7 @@ impl Parse {
 
         let mut update_stats = |stats: &mut parse::ParseStats| {
             let parse_result = stats.parse_summaries.last().unwrap();
-            if should_track_stats {
+            if should_track_stats || json_summary {
                 stats.cumulative_stats.total_parses += 1;
                 if parse_result.successful {
                     stats.cumulative_stats.successful_parses += 1;
@@ -1006,6 +1169,12 @@ impl Parse {
 
             has_error |= !parse_result.successful;
         };
+
+        let lib_info = get_lib_info(self.lib_path.as_ref(), self.lang_name.as_ref(), current_dir);
+        if lib_info.is_none() {
+            let loader_config = config.get()?;
+            loader.find_all_languages(&loader_config)?;
+        }
 
         let input = get_input(
             self.paths_file.as_deref(),
@@ -1020,11 +1189,20 @@ impl Parse {
                     .map(|p| p.to_string_lossy().chars().count())
                     .max()
                     .unwrap_or(0);
+                options.stats.source_count = paths.len();
 
                 for path in &paths {
                     let path = Path::new(&path);
-                    let language =
-                        loader.select_language(path, current_dir, self.scope.as_deref())?;
+                    let language = loader
+                        .select_language(
+                            Some(path),
+                            current_dir,
+                            self.scope.as_deref(),
+                            lib_info.as_ref(),
+                        )
+                        .with_context(|| {
+                            anyhow!("Failed to load language for path \"{}\"", path.display())
+                        })?;
 
                     parse::parse_file_at_path(
                         &mut parser,
@@ -1045,16 +1223,33 @@ impl Parse {
             } => {
                 let path = get_tmp_source_file(&contents)?;
                 let languages = loader.languages_at_path(current_dir)?;
-                let language = languages
-                    .iter()
-                    .find(|(_, n)| language_names.contains(&Box::from(n.as_str())))
-                    .or_else(|| languages.first())
-                    .map(|(l, _)| l.clone())
-                    .ok_or_else(|| anyhow!("No language found"))?;
+
+                let language = if let Some(ref lib_path) = self.lib_path {
+                    &loader
+                        .select_language(
+                            None,
+                            current_dir,
+                            self.scope.as_deref(),
+                            lib_info.as_ref(),
+                        )
+                        .with_context(|| {
+                            anyhow!(
+                                "Failed to load language for path \"{}\"",
+                                lib_path.display()
+                            )
+                        })?
+                } else {
+                    &languages
+                        .iter()
+                        .find(|(_, n)| language_names.contains(&Box::from(n.as_str())))
+                        .or_else(|| languages.first())
+                        .map(|(l, _)| l.clone())
+                        .ok_or_else(|| anyhow!("No language found"))?
+                };
 
                 parse::parse_file_at_path(
                     &mut parser,
-                    &language,
+                    language,
                     &path,
                     &name,
                     name.chars().count(),
@@ -1070,7 +1265,12 @@ impl Parse {
 
                 let path = get_tmp_source_file(&contents)?;
                 let name = "stdin";
-                let language = loader.select_language(&path, current_dir, None)?;
+                let language = loader.select_language(
+                    None,
+                    current_dir,
+                    self.scope.as_deref(),
+                    lib_info.as_ref(),
+                )?;
 
                 parse::parse_file_at_path(
                     &mut parser,
@@ -1088,7 +1288,7 @@ impl Parse {
         if should_track_stats {
             println!("\n{}", stats.cumulative_stats);
         }
-        if self.json {
+        if json_summary {
             println!("{}", serde_json::to_string_pretty(&stats)?);
         }
 
@@ -1100,43 +1300,77 @@ impl Parse {
     }
 }
 
+/// In case an error is encountered, prints out the contents of `test_summary` and
+/// propagates the error
+fn check_test(
+    test_result: Result<()>,
+    test_summary: &TestSummary,
+    json_summary: bool,
+) -> Result<()> {
+    if let Err(e) = test_result {
+        if json_summary {
+            let json_summary = serde_json::to_string_pretty(test_summary)
+                .expect("Failed to encode summary to JSON");
+            println!("{json_summary}");
+        } else {
+            println!("{test_summary}");
+        }
+
+        Err(e)?;
+    }
+
+    Ok(())
+}
+
 impl Test {
     fn run(self, mut loader: loader::Loader, current_dir: &Path) -> Result<()> {
         let config = Config::load(self.config_path)?;
-        let color = env::var("NO_COLOR").map_or(true, |v| v != "1");
         let stat = self.stat.unwrap_or_default();
 
         loader.debug_build(self.debug_build);
-        loader.force_rebuild(self.rebuild);
+        loader.force_rebuild(self.rebuild || self.grammar_path.is_some());
 
         let mut parser = Parser::new();
 
-        #[cfg(feature = "wasm")]
         if self.wasm {
-            let engine = tree_sitter::wasmtime::Engine::default();
-            parser
-                .set_wasm_store(tree_sitter::WasmStore::new(&engine).unwrap())
-                .unwrap();
-            loader.use_wasm(&engine);
+            checked_wasm!({
+                let engine = tree_sitter::wasmtime::Engine::default();
+                parser
+                    .set_wasm_store(tree_sitter::WasmStore::new(&engine).unwrap())
+                    .unwrap();
+                loader.use_wasm(&engine);
+            });
         }
 
         let languages = loader.languages_at_path(current_dir)?;
-        let language = &languages
-            .first()
-            .ok_or_else(|| anyhow!("No language found"))?
-            .0;
+        let language = if let Some(ref lib_path) = self.lib_path {
+            let lib_info =
+                get_lib_info(self.lib_path.as_ref(), self.lang_name.as_ref(), current_dir);
+            &loader
+                .select_language(None, current_dir, None, lib_info.as_ref())
+                .with_context(|| {
+                    anyhow!(
+                        "Failed to load language for path \"{}\"",
+                        lib_path.display()
+                    )
+                })?
+        } else {
+            &languages
+                .first()
+                .ok_or_else(|| anyhow!("No language found"))?
+                .0
+        };
         parser.set_language(language)?;
 
         let test_dir = current_dir.join("test");
-        let mut stats = parse::Stats::default();
+        let mut test_summary =
+            TestSummary::new(stat, self.update, self.overview_only, self.json_summary);
+        test_summary.use_markers = self.show_diff_markers;
 
         // Run the corpus tests. Look for them in `test/corpus`.
         let test_corpus_dir = test_dir.join("corpus");
         if test_corpus_dir.is_dir() {
-            let mut output = String::new();
-            let mut rates = Vec::new();
-            let mut opts = TestOptions {
-                output: &mut output,
+            let opts = TestOptions {
                 path: test_corpus_dir,
                 debug: self.debug,
                 debug_graph: self.debug_graph,
@@ -1146,54 +1380,73 @@ impl Test {
                 update: self.update,
                 open_log: self.open_log,
                 languages: languages.iter().map(|(l, n)| (n.as_str(), l)).collect(),
-                color,
-                test_num: 1,
-                parse_rates: &mut rates,
-                stat_display: stat,
-                stats: &mut stats,
                 show_fields: self.show_fields,
                 overview_only: self.overview_only,
             };
 
-            test::run_tests_at_path(&mut parser, &mut opts)?;
-            println!("\n{stats}");
+            check_test(
+                test::run_tests_at_path(&mut parser, &opts, &mut test_summary),
+                &test_summary,
+                self.json_summary,
+            )?;
+            test_summary.test_num = 1;
+        } else {
+            warn!("Test corpus not found at {}", test_corpus_dir.display());
         }
 
         // Check that all of the queries are valid.
-        test::check_queries_at_path(language, &current_dir.join("queries"))?;
+        let query_dir = current_dir.join("queries");
+        if query_dir.is_dir() {
+            check_test(
+                test::check_queries_at_path(language, &query_dir),
+                &test_summary,
+                self.json_summary,
+            )?;
+            test_summary.test_num = 1;
+        }
 
         // Run the syntax highlighting tests.
         let test_highlight_dir = test_dir.join("highlight");
         if test_highlight_dir.is_dir() {
             let mut highlighter = Highlighter::new();
             highlighter.parser = parser;
-            test_highlight::test_highlights(
-                &loader,
-                &config.get()?,
-                &mut highlighter,
-                &test_highlight_dir,
-                color,
+            check_test(
+                test_highlight::test_highlights(
+                    &loader,
+                    &config.get()?,
+                    &mut highlighter,
+                    &test_highlight_dir,
+                    &mut test_summary,
+                ),
+                &test_summary,
+                self.json_summary,
             )?;
             parser = highlighter.parser;
+            test_summary.test_num = 1;
         }
 
         let test_tag_dir = test_dir.join("tags");
         if test_tag_dir.is_dir() {
             let mut tags_context = TagsContext::new();
             tags_context.parser = parser;
-            test_tags::test_tags(
-                &loader,
-                &config.get()?,
-                &mut tags_context,
-                &test_tag_dir,
-                color,
+            check_test(
+                test_tags::test_tags(
+                    &loader,
+                    &config.get()?,
+                    &mut tags_context,
+                    &test_tag_dir,
+                    &mut test_summary,
+                ),
+                &test_summary,
+                self.json_summary,
             )?;
+            test_summary.test_num = 1;
         }
 
         // For the rest of the queries, find their tests and run them
-        for entry in walkdir::WalkDir::new(current_dir.join("queries"))
+        for entry in walkdir::WalkDir::new(&query_dir)
             .into_iter()
-            .filter_map(|e| e.ok())
+            .filter_map(std::result::Result::ok)
             .filter(|e| e.file_type().is_file())
         {
             let stem = entry
@@ -1214,46 +1467,77 @@ impl Test {
                     })
                     .collect::<Vec<_>>();
                 if !entries.is_empty() {
-                    println!("{stem}:");
+                    test_summary.query_results.add_group(stem);
                 }
 
-                for entry in entries {
+                test_summary.test_num = 1;
+                let opts = QueryFileOptions::default();
+                for entry in &entries {
                     let path = entry.path();
-                    query::query_file_at_path(
-                        language,
-                        path,
-                        &path.display().to_string(),
-                        path,
-                        false,
-                        None,
-                        None,
-                        true,
-                        false,
-                        false,
-                        false,
+                    check_test(
+                        query::query_file_at_path(
+                            language,
+                            path,
+                            &path.display().to_string(),
+                            path,
+                            &opts,
+                            Some(&mut test_summary),
+                        ),
+                        &test_summary,
+                        self.json_summary,
                     )?;
+                }
+                if !entries.is_empty() {
+                    test_summary.query_results.pop_traversal();
                 }
             }
         }
+        test_summary.test_num = 1;
+
+        if self.json_summary {
+            let json_summary = serde_json::to_string_pretty(&test_summary)
+                .expect("Failed to encode test summary to JSON");
+            println!("{json_summary}");
+        } else {
+            println!("{test_summary}");
+        }
+
         Ok(())
     }
 }
 
 impl Version {
     fn run(self, current_dir: PathBuf) -> Result<()> {
-        version::Version::new(self.version.to_string(), current_dir).run()
+        Ok(version::Version::new(self.version, current_dir, self.bump).run()?)
     }
 }
 
 impl Fuzz {
     fn run(self, mut loader: loader::Loader, current_dir: &Path) -> Result<()> {
         loader.sanitize_build(true);
-        loader.force_rebuild(self.rebuild);
+        loader.force_rebuild(self.rebuild || self.grammar_path.is_some());
 
         let languages = loader.languages_at_path(current_dir)?;
-        let (language, language_name) = &languages
-            .first()
-            .ok_or_else(|| anyhow!("No language found"))?;
+        let (language, language_name) = if let Some(ref lib_path) = self.lib_path {
+            let lib_info = get_lib_info(Some(lib_path), self.lang_name.as_ref(), current_dir)
+                .with_context(|| anyhow!("No language name found for {}", lib_path.display()))?;
+            let lang_name = lib_info.1.to_string();
+            &(
+                loader
+                    .select_language(None, current_dir, None, Some(&lib_info))
+                    .with_context(|| {
+                        anyhow!(
+                            "Failed to load language for path \"{}\"",
+                            lib_path.display()
+                        )
+                    })?,
+                lang_name,
+            )
+        } else {
+            languages
+                .first()
+                .ok_or_else(|| anyhow!("No language found"))?
+        };
 
         let mut fuzz_options = FuzzOptions {
             skipped: self.skip,
@@ -1280,22 +1564,20 @@ impl Fuzz {
 impl Query {
     fn run(self, mut loader: loader::Loader, current_dir: &Path) -> Result<()> {
         let config = Config::load(self.config_path)?;
-        let loader_config = config.get()?;
-        loader.find_all_languages(&loader_config)?;
+        let lib_info = get_lib_info(self.lib_path.as_ref(), self.lang_name.as_ref(), current_dir);
+        if lib_info.is_none() {
+            let loader_config = config.get()?;
+            loader.find_all_languages(&loader_config)?;
+        }
+        loader.force_rebuild(self.rebuild || self.grammar_path.is_some());
         let query_path = Path::new(&self.query_path);
 
-        let byte_range = self.byte_range.as_ref().and_then(|range| {
-            let mut parts = range.split(':');
-            let start = parts.next()?.parse().ok()?;
-            let end = parts.next().unwrap().parse().ok()?;
-            Some(start..end)
-        });
-        let point_range = self.row_range.as_ref().and_then(|range| {
-            let mut parts = range.split(':');
-            let start = parts.next()?.parse().ok()?;
-            let end = parts.next().unwrap().parse().ok()?;
-            Some(Point::new(start, 0)..Point::new(end, 0))
-        });
+        let byte_range = parse_range(self.byte_range.as_deref(), |x| x)?;
+        let point_range = parse_range(self.row_range.as_deref(), |row| Point::new(row, 0))?;
+        let containing_byte_range = parse_range(self.containing_byte_range.as_deref(), |x| x)?;
+        let containing_point_range = parse_range(self.containing_row_range.as_deref(), |row| {
+            Point::new(row, 0)
+        })?;
 
         let cancellation_flag = util::cancel_on_signal();
 
@@ -1309,24 +1591,30 @@ impl Query {
         match input {
             CliInput::Paths(paths) => {
                 let language = loader.select_language(
-                    Path::new(&paths[0]),
+                    Some(Path::new(&paths[0])),
                     current_dir,
                     self.scope.as_deref(),
+                    lib_info.as_ref(),
                 )?;
 
+                let opts = QueryFileOptions {
+                    ordered_captures: self.captures,
+                    byte_range,
+                    point_range,
+                    containing_byte_range,
+                    containing_point_range,
+                    quiet: self.quiet,
+                    print_time: self.time,
+                    stdin: false,
+                };
                 for path in paths {
                     query::query_file_at_path(
                         &language,
                         &path,
                         &path.display().to_string(),
                         query_path,
-                        self.captures,
-                        byte_range.clone(),
-                        point_range.clone(),
-                        self.test,
-                        self.quiet,
-                        self.time,
-                        false,
+                        &opts,
+                        None,
                     )?;
                 }
             }
@@ -1337,25 +1625,34 @@ impl Query {
             } => {
                 let path = get_tmp_source_file(&contents)?;
                 let languages = loader.languages_at_path(current_dir)?;
-                let language = languages
-                    .iter()
-                    .find(|(_, n)| language_names.contains(&Box::from(n.as_str())))
-                    .or_else(|| languages.first())
-                    .map(|(l, _)| l.clone())
-                    .ok_or_else(|| anyhow!("No language found"))?;
-                query::query_file_at_path(
-                    &language,
-                    &path,
-                    &name,
-                    query_path,
-                    self.captures,
+                let language = if let Some(ref lib_path) = self.lib_path {
+                    &loader
+                        .select_language(None, current_dir, None, lib_info.as_ref())
+                        .with_context(|| {
+                            anyhow!(
+                                "Failed to load language for path \"{}\"",
+                                lib_path.display()
+                            )
+                        })?
+                } else {
+                    &languages
+                        .iter()
+                        .find(|(_, n)| language_names.contains(&Box::from(n.as_str())))
+                        .or_else(|| languages.first())
+                        .map(|(l, _)| l.clone())
+                        .ok_or_else(|| anyhow!("No language found"))?
+                };
+                let opts = QueryFileOptions {
+                    ordered_captures: self.captures,
                     byte_range,
                     point_range,
-                    self.test,
-                    self.quiet,
-                    self.time,
-                    true,
-                )?;
+                    containing_byte_range,
+                    containing_point_range,
+                    quiet: self.quiet,
+                    print_time: self.time,
+                    stdin: true,
+                };
+                query::query_file_at_path(language, &path, &name, query_path, &opts, None)?;
                 fs::remove_file(path)?;
             }
             CliInput::Stdin(contents) => {
@@ -1363,20 +1660,19 @@ impl Query {
                 println!();
 
                 let path = get_tmp_source_file(&contents)?;
-                let language = loader.select_language(&path, current_dir, None)?;
-                query::query_file_at_path(
-                    &language,
-                    &path,
-                    "stdin",
-                    query_path,
-                    self.captures,
+                let language =
+                    loader.select_language(None, current_dir, None, lib_info.as_ref())?;
+                let opts = QueryFileOptions {
+                    ordered_captures: self.captures,
                     byte_range,
                     point_range,
-                    self.test,
-                    self.quiet,
-                    self.time,
-                    true,
-                )?;
+                    containing_byte_range,
+                    containing_point_range,
+                    quiet: self.quiet,
+                    print_time: self.time,
+                    stdin: true,
+                };
+                query::query_file_at_path(&language, &path, "stdin", query_path, &opts, None)?;
                 fs::remove_file(path)?;
             }
         }
@@ -1392,6 +1688,8 @@ impl Highlight {
         loader.configure_highlights(&theme_config.theme.highlight_names);
         let loader_config = config.get()?;
         loader.find_all_languages(&loader_config)?;
+        loader.force_rebuild(self.rebuild || self.grammar_path.is_some());
+        let languages = loader.languages_at_path(current_dir)?;
 
         let cancellation_flag = util::cancel_on_signal();
 
@@ -1406,15 +1704,29 @@ impl Highlight {
             }
         }
 
+        let encoding = self.encoding.map(|e| match e {
+            Encoding::Utf8 => ffi::TSInputEncodingUTF8,
+            Encoding::Utf16LE => ffi::TSInputEncodingUTF16LE,
+            Encoding::Utf16BE => ffi::TSInputEncodingUTF16BE,
+        });
+
+        let style = if self.css_classes {
+            // TODO: Remove during the 0.28 release cycle
+            warn!("--css-classes is deprecated, use --style classes instead");
+            HtmlStyling::Classes
+        } else {
+            self.style
+        };
+
         let options = HighlightOptions {
             theme: theme_config.theme,
             check: self.check,
             captures_path: self.captures_path,
-            inline_styles: !self.css_classes,
-            html: self.html,
+            html: self.html.then_some((self.layout, style)),
             quiet: self.quiet,
             print_time: self.time,
             cancellation_flag: cancellation_flag.clone(),
+            encoding,
         };
 
         let input = get_input(
@@ -1436,7 +1748,7 @@ impl Highlight {
                                 {
                                     (lang, lang_config)
                                 } else {
-                                    eprintln!(
+                                    warn!(
                                         "{}",
                                         util::lang_not_found_for_path(&path, &loader_config)
                                     );
@@ -1457,7 +1769,7 @@ impl Highlight {
                             &options,
                         )?;
                     } else {
-                        eprintln!(
+                        warn!(
                             "No syntax highlighting config found for path {}",
                             path.display()
                         );
@@ -1472,7 +1784,6 @@ impl Highlight {
             } => {
                 let path = get_tmp_source_file(&contents)?;
 
-                let languages = loader.languages_at_path(current_dir)?;
                 let language = languages
                     .iter()
                     .find(|(_, n)| language_names.contains(&Box::from(n.as_str())))
@@ -1488,7 +1799,7 @@ impl Highlight {
                 {
                     highlight::highlight(&loader, &path, &name, highlight_config, false, &options)?;
                 } else {
-                    eprintln!("No syntax highlighting config found for test {name}");
+                    warn!("No syntax highlighting config found for test {name}");
                 }
                 fs::remove_file(path)?;
             }
@@ -1500,10 +1811,9 @@ impl Highlight {
                 let path = get_tmp_source_file(&contents)?;
 
                 let (language, language_config) =
-                    if let (Some(l), Some(lc)) = (language.clone(), language_configuration) {
+                    if let (Some(l), Some(lc)) = (language, language_configuration) {
                         (l, lc)
                     } else {
-                        let languages = loader.languages_at_path(current_dir)?;
                         let language = languages
                             .first()
                             .map(|(l, _)| l.clone())
@@ -1528,7 +1838,7 @@ impl Highlight {
                         &options,
                     )?;
                 } else {
-                    eprintln!(
+                    warn!(
                         "No syntax highlighting config found for path {}",
                         current_dir.display()
                     );
@@ -1546,6 +1856,7 @@ impl Tags {
         let config = Config::load(self.config_path)?;
         let loader_config = config.get()?;
         loader.find_all_languages(&loader_config)?;
+        loader.force_rebuild(self.rebuild || self.grammar_path.is_some());
 
         let cancellation_flag = util::cancel_on_signal();
 
@@ -1586,7 +1897,7 @@ impl Tags {
                                 {
                                     (lang, lang_config)
                                 } else {
-                                    eprintln!(
+                                    warn!(
                                         "{}",
                                         util::lang_not_found_for_path(&path, &loader_config)
                                     );
@@ -1604,7 +1915,7 @@ impl Tags {
                             &options,
                         )?;
                     } else {
-                        eprintln!("No tags config found for path {}", path.display());
+                        warn!("No tags config found for path {}", path.display());
                     }
                 }
             }
@@ -1630,7 +1941,7 @@ impl Tags {
                 if let Some(tags_config) = language_config.tags_config(language)? {
                     tags::generate_tags(&path, &name, tags_config, false, &options)?;
                 } else {
-                    eprintln!("No tags config found for test {name}");
+                    warn!("No tags config found for test {name}");
                 }
                 fs::remove_file(path)?;
             }
@@ -1642,7 +1953,7 @@ impl Tags {
                 let path = get_tmp_source_file(&contents)?;
 
                 let (language, language_config) =
-                    if let (Some(l), Some(lc)) = (language.clone(), language_configuration) {
+                    if let (Some(l), Some(lc)) = (language, language_configuration) {
                         (l, lc)
                     } else {
                         let languages = loader.languages_at_path(current_dir)?;
@@ -1661,7 +1972,7 @@ impl Tags {
                 if let Some(tags_config) = language_config.tags_config(language)? {
                     tags::generate_tags(&path, "stdin", tags_config, false, &options)?;
                 } else {
-                    eprintln!("No tags config found for path {}", current_dir.display());
+                    warn!("No tags config found for path {}", current_dir.display());
                 }
                 fs::remove_file(path)?;
             }
@@ -1673,9 +1984,15 @@ impl Tags {
 
 impl Playground {
     fn run(self, current_dir: &Path) -> Result<()> {
-        let open_in_browser = !self.quiet;
         let grammar_path = self.grammar_path.as_deref().map_or(current_dir, Path::new);
-        playground::serve(grammar_path, open_in_browser)?;
+
+        if let Some(export_path) = self.export {
+            playground::export(grammar_path, &export_path)?;
+        } else {
+            let open_in_browser = !self.quiet;
+            playground::serve(grammar_path, open_in_browser)?;
+        }
+
         Ok(())
     }
 }
@@ -1686,17 +2003,19 @@ impl DumpLanguages {
         let loader_config = config.get()?;
         loader.find_all_languages(&loader_config)?;
         for (configuration, language_path) in loader.get_all_language_configurations() {
-            println!(
+            info!(
                 concat!(
+                    "name: {}\n",
                     "scope: {}\n",
-                    "parser: {:?}\n",
+                    "parser: {}\n",
                     "highlights: {:?}\n",
                     "file_types: {:?}\n",
                     "content_regex: {:?}\n",
                     "injection_regex: {:?}\n",
                 ),
+                configuration.language_name,
                 configuration.scope.as_ref().unwrap_or(&String::new()),
-                language_path,
+                language_path.display(),
                 configuration.highlights_filenames,
                 configuration.file_types,
                 configuration.content_regex,
@@ -1729,35 +2048,36 @@ fn main() {
     let result = run();
     if let Err(err) = &result {
         // Ignore BrokenPipe errors
-        if let Some(error) = err.downcast_ref::<std::io::Error>() {
-            if error.kind() == std::io::ErrorKind::BrokenPipe {
-                return;
-            }
+        if let Some(error) = err.downcast_ref::<std::io::Error>()
+            && error.kind() == std::io::ErrorKind::BrokenPipe
+        {
+            return;
         }
         if !err.to_string().is_empty() {
-            eprintln!("{err:?}");
+            error!("{err:?}");
         }
         std::process::exit(1);
     }
 }
 
 fn run() -> Result<()> {
+    logger::init();
+
     let version = BUILD_SHA.map_or_else(
         || BUILD_VERSION.to_string(),
         |build_sha| format!("{BUILD_VERSION} ({build_sha})"),
     );
-    let version: &'static str = Box::leak(version.into_boxed_str());
 
     let cli = Command::new("tree-sitter")
-        .help_template(
-            "\
-{before-help}{name} {version}
-{author-with-newline}{about-with-newline}
-{usage-heading} {usage}
-
-{all-args}{after-help}
-",
-        )
+        .help_template(concat!(
+            "\n",
+            "{before-help}{name} {version}\n",
+            "{author-with-newline}{about-with-newline}\n",
+            "{usage-heading} {usage}\n",
+            "\n",
+            "{all-args}{after-help}\n",
+            "\n"
+        ))
         .version(version)
         .subcommand_required(true)
         .arg_required_else_help(true)
@@ -1784,7 +2104,7 @@ fn run() -> Result<()> {
         | Commands::Complete(_) => &None,
     }
     .as_ref()
-    .map_or_else(|| env::current_dir().unwrap(), |p| p.clone());
+    .map_or_else(|| env::current_dir().unwrap(), std::clone::Clone::clone);
 
     let loader = loader::Loader::new()?;
 
@@ -1838,4 +2158,60 @@ const fn get_styles() -> clap::builder::Styles {
                 .fg_color(Some(Color::Ansi(AnsiColor::Green))),
         )
         .placeholder(Style::new().fg_color(Some(Color::Ansi(AnsiColor::White))))
+}
+
+/// Utility to extract the shared library path and language function name from user-provided
+/// arguments if present.
+fn get_lib_info<'a>(
+    lib_path: Option<&'a PathBuf>,
+    language_name: Option<&'a String>,
+    current_dir: &Path,
+) -> Option<(PathBuf, &'a str)> {
+    if let Some(lib_path) = lib_path {
+        let absolute_lib_path = if lib_path.is_absolute() {
+            lib_path.clone()
+        } else {
+            current_dir.join(lib_path)
+        };
+        // Use the user-specified name if present, otherwise try to derive it from
+        // the lib path
+        match (
+            language_name.map(std::string::String::as_str),
+            lib_path.file_stem().and_then(|s| s.to_str()),
+        ) {
+            (Some(name), _) | (None, Some(name)) => Some((absolute_lib_path, name)),
+            _ => None,
+        }
+    } else {
+        None
+    }
+}
+
+/// Parse a range string of the form "start:end" into an optional Range<T>.
+fn parse_range<T>(
+    range_str: Option<&str>,
+    make: impl Fn(usize) -> T,
+) -> Result<Option<std::ops::Range<T>>> {
+    if let Some(range) = range_str {
+        let err_msg = format!("Invalid range '{range}', expected 'start:end'");
+        let mut parts = range.split(':');
+
+        let Some(part) = parts.next() else {
+            Err(anyhow!(err_msg))?
+        };
+        let Ok(start) = part.parse::<usize>() else {
+            Err(anyhow!(err_msg))?
+        };
+
+        let Some(part) = parts.next() else {
+            Err(anyhow!(err_msg))?
+        };
+        let Ok(end) = part.parse::<usize>() else {
+            Err(anyhow!(err_msg))?
+        };
+
+        Ok(Some(make(start)..make(end)))
+    } else {
+        Ok(None)
+    }
 }

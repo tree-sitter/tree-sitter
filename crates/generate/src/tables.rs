@@ -24,9 +24,9 @@ pub enum ParseAction {
     Recover,
     Reduce {
         symbol: Symbol,
-        child_count: usize,
+        child_count: u16,
         dynamic_precedence: i32,
-        production_id: ProductionInfoId,
+        production_id: u16,
     },
 }
 
@@ -94,6 +94,7 @@ pub struct LexTable {
 
 impl ParseTableEntry {
     #[must_use]
+    #[allow(clippy::new_without_default)]
     pub const fn new() -> Self {
         Self {
             reusable: true,
@@ -103,6 +104,7 @@ impl ParseTableEntry {
 }
 
 impl ParseState {
+    #[must_use]
     pub fn is_end_of_non_terminal_extra(&self) -> bool {
         self.terminal_entries
             .contains_key(&Symbol::end_of_nonterminal_extra())

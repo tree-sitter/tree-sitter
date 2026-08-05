@@ -1,9 +1,11 @@
-const assert = require("node:assert");
-const { test } = require("node:test");
-
-const Parser = require("tree-sitter");
+import assert from "node:assert";
+import { test } from "node:test";
+import Parser from "tree-sitter";
 
 test("can load grammar", () => {
   const parser = new Parser();
-  assert.doesNotThrow(() => parser.setLanguage(require(".")));
+  assert.doesNotReject(async () => {
+    const { default: language } = await import("./index.js");
+    parser.setLanguage(language);
+  });
 });

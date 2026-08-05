@@ -2,7 +2,7 @@ use std::process::Command;
 
 use anyhow::Result;
 
-use crate::{bail_on_err, Clippy};
+use crate::{Clippy, bail_on_err};
 
 pub fn run(args: &Clippy) -> Result<()> {
     let mut clippy_command = Command::new("cargo");

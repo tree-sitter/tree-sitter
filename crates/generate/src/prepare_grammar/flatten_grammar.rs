@@ -1,7 +1,6 @@
-use std::collections::HashMap;
+use rustc_hash::FxHashMap;
 
-use anyhow::Result;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use super::ExtractedSyntaxGrammar;
@@ -14,7 +13,7 @@ use crate::{
 
 pub type FlattenGrammarResult<T> = Result<T, FlattenGrammarError>;
 
-#[derive(Debug, Error, Serialize)]
+#[derive(Debug, Error, Serialize, Deserialize)]
 pub enum FlattenGrammarError {
     #[error("No such reserved word set: {0}")]
     NoReservedWordSet(String),
@@ -32,7 +31,7 @@ unless they are used only as the grammar's start rule.
 
 struct RuleFlattener {
     production: Production,
-    reserved_word_set_ids: HashMap<String, ReservedWordSetId>,
+    reserved_word_set_ids: FxHashMap<String, ReservedWordSetId>,
     precedence_stack: Vec<Precedence>,
     associativity_stack: Vec<Associativity>,
     reserved_word_stack: Vec<ReservedWordSetId>,
@@ -41,7 +40,7 @@ struct RuleFlattener {
 }
 
 impl RuleFlattener {
-    const fn new(reserved_word_set_ids: HashMap<String, ReservedWordSetId>) -> Self {
+    const fn new(reserved_word_set_ids: FxHashMap<String, ReservedWordSetId>) -> Self {
         Self {
             production: Production {
                 steps: Vec::new(),
@@ -179,7 +178,7 @@ impl RuleFlattener {
                         .reserved_word_stack
                         .last()
                         .copied()
-                        .unwrap_or(ReservedWordSetId::default()),
+                        .unwrap_or_default(),
                     alias: self.alias_stack.last().cloned(),
                     field_name: self.field_name_stack.last().cloned(),
                 });
@@ -249,7 +248,7 @@ fn symbol_is_used(variables: &[SyntaxVariable], symbol: Symbol) -> bool {
 pub(super) fn flatten_grammar(
     grammar: ExtractedSyntaxGrammar,
 ) -> FlattenGrammarResult<SyntaxGrammar> {
-    let mut reserved_word_set_ids_by_name = HashMap::new();
+    let mut reserved_word_set_ids_by_name = FxHashMap::default();
     for (ix, set) in grammar.reserved_word_sets.iter().enumerate() {
         reserved_word_set_ids_by_name.insert(set.name.clone(), ReservedWordSetId(ix));
     }
@@ -308,7 +307,7 @@ mod tests {
 
     #[test]
     fn test_flatten_grammar() {
-        let mut flattener = RuleFlattener::new(HashMap::default());
+        let mut flattener = RuleFlattener::new(FxHashMap::default());
         let result = flattener
             .flatten_variable(Variable {
                 name: "test".to_string(),
@@ -369,7 +368,7 @@ mod tests {
 
     #[test]
     fn test_flatten_grammar_with_maximum_dynamic_precedence() {
-        let mut flattener = RuleFlattener::new(HashMap::default());
+        let mut flattener = RuleFlattener::new(FxHashMap::default());
         let result = flattener
             .flatten_variable(Variable {
                 name: "test".to_string(),
@@ -425,7 +424,7 @@ mod tests {
 
     #[test]
     fn test_flatten_grammar_with_final_precedence() {
-        let mut flattener = RuleFlattener::new(HashMap::default());
+        let mut flattener = RuleFlattener::new(FxHashMap::default());
         let result = flattener
             .flatten_variable(Variable {
                 name: "test".to_string(),
@@ -465,15 +464,17 @@ mod tests {
             result.productions,
             vec![Production {
                 dynamic_precedence: 0,
-                steps: vec![ProductionStep::new(Symbol::non_terminal(1))
-                    .with_prec(Precedence::Integer(101), Some(Associativity::Left)),]
+                steps: vec![
+                    ProductionStep::new(Symbol::non_terminal(1))
+                        .with_prec(Precedence::Integer(101), Some(Associativity::Left)),
+                ]
             }]
         );
     }
 
     #[test]
     fn test_flatten_grammar_with_field_names() {
-        let mut flattener = RuleFlattener::new(HashMap::default());
+        let mut flattener = RuleFlattener::new(FxHashMap::default());
         let result = flattener
             .flatten_variable(Variable {
                 name: "test".to_string(),

@@ -1,4 +1,6 @@
-use std::{collections::HashMap, mem};
+use std::mem;
+
+use rustc_hash::FxHashMap;
 
 use super::ExtractedSyntaxGrammar;
 use crate::{
@@ -11,7 +13,7 @@ struct Expander {
     repeat_count_in_variable: usize,
     preceding_symbol_count: usize,
     auxiliary_variables: Vec<Variable>,
-    existing_repeats: HashMap<Rule, Symbol>,
+    existing_repeats: FxHashMap<Rule, Symbol>,
 }
 
 impl Expander {
@@ -27,7 +29,7 @@ impl Expander {
         // another auxiliary rule.
         if let (VariableType::Hidden, Rule::Repeat(repeated_content)) = (variable.kind, &rule) {
             let inner_rule = self.expand_rule(repeated_content);
-            variable.rule = self.wrap_rule_in_binary_tree(Symbol::non_terminal(index), inner_rule);
+            variable.rule = Self::wrap_rule_in_binary_tree(Symbol::non_terminal(index), inner_rule);
             variable.kind = VariableType::Auxiliary;
             return true;
         }
@@ -81,7 +83,7 @@ impl Expander {
                 self.auxiliary_variables.push(Variable {
                     name: rule_name,
                     kind: VariableType::Auxiliary,
-                    rule: self.wrap_rule_in_binary_tree(repeat_symbol, inner_rule),
+                    rule: Self::wrap_rule_in_binary_tree(repeat_symbol, inner_rule),
                 });
 
                 Rule::Symbol(repeat_symbol)
@@ -92,7 +94,7 @@ impl Expander {
         }
     }
 
-    fn wrap_rule_in_binary_tree(&self, symbol: Symbol, rule: Rule) -> Rule {
+    fn wrap_rule_in_binary_tree(symbol: Symbol, rule: Rule) -> Rule {
         Rule::choice(vec![
             Rule::Seq(vec![Rule::Symbol(symbol), Rule::Symbol(symbol)]),
             rule,
@@ -106,7 +108,7 @@ pub(super) fn expand_repeats(mut grammar: ExtractedSyntaxGrammar) -> ExtractedSy
         repeat_count_in_variable: 0,
         preceding_symbol_count: grammar.variables.len(),
         auxiliary_variables: Vec::new(),
-        existing_repeats: HashMap::new(),
+        existing_repeats: FxHashMap::default(),
     };
 
     for (i, variable) in grammar.variables.iter_mut().enumerate() {

@@ -34,6 +34,9 @@ function blank() {
 }
 
 function field(name, rule) {
+  if (typeof name !== "string" || !/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name)) {
+    throw new Error(`Invalid field name '${name}': field names must start with a letter or underscore, followed by letters, digits, or underscores`);
+  }
   return {
     type: "FIELD",
     name,
@@ -70,7 +73,7 @@ function prec(number, rule) {
   };
 }
 
-prec.left = function(number, rule) {
+prec.left = function (number, rule) {
   if (rule == null) {
     rule = number;
     number = 0;
@@ -92,7 +95,7 @@ prec.left = function(number, rule) {
   };
 }
 
-prec.right = function(number, rule) {
+prec.right = function (number, rule) {
   if (rule == null) {
     rule = number;
     number = 0;
@@ -114,7 +117,7 @@ prec.right = function(number, rule) {
   };
 }
 
-prec.dynamic = function(number, rule) {
+prec.dynamic = function (number, rule) {
   checkPrecedence(number);
   checkArguments(
     arguments,
@@ -184,7 +187,7 @@ function token(value) {
   };
 }
 
-token.immediate = function(value) {
+token.immediate = function (value) {
   checkArguments(arguments, arguments.length, token.immediate, 'token.immediate', '', 'literal');
   return {
     type: "IMMEDIATE_TOKEN",
@@ -517,6 +520,7 @@ function checkPrecedence(value) {
 }
 
 function getEnv(name) {
+  if (globalThis.native) return globalThis.__ts_grammar_path;
   if (globalThis.process) return process.env[name]; // Node/Bun
   if (globalThis.Deno) return Deno.env.get(name); // Deno
   throw Error("Unsupported JS runtime");
@@ -529,7 +533,7 @@ globalThis.optional = optional;
 globalThis.prec = prec;
 globalThis.repeat = repeat;
 globalThis.repeat1 = repeat1;
-global.reserved = reserved;
+globalThis.reserved = reserved;
 globalThis.seq = seq;
 globalThis.sym = sym;
 globalThis.token = token;
@@ -537,14 +541,23 @@ globalThis.grammar = grammar;
 globalThis.field = field;
 globalThis.RustRegex = RustRegex;
 
-const result = await import(getEnv("TREE_SITTER_GRAMMAR_PATH"));
+const grammarPath = getEnv("TREE_SITTER_GRAMMAR_PATH");
+let result = await import(grammarPath);
+let grammarObj = result.default?.grammar ?? result.grammar;
+
+if (globalThis.native && !grammarObj) {
+  grammarObj = module.exports.grammar;
+}
+
 const object = {
   "$schema": "https://tree-sitter.github.io/tree-sitter/assets/schemas/grammar.schema.json",
-  ...(result.default?.grammar ?? result.grammar)
+  ...grammarObj,
 };
 const output = JSON.stringify(object);
 
-if (globalThis.process) { // Node/Bun
+if (globalThis.native) {
+  globalThis.output = output;
+} else if (globalThis.process) { // Node/Bun
   process.stdout.write(output);
 } else if (globalThis.Deno) { // Deno
   Deno.stdout.writeSync(new TextEncoder().encode(output));

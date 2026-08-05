@@ -1,15 +1,17 @@
-import { INTERNAL, Internal, assertInternal, Point, Edit, SIZE_OF_INT, SIZE_OF_NODE, SIZE_OF_POINT, ZERO_POINT, isPoint, C } from './constants';
+import { INTERNAL, Internal, assertInternal, SIZE_OF_INT, SIZE_OF_NODE, SIZE_OF_POINT, ZERO_POINT, isPoint, C, Point } from './constants';
 import { getText, Tree } from './tree';
 import { TreeCursor } from './tree_cursor';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Language } from './language';
 import { marshalNode, marshalPoint, unmarshalNode, unmarshalPoint } from './marshal';
 import { TRANSFER_BUFFER } from './parser';
+import { Edit } from './edit';
 
 /** A single node within a syntax {@link Tree}. */
 export class Node {
   /** @internal */
-  private [0] = 0; // Internal handle for WASM
+  // @ts-expect-error: never read
+  private [0] = 0; // Internal handle for Wasm
 
   /** @internal */
   private _children?: Node[];
@@ -427,7 +429,7 @@ export class Node {
       }
     }
 
-    // Copy the array of symbols to the WASM heap
+    // Copy the array of symbols to the Wasm heap
     const symbolsAddress = C._malloc(SIZE_OF_INT * symbols.length);
     for (let i = 0, n = symbols.length; i < n; i++) {
       C.setValue(symbolsAddress + i * SIZE_OF_INT, symbols[i], 'i32');
@@ -635,7 +637,7 @@ export class Node {
   }
 
   /** Get the S-expression representation of this node. */
-  toString() {
+  toString(): string {
     marshalNode(this);
     const address = C._ts_node_to_string_wasm(this.tree[0]);
     const result = C.AsciiToString(address);

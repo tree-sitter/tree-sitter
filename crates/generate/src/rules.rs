@@ -1,32 +1,32 @@
-use std::{collections::HashMap, fmt};
+use std::{collections::BTreeMap, fmt, hash::Hash};
 
-use serde::Serialize;
-use smallbitvec::SmallBitVec;
+use serde::{Deserialize, Serialize};
 
+use super::bitvec::{BitVec, SetBitsIter};
 use super::grammars::VariableType;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum SymbolType {
-    External,
-    End,
-    EndOfNonTerminalExtra,
-    Terminal,
-    NonTerminal,
+    External = 0,
+    End = 1,
+    EndOfNonTerminalExtra = 2,
+    Terminal = 3,
+    NonTerminal = 4,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Associativity {
     Left,
     Right,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Alias {
     pub value: String,
     pub is_named: bool,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Default, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Default, Serialize, Deserialize)]
 pub enum Precedence {
     #[default]
     None,
@@ -34,9 +34,9 @@ pub enum Precedence {
     Name(String),
 }
 
-pub type AliasMap = HashMap<Symbol, Alias>;
+pub type AliasMap = BTreeMap<Symbol, Alias>;
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct MetadataParams {
     pub precedence: Precedence,
     pub dynamic_precedence: i32,
@@ -47,28 +47,28 @@ pub struct MetadataParams {
     pub field_name: Option<String>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Symbol {
     pub kind: SymbolType,
     pub index: usize,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Rule {
     Blank,
     String(String),
     Pattern(String, String),
     NamedSymbol(String),
     Symbol(Symbol),
-    Choice(Vec<Rule>),
+    Choice(Vec<Self>),
     Metadata {
         params: MetadataParams,
-        rule: Box<Rule>,
+        rule: Box<Self>,
     },
-    Repeat(Box<Rule>),
-    Seq(Vec<Rule>),
+    Repeat(Box<Self>),
+    Seq(Vec<Self>),
     Reserved {
-        rule: Box<Rule>,
+        rule: Box<Self>,
         context_name: String,
     },
 }
@@ -79,8 +79,8 @@ pub enum Rule {
 // the token is present in the set.
 #[derive(Default, Clone, PartialEq, Eq, Hash)]
 pub struct TokenSet {
-    terminal_bits: SmallBitVec,
-    external_bits: SmallBitVec,
+    terminal_bits: BitVec,
+    external_bits: BitVec,
     eof: bool,
     end_of_nonterminal_extra: bool,
 }
@@ -100,9 +100,8 @@ impl PartialOrd for TokenSet {
 impl Ord for TokenSet {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.terminal_bits
-            .iter()
-            .cmp(other.terminal_bits.iter())
-            .then_with(|| self.external_bits.iter().cmp(other.external_bits.iter()))
+            .cmp(&other.terminal_bits)
+            .then_with(|| self.external_bits.cmp(&other.external_bits))
             .then_with(|| self.eof.cmp(&other.eof))
             .then_with(|| {
                 self.end_of_nonterminal_extra
@@ -112,24 +111,28 @@ impl Ord for TokenSet {
 }
 
 impl Rule {
+    #[must_use]
     pub fn field(name: String, content: Self) -> Self {
         add_metadata(content, move |params| {
             params.field_name = Some(name);
         })
     }
 
+    #[must_use]
     pub fn alias(content: Self, value: String, is_named: bool) -> Self {
         add_metadata(content, move |params| {
             params.alias = Some(Alias { value, is_named });
         })
     }
 
+    #[must_use]
     pub fn token(content: Self) -> Self {
         add_metadata(content, |params| {
             params.is_token = true;
         })
     }
 
+    #[must_use]
     pub fn immediate_token(content: Self) -> Self {
         add_metadata(content, |params| {
             params.is_token = true;
@@ -137,12 +140,14 @@ impl Rule {
         })
     }
 
+    #[must_use]
     pub fn prec(value: Precedence, content: Self) -> Self {
         add_metadata(content, |params| {
             params.precedence = value;
         })
     }
 
+    #[must_use]
     pub fn prec_left(value: Precedence, content: Self) -> Self {
         add_metadata(content, |params| {
             params.associativity = Some(Associativity::Left);
@@ -150,6 +155,7 @@ impl Rule {
         })
     }
 
+    #[must_use]
     pub fn prec_right(value: Precedence, content: Self) -> Self {
         add_metadata(content, |params| {
             params.associativity = Some(Associativity::Right);
@@ -157,16 +163,19 @@ impl Rule {
         })
     }
 
+    #[must_use]
     pub fn prec_dynamic(value: i32, content: Self) -> Self {
         add_metadata(content, |params| {
             params.dynamic_precedence = value;
         })
     }
 
+    #[must_use]
     pub fn repeat(rule: Self) -> Self {
         Self::Repeat(Box::new(rule))
     }
 
+    #[must_use]
     pub fn choice(rules: Vec<Self>) -> Self {
         let mut elements = Vec::with_capacity(rules.len());
         for rule in rules {
@@ -175,6 +184,7 @@ impl Rule {
         Self::Choice(elements)
     }
 
+    #[must_use]
     pub const fn seq(rules: Vec<Self>) -> Self {
         Self::Seq(rules)
     }
@@ -315,36 +325,27 @@ impl TokenSet {
     #[must_use]
     pub const fn new() -> Self {
         Self {
-            terminal_bits: SmallBitVec::new(),
-            external_bits: SmallBitVec::new(),
+            terminal_bits: BitVec::new(),
+            external_bits: BitVec::new(),
+            eof: false,
+            end_of_nonterminal_extra: false,
+        }
+    }
+
+    #[must_use]
+    pub fn with_capacity(n_terminals: usize, n_externals: usize) -> Self {
+        Self {
+            terminal_bits: BitVec::with_capacity(n_terminals),
+            external_bits: BitVec::with_capacity(n_externals),
             eof: false,
             end_of_nonterminal_extra: false,
         }
     }
 
     pub fn iter(&self) -> impl Iterator<Item = Symbol> + '_ {
-        self.terminal_bits
-            .iter()
-            .enumerate()
-            .filter_map(|(i, value)| {
-                if value {
-                    Some(Symbol::terminal(i))
-                } else {
-                    None
-                }
-            })
-            .chain(
-                self.external_bits
-                    .iter()
-                    .enumerate()
-                    .filter_map(|(i, value)| {
-                        if value {
-                            Some(Symbol::external(i))
-                        } else {
-                            None
-                        }
-                    }),
-            )
+        SetBitsIter::new(self.terminal_bits.as_slice())
+            .map(Symbol::terminal)
+            .chain(SetBitsIter::new(self.external_bits.as_slice()).map(Symbol::external))
             .chain(if self.eof { Some(Symbol::end()) } else { None })
             .chain(if self.end_of_nonterminal_extra {
                 Some(Symbol::end_of_nonterminal_extra())
@@ -354,18 +355,11 @@ impl TokenSet {
     }
 
     pub fn terminals(&self) -> impl Iterator<Item = Symbol> + '_ {
-        self.terminal_bits
-            .iter()
-            .enumerate()
-            .filter_map(|(i, value)| {
-                if value {
-                    Some(Symbol::terminal(i))
-                } else {
-                    None
-                }
-            })
+        SetBitsIter::new(self.terminal_bits.as_slice()).map(Symbol::terminal)
     }
 
+    #[inline]
+    #[must_use]
     pub fn contains(&self, symbol: &Symbol) -> bool {
         match symbol.kind {
             SymbolType::NonTerminal => panic!("Cannot store non-terminals in a TokenSet"),
@@ -376,8 +370,17 @@ impl TokenSet {
         }
     }
 
+    #[inline]
+    #[must_use]
     pub fn contains_terminal(&self, index: usize) -> bool {
         self.terminal_bits.get(index).unwrap_or(false)
+    }
+
+    /// Raw u64 word slice backing the terminal bitset.
+    #[inline]
+    #[must_use]
+    pub const fn terminal_bits_words(&self) -> &[u64] {
+        self.terminal_bits.as_slice()
     }
 
     pub fn insert(&mut self, other: Symbol) {
@@ -411,7 +414,7 @@ impl TokenSet {
                     true
                 } else {
                     false
-                }
+                };
             }
             SymbolType::EndOfNonTerminalExtra => {
                 return if self.end_of_nonterminal_extra {
@@ -432,46 +435,38 @@ impl TokenSet {
         false
     }
 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         !self.eof
             && !self.end_of_nonterminal_extra
-            && !self.terminal_bits.iter().any(|a| a)
-            && !self.external_bits.iter().any(|a| a)
+            && self.terminal_bits.as_slice().iter().all(|&w| w == 0)
+            && self.external_bits.as_slice().iter().all(|&w| w == 0)
     }
 
+    #[must_use]
     pub fn len(&self) -> usize {
-        self.eof as usize
-            + self.end_of_nonterminal_extra as usize
-            + self.terminal_bits.iter().filter(|b| *b).count()
-            + self.external_bits.iter().filter(|b| *b).count()
+        usize::from(self.eof)
+            + usize::from(self.end_of_nonterminal_extra)
+            + self
+                .terminal_bits
+                .as_slice()
+                .iter()
+                .map(|w| w.count_ones() as usize)
+                .sum::<usize>()
+            + self
+                .external_bits
+                .as_slice()
+                .iter()
+                .map(|w| w.count_ones() as usize)
+                .sum::<usize>()
     }
 
     pub fn insert_all_terminals(&mut self, other: &Self) -> bool {
-        let mut result = false;
-        if other.terminal_bits.len() > self.terminal_bits.len() {
-            self.terminal_bits.resize(other.terminal_bits.len(), false);
-        }
-        for (i, element) in other.terminal_bits.iter().enumerate() {
-            if element {
-                result |= !self.terminal_bits[i];
-                self.terminal_bits.set(i, element);
-            }
-        }
-        result
+        self.terminal_bits.insert_all(&other.terminal_bits)
     }
 
     fn insert_all_externals(&mut self, other: &Self) -> bool {
-        let mut result = false;
-        if other.external_bits.len() > self.external_bits.len() {
-            self.external_bits.resize(other.external_bits.len(), false);
-        }
-        for (i, element) in other.external_bits.iter().enumerate() {
-            if element {
-                result |= !self.external_bits[i];
-                self.external_bits.set(i, element);
-            }
-        }
-        result
+        self.external_bits.insert_all(&other.external_bits)
     }
 
     pub fn insert_all(&mut self, other: &Self) -> bool {
