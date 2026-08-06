@@ -411,6 +411,7 @@ where
 pub fn generate_parser_for_grammar(
     grammar_json: &str,
     semantic_version: Option<(u8, u8, u8)>,
+    optimizations: OptLevel,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> GenerateResult<(String, String)> {
     let input_grammar = parse_grammar(grammar_json, diagnostics)?;
@@ -419,7 +420,7 @@ pub fn generate_parser_for_grammar(
         LANGUAGE_VERSION,
         semantic_version,
         None,
-        OptLevel::default(),
+        optimizations,
         diagnostics,
     )?;
     Ok((input_grammar.name, parser.c_code))

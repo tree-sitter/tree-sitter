@@ -17,7 +17,7 @@ mod tree_test;
 #[cfg(feature = "wasm")]
 mod wasm_language_test;
 
-use tree_sitter_generate::GenerateResult;
+use tree_sitter_generate::{GenerateResult, OptLevel};
 
 pub use crate::fuzz::{
     ITERATION_COUNT, allocations,
@@ -33,6 +33,7 @@ fn generate_parser(grammar_json: &str) -> GenerateResult<(String, String)> {
     tree_sitter_generate::generate_parser_for_grammar(
         grammar_json,
         Some((0, 0, 0)),
+        OptLevel::default(),
         &mut Vec::new(),
     )
 }

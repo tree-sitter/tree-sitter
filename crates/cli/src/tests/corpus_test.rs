@@ -2,6 +2,7 @@ use std::{collections::HashMap, env, fs};
 
 use anyhow::Context;
 use tree_sitter::Parser;
+use tree_sitter_generate::OptLevel;
 use tree_sitter_proc_macro::test_with_seed;
 
 use crate::{
@@ -378,6 +379,7 @@ fn test_feature_corpus_files() {
         let generate_result = tree_sitter_generate::generate_parser_for_grammar(
             &grammar_json,
             Some((0, 0, 0)),
+            OptLevel::default(),
             &mut Vec::new(),
         );
 
