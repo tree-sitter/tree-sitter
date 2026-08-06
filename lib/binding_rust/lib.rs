@@ -1735,11 +1735,7 @@ impl<'tree> Node<'tree> {
         unsafe {
             let node = ffi::ts_node_error_root(self.0);
             if node.id.is_null() {
-                if self.is_error() {
-                    Some(self.0)
-                } else {
-                    None
-                }
+                if self.is_error() { Some(self.0) } else { None }
             } else {
                 Some(node)
             }
