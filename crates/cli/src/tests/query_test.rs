@@ -6406,3 +6406,64 @@ export default grammar({
 
     assert_query_matches(&language, &query, source, &[(0, vec![("tuple", "()")])]);
 }
+
+#[test]
+fn test_last_child_anchor_looks_past_hidden_repeat() {
+    let language = get_test_fixture_language("last_child_anchor_past_hidden_repeat");
+
+    let source = "T a.b.c\nL a.b.c\nN a!.b!.c\n";
+
+    let query = Query::new(
+        &language,
+        "
+        (trailing_sep (name) @last .)
+        (leading_sep (name) @last .)
+        (trailing_named (name) @last .)
+        ",
+    )
+    .unwrap();
+
+    assert_query_matches(
+        &language,
+        &query,
+        source,
+        &[
+            (0, vec![("last", "c")]),
+            (1, vec![("last", "c")]),
+            (2, vec![("last", "c")]),
+        ],
+    );
+
+    let query = Query::new(
+        &language,
+        "
+        (trailing_sep . (name) @first)
+        (trailing_sep (name) @a . (name) @b)
+        ",
+    )
+    .unwrap();
+
+    assert_query_matches(
+        &language,
+        &query,
+        source,
+        &[
+            (0, vec![("first", "a")]),
+            (1, vec![("a", "a"), ("b", "b")]),
+            (1, vec![("a", "b"), ("b", "c")]),
+        ],
+    );
+}
+
+#[test]
+fn test_last_child_anchor_looks_past_hidden_node() {
+    allocations::record(|| {
+        let language = get_language("c");
+
+        let query = Query::new(&language, "(translation_unit (_) @last .)").unwrap();
+
+        let source = "enum E { A };\nint x;\nint y;\n";
+
+        assert_query_matches(&language, &query, source, &[(0, vec![("last", "int y;")])]);
+    });
+}
