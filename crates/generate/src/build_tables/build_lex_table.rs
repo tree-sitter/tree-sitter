@@ -29,11 +29,12 @@ pub fn build_lex_table(
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
     keywords: &TokenSet,
+    leaked_keywords: &TokenSet,
     coincident_token_index: &CoincidentTokenIndex,
     token_conflict_map: &TokenConflictMap,
 ) -> LexTables {
     let keyword_lex_table = if syntax_grammar.word_token.is_some() {
-        let mut builder = LexTableBuilder::new(lexical_grammar);
+        let mut builder = LexTableBuilder::new(lexical_grammar, None, None);
         builder.add_state_for_tokens(keywords);
         builder.table
     } else {
@@ -81,7 +82,11 @@ pub fn build_lex_table(
         }
     }
 
-    let mut builder = LexTableBuilder::new(lexical_grammar);
+    let mut builder = LexTableBuilder::new(
+        lexical_grammar,
+        syntax_grammar.word_token,
+        Some(leaked_keywords),
+    );
     for (tokens, parse_state_ids) in parse_state_ids_by_token_set {
         let lex_state_id = builder.add_state_for_tokens(&tokens);
         for id in parse_state_ids {
@@ -142,16 +147,24 @@ struct LexTableBuilder<'a> {
     table: LexTable,
     state_queue: VecDeque<QueueEntry>,
     state_ids_by_nfa_state_set: FxHashMap<(Vec<u32>, bool), usize>,
+    word_token: Option<Symbol>,
+    leaked_keywords: Option<&'a TokenSet>,
 }
 
 impl<'a> LexTableBuilder<'a> {
-    fn new(lexical_grammar: &'a LexicalGrammar) -> Self {
+    fn new(
+        lexical_grammar: &'a LexicalGrammar,
+        word_token: Option<Symbol>,
+        leaked_keywords: Option<&'a TokenSet>,
+    ) -> Self {
         Self {
             lexical_grammar,
             cursor: NfaCursor::new(&lexical_grammar.nfa, vec![]),
             table: LexTable::default(),
             state_queue: VecDeque::new(),
             state_ids_by_nfa_state_set: FxHashMap::default(),
+            word_token,
+            leaked_keywords,
         }
     }
 
@@ -258,7 +271,27 @@ impl<'a> LexTableBuilder<'a> {
                     has_sep,
                 )
             {
-                continue;
+                let rescue = match (self.word_token, self.leaked_keywords) {
+                    (Some(wt), Some(leaked))
+                        if leaked.contains(&Symbol::terminal(completed_id)) =>
+                    {
+                        let leads_to_word_token = self
+                            .lexical_grammar
+                            .variable_indices_for_nfa_states(&transition.states)
+                            .any(|i| i == wt.index);
+                        if leads_to_word_token {
+                            debug!(
+                                "Lex - keep word-token transition out of leaked keyword {}",
+                                self.lexical_grammar.variables[completed_id].name,
+                            );
+                        }
+                        leads_to_word_token
+                    }
+                    _ => false,
+                };
+                if !rescue {
+                    continue;
+                }
             }
 
             let (next_state_id, _) =
