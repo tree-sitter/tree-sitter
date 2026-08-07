@@ -375,14 +375,6 @@ unsafe extern "C" {
     pub fn ts_node_has_changes(self_: TSNode) -> bool;
 }
 unsafe extern "C" {
-    #[doc = " Check if the node is a syntax error or contains any syntax errors."]
-    pub fn ts_node_has_error(self_: TSNode) -> bool;
-}
-unsafe extern "C" {
-    #[doc = " Check if the node is a syntax error."]
-    pub fn ts_node_is_error(self_: TSNode) -> bool;
-}
-unsafe extern "C" {
     #[doc = " Get this node's parse state."]
     pub fn ts_node_parse_state(self_: TSNode) -> TSStateId;
 }
@@ -503,6 +495,39 @@ unsafe extern "C" {
 unsafe extern "C" {
     #[doc = " Edit a range to keep it in-sync with source code that has been edited.\n\n This function updates a range's start and end positions based on an edit\n operation. This is useful for editing ranges without requiring a tree\n or node instance.\n\n The edit's `start_byte` must be less than or equal to its `old_end_byte`,\n and its `start_point` must be less than or equal to its `old_end_point`."]
     pub fn ts_range_edit(range: *mut TSRange, edit: *const TSInputEdit);
+}
+unsafe extern "C" {
+    #[doc = " Check if the node is a syntax error or contains any syntax errors."]
+    pub fn ts_node_has_error(self_: TSNode) -> bool;
+}
+unsafe extern "C" {
+    #[doc = " Check if the node is a syntax error."]
+    pub fn ts_node_is_error(self_: TSNode) -> bool;
+}
+unsafe extern "C" {
+    #[doc = " If `self` is an error then this function returns the byte range containing the portion of the node which\n caused the error. These values are stored in `*start_byte` and `*end_byte` and true is returned from the\n function. If `self` is not an error node then `*start_byte` and `*end_byte` are left unmodified and the\n function returns false."]
+    pub fn ts_node_error_byte_range(
+        self_: TSNode,
+        start_byte: *mut u32,
+        end_byte: *mut u32,
+    ) -> bool;
+}
+unsafe extern "C" {
+    pub fn ts_node_error_point_range(
+        self_: TSNode,
+        start_point: *mut TSPoint,
+        end_point: *mut TSPoint,
+    ) -> bool;
+}
+unsafe extern "C" {
+    pub fn ts_node_error_child(self_: TSNode, child_index: u32, child: *mut TSNode) -> bool;
+}
+unsafe extern "C" {
+    pub fn ts_node_error_child_count(self_: TSNode, count: *mut u32) -> bool;
+}
+unsafe extern "C" {
+    #[doc = " Returns a special node type which corresponds to the root of errors if `self` is an error node.\n This API is low level and only used to build higher level abstractions."]
+    pub fn ts_node_error_root(self_: TSNode) -> TSNode;
 }
 unsafe extern "C" {
     #[doc = " Create a new tree cursor starting from the given node.\n\n A tree cursor allows you to walk a syntax tree more efficiently than is\n possible using the [`TSNode`] functions. It is a mutable object that is always\n on a certain syntax node, and can be moved imperatively to different nodes.\n\n Note that the given node is considered the root of the cursor,\n and the cursor cannot walk outside this node."]
