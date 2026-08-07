@@ -1514,7 +1514,7 @@ static void ts_parser__handle_error(
 
           StackVersion version_with_missing_tree = ts_stack_copy_version(self->stack, v);
           Subtree missing_tree = ts_subtree_new_missing_leaf(
-            &self->tree_pool, missing_symbol,
+            &self->tree_pool, missing_symbol, state,
             padding, lookahead_bytes,
             self->language
           );

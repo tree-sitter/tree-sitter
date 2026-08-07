@@ -12,6 +12,7 @@
 #include "./error_costs.h"
 #include "./ts_assert.h"
 #include <stddef.h>
+#include <tree_sitter/api.h>
 
 typedef struct {
   Length start;
@@ -539,13 +540,14 @@ Subtree ts_subtree_new_error_node(
 Subtree ts_subtree_new_missing_leaf(
   SubtreePool *pool,
   TSSymbol symbol,
+  TSStateId state,
   Length padding,
   uint32_t lookahead_bytes,
   const TSLanguage *language
 ) {
   Subtree result = ts_subtree_new_leaf(
     pool, symbol, padding, length_zero(), lookahead_bytes,
-    0, false, false, false, language
+    state, false, false, false, language
   );
   if (result.data.is_inline) {
     result.data.is_missing = true;
