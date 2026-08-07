@@ -27,6 +27,8 @@ unless they are used only as the grammar's start rule.
     EmptyString(String),
     #[error("Rule `{0}` cannot be inlined because it contains a reference to itself")]
     RecursiveInline(String),
+    #[error("Rule `{0}` has no reachable productions.")]
+    NoReachableProductions(String),
 }
 
 struct RuleFlattener {
@@ -45,6 +47,7 @@ impl RuleFlattener {
             production: Production {
                 steps: Vec::new(),
                 dynamic_precedence: 0,
+                requires_eof_lookahead: false,
             },
             reserved_word_set_ids,
             precedence_stack: Vec::new(),
@@ -57,12 +60,17 @@ impl RuleFlattener {
 
     fn flatten_variable(&mut self, variable: Variable) -> FlattenGrammarResult<SyntaxVariable> {
         let choices = extract_choices(variable.rule);
+        let had_candidates = !choices.is_empty();
         let mut productions = Vec::with_capacity(choices.len());
         for rule in choices {
-            let production = self.flatten_rule(rule)?;
-            if !productions.contains(&production) {
+            if let Some(production) = self.flatten_rule(rule)?
+                && !productions.contains(&production)
+            {
                 productions.push(production);
             }
+        }
+        if had_candidates && productions.is_empty() {
+            return Err(FlattenGrammarError::NoReachableProductions(variable.name));
         }
         Ok(SyntaxVariable {
             name: variable.name,
@@ -71,7 +79,7 @@ impl RuleFlattener {
         })
     }
 
-    fn flatten_rule(&mut self, rule: Rule) -> FlattenGrammarResult<Production> {
+    fn flatten_rule(&mut self, rule: Rule) -> FlattenGrammarResult<Option<Production>> {
         self.production = Production::default();
         self.alias_stack.clear();
         self.reserved_word_stack.clear();
@@ -79,7 +87,28 @@ impl RuleFlattener {
         self.associativity_stack.clear();
         self.field_name_stack.clear();
         self.apply(rule, true)?;
-        Ok(self.production.clone())
+
+        // `eof()` was pushed as a normal `Symbol::end()` step. Now that the
+        // production is fully flattened, decide its fate based on where `eof()`
+        // ended up:
+        //   * trailing: strip it and mark the production as reduce-on-EOF
+        //   * anywhere else: drop the whole production - it can never match,
+        //     because no input can follow EOF
+        let last_idx = self.production.steps.len().saturating_sub(1);
+        let mut trailing_eof = false;
+        for (i, step) in self.production.steps.iter().enumerate() {
+            if step.symbol == Symbol::end() {
+                if i != last_idx {
+                    return Ok(None);
+                }
+                trailing_eof = true;
+            }
+        }
+        if trailing_eof {
+            self.production.steps.pop();
+            self.production.requires_eof_lookahead = true;
+        }
+        Ok(Some(self.production.clone()))
     }
 
     fn apply(&mut self, rule: Rule, at_end: bool) -> FlattenGrammarResult<bool> {
@@ -184,6 +213,7 @@ impl RuleFlattener {
                 });
                 Ok(true)
             }
+            Rule::Eof => unreachable!(),
             _ => Ok(false),
         }
     }
@@ -338,6 +368,7 @@ mod tests {
             vec![
                 Production {
                     dynamic_precedence: 0,
+                    requires_eof_lookahead: false,
                     steps: vec![
                         ProductionStep::new(Symbol::non_terminal(1)),
                         ProductionStep::new(Symbol::non_terminal(2))
@@ -352,6 +383,7 @@ mod tests {
                 },
                 Production {
                     dynamic_precedence: 0,
+                    requires_eof_lookahead: false,
                     steps: vec![
                         ProductionStep::new(Symbol::non_terminal(1)),
                         ProductionStep::new(Symbol::non_terminal(2))
@@ -399,6 +431,7 @@ mod tests {
             vec![
                 Production {
                     dynamic_precedence: 102,
+                    requires_eof_lookahead: false,
                     steps: vec![
                         ProductionStep::new(Symbol::non_terminal(1)),
                         ProductionStep::new(Symbol::non_terminal(2)),
@@ -410,6 +443,7 @@ mod tests {
                 },
                 Production {
                     dynamic_precedence: 101,
+                    requires_eof_lookahead: false,
                     steps: vec![
                         ProductionStep::new(Symbol::non_terminal(1)),
                         ProductionStep::new(Symbol::non_terminal(2)),
@@ -440,6 +474,7 @@ mod tests {
             result.productions,
             vec![Production {
                 dynamic_precedence: 0,
+                requires_eof_lookahead: false,
                 steps: vec![
                     ProductionStep::new(Symbol::non_terminal(1))
                         .with_prec(Precedence::Integer(101), Some(Associativity::Left)),
@@ -464,6 +499,7 @@ mod tests {
             result.productions,
             vec![Production {
                 dynamic_precedence: 0,
+                requires_eof_lookahead: false,
                 steps: vec![
                     ProductionStep::new(Symbol::non_terminal(1))
                         .with_prec(Precedence::Integer(101), Some(Associativity::Left)),
@@ -495,6 +531,7 @@ mod tests {
             vec![
                 Production {
                     dynamic_precedence: 0,
+                    requires_eof_lookahead: false,
                     steps: vec![
                         ProductionStep::new(Symbol::terminal(1)).with_field_name("first-thing"),
                         ProductionStep::new(Symbol::terminal(2))
@@ -502,6 +539,7 @@ mod tests {
                 },
                 Production {
                     dynamic_precedence: 0,
+                    requires_eof_lookahead: false,
                     steps: vec![
                         ProductionStep::new(Symbol::terminal(1)).with_field_name("first-thing"),
                         ProductionStep::new(Symbol::terminal(2)),

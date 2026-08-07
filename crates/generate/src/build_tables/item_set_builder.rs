@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{borrow::Cow, fmt};
 
 use rustc_hash::{FxHashMap, FxHashSet};
 
@@ -161,6 +161,8 @@ impl<'a> ParseItemSetBuilder<'a> {
         //
         // Rather than computing these additions recursively, we use an explicit stack.
         let empty_lookaheads = TokenSet::new();
+        let mut eof_lookaheads = TokenSet::new();
+        eof_lookaheads.insert(Symbol::end());
         let mut stack = Vec::new();
         let mut follow_set_info_by_non_terminal = FxHashMap::<usize, FollowSetInfo>::default();
         for i in 0..syntax_grammar.variables.len() {
@@ -197,6 +199,15 @@ impl<'a> ParseItemSetBuilder<'a> {
                                 result.reserved_first_sets[&next_step.symbol],
                                 false,
                             ));
+                        } else if production.requires_eof_lookahead {
+                            // This production reduces only on EOF, so its inner non-terminal's
+                            // FOLLOW from this path is  just {EOF}
+                            stack.push((
+                                symbol.index,
+                                &eof_lookaheads,
+                                ReservedWordSetId::default(),
+                                false,
+                            ));
                         } else {
                             stack.push((
                                 symbol.index,
@@ -227,6 +238,17 @@ impl<'a> ParseItemSetBuilder<'a> {
                         has_preceding_inherited_fields: false,
                     };
 
+                    // A production that reduces only on EOF contributes only
+                    // {EOF} to its items' lookahead, regardless of the
+                    // inherited FOLLOW set for this variable.
+                    let info_source = if production.requires_eof_lookahead {
+                        let mut eof_info = FollowSetInfo::default();
+                        eof_info.lookaheads.insert(Symbol::end());
+                        Cow::Owned(eof_info)
+                    } else {
+                        Cow::Borrowed(follow_set_info)
+                    };
+
                     if let Some(inlined_productions) =
                         inlines.inlined_productions(item.production, item.step_index)
                     {
@@ -235,7 +257,7 @@ impl<'a> ParseItemSetBuilder<'a> {
                                 additions_for_non_terminal,
                                 TransitiveClosureAddition {
                                     item: item.substitute_production(production),
-                                    info: follow_set_info.clone(),
+                                    info: info_source.as_ref().clone(),
                                 },
                             );
                         }
@@ -244,7 +266,7 @@ impl<'a> ParseItemSetBuilder<'a> {
                             additions_for_non_terminal,
                             TransitiveClosureAddition {
                                 item,
-                                info: follow_set_info.clone(),
+                                info: info_source.into_owned(),
                             },
                         );
                     }

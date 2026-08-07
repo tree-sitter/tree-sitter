@@ -1,0 +1,37 @@
+============
+no items
+============
+
+()
+---
+
+(source_file)
+
+============
+items separated by newlines
+============
+
+(x
+x
+x)
+---
+
+(source_file (item) (item) (item))
+
+============
+items separated by semicolons
+============
+
+(x;x;x)
+---
+
+(source_file (item) (item) (item))
+
+============
+trailing separator
+============
+
+(x;)
+---
+
+(source_file (item))
