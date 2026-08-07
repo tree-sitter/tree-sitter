@@ -5,10 +5,12 @@ use std::{
     sync::LazyLock,
 };
 
+use rustc_hash::FxHashMap;
+
 use crate::{
     grammars::{
-        LexicalGrammar, NO_RESERVED_WORDS, Production, ProductionStep, ReservedWordSetId,
-        SyntaxGrammar,
+        InlinedProductionMap, LexicalGrammar, NO_RESERVED_WORDS, Production, ProductionStep,
+        ReservedWordSetId, SyntaxGrammar,
     },
     rules::{Associativity, Precedence, Symbol, SymbolType, TokenSet},
 };
@@ -28,6 +30,175 @@ static START_PRODUCTION: LazyLock<Production> = LazyLock::new(|| Production {
     }],
 });
 
+/// Precomputed identity keys for one `(production, dot)` pair.
+///
+/// `cmp` is the rank of the content tuple `Ord` compared (dynamic precedence,
+/// length, precedence/associativity at the dot, then completed steps' aliases and fields
+/// and remaining steps in full). Equal ranks hold _exactly_ when the tuple is equal,
+/// so it doubles as the equality class for items without preceding inherited fields.
+/// `eq_with_syms` subdivides `cmp` by the completed steps' symbols, which participate
+/// in equality only when `has_preceding_inherited_fields` is set.
+#[derive(Clone, Copy, Default, PartialEq, Eq, Debug)]
+pub struct DotKeys {
+    pub cmp: u32,
+    pub eq_with_syms: u32,
+}
+
+/// Identity keys for every `(production, dot)` in a grammar (all grammar productions,
+/// every inlined production, and the augmented start production).
+pub struct ItemKeyMap {
+    keys: FxHashMap<*const Production, Box<[DotKeys]>>,
+    start: Box<[DotKeys]>,
+}
+
+impl ItemKeyMap {
+    pub fn new(grammar: &SyntaxGrammar, inlines: &InlinedProductionMap) -> Self {
+        let mut prods = Vec::<&Production>::with_capacity(
+            1 + grammar.variables.len() + inlines.productions.len(),
+        );
+        prods.push(&START_PRODUCTION);
+        for var in &grammar.variables {
+            prods.extend(var.productions.iter());
+        }
+        prods.extend(inlines.productions.iter());
+
+        let mut contents: Vec<(u32, u32)> = Vec::with_capacity(prods.len());
+        for (pi, p) in prods.iter().enumerate() {
+            for dot in 0..=p.steps.len() {
+                contents.push((pi as u32, dot as u32));
+            }
+        }
+        let content = |&(pi, dot): &(u32, u32)| ItemContent {
+            production: prods[pi as usize],
+            dot: dot as usize,
+        };
+        contents.sort_unstable_by(|a, b| content(a).cmp(&content(b)));
+
+        let mut slot_keys: Vec<Box<[DotKeys]>> = prods
+            .iter()
+            .map(|p| vec![DotKeys::default(); p.steps.len() + 1].into_boxed_slice())
+            .collect();
+        // Dense ids in sorted order: equal content shares an id, distinct content gets the next up
+        let mut cmp_id = 0u32;
+        let mut prev: Option<(u32, u32)> = None;
+        for &(pi, dot) in &contents {
+            if let Some(p) = prev
+                && content(&p) != content(&(pi, dot))
+            {
+                cmp_id += 1;
+            }
+            slot_keys[pi as usize][dot as usize].cmp = cmp_id;
+            prev = Some((pi, dot));
+        }
+
+        // Refine each cmp class by preceding symbols: read only under
+        // `has_preceding_inherited_fields`.
+        let mut sym_classes: FxHashMap<(u32, Vec<Symbol>), u32> = FxHashMap::default();
+        for &(pi, dot) in &contents {
+            let syms: Vec<Symbol> = prods[pi as usize].steps[..dot as usize]
+                .iter()
+                .map(|s| s.symbol)
+                .collect();
+            let next = sym_classes.len() as u32;
+            let keys = &mut slot_keys[pi as usize][dot as usize];
+            keys.eq_with_syms = *sym_classes.entry((keys.cmp, syms)).or_insert(next);
+        }
+
+        let mut slots = slot_keys.into_iter();
+        let start = slots.next().unwrap();
+        let keys = prods[1..]
+            .iter()
+            .zip(slots)
+            .map(|(p, ks)| (core::ptr::from_ref::<Production>(p), ks))
+            .collect();
+
+        Self { keys, start }
+    }
+
+    /// The keys slice (indexed by `dot`) for a production of this grammar.
+    pub fn keys_for(&self, production: &Production) -> &[DotKeys] {
+        &self.keys[&core::ptr::from_ref::<Production>(production)]
+    }
+
+    pub fn start_keys(&self) -> &[DotKeys] {
+        &self.start
+    }
+}
+
+/// The content tuple that `ParseItem`'s `Ord` (and flagless `Eq`) observe, evaluated on
+/// `(production, dot)` directly. Ranking the set of all keys by this order makes
+/// the dense `cmp` order-preserving. Item ordering only ever compares same-dot pairs,
+/// and the dot comparison keeps the order total across dots so ranks are well defined.
+#[derive(Eq)]
+struct ItemContent<'a> {
+    production: &'a Production,
+    dot: usize,
+}
+
+impl ItemContent<'_> {
+    fn prec(&self) -> &Precedence {
+        if self.dot > 0 {
+            &self.production.steps[self.dot - 1].precedence
+        } else {
+            &Precedence::None
+        }
+    }
+
+    fn assoc(&self) -> Option<Associativity> {
+        if self.dot > 0 {
+            self.production.steps[self.dot - 1].associativity
+        } else {
+            None
+        }
+    }
+}
+
+impl Ord for ItemContent<'_> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.production
+            .dynamic_precedence
+            .cmp(&other.production.dynamic_precedence)
+            .then_with(|| {
+                self.production
+                    .steps
+                    .len()
+                    .cmp(&other.production.steps.len())
+            })
+            .then_with(|| self.prec().cmp(other.prec()))
+            .then_with(|| self.assoc().cmp(&other.assoc()))
+            .then_with(|| self.dot.cmp(&other.dot))
+            .then_with(|| {
+                let steps = self.production.steps.iter().zip(&other.production.steps);
+                for (i, (sa, sb)) in steps.enumerate() {
+                    let o = if i < self.dot {
+                        sa.alias
+                            .cmp(&sb.alias)
+                            .then_with(|| sa.field_name.cmp(&sb.field_name))
+                    } else {
+                        sa.cmp(sb)
+                    };
+
+                    if o != Ordering::Equal {
+                        return o;
+                    }
+                }
+                Ordering::Equal
+            })
+    }
+}
+
+impl PartialOrd for ItemContent<'_> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl PartialEq for ItemContent<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        self.cmp(other) == Ordering::Equal
+    }
+}
+
 /// A [`ParseItem`] represents an in-progress match of a single production in a grammar.
 #[derive(Clone, Copy, Debug)]
 pub struct ParseItem<'a> {
@@ -37,6 +208,8 @@ pub struct ParseItem<'a> {
     pub step_index: u32,
     /// The production being matched.
     pub production: &'a Production,
+    /// The `production`'s identity keys, indexed by `step_index`.
+    pub keys: &'a [DotKeys],
     /// A boolean indicating whether any of the already-matched children were
     /// hidden nodes and had fields. Ordinarily, a parse item's behavior is not
     /// affected by the symbols of its preceding children; it only needs to
@@ -97,10 +270,11 @@ pub struct ParseItemSetDisplay<'a>(
 
 impl<'a> ParseItem<'a> {
     #[must_use]
-    pub fn start() -> Self {
+    pub fn start(key_map: &'a ItemKeyMap) -> Self {
         ParseItem {
             variable_index: u32::MAX,
             production: &START_PRODUCTION,
+            keys: key_map.start_keys(),
             step_index: 0,
             has_preceding_inherited_fields: false,
         }
@@ -152,6 +326,7 @@ impl<'a> ParseItem<'a> {
         ParseItem {
             variable_index: self.variable_index,
             production: self.production,
+            keys: self.keys,
             step_index: self.step_index + 1,
             has_preceding_inherited_fields: self.has_preceding_inherited_fields,
         }
@@ -160,10 +335,21 @@ impl<'a> ParseItem<'a> {
     /// Create an item identical to this one, but with a different production.
     /// This is used when dynamically "inlining" certain symbols in a production.
     #[must_use]
-    pub const fn substitute_production(&self, production: &'a Production) -> Self {
+    pub const fn substitute_production(
+        &self,
+        production: &'a Production,
+        keys: &'a [DotKeys],
+    ) -> Self {
         let mut result = *self;
         result.production = production;
+        result.keys = keys;
         result
+    }
+
+    /// This item's identity keys at the current dot.
+    #[must_use]
+    fn dot_keys(&self) -> DotKeys {
+        self.keys[self.step_index as usize]
     }
 }
 
@@ -341,11 +527,6 @@ impl Hash for ParseItem<'_> {
     fn hash<H: Hasher>(&self, hasher: &mut H) {
         hasher.write_u32(self.variable_index);
         hasher.write_u32(self.step_index);
-        hasher.write_i32(self.production.dynamic_precedence);
-        hasher.write_usize(self.production.steps.len());
-        hasher.write_i32(i32::from(self.has_preceding_inherited_fields));
-        self.precedence().hash(hasher);
-        self.associativity().hash(hasher);
 
         // The already-matched children don't play any role in the parse state for
         // this item, unless any of the following are true:
@@ -353,15 +534,14 @@ impl Hash for ParseItem<'_> {
         //   * the children have aliases
         //   * the children are hidden and represent rules that have fields.
         // See the docs for `has_preceding_inherited_fields`.
-        for step in &self.production.steps[0..self.step_index as usize] {
-            step.alias.hash(hasher);
-            step.field_name.hash(hasher);
-            if self.has_preceding_inherited_fields {
-                step.symbol.hash(hasher);
-            }
-        }
-        for step in &self.production.steps[self.step_index as usize..] {
-            step.hash(hasher);
+        // Preceding symbols participate only in `eq_with_syms`.
+        let keys = self.dot_keys();
+        if self.has_preceding_inherited_fields {
+            hasher.write_u8(1);
+            hasher.write_u32(keys.eq_with_syms);
+        } else {
+            hasher.write_u8(0);
+            hasher.write_u32(keys.cmp);
         }
     }
 }
@@ -371,36 +551,16 @@ impl PartialEq for ParseItem<'_> {
     fn eq(&self, other: &Self) -> bool {
         if self.variable_index != other.variable_index
             || self.step_index != other.step_index
-            || self.production.dynamic_precedence != other.production.dynamic_precedence
-            || self.production.steps.len() != other.production.steps.len()
-            || self.precedence() != other.precedence()
-            || self.associativity() != other.associativity()
             || self.has_preceding_inherited_fields != other.has_preceding_inherited_fields
         {
             return false;
         }
 
-        for (i, step) in self.production.steps.iter().enumerate() {
-            // See the previous comment (in the `Hash::hash` impl) regarding comparisons
-            // of parse items' already-completed steps.
-            if i < self.step_index as usize {
-                if step.alias != other.production.steps[i].alias {
-                    return false;
-                }
-                if step.field_name != other.production.steps[i].field_name {
-                    return false;
-                }
-                if self.has_preceding_inherited_fields
-                    && step.symbol != other.production.steps[i].symbol
-                {
-                    return false;
-                }
-            } else if *step != other.production.steps[i] {
-                return false;
-            }
+        if self.has_preceding_inherited_fields {
+            self.dot_keys().eq_with_syms == other.dot_keys().eq_with_syms
+        } else {
+            self.dot_keys().cmp == other.dot_keys().cmp
         }
-
-        true
     }
 }
 
@@ -410,38 +570,7 @@ impl Ord for ParseItem<'_> {
         self.step_index
             .cmp(&other.step_index)
             .then_with(|| self.variable_index.cmp(&other.variable_index))
-            .then_with(|| {
-                self.production
-                    .dynamic_precedence
-                    .cmp(&other.production.dynamic_precedence)
-            })
-            .then_with(|| {
-                self.production
-                    .steps
-                    .len()
-                    .cmp(&other.production.steps.len())
-            })
-            .then_with(|| self.precedence().cmp(other.precedence()))
-            .then_with(|| self.associativity().cmp(&other.associativity()))
-            .then_with(|| {
-                for (i, step) in self.production.steps.iter().enumerate() {
-                    // See the previous comment (in the `Hash::hash` impl) regarding comparisons
-                    // of parse items' already-completed steps.
-                    let o = if i < self.step_index as usize {
-                        step.alias
-                            .cmp(&other.production.steps[i].alias)
-                            .then_with(|| {
-                                step.field_name.cmp(&other.production.steps[i].field_name)
-                            })
-                    } else {
-                        step.cmp(&other.production.steps[i])
-                    };
-                    if o != Ordering::Equal {
-                        return o;
-                    }
-                }
-                Ordering::Equal
-            })
+            .then_with(|| self.dot_keys().cmp.cmp(&other.dot_keys().cmp))
     }
 }
 

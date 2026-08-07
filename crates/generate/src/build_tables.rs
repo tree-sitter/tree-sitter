@@ -18,6 +18,7 @@ use self::{
     build_lex_table::build_lex_table,
     build_parse_table::{ParseStateInfo, build_parse_table},
     coincident_tokens::CoincidentTokenIndex,
+    item::ItemKeyMap,
     item_set_builder::ParseItemSetBuilder,
     minimize_parse_table::minimize_parse_table,
     token_conflicts::TokenConflictMap,
@@ -52,7 +53,9 @@ pub fn build_tables(
     optimizations: OptLevel,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> BuildTableResult<Tables> {
-    let item_set_builder = ParseItemSetBuilder::new(syntax_grammar, lexical_grammar, inlines);
+    let item_key_map = ItemKeyMap::new(syntax_grammar, inlines);
+    let item_set_builder =
+        ParseItemSetBuilder::new(syntax_grammar, lexical_grammar, inlines, &item_key_map);
     let following_tokens =
         get_following_tokens(syntax_grammar, lexical_grammar, inlines, &item_set_builder);
     let (mut parse_table, parse_state_info) = build_parse_table(
