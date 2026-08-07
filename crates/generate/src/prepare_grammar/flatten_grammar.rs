@@ -114,10 +114,7 @@ impl FlattenState {
 
     fn push_step(&mut self, kind: SymbolType, index: u32, ctx: FlattenCtx) {
         self.steps.push(ProductionStep::pack(
-            Symbol {
-                kind,
-                index: index as usize,
-            },
+            Symbol { kind, index },
             ctx.prec,
             ctx.assoc,
             ctx.alias,

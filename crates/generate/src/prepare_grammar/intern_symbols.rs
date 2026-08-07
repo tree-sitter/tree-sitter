@@ -144,7 +144,7 @@ pub(super) fn intern_symbols(
 
     for s in &supertypes {
         if s.is_non_terminal() {
-            kinds[s.index] = VariableType::Hidden;
+            kinds[s.index as usize] = VariableType::Hidden;
         }
     }
 
@@ -177,7 +177,7 @@ fn intern_root(
                     id,
                     Rule::Sym {
                         kind: s.kind,
-                        index: s.index as u32,
+                        index: s.index,
                     },
                 ),
                 None => Err(InternSymbolsError::Undefined(pool.resolve(sid).to_string()))?,

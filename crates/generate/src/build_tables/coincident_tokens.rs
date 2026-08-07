@@ -42,6 +42,7 @@ impl<'a> CoincidentTokenIndex {
             );
             for (j, &a) in terminal_indices.iter().enumerate() {
                 for &b in &terminal_indices[j..] {
+                    let (a, b) = (a as usize, b as usize);
                     let index = result.index(a, b);
                     if result.entries[index].last().copied() != Some(i) {
                         result.entries[index].push(i);
@@ -63,12 +64,12 @@ impl<'a> CoincidentTokenIndex {
 
     #[must_use]
     pub fn states_with(&self, a: Symbol, b: Symbol) -> &[ParseStateId] {
-        &self.entries[self.index(a.index, b.index)]
+        &self.entries[self.index(a.index as usize, b.index as usize)]
     }
 
     #[must_use]
     pub fn contains(&self, a: Symbol, b: Symbol) -> bool {
-        let bit_index = a.index * self.n + b.index;
+        let bit_index = a.index as usize * self.n + b.index as usize;
         self.contains_bits[bit_index / 64] & (1u64 << (bit_index % 64)) != 0
     }
 

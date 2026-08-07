@@ -259,14 +259,14 @@ pub(super) fn extract_tokens(
     for (i, v) in g.variables.iter().enumerate().skip(1) {
         if let Some(sym) = g.pool.node(v.root).symbol()
             && sym.is_terminal()
-            && extractor.usage_counts[sym.index] == 1
+            && extractor.usage_counts[sym.index as usize] == 1
         {
-            let lexical = &mut extractor.lexical[sym.index];
+            let lexical = &mut extractor.lexical[sym.index as usize];
             if lexical.kind == VariableType::Auxiliary || interned.kinds[i] != VariableType::Hidden
             {
                 lexical.kind = interned.kinds[i];
                 lexical.name = v.name;
-                replacements.insert(i as u32, sym.index as u32);
+                replacements.insert(i as u32, sym.index);
                 continue;
             }
         }
@@ -288,8 +288,8 @@ pub(super) fn extract_tokens(
         if !s.is_non_terminal() {
             return s;
         }
-        replacements.get(&(s.index as u32)).map_or_else(
-            || Symbol::non_terminal(s.index - shift[s.index] as usize),
+        replacements.get(&s.index).map_or_else(
+            || Symbol::non_terminal(s.index as usize - shift[s.index as usize] as usize),
             |&r| Symbol::terminal(r as usize),
         )
     };
@@ -322,7 +322,7 @@ pub(super) fn extract_tokens(
             if sym.is_terminal() {
                 Err(ExtractTokensError::SupertypeTerminal(
                     g.pool
-                        .resolve(extractor.lexical[sym.index].name)
+                        .resolve(extractor.lexical[sym.index as usize].name)
                         .to_string(),
                 ))
             } else {
@@ -352,7 +352,9 @@ pub(super) fn extract_tokens(
         };
         if s.is_non_terminal() {
             Err(ExtractTokensError::ExternalTokenNonTerminal(
-                g.pool.resolve(g.variables[s.index].name).to_string(),
+                g.pool
+                    .resolve(g.variables[s.index as usize].name)
+                    .to_string(),
             ))?;
         }
         external_tokens.push(if s.is_external() {
@@ -366,7 +368,7 @@ pub(super) fn extract_tokens(
             }
         } else {
             ExternalToken {
-                name: extractor.lexical[s.index].name,
+                name: extractor.lexical[s.index as usize].name,
                 kind,
                 corresponding_internal_token: Some(s),
             }
@@ -375,15 +377,16 @@ pub(super) fn extract_tokens(
 
     let word = match interned.word.map(replace_symbol) {
         Some(token) if token.is_non_terminal() => {
-            let word_root = g.variables[token.index].root;
+            let token_index = token.index as usize;
+            let word_root = g.variables[token_index].root;
             let conflicting_symbol_name = g
                 .variables
                 .iter()
                 .enumerate()
-                .find(|(i, v)| *i != token.index && g.pool.subtree_eq(v.root, word_root))
+                .find(|(i, v)| *i != token_index && g.pool.subtree_eq(v.root, word_root))
                 .map(|(_, v)| g.pool.resolve(v.name).to_string());
             Err(ExtractTokensError::WordToken(NonTerminalWordTokenError {
-                symbol_name: g.pool.resolve(g.variables[token.index].name).to_string(),
+                symbol_name: g.pool.resolve(g.variables[token_index].name).to_string(),
                 conflicting_symbol_name,
             }))?
         }
@@ -438,10 +441,7 @@ fn renumber_root(
     while let Some(id) = stack.pop() {
         match pool.node(id) {
             Rule::Sym { kind, index } => {
-                let s = Symbol {
-                    kind,
-                    index: index as usize,
-                };
+                let s = Symbol { kind, index };
                 let replaced = replace(s);
                 pool.set_node(id, Rule::from(replaced));
             }

@@ -49,7 +49,7 @@ pub fn build_lex_table(
             .chain(state.reserved_words.iter())
             .filter_map(|token| {
                 if token.is_terminal() {
-                    if keywords.contains(&token) {
+                    if keywords.contains(token) {
                         syntax_grammar.word_token
                     } else {
                         Some(token)
@@ -167,7 +167,7 @@ impl<'a> LexTableBuilder<'a> {
             .iter()
             .filter_map(|token| {
                 if token.is_terminal() {
-                    Some(self.lexical_grammar.variables[token.index].start_state)
+                    Some(self.lexical_grammar.variables[token.index as usize].start_state)
                 } else {
                     eof_valid = true;
                     None
@@ -181,7 +181,7 @@ impl<'a> LexTableBuilder<'a> {
                 "entry point state: {state_id}, tokens: {:?}",
                 tokens
                     .iter()
-                    .map(|t| &self.lexical_grammar.variables[t.index].name)
+                    .map(|t| &self.lexical_grammar.variables[t.index as usize].name)
                     .collect::<Vec<_>>()
             );
         }
@@ -318,10 +318,10 @@ fn merge_token_set(
 ) -> bool {
     if tokens
         .terminals()
-        .filter(|terminal| !other.contains_terminal(terminal.index))
+        .filter(|terminal| !other.contains_terminal(terminal.index as usize))
         .any(|terminal| {
             check_token_conflicts(
-                terminal.index,
+                terminal.index as usize,
                 other,
                 token_conflict_map,
                 coincident_token_index,
@@ -333,10 +333,10 @@ fn merge_token_set(
 
     if other
         .terminals()
-        .filter(|terminal| !tokens.contains_terminal(terminal.index))
+        .filter(|terminal| !tokens.contains_terminal(terminal.index as usize))
         .any(|terminal| {
             check_token_conflicts(
-                terminal.index,
+                terminal.index as usize,
                 tokens,
                 token_conflict_map,
                 coincident_token_index,

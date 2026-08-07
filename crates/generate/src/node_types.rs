@@ -267,7 +267,7 @@ pub fn get_variable_info(
                         // Inherit the types and quantities of hidden children associated with
                         // fields.
                         if child_is_hidden && child_symbol.is_non_terminal() {
-                            let child_variable_info = &result[child_symbol.index];
+                            let child_variable_info = &result[child_symbol.index as usize];
                             did_change |= extend_sorted(
                                 &mut field_info.types,
                                 &child_variable_info.children.types,
@@ -288,7 +288,7 @@ pub fn get_variable_info(
 
                     // Inherit all child information from hidden children.
                     if child_is_hidden && child_symbol.is_non_terminal() {
-                        let child_variable_info = &result[child_symbol.index];
+                        let child_variable_info = &result[child_symbol.index as usize];
 
                         // If a hidden child can have multiple children, then its parent node can
                         // appear to have multiple children.
@@ -338,7 +338,7 @@ pub fn get_variable_info(
 
                     // Note whether or not this production contains children whose summaries
                     // have not yet been computed.
-                    if child_symbol.index >= i && !all_initialized {
+                    if child_symbol.index as usize >= i && !all_initialized {
                         production_has_uninitialized_invisible_children = true;
                     }
                 }
@@ -375,13 +375,13 @@ pub fn get_variable_info(
     }
 
     for supertype_symbol in &syntax_grammar.supertype_symbols {
-        if result[supertype_symbol.index].has_multi_step_production {
-            let variable = &syntax_grammar.variables[supertype_symbol.index];
+        if result[supertype_symbol.index as usize].has_multi_step_production {
+            let variable = &syntax_grammar.variables[supertype_symbol.index as usize];
             // A symbol can have a multi-step production either directly or via an inlined
             // anonymous child. In the latter case, we can report a more specific error.
 
             let hidden_child_name = syntax_grammar
-                .variable_prod_ids(supertype_symbol.index)
+                .variable_prod_ids(supertype_symbol.index as usize)
                 .filter(|&prod_id| syntax_grammar.production(prod_id).steps.len() == 1)
                 .find_map(|prod_id| {
                     let step = syntax_grammar.production(prod_id).steps[0];
@@ -391,10 +391,10 @@ pub fn get_variable_info(
                         && !syntax_grammar.supertype_symbols.contains(&child_symbol);
                     (child_is_hidden
                         && child_symbol.is_non_terminal()
-                        && result[child_symbol.index].has_multi_step_production)
+                        && result[child_symbol.index as usize].has_multi_step_production)
                         .then(|| {
                             str_pool
-                                .resolve(syntax_grammar.variables[child_symbol.index].name)
+                                .resolve(syntax_grammar.variables[child_symbol.index as usize].name)
                                 .to_string()
                         })
                 });
@@ -408,7 +408,7 @@ pub fn get_variable_info(
 
     // Update all of the node type lists to eliminate hidden nodes.
     for supertype_symbol in &syntax_grammar.supertype_symbols {
-        result[supertype_symbol.index]
+        result[supertype_symbol.index as usize]
             .children
             .types
             .retain(child_type_is_visible);
@@ -543,21 +543,21 @@ pub fn generate_node_types_json(
             } else {
                 match symbol.kind {
                     SymbolType::NonTerminal => {
-                        let variable = &syntax_grammar.variables[symbol.index];
+                        let variable = &syntax_grammar.variables[symbol.index as usize];
                         NodeTypeJSON {
                             kind: str_pool.resolve(variable.name).to_string(),
                             named: variable.kind != VariableType::Anonymous,
                         }
                     }
                     SymbolType::Terminal => {
-                        let variable = &lexical_grammar.variables[symbol.index];
+                        let variable = &lexical_grammar.variables[symbol.index as usize];
                         NodeTypeJSON {
                             kind: str_pool.resolve(variable.name).to_string(),
                             named: variable.kind != VariableType::Anonymous,
                         }
                     }
                     SymbolType::External => {
-                        let variable = &syntax_grammar.external_tokens[symbol.index];
+                        let variable = &syntax_grammar.external_tokens[symbol.index as usize];
                         NodeTypeJSON {
                             kind: str_pool.resolve(variable.name).to_string(),
                             named: variable.kind != VariableType::Anonymous,
@@ -596,10 +596,14 @@ pub fn generate_node_types_json(
                 .map(|alias| {
                     alias.as_ref().map_or_else(
                         || match symbol.kind {
-                            SymbolType::NonTerminal => &syntax_grammar.variables[symbol.index].name,
-                            SymbolType::Terminal => &lexical_grammar.variables[symbol.index].name,
+                            SymbolType::NonTerminal => {
+                                &syntax_grammar.variables[symbol.index as usize].name
+                            }
+                            SymbolType::Terminal => {
+                                &lexical_grammar.variables[symbol.index as usize].name
+                            }
                             SymbolType::External => {
-                                &syntax_grammar.external_tokens[symbol.index].name
+                                &syntax_grammar.external_tokens[symbol.index as usize].name
                             }
                             _ => unreachable!(),
                         },
@@ -876,10 +880,11 @@ fn variable_type_for_child_type(
             } else if syntax_grammar.variables_to_inline.contains(symbol) {
                 VariableType::Hidden
             } else {
+                let symbol_index = symbol.index as usize;
                 match symbol.kind {
-                    SymbolType::NonTerminal => syntax_grammar.variables[symbol.index].kind,
-                    SymbolType::Terminal => lexical_grammar.variables[symbol.index].kind,
-                    SymbolType::External => syntax_grammar.external_tokens[symbol.index].kind,
+                    SymbolType::NonTerminal => syntax_grammar.variables[symbol_index].kind,
+                    SymbolType::Terminal => lexical_grammar.variables[symbol_index].kind,
+                    SymbolType::External => syntax_grammar.external_tokens[symbol_index].kind,
                     _ => VariableType::Hidden,
                 }
             }

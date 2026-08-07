@@ -75,7 +75,7 @@ impl InlineBuilder<'_> {
 
             let removed_prod = std::mem::take(&mut scratch[i]);
             let removed_step = removed_prod.steps[si];
-            let (v_start, v_end) = self.out.var_prods[symbol.index];
+            let (v_start, v_end) = self.out.var_prods[symbol.index as usize];
             let replacements = (v_start..v_end)
                 .map(|p_idx| {
                     let p = self.out.productions[p_idx as usize];
@@ -170,12 +170,12 @@ pub(super) fn process_inlines(
         match symbol.kind {
             SymbolType::External => Err(ProcessInlinesError::ExternalToken(
                 g.pool
-                    .resolve(meta.external_tokens[symbol.index].name)
+                    .resolve(meta.external_tokens[symbol.index as usize].name)
                     .to_string(),
             ))?,
             SymbolType::Terminal => Err(ProcessInlinesError::Token(
                 g.pool
-                    .resolve(meta.lexical_variables[symbol.index].name)
+                    .resolve(meta.lexical_variables[symbol.index as usize].name)
                     .to_string(),
             ))?,
             SymbolType::NonTerminal if symbol.index == 0 => Err(ProcessInlinesError::FirstRule(

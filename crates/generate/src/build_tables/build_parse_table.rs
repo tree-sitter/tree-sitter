@@ -306,14 +306,14 @@ impl<'a> ParseTableBuilder<'a> {
         {
             for prod_id in self
                 .syntax_grammar
-                .variable_prod_ids(extra_non_terminal.index)
+                .variable_prod_ids(extra_non_terminal.index as usize)
             {
                 let production = self.syntax_grammar.production(prod_id);
                 non_terminal_extra_item_sets_by_first_terminal
                     .entry(production.first_symbol().unwrap())
                     .or_insert_with(ParseItemSet::default)
                     .insert(ParseItem {
-                        variable_index: extra_non_terminal.index as u32,
+                        variable_index: extra_non_terminal.index,
                         prod_id,
                         step_index: 1,
                         keys: self.item_set_builder.key_map.keys_for(prod_id),
@@ -334,7 +334,7 @@ impl<'a> ParseTableBuilder<'a> {
         for (terminal, item_set) in non_terminal_extra_item_sets_by_first_terminal {
             if terminal.is_non_terminal() {
                 Err(ParseTableBuilderError::ImproperNonTerminalExtra(
-                    self.symbol_name(&terminal),
+                    self.symbol_name(terminal),
                 ))?;
             }
 
@@ -361,7 +361,7 @@ impl<'a> ParseTableBuilder<'a> {
             let mut conflicts = self
                 .actual_conflicts
                 .iter()
-                .map(|conf| conf.iter().map(|s| self.symbol_name(s)).collect())
+                .map(|conf| conf.iter().map(|&s| self.symbol_name(s)).collect())
                 .collect::<Vec<_>>();
             conflicts.sort_unstable();
             diagnostics.push(Diagnostic::UnnecessaryConflicts(conflicts));
@@ -437,7 +437,7 @@ impl<'a> ParseTableBuilder<'a> {
             if let Some(next_symbol) = item.symbol(self.syntax_grammar) {
                 let mut successor = item.successor();
                 let successor_set = if next_symbol.is_non_terminal() {
-                    let variable = &self.syntax_grammar.variables[next_symbol.index];
+                    let variable = &self.syntax_grammar.variables[next_symbol.index as usize];
 
                     // Keep track of where auxiliary non-terminals (repeat symbols) are
                     // used within visible symbols. This information may be needed later
@@ -457,7 +457,9 @@ impl<'a> ParseTableBuilder<'a> {
                     // of its preceding children need to be taken into account when comparing
                     // it with other items.
                     if variable.is_hidden()
-                        && !self.variable_info[next_symbol.index].fields.is_empty()
+                        && !self.variable_info[next_symbol.index as usize]
+                            .fields
+                            .is_empty()
                     {
                         successor.has_preceding_inherited_fields = true;
                     }
@@ -527,7 +529,7 @@ impl<'a> ParseTableBuilder<'a> {
                             Ordering::Greater => {
                                 table_entry.actions.clear();
                                 table_entry.actions.push(action);
-                                lookaheads_with_conflicts.remove(&lookahead);
+                                lookaheads_with_conflicts.remove(lookahead);
                                 *reduction_info = ReductionInfo::default();
                             }
                             Ordering::Equal => {
@@ -692,7 +694,7 @@ impl<'a> ParseTableBuilder<'a> {
                         } else {
                             None
                         }
-                    } else if entry.lookaheads.contains(&keyword_capture_token) {
+                    } else if entry.lookaheads.contains(keyword_capture_token) {
                         Some(entry.following_reserved_word_set)
                     } else {
                         None
@@ -739,8 +741,8 @@ impl<'a> ParseTableBuilder<'a> {
                 if item.step_index > 0
                     && self
                         .item_set_builder
-                        .first_set(&step.symbol())
-                        .contains(&conflicting_lookahead)
+                        .first_set(step.symbol())
+                        .contains(conflicting_lookahead)
                 {
                     if item.variable_index != u32::MAX {
                         conflicting_items.insert(item);
@@ -754,7 +756,7 @@ impl<'a> ParseTableBuilder<'a> {
                         shift_precedence.insert(i, p);
                     }
                 }
-            } else if lookaheads.contains(&conflicting_lookahead) && item.variable_index != u32::MAX
+            } else if lookaheads.contains(conflicting_lookahead) && item.variable_index != u32::MAX
             {
                 conflicting_items.insert(item);
             }
@@ -860,7 +862,7 @@ impl<'a> ParseTableBuilder<'a> {
         let mut actual_conflict = Vec::new();
         for item in &conflicting_items {
             let symbol = Symbol::non_terminal(item.variable_index as usize);
-            if self.syntax_grammar.variables[symbol.index].is_auxiliary() {
+            if self.syntax_grammar.variables[symbol.index as usize].is_auxiliary() {
                 actual_conflict.extend(
                     preceding_auxiliary_symbols
                         .iter()
@@ -893,12 +895,12 @@ impl<'a> ParseTableBuilder<'a> {
         }
 
         let mut conflict_error = ConflictError::default();
-        for symbol in preceding_symbols {
+        for &symbol in preceding_symbols {
             conflict_error
                 .symbol_sequence
                 .push(self.symbol_name(symbol));
         }
-        conflict_error.conflicting_lookahead = self.symbol_name(&conflicting_lookahead);
+        conflict_error.conflicting_lookahead = self.symbol_name(conflicting_lookahead);
 
         let interpretations = conflicting_items
             .iter()
@@ -906,7 +908,7 @@ impl<'a> ParseTableBuilder<'a> {
                 let preceding_symbols = preceding_symbols
                     .iter()
                     .take(preceding_symbols.len() - item.step_index as usize)
-                    .map(|symbol| self.symbol_name(symbol))
+                    .map(|&symbol| self.symbol_name(symbol))
                     .collect::<Vec<_>>();
 
                 let variable_name = self
@@ -918,7 +920,7 @@ impl<'a> ParseTableBuilder<'a> {
                     .production(self.syntax_grammar)
                     .steps
                     .iter()
-                    .map(|step| self.symbol_name(&step.symbol()))
+                    .map(|step| self.symbol_name(step.symbol()))
                     .collect::<Vec<_>>();
 
                 let precedence = match item.precedence(self.syntax_grammar) {
@@ -939,7 +941,7 @@ impl<'a> ParseTableBuilder<'a> {
                     production_step_symbols,
                     step_index: item.step_index,
                     done: item.is_done(),
-                    conflicting_lookahead: self.symbol_name(&conflicting_lookahead),
+                    conflicting_lookahead: self.symbol_name(conflicting_lookahead),
                     precedence,
                     associativity,
                 }
@@ -967,7 +969,7 @@ impl<'a> ParseTableBuilder<'a> {
                     continue;
                 }
                 last_rule_id = Some(item.variable_index);
-                result.push(self.symbol_name(&Symbol::non_terminal(item.variable_index as usize)));
+                result.push(self.symbol_name(Symbol::non_terminal(item.variable_index as usize)));
             }
 
             result
@@ -982,7 +984,7 @@ impl<'a> ParseTableBuilder<'a> {
             }
 
             for item in &reduce_items {
-                let name = self.symbol_name(&Symbol::non_terminal(item.variable_index as usize));
+                let name = self.symbol_name(Symbol::non_terminal(item.variable_index as usize));
                 conflict_error
                     .possible_resolutions
                     .push(Resolution::Precedence {
@@ -1003,7 +1005,7 @@ impl<'a> ParseTableBuilder<'a> {
             .push(Resolution::AddConflict {
                 symbols: actual_conflict
                     .iter()
-                    .map(|s| self.symbol_name(s))
+                    .map(|&s| self.symbol_name(s))
                     .collect(),
             });
 
@@ -1031,7 +1033,7 @@ impl<'a> ParseTableBuilder<'a> {
                     }
                     PrecedenceEntry::Symbol(n) => symbols
                         .iter()
-                        .any(|s| &grammar.variables[s.index].name == n),
+                        .any(|s| &grammar.variables[s.index as usize].name == n),
                 }
             };
 
@@ -1120,11 +1122,11 @@ impl<'a> ParseTableBuilder<'a> {
             }
 
             if step.symbol().kind == SymbolType::NonTerminal
-                && !self.syntax_grammar.variables[step.symbol().index]
+                && !self.syntax_grammar.variables[step.symbol().index as usize]
                     .kind
                     .is_visible()
             {
-                let info = &self.variable_info[step.symbol().index];
+                let info = &self.variable_info[step.symbol().index as usize];
                 for &field_name in info.fields.keys() {
                     production_info
                         .field_map
@@ -1162,19 +1164,19 @@ impl<'a> ParseTableBuilder<'a> {
         }
     }
 
-    fn symbol_name(&self, symbol: &Symbol) -> String {
+    fn symbol_name(&self, symbol: Symbol) -> String {
         match symbol.kind {
             SymbolType::End | SymbolType::EndOfNonTerminalExtra => "EOF".to_string(),
             SymbolType::External => self
                 .str_pool
-                .resolve(self.syntax_grammar.external_tokens[symbol.index].name)
+                .resolve(self.syntax_grammar.external_tokens[symbol.index as usize].name)
                 .to_string(),
             SymbolType::NonTerminal => self
                 .str_pool
-                .resolve(self.syntax_grammar.variables[symbol.index].name)
+                .resolve(self.syntax_grammar.variables[symbol.index as usize].name)
                 .to_string(),
             SymbolType::Terminal => {
-                let variable = &self.lexical_grammar.variables[symbol.index];
+                let variable = &self.lexical_grammar.variables[symbol.index as usize];
                 if variable.kind == VariableType::Named {
                     self.str_pool.resolve(variable.name).to_string()
                 } else {
