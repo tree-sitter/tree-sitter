@@ -10,7 +10,7 @@ use std::{
 
 use bitflags::bitflags;
 use node_types::VariableInfo;
-use rules::{Alias, Symbol};
+use rules::Symbol;
 #[cfg(feature = "load")]
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -28,11 +28,12 @@ mod prepare_grammar;
 mod quickjs;
 mod render;
 mod rules;
+mod strpool;
 mod tables;
 
 pub use build_tables::ParseTableBuilderError;
 use build_tables::build_tables;
-use grammars::{InlinedProductionMap, InputGrammar, LexicalGrammar, SyntaxGrammar};
+use grammars::{InlinedProductionMap, LexicalGrammar, SyntaxGrammar};
 pub use node_types::{InvalidSupertypeError, SuperTypeCycleError, VariableInfoError};
 pub use parse_grammar::ParseGrammarError;
 use parse_grammar::parse_grammar;
@@ -40,6 +41,10 @@ pub use prepare_grammar::PrepareGrammarError;
 use prepare_grammar::prepare_grammar;
 use render::render_c_code;
 pub use render::{ABI_VERSION_MAX, ABI_VERSION_MIN, RenderError};
+
+use crate::{
+    grammars::InputGrammar, prepare_grammar::PreparedGrammar, rules::Alias, strpool::StrPool,
+};
 
 struct JSONOutput {
     #[cfg(feature = "load")]
@@ -49,6 +54,7 @@ struct JSONOutput {
     inlines: InlinedProductionMap,
     simple_aliases: BTreeMap<Symbol, Alias>,
     variable_info: Vec<VariableInfo>,
+    str_pool: StrPool,
 }
 
 struct GeneratedParser {
@@ -377,7 +383,7 @@ where
 
     if !generate_parser {
         let node_types_json =
-            generate_node_types_from_grammar(&input_grammar, diagnostics)?.node_types_json;
+            generate_node_types_from_grammar(input_grammar, diagnostics)?.node_types_json;
         write_file(&src_path.join("node-types.json"), node_types_json)?;
         return Ok(());
     }
@@ -389,7 +395,7 @@ where
         c_code,
         node_types_json,
     } = generate_parser_for_grammar_with_opts(
-        &input_grammar,
+        input_grammar,
         abi_version,
         semantic_version.map(|v| (v.major as u8, v.minor as u8, v.patch as u8)),
         report_symbol_name,
@@ -415,32 +421,43 @@ pub fn generate_parser_for_grammar(
     diagnostics: &mut Vec<Diagnostic>,
 ) -> GenerateResult<(String, String)> {
     let input_grammar = parse_grammar(grammar_json, diagnostics)?;
+    let name = input_grammar.pool.resolve(input_grammar.name).to_string();
     let parser = generate_parser_for_grammar_with_opts(
-        &input_grammar,
+        input_grammar,
         LANGUAGE_VERSION,
         semantic_version,
         None,
         optimizations,
         diagnostics,
     )?;
-    Ok((input_grammar.name, parser.c_code))
+    Ok((name, parser.c_code))
 }
 
 fn generate_node_types_from_grammar(
-    input_grammar: &InputGrammar,
+    input_grammar: InputGrammar,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> GenerateResult<JSONOutput> {
-    let (syntax_grammar, lexical_grammar, inlines, simple_aliases) =
-        prepare_grammar(input_grammar, diagnostics)?;
-    let variable_info =
-        node_types::get_variable_info(&syntax_grammar, &lexical_grammar, &simple_aliases)?;
+    let PreparedGrammar {
+        syntax_grammar,
+        lexical_grammar,
+        inlines,
+        default_aliases,
+        str_pool,
+    } = prepare_grammar(input_grammar, diagnostics)?;
+    let variable_info = node_types::get_variable_info(
+        &syntax_grammar,
+        &lexical_grammar,
+        &default_aliases,
+        &str_pool,
+    )?;
 
     #[cfg(feature = "load")]
     let node_types_json = node_types::generate_node_types_json(
         &syntax_grammar,
         &lexical_grammar,
-        &simple_aliases,
+        &default_aliases,
         &variable_info,
+        &str_pool,
     )?;
     Ok(JSONOutput {
         #[cfg(feature = "load")]
@@ -448,19 +465,21 @@ fn generate_node_types_from_grammar(
         syntax_grammar,
         lexical_grammar,
         inlines,
-        simple_aliases,
+        simple_aliases: default_aliases,
         variable_info,
+        str_pool,
     })
 }
 
 fn generate_parser_for_grammar_with_opts(
-    input_grammar: &InputGrammar,
+    input_grammar: InputGrammar,
     abi_version: usize,
     semantic_version: Option<(u8, u8, u8)>,
     report_symbol_name: Option<&str>,
     optimizations: OptLevel,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> GenerateResult<GeneratedParser> {
+    let grammar_name = input_grammar.name;
     let JSONOutput {
         syntax_grammar,
         lexical_grammar,
@@ -469,6 +488,7 @@ fn generate_parser_for_grammar_with_opts(
         variable_info,
         #[cfg(feature = "load")]
         node_types_json,
+        str_pool,
     } = generate_node_types_from_grammar(input_grammar, diagnostics)?;
     let supertype_symbol_map =
         node_types::get_supertype_symbol_map(&syntax_grammar, &simple_aliases, &variable_info);
@@ -478,16 +498,18 @@ fn generate_parser_for_grammar_with_opts(
         &simple_aliases,
         &variable_info,
         &inlines,
+        &str_pool,
         report_symbol_name,
         optimizations,
         diagnostics,
     )?;
     let c_code = render_c_code(
-        &input_grammar.name,
+        grammar_name,
         tables,
         syntax_grammar,
         lexical_grammar,
         simple_aliases,
+        str_pool,
         abi_version,
         semantic_version,
         supertype_symbol_map,

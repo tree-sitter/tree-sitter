@@ -7,8 +7,9 @@ use thiserror::Error;
 
 use crate::{
     Diagnostic,
-    grammars::{InputGrammar, PrecedenceEntry, ReservedWordContext, Variable, VariableType},
-    rules::{Precedence, Rule},
+    grammars::{InputGrammar, PrecedenceEntry, ReservedWordContext, Variable},
+    rules::{Precedence, Rule, RuleId, RulePool},
+    strpool::StrId,
 };
 
 #[derive(Deserialize)]
@@ -133,28 +134,6 @@ impl From<serde_json::Error> for ParseGrammarError {
     }
 }
 
-/// Check if a rule is referenced by another rule.
-///
-/// This function is used to determine if a variable is used in a given rule,
-/// and `is_other` indicates if the rule is an external, and if it is,
-/// to not assume that a named symbol that is equal to itself means it's being referenced.
-///
-/// For example, if we have an external rule **and** a normal rule both called `foo`,
-/// `foo` should not be thought of as directly used unless it's used within another rule.
-fn rule_is_referenced(rule: &Rule, target: &str, is_external: bool) -> bool {
-    match rule {
-        Rule::NamedSymbol(name) => name == target && !is_external,
-        Rule::Choice(rules) | Rule::Seq(rules) => {
-            rules.iter().any(|r| rule_is_referenced(r, target, false))
-        }
-        Rule::Metadata { rule, .. } | Rule::Reserved { rule, .. } => {
-            rule_is_referenced(rule, target, is_external)
-        }
-        Rule::Repeat(inner) => rule_is_referenced(inner, target, false),
-        Rule::Blank | Rule::String(_) | Rule::Pattern(_, _) | Rule::Symbol(_) => false,
-    }
-}
-
 impl InputGrammar {
     /// Strip unused rules from the grammar and clean up references to them
     /// in the surrounding config. (conflicts, supertypes, inline, extras,
@@ -170,124 +149,99 @@ impl InputGrammar {
         // Extras count their top-level `NamedSymbol` as a use (so naming
         // a rule directly in `extras` keeps it), but externals do not (the
         // external entry is the rule itself, not a reference to one).
-        let used: FxHashSet<String> = {
-            let by_name: FxHashMap<&str, &Rule> = self
-                .variables
-                .iter()
-                .map(|v| (v.name.as_str(), &v.rule))
-                .collect();
-            let mut visited: FxHashSet<&str> = FxHashSet::default();
-            let mut stack: Vec<&str> = Vec::new();
+        let used: FxHashSet<StrId> = {
+            let by_name: FxHashMap<StrId, RuleId> =
+                self.variables.iter().map(|v| (v.name, v.root)).collect();
+            let mut visited: FxHashSet<StrId> = FxHashSet::default();
+            let mut stack: Vec<StrId> = Vec::new();
             if let Some(first) = self.variables.first() {
-                stack.push(first.name.as_str());
+                stack.push(first.name);
             }
-            if let Some(word) = self.word_token.as_deref() {
+            if let Some(word) = self.word_name {
                 stack.push(word);
             }
-            for rule in &self.extra_symbols {
-                collect_referenced_names(rule, false, &mut stack);
+            for &root in &self.extra_roots {
+                self.pool.collect_referenced_ids(root, false, &mut stack);
             }
-            for rule in &self.external_tokens {
-                collect_referenced_names(rule, true, &mut stack);
+            for &root in &self.external_roots {
+                self.pool.collect_referenced_ids(root, false, &mut stack);
             }
-            // Reserved-word entries are uses of the named rule (the entry
-            // names a token to reserve in some context). Top-level
-            // `NamedSymbol` counts, same as for extras.
-            for ctx in &self.reserved_words {
-                for rule in &ctx.reserved_words {
-                    collect_referenced_names(rule, false, &mut stack);
+            for set in &self.reserved_sets {
+                for &root in &set.roots {
+                    self.pool.collect_referenced_ids(root, false, &mut stack);
                 }
             }
             while let Some(name) = stack.pop() {
                 if !visited.insert(name) {
                     continue;
                 }
-                if let Some(rule) = by_name.get(name) {
-                    collect_referenced_names(rule, false, &mut stack);
+                if let Some(&root) = by_name.get(&name) {
+                    self.pool.collect_referenced_ids(root, false, &mut stack);
                 }
             }
-            visited.into_iter().map(String::from).collect()
+            visited
         };
 
         for v in &self.variables {
-            if !used.contains(v.name.as_str()) {
+            if !used.contains(&v.name) {
                 continue;
             }
             if !self
-                .extra_symbols
+                .extra_roots
                 .iter()
-                .any(|r| rule_is_referenced(r, &v.name, false))
+                .any(|&r| self.pool.rule_is_referenced(r, v.name, false))
             {
                 continue;
             }
-            let inner_rule = match &v.rule {
-                Rule::Metadata { rule, .. } => rule.as_ref(),
-                other => other,
+            let inner_root = match self.pool.node(v.root) {
+                Rule::Metadata { rule, .. } => rule,
+                _ => v.root,
             };
-            let matches_empty = match inner_rule {
-                Rule::String(s) => s.is_empty(),
-                Rule::Pattern(value, _) => Regex::new(value).is_ok_and(|reg| reg.is_match("")),
+            let matches_empty = match self.pool.node(inner_root) {
+                Rule::String(s) => self.pool.resolve(s).is_empty(),
+                Rule::Pattern(value, _) => {
+                    Regex::new(self.pool.resolve(value)).is_ok_and(|reg| reg.is_match(""))
+                }
                 _ => false,
             };
             if matches_empty {
-                diagnostics.push(Diagnostic::EmptyStringMatch(v.name.clone()));
+                diagnostics.push(Diagnostic::EmptyStringMatch(
+                    self.pool.resolve(v.name).to_string(),
+                ));
             }
         }
 
-        // Drop unused variables and clean up any references to them in the
-        // surrounding grammar config.
-        let dropped: Vec<String> = self
+        // Drop unused variables and clean up references to them in the config
+        let dropped: Vec<StrId> = self
             .variables
             .iter()
-            .filter(|v| !used.contains(v.name.as_str()))
-            .map(|v| v.name.clone())
+            .filter(|v| !used.contains(&v.name))
+            .map(|v| v.name)
             .collect();
-        self.variables.retain(|v| used.contains(v.name.as_str()));
-        for name in &dropped {
-            self.expected_conflicts.retain(|r| !r.contains(name));
-            self.supertype_symbols.retain(|r| r != name);
-            self.variables_to_inline.retain(|r| r != name);
-            self.extra_symbols
-                .retain(|r| !rule_is_referenced(r, name, true));
-            self.external_tokens
-                .retain(|r| !rule_is_referenced(r, name, true));
-            self.precedence_orderings.retain(|r| {
-                !r.iter()
-                    .any(|e| matches!(e, PrecedenceEntry::Symbol(s) if s == name))
+        self.variables.retain(|v| used.contains(&v.name));
+        for &name in &dropped {
+            self.conflict_names.retain(|c| !c.contains(&name));
+            self.supertype_names.retain(|&s| s != name);
+            self.inline_names.retain(|&s| s != name);
+            let pool = &self.pool;
+            self.extra_roots
+                .retain(|&r| !pool.rule_is_referenced(r, name, true));
+            self.external_roots
+                .retain(|&r| !pool.rule_is_referenced(r, name, true));
+            self.precedence_orderings.retain(|o| {
+                !o.iter()
+                    .any(|e| matches!(e, PrecedenceEntry::Symbol(s) if *s == name))
             });
             // Prune entries but keep the context: an intentionally-empty
             // reserved-word context is a meaningful marker that rule bodies
             // may reference by name.
-            for ctx in &mut self.reserved_words {
-                ctx.reserved_words
-                    .retain(|r| !rule_is_referenced(r, name, false));
+            for set in &mut self.reserved_sets {
+                set.roots
+                    .retain(|&r| !pool.rule_is_referenced(r, name, false));
             }
         }
 
         self
-    }
-}
-
-/// Append every `NamedSymbol` name reachable in `rule` to `out`. If
-/// `skip_top_level` is true, a `NamedSymbol` at the root of `rule` is
-/// ignored (used for externals entries, which name themselves).
-fn collect_referenced_names<'a>(rule: &'a Rule, skip_top_level: bool, out: &mut Vec<&'a str>) {
-    match rule {
-        Rule::NamedSymbol(name) => {
-            if !skip_top_level {
-                out.push(name.as_str());
-            }
-        }
-        Rule::Choice(rules) | Rule::Seq(rules) => {
-            for r in rules {
-                collect_referenced_names(r, false, out);
-            }
-        }
-        Rule::Metadata { rule, .. } | Rule::Reserved { rule, .. } => {
-            collect_referenced_names(rule, skip_top_level, out);
-        }
-        Rule::Repeat(inner) => collect_referenced_names(inner, false, out),
-        Rule::Blank | Rule::String(_) | Rule::Pattern(_, _) | Rule::Symbol(_) => {}
     }
 }
 
@@ -296,26 +250,27 @@ pub(crate) fn parse_grammar(
     diagnostics: &mut Vec<Diagnostic>,
 ) -> ParseGrammarResult<InputGrammar> {
     let grammar_json = serde_json::from_str::<GrammarJSON>(input)?;
+    let mut pool = RulePool::default();
 
-    let extra_symbols =
+    let extra_roots =
         grammar_json
             .extras
             .into_iter()
-            .try_fold(Vec::<Rule>::new(), |mut acc, item| {
-                let rule = parse_rule(item, false, diagnostics)?;
-                if let Rule::String(ref value) = rule
-                    && value.is_empty()
+            .try_fold(Vec::<RuleId>::new(), |mut acc, item| {
+                let root = pool.parse_rule(item, false, diagnostics)?;
+                if let Rule::String(s) = pool.node(root)
+                    && pool.resolve(s).is_empty()
                 {
                     Err(ParseGrammarError::InvalidExtra)?;
                 }
-                acc.push(rule);
+                acc.push(root);
                 ParseGrammarResult::Ok(acc)
             })?;
 
-    let external_tokens = grammar_json
+    let external_roots = grammar_json
         .externals
         .into_iter()
-        .map(|e| parse_rule(e, false, diagnostics))
+        .map(|e| pool.parse_rule(e, false, diagnostics))
         .collect::<ParseGrammarResult<Vec<_>>>()?;
 
     let mut precedence_orderings = Vec::with_capacity(grammar_json.precedences.len());
@@ -323,8 +278,8 @@ pub(crate) fn parse_grammar(
         let mut ordering = Vec::with_capacity(list.len());
         for entry in list {
             ordering.push(match entry {
-                RuleJSON::STRING { value } => PrecedenceEntry::Name(value),
-                RuleJSON::SYMBOL { name } => PrecedenceEntry::Symbol(name),
+                RuleJSON::STRING { value } => PrecedenceEntry::Name(pool.intern(&value)),
+                RuleJSON::SYMBOL { name } => PrecedenceEntry::Symbol(pool.intern(&name)),
                 _ => Err(ParseGrammarError::Unexpected)?,
             });
         }
@@ -335,15 +290,15 @@ pub(crate) fn parse_grammar(
         .rules
         .into_iter()
         .map(|(name, r)| {
+            let name = pool.intern(&name);
             Ok(Variable {
                 name,
-                kind: VariableType::Named,
-                rule: parse_rule(serde_json::from_value(r)?, false, diagnostics)?,
+                root: pool.parse_rule(serde_json::from_value(r)?, false, diagnostics)?,
             })
         })
         .collect::<ParseGrammarResult<Vec<_>>>()?;
 
-    let reserved_words = grammar_json
+    let reserved_sets = grammar_json
         .reserved
         .into_iter()
         .map(|(name, rule_values)| {
@@ -351,126 +306,171 @@ pub(crate) fn parse_grammar(
                 Err(ParseGrammarError::InvalidReservedWordSet)?
             };
 
-            let mut reserved_words = Vec::with_capacity(rule_values.len());
+            let name = pool.intern(&name);
+            let mut roots = Vec::with_capacity(rule_values.len());
             for value in rule_values {
-                reserved_words.push(parse_rule(
-                    serde_json::from_value(value)?,
-                    false,
-                    diagnostics,
-                )?);
+                roots.push(pool.parse_rule(serde_json::from_value(value)?, false, diagnostics)?);
             }
-            Ok(ReservedWordContext {
-                name,
-                reserved_words,
-            })
+            Ok(ReservedWordContext { name, roots })
         })
         .collect::<ParseGrammarResult<Vec<_>>>()?;
 
+    let supertype_names = grammar_json
+        .supertypes
+        .iter()
+        .map(|s| pool.intern(s))
+        .collect();
+    let conflict_names = grammar_json
+        .conflicts
+        .iter()
+        .map(|c| c.iter().map(|n| pool.intern(n)).collect())
+        .collect();
+    let inline_names = grammar_json.inline.iter().map(|n| pool.intern(n)).collect();
+    let word_name = grammar_json.word.as_deref().map(|w| pool.intern(w));
+    let name = pool.intern(&grammar_json.name);
+
     let grammar = InputGrammar {
-        name: grammar_json.name,
-        word_token: grammar_json.word,
-        expected_conflicts: grammar_json.conflicts,
-        supertype_symbols: grammar_json.supertypes,
-        variables_to_inline: grammar_json.inline,
-        precedence_orderings,
+        pool,
+        name,
         variables,
-        extra_symbols,
-        external_tokens,
-        reserved_words,
+        external_roots,
+        extra_roots,
+        reserved_sets,
+        supertype_names,
+        conflict_names,
+        inline_names,
+        word_name,
+        precedence_orderings,
     }
     .normalize(diagnostics);
     Ok(grammar)
 }
 
-fn parse_rule(
-    json: RuleJSON,
-    is_token: bool,
-    diagnostics: &mut Vec<Diagnostic>,
-) -> ParseGrammarResult<Rule> {
-    match json {
-        RuleJSON::ALIAS {
-            content,
-            value,
-            named,
-        } => parse_rule(*content, is_token, diagnostics).map(|r| Rule::alias(r, value, named)),
-        RuleJSON::BLANK => Ok(Rule::Blank),
-        RuleJSON::STRING { value } => Ok(Rule::String(value)),
-        RuleJSON::PATTERN { value, flags } => {
-            let processed_flags = flags.map_or(String::new(), |f| {
-                f.matches(|c| {
-                    if c == 'i' {
-                        true
-                    } else {
-                        // silently ignore unicode flags
-                        if c != 'u' && c != 'v' {
-                            diagnostics.push(Diagnostic::UnsupportedRegexFlag {
-                                flag: c,
-                                pattern: value.clone(),
-                            });
-                        }
-                        false
-                    }
-                })
-                .collect()
-            });
-            Ok(Rule::Pattern(value, processed_flags))
-        }
-        RuleJSON::SYMBOL { name } => {
-            if is_token {
-                Err(ParseGrammarError::UnexpectedRule(name))?
-            } else {
-                Ok(Rule::NamedSymbol(name))
+impl RulePool {
+    fn parse_rule(
+        &mut self,
+        json: RuleJSON,
+        is_token: bool,
+        diagnostics: &mut Vec<Diagnostic>,
+    ) -> ParseGrammarResult<RuleId> {
+        match json {
+            RuleJSON::ALIAS {
+                content,
+                named,
+                value,
+            } => {
+                let content = self.parse_rule(*content, is_token, diagnostics)?;
+                let value = self.intern(&value);
+                Ok(self.alias(content, value, named))
             }
-        }
-        RuleJSON::CHOICE { members } => members
-            .into_iter()
-            .map(|m| parse_rule(m, is_token, diagnostics))
-            .collect::<ParseGrammarResult<Vec<_>>>()
-            .map(Rule::choice),
-        RuleJSON::FIELD { content, name } => {
-            parse_rule(*content, is_token, diagnostics).map(|r| Rule::field(name, r))
-        }
-        RuleJSON::SEQ { members } => members
-            .into_iter()
-            .map(|m| parse_rule(m, is_token, diagnostics))
-            .collect::<ParseGrammarResult<Vec<_>>>()
-            .map(Rule::seq),
-        RuleJSON::REPEAT1 { content } => {
-            parse_rule(*content, is_token, diagnostics).map(Rule::repeat)
-        }
-        RuleJSON::REPEAT { content } => parse_rule(*content, is_token, diagnostics)
-            .map(|m| Rule::choice(vec![Rule::repeat(m), Rule::Blank])),
-        RuleJSON::PREC { value, content } => {
-            parse_rule(*content, is_token, diagnostics).map(|r| Rule::prec(value.into(), r))
-        }
-        RuleJSON::PREC_LEFT { value, content } => {
-            parse_rule(*content, is_token, diagnostics).map(|r| Rule::prec_left(value.into(), r))
-        }
-        RuleJSON::PREC_RIGHT { value, content } => {
-            parse_rule(*content, is_token, diagnostics).map(|r| Rule::prec_right(value.into(), r))
-        }
-        RuleJSON::PREC_DYNAMIC { value, content } => {
-            parse_rule(*content, is_token, diagnostics).map(|r| Rule::prec_dynamic(value, r))
-        }
-        RuleJSON::RESERVED {
-            content,
-            context_name,
-        } => parse_rule(*content, is_token, diagnostics).map(|r| Rule::Reserved {
-            rule: Box::new(r),
-            context_name,
-        }),
-        RuleJSON::TOKEN { content } => parse_rule(*content, true, diagnostics).map(Rule::token),
-        RuleJSON::IMMEDIATE_TOKEN { content } => {
-            parse_rule(*content, true, diagnostics).map(Rule::immediate_token)
+            RuleJSON::BLANK => Ok(self.blank()),
+            RuleJSON::PATTERN { value, flags } => {
+                let processed_flags = flags.map_or(String::new(), |f| {
+                    f.matches(|c| {
+                        if c == 'i' {
+                            true
+                        } else {
+                            // silently ignore unicode flags
+                            if c != 'u' && c != 'v' {
+                                diagnostics.push(Diagnostic::UnsupportedRegexFlag {
+                                    flag: c,
+                                    pattern: value.clone(),
+                                });
+                            }
+                            false
+                        }
+                    })
+                    .collect()
+                });
+                let value = self.intern(&value);
+                let flags = self.intern(&processed_flags);
+                Ok(self.pattern(value, flags))
+            }
+            RuleJSON::SYMBOL { name } => {
+                if is_token {
+                    Err(ParseGrammarError::UnexpectedRule(name))?
+                } else {
+                    let sid = self.intern(&name);
+                    Ok(self.named_symbol(sid))
+                }
+            }
+            RuleJSON::CHOICE { members } => {
+                let members = members
+                    .into_iter()
+                    .map(|m| self.parse_rule(m, is_token, diagnostics))
+                    .collect::<ParseGrammarResult<Vec<_>>>()?;
+                Ok(self.choice(&members))
+            }
+            RuleJSON::SEQ { members } => {
+                let members = members
+                    .into_iter()
+                    .map(|m| self.parse_rule(m, is_token, diagnostics))
+                    .collect::<ParseGrammarResult<Vec<_>>>()?;
+                Ok(self.seq(&members))
+            }
+            RuleJSON::FIELD { name, content } => {
+                let content = self.parse_rule(*content, is_token, diagnostics)?;
+                let name = self.intern(&name);
+                Ok(self.field(name, content))
+            }
+            RuleJSON::REPEAT { content } => {
+                let content = self.parse_rule(*content, is_token, diagnostics)?;
+                let repeat = self.repeat(content);
+                let blank = self.blank();
+                Ok(self.choice(&[repeat, blank]))
+            }
+            RuleJSON::REPEAT1 { content } => {
+                let content = self.parse_rule(*content, is_token, diagnostics)?;
+                Ok(self.repeat(content))
+            }
+            RuleJSON::PREC { value, content } => {
+                let content = self.parse_rule(*content, is_token, diagnostics)?;
+                let value = value.intern(self);
+                Ok(self.prec(value, content))
+            }
+            RuleJSON::PREC_LEFT { value, content } => {
+                let content = self.parse_rule(*content, is_token, diagnostics)?;
+                let value = value.intern(self);
+                Ok(self.prec_left(value, content))
+            }
+            RuleJSON::PREC_RIGHT { value, content } => {
+                let content = self.parse_rule(*content, is_token, diagnostics)?;
+                let value = value.intern(self);
+                Ok(self.prec_right(value, content))
+            }
+            RuleJSON::PREC_DYNAMIC { value, content } => {
+                let content = self.parse_rule(*content, is_token, diagnostics)?;
+                Ok(self.prec_dynamic(value, content))
+            }
+            RuleJSON::RESERVED {
+                context_name,
+                content,
+            } => {
+                let content = self.parse_rule(*content, is_token, diagnostics)?;
+                let ctx = self.intern(&context_name);
+                Ok(self.reserved(content, ctx))
+            }
+            RuleJSON::TOKEN { content } => {
+                let content = self.parse_rule(*content, true, diagnostics)?;
+                Ok(self.token(content))
+            }
+            RuleJSON::IMMEDIATE_TOKEN { content } => {
+                let content = self.parse_rule(*content, true, diagnostics)?;
+                Ok(self.immediate_token(content))
+            }
+            RuleJSON::STRING { value } => {
+                let sid = self.intern(&value);
+                Ok(self.string(sid))
+            }
         }
     }
 }
 
-impl From<PrecedenceValueJSON> for Precedence {
-    fn from(val: PrecedenceValueJSON) -> Self {
-        match val {
-            PrecedenceValueJSON::Integer(i) => Self::Integer(i),
-            PrecedenceValueJSON::Name(i) => Self::Name(i),
+impl PrecedenceValueJSON {
+    fn intern(self, pool: &mut RulePool) -> Precedence {
+        match self {
+            Self::Integer(i) => Precedence::Integer(i),
+            Self::Name(n) => Precedence::Name(pool.intern(&n)),
         }
     }
 }
@@ -502,21 +502,31 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(grammar.name, "my_lang");
-        assert_eq!(
-            grammar.variables,
-            vec![
-                Variable {
-                    name: "file".to_string(),
-                    kind: VariableType::Named,
-                    rule: Rule::repeat(Rule::NamedSymbol("statement".to_string()))
-                },
-                Variable {
-                    name: "statement".to_string(),
-                    kind: VariableType::Named,
-                    rule: Rule::String("foo".to_string())
-                },
-            ]
-        );
+        assert_eq!(grammar.pool.resolve(grammar.name), "my_lang");
+
+        let names = grammar
+            .variables
+            .iter()
+            .map(|v| grammar.pool.resolve(v.name))
+            .collect::<Vec<_>>();
+        assert_eq!(names, ["file", "statement"]);
+
+        // file = repeat(named_symbol "statement")
+        let file_child = grammar.pool.node(grammar.variables[0].root);
+        let Rule::Repeat(inner) = file_child else {
+            panic!("Expected repeat, got {file_child:#?}");
+        };
+        let inner_node = grammar.pool.node(inner);
+        let Rule::NamedSymbol(name) = inner_node else {
+            panic!("Expected named symbol, got {inner_node:#?}");
+        };
+        assert_eq!(grammar.pool.resolve(name), "statement");
+
+        // statement = string "foo"
+        let statement_child = grammar.pool.node(grammar.variables[1].root);
+        let Rule::String(value) = statement_child else {
+            panic!("Expected string, got {statement_child:#?}");
+        };
+        assert_eq!(grammar.pool.resolve(value), "foo");
     }
 }

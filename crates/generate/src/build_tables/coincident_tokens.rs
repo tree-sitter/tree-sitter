@@ -1,12 +1,11 @@
-use std::fmt;
-
 use crate::{
     grammars::LexicalGrammar,
     rules::Symbol,
+    strpool::StrPool,
     tables::{ParseStateId, ParseTable},
 };
 
-pub struct CoincidentTokenIndex<'a> {
+pub struct CoincidentTokenIndex {
     entries: Vec<Vec<ParseStateId>>,
     /// Flat bitset for fast [`contains()`](Self::contains) checks. Indexed as `a * n + b`
     /// (both `(a,b)` and `(b,a)` bits are set, so no min/max normalization needed).
@@ -15,18 +14,16 @@ pub struct CoincidentTokenIndex<'a> {
     /// Row `a` spans `[a * row_words .. (a+1) * row_words]`.
     /// Bit `b` is set iff tokens `a` and `b` are coincident in some parse state.
     pub(crate) row_bits: Vec<u64>,
-    grammar: &'a LexicalGrammar,
     n: usize,
 }
 
-impl<'a> CoincidentTokenIndex<'a> {
+impl<'a> CoincidentTokenIndex {
     #[must_use]
     pub fn new(table: &ParseTable, lexical_grammar: &'a LexicalGrammar) -> Self {
         let n = lexical_grammar.variables.len();
         let row_words = n.div_ceil(64);
         let mut result = Self {
             n,
-            grammar: lexical_grammar,
             entries: vec![Vec::new(); n * n],
             contains_bits: vec![0u64; (n * n).div_ceil(64)],
             row_bits: vec![0u64; n * row_words],
@@ -85,18 +82,26 @@ impl<'a> CoincidentTokenIndex<'a> {
     }
 }
 
-impl fmt::Debug for CoincidentTokenIndex<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+#[expect(dead_code, reason = "Debugging aid")]
+pub struct CoincidentTokenIndexDisplay<'a>(CoincidentTokenIndex, &'a LexicalGrammar, StrPool);
+
+impl std::fmt::Debug for CoincidentTokenIndexDisplay<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "CoincidentTokenIndex {{")?;
-        for i in 0..self.n {
+        for i in 0..self.0.n {
             let mut coincident = Vec::new();
-            for j in 0..self.n {
-                if self.contains(Symbol::terminal(i), Symbol::terminal(j)) {
-                    coincident.push(&self.grammar.variables[j].name);
+            for j in 0..self.0.n {
+                if self.0.contains(Symbol::terminal(i), Symbol::terminal(j)) {
+                    coincident.push(self.2.resolve(self.1.variables[j].name));
                 }
             }
             if !coincident.is_empty() {
-                writeln!(f, "  {}: {:?},", self.grammar.variables[i].name, coincident)?;
+                writeln!(
+                    f,
+                    "  {}: {:?},",
+                    self.2.resolve(self.1.variables[i].name),
+                    coincident
+                )?;
             }
         }
         write!(f, "}}")?;
