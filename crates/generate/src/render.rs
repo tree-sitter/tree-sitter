@@ -1306,7 +1306,7 @@ impl Generator {
 
     fn add_parse_table(&mut self) -> RenderResult<()> {
         let mut parse_table_entries = FxHashMap::default();
-        let mut next_parse_action_list_index = 0;
+        let mut next_parse_action_list_index = 0u32;
 
         // Parse action lists zero is for the default value, when a symbol is not valid.
         Self::get_parse_action_list_id(
@@ -1352,7 +1352,7 @@ impl Generator {
                     "[{}] = STATE({}),",
                     self.symbol_ids[symbol],
                     match action {
-                        GotoAction::Goto(state) => *state,
+                        GotoAction::Goto(state) => *state as usize,
                         GotoAction::ShiftExtra => i,
                     }
                 );
@@ -1386,7 +1386,7 @@ impl Generator {
                     .len()
                     .saturating_sub(self.large_state_count),
             );
-            let mut symbols_by_value = FxHashMap::<(usize, SymbolType), Vec<Symbol>>::default();
+            let mut symbols_by_value = FxHashMap::<(u32, SymbolType), Vec<Symbol>>::default();
             for state in self.parse_table.states.iter().skip(self.large_state_count) {
                 small_state_indices.push(next_table_index);
                 symbols_by_value.clear();
@@ -1413,7 +1413,7 @@ impl Generator {
                     let state_id = match action {
                         GotoAction::Goto(i) => *i,
                         GotoAction::ShiftExtra => {
-                            self.large_state_count + small_state_indices.len() - 1
+                            (self.large_state_count + small_state_indices.len() - 1) as u32
                         }
                     };
                     symbols_by_value
@@ -1474,8 +1474,10 @@ impl Generator {
             add_line!(self, "}};");
             add_line!(self, "");
         }
-        if next_parse_action_list_index >= usize::from(u16::MAX) {
-            Err(RenderError::ParseTable(next_parse_action_list_index))?;
+        if next_parse_action_list_index >= u32::from(u16::MAX) {
+            Err(RenderError::ParseTable(
+                next_parse_action_list_index as usize,
+            ))?;
         }
 
         let mut parse_table_entries = parse_table_entries
@@ -1488,7 +1490,7 @@ impl Generator {
         Ok(())
     }
 
-    fn add_parse_action_list(&mut self, parse_table_entries: Vec<(usize, ParseTableEntry)>) {
+    fn add_parse_action_list(&mut self, parse_table_entries: Vec<(u32, ParseTableEntry)>) {
         add_line!(
             self,
             "static const TSParseActionEntry ts_parse_actions[] = {{"
@@ -1699,15 +1701,15 @@ impl Generator {
 
     fn get_parse_action_list_id(
         entry: &ParseTableEntry,
-        parse_table_entries: &mut FxHashMap<ParseTableEntry, usize>,
-        next_parse_action_list_index: &mut usize,
-    ) -> usize {
+        parse_table_entries: &mut FxHashMap<ParseTableEntry, u32>,
+        next_parse_action_list_index: &mut u32,
+    ) -> u32 {
         if let Some(&index) = parse_table_entries.get(entry) {
             index
         } else {
             let result = *next_parse_action_list_index;
             parse_table_entries.insert(entry.clone(), result);
-            *next_parse_action_list_index += 1 + entry.actions.len();
+            *next_parse_action_list_index += 1 + entry.actions.len() as u32;
             result
         }
     }

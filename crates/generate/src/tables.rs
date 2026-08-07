@@ -6,9 +6,10 @@ use super::{
     rules::{Symbol, TokenSet},
     strpool::StrId,
 };
-pub type ProductionInfoId = usize;
-pub type ParseStateId = usize;
-pub type LexStateId = usize;
+
+pub type ProductionInfoId = u32;
+pub type ParseStateId = u32;
+pub type LexStateId = u32;
 
 use std::hash::BuildHasherDefault;
 
@@ -136,12 +137,12 @@ pub struct ParseState {
     pub reserved_words: TokenSet,
     pub lex_state_id: LexStateId,
     pub external_lex_state_id: LexStateId,
-    pub core_id: usize,
+    pub core_id: u32,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct FieldLocation {
-    pub index: usize,
+    pub index: u32,
     pub inherited: bool,
 }
 
@@ -216,7 +217,7 @@ impl ParseState {
 
     pub fn update_referenced_states<F>(&mut self, mut f: F)
     where
-        F: FnMut(usize, &Self) -> usize,
+        F: FnMut(ParseStateId, &Self) -> ParseStateId,
     {
         let mut updates = Vec::new();
         for (symbol, entry) in &self.terminal_entries {

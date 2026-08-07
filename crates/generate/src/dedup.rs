@@ -1,10 +1,10 @@
 #[inline]
 pub fn split_state_id_groups<S>(
     states: &[S],
-    state_ids_by_group_id: &mut Vec<Vec<usize>>,
-    group_ids_by_state_id: &mut [usize],
-    start_group_id: usize,
-    mut should_split: impl FnMut(&S, &S, &[usize]) -> bool,
+    state_ids_by_group_id: &mut Vec<Vec<u32>>,
+    group_ids_by_state_id: &mut [u32],
+    start_group_id: u32,
+    mut should_split: impl FnMut(&S, &S, &[u32]) -> bool,
 ) -> bool {
     let mut result = false;
 
@@ -12,13 +12,13 @@ pub fn split_state_id_groups<S>(
     let mut is_split = vec![false; states.len()];
 
     let mut group_id = start_group_id;
-    while group_id < state_ids_by_group_id.len() {
-        let state_ids = &state_ids_by_group_id[group_id];
+    while (group_id as usize) < state_ids_by_group_id.len() {
+        let state_ids = &state_ids_by_group_id[group_id as usize];
         let mut split_state_ids = Vec::new();
 
         let mut i = 0;
         while i < state_ids.len() {
-            let left_state_id = state_ids[i];
+            let left_state_id = state_ids[i] as usize;
             if is_split[left_state_id] {
                 i += 1;
                 continue;
@@ -30,7 +30,7 @@ pub fn split_state_id_groups<S>(
             // this state.
             let mut j = i + 1;
             while j < state_ids.len() {
-                let right_state_id = state_ids[j];
+                let right_state_id = state_ids[j] as usize;
                 if is_split[right_state_id] {
                     j += 1;
                     continue;
@@ -38,7 +38,7 @@ pub fn split_state_id_groups<S>(
                 let right_state = &states[right_state_id];
 
                 if should_split(left_state, right_state, group_ids_by_state_id) {
-                    split_state_ids.push(right_state_id);
+                    split_state_ids.push(right_state_id as u32);
                     is_split[right_state_id] = true;
                 }
 
@@ -51,12 +51,12 @@ pub fn split_state_id_groups<S>(
         // If any states were removed from the group, add them all as a new group.
         if !split_state_ids.is_empty() {
             result = true;
-            state_ids_by_group_id[group_id].retain(|i| !is_split[*i]);
+            state_ids_by_group_id[group_id as usize].retain(|i| !is_split[*i as usize]);
 
-            let new_group_id = state_ids_by_group_id.len();
+            let new_group_id = state_ids_by_group_id.len() as u32;
             for id in &split_state_ids {
-                group_ids_by_state_id[*id] = new_group_id;
-                is_split[*id] = false;
+                group_ids_by_state_id[*id as usize] = new_group_id;
+                is_split[*id as usize] = false;
             }
 
             state_ids_by_group_id.push(split_state_ids);
