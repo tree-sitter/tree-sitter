@@ -30,7 +30,7 @@ use crate::{
     node_types::VariableInfo,
     rules::{AliasMap, Symbol, SymbolType, TokenSet},
     strpool::StrPool,
-    tables::{LexTable, ParseAction, ParseTable, ParseTableEntry},
+    tables::{ActionList, LexTable, ParseAction, ParseTable, ParseTableEntry},
 };
 
 pub struct Tables {
@@ -204,7 +204,7 @@ fn populate_error_state(
 
     let recover_entry = ParseTableEntry {
         reusable: false,
-        actions: vec![ParseAction::Recover],
+        actions: ActionList::One(ParseAction::Recover),
     };
 
     // Exclude from the error-recovery state any token that conflicts with one of

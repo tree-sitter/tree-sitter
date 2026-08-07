@@ -20,8 +20,8 @@ use super::{
     rules::{AliasMap, Symbol, SymbolType, TokenSet},
     strpool::{StrId, StrPool},
     tables::{
-        AdvanceAction, FieldLocation, GotoAction, LexState, LexTable, ParseAction, ParseTable,
-        ParseTableEntry,
+        ActionList, AdvanceAction, FieldLocation, GotoAction, LexState, LexTable, ParseAction,
+        ParseTable, ParseTableEntry,
     },
 };
 
@@ -1311,7 +1311,7 @@ impl Generator {
         // Parse action lists zero is for the default value, when a symbol is not valid.
         Self::get_parse_action_list_id(
             &ParseTableEntry {
-                actions: Vec::new(),
+                actions: ActionList::Empty,
                 reusable: false,
             },
             &mut parse_table_entries,
@@ -1501,9 +1501,9 @@ impl Generator {
                 entry.actions.len(),
                 entry.reusable
             );
-            for action in entry.actions {
+            for action in &entry.actions {
                 add!(self, " ");
-                match action {
+                match *action {
                     ParseAction::Accept => add!(self, " ACCEPT_INPUT()"),
                     ParseAction::Recover => add!(self, "RECOVER()"),
                     ParseAction::ShiftExtra => add!(self, "SHIFT_EXTRA()"),
