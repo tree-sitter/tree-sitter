@@ -68,10 +68,10 @@ pub fn build_tables(
         diagnostics,
     )?;
     let token_conflict_map = TokenConflictMap::new(lexical_grammar, following_tokens);
-    let coincident_token_index = CoincidentTokenIndex::new(&parse_table, lexical_grammar);
+    let coincident_token_index =
+        CoincidentTokenIndex::new(&parse_table, lexical_grammar, syntax_grammar.word_token);
     let keywords = identify_keywords(
         lexical_grammar,
-        &parse_table,
         syntax_grammar.word_token,
         &token_conflict_map,
         &coincident_token_index,
@@ -337,7 +337,6 @@ fn populate_external_lex_states(parse_table: &mut ParseTable, syntax_grammar: &S
 
 fn identify_keywords(
     lexical_grammar: &LexicalGrammar,
-    parse_table: &ParseTable,
     word_token: Option<Symbol>,
     token_conflict_map: &TokenConflictMap,
     coincident_token_index: &CoincidentTokenIndex,
@@ -410,13 +409,7 @@ fn identify_keywords(
                 // this keyword candidate, then substituting the word token won't
                 // introduce any new lexical conflicts.
                 if coincident_token_index
-                    .states_with(*token, Symbol::terminal(other_index))
-                    .iter()
-                    .all(|state_id| {
-                        parse_table.states[*state_id]
-                            .terminal_entries
-                            .contains_key(&word_token)
-                    })
+                    .all_coincident_states_have_word(*token, Symbol::terminal(other_index))
                 {
                     continue;
                 }
