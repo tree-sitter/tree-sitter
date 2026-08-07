@@ -31,7 +31,18 @@ use crate::{
 type SymbolSequence = Vec<Symbol>;
 
 type AuxiliarySymbolSequence = Vec<AuxiliarySymbolInfo>;
-pub type ParseStateInfo<'a> = (SymbolSequence, ParseItemSet<'a>);
+
+pub struct ParseStateInfo<'a> {
+    pub preceding_symbols_by_id: Vec<SymbolSequence>,
+    item_sets_by_ids: IndexMap<ParseItemSet<'a>, ParseStateId, BuildHasherDefault<FxHasher>>,
+}
+
+impl<'a> ParseStateInfo<'a> {
+    #[must_use]
+    pub fn item_set(&self, id: ParseStateId) -> &ParseItemSet<'a> {
+        self.item_sets_by_ids.get_index(id).unwrap().0
+    }
+}
 
 #[derive(Clone, PartialEq)]
 struct AuxiliarySymbolInfo {
@@ -60,7 +71,7 @@ struct ParseTableBuilder<'a> {
     variable_info: &'a [VariableInfo],
     core_ids_by_core: FxHashMap<ParseItemSetCore<'a>, usize>,
     state_ids_by_item_set: IndexMap<ParseItemSet<'a>, ParseStateId, BuildHasherDefault<FxHasher>>,
-    parse_state_info_by_id: Vec<ParseStateInfo<'a>>,
+    preceding_symbols_by_id: Vec<SymbolSequence>,
     parse_state_queue: VecDeque<ParseStateQueueEntry>,
     non_terminal_extra_states: Vec<(Symbol, usize)>,
     actual_conflicts: FxHashSet<Vec<Symbol>>,
@@ -257,7 +268,7 @@ impl<'a> ParseTableBuilder<'a> {
             non_terminal_extra_states: Vec::new(),
             state_ids_by_item_set: IndexMap::default(),
             core_ids_by_core: FxHashMap::default(),
-            parse_state_info_by_id: Vec::new(),
+            preceding_symbols_by_id: Vec::new(),
             parse_state_queue: VecDeque::new(),
             actual_conflicts: syntax_grammar.expected_conflicts.iter().cloned().collect(),
             parse_table: ParseTable {
@@ -274,7 +285,7 @@ impl<'a> ParseTableBuilder<'a> {
     fn build(
         mut self,
         diagnostics: &mut Vec<Diagnostic>,
-    ) -> BuildTableResult<(ParseTable, Vec<ParseStateInfo<'a>>)> {
+    ) -> BuildTableResult<(ParseTable, ParseStateInfo<'a>)> {
         // Ensure that the empty alias sequence has index 0.
         self.parse_table
             .production_infos
@@ -327,7 +338,7 @@ impl<'a> ParseTableBuilder<'a> {
         let non_terminal_sets_len = non_terminal_extra_item_sets_by_first_terminal.len();
         self.non_terminal_extra_states
             .reserve(non_terminal_sets_len);
-        self.parse_state_info_by_id.reserve(non_terminal_sets_len);
+        self.preceding_symbols_by_id.reserve(non_terminal_sets_len);
         self.parse_table.states.reserve(non_terminal_sets_len);
         self.parse_state_queue.reserve(non_terminal_sets_len);
         // Add a state for each starting terminal of a non-terminal extra rule.
@@ -345,12 +356,18 @@ impl<'a> ParseTableBuilder<'a> {
         }
 
         while let Some(entry) = self.parse_state_queue.pop_front() {
-            let item_set = self
-                .item_set_builder
-                .transitive_closure(&self.parse_state_info_by_id[entry.state_id].1);
+            // The dedup-map key is each state's kernel (the GOTO result, pre closure).
+            // Two states are identical iff their kernels match.
+            let kernel = self
+                .state_ids_by_item_set
+                .get_index(entry.state_id)
+                // Invariant: `state_id` is the map's insertion index
+                .unwrap()
+                .0;
+            let item_set = self.item_set_builder.transitive_closure(kernel);
 
             self.add_actions(
-                self.parse_state_info_by_id[entry.state_id].0.clone(),
+                self.preceding_symbols_by_id[entry.state_id].clone(),
                 entry.preceding_auxiliary_symbols,
                 entry.state_id,
                 &item_set,
@@ -367,7 +384,13 @@ impl<'a> ParseTableBuilder<'a> {
             diagnostics.push(Diagnostic::UnnecessaryConflicts(conflicts));
         }
 
-        Ok((self.parse_table, self.parse_state_info_by_id))
+        Ok((
+            self.parse_table,
+            ParseStateInfo {
+                preceding_symbols_by_id: self.preceding_symbols_by_id,
+                item_sets_by_ids: self.state_ids_by_item_set,
+            },
+        ))
     }
 
     fn add_parse_state(
@@ -389,8 +412,7 @@ impl<'a> ParseTableBuilder<'a> {
                 let core_id = *self.core_ids_by_core.entry(core).or_insert(core_count);
 
                 let state_id = self.parse_table.states.len();
-                self.parse_state_info_by_id
-                    .push((preceding_symbols.clone(), v.key().clone()));
+                self.preceding_symbols_by_id.push(preceding_symbols.clone());
 
                 self.parse_table.states.push(ParseState {
                     id: state_id,
@@ -1194,7 +1216,7 @@ pub fn build_parse_table<'a>(
     variable_info: &'a [VariableInfo],
     str_pool: &'a StrPool,
     diagnostics: &mut Vec<Diagnostic>,
-) -> BuildTableResult<(ParseTable, Vec<ParseStateInfo<'a>>)> {
+) -> BuildTableResult<(ParseTable, ParseStateInfo<'a>)> {
     ParseTableBuilder::new(
         syntax_grammar,
         lexical_grammar,

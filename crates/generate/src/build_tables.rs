@@ -463,7 +463,7 @@ fn report_state_info<'a>(
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
     parse_table: &ParseTable,
-    parse_state_info: &[ParseStateInfo<'a>],
+    parse_state_info: &ParseStateInfo<'a>,
     str_pool: &StrPool,
     report_symbol_name: &'a str,
 ) {
@@ -474,8 +474,8 @@ fn report_state_info<'a>(
 
     for (i, state) in parse_table.states.iter().enumerate() {
         all_state_indices.insert(i);
-        let item_set = &parse_state_info[state.id];
-        for entry in &item_set.1.entries {
+        let item_set = parse_state_info.item_set(state.id);
+        for entry in &item_set.entries {
             if !entry.item.is_augmented() {
                 symbols_with_state_indices[entry.item.variable_index as usize]
                     .1
@@ -524,7 +524,8 @@ fn report_state_info<'a>(
 
         for state_index in state_indices {
             let id = parse_table.states[state_index].id;
-            let (preceding_symbols, item_set) = &parse_state_info[id];
+            let preceding_symbols = &parse_state_info.preceding_symbols_by_id[id];
+            let item_set = parse_state_info.item_set(id);
             info!("state index: {state_index}");
             info!("state id: {id}");
             info!(
