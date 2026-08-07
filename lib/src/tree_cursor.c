@@ -557,8 +557,10 @@ void ts_tree_cursor_current_status(
       (*supertype_count)++;
     }
 
-    // Determine if the current node has later siblings.
-    if (!*has_later_siblings) {
+    // Determine if the current node has later siblings. A later *anonymous*
+    // sibling settles `has_later_siblings` but says nothing about later *named*
+    // siblings.
+    if (!*has_later_named_siblings) {
       unsigned sibling_count = parent_entry->subtree->ptr->child_count;
       unsigned structural_child_index = entry->structural_child_index;
       if (!ts_subtree_extra(*entry->subtree)) structural_child_index++;
@@ -570,14 +572,12 @@ void ts_tree_cursor_current_status(
         );
         if (sibling_metadata.visible) {
           *has_later_siblings = true;
-          if (*has_later_named_siblings) break;
           if (sibling_metadata.named) {
             *has_later_named_siblings = true;
             break;
           }
         } else if (ts_subtree_visible_child_count(sibling) > 0) {
           *has_later_siblings = true;
-          if (*has_later_named_siblings) break;
           if (sibling.ptr->named_child_count > 0) {
             *has_later_named_siblings = true;
             break;
