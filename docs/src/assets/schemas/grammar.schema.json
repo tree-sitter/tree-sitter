@@ -318,20 +318,124 @@
     },
 
     "rule": {
-      "oneOf": [
-        { "$ref": "#/definitions/alias-rule" },
-        { "$ref": "#/definitions/blank-rule" },
-        { "$ref": "#/definitions/string-rule" },
-        { "$ref": "#/definitions/pattern-rule" },
-        { "$ref": "#/definitions/symbol-rule" },
-        { "$ref": "#/definitions/seq-rule" },
-        { "$ref": "#/definitions/choice-rule" },
-        { "$ref": "#/definitions/repeat1-rule" },
-        { "$ref": "#/definitions/repeat-rule" },
-        { "$ref": "#/definitions/reserved-rule" },
-        { "$ref": "#/definitions/token-rule" },
-        { "$ref": "#/definitions/field-rule" },
-        { "$ref": "#/definitions/prec-rule" }
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": { "const": "ALIAS" }
+            },
+            "required": ["type"]
+          },
+          "then": { "$ref": "#/definitions/alias-rule" }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": { "const": "BLANK" }
+            },
+            "required": ["type"]
+          },
+          "then": { "$ref": "#/definitions/blank-rule" }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": { "const": "STRING" }
+            },
+            "required": ["type"]
+          },
+          "then": { "$ref": "#/definitions/string-rule" }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": { "const": "PATTERN" }
+            },
+            "required": ["type"]
+          },
+          "then": { "$ref": "#/definitions/pattern-rule" }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": { "const": "SYMBOL" }
+            },
+            "required": ["type"]
+          },
+          "then": { "$ref": "#/definitions/symbol-rule" }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": { "const": "SEQ" }
+            },
+            "required": ["type"]
+          },
+          "then": { "$ref": "#/definitions/seq-rule" }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": { "const": "CHOICE" }
+            },
+            "required": ["type"]
+          },
+          "then": { "$ref": "#/definitions/choice-rule" }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": { "const": "REPEAT1" }
+            },
+            "required": ["type"]
+          },
+          "then": { "$ref": "#/definitions/repeat1-rule" }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": { "const": "REPEAT" }
+            },
+            "required": ["type"]
+          },
+          "then": { "$ref": "#/definitions/repeat-rule" }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": { "const": "RESERVED" }
+            },
+            "required": ["type"]
+          },
+          "then": { "$ref": "#/definitions/reserved-rule" }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": { "const": "TOKEN" }
+            },
+            "required": ["type"]
+          },
+          "then": { "$ref": "#/definitions/token-rule" }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": { "const": "FIELD" }
+            },
+            "required": ["type"]
+          },
+          "then": { "$ref": "#/definitions/field-rule" }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": { "const": "PREC" }
+            },
+            "required": ["type"]
+          },
+          "then": { "$ref": "#/definitions/prec-rule" }
+        }
       ]
     }
   }
