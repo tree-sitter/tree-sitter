@@ -2049,6 +2049,36 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
     }
   }
 
+  // Mark as fallible every step reachable only through an ERROR or MISSING step.
+  for (unsigned i = 0; i < self->patterns.size; i++) {
+    QueryPattern *pattern = array_get(&self->patterns, i);
+    unsigned start = pattern->steps.offset;
+    unsigned end = start + pattern->steps.length - 1; // exclude DONE
+    unsigned fallible_end = start;
+    for (unsigned j = start; j < end; j++) {
+      QueryStep *step = array_get(&self->steps, j);
+      if (step->is_missing || step->symbol == ts_builtin_sym_error) {
+        unsigned limit = step->alternative_is_skip ? step->alternative_index : end;
+        if (limit > fallible_end) fallible_end = limit;
+      }
+      if (j < fallible_end) {
+        step->parent_pattern_guaranteed = false;
+        step->root_pattern_guaranteed = false;
+      }
+    }
+
+    // A dead end keeps its initialized flags, which would halt the chase below.
+    if (fallible_end > start) {
+      for (unsigned j = start; j < end; j++) {
+        QueryStep *step = array_get(&self->steps, j);
+        if (step->is_dead_end) {
+          step->parent_pattern_guaranteed = false;
+          step->root_pattern_guaranteed = false;
+        }
+      }
+    }
+  }
+
   // Propagate fallibility. If a pattern is fallible at a given step, then it is
   // fallible at all of its preceding steps.
   bool done = self->steps.size == 0;
