@@ -452,6 +452,10 @@ impl<'a> ParseTableBuilder<'a> {
         let mut lookaheads_with_conflicts = TokenSet::new();
         let mut reduction_infos = FxHashMap::<Symbol, ReductionInfo>::default();
 
+        // `get_auxiliary_node_info` scans every entry in `item_set`, and the same auxiliary
+        // symbol typically appears across many entries in a state. Memoize per symbol.
+        let mut aux_node_info = FxHashMap::<Symbol, AuxiliarySymbolInfo>::default();
+
         // Each item in the item set contributes to either or a Shift action or a Reduce
         // action in this state.
         for ParseItemSetEntry {
@@ -472,8 +476,14 @@ impl<'a> ParseTableBuilder<'a> {
                     // used within visible symbols. This information may be needed later
                     // for conflict resolution.
                     if variable.is_auxiliary() {
-                        preceding_auxiliary_symbols
-                            .push(self.get_auxiliary_node_info(item_set, next_symbol));
+                        preceding_auxiliary_symbols.push(
+                            aux_node_info
+                                .entry(next_symbol)
+                                .or_insert_with(|| {
+                                    self.get_auxiliary_node_info(item_set, next_symbol)
+                                })
+                                .clone(),
+                        );
                     }
 
                     // For most parse items, the symbols associated with the preceding children
