@@ -547,7 +547,13 @@ fn report_state_info<'a>(
             );
             info!(
                 "\nitems:\n{}",
-                item::ParseItemSetDisplay(item_set, syntax_grammar, lexical_grammar, str_pool),
+                item::ParseItemSetDisplay(
+                    item_set,
+                    syntax_grammar,
+                    lexical_grammar,
+                    str_pool,
+                    &parse_state_info.lookaheads
+                ),
             );
         }
     }
