@@ -2551,7 +2551,7 @@ static TSQueryError ts_query__parse_pattern(
         // Parse the wildcard symbol
         if (length == 1 && node_name[0] == '_') {
           symbol = WILDCARD_SYMBOL;
-        } else if (!strncmp(node_name, "MISSING", length)) {
+        } else if (length == 7 && !strncmp(node_name, "MISSING", length)) {
           is_missing = true;
           stream_skip_whitespace(stream);
 
