@@ -331,7 +331,7 @@ fn populate_external_lex_states(parse_table: &mut ParseTable, syntax_grammar: &S
             .unwrap_or_else(|| {
                 parse_table.external_lex_states.push(external_tokens);
                 parse_table.external_lex_states.len() - 1
-            });
+            }) as u32;
     }
 }
 
@@ -524,7 +524,7 @@ fn report_state_info<'a>(
 
         for state_index in state_indices {
             let id = parse_table.states[state_index].id;
-            let preceding_symbols = &parse_state_info.preceding_symbols_by_id[id];
+            let preceding_symbols = &parse_state_info.preceding_symbols_by_id[id as usize];
             let item_set = parse_state_info.item_set(id);
             info!("state index: {state_index}");
             info!("state id: {id}");

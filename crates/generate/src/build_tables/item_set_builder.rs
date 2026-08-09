@@ -133,7 +133,7 @@ impl<'a> ParseItemSetBuilder<'a> {
                             symbols_to_process.push(symbol);
                         }
                         *reserved_first_set =
-                            (*reserved_first_set).max(ReservedWordSetId(step.reserved as usize));
+                            (*reserved_first_set).max(ReservedWordSetId(u32::from(step.reserved)));
                     }
                 }
             }
@@ -325,7 +325,7 @@ impl<'a> ParseItemSetBuilder<'a> {
     #[must_use]
     pub fn reserved_first_set(&self, symbol: Symbol) -> Option<&TokenSet> {
         let id = *self.reserved_first_sets.get(&symbol)?;
-        Some(&self.syntax_grammar.reserved_word_sets[id.0])
+        Some(&self.syntax_grammar.reserved_word_sets[id.0 as usize])
     }
 
     #[must_use]
