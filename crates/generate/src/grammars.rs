@@ -217,7 +217,7 @@ impl ProductionStep {
 // Extracted syntax grammar
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct ReservedWordSetId(pub usize);
+pub struct ReservedWordSetId(pub u32);
 
 impl std::fmt::Display for ReservedWordSetId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

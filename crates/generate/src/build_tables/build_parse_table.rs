@@ -41,7 +41,7 @@ pub struct ParseStateInfo<'a> {
 impl<'a> ParseStateInfo<'a> {
     #[must_use]
     pub fn item_set(&self, id: ParseStateId) -> &ParseItemSet<'a> {
-        self.item_sets_by_ids.get_index(id).unwrap().0
+        self.item_sets_by_ids.get_index(id as usize).unwrap().0
     }
 }
 
@@ -70,12 +70,12 @@ struct ParseTableBuilder<'a> {
     syntax_grammar: &'a SyntaxGrammar,
     lexical_grammar: &'a LexicalGrammar,
     variable_info: &'a [VariableInfo],
-    core_ids_by_core: FxHashMap<ParseItemSetCore<'a>, usize>,
+    core_ids_by_core: FxHashMap<ParseItemSetCore<'a>, u32>,
     state_ids_by_item_set: IndexMap<ParseItemSet<'a>, ParseStateId, BuildHasherDefault<FxHasher>>,
     preceding_symbols_by_id: Vec<SymbolSequence>,
     production_info_ids_by_prod_id: Vec<Option<ProductionInfoId>>,
     parse_state_queue: VecDeque<ParseStateQueueEntry>,
-    non_terminal_extra_states: Vec<(Symbol, usize)>,
+    non_terminal_extra_states: Vec<(Symbol, ParseStateId)>,
     actual_conflicts: FxHashSet<Vec<Symbol>>,
     parse_table: ParseTable,
     str_pool: &'a StrPool,
@@ -366,14 +366,14 @@ impl<'a> ParseTableBuilder<'a> {
             // Two states are identical iff their kernels match.
             let kernel = self
                 .state_ids_by_item_set
-                .get_index(entry.state_id)
+                .get_index(entry.state_id as usize)
                 // Invariant: `state_id` is the map's insertion index
                 .unwrap()
                 .0;
             let item_set = self.item_set_builder.transitive_closure(kernel);
 
             self.add_actions(
-                self.preceding_symbols_by_id[entry.state_id].clone(),
+                self.preceding_symbols_by_id[entry.state_id as usize].clone(),
                 entry.preceding_auxiliary_symbols,
                 entry.state_id,
                 &item_set,
@@ -415,10 +415,10 @@ impl<'a> ParseTableBuilder<'a> {
             // parse states to populate.
             Entry::Vacant(v) => {
                 let core = v.key().core();
-                let core_count = self.core_ids_by_core.len();
+                let core_count = self.core_ids_by_core.len() as u32;
                 let core_id = *self.core_ids_by_core.entry(core).or_insert(core_count);
 
-                let state_id = self.parse_table.states.len();
+                let state_id = self.parse_table.states.len() as u32;
                 self.preceding_symbols_by_id.push(preceding_symbols.clone());
 
                 self.parse_table.states.push(ParseState {
@@ -549,7 +549,7 @@ impl<'a> ParseTableBuilder<'a> {
                 let precedence = item.precedence(self.syntax_grammar);
                 let associativity = item.associativity(self.syntax_grammar);
                 for lookahead in self.item_set_builder.lookaheads.get(*lookaheads).iter() {
-                    let table_entry = self.parse_table.states[state_id]
+                    let table_entry = self.parse_table.states[state_id as usize]
                         .terminal_entries
                         .entry(lookahead)
                         .or_insert_with(ParseTableEntry::new);
@@ -609,7 +609,7 @@ impl<'a> ParseTableBuilder<'a> {
             );
             preceding_symbols.pop();
 
-            let entry = self.parse_table.states[state_id]
+            let entry = self.parse_table.states[state_id as usize]
                 .terminal_entries
                 .entry(symbol);
             if let Entry::Occupied(e) = &entry
@@ -635,7 +635,7 @@ impl<'a> ParseTableBuilder<'a> {
                 next_item_set,
             );
             preceding_symbols.pop();
-            self.parse_table.states[state_id]
+            self.parse_table.states[state_id as usize]
                 .nonterminal_entries
                 .insert(symbol, GotoAction::Goto(next_state_id));
         }
@@ -657,7 +657,7 @@ impl<'a> ParseTableBuilder<'a> {
         }
 
         // Add actions for the grammar's `extra` symbols.
-        let state = &mut self.parse_table.states[state_id];
+        let state = &mut self.parse_table.states[state_id as usize];
         let is_end_of_non_terminal_extra = state.is_end_of_non_terminal_extra();
 
         // If this state represents the end of a non-terminal extra rule, then make sure that
@@ -732,7 +732,7 @@ impl<'a> ParseTableBuilder<'a> {
                 .filter_map(|entry| {
                     if let Some(next_step) = entry.item.step(self.syntax_grammar) {
                         if next_step.symbol() == keyword_capture_token {
-                            Some(ReservedWordSetId(usize::from(next_step.reserved)))
+                            Some(ReservedWordSetId(u32::from(next_step.reserved)))
                         } else {
                             None
                         }
@@ -750,7 +750,7 @@ impl<'a> ParseTableBuilder<'a> {
                 .max();
             if let Some(reserved_word_set_id) = reserved_word_set_id {
                 state.reserved_words =
-                    self.syntax_grammar.reserved_word_sets[reserved_word_set_id.0].clone();
+                    self.syntax_grammar.reserved_word_sets[reserved_word_set_id.0 as usize].clone();
             }
         }
 
@@ -766,7 +766,7 @@ impl<'a> ParseTableBuilder<'a> {
         conflicting_lookahead: Symbol,
         reduction_info: &ReductionInfo,
     ) -> BuildTableResult<()> {
-        let entry = self.parse_table.states[state_id]
+        let entry = self.parse_table.states[state_id as usize]
             .terminal_entries
             .get_mut(&conflicting_lookahead)
             .unwrap();
@@ -902,7 +902,7 @@ impl<'a> ParseTableBuilder<'a> {
         }
 
         // If all of the actions but one have been eliminated, then there's no problem.
-        let entry = self.parse_table.states[state_id]
+        let entry = self.parse_table.states[state_id as usize]
             .terminal_entries
             .get_mut(&conflicting_lookahead)
             .unwrap();
@@ -1172,7 +1172,7 @@ impl<'a> ParseTableBuilder<'a> {
                     .entry(field_name)
                     .or_default()
                     .push(FieldLocation {
-                        index: i,
+                        index: i as u32,
                         inherited: false,
                     });
             }
@@ -1189,7 +1189,7 @@ impl<'a> ParseTableBuilder<'a> {
                         .entry(field_name)
                         .or_default()
                         .push(FieldLocation {
-                            index: i,
+                            index: i as u32,
                             inherited: true,
                         });
                 }
@@ -1217,7 +1217,7 @@ impl<'a> ParseTableBuilder<'a> {
         } else {
             self.parse_table.production_infos.push(production_info);
             self.parse_table.production_infos.len() - 1
-        };
+        } as ProductionInfoId;
         self.production_info_ids_by_prod_id[item.prod_id as usize] = Some(id);
         id
     }

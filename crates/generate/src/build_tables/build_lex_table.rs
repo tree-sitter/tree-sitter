@@ -71,13 +71,13 @@ pub fn build_lex_table(
                 coincident_token_index,
             ) {
                 did_merge = true;
-                entry.1.push(i);
+                entry.1.push(i as u32);
                 break;
             }
         }
 
         if !did_merge {
-            parse_state_ids_by_token_set.push((tokens, vec![i]));
+            parse_state_ids_by_token_set.push((tokens, vec![i as u32]));
         }
     }
 
@@ -85,7 +85,7 @@ pub fn build_lex_table(
     for (tokens, parse_state_ids) in parse_state_ids_by_token_set {
         let lex_state_id = builder.add_state_for_tokens(&tokens);
         for id in parse_state_ids {
-            parse_table.states[id].lex_state_id = lex_state_id;
+            parse_table.states[id as usize].lex_state_id = lex_state_id;
         }
     }
 
@@ -141,7 +141,7 @@ struct LexTableBuilder<'a> {
     cursor: NfaCursor<'a>,
     table: LexTable,
     state_queue: VecDeque<QueueEntry>,
-    state_ids_by_nfa_state_set: FxHashMap<(Vec<u32>, bool), usize>,
+    state_ids_by_nfa_state_set: FxHashMap<(Vec<u32>, bool), LexStateId>,
 }
 
 impl<'a> LexTableBuilder<'a> {
@@ -205,7 +205,7 @@ impl<'a> LexTableBuilder<'a> {
         {
             Entry::Occupied(o) => (*o.get(), false),
             Entry::Vacant(v) => {
-                let state_id = self.table.states.len();
+                let state_id = self.table.states.len() as u32;
                 self.table.states.push(LexState::default());
                 self.state_queue.push_back(QueueEntry {
                     state_id,
@@ -242,7 +242,7 @@ impl<'a> LexTableBuilder<'a> {
         // character that leads to the empty set of NFA states.
         if eof_valid {
             let (next_state_id, _) = self.add_state(Vec::new(), false);
-            self.table.states[state_id].eof_action = Some(AdvanceAction {
+            self.table.states[state_id as usize].eof_action = Some(AdvanceAction {
                 state: next_state_id,
                 in_main_token: true,
             });
@@ -263,7 +263,7 @@ impl<'a> LexTableBuilder<'a> {
 
             let (next_state_id, _) =
                 self.add_state(transition.states, eof_valid && transition.is_separator);
-            self.table.states[state_id].advance_actions.push((
+            self.table.states[state_id as usize].advance_actions.push((
                 transition.characters,
                 AdvanceAction {
                     state: next_state_id,
@@ -273,9 +273,10 @@ impl<'a> LexTableBuilder<'a> {
         }
 
         if let Some((complete_id, _)) = completion {
-            self.table.states[state_id].accept_action = Some(Symbol::terminal(complete_id));
+            self.table.states[state_id as usize].accept_action =
+                Some(Symbol::terminal(complete_id));
         } else if self.cursor.state_ids.is_empty() {
-            self.table.states[state_id].accept_action = Some(Symbol::end());
+            self.table.states[state_id as usize].accept_action = Some(Symbol::end());
         }
     }
 }
@@ -368,7 +369,7 @@ fn minimize_lex_table(table: &mut LexTable, parse_table: &mut ParseTable) {
         state_ids_by_signature
             .entry(signature)
             .or_insert(Vec::new())
-            .push(i);
+            .push(i as u32);
     }
     let mut state_ids_by_group_id = state_ids_by_signature
         .into_iter()
@@ -381,10 +382,10 @@ fn minimize_lex_table(table: &mut LexTable, parse_table: &mut ParseTable) {
         .unwrap();
     state_ids_by_group_id.swap(error_group_index, 0);
 
-    let mut group_ids_by_state_id = vec![0; table.states.len()];
+    let mut group_ids_by_state_id = vec![0u32; table.states.len()];
     for (group_id, state_ids) in state_ids_by_group_id.iter().enumerate() {
         for state_id in state_ids {
-            group_ids_by_state_id[*state_id] = group_id;
+            group_ids_by_state_id[*state_id as usize] = group_id as u32;
         }
     }
 
@@ -399,19 +400,19 @@ fn minimize_lex_table(table: &mut LexTable, parse_table: &mut ParseTable) {
     let mut new_states = Vec::with_capacity(state_ids_by_group_id.len());
     for state_ids in &state_ids_by_group_id {
         let mut new_state = LexState::default();
-        mem::swap(&mut new_state, &mut table.states[state_ids[0]]);
+        mem::swap(&mut new_state, &mut table.states[state_ids[0] as usize]);
 
         for (_, advance_action) in &mut new_state.advance_actions {
-            advance_action.state = group_ids_by_state_id[advance_action.state];
+            advance_action.state = group_ids_by_state_id[advance_action.state as usize];
         }
         if let Some(eof_action) = &mut new_state.eof_action {
-            eof_action.state = group_ids_by_state_id[eof_action.state];
+            eof_action.state = group_ids_by_state_id[eof_action.state as usize];
         }
         new_states.push(new_state);
     }
 
     for state in &mut parse_table.states {
-        state.lex_state_id = group_ids_by_state_id[state.lex_state_id];
+        state.lex_state_id = group_ids_by_state_id[state.lex_state_id as usize];
     }
 
     table.states = new_states;
@@ -426,7 +427,8 @@ fn lex_states_differ(
         .iter()
         .zip(right.advance_actions.iter())
         .any(|(left, right)| {
-            group_ids_by_state_id[left.1.state] != group_ids_by_state_id[right.1.state]
+            group_ids_by_state_id[left.1.state as usize]
+                != group_ids_by_state_id[right.1.state as usize]
         })
 }
 
@@ -436,9 +438,9 @@ fn sort_states(table: &mut LexTable, parse_table: &mut ParseTable) {
     old_ids_by_new_id[1..].sort_by_key(|id| &table.states[*id]);
 
     // Get the inverse mapping
-    let mut new_ids_by_old_id = vec![0; old_ids_by_new_id.len()];
+    let mut new_ids_by_old_id = vec![0u32; old_ids_by_new_id.len()];
     for (id, old_id) in old_ids_by_new_id.iter().enumerate() {
-        new_ids_by_old_id[*old_id] = id;
+        new_ids_by_old_id[*old_id] = id as u32;
     }
 
     // Reorder the parse states and update their references to reflect
@@ -449,10 +451,10 @@ fn sort_states(table: &mut LexTable, parse_table: &mut ParseTable) {
             let mut state = LexState::default();
             mem::swap(&mut state, &mut table.states[*old_id]);
             for (_, advance_action) in &mut state.advance_actions {
-                advance_action.state = new_ids_by_old_id[advance_action.state];
+                advance_action.state = new_ids_by_old_id[advance_action.state as usize];
             }
             if let Some(eof_action) = &mut state.eof_action {
-                eof_action.state = new_ids_by_old_id[eof_action.state];
+                eof_action.state = new_ids_by_old_id[eof_action.state as usize];
             }
             state
         })
@@ -460,6 +462,6 @@ fn sort_states(table: &mut LexTable, parse_table: &mut ParseTable) {
 
     // Update the parse table's lex state references
     for state in &mut parse_table.states {
-        state.lex_state_id = new_ids_by_old_id[state.lex_state_id];
+        state.lex_state_id = new_ids_by_old_id[state.lex_state_id as usize];
     }
 }

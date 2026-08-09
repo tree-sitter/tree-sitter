@@ -16,7 +16,7 @@ use crate::{
 
 /// Index into [`SyntaxGrammar::variables`]. All nonterminal [`Symbol`]s share
 /// the same `kind`, so storing the index alone is sufficient for ordering.
-type NonterminalIndex = usize;
+type NonterminalIndex = u32;
 
 /// A [`Symbol`] packed into a `u64` for O(1) sort-key comparison.
 ///
@@ -194,7 +194,7 @@ impl Minimizer<'_> {
             if let Some(symbol) = unit_reduction_symbol
                 && only_unit_reductions
             {
-                unit_reduction_symbols_by_state.insert(i, *symbol);
+                unit_reduction_symbols_by_state.insert(i as u32, *symbol);
             }
         }
 
@@ -232,9 +232,9 @@ impl Minimizer<'_> {
         // Pre-allocate for the maximum possible number of groups (one per state) to
         // avoid reallocs as split_state_id_groups pushes new groups.
         let mut state_ids_by_group_id = Vec::with_capacity(self.parse_table.states.len());
-        state_ids_by_group_id.resize(core_count, Vec::new());
+        state_ids_by_group_id.resize(core_count as usize, Vec::new());
         for (i, state) in self.parse_table.states.iter().enumerate() {
-            state_ids_by_group_id[state.core_id].push(i);
+            state_ids_by_group_id[state.core_id as usize].push(i as u32);
             group_ids_by_state_id.push(state.core_id);
         }
 
@@ -353,7 +353,7 @@ impl Minimizer<'_> {
                 let mut entries = state
                     .nonterminal_entries
                     .iter()
-                    .map(|(sym, action)| (sym.index as usize, *action))
+                    .map(|(sym, action)| (sym.index, *action))
                     .collect::<Vec<(NonterminalIndex, GotoAction)>>();
                 entries.sort_unstable_by_key(|&(idx, _)| idx);
                 entries
@@ -385,12 +385,12 @@ impl Minimizer<'_> {
         let mut new_states = Vec::with_capacity(state_ids_by_group_id.len());
         for state_ids in &state_ids_by_group_id {
             // Initialize the new state based on the first old state in the group.
-            let mut parse_state = mem::take(&mut self.parse_table.states[state_ids[0]]);
+            let mut parse_state = mem::take(&mut self.parse_table.states[state_ids[0] as usize]);
 
             // Extend the new state with all of the actions from the other old states
             // in the group.
             for state_id in &state_ids[1..] {
-                let other_parse_state = mem::take(&mut self.parse_table.states[*state_id]);
+                let other_parse_state = mem::take(&mut self.parse_table.states[*state_id as usize]);
 
                 parse_state
                     .terminal_entries
@@ -407,7 +407,8 @@ impl Minimizer<'_> {
             }
 
             // Update the new state's outgoing references using the new grouping.
-            parse_state.update_referenced_states(|state_id, _| group_ids_by_state_id[state_id]);
+            parse_state
+                .update_referenced_states(|state_id, _| group_ids_by_state_id[state_id as usize]);
             new_states.push(parse_state);
         }
 
@@ -422,8 +423,8 @@ impl Minimizer<'_> {
         entry_maps: &[Vec<(SymbolKey, &ParseTableEntry)>],
         bits: &ConflictBits,
     ) -> bool {
-        let entries1 = &entry_maps[state1.id];
-        let entries2 = &entry_maps[state2.id];
+        let entries1 = &entry_maps[state1.id as usize];
+        let entries2 = &entry_maps[state2.id as usize];
         let len1 = entries1.len();
         let len2 = entries2.len();
         let mut i = 0;
@@ -488,10 +489,10 @@ impl Minimizer<'_> {
         state2: &ParseState,
         group_ids_by_state_id: &[ParseStateId],
         shift_maps: &[Vec<(SymbolKey, ParseStateId)>],
-        nonterminal_maps: &[Vec<(usize, GotoAction)>],
+        nonterminal_maps: &[Vec<(NonterminalIndex, GotoAction)>],
     ) -> bool {
-        let shifts1 = &shift_maps[state1.id];
-        let shifts2 = &shift_maps[state2.id];
+        let shifts1 = &shift_maps[state1.id as usize];
+        let shifts2 = &shift_maps[state2.id as usize];
         let mut i = 0;
         let mut j = 0;
         while i < shifts1.len() && j < shifts2.len() {
@@ -502,8 +503,8 @@ impl Minimizer<'_> {
                 Ordering::Less => i += 1,
                 Ordering::Greater => j += 1,
                 Ordering::Equal => {
-                    let group1 = group_ids_by_state_id[s1];
-                    let group2 = group_ids_by_state_id[s2];
+                    let group1 = group_ids_by_state_id[s1 as usize];
+                    let group2 = group_ids_by_state_id[s2 as usize];
                     if group1 != group2 {
                         debug!(
                             "split states {} {} - successors for {} are split: {s1} {s2}",
@@ -519,8 +520,8 @@ impl Minimizer<'_> {
             }
         }
 
-        let nonterms1 = &nonterminal_maps[state1.id];
-        let nonterms2 = &nonterminal_maps[state2.id];
+        let nonterms1 = &nonterminal_maps[state1.id as usize];
+        let nonterms2 = &nonterminal_maps[state2.id as usize];
         let mut i = 0;
         let mut j = 0;
         while i < nonterms1.len() && j < nonterms2.len() {
@@ -534,15 +535,15 @@ impl Minimizer<'_> {
                     match (s1, s2) {
                         (GotoAction::ShiftExtra, GotoAction::ShiftExtra) => {}
                         (GotoAction::Goto(s1), GotoAction::Goto(s2)) => {
-                            let group1 = group_ids_by_state_id[s1];
-                            let group2 = group_ids_by_state_id[s2];
+                            let group1 = group_ids_by_state_id[s1 as usize];
+                            let group2 = group_ids_by_state_id[s2 as usize];
                             if group1 != group2 {
                                 debug!(
                                     "split states {} {} - successors for {} are split: {s1} {s2}",
                                     state1.id,
                                     state2.id,
                                     self.str_pool
-                                        .resolve(self.syntax_grammar.variables[idx1].name),
+                                        .resolve(self.syntax_grammar.variables[idx1 as usize].name),
                                 );
                                 return true;
                             }
@@ -591,8 +592,8 @@ impl Minimizer<'_> {
                 },
             ) = (action1, action2)
             {
-                let group1 = group_ids_by_state_id[*s1];
-                let group2 = group_ids_by_state_id[*s2];
+                let group1 = group_ids_by_state_id[*s1 as usize];
+                let group2 = group_ids_by_state_id[*s2 as usize];
                 if group1 == group2 && is_repetition1 == is_repetition2 {
                     continue;
                 }
@@ -663,7 +664,7 @@ impl Minimizer<'_> {
         // conflict row against the state's terminal bits, masking out the word/keyword
         // exemptions.
         let row = bits.get_conflict_row(new_token.index as usize);
-        let right_terminal_bits = bits.get_state_row(right_state.id);
+        let right_terminal_bits = bits.get_state_row(right_state.id as usize);
         for (w, &row_word) in row.iter().enumerate() {
             let mut candidates = right_terminal_bits[w] & row_word;
             if new_token_is_keyword
@@ -714,13 +715,13 @@ impl Minimizer<'_> {
 
         for state in &self.parse_table.states {
             for referenced_state in state.referenced_states() {
-                state_usage_map[referenced_state] = true;
+                state_usage_map[referenced_state as usize] = true;
             }
         }
         let mut removed_predecessor_count = 0;
         let mut state_replacement_map = vec![0; self.parse_table.states.len()];
         for state_id in 0..self.parse_table.states.len() {
-            state_replacement_map[state_id] = state_id - removed_predecessor_count;
+            state_replacement_map[state_id] = (state_id - removed_predecessor_count) as u32;
             if !state_usage_map[state_id] {
                 removed_predecessor_count += 1;
             }
@@ -730,7 +731,7 @@ impl Minimizer<'_> {
         while state_id < self.parse_table.states.len() {
             if state_usage_map[original_state_id] {
                 self.parse_table.states[state_id].update_referenced_states(|other_state_id, _| {
-                    state_replacement_map[other_state_id]
+                    state_replacement_map[other_state_id as usize]
                 });
                 state_id += 1;
             } else {
@@ -757,7 +758,7 @@ impl Minimizer<'_> {
         // Get the inverse mapping
         let mut new_ids_by_old_id = vec![0; old_ids_by_new_id.len()];
         for (id, old_id) in old_ids_by_new_id.iter().enumerate() {
-            new_ids_by_old_id[*old_id] = id;
+            new_ids_by_old_id[*old_id] = id as u32;
         }
 
         // Reorder the parse states and update their references to reflect
@@ -767,7 +768,7 @@ impl Minimizer<'_> {
             .map(|old_id| {
                 let mut state = ParseState::default();
                 mem::swap(&mut state, &mut self.parse_table.states[*old_id]);
-                state.update_referenced_states(|id, _| new_ids_by_old_id[id]);
+                state.update_referenced_states(|id, _| new_ids_by_old_id[id as usize]);
                 state
             })
             .collect();
