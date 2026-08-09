@@ -15,7 +15,7 @@ use super::{
 };
 use crate::{
     Diagnostic,
-    build_tables::item::prec_display,
+    build_tables::item::{LookaheadSetPool, prec_display},
     grammars::{LexicalGrammar, PrecedenceEntry, ReservedWordSetId, SyntaxGrammar, VariableType},
     node_types::VariableInfo,
     rules::{Associativity, Precedence, Symbol, SymbolType, TokenSet},
@@ -35,6 +35,7 @@ type AuxiliarySymbolSequence = Vec<AuxiliarySymbolInfo>;
 pub struct ParseStateInfo<'a> {
     pub preceding_symbols_by_id: Vec<SymbolSequence>,
     item_sets_by_ids: IndexMap<ParseItemSet<'a>, ParseStateId, BuildHasherDefault<FxHasher>>,
+    pub lookaheads: LookaheadSetPool,
 }
 
 impl<'a> ParseStateInfo<'a> {
@@ -295,13 +296,14 @@ impl<'a> ParseTableBuilder<'a> {
         self.add_parse_state(&Vec::new(), &Vec::new(), ParseItemSet::default());
 
         // Add the starting state at index 1.
+        let end_lookaheads = self.item_set_builder.lookaheads.singleton(Symbol::end());
         self.add_parse_state(
             &Vec::new(),
             &Vec::new(),
             ParseItemSet {
                 entries: vec![ParseItemSetEntry {
                     item: ParseItem::start(self.item_set_builder.key_map),
-                    lookaheads: std::iter::once(Symbol::end()).collect(),
+                    lookaheads: end_lookaheads,
                     following_reserved_word_set: ReservedWordSetId::default(),
                 }],
             },
@@ -320,7 +322,7 @@ impl<'a> ParseTableBuilder<'a> {
                 .variable_prod_ids(extra_non_terminal.index as usize)
             {
                 let production = self.syntax_grammar.production(prod_id);
-                non_terminal_extra_item_sets_by_first_terminal
+                let entry = non_terminal_extra_item_sets_by_first_terminal
                     .entry(production.first_symbol().unwrap())
                     .or_insert_with(ParseItemSet::default)
                     .insert(ParseItem {
@@ -329,9 +331,11 @@ impl<'a> ParseTableBuilder<'a> {
                         step_index: 1,
                         keys: self.item_set_builder.key_map.keys_for(prod_id),
                         has_preceding_inherited_fields: false,
-                    })
+                    });
+                entry.lookaheads = self
+                    .item_set_builder
                     .lookaheads
-                    .insert(Symbol::end_of_nonterminal_extra());
+                    .insert(entry.lookaheads, Symbol::end_of_nonterminal_extra());
             }
         }
 
@@ -389,6 +393,7 @@ impl<'a> ParseTableBuilder<'a> {
             ParseStateInfo {
                 preceding_symbols_by_id: self.preceding_symbols_by_id,
                 item_sets_by_ids: self.state_ids_by_item_set,
+                lookaheads: self.item_set_builder.lookaheads,
             },
         ))
     }
@@ -495,7 +500,10 @@ impl<'a> ParseTableBuilder<'a> {
                         .or_insert_with(ParseItemSet::default)
                 };
                 let successor_entry = successor_set.insert(successor);
-                successor_entry.lookaheads.insert_all(lookaheads);
+                successor_entry.lookaheads = self
+                    .item_set_builder
+                    .lookaheads
+                    .union(successor_entry.lookaheads, *lookaheads);
                 successor_entry.following_reserved_word_set = successor_entry
                     .following_reserved_word_set
                     .max(*reserved_lookaheads);
@@ -528,7 +536,7 @@ impl<'a> ParseTableBuilder<'a> {
 
                 let precedence = item.precedence(self.syntax_grammar);
                 let associativity = item.associativity(self.syntax_grammar);
-                for lookahead in lookaheads.iter() {
+                for lookahead in self.item_set_builder.lookaheads.get(*lookaheads).iter() {
                     let table_entry = self.parse_table.states[state_id]
                         .terminal_entries
                         .entry(lookahead)
@@ -716,7 +724,12 @@ impl<'a> ParseTableBuilder<'a> {
                         } else {
                             None
                         }
-                    } else if entry.lookaheads.contains(keyword_capture_token) {
+                    } else if self
+                        .item_set_builder
+                        .lookaheads
+                        .get(entry.lookaheads)
+                        .contains(keyword_capture_token)
+                    {
                         Some(entry.following_reserved_word_set)
                     } else {
                         None
@@ -778,7 +791,12 @@ impl<'a> ParseTableBuilder<'a> {
                         shift_precedence.insert(i, p);
                     }
                 }
-            } else if lookaheads.contains(conflicting_lookahead) && item.variable_index != u32::MAX
+            } else if self
+                .item_set_builder
+                .lookaheads
+                .get(*lookaheads)
+                .contains(conflicting_lookahead)
+                && item.variable_index != u32::MAX
             {
                 conflicting_items.insert(item);
             }

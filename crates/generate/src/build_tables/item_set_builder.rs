@@ -6,17 +6,30 @@ use super::item::{
     ItemKeyMap, ParseItem, ParseItemDisplay, ParseItemSet, ParseItemSetEntry, TokenSetDisplay,
 };
 use crate::{
+    build_tables::item::{LookaheadSetId, LookaheadSetPool},
     grammars::{InlinedProductionMap, LexicalGrammar, ReservedWordSetId, SyntaxGrammar},
     rules::{Symbol, SymbolType, TokenSet},
     strpool::StrPool,
 };
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct TransitiveClosureAddition<'a> {
     item: ParseItem<'a>,
-    info: FollowSetInfo,
+    info: AdditionInfo,
 }
 
+/// [`FollowSetInfo`] with an interned lookahead set and word-token membership precomputed.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct AdditionInfo {
+    lookaheads: LookaheadSetId,
+    reserved_lookaheads: ReservedWordSetId,
+    propagates_lookaheads: bool,
+    contains_word: bool,
+}
+
+/// the mutable accumulator for a non-terminal's follow set. `lookaheads` is a
+/// working `TokenSet` that can be unioned incrementally during traversal, to be
+/// interned into [`AdditionInfo`] once complete.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 struct FollowSetInfo {
     lookaheads: TokenSet,
@@ -27,10 +40,13 @@ struct FollowSetInfo {
 pub struct ParseItemSetBuilder<'a> {
     syntax_grammar: &'a SyntaxGrammar,
     first_sets: FxHashMap<Symbol, TokenSet>,
+    /// Each FIRST set interned, for closure propagation by id
+    first_set_ids: FxHashMap<Symbol, LookaheadSetId>,
     reserved_first_sets: FxHashMap<Symbol, ReservedWordSetId>,
     last_sets: FxHashMap<Symbol, TokenSet>,
     inlines: &'a InlinedProductionMap,
     pub key_map: &'a ItemKeyMap,
+    pub lookaheads: LookaheadSetPool,
     transitive_closure_additions: Vec<Vec<TransitiveClosureAddition<'a>>>,
 }
 
@@ -51,10 +67,12 @@ impl<'a> ParseItemSetBuilder<'a> {
         let mut result = Self {
             syntax_grammar,
             first_sets: FxHashMap::default(),
+            first_set_ids: FxHashMap::default(),
             reserved_first_sets: FxHashMap::default(),
             last_sets: FxHashMap::default(),
             inlines,
             key_map,
+            lookaheads: LookaheadSetPool::new(),
             transitive_closure_additions: vec![Vec::new(); syntax_grammar.variables.len()],
         };
 
@@ -139,6 +157,13 @@ impl<'a> ParseItemSetBuilder<'a> {
             }
         }
 
+        // Intern each FIRST set so closure propagation can union by id.
+        for (symbol, set) in &result.first_sets {
+            result
+                .first_set_ids
+                .insert(*symbol, result.lookaheads.intern_ref(set));
+        }
+
         // To compute an item set's transitive closure, we find each item in the set
         // whose next symbol is a non-terminal, and we add new items to the set for
         // each of that symbol's productions. These productions might themselves begin
@@ -219,16 +244,23 @@ impl<'a> ParseItemSetBuilder<'a> {
 
             // Store all of those non-terminals' productions, along with their associated
             // lookahead info, as *additions* associated with non-terminal `i`.
-            let additions_for_non_terminal = &mut result.transitive_closure_additions[i];
             for (&variable_index, follow_set_info) in &follow_set_info_by_non_terminal {
                 let non_terminal = Symbol::non_terminal(variable_index);
-                let variable_index = variable_index as u32;
                 if syntax_grammar.variables_to_inline.contains(&non_terminal) {
                     continue;
                 }
-                for prod_id in syntax_grammar.variable_prod_ids(variable_index as usize) {
+                let info = AdditionInfo {
+                    lookaheads: result.lookaheads.intern_ref(&follow_set_info.lookaheads),
+                    reserved_lookaheads: follow_set_info.reserved_lookaheads,
+                    propagates_lookaheads: follow_set_info.propagates_lookaheads,
+                    contains_word: syntax_grammar
+                        .word_token
+                        .is_some_and(|w| follow_set_info.lookaheads.contains(w)),
+                };
+                let additions_for_non_terminal = &mut result.transitive_closure_additions[i];
+                for prod_id in syntax_grammar.variable_prod_ids(variable_index) {
                     let item = ParseItem {
-                        variable_index,
+                        variable_index: variable_index as u32,
                         prod_id,
                         keys: key_map.keys_for(prod_id),
                         step_index: 0,
@@ -241,17 +273,14 @@ impl<'a> ParseItemSetBuilder<'a> {
                                 additions_for_non_terminal,
                                 TransitiveClosureAddition {
                                     item: item.substitute_production(id, key_map.keys_for(id)),
-                                    info: follow_set_info.clone(),
+                                    info,
                                 },
                             );
                         }
                     } else {
                         find_or_push(
                             additions_for_non_terminal,
-                            TransitiveClosureAddition {
-                                item,
-                                info: follow_set_info.clone(),
-                            },
+                            TransitiveClosureAddition { item, info },
                         );
                     }
                 }
@@ -262,7 +291,7 @@ impl<'a> ParseItemSetBuilder<'a> {
     }
 
     #[must_use]
-    pub fn transitive_closure(&self, item_set: &ParseItemSet<'a>) -> ParseItemSet<'a> {
+    pub fn transitive_closure(&mut self, item_set: &ParseItemSet<'a>) -> ParseItemSet<'a> {
         let mut result = ParseItemSet::default();
         for entry in &item_set.entries {
             if let Some(ids) = self
@@ -276,7 +305,7 @@ impl<'a> ParseItemSetBuilder<'a> {
                             item: entry
                                 .item
                                 .substitute_production(id, self.key_map.keys_for(id)),
-                            lookaheads: entry.lookaheads.clone(),
+                            lookaheads: entry.lookaheads,
                             following_reserved_word_set: entry.following_reserved_word_set,
                         },
                     );
@@ -304,7 +333,7 @@ impl<'a> ParseItemSetBuilder<'a> {
         &self.last_sets[&symbol]
     }
 
-    fn add_item(&self, set: &mut ParseItemSet<'a>, entry: &ParseItemSetEntry<'a>) {
+    fn add_item(&mut self, set: &mut ParseItemSet<'a>, entry: &ParseItemSetEntry<'a>) {
         if let Some(step) = entry.item.step(self.syntax_grammar)
             && step.symbol().is_non_terminal()
         {
@@ -313,42 +342,41 @@ impl<'a> ParseItemSetBuilder<'a> {
             // Determine which tokens can follow this non-terminal.
             let (following_tokens, following_reserved_tokens) = if let Some(next_step) = next_step {
                 (
-                    self.first_sets.get(&next_step.symbol()).unwrap(),
-                    *self.reserved_first_sets.get(&next_step.symbol()).unwrap(),
+                    self.first_set_ids[&next_step.symbol()],
+                    self.reserved_first_sets[&next_step.symbol()],
                 )
             } else {
-                (&entry.lookaheads, entry.following_reserved_word_set)
+                (entry.lookaheads, entry.following_reserved_word_set)
             };
 
             // Use the pre-computed *additions* to expand the non-terminal.
             for addition in &self.transitive_closure_additions[step.symbol().index as usize] {
-                let entry = set.insert(addition.item);
-                entry.lookaheads.insert_all(&addition.info.lookaheads);
+                let e = set.insert(addition.item);
+                e.lookaheads = self
+                    .lookaheads
+                    .union(e.lookaheads, addition.info.lookaheads);
 
-                if let Some(word_token) = self.syntax_grammar.word_token
-                    && addition.info.lookaheads.contains(word_token)
-                {
-                    entry.following_reserved_word_set = entry
+                if addition.info.contains_word {
+                    e.following_reserved_word_set = e
                         .following_reserved_word_set
                         .max(addition.info.reserved_lookaheads);
                 }
 
                 if addition.info.propagates_lookaheads {
-                    entry.lookaheads.insert_all(following_tokens);
+                    e.lookaheads = self.lookaheads.union(e.lookaheads, following_tokens);
 
                     if let Some(word_token) = self.syntax_grammar.word_token
-                        && following_tokens.contains(word_token)
+                        && self.lookaheads.get(following_tokens).contains(word_token)
                     {
-                        entry.following_reserved_word_set = entry
-                            .following_reserved_word_set
-                            .max(following_reserved_tokens);
+                        e.following_reserved_word_set =
+                            e.following_reserved_word_set.max(following_reserved_tokens);
                     }
                 }
             }
         }
 
         let e = set.insert(entry.item);
-        e.lookaheads.insert_all(&entry.lookaheads);
+        e.lookaheads = self.lookaheads.union(e.lookaheads, entry.lookaheads);
         e.following_reserved_word_set = e
             .following_reserved_word_set
             .max(entry.following_reserved_word_set);
