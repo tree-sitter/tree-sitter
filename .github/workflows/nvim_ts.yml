@@ -73,7 +73,7 @@ jobs:
 
       - if: matrix.type == 'generate'
         name: Generate and compile parsers
-        run: $NVIM -l ./scripts/install-parsers.lua --generate --max-jobs=3
+        run: $NVIM -l ./scripts/install-parsers.lua --generate --max-jobs=10
         working-directory: ${{ env.NVIM_TS_DIR }}
         shell: bash
 
