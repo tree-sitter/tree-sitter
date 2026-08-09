@@ -13,7 +13,7 @@ use crate::{
     grammars::{LexicalGrammar, SyntaxGrammar},
     nfa::{CharacterSet, NfaCursor},
     rules::{Symbol, TokenSet},
-    tables::{AdvanceAction, LexState, LexTable, ParseStateId, ParseTable},
+    tables::{AdvanceAction, LexState, LexStateId, LexTable, ParseStateId, ParseTable},
 };
 
 pub const LARGE_CHARACTER_RANGE_COUNT: usize = 8;
@@ -131,7 +131,7 @@ pub fn build_lex_table(
 }
 
 struct QueueEntry {
-    state_id: usize,
+    state_id: LexStateId,
     nfa_states: Vec<u32>,
     eof_valid: bool,
 }
@@ -161,7 +161,7 @@ impl<'a> LexTableBuilder<'a> {
         self.state_ids_by_nfa_state_set.clear();
     }
 
-    fn add_state_for_tokens(&mut self, tokens: &TokenSet) -> usize {
+    fn add_state_for_tokens(&mut self, tokens: &TokenSet) -> LexStateId {
         let mut eof_valid = false;
         let nfa_states = tokens
             .iter()
@@ -197,7 +197,7 @@ impl<'a> LexTableBuilder<'a> {
         state_id
     }
 
-    fn add_state(&mut self, nfa_states: Vec<u32>, eof_valid: bool) -> (usize, bool) {
+    fn add_state(&mut self, nfa_states: Vec<u32>, eof_valid: bool) -> (LexStateId, bool) {
         self.cursor.reset(nfa_states);
         match self
             .state_ids_by_nfa_state_set
@@ -218,7 +218,7 @@ impl<'a> LexTableBuilder<'a> {
         }
     }
 
-    fn populate_state(&mut self, state_id: usize, nfa_states: Vec<u32>, eof_valid: bool) {
+    fn populate_state(&mut self, state_id: LexStateId, nfa_states: Vec<u32>, eof_valid: bool) {
         self.cursor.force_reset(nfa_states);
 
         // The EOF state is represented as an empty list of NFA states.
@@ -417,7 +417,11 @@ fn minimize_lex_table(table: &mut LexTable, parse_table: &mut ParseTable) {
     table.states = new_states;
 }
 
-fn lex_states_differ(left: &LexState, right: &LexState, group_ids_by_state_id: &[usize]) -> bool {
+fn lex_states_differ(
+    left: &LexState,
+    right: &LexState,
+    group_ids_by_state_id: &[LexStateId],
+) -> bool {
     left.advance_actions
         .iter()
         .zip(right.advance_actions.iter())

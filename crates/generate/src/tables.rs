@@ -134,8 +134,8 @@ pub struct ParseState {
     pub terminal_entries: IndexMap<Symbol, ParseTableEntry, BuildHasherDefault<FxHasher>>,
     pub nonterminal_entries: IndexMap<Symbol, GotoAction, BuildHasherDefault<FxHasher>>,
     pub reserved_words: TokenSet,
-    pub lex_state_id: usize,
-    pub external_lex_state_id: usize,
+    pub lex_state_id: LexStateId,
+    pub external_lex_state_id: LexStateId,
     pub core_id: usize,
 }
 
