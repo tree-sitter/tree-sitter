@@ -774,7 +774,7 @@ pub fn render_cst<'a, 'b: 'a>(
     cursor: &mut TreeCursor<'a>,
     opts: &ParseFileOptions,
     out: &mut impl Write,
-) -> Result<()> {
+) -> io::Result<()> {
     let lossy_source_code = String::from_utf8_lossy(source_code);
     let total_width = lossy_source_code
         .lines()
@@ -850,7 +850,7 @@ fn write_node_text(
     source: &str,
     color: Option<impl Into<Color> + Copy>,
     text_info: (usize, usize),
-) -> Result<()> {
+) -> io::Result<()> {
     let (total_width, indent_level) = text_info;
     let (quote, quote_color) = if is_named {
         ('`', opts.parse_theme.backtick)
@@ -990,7 +990,7 @@ fn cst_render_node(
     total_width: usize,
     indent_level: usize,
     in_error: bool,
-) -> Result<()> {
+) -> io::Result<()> {
     let node = cursor.node();
     let is_named = node.is_named();
     if !opts.no_ranges {
