@@ -475,7 +475,7 @@ impl fmt::Display for ParseItemDisplay<'_> {
 
             write!(f, " ")?;
             if symbol.is_terminal() {
-                if let Some(variable) = self.2.variables.get(symbol.index) {
+                if let Some(variable) = self.2.variables.get(symbol.index as usize) {
                     write!(f, "{}", self.3.resolve(variable.name))?;
                 } else {
                     write!(f, "terminal-{}", symbol.index)?;
@@ -484,10 +484,15 @@ impl fmt::Display for ParseItemDisplay<'_> {
                 write!(
                     f,
                     "{}",
-                    self.3.resolve(self.1.external_tokens[symbol.index].name)
+                    self.3
+                        .resolve(self.1.external_tokens[symbol.index as usize].name)
                 )?;
             } else {
-                write!(f, "{}", self.3.resolve(self.1.variables[symbol.index].name))?;
+                write!(
+                    f,
+                    "{}",
+                    self.3.resolve(self.1.variables[symbol.index as usize].name)
+                )?;
             }
 
             if let Some(alias) = &step.alias() {
@@ -553,7 +558,7 @@ impl fmt::Display for TokenSetDisplay<'_> {
             }
 
             if symbol.is_terminal() {
-                if let Some(variable) = self.2.variables.get(symbol.index) {
+                if let Some(variable) = self.2.variables.get(symbol.index as usize) {
                     write!(
                         f,
                         "{}",
@@ -566,10 +571,15 @@ impl fmt::Display for TokenSetDisplay<'_> {
                 write!(
                     f,
                     "{}",
-                    self.3.resolve(self.1.external_tokens[symbol.index].name)
+                    self.3
+                        .resolve(self.1.external_tokens[symbol.index as usize].name)
                 )?;
             } else {
-                write!(f, "{}", self.3.resolve(self.1.variables[symbol.index].name))?;
+                write!(
+                    f,
+                    "{}",
+                    self.3.resolve(self.1.variables[symbol.index as usize].name)
+                )?;
             }
         }
         write!(f, "]")?;

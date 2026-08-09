@@ -32,8 +32,11 @@ const KEY_INDEX_MASK: u64 = (1u64 << KEY_TAG_SHIFT) - 1;
 impl SymbolKey {
     #[inline]
     fn new(sym: Symbol) -> Self {
-        debug_assert!(sym.index as u64 <= KEY_INDEX_MASK, "symbol index too large");
-        Self((sym.kind as u64) << KEY_TAG_SHIFT | sym.index as u64)
+        debug_assert!(
+            u64::from(sym.index) <= KEY_INDEX_MASK,
+            "symbol index too large"
+        );
+        Self((sym.kind as u64) << KEY_TAG_SHIFT | u64::from(sym.index))
     }
 
     #[inline]
@@ -52,8 +55,8 @@ impl SymbolKey {
     }
 
     #[inline]
-    const fn index(self) -> usize {
-        (self.0 & KEY_INDEX_MASK) as usize
+    const fn index(self) -> u32 {
+        (self.0 & KEY_INDEX_MASK) as u32
     }
 
     #[inline]
@@ -139,7 +142,7 @@ impl Minimizer<'_> {
                             && !self.syntax_grammar.supertype_symbols.contains(symbol)
                             && !self.syntax_grammar.extra_symbols.contains(symbol)
                             && !aliased_symbols.contains(symbol)
-                            && self.syntax_grammar.variables[symbol.index].kind
+                            && self.syntax_grammar.variables[symbol.index as usize].kind
                                 != VariableType::Named
                             && (unit_reduction_symbol.is_none()
                                 || unit_reduction_symbol == Some(symbol)) =>
@@ -267,7 +270,7 @@ impl Minimizer<'_> {
                 let mut entries = state
                     .nonterminal_entries
                     .iter()
-                    .map(|(sym, action)| (sym.index, *action))
+                    .map(|(sym, action)| (sym.index as usize, *action))
                     .collect::<Vec<(NonterminalIndex, GotoAction)>>();
                 entries.sort_unstable_by_key(|&(idx, _)| idx);
                 entries
@@ -315,7 +318,7 @@ impl Minimizer<'_> {
                 parse_state
                     .reserved_words
                     .insert_all(&other_parse_state.reserved_words);
-                for symbol in parse_state.terminal_entries.keys() {
+                for &symbol in parse_state.terminal_entries.keys() {
                     parse_state.reserved_words.remove(symbol);
                 }
             }
@@ -362,7 +365,7 @@ impl Minimizer<'_> {
                     if self.entries_conflict(
                         state1.id,
                         state2.id,
-                        &token,
+                        token,
                         e1.1,
                         e2.1,
                         group_ids_by_state_id,
@@ -422,7 +425,7 @@ impl Minimizer<'_> {
                             "split states {} {} - successors for {} are split: {s1} {s2}",
                             state1.id,
                             state2.id,
-                            self.symbol_name(&k1.symbol()),
+                            self.symbol_name(k1.symbol()),
                         );
                         return true;
                     }
@@ -475,7 +478,7 @@ impl Minimizer<'_> {
         &self,
         state_id1: ParseStateId,
         state_id2: ParseStateId,
-        token: &Symbol,
+        token: Symbol,
         entry1: &ParseTableEntry,
         entry2: &ParseTableEntry,
         group_ids_by_state_id: &[ParseStateId],
@@ -545,12 +548,12 @@ impl Minimizer<'_> {
         if new_token.is_external() {
             debug!(
                 "split states {left_id} {right_id} - external token {}",
-                self.symbol_name(&new_token),
+                self.symbol_name(new_token),
             );
             return true;
         }
 
-        if right_state.reserved_words.contains(&new_token) {
+        if right_state.reserved_words.contains(new_token) {
             return false;
         }
 
@@ -564,7 +567,7 @@ impl Minimizer<'_> {
         {
             debug!(
                 "split states {left_id} {right_id} - internal/external token {}",
-                self.symbol_name(&new_token),
+                self.symbol_name(new_token),
             );
             return true;
         }
@@ -574,7 +577,7 @@ impl Minimizer<'_> {
         let word_key = word_token.map(SymbolKey::new);
         let new_token_key = SymbolKey::new(new_token);
         let new_token_is_word = word_key == Some(new_token_key);
-        let new_token_is_keyword = word_token.is_some() && self.keywords.contains(&new_token);
+        let new_token_is_keyword = word_token.is_some() && self.keywords.contains(new_token);
 
         // Do not add a token if it conflicts with an existing token.
         // Iterate the pre-sorted Vec instead of IndexMap keys for cache-friendlier access.
@@ -585,20 +588,20 @@ impl Minimizer<'_> {
             if new_token_is_keyword && word_key == Some(key) {
                 continue;
             }
-            if new_token_is_word && self.keywords.contains(&key.symbol()) {
+            if new_token_is_word && self.keywords.contains(key.symbol()) {
                 continue;
             }
 
             if self
                 .token_conflict_map
-                .does_conflict(new_token.index, key.index())
+                .does_conflict(new_token.index as usize, key.index() as usize)
             {
                 debug!(
                     "split states {} {} - token {} conflicts with {}",
                     left_id,
                     right_id,
-                    self.symbol_name(&new_token),
-                    self.symbol_name(&key.symbol()),
+                    self.symbol_name(new_token),
+                    self.symbol_name(key.symbol()),
                 );
                 return true;
             }
@@ -607,16 +610,17 @@ impl Minimizer<'_> {
         false
     }
 
-    fn symbol_name<'a>(&'a self, symbol: &Symbol) -> &'a str {
+    fn symbol_name(&self, symbol: Symbol) -> &str {
+        let symbol_index = symbol.index as usize;
         if symbol.is_non_terminal() {
             self.str_pool
-                .resolve(self.syntax_grammar.variables[symbol.index].name)
+                .resolve(self.syntax_grammar.variables[symbol_index].name)
         } else if symbol.is_external() {
             self.str_pool
-                .resolve(self.syntax_grammar.external_tokens[symbol.index].name)
+                .resolve(self.syntax_grammar.external_tokens[symbol_index].name)
         } else {
             self.str_pool
-                .resolve(self.lexical_grammar.variables[symbol.index].name)
+                .resolve(self.lexical_grammar.variables[symbol_index].name)
         }
     }
 

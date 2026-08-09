@@ -35,10 +35,11 @@ pub(super) fn extract_default_aliases(
     for prod in &out.productions {
         for step in &out.steps[prod.step_range()] {
             let symbol = step.symbol();
+            let symbol_index = symbol.index as usize;
             let status = match symbol.kind {
-                SymbolType::External => &mut external_status_list[symbol.index],
-                SymbolType::NonTerminal => &mut non_terminal_status_list[symbol.index],
-                SymbolType::Terminal => &mut terminal_status_list[symbol.index],
+                SymbolType::External => &mut external_status_list[symbol_index],
+                SymbolType::NonTerminal => &mut non_terminal_status_list[symbol_index],
+                SymbolType::Terminal => &mut terminal_status_list[symbol_index],
                 SymbolType::End | SymbolType::EndOfNonTerminalExtra => {
                     panic!("Unexpected end token")
                 }
@@ -66,10 +67,11 @@ pub(super) fn extract_default_aliases(
     }
 
     for symbol in &meta.extra_symbols {
+        let symbol_index = symbol.index as usize;
         let status = match symbol.kind {
-            SymbolType::External => &mut external_status_list[symbol.index],
-            SymbolType::NonTerminal => &mut non_terminal_status_list[symbol.index],
-            SymbolType::Terminal => &mut terminal_status_list[symbol.index],
+            SymbolType::External => &mut external_status_list[symbol_index],
+            SymbolType::NonTerminal => &mut non_terminal_status_list[symbol_index],
+            SymbolType::Terminal => &mut terminal_status_list[symbol_index],
             SymbolType::End | SymbolType::EndOfNonTerminalExtra => panic!("Unexpected end token"),
         };
         status.appears_unaliased = true;
@@ -122,10 +124,11 @@ pub(super) fn extract_default_aliases(
         for (i, prod) in productions.iter().enumerate() {
             for (j, step) in out.steps[prod.step_range()].iter().enumerate() {
                 let symbol = step.symbol();
+                let symbol_index = symbol.index as usize;
                 let status = match symbol.kind {
-                    SymbolType::External => &external_status_list[symbol.index],
-                    SymbolType::Terminal => &terminal_status_list[symbol.index],
-                    SymbolType::NonTerminal => &non_terminal_status_list[symbol.index],
+                    SymbolType::External => &external_status_list[symbol_index],
+                    SymbolType::Terminal => &terminal_status_list[symbol_index],
+                    SymbolType::NonTerminal => &non_terminal_status_list[symbol_index],
                     SymbolType::End | SymbolType::EndOfNonTerminalExtra => {
                         panic!("Unexpected end token")
                     }
