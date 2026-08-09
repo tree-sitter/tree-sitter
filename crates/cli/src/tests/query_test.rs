@@ -416,6 +416,16 @@ fn test_query_errors_on_invalid_symbols() {
                 message: "\"fakefield\"".to_string()
             }
         );
+        assert_eq!(
+            Query::new(&language, "(MISS)").unwrap_err(),
+            QueryError {
+                row: 0,
+                offset: 1,
+                column: 1,
+                kind: QueryErrorKind::NodeType,
+                message: "\"MISS\"".to_string(),
+            }
+        );
     });
 }
 
