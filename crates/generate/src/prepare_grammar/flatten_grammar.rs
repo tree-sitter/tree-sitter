@@ -1,22 +1,26 @@
 use rustc_hash::FxHashMap;
-
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use super::ExtractedSyntaxGrammar;
 use crate::{
     grammars::{
-        Production, ProductionStep, ReservedWordSetId, SyntaxGrammar, SyntaxVariable, Variable,
+        InputGrammar, Production, ProductionStep, ProductionStore, SyntaxGrammar, SyntaxVariable,
     },
-    rules::{Alias, Associativity, Precedence, Rule, Symbol, TokenSet},
+    prepare_grammar::extract_tokens::ExtractedGrammarMeta,
+    rules::{
+        Alias, Associativity, Precedence, Rule, RuleId, RulePool, Symbol, SymbolType, TokenSet,
+    },
+    strpool::{StrId, StrPool},
 };
 
 pub type FlattenGrammarResult<T> = Result<T, FlattenGrammarError>;
 
-#[derive(Debug, Error, Serialize, Deserialize)]
+#[derive(Debug, Error, Serialize, Deserialize, PartialEq, Eq)]
 pub enum FlattenGrammarError {
     #[error("No such reserved word set: {0}")]
     NoReservedWordSet(String),
+    #[error("Reserved word set count {0} exceeds the maximum of {max}", max = u16::MAX)]
+    TooManyReservedWordSets(usize),
     #[error(
         "The rule `{0}` matches the empty string.
 
@@ -29,337 +33,395 @@ unless they are used only as the grammar's start rule.
     RecursiveInline(String),
 }
 
-struct RuleFlattener {
-    production: Production,
-    reserved_word_set_ids: FxHashMap<String, ReservedWordSetId>,
-    precedence_stack: Vec<Precedence>,
-    associativity_stack: Vec<Associativity>,
-    reserved_word_stack: Vec<ReservedWordSetId>,
-    alias_stack: Vec<Alias>,
-    field_name_stack: Vec<String>,
+#[derive(Clone, Copy, Default)]
+struct FlattenCtx {
+    prec: Precedence,
+    assoc: Option<Associativity>,
+    alias: Option<Alias>,
+    field: Option<StrId>,
+    reserved: u16,
 }
 
-impl RuleFlattener {
-    const fn new(reserved_word_set_ids: FxHashMap<String, ReservedWordSetId>) -> Self {
-        Self {
-            production: Production {
-                steps: Vec::new(),
-                dynamic_precedence: 0,
+/// Selects one branch at each choice encountered during a root-to-leaf walk. After
+/// a production is emitted, `advance` increments this path like a mixed-radix counter.
+/// Later decisions are discarded because choosing an earlier branch can expose a
+/// different set of nested choices.
+#[derive(Default)]
+struct ChoiceCursor {
+    decisions: Vec<u32>,
+    arities: Vec<u32>,
+    depth: usize,
+}
+
+impl ChoiceCursor {
+    /// Begin a new walk for a new variable.
+    fn reset(&mut self) {
+        self.decisions.clear();
+        self.arities.clear();
+        self.depth = 0;
+    }
+
+    /// Begin a new walk for the same variable as a previous walk
+    fn begin_path(&mut self) {
+        self.arities.clear();
+        self.depth = 0;
+    }
+
+    /// Called at each choice. Selects which path to take, and records the decision.
+    fn select(&mut self, len: u32) -> u32 {
+        debug_assert!(len > 0);
+        let selected = self.decisions.get(self.depth).copied().unwrap_or(0);
+        debug_assert!(selected < len);
+        self.arities.push(len);
+        self.depth += 1;
+        selected
+    }
+
+    /// Find the latest path that we can advance and discard every decision after it.
+    /// Returns whether a new path could be found.
+    fn advance(&mut self) -> bool {
+        for depth in (0..self.arities.len()).rev() {
+            let selected = self.decisions.get(depth).copied().unwrap_or(0);
+            if selected + 1 < self.arities[depth] {
+                self.decisions.resize(depth + 1, 0);
+                self.decisions[depth] = selected + 1;
+                return true;
+            }
+        }
+        false
+    }
+}
+
+/// Reusable scratch for enumerating and flattening one production path at a time.
+#[derive(Default)]
+pub(super) struct FlattenState {
+    steps: Vec<ProductionStep>,
+    choices: ChoiceCursor,
+    dyn_prec: i32,
+    dead: bool,
+}
+
+impl FlattenState {
+    fn reset_variable(&mut self) {
+        self.choices.reset();
+        self.reset_path();
+    }
+
+    fn reset_path(&mut self) {
+        self.steps.clear();
+        self.dyn_prec = 0;
+        self.dead = false;
+        self.choices.begin_path();
+    }
+
+    fn push_step(&mut self, kind: SymbolType, index: u32, ctx: FlattenCtx) {
+        self.steps.push(ProductionStep::pack(
+            Symbol {
+                kind,
+                index: index as usize,
             },
-            reserved_word_set_ids,
-            precedence_stack: Vec::new(),
-            associativity_stack: Vec::new(),
-            reserved_word_stack: Vec::new(),
-            alias_stack: Vec::new(),
-            field_name_stack: Vec::new(),
-        }
+            ctx.prec,
+            ctx.assoc,
+            ctx.alias,
+            ctx.field,
+            ctx.reserved,
+        ));
     }
 
-    fn flatten_variable(&mut self, variable: Variable) -> FlattenGrammarResult<SyntaxVariable> {
-        let choices = extract_choices(variable.rule);
-        let mut productions = Vec::with_capacity(choices.len());
-        for rule in choices {
-            let production = self.flatten_rule(rule)?;
-            if !productions.contains(&production) {
-                productions.push(production);
-            }
-        }
-        Ok(SyntaxVariable {
-            name: variable.name,
-            kind: variable.kind,
-            productions,
-        })
+    fn restore_outer_prec(&mut self, outer: Precedence) {
+        let step = self.steps.last_mut().unwrap();
+        step.set_precedence(outer);
     }
 
-    fn flatten_rule(&mut self, rule: Rule) -> FlattenGrammarResult<Production> {
-        self.production = Production::default();
-        self.alias_stack.clear();
-        self.reserved_word_stack.clear();
-        self.precedence_stack.clear();
-        self.associativity_stack.clear();
-        self.field_name_stack.clear();
-        self.apply(rule, true)?;
-        Ok(self.production.clone())
-    }
-
-    fn apply(&mut self, rule: Rule, at_end: bool) -> FlattenGrammarResult<bool> {
-        match rule {
-            Rule::Seq(members) => {
-                let mut result = false;
-                let last_index = members.len() - 1;
-                for (i, member) in members.into_iter().enumerate() {
-                    result |= self.apply(member, i == last_index && at_end)?;
-                }
-                Ok(result)
-            }
-            Rule::Metadata { rule, params } => {
-                let mut has_precedence = false;
-                if !params.precedence.is_none() {
-                    has_precedence = true;
-                    self.precedence_stack.push(params.precedence);
-                }
-
-                let mut has_associativity = false;
-                if let Some(associativity) = params.associativity {
-                    has_associativity = true;
-                    self.associativity_stack.push(associativity);
-                }
-
-                let mut has_alias = false;
-                if let Some(alias) = params.alias {
-                    has_alias = true;
-                    self.alias_stack.push(alias);
-                }
-
-                let mut has_field_name = false;
-                if let Some(field_name) = params.field_name {
-                    has_field_name = true;
-                    self.field_name_stack.push(field_name);
-                }
-
-                if params.dynamic_precedence.abs() > self.production.dynamic_precedence.abs() {
-                    self.production.dynamic_precedence = params.dynamic_precedence;
-                }
-
-                let did_push = self.apply(*rule, at_end)?;
-
-                if has_precedence {
-                    self.precedence_stack.pop();
-                    if did_push && !at_end {
-                        self.production.steps.last_mut().unwrap().precedence = self
-                            .precedence_stack
-                            .last()
-                            .cloned()
-                            .unwrap_or(Precedence::None);
-                    }
-                }
-
-                if has_associativity {
-                    self.associativity_stack.pop();
-                    if did_push && !at_end {
-                        self.production.steps.last_mut().unwrap().associativity =
-                            self.associativity_stack.last().copied();
-                    }
-                }
-
-                if has_alias {
-                    self.alias_stack.pop();
-                }
-
-                if has_field_name {
-                    self.field_name_stack.pop();
-                }
-
-                Ok(did_push)
-            }
-            Rule::Reserved { rule, context_name } => {
-                self.reserved_word_stack.push(
-                    self.reserved_word_set_ids
-                        .get(&context_name)
-                        .copied()
-                        .ok_or_else(|| {
-                            FlattenGrammarError::NoReservedWordSet(context_name.clone())
-                        })?,
-                );
-                let did_push = self.apply(*rule, at_end)?;
-                self.reserved_word_stack.pop();
-                Ok(did_push)
-            }
-            Rule::Symbol(symbol) => {
-                self.production.steps.push(ProductionStep {
-                    symbol,
-                    precedence: self
-                        .precedence_stack
-                        .last()
-                        .cloned()
-                        .unwrap_or(Precedence::None),
-                    associativity: self.associativity_stack.last().copied(),
-                    reserved_word_set_id: self
-                        .reserved_word_stack
-                        .last()
-                        .copied()
-                        .unwrap_or_default(),
-                    alias: self.alias_stack.last().cloned(),
-                    field_name: self.field_name_stack.last().cloned(),
-                });
-                Ok(true)
-            }
-            _ => Ok(false),
-        }
+    fn restore_outer_assoc(&mut self, outer: Option<Associativity>) {
+        let step = self.steps.last_mut().unwrap();
+        step.set_associativity(outer);
     }
 }
 
-fn extract_choices(rule: Rule) -> Vec<Rule> {
-    match rule {
-        Rule::Seq(elements) => {
-            let mut result = vec![Rule::Blank];
-            for element in elements {
-                let extraction = extract_choices(element);
-                let mut next_result = Vec::with_capacity(result.len());
-                for entry in result {
-                    for extraction_entry in &extraction {
-                        next_result.push(Rule::Seq(vec![entry.clone(), extraction_entry.clone()]));
-                    }
-                }
-                result = next_result;
-            }
-            result
+/// Flatten one deterministic path. Choices only select a child, the outer loop in
+/// the caller enumerates subsequent paths from the root.
+fn apply(
+    pool: &RulePool,
+    reserved_ids: &FxHashMap<StrId, u16>,
+    node: RuleId,
+    f_ctx: FlattenCtx,
+    at_end: bool,
+    st: &mut FlattenState,
+) -> FlattenGrammarResult<bool> {
+    match pool.node(node) {
+        Rule::Sym { kind, index } => {
+            st.push_step(kind, index, f_ctx);
+            Ok(true)
         }
-        Rule::Choice(elements) => {
-            let mut result = Vec::with_capacity(elements.len());
-            for element in elements {
-                for rule in extract_choices(element) {
-                    result.push(rule);
+        Rule::Seq(range) => {
+            let children = pool.child_slice(range);
+            let mut did_push = false;
+            for (i, &child) in children.iter().enumerate() {
+                did_push |= apply(
+                    pool,
+                    reserved_ids,
+                    child,
+                    f_ctx,
+                    at_end && i + 1 == children.len(),
+                    st,
+                )?;
+                if st.dead {
+                    break;
                 }
             }
-            result
+            Ok(did_push)
         }
-        Rule::Metadata { rule, params } => extract_choices(*rule)
-            .into_iter()
-            .map(|rule| Rule::Metadata {
-                rule: Box::new(rule),
-                params: params.clone(),
-            })
-            .collect(),
-        Rule::Reserved { rule, context_name } => extract_choices(*rule)
-            .into_iter()
-            .map(|rule| Rule::Reserved {
-                rule: Box::new(rule),
-                context_name: context_name.clone(),
-            })
-            .collect(),
-        _ => vec![rule],
+        Rule::Choice(range) => {
+            // An empty choice matches nothing, so no production can contain it.
+            if range.len == 0 {
+                st.dead = true;
+                return Ok(false);
+            }
+            let selected = st.choices.select(range.len);
+            let child = pool.child_slice(range)[selected as usize];
+            apply(pool, reserved_ids, child, f_ctx, at_end, st)
+        }
+        Rule::Metadata { params, rule } => {
+            let params = pool.params(params);
+            let mut inner_ctx = f_ctx;
+            if params.precedence != Precedence::None {
+                inner_ctx.prec = params.precedence;
+            }
+            if params.associativity.is_some() {
+                inner_ctx.assoc = params.associativity;
+            }
+            if params.alias.is_some() {
+                inner_ctx.alias = params.alias;
+            }
+            if params.field.is_some() {
+                inner_ctx.field = params.field;
+            }
+            if params.dynamic_precedence.abs() > st.dyn_prec.abs() {
+                st.dyn_prec = params.dynamic_precedence;
+            }
+
+            let did_push = apply(pool, reserved_ids, rule, inner_ctx, at_end, st)?;
+            // A step's prec/assoc governs the parse position just _after_ it, so the
+            // regions's last step owns the gap past it. If more steps follow, that gap
+            // is outside the region and reverts to the outer context. At the production's
+            // tail the gap is the reduce and keeps the region's own value.
+            if did_push && !at_end {
+                if params.precedence != Precedence::None {
+                    st.restore_outer_prec(f_ctx.prec);
+                }
+                if params.associativity.is_some() {
+                    st.restore_outer_assoc(f_ctx.assoc);
+                }
+            }
+            Ok(did_push)
+        }
+        Rule::Reserved { rule, ctx } => {
+            let Some(&reserved) = reserved_ids.get(&ctx) else {
+                return Err(FlattenGrammarError::NoReservedWordSet(
+                    pool.resolve(ctx).to_string(),
+                ));
+            };
+            let inner = FlattenCtx { reserved, ..f_ctx };
+            apply(pool, reserved_ids, rule, inner, at_end, st)
+        }
+        _ => Ok(false),
     }
 }
 
-fn symbol_is_used(variables: &[SyntaxVariable], symbol: Symbol) -> bool {
-    for variable in variables {
-        for production in &variable.productions {
-            for step in &production.steps {
-                if step.symbol == symbol {
-                    return true;
-                }
-            }
+/// Append the completed path as a production unless this variable already has an
+/// identical one.
+fn emit(st: &FlattenState, out: &mut ProductionStore, prod_start: u32) {
+    for p in &out.productions[prod_start as usize..] {
+        if p.dynamic_precedence == st.dyn_prec && out.steps[p.step_range()] == st.steps[..] {
+            return;
         }
     }
-    false
+    let steps_start = out.steps.len() as u32;
+    out.steps.extend_from_slice(&st.steps);
+    out.productions.push(Production {
+        steps_start,
+        steps_len: st.steps.len() as u32,
+        dynamic_precedence: st.dyn_prec,
+    });
 }
 
 pub(super) fn flatten_grammar(
-    grammar: ExtractedSyntaxGrammar,
-) -> FlattenGrammarResult<SyntaxGrammar> {
-    let mut reserved_word_set_ids_by_name = FxHashMap::default();
-    for (ix, set) in grammar.reserved_word_sets.iter().enumerate() {
-        reserved_word_set_ids_by_name.insert(set.name.clone(), ReservedWordSetId(ix));
+    g: &InputGrammar,
+    meta: &ExtractedGrammarMeta,
+    st: &mut FlattenState,
+    out: &mut ProductionStore,
+) -> FlattenGrammarResult<()> {
+    if meta.reserved_sets.len() > usize::from(u16::MAX) {
+        Err(FlattenGrammarError::TooManyReservedWordSets(
+            meta.reserved_sets.len(),
+        ))?;
     }
-
-    let mut flattener = RuleFlattener::new(reserved_word_set_ids_by_name);
-    let variables = grammar
-        .variables
-        .into_iter()
-        .map(|variable| flattener.flatten_variable(variable))
-        .collect::<FlattenGrammarResult<Vec<_>>>()?;
-
-    for (i, variable) in variables.iter().enumerate() {
-        let symbol = Symbol::non_terminal(i);
-        let used = symbol_is_used(&variables, symbol);
-
-        for production in &variable.productions {
-            if used && production.steps.is_empty() {
-                Err(FlattenGrammarError::EmptyString(variable.name.clone()))?;
+    // Last wins on duplicate names.
+    let reserved_ids: FxHashMap<StrId, u16> = meta
+        .reserved_sets
+        .iter()
+        .enumerate()
+        .map(|(i, (name, _))| (*name, i as u16))
+        .collect();
+    for v in &g.variables {
+        let prod_start = out.productions.len() as u32;
+        st.reset_variable();
+        loop {
+            apply(
+                &g.pool,
+                &reserved_ids,
+                v.root,
+                FlattenCtx::default(),
+                true,
+                st,
+            )?;
+            if !st.dead {
+                emit(st, out, prod_start);
             }
+            if !st.choices.advance() {
+                break;
+            }
+            st.reset_path();
+        }
+        out.var_prods
+            .push((prod_start, out.productions.len() as u32));
+    }
+    check(g, meta, out)
+}
 
-            if grammar.variables_to_inline.contains(&symbol)
-                && production.steps.iter().any(|step| step.symbol == symbol)
+/// Post-flatten checks. No empty productions used in variables, and no recursive inlines.
+fn check(
+    g: &InputGrammar,
+    meta: &ExtractedGrammarMeta,
+    out: &ProductionStore,
+) -> FlattenGrammarResult<()> {
+    for (i, &(p_start, p_end)) in out.var_prods.iter().enumerate() {
+        let symbol = Symbol::non_terminal(i);
+        let used = out.steps.iter().any(|s| s.symbol() == symbol);
+        let inlined = meta.inline.contains(&symbol);
+        for p in &out.productions[p_start as usize..p_end as usize] {
+            if used && p.steps_len == 0 {
+                Err(FlattenGrammarError::EmptyString(
+                    g.pool.resolve(g.variables[i].name).to_string(),
+                ))?;
+            }
+            if inlined
+                && out.steps[p.step_range()]
+                    .iter()
+                    .any(|s| s.symbol() == symbol)
             {
-                Err(FlattenGrammarError::RecursiveInline(variable.name.clone()))?;
+                Err(FlattenGrammarError::RecursiveInline(
+                    g.pool.resolve(g.variables[i].name).to_string(),
+                ))?;
             }
         }
     }
-    let mut reserved_word_sets = grammar
-        .reserved_word_sets
-        .into_iter()
-        .map(|set| set.reserved_words.into_iter().collect())
-        .collect::<Vec<_>>();
+    Ok(())
+}
 
-    // If no default reserved word set is specified, there are no reserved words.
+pub(super) fn assemble_syntax_grammar(
+    g: InputGrammar,
+    meta: ExtractedGrammarMeta,
+    out: ProductionStore,
+) -> (SyntaxGrammar, StrPool) {
+    let mut reserved_word_sets = meta
+        .reserved_sets
+        .iter()
+        .map(|(_, symbols)| symbols.iter().copied().collect())
+        .collect::<Vec<_>>();
     if reserved_word_sets.is_empty() {
         reserved_word_sets.push(TokenSet::default());
     }
+    let variables = g
+        .variables
+        .iter()
+        .zip(&meta.kinds)
+        .map(|(v, &kind)| SyntaxVariable { name: v.name, kind })
+        .collect::<Vec<_>>();
 
-    Ok(SyntaxGrammar {
-        extra_symbols: grammar.extra_symbols,
-        expected_conflicts: grammar.expected_conflicts,
-        variables_to_inline: grammar.variables_to_inline,
-        precedence_orderings: grammar.precedence_orderings,
-        external_tokens: grammar.external_tokens,
-        supertype_symbols: grammar.supertype_symbols,
-        word_token: grammar.word_token,
-        reserved_word_sets,
-        variables,
-    })
+    let interner = g.pool.into_interner();
+
+    (
+        SyntaxGrammar {
+            variables,
+            extra_symbols: meta.extra_symbols,
+            expected_conflicts: meta.conflicts,
+            external_tokens: meta.external_tokens,
+            supertype_symbols: meta.supertypes,
+            variables_to_inline: meta.inline,
+            word_token: meta.word,
+            precedence_orderings: g.precedence_orderings,
+            reserved_word_sets,
+
+            steps: out.steps,
+            productions: out.productions,
+            var_prods: out.var_prods,
+        },
+        interner,
+    )
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::grammars::VariableType;
+    use crate::grammars::{Variable, VariableType};
 
     #[test]
     fn test_flatten_grammar() {
-        let mut flattener = RuleFlattener::new(FxHashMap::default());
-        let result = flattener
-            .flatten_variable(Variable {
-                name: "test".to_string(),
-                kind: VariableType::Named,
-                rule: Rule::seq(vec![
-                    Rule::non_terminal(1),
-                    Rule::prec_left(
-                        Precedence::Integer(101),
-                        Rule::seq(vec![
-                            Rule::non_terminal(2),
-                            Rule::choice(vec![
-                                Rule::prec_right(
-                                    Precedence::Integer(102),
-                                    Rule::seq(vec![Rule::non_terminal(3), Rule::non_terminal(4)]),
-                                ),
-                                Rule::non_terminal(5),
-                            ]),
-                            Rule::non_terminal(6),
-                        ]),
-                    ),
-                    Rule::non_terminal(7),
-                ]),
-            })
-            .unwrap();
+        let (grammar, interner) = flatten_named(|p| {
+            let nt1 = non_term(p, 1);
+            let nt2 = non_term(p, 2);
+            let nt3 = non_term(p, 3);
+            let nt4 = non_term(p, 4);
+            let nt5 = non_term(p, 5);
+            let nt6 = non_term(p, 6);
+            let nt7 = non_term(p, 7);
+            let inner = {
+                let s = p.seq(&[nt3, nt4]);
+                p.prec_right(Precedence::Integer(102), s)
+            };
+            let choice = p.choice(&[inner, nt5]);
+            let pl = {
+                let s = p.seq(&[nt2, choice, nt6]);
+                p.prec_left(Precedence::Integer(101), s)
+            };
+            p.seq(&[nt1, pl, nt7])
+        })
+        .unwrap();
 
         assert_eq!(
-            result.productions,
+            prods(&grammar, 0, &interner),
             vec![
-                Production {
-                    dynamic_precedence: 0,
+                ProdView {
+                    dyn_prec: 0,
                     steps: vec![
-                        ProductionStep::new(Symbol::non_terminal(1)),
-                        ProductionStep::new(Symbol::non_terminal(2))
-                            .with_prec(Precedence::Integer(101), Some(Associativity::Left)),
-                        ProductionStep::new(Symbol::non_terminal(3))
-                            .with_prec(Precedence::Integer(102), Some(Associativity::Right)),
-                        ProductionStep::new(Symbol::non_terminal(4))
-                            .with_prec(Precedence::Integer(101), Some(Associativity::Left)),
-                        ProductionStep::new(Symbol::non_terminal(6)),
-                        ProductionStep::new(Symbol::non_terminal(7)),
+                        StepView::new(Symbol::non_terminal(1)),
+                        StepView::new(Symbol::non_terminal(2))
+                            .prec(Precedence::Integer(101))
+                            .assoc(Some(Associativity::Left)),
+                        StepView::new(Symbol::non_terminal(3))
+                            .prec(Precedence::Integer(102))
+                            .assoc(Some(Associativity::Right)),
+                        StepView::new(Symbol::non_terminal(4))
+                            .prec(Precedence::Integer(101))
+                            .assoc(Some(Associativity::Left)),
+                        StepView::new(Symbol::non_terminal(6)),
+                        StepView::new(Symbol::non_terminal(7)),
                     ]
                 },
-                Production {
-                    dynamic_precedence: 0,
+                ProdView {
+                    dyn_prec: 0,
                     steps: vec![
-                        ProductionStep::new(Symbol::non_terminal(1)),
-                        ProductionStep::new(Symbol::non_terminal(2))
-                            .with_prec(Precedence::Integer(101), Some(Associativity::Left)),
-                        ProductionStep::new(Symbol::non_terminal(5))
-                            .with_prec(Precedence::Integer(101), Some(Associativity::Left)),
-                        ProductionStep::new(Symbol::non_terminal(6)),
-                        ProductionStep::new(Symbol::non_terminal(7)),
+                        StepView::new(Symbol::non_terminal(1)),
+                        StepView::new(Symbol::non_terminal(2))
+                            .prec(Precedence::Integer(101))
+                            .assoc(Some(Associativity::Left)),
+                        StepView::new(Symbol::non_terminal(5))
+                            .prec(Precedence::Integer(101))
+                            .assoc(Some(Associativity::Left)),
+                        StepView::new(Symbol::non_terminal(6)),
+                        StepView::new(Symbol::non_terminal(7)),
                     ]
                 },
             ]
@@ -368,55 +430,50 @@ mod tests {
 
     #[test]
     fn test_flatten_grammar_with_maximum_dynamic_precedence() {
-        let mut flattener = RuleFlattener::new(FxHashMap::default());
-        let result = flattener
-            .flatten_variable(Variable {
-                name: "test".to_string(),
-                kind: VariableType::Named,
-                rule: Rule::seq(vec![
-                    Rule::non_terminal(1),
-                    Rule::prec_dynamic(
-                        101,
-                        Rule::seq(vec![
-                            Rule::non_terminal(2),
-                            Rule::choice(vec![
-                                Rule::prec_dynamic(
-                                    102,
-                                    Rule::seq(vec![Rule::non_terminal(3), Rule::non_terminal(4)]),
-                                ),
-                                Rule::non_terminal(5),
-                            ]),
-                            Rule::non_terminal(6),
-                        ]),
-                    ),
-                    Rule::non_terminal(7),
-                ]),
-            })
-            .unwrap();
+        let (grammar, interner) = flatten_named(|p| {
+            let nt1 = non_term(p, 1);
+            let nt2 = non_term(p, 2);
+            let nt3 = non_term(p, 3);
+            let nt4 = non_term(p, 4);
+            let nt5 = non_term(p, 5);
+            let nt6 = non_term(p, 6);
+            let nt7 = non_term(p, 7);
+            let inner = {
+                let s = p.seq(&[nt3, nt4]);
+                p.prec_dynamic(102, s)
+            };
+            let choice = p.choice(&[inner, nt5]);
+            let pd = {
+                let s = p.seq(&[nt2, choice, nt6]);
+                p.prec_dynamic(101, s)
+            };
+            p.seq(&[nt1, pd, nt7])
+        })
+        .unwrap();
 
         assert_eq!(
-            result.productions,
+            prods(&grammar, 0, &interner),
             vec![
-                Production {
-                    dynamic_precedence: 102,
+                ProdView {
+                    dyn_prec: 102,
                     steps: vec![
-                        ProductionStep::new(Symbol::non_terminal(1)),
-                        ProductionStep::new(Symbol::non_terminal(2)),
-                        ProductionStep::new(Symbol::non_terminal(3)),
-                        ProductionStep::new(Symbol::non_terminal(4)),
-                        ProductionStep::new(Symbol::non_terminal(6)),
-                        ProductionStep::new(Symbol::non_terminal(7)),
-                    ],
+                        StepView::new(Symbol::non_terminal(1)),
+                        StepView::new(Symbol::non_terminal(2)),
+                        StepView::new(Symbol::non_terminal(3)),
+                        StepView::new(Symbol::non_terminal(4)),
+                        StepView::new(Symbol::non_terminal(6)),
+                        StepView::new(Symbol::non_terminal(7)),
+                    ]
                 },
-                Production {
-                    dynamic_precedence: 101,
+                ProdView {
+                    dyn_prec: 101,
                     steps: vec![
-                        ProductionStep::new(Symbol::non_terminal(1)),
-                        ProductionStep::new(Symbol::non_terminal(2)),
-                        ProductionStep::new(Symbol::non_terminal(5)),
-                        ProductionStep::new(Symbol::non_terminal(6)),
-                        ProductionStep::new(Symbol::non_terminal(7)),
-                    ],
+                        StepView::new(Symbol::non_terminal(1)),
+                        StepView::new(Symbol::non_terminal(2)),
+                        StepView::new(Symbol::non_terminal(5)),
+                        StepView::new(Symbol::non_terminal(6)),
+                        StepView::new(Symbol::non_terminal(7)),
+                    ]
                 },
             ]
         );
@@ -424,49 +481,42 @@ mod tests {
 
     #[test]
     fn test_flatten_grammar_with_final_precedence() {
-        let mut flattener = RuleFlattener::new(FxHashMap::default());
-        let result = flattener
-            .flatten_variable(Variable {
-                name: "test".to_string(),
-                kind: VariableType::Named,
-                rule: Rule::prec_left(
-                    Precedence::Integer(101),
-                    Rule::seq(vec![Rule::non_terminal(1), Rule::non_terminal(2)]),
-                ),
-            })
-            .unwrap();
-
+        let (grammar, interner) = flatten_named(|p| {
+            let nt1 = non_term(p, 1);
+            let nt2 = non_term(p, 2);
+            let s = p.seq(&[nt1, nt2]);
+            p.prec_left(Precedence::Integer(101), s)
+        })
+        .unwrap();
         assert_eq!(
-            result.productions,
-            vec![Production {
-                dynamic_precedence: 0,
+            prods(&grammar, 0, &interner),
+            vec![ProdView {
+                dyn_prec: 0,
                 steps: vec![
-                    ProductionStep::new(Symbol::non_terminal(1))
-                        .with_prec(Precedence::Integer(101), Some(Associativity::Left)),
-                    ProductionStep::new(Symbol::non_terminal(2))
-                        .with_prec(Precedence::Integer(101), Some(Associativity::Left)),
+                    StepView::new(Symbol::non_terminal(1))
+                        .prec(Precedence::Integer(101))
+                        .assoc(Some(Associativity::Left)),
+                    StepView::new(Symbol::non_terminal(2))
+                        .prec(Precedence::Integer(101))
+                        .assoc(Some(Associativity::Left)),
                 ]
             }]
         );
 
-        let result = flattener
-            .flatten_variable(Variable {
-                name: "test".to_string(),
-                kind: VariableType::Named,
-                rule: Rule::prec_left(
-                    Precedence::Integer(101),
-                    Rule::seq(vec![Rule::non_terminal(1)]),
-                ),
-            })
-            .unwrap();
-
+        let (grammar, interner) = flatten_named(|p| {
+            let nt1 = non_term(p, 1);
+            let s = p.seq(&[nt1]);
+            p.prec_left(Precedence::Integer(101), s)
+        })
+        .unwrap();
         assert_eq!(
-            result.productions,
-            vec![Production {
-                dynamic_precedence: 0,
+            prods(&grammar, 0, &interner),
+            vec![ProdView {
+                dyn_prec: 0,
                 steps: vec![
-                    ProductionStep::new(Symbol::non_terminal(1))
-                        .with_prec(Precedence::Integer(101), Some(Associativity::Left)),
+                    StepView::new(Symbol::non_terminal(1))
+                        .prec(Precedence::Integer(101))
+                        .assoc(Some(Associativity::Left)),
                 ]
             }]
         );
@@ -474,38 +524,40 @@ mod tests {
 
     #[test]
     fn test_flatten_grammar_with_field_names() {
-        let mut flattener = RuleFlattener::new(FxHashMap::default());
-        let result = flattener
-            .flatten_variable(Variable {
-                name: "test".to_string(),
-                kind: VariableType::Named,
-                rule: Rule::seq(vec![
-                    Rule::field("first-thing".to_string(), Rule::terminal(1)),
-                    Rule::terminal(2),
-                    Rule::choice(vec![
-                        Rule::Blank,
-                        Rule::field("second-thing".to_string(), Rule::terminal(3)),
-                    ]),
-                ]),
-            })
-            .unwrap();
+        let (grammar, interner) = flatten_named(|p| {
+            let t1 = term(p, 1);
+            let f1 = {
+                let n = p.intern("first-thing");
+                p.field(n, t1)
+            };
+            let t2 = term(p, 2);
+            let t3 = term(p, 3);
+            let f2 = {
+                let n = p.intern("second-thing");
+                p.field(n, t3)
+            };
+            let blank = p.blank();
+            let choice = p.choice(&[blank, f2]);
+            p.seq(&[f1, t2, choice])
+        })
+        .unwrap();
 
         assert_eq!(
-            result.productions,
+            prods(&grammar, 0, &interner),
             vec![
-                Production {
-                    dynamic_precedence: 0,
+                ProdView {
+                    dyn_prec: 0,
                     steps: vec![
-                        ProductionStep::new(Symbol::terminal(1)).with_field_name("first-thing"),
-                        ProductionStep::new(Symbol::terminal(2))
+                        StepView::new(Symbol::terminal(1)).field("first-thing"),
+                        StepView::new(Symbol::terminal(2)),
                     ]
                 },
-                Production {
-                    dynamic_precedence: 0,
+                ProdView {
+                    dyn_prec: 0,
                     steps: vec![
-                        ProductionStep::new(Symbol::terminal(1)).with_field_name("first-thing"),
-                        ProductionStep::new(Symbol::terminal(2)),
-                        ProductionStep::new(Symbol::terminal(3)).with_field_name("second-thing"),
+                        StepView::new(Symbol::terminal(1)).field("first-thing"),
+                        StepView::new(Symbol::terminal(2)),
+                        StepView::new(Symbol::terminal(3)).field("second-thing"),
                     ]
                 },
             ]
@@ -513,30 +565,232 @@ mod tests {
     }
 
     #[test]
-    fn test_flatten_grammar_with_recursive_inline_variable() {
-        let result = flatten_grammar(ExtractedSyntaxGrammar {
-            extra_symbols: Vec::new(),
-            expected_conflicts: Vec::new(),
-            variables_to_inline: vec![Symbol::non_terminal(0)],
-            precedence_orderings: Vec::new(),
-            external_tokens: Vec::new(),
-            supertype_symbols: Vec::new(),
-            word_token: None,
-            reserved_word_sets: Vec::new(),
-            variables: vec![Variable {
-                name: "test".to_string(),
-                kind: VariableType::Named,
-                rule: Rule::seq(vec![
-                    Rule::non_terminal(0),
-                    Rule::non_terminal(1),
-                    Rule::non_terminal(2),
-                ]),
-            }],
-        });
+    fn test_precedence_inherited_through_inner_metadata() {
+        // A prec region inherited by an inner symbol that carries _different_ metadata
+        // (field).
+        let (grammar, interner) = flatten_named(|p| {
+            let a = term(p, 1);
+            let b = term(p, 2);
+            let bf = {
+                let n = p.intern("f");
+                p.field(n, b)
+            };
+            let s = p.seq(&[a, bf]);
+            p.prec(Precedence::Integer(5), s)
+        })
+        .unwrap();
 
         assert_eq!(
-            result.unwrap_err().to_string(),
-            "Rule `test` cannot be inlined because it contains a reference to itself",
+            prods(&grammar, 0, &interner),
+            vec![ProdView {
+                dyn_prec: 0,
+                steps: vec![
+                    StepView::new(Symbol::terminal(1)).prec(Precedence::Integer(5)),
+                    StepView::new(Symbol::terminal(2))
+                        .prec(Precedence::Integer(5))
+                        .field("f"),
+                ]
+            }]
         );
+    }
+
+    #[test]
+    fn test_flatten_grammar_with_recursive_inline_variable() {
+        let mut pool = RulePool::default();
+        let nt0 = non_term(&mut pool, 0);
+        let nt1 = non_term(&mut pool, 1);
+        let nt2 = non_term(&mut pool, 2);
+        let root = pool.seq(&[nt0, nt1, nt2]);
+        let name = pool.intern("test");
+        let pg = InputGrammar {
+            pool,
+            variables: vec![Variable { name, root }],
+            ..Default::default()
+        };
+        let meta = ExtractedGrammarMeta {
+            kinds: vec![VariableType::Named],
+            inline: vec![Symbol::non_terminal(0)],
+            ..Default::default()
+        };
+        assert_eq!(
+            run(pg, meta).unwrap_err(),
+            FlattenGrammarError::RecursiveInline("test".to_string())
+        );
+    }
+
+    #[test]
+    fn test_flatten_grammar_with_unknown_reserved() {
+        // Unknown reserved context
+        let err = flatten_named(|p| {
+            let t1 = term(p, 1);
+            let ctx = p.intern("nope");
+            p.reserved(t1, ctx)
+        })
+        .unwrap_err();
+        assert_eq!(
+            err,
+            FlattenGrammarError::NoReservedWordSet("nope".to_string())
+        );
+    }
+
+    #[test]
+    fn test_flatten_grammar_with_empty_production() {
+        // Empty production in used variable (`a` refs `b`, `b` is empty)
+        let mut pool = RulePool::default();
+        let a_root = non_term(&mut pool, 1);
+        let b_root = pool.blank();
+        let (a, b) = (pool.intern("a"), pool.intern("b"));
+        let pg = InputGrammar {
+            pool,
+            variables: vec![
+                Variable {
+                    name: a,
+                    root: a_root,
+                },
+                Variable {
+                    name: b,
+                    root: b_root,
+                },
+            ],
+            ..Default::default()
+        };
+        let meta = ExtractedGrammarMeta {
+            kinds: vec![VariableType::Named, VariableType::Named],
+            ..Default::default()
+        };
+        assert_eq!(
+            run(pg, meta).unwrap_err(),
+            FlattenGrammarError::EmptyString("b".to_string())
+        );
+    }
+
+    #[test]
+    fn test_flatten_grammar_with_empty_choice() {
+        let (grammar, interner) = flatten_named(|p| {
+            let prefix = term(p, 1);
+            let empty = p.choice(&[]);
+            let tail_a = term(p, 2);
+            let tail_b = term(p, 3);
+            let tail = p.choice(&[tail_a, tail_b]);
+            let dead = p.seq(&[prefix, empty, tail]);
+            let live = term(p, 4);
+            p.choice(&[dead, live])
+        })
+        .unwrap();
+
+        assert_eq!(
+            prods(&grammar, 0, &interner),
+            vec![ProdView {
+                dyn_prec: 0,
+                steps: vec![StepView::new(Symbol::terminal(4))],
+            }]
+        );
+
+        let (grammar, interner) = flatten_named(|p| p.choice(&[])).unwrap();
+        assert!(prods(&grammar, 0, &interner).is_empty());
+    }
+
+    fn term(p: &mut RulePool, i: u32) -> RuleId {
+        p.push_node(Rule::Sym {
+            kind: SymbolType::Terminal,
+            index: i,
+        })
+    }
+    fn non_term(p: &mut RulePool, i: u32) -> RuleId {
+        p.push_node(Rule::Sym {
+            kind: SymbolType::NonTerminal,
+            index: i,
+        })
+    }
+
+    #[derive(Debug, PartialEq)]
+    struct StepView {
+        symbol: Symbol,
+        prec: Precedence,
+        assoc: Option<Associativity>,
+        alias: Option<Alias>,
+        field: Option<String>,
+        reserved: u16,
+    }
+
+    impl StepView {
+        fn new(symbol: Symbol) -> Self {
+            Self {
+                symbol,
+                prec: Precedence::None,
+                assoc: None,
+                alias: None,
+                field: None,
+                reserved: 0,
+            }
+        }
+        fn prec(mut self, prec: Precedence) -> Self {
+            self.prec = prec;
+            self
+        }
+        fn assoc(mut self, assoc: Option<Associativity>) -> Self {
+            self.assoc = assoc;
+            self
+        }
+        fn field(mut self, name: &str) -> Self {
+            self.field = Some(name.to_string());
+            self
+        }
+    }
+
+    #[derive(Debug, PartialEq)]
+    struct ProdView {
+        dyn_prec: i32,
+        steps: Vec<StepView>,
+    }
+
+    fn run(
+        g: InputGrammar,
+        meta: ExtractedGrammarMeta,
+    ) -> FlattenGrammarResult<(SyntaxGrammar, StrPool)> {
+        let mut st = FlattenState::default();
+        let mut out = ProductionStore::default();
+        flatten_grammar(&g, &meta, &mut st, &mut out)?;
+        Ok(assemble_syntax_grammar(g, meta, out))
+    }
+
+    fn flatten_named(
+        build: impl FnOnce(&mut RulePool) -> RuleId,
+    ) -> FlattenGrammarResult<(SyntaxGrammar, StrPool)> {
+        let mut pool = RulePool::default();
+        let root = build(&mut pool);
+        let name = pool.intern("test");
+        let pg = InputGrammar {
+            pool,
+            variables: vec![Variable { name, root }],
+            ..Default::default()
+        };
+        let meta = ExtractedGrammarMeta {
+            kinds: vec![VariableType::Named],
+            ..Default::default()
+        };
+        run(pg, meta)
+    }
+
+    /// Unpack a variable's productions from the pooled output into comparable views.
+    fn prods(grammar: &SyntaxGrammar, var: usize, interner: &StrPool) -> Vec<ProdView> {
+        let (p_start, p_end) = grammar.var_prods[var];
+        grammar.productions[p_start as usize..p_end as usize]
+            .iter()
+            .map(|p| ProdView {
+                dyn_prec: p.dynamic_precedence,
+                steps: grammar.steps[p.step_range()]
+                    .iter()
+                    .map(|&s| StepView {
+                        symbol: s.symbol(),
+                        prec: s.precedence(),
+                        assoc: s.associativity(),
+                        alias: s.alias(),
+                        field: s.field().map(|f| interner.resolve(f).to_string()),
+                        reserved: s.reserved,
+                    })
+                    .collect(),
+            })
+            .collect()
     }
 }

@@ -10,6 +10,7 @@ use crate::{
     dedup::split_state_id_groups,
     grammars::{LexicalGrammar, SyntaxGrammar, VariableType},
     rules::{AliasMap, Symbol, SymbolType, TokenSet},
+    strpool::StrPool,
     tables::{GotoAction, ParseAction, ParseState, ParseStateId, ParseTable, ParseTableEntry},
 };
 
@@ -67,6 +68,10 @@ impl SymbolKey {
     }
 }
 
+#[expect(
+    clippy::too_many_arguments,
+    reason = "all parameters are required for parse table minimization"
+)]
 pub fn minimize_parse_table(
     parse_table: &mut ParseTable,
     syntax_grammar: &SyntaxGrammar,
@@ -74,6 +79,7 @@ pub fn minimize_parse_table(
     simple_aliases: &AliasMap,
     token_conflict_map: &TokenConflictMap,
     keywords: &TokenSet,
+    str_pool: &StrPool,
     optimizations: OptLevel,
 ) {
     let mut minimizer = Minimizer {
@@ -83,6 +89,7 @@ pub fn minimize_parse_table(
         token_conflict_map,
         keywords,
         simple_aliases,
+        str_pool,
     };
     if optimizations.contains(OptLevel::MergeStates) {
         minimizer.merge_compatible_states();
@@ -96,19 +103,20 @@ struct Minimizer<'a> {
     parse_table: &'a mut ParseTable,
     syntax_grammar: &'a SyntaxGrammar,
     lexical_grammar: &'a LexicalGrammar,
-    token_conflict_map: &'a TokenConflictMap<'a>,
+    token_conflict_map: &'a TokenConflictMap,
     keywords: &'a TokenSet,
     simple_aliases: &'a AliasMap,
+    str_pool: &'a StrPool,
 }
 
 impl Minimizer<'_> {
     fn remove_unit_reductions(&mut self) {
         let mut aliased_symbols = FxHashSet::default();
-        for variable in &self.syntax_grammar.variables {
-            for production in &variable.productions {
-                for step in &production.steps {
-                    if step.alias.is_some() {
-                        aliased_symbols.insert(step.symbol);
+        for i in 0..self.syntax_grammar.variables.len() {
+            for prod_id in self.syntax_grammar.variable_prod_ids(i) {
+                for step in self.syntax_grammar.production(prod_id).steps {
+                    if step.alias().is_some() {
+                        aliased_symbols.insert(step.symbol());
                     }
                 }
             }
@@ -444,7 +452,10 @@ impl Minimizer<'_> {
                             if group1 != group2 {
                                 debug!(
                                     "split states {} {} - successors for {} are split: {s1} {s2}",
-                                    state1.id, state2.id, self.syntax_grammar.variables[idx1].name,
+                                    state1.id,
+                                    state2.id,
+                                    self.str_pool
+                                        .resolve(self.syntax_grammar.variables[idx1].name),
                                 );
                                 return true;
                             }
@@ -596,13 +607,16 @@ impl Minimizer<'_> {
         false
     }
 
-    fn symbol_name(&self, symbol: &Symbol) -> &String {
+    fn symbol_name<'a>(&'a self, symbol: &Symbol) -> &'a str {
         if symbol.is_non_terminal() {
-            &self.syntax_grammar.variables[symbol.index].name
+            self.str_pool
+                .resolve(self.syntax_grammar.variables[symbol.index].name)
         } else if symbol.is_external() {
-            &self.syntax_grammar.external_tokens[symbol.index].name
+            self.str_pool
+                .resolve(self.syntax_grammar.external_tokens[symbol.index].name)
         } else {
-            &self.lexical_grammar.variables[symbol.index].name
+            self.str_pool
+                .resolve(self.lexical_grammar.variables[symbol.index].name)
         }
     }
 

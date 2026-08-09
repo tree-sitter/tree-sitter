@@ -2,7 +2,9 @@ use std::collections::BTreeMap;
 
 use super::{
     nfa::CharacterSet,
-    rules::{Alias, Symbol, TokenSet},
+    rules::Alias,
+    rules::{Symbol, TokenSet},
+    strpool::StrId,
 };
 pub type ProductionInfoId = usize;
 pub type ParseStateId = usize;
@@ -62,7 +64,7 @@ pub struct FieldLocation {
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct ProductionInfo {
     pub alias_sequence: Vec<Option<Alias>>,
-    pub field_map: BTreeMap<String, Vec<FieldLocation>>,
+    pub field_map: BTreeMap<StrId, Vec<FieldLocation>>,
 }
 
 #[derive(Debug, Default, PartialEq, Eq)]
