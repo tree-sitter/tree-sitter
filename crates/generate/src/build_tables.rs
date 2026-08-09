@@ -29,6 +29,7 @@ use crate::{
     nfa::{CharacterSet, NfaCursor},
     node_types::VariableInfo,
     rules::{AliasMap, Symbol, SymbolType, TokenSet},
+    strpool::StrPool,
     tables::{LexTable, ParseAction, ParseTable, ParseTableEntry},
 };
 
@@ -49,20 +50,21 @@ pub fn build_tables(
     simple_aliases: &AliasMap,
     variable_info: &[VariableInfo],
     inlines: &InlinedProductionMap,
+    str_pool: &StrPool,
     report_symbol_name: Option<&str>,
     optimizations: OptLevel,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> BuildTableResult<Tables> {
-    let item_key_map = ItemKeyMap::new(syntax_grammar, inlines);
+    let item_key_map = ItemKeyMap::new(syntax_grammar, str_pool);
     let item_set_builder =
         ParseItemSetBuilder::new(syntax_grammar, lexical_grammar, inlines, &item_key_map);
-    let following_tokens =
-        get_following_tokens(syntax_grammar, lexical_grammar, inlines, &item_set_builder);
+    let following_tokens = get_following_tokens(syntax_grammar, lexical_grammar, &item_set_builder);
     let (mut parse_table, parse_state_info) = build_parse_table(
         syntax_grammar,
         lexical_grammar,
         item_set_builder,
         variable_info,
+        str_pool,
         diagnostics,
     )?;
     let token_conflict_map = TokenConflictMap::new(lexical_grammar, following_tokens);
@@ -73,6 +75,7 @@ pub fn build_tables(
         syntax_grammar.word_token,
         &token_conflict_map,
         &coincident_token_index,
+        str_pool,
     );
     populate_error_state(
         &mut parse_table,
@@ -81,6 +84,7 @@ pub fn build_tables(
         &coincident_token_index,
         &token_conflict_map,
         &keywords,
+        str_pool,
     );
     populate_used_symbols(&mut parse_table, syntax_grammar, lexical_grammar);
     minimize_parse_table(
@@ -90,6 +94,7 @@ pub fn build_tables(
         simple_aliases,
         &token_conflict_map,
         &keywords,
+        str_pool,
         optimizations,
     );
     let lex_tables = build_lex_table(
@@ -109,6 +114,7 @@ pub fn build_tables(
             lexical_grammar,
             &parse_table,
             &parse_state_info,
+            str_pool,
             report_symbol_name,
         );
     }
@@ -128,25 +134,20 @@ pub fn build_tables(
 fn get_following_tokens(
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
-    inlines: &InlinedProductionMap,
     builder: &ParseItemSetBuilder,
 ) -> Vec<TokenSet> {
     let n_terminals = lexical_grammar.variables.len();
     let n_externals = syntax_grammar.external_tokens.len();
     let mut result = vec![TokenSet::with_capacity(n_terminals, n_externals); n_terminals];
-    let productions = syntax_grammar
-        .variables
-        .iter()
-        .flat_map(|v| &v.productions)
-        .chain(&inlines.productions);
     let all_tokens = (0..result.len())
         .map(Symbol::terminal)
         .collect::<TokenSet>();
-    for production in productions {
-        for i in 1..production.steps.len() {
-            let left_tokens = builder.last_set(&production.steps[i - 1].symbol);
-            let right_tokens = builder.first_set(&production.steps[i].symbol);
-            let right_reserved_tokens = builder.reserved_first_set(&production.steps[i].symbol);
+    for production in &syntax_grammar.productions {
+        let steps = &syntax_grammar.steps[production.step_range()];
+        for i in 1..steps.len() {
+            let left_tokens = builder.last_set(&steps[i - 1].symbol());
+            let right_tokens = builder.first_set(&steps[i].symbol());
+            let right_reserved_tokens = builder.reserved_first_set(&steps[i].symbol());
             for left_token in left_tokens.iter() {
                 if left_token.is_terminal() {
                     result[left_token.index].insert_all_terminals(right_tokens);
@@ -175,6 +176,7 @@ fn populate_error_state(
     coincident_token_index: &CoincidentTokenIndex,
     token_conflict_map: &TokenConflictMap,
     keywords: &TokenSet,
+    str_pool: &StrPool,
 ) {
     let state = &mut parse_table.states[0];
     let n = lexical_grammar.variables.len();
@@ -193,7 +195,7 @@ fn populate_error_state(
             } else {
                 debug!(
                     "error recovery - token {} has no conflicts",
-                    lexical_grammar.variables[i].name
+                    str_pool.resolve(lexical_grammar.variables[i].name)
                 );
                 Some(Symbol::terminal(i))
             }
@@ -219,13 +221,14 @@ fn populate_error_state(
         {
             debug!(
                 "error recovery - exclude token {} because of conflict with {}",
-                lexical_grammar.variables[i].name, lexical_grammar.variables[t.index].name
+                str_pool.resolve(lexical_grammar.variables[i].name),
+                str_pool.resolve(lexical_grammar.variables[t.index].name)
             );
             continue;
         }
         debug!(
             "error recovery - include token {}",
-            lexical_grammar.variables[i].name
+            str_pool.resolve(lexical_grammar.variables[i].name)
         );
         state
             .terminal_entries
@@ -335,6 +338,7 @@ fn identify_keywords(
     word_token: Option<Symbol>,
     token_conflict_map: &TokenConflictMap,
     coincident_token_index: &CoincidentTokenIndex,
+    str_pool: &StrPool,
 ) -> TokenSet {
     if word_token.is_none() {
         return TokenSet::new();
@@ -357,7 +361,7 @@ fn identify_keywords(
             {
                 debug!(
                     "Keywords - add candidate {}",
-                    lexical_grammar.variables[i].name
+                    str_pool.resolve(lexical_grammar.variables[i].name)
                 );
                 Some(Symbol::terminal(i))
             } else {
@@ -376,8 +380,8 @@ fn identify_keywords(
                 {
                     debug!(
                         "Keywords - exclude {} because it matches the same string as {}",
-                        lexical_grammar.variables[token.index].name,
-                        lexical_grammar.variables[other_token.index].name
+                        str_pool.resolve(lexical_grammar.variables[token.index].name),
+                        str_pool.resolve(lexical_grammar.variables[other_token.index].name)
                     );
                     return false;
                 }
@@ -419,8 +423,8 @@ fn identify_keywords(
                 ) {
                     debug!(
                         "Keywords - exclude {} because of conflict with {}",
-                        lexical_grammar.variables[token.index].name,
-                        lexical_grammar.variables[other_index].name
+                        str_pool.resolve(lexical_grammar.variables[token.index].name),
+                        str_pool.resolve(lexical_grammar.variables[other_index].name)
                     );
                     return false;
                 }
@@ -428,7 +432,7 @@ fn identify_keywords(
 
             debug!(
                 "Keywords - include {}",
-                lexical_grammar.variables[token.index].name,
+                str_pool.resolve(lexical_grammar.variables[token.index].name),
             );
             true
         })
@@ -462,6 +466,7 @@ fn report_state_info<'a>(
     lexical_grammar: &LexicalGrammar,
     parse_table: &ParseTable,
     parse_state_info: &[ParseStateInfo<'a>],
+    str_pool: &StrPool,
     report_symbol_name: &'a str,
 ) {
     let mut all_state_indices = BTreeSet::new();
@@ -486,13 +491,13 @@ fn report_state_info<'a>(
     let max_symbol_name_length = syntax_grammar
         .variables
         .iter()
-        .map(|v| v.name.len())
+        .map(|v| str_pool.resolve(v.name).len())
         .max()
         .unwrap();
     for (symbol, states) in &symbols_with_state_indices {
         info!(
             "{:width$}\t{}",
-            syntax_grammar.variables[symbol.index].name,
+            str_pool.resolve(syntax_grammar.variables[symbol.index].name),
             states.len(),
             width = max_symbol_name_length
         );
@@ -505,7 +510,9 @@ fn report_state_info<'a>(
         symbols_with_state_indices
             .iter()
             .find_map(|(symbol, state_indices)| {
-                if syntax_grammar.variables[symbol.index].name == report_symbol_name {
+                if str_pool.resolve(syntax_grammar.variables[symbol.index].name)
+                    == report_symbol_name
+                {
                     Some(state_indices)
                 } else {
                     None
@@ -528,11 +535,11 @@ fn report_state_info<'a>(
                     .iter()
                     .map(|symbol| {
                         if symbol.is_terminal() {
-                            lexical_grammar.variables[symbol.index].name.clone()
+                            str_pool.resolve(lexical_grammar.variables[symbol.index].name)
                         } else if symbol.is_external() {
-                            syntax_grammar.external_tokens[symbol.index].name.clone()
+                            str_pool.resolve(syntax_grammar.external_tokens[symbol.index].name)
                         } else {
-                            syntax_grammar.variables[symbol.index].name.clone()
+                            str_pool.resolve(syntax_grammar.variables[symbol.index].name)
                         }
                     })
                     .collect::<Vec<_>>()
@@ -540,7 +547,7 @@ fn report_state_info<'a>(
             );
             info!(
                 "\nitems:\n{}",
-                item::ParseItemSetDisplay(item_set, syntax_grammar, lexical_grammar),
+                item::ParseItemSetDisplay(item_set, syntax_grammar, lexical_grammar, str_pool),
             );
         }
     }

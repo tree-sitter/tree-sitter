@@ -1,196 +1,154 @@
-use rustc_hash::FxHashMap;
+use std::hash::{Hash as _, Hasher as _};
 
+use rustc_hash::{FxHashMap, FxHasher};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::{
-    grammars::{InlinedProductionMap, LexicalGrammar, Production, ProductionStep, SyntaxGrammar},
-    rules::SymbolType,
+    grammars::{InlinedProductionMap, InputGrammar, Production, ProductionStep, ProductionStore},
+    prepare_grammar::extract_tokens::ExtractedGrammarMeta,
+    rules::{Precedence, Symbol, SymbolType},
 };
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-struct ProductionStepId {
-    // A `None` value here means that the production itself was produced via inlining,
-    // and is stored in the builder's `productions` vector, as opposed to being
-    // stored in one of the grammar's variables.
-    variable: Option<usize>,
-    production: usize,
-    step: usize,
+struct InlineBuilder<'a> {
+    out: &'a mut ProductionStore,
+    first_inlined: u32,
+    inline: &'a [Symbol],
+    map: FxHashMap<(u32, u32), Vec<u32>>,
+    memo: FxHashMap<u64, Vec<u32>>,
 }
 
-struct InlinedProductionMapBuilder {
-    production_indices_by_step_id: FxHashMap<ProductionStepId, Vec<usize>>,
-    productions: Vec<Production>,
+#[derive(Clone, Default)]
+struct ScratchProd {
+    steps: Vec<ProductionStep>,
+    dynamic_precedence: i32,
 }
 
-impl InlinedProductionMapBuilder {
-    fn build(mut self, grammar: &SyntaxGrammar) -> InlinedProductionMap {
-        let mut step_ids_to_process = Vec::new();
-        for (variable_index, variable) in grammar.variables.iter().enumerate() {
-            for production_index in 0..variable.productions.len() {
-                step_ids_to_process.push(ProductionStepId {
-                    variable: Some(variable_index),
-                    production: production_index,
-                    step: 0,
-                });
-                while !step_ids_to_process.is_empty() {
-                    let mut i = 0;
-                    while i < step_ids_to_process.len() {
-                        let step_id = step_ids_to_process[i];
-                        if let Some(step) = self.production_step_for_id(step_id, grammar) {
-                            if grammar.variables_to_inline.contains(&step.symbol) {
-                                let inlined_step_ids = self
-                                    .inline_production_at_step(step_id, grammar)
-                                    .iter()
-                                    .copied()
-                                    .map(|production_index| ProductionStepId {
-                                        variable: None,
-                                        production: production_index,
-                                        step: step_id.step,
-                                    });
-                                step_ids_to_process.splice(i..=i, inlined_step_ids);
-                            } else {
-                                step_ids_to_process[i] = ProductionStepId {
-                                    variable: step_id.variable,
-                                    production: step_id.production,
-                                    step: step_id.step + 1,
-                                };
-                                i += 1;
-                            }
+impl InlineBuilder<'_> {
+    fn build(mut self) -> InlinedProductionMap {
+        let mut worklist = Vec::new();
+        for prod_id in 0..self.first_inlined {
+            worklist.push((prod_id, 0u32));
+            while !worklist.is_empty() {
+                let mut i = 0;
+                while i < worklist.len() {
+                    let (prod_id, step_index) = worklist[i];
+                    if let Some(step) = self.production_step_for_id(prod_id, step_index) {
+                        if self.inline.contains(&step.symbol()) {
+                            let ids = self.inline_production_at_step(prod_id, step_index);
+                            worklist.splice(i..=i, ids.into_iter().map(|id| (id, step_index)));
                         } else {
-                            step_ids_to_process.remove(i);
+                            worklist[i].1 += 1;
+                            i += 1;
                         }
+                    } else {
+                        worklist.remove(i);
                     }
                 }
             }
         }
 
-        let productions = self.productions;
-        let production_indices_by_step_id = self.production_indices_by_step_id;
-        let production_map = production_indices_by_step_id
-            .into_iter()
-            .map(|(step_id, production_indices)| {
-                let production = core::ptr::from_ref::<Production>(step_id.variable.map_or_else(
-                    || &productions[step_id.production],
-                    |variable_index| {
-                        &grammar.variables[variable_index].productions[step_id.production]
-                    },
-                ));
-                ((production, step_id.step as u32), production_indices)
-            })
-            .collect();
-
-        InlinedProductionMap {
-            productions,
-            production_map,
-        }
+        InlinedProductionMap { map: self.map }
     }
 
-    fn inline_production_at_step<'a>(
-        &'a mut self,
-        step_id: ProductionStepId,
-        grammar: &'a SyntaxGrammar,
-    ) -> &'a [usize] {
-        // Build a list of productions produced by inlining rules.
+    /// Expand inlining at one step of one production, dedup, and store the results
+    fn inline_production_at_step(&mut self, prod_id: u32, step_index: u32) -> Vec<u32> {
+        if let Some(ids) = self.map.get(&(prod_id, step_index)) {
+            return ids.clone();
+        }
+
+        let si = step_index as usize;
+        let src = self.out.productions[prod_id as usize];
+        let mut scratch = vec![ScratchProd {
+            steps: self.out.steps[src.step_range()].to_vec(),
+            dynamic_precedence: src.dynamic_precedence,
+        }];
         let mut i = 0;
-        let step_index = step_id.step;
-        let mut productions_to_add = vec![self.production_for_id(step_id, grammar).clone()];
-        while i < productions_to_add.len() {
-            if let Some(step) = productions_to_add[i].steps.get(step_index) {
-                let symbol = step.symbol;
-                if grammar.variables_to_inline.contains(&symbol) {
-                    // Remove the production from the vector, replacing it with a placeholder.
-                    let production = productions_to_add
-                        .splice(i..=i, std::iter::once(&Production::default()).cloned())
-                        .next()
-                        .unwrap();
-
-                    // Replace the placeholder with the inlined productions.
-                    productions_to_add.splice(
-                        i..=i,
-                        grammar.variables[symbol.index].productions.iter().map(|p| {
-                            let mut production = production.clone();
-                            let removed_step = production
-                                .steps
-                                .splice(step_index..=step_index, p.steps.iter().cloned())
-                                .next()
-                                .unwrap();
-                            let inserted_steps =
-                                &mut production.steps[step_index..(step_index + p.steps.len())];
-                            if let Some(alias) = removed_step.alias {
-                                for inserted_step in inserted_steps.iter_mut() {
-                                    inserted_step.alias = Some(alias.clone());
-                                }
-                            }
-                            if let Some(field_name) = removed_step.field_name {
-                                for inserted_step in inserted_steps.iter_mut() {
-                                    inserted_step.field_name = Some(field_name.clone());
-                                }
-                            }
-                            if let Some(last_inserted_step) = inserted_steps.last_mut() {
-                                if last_inserted_step.precedence.is_none() {
-                                    last_inserted_step.precedence = removed_step.precedence;
-                                }
-                                if last_inserted_step.associativity.is_none() {
-                                    last_inserted_step.associativity = removed_step.associativity;
-                                }
-                            }
-                            if p.dynamic_precedence.abs() > production.dynamic_precedence.abs() {
-                                production.dynamic_precedence = p.dynamic_precedence;
-                            }
-                            production
-                        }),
-                    );
-
+        while i < scratch.len() {
+            let symbol = match scratch[i].steps.get(si) {
+                Some(s) if self.inline.contains(&s.symbol()) => s.symbol(),
+                _ => {
+                    i += 1;
                     continue;
                 }
-            }
-            i += 1;
+            };
+
+            let removed_prod = std::mem::take(&mut scratch[i]);
+            let removed_step = removed_prod.steps[si];
+            let (v_start, v_end) = self.out.var_prods[symbol.index];
+            let replacements = (v_start..v_end)
+                .map(|p_idx| {
+                    let p = self.out.productions[p_idx as usize];
+                    let mut production = removed_prod.clone();
+                    production
+                        .steps
+                        .splice(si..=si, self.out.steps[p.step_range()].iter().copied());
+                    let inserted = &mut production.steps[si..si + p.steps_len as usize];
+                    if let Some(removed_alias) = removed_step.alias() {
+                        for step in inserted.iter_mut() {
+                            step.set_alias(Some(removed_alias));
+                        }
+                    }
+                    if let Some(removed_field) = removed_step.field() {
+                        for step in inserted.iter_mut() {
+                            step.set_field(Some(removed_field));
+                        }
+                    }
+                    if let Some(last) = inserted.last_mut() {
+                        if last.precedence() == Precedence::None {
+                            last.set_precedence(removed_step.precedence());
+                        }
+                        if last.associativity().is_none() {
+                            last.set_associativity(removed_step.associativity());
+                        }
+                    }
+                    if p.dynamic_precedence.abs() > production.dynamic_precedence.abs() {
+                        production.dynamic_precedence = p.dynamic_precedence;
+                    }
+                    production
+                })
+                .collect::<Vec<_>>();
+            scratch.splice(i..=i, replacements);
         }
 
-        // Store all the computed productions.
-        let result = productions_to_add
-            .into_iter()
-            .map(|production| {
-                self.productions
-                    .iter()
-                    .position(|p| *p == production)
-                    .unwrap_or_else(|| {
-                        self.productions.push(production);
-                        self.productions.len() - 1
-                    })
-            })
-            .collect();
+        let mut result = Vec::with_capacity(scratch.len());
+        for sp in scratch {
+            let mut hasher = FxHasher::default();
+            sp.dynamic_precedence.hash(&mut hasher);
+            sp.steps.hash(&mut hasher);
+            let candidates = self.memo.entry(hasher.finish()).or_default();
+            let existing = candidates.iter().copied().find(|&id| {
+                let p = self.out.productions[id as usize];
+                p.dynamic_precedence == sp.dynamic_precedence
+                    && self.out.steps[p.step_range()] == sp.steps
+            });
+            result.push(existing.unwrap_or_else(|| {
+                let steps_start = self.out.steps.len() as u32;
+                self.out.steps.extend_from_slice(&sp.steps);
+                self.out.productions.push(Production {
+                    steps_start,
+                    steps_len: sp.steps.len() as u32,
+                    dynamic_precedence: sp.dynamic_precedence,
+                });
+                let id = (self.out.productions.len() - 1) as u32;
+                candidates.push(id);
+                id
+            }));
+        }
 
-        // Cache these productions based on the original production step.
-        self.production_indices_by_step_id
-            .entry(step_id)
-            .or_insert(result)
+        self.map.insert((prod_id, step_index), result.clone());
+        result
     }
 
-    fn production_for_id<'a>(
-        &'a self,
-        id: ProductionStepId,
-        grammar: &'a SyntaxGrammar,
-    ) -> &'a Production {
-        id.variable.map_or_else(
-            || &self.productions[id.production],
-            |variable_index| &grammar.variables[variable_index].productions[id.production],
-        )
-    }
-
-    fn production_step_for_id<'a>(
-        &'a self,
-        id: ProductionStepId,
-        grammar: &'a SyntaxGrammar,
-    ) -> Option<&'a ProductionStep> {
-        self.production_for_id(id, grammar).steps.get(id.step)
+    fn production_step_for_id(&self, prod_id: u32, step: u32) -> Option<ProductionStep> {
+        let p = self.out.productions[prod_id as usize];
+        (step < p.steps_len).then(|| self.out.steps[(p.steps_start + step) as usize])
     }
 }
 
 pub type ProcessInlinesResult<T> = Result<T, ProcessInlinesError>;
 
-#[derive(Debug, Error, Serialize, Deserialize)]
+#[derive(Debug, Error, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ProcessInlinesError {
     #[error("External token `{0}` cannot be inlined")]
     ExternalToken(String),
@@ -201,358 +159,408 @@ pub enum ProcessInlinesError {
 }
 
 pub(super) fn process_inlines(
-    grammar: &SyntaxGrammar,
-    lexical_grammar: &LexicalGrammar,
+    g: &InputGrammar,
+    meta: &ExtractedGrammarMeta,
+    out: &mut ProductionStore,
 ) -> ProcessInlinesResult<InlinedProductionMap> {
-    for symbol in &grammar.variables_to_inline {
+    if meta.inline.is_empty() {
+        return Ok(InlinedProductionMap::default());
+    }
+    for symbol in &meta.inline {
         match symbol.kind {
-            SymbolType::External => {
-                Err(ProcessInlinesError::ExternalToken(
-                    grammar.external_tokens[symbol.index].name.clone(),
-                ))?;
-            }
-            SymbolType::Terminal => {
-                Err(ProcessInlinesError::Token(
-                    lexical_grammar.variables[symbol.index].name.clone(),
-                ))?;
-            }
-            SymbolType::NonTerminal if symbol.index == 0 => {
-                Err(ProcessInlinesError::FirstRule(
-                    grammar.variables[symbol.index].name.clone(),
-                ))?;
-            }
+            SymbolType::External => Err(ProcessInlinesError::ExternalToken(
+                g.pool
+                    .resolve(meta.external_tokens[symbol.index].name)
+                    .to_string(),
+            ))?,
+            SymbolType::Terminal => Err(ProcessInlinesError::Token(
+                g.pool
+                    .resolve(meta.lexical_variables[symbol.index].name)
+                    .to_string(),
+            ))?,
+            SymbolType::NonTerminal if symbol.index == 0 => Err(ProcessInlinesError::FirstRule(
+                g.pool.resolve(g.variables[0].name).to_string(),
+            ))?,
             _ => {}
         }
     }
 
-    Ok(InlinedProductionMapBuilder {
-        productions: Vec::new(),
-        production_indices_by_step_id: FxHashMap::default(),
+    Ok(InlineBuilder {
+        first_inlined: out.productions.len() as u32,
+        out,
+        inline: &meta.inline,
+        map: FxHashMap::default(),
+        memo: FxHashMap::default(),
     }
-    .build(grammar))
+    .build())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::{
-        grammars::{LexicalVariable, SyntaxVariable, VariableType},
-        rules::{Associativity, Precedence, Symbol},
+        grammars::VariableType,
+        prepare_grammar::extract_tokens::LexicalToken,
+        rules::{Alias, Associativity, RulePool, Symbol},
     };
 
     #[test]
     fn test_basic_inlining() {
-        let grammar = SyntaxGrammar {
-            variables_to_inline: vec![Symbol::non_terminal(1)],
-            variables: vec![
-                SyntaxVariable {
-                    name: "non-terminal-0".to_string(),
-                    kind: VariableType::Named,
-                    productions: vec![Production {
-                        dynamic_precedence: 0,
-                        steps: vec![
-                            ProductionStep::new(Symbol::terminal(10)),
-                            ProductionStep::new(Symbol::non_terminal(1)), // inlined
-                            ProductionStep::new(Symbol::terminal(11)),
-                        ],
-                    }],
-                },
-                SyntaxVariable {
-                    name: "non-terminal-1".to_string(),
-                    kind: VariableType::Named,
-                    productions: vec![
-                        Production {
-                            dynamic_precedence: 0,
-                            steps: vec![
-                                ProductionStep::new(Symbol::terminal(12)),
-                                ProductionStep::new(Symbol::terminal(13)),
-                            ],
-                        },
-                        Production {
-                            dynamic_precedence: -2,
-                            steps: vec![ProductionStep::new(Symbol::terminal(14))],
-                        },
-                    ],
-                },
+        // var0: [t10, nt1, t11] (nt1 is inlined)
+        // var1: [t12, t13] | [t14]
+        let mut out = ProductionStore::default();
+        add_variable(
+            &mut out,
+            &[(
+                vec![
+                    plain(Symbol::terminal(10)),
+                    plain(Symbol::non_terminal(1)),
+                    plain(Symbol::terminal(11)),
+                ],
+                0,
+            )],
+        );
+        add_variable(
+            &mut out,
+            &[
+                (
+                    vec![plain(Symbol::terminal(12)), plain(Symbol::terminal(13))],
+                    0,
+                ),
+                (vec![plain(Symbol::terminal(14))], -2),
             ],
-            ..Default::default()
-        };
-
-        let inline_map = process_inlines(&grammar, &LexicalGrammar::default()).unwrap();
-
-        // Nothing to inline at step 0.
-        assert!(
-            inline_map
-                .inlined_productions(&grammar.variables[0].productions[0], 0)
-                .is_none()
         );
 
+        let g = InputGrammar::default();
+        let meta = ExtractedGrammarMeta {
+            inline: vec![Symbol::non_terminal(1)],
+            ..Default::default()
+        };
+        let map = process_inlines(&g, &meta, &mut out).unwrap();
+        let prod0 = out.var_prods[0].0;
+
+        // Nothing to inline at step 0.
+        assert!(inlined(&out, &map, prod0, 0).is_none());
+
         // Inlining variable 1 yields two productions.
+        let (_, prods) = inlined(&out, &map, prod0, 1).unwrap();
         assert_eq!(
-            inline_map
-                .inlined_productions(&grammar.variables[0].productions[0], 1)
-                .unwrap()
-                .cloned()
-                .collect::<Vec<_>>(),
+            prods,
             vec![
-                Production {
-                    dynamic_precedence: 0,
-                    steps: vec![
-                        ProductionStep::new(Symbol::terminal(10)),
-                        ProductionStep::new(Symbol::terminal(12)),
-                        ProductionStep::new(Symbol::terminal(13)),
-                        ProductionStep::new(Symbol::terminal(11)),
+                (
+                    vec![
+                        plain(Symbol::terminal(10)),
+                        plain(Symbol::terminal(12)),
+                        plain(Symbol::terminal(13)),
+                        plain(Symbol::terminal(11)),
                     ],
-                },
-                Production {
-                    dynamic_precedence: -2,
-                    steps: vec![
-                        ProductionStep::new(Symbol::terminal(10)),
-                        ProductionStep::new(Symbol::terminal(14)),
-                        ProductionStep::new(Symbol::terminal(11)),
+                    0
+                ),
+                (
+                    vec![
+                        plain(Symbol::terminal(10)),
+                        plain(Symbol::terminal(14)),
+                        plain(Symbol::terminal(11)),
                     ],
-                },
+                    -2
+                ),
             ]
         );
     }
 
     #[test]
     fn test_nested_inlining() {
-        let grammar = SyntaxGrammar {
-            variables: vec![
-                SyntaxVariable {
-                    name: "non-terminal-0".to_string(),
-                    kind: VariableType::Named,
-                    productions: vec![Production {
-                        dynamic_precedence: 0,
-                        steps: vec![
-                            ProductionStep::new(Symbol::terminal(10)),
-                            ProductionStep::new(Symbol::non_terminal(1)), // inlined
-                            ProductionStep::new(Symbol::terminal(11)),
-                            ProductionStep::new(Symbol::non_terminal(2)), // inlined
-                            ProductionStep::new(Symbol::terminal(12)),
-                        ],
-                    }],
-                },
-                SyntaxVariable {
-                    name: "non-terminal-1".to_string(),
-                    kind: VariableType::Named,
-                    productions: vec![
-                        Production {
-                            dynamic_precedence: 0,
-                            steps: vec![ProductionStep::new(Symbol::terminal(13))],
-                        },
-                        Production {
-                            dynamic_precedence: 0,
-                            steps: vec![
-                                ProductionStep::new(Symbol::non_terminal(3)), // inlined
-                                ProductionStep::new(Symbol::terminal(14)),
-                            ],
-                        },
-                    ],
-                },
-                SyntaxVariable {
-                    name: "non-terminal-2".to_string(),
-                    kind: VariableType::Named,
-                    productions: vec![Production {
-                        dynamic_precedence: 0,
-                        steps: vec![ProductionStep::new(Symbol::terminal(15))],
-                    }],
-                },
-                SyntaxVariable {
-                    name: "non-terminal-3".to_string(),
-                    kind: VariableType::Named,
-                    productions: vec![Production {
-                        dynamic_precedence: 0,
-                        steps: vec![ProductionStep::new(Symbol::terminal(16))],
-                    }],
-                },
+        // var0: [t10, nt1, t11, nt2, t12]    (nt1, nt2 inlined)
+        // var1: [t13] | [nt3, t14]           (nt3 inlined)
+        // var2: [t15]
+        // var3: [t16]
+        let mut out = ProductionStore::default();
+        add_variable(
+            &mut out,
+            &[(
+                vec![
+                    plain(Symbol::terminal(10)),
+                    plain(Symbol::non_terminal(1)),
+                    plain(Symbol::terminal(11)),
+                    plain(Symbol::non_terminal(2)),
+                    plain(Symbol::terminal(12)),
+                ],
+                0,
+            )],
+        );
+        add_variable(
+            &mut out,
+            &[
+                (vec![plain(Symbol::terminal(13))], 0),
+                (
+                    vec![plain(Symbol::non_terminal(3)), plain(Symbol::terminal(14))],
+                    0,
+                ),
             ],
-            variables_to_inline: vec![
+        );
+        add_variable(&mut out, &[(vec![plain(Symbol::terminal(15))], 0)]);
+        add_variable(&mut out, &[(vec![plain(Symbol::terminal(16))], 0)]);
+
+        let g = InputGrammar::default();
+        let meta = ExtractedGrammarMeta {
+            inline: vec![
                 Symbol::non_terminal(1),
                 Symbol::non_terminal(2),
                 Symbol::non_terminal(3),
             ],
             ..Default::default()
         };
+        let map = process_inlines(&g, &meta, &mut out).unwrap();
+        let prod0 = out.var_prods[0].0;
 
-        let inline_map = process_inlines(&grammar, &LexicalGrammar::default()).unwrap();
-
-        let productions = inline_map
-            .inlined_productions(&grammar.variables[0].productions[0], 1)
-            .unwrap()
-            .collect::<Vec<_>>();
-
+        let (ids, prods) = inlined(&out, &map, prod0, 1).unwrap();
         assert_eq!(
-            productions.iter().copied().cloned().collect::<Vec<_>>(),
+            prods,
             vec![
-                Production {
-                    dynamic_precedence: 0,
-                    steps: vec![
-                        ProductionStep::new(Symbol::terminal(10)),
-                        ProductionStep::new(Symbol::terminal(13)),
-                        ProductionStep::new(Symbol::terminal(11)),
-                        ProductionStep::new(Symbol::non_terminal(2)),
-                        ProductionStep::new(Symbol::terminal(12)),
+                (
+                    vec![
+                        plain(Symbol::terminal(10)),
+                        plain(Symbol::terminal(13)),
+                        plain(Symbol::terminal(11)),
+                        plain(Symbol::non_terminal(2)),
+                        plain(Symbol::terminal(12)),
                     ],
-                },
-                Production {
-                    dynamic_precedence: 0,
-                    steps: vec![
-                        ProductionStep::new(Symbol::terminal(10)),
-                        ProductionStep::new(Symbol::terminal(16)),
-                        ProductionStep::new(Symbol::terminal(14)),
-                        ProductionStep::new(Symbol::terminal(11)),
-                        ProductionStep::new(Symbol::non_terminal(2)),
-                        ProductionStep::new(Symbol::terminal(12)),
+                    0,
+                ),
+                (
+                    vec![
+                        plain(Symbol::terminal(10)),
+                        plain(Symbol::terminal(16)),
+                        plain(Symbol::terminal(14)),
+                        plain(Symbol::terminal(11)),
+                        plain(Symbol::non_terminal(2)),
+                        plain(Symbol::terminal(12)),
                     ],
-                },
+                    0
+                ),
             ]
         );
 
+        // nt2, now at step 3
+        let (_, prods) = inlined(&out, &map, ids[0], 3).unwrap();
         assert_eq!(
-            inline_map
-                .inlined_productions(productions[0], 3)
-                .unwrap()
-                .cloned()
-                .collect::<Vec<_>>(),
-            vec![Production {
-                dynamic_precedence: 0,
-                steps: vec![
-                    ProductionStep::new(Symbol::terminal(10)),
-                    ProductionStep::new(Symbol::terminal(13)),
-                    ProductionStep::new(Symbol::terminal(11)),
-                    ProductionStep::new(Symbol::terminal(15)),
-                    ProductionStep::new(Symbol::terminal(12)),
+            prods,
+            vec![(
+                vec![
+                    plain(Symbol::terminal(10)),
+                    plain(Symbol::terminal(13)),
+                    plain(Symbol::terminal(11)),
+                    plain(Symbol::terminal(15)),
+                    plain(Symbol::terminal(12)),
                 ],
-            },]
+                0,
+            )]
         );
     }
 
     #[test]
     fn test_inlining_with_precedence_and_alias() {
-        let grammar = SyntaxGrammar {
-            variables_to_inline: vec![Symbol::non_terminal(1), Symbol::non_terminal(2)],
-            variables: vec![
-                SyntaxVariable {
-                    name: "non-terminal-0".to_string(),
-                    kind: VariableType::Named,
-                    productions: vec![Production {
-                        dynamic_precedence: 0,
-                        steps: vec![
-                            // inlined
-                            ProductionStep::new(Symbol::non_terminal(1))
-                                .with_prec(Precedence::Integer(1), Some(Associativity::Left)),
-                            ProductionStep::new(Symbol::terminal(10)),
-                            // inlined
-                            ProductionStep::new(Symbol::non_terminal(2))
-                                .with_alias("outer_alias", true),
-                        ],
-                    }],
-                },
-                SyntaxVariable {
-                    name: "non-terminal-1".to_string(),
-                    kind: VariableType::Named,
-                    productions: vec![Production {
-                        dynamic_precedence: 0,
-                        steps: vec![
-                            ProductionStep::new(Symbol::terminal(11))
-                                .with_prec(Precedence::Integer(2), None)
-                                .with_alias("inner_alias", true),
-                            ProductionStep::new(Symbol::terminal(12)),
-                        ],
-                    }],
-                },
-                SyntaxVariable {
-                    name: "non-terminal-2".to_string(),
-                    kind: VariableType::Named,
-                    productions: vec![Production {
-                        dynamic_precedence: 0,
-                        steps: vec![ProductionStep::new(Symbol::terminal(13))],
-                    }],
-                },
-            ],
+        // var0: [ nt1{prec 1, left}, t10, nt2{alias outer} ]     (nt1, nt2 inlined)
+        // var1: [ r11{prec 2, alias inner}, t12 ]
+        // var2: [ t13 ]
+        let mut pool = RulePool::default();
+        let mut out = ProductionStore::default();
+        add_variable(
+            &mut out,
+            &[(
+                vec![
+                    decorated(
+                        &mut pool,
+                        Symbol::non_terminal(1),
+                        Precedence::Integer(1),
+                        Some(Associativity::Left),
+                        None,
+                    ),
+                    plain(Symbol::terminal(10)),
+                    decorated(
+                        &mut pool,
+                        Symbol::non_terminal(2),
+                        Precedence::None,
+                        None,
+                        Some("outer_alias"),
+                    ),
+                ],
+                0,
+            )],
+        );
+        add_variable(
+            &mut out,
+            &[(
+                vec![
+                    decorated(
+                        &mut pool,
+                        Symbol::terminal(11),
+                        Precedence::Integer(2),
+                        None,
+                        Some("inner_alias"),
+                    ),
+                    plain(Symbol::terminal(12)),
+                ],
+                0,
+            )],
+        );
+        add_variable(&mut out, &[(vec![plain(Symbol::terminal(13))], 0)]);
+
+        let g = InputGrammar::default();
+        let meta = ExtractedGrammarMeta {
+            inline: vec![Symbol::non_terminal(1), Symbol::non_terminal(2)],
             ..Default::default()
         };
+        let map = process_inlines(&g, &meta, &mut out).unwrap();
+        let prod0 = out.var_prods[0].0;
 
-        let inline_map = process_inlines(&grammar, &LexicalGrammar::default()).unwrap();
-
-        let productions = inline_map
-            .inlined_productions(&grammar.variables[0].productions[0], 0)
-            .unwrap()
-            .collect::<Vec<_>>();
-
+        let (ids, prods) = inlined(&out, &map, prod0, 0).unwrap();
         assert_eq!(
-            productions.iter().copied().cloned().collect::<Vec<_>>(),
-            vec![Production {
-                dynamic_precedence: 0,
-                steps: vec![
-                    // The first step in the inlined production retains its precedence
-                    // and alias.
-                    ProductionStep::new(Symbol::terminal(11))
-                        .with_prec(Precedence::Integer(2), None)
-                        .with_alias("inner_alias", true),
-                    // The final step of the inlined production inherits the precedence of
-                    // the inlined step.
-                    ProductionStep::new(Symbol::terminal(12))
-                        .with_prec(Precedence::Integer(1), Some(Associativity::Left)),
-                    ProductionStep::new(Symbol::terminal(10)),
-                    ProductionStep::new(Symbol::non_terminal(2)).with_alias("outer_alias", true),
-                ]
-            }],
+            prods,
+            vec![(
+                vec![
+                    // The first inlined step keeps its own precedence and alias.
+                    decorated(
+                        &mut pool,
+                        Symbol::terminal(11),
+                        Precedence::Integer(2),
+                        None,
+                        Some("inner_alias")
+                    ),
+                    // The last inlined step inherits the inlined step's precedence.
+                    decorated(
+                        &mut pool,
+                        Symbol::terminal(12),
+                        Precedence::Integer(1),
+                        Some(Associativity::Left),
+                        None,
+                    ),
+                    plain(Symbol::terminal(10)),
+                    decorated(
+                        &mut pool,
+                        Symbol::non_terminal(2),
+                        Precedence::None,
+                        None,
+                        Some("outer_alias"),
+                    ),
+                ],
+                0,
+            )]
         );
 
+        let (_, prods) = inlined(&out, &map, ids[0], 3).unwrap();
         assert_eq!(
-            inline_map
-                .inlined_productions(productions[0], 3)
-                .unwrap()
-                .cloned()
-                .collect::<Vec<_>>(),
-            vec![Production {
-                dynamic_precedence: 0,
-                steps: vec![
-                    ProductionStep::new(Symbol::terminal(11))
-                        .with_prec(Precedence::Integer(2), None)
-                        .with_alias("inner_alias", true),
-                    ProductionStep::new(Symbol::terminal(12))
-                        .with_prec(Precedence::Integer(1), Some(Associativity::Left)),
-                    ProductionStep::new(Symbol::terminal(10)),
-                    // All steps of the inlined production inherit their alias from the
-                    // inlined step.
-                    ProductionStep::new(Symbol::terminal(13)).with_alias("outer_alias", true),
-                ]
-            }],
+            prods,
+            vec![(
+                vec![
+                    decorated(
+                        &mut pool,
+                        Symbol::terminal(11),
+                        Precedence::Integer(2),
+                        None,
+                        Some("inner_alias"),
+                    ),
+                    decorated(
+                        &mut pool,
+                        Symbol::terminal(12),
+                        Precedence::Integer(1),
+                        Some(Associativity::Left),
+                        None,
+                    ),
+                    plain(Symbol::terminal(10)),
+                    // Every inlined step inherits the inlined step's alias
+                    decorated(
+                        &mut pool,
+                        Symbol::terminal(13),
+                        Precedence::None,
+                        None,
+                        Some("outer_alias"),
+                    ),
+                ],
+                0,
+            )],
         );
     }
 
     #[test]
     fn test_error_when_inlining_tokens() {
-        let lexical_grammar = LexicalGrammar {
-            variables: vec![LexicalVariable {
-                name: "something".to_string(),
+        let mut pool = RulePool::default();
+        let name = pool.intern("something");
+        let root = pool.blank();
+        let g = InputGrammar {
+            pool,
+            ..Default::default()
+        };
+        let meta = ExtractedGrammarMeta {
+            inline: vec![Symbol::terminal(0)],
+            lexical_variables: vec![LexicalToken {
+                name,
                 kind: VariableType::Named,
-                implicit_precedence: 0,
-                start_state: 0,
+                root,
             }],
             ..Default::default()
         };
+        let mut out = ProductionStore::default();
 
-        let grammar = SyntaxGrammar {
-            variables_to_inline: vec![Symbol::terminal(0)],
-            variables: vec![SyntaxVariable {
-                name: "non-terminal-0".to_string(),
-                kind: VariableType::Named,
-                productions: vec![Production {
-                    dynamic_precedence: 0,
-                    steps: vec![ProductionStep::new(Symbol::terminal(0))],
-                }],
-            }],
-            ..Default::default()
-        };
+        let result = process_inlines(&g, &meta, &mut out);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert_eq!(err, ProcessInlinesError::Token("something".to_string()));
+    }
 
-        let result = process_inlines(&grammar, &lexical_grammar);
-        assert!(result.is_err(), "expected an error, but got none");
-        let err = result.err().unwrap();
-        assert_eq!(err.to_string(), "Token `something` cannot be inlined",);
+    /// Append one variable's productions to `out` and record its production id range.
+    fn add_variable(out: &mut ProductionStore, prods: &[(Vec<ProductionStep>, i32)]) {
+        let start = out.productions.len() as u32;
+        for (steps, dynamic_prc) in prods {
+            let steps_start = out.steps.len() as u32;
+            out.steps.extend_from_slice(steps);
+            out.productions.push(Production {
+                steps_start,
+                steps_len: steps.len() as u32,
+                dynamic_precedence: *dynamic_prc,
+            });
+        }
+        out.var_prods.push((start, out.productions.len() as u32));
+    }
+
+    /// One inlined replacement production: its owned steps and dynamic precedence.
+    type InlinedProduction = (Vec<ProductionStep>, i32);
+
+    /// Inlining results recorded at `(prod_id, step`: the replacement ids and each
+    /// one's steps and dynamic precedence.
+    fn inlined(
+        out: &ProductionStore,
+        map: &InlinedProductionMap,
+        prod_id: u32,
+        step: u32,
+    ) -> Option<(Vec<u32>, Vec<InlinedProduction>)> {
+        map.map.get(&(prod_id, step)).map(|ids| {
+            let prods = ids
+                .iter()
+                .map(|&id| {
+                    let p = out.productions[id as usize];
+                    (out.steps[p.step_range()].to_vec(), p.dynamic_precedence)
+                })
+                .collect::<Vec<_>>();
+            (ids.clone(), prods)
+        })
+    }
+
+    fn plain(symbol: Symbol) -> ProductionStep {
+        ProductionStep::pack(symbol, Precedence::None, None, None, None, 0)
+    }
+
+    fn decorated(
+        pool: &mut RulePool,
+        symbol: Symbol,
+        prec: Precedence,
+        assoc: Option<Associativity>,
+        alias: Option<&str>,
+    ) -> ProductionStep {
+        let alias = alias.map(|name| Alias {
+            value: pool.intern(name),
+            is_named: true,
+        });
+        ProductionStep::pack(symbol, prec, assoc, alias, None, 0)
     }
 }
