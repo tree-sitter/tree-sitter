@@ -10,6 +10,8 @@ use rustc_hash::{FxHashMap, FxHashSet};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+use crate::tables::{ActionListId, ActionListPool};
+
 use super::{
     LANGUAGE_VERSION,
     build_tables::Tables,
@@ -20,8 +22,7 @@ use super::{
     rules::{AliasMap, Symbol, SymbolType, TokenSet},
     strpool::{StrId, StrPool},
     tables::{
-        ActionList, AdvanceAction, FieldLocation, GotoAction, LexState, LexTable, ParseAction,
-        ParseTable, ParseTableEntry,
+        AdvanceAction, FieldLocation, GotoAction, LexState, LexTable, ParseAction, ParseTable,
     },
 };
 
@@ -1309,11 +1310,10 @@ impl Generator {
         let mut next_parse_action_list_index = 0u32;
 
         // Parse action lists zero is for the default value, when a symbol is not valid.
+        // `canonicalize` guarantees pool index 0 is the empty list.
         Self::get_parse_action_list_id(
-            &ParseTableEntry {
-                actions: ActionList::Empty,
-                reusable: false,
-            },
+            ActionListId::new(0, false),
+            &self.parse_table.action_lists,
             &mut parse_table_entries,
             &mut next_parse_action_list_index,
         );
@@ -1358,9 +1358,10 @@ impl Generator {
                 );
             }
 
-            for (symbol, entry) in &terminal_entries {
+            for (symbol, id) in &terminal_entries {
                 let entry_id = Self::get_parse_action_list_id(
-                    entry,
+                    **id,
+                    &self.parse_table.action_lists,
                     &mut parse_table_entries,
                     &mut next_parse_action_list_index,
                 );
@@ -1400,7 +1401,8 @@ impl Generator {
                 // in order to avoid repeating the action.
                 for (symbol, entry) in &terminal_entries {
                     let entry_id = Self::get_parse_action_list_id(
-                        entry,
+                        **entry,
+                        &self.parse_table.action_lists,
                         &mut parse_table_entries,
                         &mut next_parse_action_list_index,
                     );
@@ -1482,7 +1484,7 @@ impl Generator {
 
         let mut parse_table_entries = parse_table_entries
             .into_iter()
-            .map(|(entry, i)| (i, entry))
+            .map(|(id, i)| (i, id))
             .collect::<Vec<_>>();
         parse_table_entries.sort_by_key(|(index, _)| *index);
         self.add_parse_action_list(parse_table_entries);
@@ -1490,20 +1492,21 @@ impl Generator {
         Ok(())
     }
 
-    fn add_parse_action_list(&mut self, parse_table_entries: Vec<(u32, ParseTableEntry)>) {
+    fn add_parse_action_list(&mut self, parse_table_entries: Vec<(u32, ActionListId)>) {
         add_line!(
             self,
             "static const TSParseActionEntry ts_parse_actions[] = {{"
         );
         indent!(self);
-        for (i, entry) in parse_table_entries {
+        for (i, id) in parse_table_entries {
+            let actions = self.parse_table.action_lists.get(id);
             add!(
                 self,
                 "  [{i}] = {{.entry = {{.count = {}, .reusable = {}}}}},",
-                entry.actions.len(),
-                entry.reusable
+                actions.len(),
+                id.reusable(),
             );
-            for action in &entry.actions {
+            for action in actions {
                 add!(self, " ");
                 match *action {
                     ParseAction::Accept => add!(self, " ACCEPT_INPUT()"),
@@ -1700,16 +1703,17 @@ impl Generator {
     }
 
     fn get_parse_action_list_id(
-        entry: &ParseTableEntry,
-        parse_table_entries: &mut FxHashMap<ParseTableEntry, u32>,
+        id: ActionListId,
+        pool: &ActionListPool,
+        parse_action_list_offsets: &mut FxHashMap<ActionListId, u32>,
         next_parse_action_list_index: &mut u32,
     ) -> u32 {
-        if let Some(&index) = parse_table_entries.get(entry) {
+        if let Some(&index) = parse_action_list_offsets.get(&id) {
             index
         } else {
             let result = *next_parse_action_list_index;
-            parse_table_entries.insert(entry.clone(), result);
-            *next_parse_action_list_index += 1 + entry.actions.len() as u32;
+            parse_action_list_offsets.insert(id, result);
+            *next_parse_action_list_index += 1 + pool.get(id).len() as u32;
             result
         }
     }

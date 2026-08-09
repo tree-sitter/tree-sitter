@@ -21,8 +21,8 @@ use crate::{
     rules::{Associativity, Precedence, Symbol, SymbolType, TokenSet},
     strpool::StrPool,
     tables::{
-        ActionList, FieldLocation, GotoAction, ParseAction, ParseState, ParseStateId, ParseTable,
-        ParseTableEntry, ProductionInfo, ProductionInfoId,
+        ActionList, ActionListPool, FieldLocation, GotoAction, ParseAction, ParseState,
+        ParseStateId, ParseTable, ParseTableEntry, ProductionInfo, ProductionInfoId,
     },
 };
 
@@ -77,7 +77,7 @@ struct ParseTableBuilder<'a> {
     parse_state_queue: VecDeque<ParseStateQueueEntry>,
     non_terminal_extra_states: Vec<(Symbol, ParseStateId)>,
     actual_conflicts: FxHashSet<Vec<Symbol>>,
-    parse_table: ParseTable,
+    parse_table: ParseTable<ParseTableEntry>,
     str_pool: &'a StrPool,
 }
 
@@ -276,6 +276,7 @@ impl<'a> ParseTableBuilder<'a> {
             actual_conflicts: syntax_grammar.expected_conflicts.iter().cloned().collect(),
             parse_table: ParseTable {
                 states: Vec::new(),
+                action_lists: ActionListPool::default(),
                 symbols: Vec::new(),
                 external_lex_states: Vec::new(),
                 production_infos: Vec::new(),
@@ -288,7 +289,7 @@ impl<'a> ParseTableBuilder<'a> {
     fn build(
         mut self,
         diagnostics: &mut Vec<Diagnostic>,
-    ) -> BuildTableResult<(ParseTable, ParseStateInfo<'a>)> {
+    ) -> BuildTableResult<(ParseTable<ParseTableEntry>, ParseStateInfo<'a>)> {
         // Ensure that the empty alias sequence has index 0.
         self.parse_table
             .production_infos
@@ -1252,7 +1253,7 @@ pub fn build_parse_table<'a>(
     variable_info: &'a [VariableInfo],
     str_pool: &'a StrPool,
     diagnostics: &mut Vec<Diagnostic>,
-) -> BuildTableResult<(ParseTable, ParseStateInfo<'a>)> {
+) -> BuildTableResult<(ParseTable<ParseTableEntry>, ParseStateInfo<'a>)> {
     ParseTableBuilder::new(
         syntax_grammar,
         lexical_grammar,
