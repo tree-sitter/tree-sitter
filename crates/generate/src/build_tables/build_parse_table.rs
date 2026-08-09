@@ -284,7 +284,7 @@ impl<'a> ParseTableBuilder<'a> {
             &Vec::new(),
             ParseItemSet {
                 entries: vec![ParseItemSetEntry {
-                    item: ParseItem::start(),
+                    item: ParseItem::start(self.item_set_builder.key_map),
                     lookaheads: std::iter::once(Symbol::end()).collect(),
                     following_reserved_word_set: ReservedWordSetId::default(),
                 }],
@@ -308,6 +308,7 @@ impl<'a> ParseTableBuilder<'a> {
                         variable_index: extra_non_terminal.index as u32,
                         production,
                         step_index: 1,
+                        keys: self.item_set_builder.key_map.keys_for(production),
                         has_preceding_inherited_fields: false,
                     })
                     .lookaheads

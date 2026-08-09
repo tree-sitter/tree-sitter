@@ -2,7 +2,9 @@ use std::fmt;
 
 use rustc_hash::{FxHashMap, FxHashSet};
 
-use super::item::{ParseItem, ParseItemDisplay, ParseItemSet, ParseItemSetEntry, TokenSetDisplay};
+use super::item::{
+    ItemKeyMap, ParseItem, ParseItemDisplay, ParseItemSet, ParseItemSetEntry, TokenSetDisplay,
+};
 use crate::{
     grammars::{InlinedProductionMap, LexicalGrammar, ReservedWordSetId, SyntaxGrammar},
     rules::{Symbol, SymbolType, TokenSet},
@@ -28,6 +30,7 @@ pub struct ParseItemSetBuilder<'a> {
     reserved_first_sets: FxHashMap<Symbol, ReservedWordSetId>,
     last_sets: FxHashMap<Symbol, TokenSet>,
     inlines: &'a InlinedProductionMap,
+    pub key_map: &'a ItemKeyMap,
     transitive_closure_additions: Vec<Vec<TransitiveClosureAddition<'a>>>,
 }
 
@@ -43,6 +46,7 @@ impl<'a> ParseItemSetBuilder<'a> {
         syntax_grammar: &'a SyntaxGrammar,
         lexical_grammar: &'a LexicalGrammar,
         inlines: &'a InlinedProductionMap,
+        key_map: &'a ItemKeyMap,
     ) -> Self {
         let mut result = Self {
             syntax_grammar,
@@ -51,6 +55,7 @@ impl<'a> ParseItemSetBuilder<'a> {
             reserved_first_sets: FxHashMap::default(),
             last_sets: FxHashMap::default(),
             inlines,
+            key_map,
             transitive_closure_additions: vec![Vec::new(); syntax_grammar.variables.len()],
         };
 
@@ -223,6 +228,7 @@ impl<'a> ParseItemSetBuilder<'a> {
                     let item = ParseItem {
                         variable_index,
                         production,
+                        keys: key_map.keys_for(production),
                         step_index: 0,
                         has_preceding_inherited_fields: false,
                     };
@@ -234,7 +240,10 @@ impl<'a> ParseItemSetBuilder<'a> {
                             find_or_push(
                                 additions_for_non_terminal,
                                 TransitiveClosureAddition {
-                                    item: item.substitute_production(production),
+                                    item: item.substitute_production(
+                                        production,
+                                        key_map.keys_for(production),
+                                    ),
                                     info: follow_set_info.clone(),
                                 },
                             );
@@ -267,7 +276,10 @@ impl<'a> ParseItemSetBuilder<'a> {
                     self.add_item(
                         &mut result,
                         &ParseItemSetEntry {
-                            item: entry.item.substitute_production(production),
+                            item: entry.item.substitute_production(
+                                production,
+                                self.key_map.keys_for(production),
+                            ),
                             lookaheads: entry.lookaheads.clone(),
                             following_reserved_word_set: entry.following_reserved_word_set,
                         },
