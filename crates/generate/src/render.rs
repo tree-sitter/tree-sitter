@@ -391,7 +391,7 @@ impl Generator {
                 if symbol.is_terminal() || symbol.is_eof() {
                     true
                 } else if symbol.is_external() {
-                    self.syntax_grammar.external_tokens[symbol.index]
+                    self.syntax_grammar.external_tokens[symbol.index as usize]
                         .corresponding_internal_token
                         .is_none()
                 } else {
@@ -1289,7 +1289,11 @@ impl Generator {
                 add_line!(self, "[{i}] = {{");
                 indent!(self);
                 for token in self.parse_table.external_lex_states[i].iter() {
-                    add_line!(self, "[{}] = true,", self.external_token_id(token.index));
+                    add_line!(
+                        self,
+                        "[{}] = true,",
+                        self.external_token_id(token.index as usize)
+                    );
                 }
                 dedent!(self);
                 add_line!(self, "}},");
@@ -1761,20 +1765,21 @@ impl Generator {
     }
 
     fn metadata_for_symbol(&self, symbol: Symbol) -> (StrId, VariableType) {
+        let symbol_index = symbol.index as usize;
         match symbol.kind {
             SymbolType::End | SymbolType::EndOfNonTerminalExtra => {
                 (StrPool::END_NAME_ID, VariableType::Hidden)
             }
             SymbolType::NonTerminal => {
-                let variable = &self.syntax_grammar.variables[symbol.index];
+                let variable = &self.syntax_grammar.variables[symbol_index];
                 (variable.name, variable.kind)
             }
             SymbolType::Terminal => {
-                let variable = &self.lexical_grammar.variables[symbol.index];
+                let variable = &self.lexical_grammar.variables[symbol_index];
                 (variable.name, variable.kind)
             }
             SymbolType::External => {
-                let token = &self.syntax_grammar.external_tokens[symbol.index];
+                let token = &self.syntax_grammar.external_tokens[symbol_index];
                 (token.name, token.kind)
             }
         }

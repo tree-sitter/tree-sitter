@@ -320,10 +320,9 @@ impl NfaBuilder {
                 result
             }
             Rule::Blank => Ok(false),
-            Rule::Sym { kind, index } => Err(ExpandRuleError::UnexpectedSymbol(Symbol {
-                kind,
-                index: index as usize,
-            }))?,
+            Rule::Sym { kind, index } => {
+                Err(ExpandRuleError::UnexpectedSymbol(Symbol { kind, index }))?
+            }
             Rule::Reserved { ctx, .. } => Err(ExpandRuleError::UnexpectedReserved(
                 pool.resolve(ctx).to_string(),
             ))?,

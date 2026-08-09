@@ -114,7 +114,7 @@ impl ProductionStep {
         reserved: u16,
     ) -> Self {
         let mut step = Self {
-            sym_index: symbol.index as u32,
+            sym_index: symbol.index,
             reserved,
             flags: symbol.kind as u8,
             ..Default::default()
@@ -136,7 +136,7 @@ impl ProductionStep {
                 3 => SymbolType::Terminal,
                 _ => SymbolType::NonTerminal,
             },
-            index: self.sym_index as usize,
+            index: self.sym_index,
         }
     }
 

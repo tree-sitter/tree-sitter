@@ -318,7 +318,7 @@ fn get_following_chars(
             let mut chars = CharacterSet::empty();
             for token in following_tokens.iter() {
                 if token.is_terminal() {
-                    chars = chars.add(&starting_chars[token.index]);
+                    chars = chars.add(&starting_chars[token.index as usize]);
                 }
             }
             chars

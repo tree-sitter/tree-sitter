@@ -65,26 +65,27 @@ pub struct MetadataParams {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Symbol {
     pub kind: SymbolType,
-    pub index: usize,
+    pub index: u32,
 }
+
 impl Symbol {
     #[must_use]
-    pub fn is_terminal(&self) -> bool {
+    pub fn is_terminal(self) -> bool {
         self.kind == SymbolType::Terminal
     }
 
     #[must_use]
-    pub fn is_non_terminal(&self) -> bool {
+    pub fn is_non_terminal(self) -> bool {
         self.kind == SymbolType::NonTerminal
     }
 
     #[must_use]
-    pub fn is_external(&self) -> bool {
+    pub fn is_external(self) -> bool {
         self.kind == SymbolType::External
     }
 
     #[must_use]
-    pub fn is_eof(&self) -> bool {
+    pub fn is_eof(self) -> bool {
         self.kind == SymbolType::End
     }
 
@@ -92,7 +93,7 @@ impl Symbol {
     pub const fn non_terminal(index: usize) -> Self {
         Self {
             kind: SymbolType::NonTerminal,
-            index,
+            index: index as u32,
         }
     }
 
@@ -100,7 +101,7 @@ impl Symbol {
     pub const fn terminal(index: usize) -> Self {
         Self {
             kind: SymbolType::Terminal,
-            index,
+            index: index as u32,
         }
     }
 
@@ -108,7 +109,7 @@ impl Symbol {
     pub const fn external(index: usize) -> Self {
         Self {
             kind: SymbolType::External,
-            index,
+            index: index as u32,
         }
     }
 
@@ -150,7 +151,7 @@ impl From<Symbol> for Rule {
     fn from(value: Symbol) -> Self {
         Self::Sym {
             kind: value.kind,
-            index: value.index as u32,
+            index: value.index,
         }
     }
 }
@@ -158,10 +159,7 @@ impl From<Symbol> for Rule {
 impl Rule {
     pub const fn symbol(self) -> Option<Symbol> {
         match self {
-            Self::Sym { kind, index } => Some(Symbol {
-                kind,
-                index: index as usize,
-            }),
+            Self::Sym { kind, index } => Some(Symbol { kind, index }),
             _ => None,
         }
     }
@@ -610,11 +608,17 @@ impl TokenSet {
 
     #[inline]
     #[must_use]
-    pub fn contains(&self, symbol: &Symbol) -> bool {
+    pub fn contains(&self, symbol: Symbol) -> bool {
         match symbol.kind {
             SymbolType::NonTerminal => panic!("Cannot store non-terminals in a TokenSet"),
-            SymbolType::Terminal => self.terminal_bits.get(symbol.index).unwrap_or(false),
-            SymbolType::External => self.external_bits.get(symbol.index).unwrap_or(false),
+            SymbolType::Terminal => self
+                .terminal_bits
+                .get(symbol.index as usize)
+                .unwrap_or(false),
+            SymbolType::External => self
+                .external_bits
+                .get(symbol.index as usize)
+                .unwrap_or(false),
             SymbolType::End => self.eof,
             SymbolType::EndOfNonTerminalExtra => self.end_of_nonterminal_extra,
         }
@@ -647,13 +651,14 @@ impl TokenSet {
                 return;
             }
         };
-        if other.index >= vec.len() {
-            vec.resize(other.index + 1, false);
+        let other_index = other.index as usize;
+        if other_index >= vec.len() {
+            vec.resize(other_index + 1, false);
         }
-        vec.set(other.index, true);
+        vec.set(other_index, true);
     }
 
-    pub fn remove(&mut self, other: &Symbol) -> bool {
+    pub fn remove(&mut self, other: Symbol) -> bool {
         let vec = match other.kind {
             SymbolType::NonTerminal => panic!("Cannot store non-terminals in a TokenSet"),
             SymbolType::Terminal => &mut self.terminal_bits,
@@ -675,8 +680,9 @@ impl TokenSet {
                 };
             }
         };
-        if other.index < vec.len() && vec[other.index] {
-            vec.set(other.index, false);
+        let other_index = other.index as usize;
+        if other_index < vec.len() && vec[other_index] {
+            vec.set(other_index, false);
             while vec.last() == Some(false) {
                 vec.pop();
             }
