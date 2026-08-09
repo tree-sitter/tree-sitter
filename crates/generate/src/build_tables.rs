@@ -30,7 +30,7 @@ use crate::{
     node_types::VariableInfo,
     rules::{AliasMap, Symbol, SymbolType, TokenSet},
     strpool::StrPool,
-    tables::{ActionList, LexTable, ParseAction, ParseTable, ParseTableEntry},
+    tables::{ActionList, ActionListPool, LexTable, ParseAction, ParseTable, ParseTableEntry},
 };
 
 pub struct Tables {
@@ -87,6 +87,7 @@ pub fn build_tables(
         str_pool,
     );
     populate_used_symbols(&mut parse_table, syntax_grammar, lexical_grammar);
+    let mut parse_table = ActionListPool::intern_table(parse_table);
     minimize_parse_table(
         &mut parse_table,
         syntax_grammar,
@@ -107,6 +108,9 @@ pub fn build_tables(
     );
     populate_external_lex_states(&mut parse_table, syntax_grammar);
     mark_fragile_tokens(&mut parse_table, &token_conflict_map);
+    parse_table
+        .action_lists
+        .canonicalize(&mut parse_table.states);
 
     if let Some(report_symbol_name) = report_symbol_name {
         report_state_info(
@@ -170,7 +174,7 @@ fn get_following_tokens(
 }
 
 fn populate_error_state(
-    parse_table: &mut ParseTable,
+    parse_table: &mut ParseTable<ParseTableEntry>,
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
     coincident_token_index: &CoincidentTokenIndex,
@@ -249,7 +253,7 @@ fn populate_error_state(
 }
 
 fn populate_used_symbols(
-    parse_table: &mut ParseTable,
+    parse_table: &mut ParseTable<ParseTableEntry>,
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
 ) {
@@ -446,11 +450,11 @@ fn mark_fragile_tokens(parse_table: &mut ParseTable, token_conflict_map: &TokenC
                 valid_terminal_indices.push(token.index);
             }
         }
-        for (token, entry) in &mut state.terminal_entries {
+        for (token, id) in &mut state.terminal_entries {
             if token.is_terminal() {
                 for &i in &valid_terminal_indices {
                     if token_conflict_map.does_overlap(i as usize, token.index as usize) {
-                        entry.reusable = false;
+                        id.set_reusable(false);
                         break;
                     }
                 }

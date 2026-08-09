@@ -11,7 +11,9 @@ use crate::{
     grammars::{LexicalGrammar, SyntaxGrammar, VariableType},
     rules::{AliasMap, Symbol, SymbolType, TokenSet},
     strpool::StrPool,
-    tables::{GotoAction, ParseAction, ParseState, ParseStateId, ParseTable, ParseTableEntry},
+    tables::{
+        ActionList, ActionListId, GotoAction, ParseAction, ParseState, ParseStateId, ParseTable,
+    },
 };
 
 /// Index into [`SyntaxGrammar::variables`]. All nonterminal [`Symbol`]s share
@@ -159,8 +161,8 @@ impl Minimizer<'_> {
         for (i, state) in self.parse_table.states.iter().enumerate() {
             let mut only_unit_reductions = true;
             let mut unit_reduction_symbol = None;
-            for (_, entry) in &state.terminal_entries {
-                for action in &entry.actions {
+            for (_, id) in &state.terminal_entries {
+                for action in self.parse_table.action_lists.get(*id) {
                     match action {
                         ParseAction::ShiftExtra => continue,
                         ParseAction::Reduce {
@@ -198,11 +200,23 @@ impl Minimizer<'_> {
             }
         }
 
-        for state in &mut self.parse_table.states {
+        if unit_reduction_symbols_by_state.is_empty() {
+            return;
+        }
+
+        let mut action_list_ids = FxHashMap::default();
+        for state_index in 0..self.parse_table.states.len() {
             let mut done = false;
             while !done {
                 done = true;
-                state.update_referenced_states(|other_state_id, state| {
+                let ParseTable {
+                    states,
+                    action_lists,
+                    ..
+                } = self.parse_table;
+                let state = &mut states[state_index];
+
+                state.update_nonterminal_references(|other_state_id, state| {
                     unit_reduction_symbols_by_state.get(&other_state_id).map_or(
                         other_state_id,
                         |symbol| {
@@ -214,6 +228,32 @@ impl Minimizer<'_> {
                         },
                     )
                 });
+
+                for i in 0..state.terminal_entries.len() {
+                    let old_id = state.terminal_entries.get_index(i).unwrap().1;
+                    let mut actions = ActionList::from_slice(action_lists.get(*old_id));
+                    let mut changed = false;
+                    for action in &mut *actions {
+                        // A Shift onto a unit-reduction state (one whose only action reduces a
+                        // single `symbol`) can skip it. Shift then reduce then goto is equivalent
+                        // to shifting straight to the the goto target for `symbol` in this case.
+                        if let ParseAction::Shift { state: target, .. } = action
+                            && let Some(symbol) = unit_reduction_symbols_by_state.get(target)
+                            && let Some(GotoAction::Goto(new_target)) =
+                                state.nonterminal_entries.get(symbol)
+                            && *new_target != *target
+                        {
+                            *target = *new_target;
+                            changed = true;
+                            done = false;
+                        }
+                    }
+                    if changed {
+                        let index = action_lists.intern(&mut action_list_ids, actions);
+                        *state.terminal_entries.get_index_mut(i).unwrap().1 =
+                            ActionListId::new(index, old_id.reusable());
+                    }
+                }
             }
         }
     }
@@ -239,9 +279,8 @@ impl Minimizer<'_> {
         }
 
         // Precompute sorted terminal entry references for merge-join in states_conflict.
-        // entry_maps[state_id][i] = (symbol_key, &ParseTableEntry)
-        // Keys are packed u64s (symbol_key) for single-instruction comparison.
-        // Storing a reference avoids the IndexMap::get_index call in states_conflict.
+        // entry_maps[state_id][i] = (symbol_key, action_list_id). Keys are packed u64s
+        // (symbol_key) for easy comparison.
         let entry_maps = self
             .parse_table
             .states
@@ -250,8 +289,8 @@ impl Minimizer<'_> {
                 let mut entries = state
                     .terminal_entries
                     .iter()
-                    .map(|(sym, entry)| (SymbolKey::new(*sym), entry))
-                    .collect::<Vec<(SymbolKey, &ParseTableEntry)>>();
+                    .map(|(sym, id)| (SymbolKey::new(*sym), *id))
+                    .collect::<Vec<(SymbolKey, ActionListId)>>();
                 entries.sort_unstable_by_key(|&(key, _)| key);
                 entries
             })
@@ -330,7 +369,7 @@ impl Minimizer<'_> {
                     .terminal_entries
                     .iter()
                     .filter_map(|(sym, entry)| {
-                        let action = entry.actions.last()?;
+                        let action = self.parse_table.action_lists.get(*entry).last()?;
                         if let ParseAction::Shift { state: s, .. } = action {
                             Some((SymbolKey::new(*sym), *s))
                         } else {
@@ -407,12 +446,15 @@ impl Minimizer<'_> {
             }
 
             // Update the new state's outgoing references using the new grouping.
-            parse_state
-                .update_referenced_states(|state_id, _| group_ids_by_state_id[state_id as usize]);
+            parse_state.update_nonterminal_references(|state_id, _| {
+                group_ids_by_state_id[state_id as usize]
+            });
             new_states.push(parse_state);
         }
 
         self.parse_table.states = new_states;
+        self.parse_table
+            .remap_terminal_references(|state_id| group_ids_by_state_id[state_id as usize]);
     }
 
     fn states_conflict(
@@ -420,7 +462,7 @@ impl Minimizer<'_> {
         state1: &ParseState,
         state2: &ParseState,
         group_ids_by_state_id: &[ParseStateId],
-        entry_maps: &[Vec<(SymbolKey, &ParseTableEntry)>],
+        entry_maps: &[Vec<(SymbolKey, ActionListId)>],
         bits: &ConflictBits,
     ) -> bool {
         let entries1 = &entry_maps[state1.id as usize];
@@ -564,13 +606,16 @@ impl Minimizer<'_> {
         state_id1: ParseStateId,
         state_id2: ParseStateId,
         token: Symbol,
-        entry1: &ParseTableEntry,
-        entry2: &ParseTableEntry,
+        id1: ActionListId,
+        id2: ActionListId,
         group_ids_by_state_id: &[ParseStateId],
     ) -> bool {
         // To be compatible, entries need to have the same actions.
-        let actions1 = &entry1.actions;
-        let actions2 = &entry2.actions;
+        if id1.index() == id2.index() {
+            return false;
+        }
+        let actions1 = self.parse_table.action_lists.get(id1);
+        let actions2 = self.parse_table.action_lists.get(id2);
         if actions1.len() != actions2.len() {
             debug!(
                 "split states {state_id1} {state_id2} - differing action counts for token {}",
@@ -714,7 +759,7 @@ impl Minimizer<'_> {
         state_usage_map[1] = true;
 
         for state in &self.parse_table.states {
-            for referenced_state in state.referenced_states() {
+            for referenced_state in state.referenced_states(&self.parse_table.action_lists) {
                 state_usage_map[referenced_state as usize] = true;
             }
         }
@@ -730,15 +775,17 @@ impl Minimizer<'_> {
         let mut original_state_id = 0;
         while state_id < self.parse_table.states.len() {
             if state_usage_map[original_state_id] {
-                self.parse_table.states[state_id].update_referenced_states(|other_state_id, _| {
-                    state_replacement_map[other_state_id as usize]
-                });
+                self.parse_table.states[state_id].update_nonterminal_references(
+                    |other_state_id, _| state_replacement_map[other_state_id as usize],
+                );
                 state_id += 1;
             } else {
                 self.parse_table.states.remove(state_id);
             }
             original_state_id += 1;
         }
+        self.parse_table
+            .remap_terminal_references(|state_id| state_replacement_map[state_id as usize]);
     }
 
     fn reorder_states_by_descending_size(&mut self) {
@@ -768,9 +815,11 @@ impl Minimizer<'_> {
             .map(|old_id| {
                 let mut state = ParseState::default();
                 mem::swap(&mut state, &mut self.parse_table.states[*old_id]);
-                state.update_referenced_states(|id, _| new_ids_by_old_id[id as usize]);
+                state.update_nonterminal_references(|id, _| new_ids_by_old_id[id as usize]);
                 state
             })
             .collect();
+        self.parse_table
+            .remap_terminal_references(|id| new_ids_by_old_id[id as usize]);
     }
 }
