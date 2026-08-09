@@ -4481,10 +4481,14 @@ static inline bool ts_query_cursor__advance(
                 // nothing. How an adjacent anchor behaves then depends on where it sat:
                 if (child_step->alternative_is_skip) {
                   if (!child_step->is_immediate) {
+                    QueryStep *skip_target = array_get(
+                      &self->query->steps,
+                      child_step->alternative_index
+                    );
                     // No leading anchor on the skipped step, so an immediately-following
                     // anchor on the skip target is vacuous (`Q* . B` with zero `Q` lets
                     // `B` match anywhere).
-                    copy->skipped_quantifier = true;
+                    copy->skipped_quantifier = skip_target->depth == child_step->depth;
                   } else if (
                     array_get(&self->query->steps, child_state->step_index - 1)->depth <
                     child_step->depth
