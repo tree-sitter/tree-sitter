@@ -1,13 +1,13 @@
 use tree_sitter::{Point, Range, Tree};
 
 #[derive(Debug)]
-pub struct ScopeSequence(Vec<ScopeStack>);
+pub struct ScopeSequence<'a>(Vec<ScopeStack<'a>>);
 
-type ScopeStack = Vec<&'static str>;
+type ScopeStack<'a> = Vec<&'a str>;
 
-impl ScopeSequence {
+impl<'a> ScopeSequence<'a> {
     #[must_use]
-    pub fn new(tree: &Tree) -> Self {
+    pub fn new(tree: &'a Tree) -> Self {
         let mut result = Self(Vec::new());
         let mut scope_stack = Vec::new();
 

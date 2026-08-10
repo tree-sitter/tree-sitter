@@ -7,10 +7,10 @@ use tree_sitter::{
 };
 
 #[derive(Debug)]
-pub struct Pattern {
-    kind: Option<&'static str>,
+pub struct Pattern<'a> {
+    kind: Option<&'a str>,
     named: bool,
-    field: Option<&'static str>,
+    field: Option<&'a str>,
     capture: Option<String>,
     children: Vec<Self>,
 }
@@ -25,8 +25,8 @@ const CAPTURE_NAMES: &[&str] = &[
     "one", "two", "three", "four", "five", "six", "seven", "eight",
 ];
 
-impl Pattern {
-    pub fn random_pattern_in_tree(tree: &Tree, rng: &mut impl Rng) -> (Self, Range<Point>) {
+impl<'a> Pattern<'a> {
+    pub fn random_pattern_in_tree(tree: &'a Tree, rng: &mut impl Rng) -> (Self, Range<Point>) {
         let mut cursor = tree.walk();
 
         // Descend to the node at a random byte offset and depth.
@@ -75,7 +75,7 @@ impl Pattern {
         (pattern, pattern_start..pattern_end)
     }
 
-    fn random_pattern_for_node(cursor: &mut TreeCursor, rng: &mut impl Rng) -> Self {
+    fn random_pattern_for_node(cursor: &mut TreeCursor<'a>, rng: &mut impl Rng) -> Self {
         let node = cursor.node();
 
         // Sometimes specify the node's type, sometimes use a wildcard.
@@ -268,7 +268,7 @@ impl Pattern {
     }
 }
 
-impl std::fmt::Display for Pattern {
+impl std::fmt::Display for Pattern<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut result = String::new();
         self.write_to_string(&mut result, 0);
