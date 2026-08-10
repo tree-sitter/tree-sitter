@@ -670,8 +670,12 @@ impl Language {
     /// This returns `None` if state is invalid for this language.
     ///
     /// Iterating [`LookaheadIterator`] will yield valid symbols in the given
-    /// parse state. Newly created lookahead iterators will return the `ERROR`
-    /// symbol from [`LookaheadIterator::current_symbol`].
+    /// parse state. A newly created iterator is not positioned on a symbol, so
+    /// [`LookaheadIterator::current_symbol`] returns `None` until the first
+    /// [`Iterator::next`] call.
+    ///
+    /// The iterator retains the language, so the language may be dropped while
+    /// the iterator is still in use.
     ///
     /// Lookahead iterators can be useful to generate suggestions and improve
     /// syntax error diagnostics. To get symbols valid in an `ERROR` node, use the
@@ -2337,22 +2341,34 @@ impl LookaheadIterator {
     }
 
     /// Get the current symbol of the lookahead iterator.
+    ///
+    /// Returns `None` if the iterator is not positioned on a symbol:
+    ///
+    /// - Before the first [`Iterator::next`] call
+    /// - After the iterator is exhausted
+    /// - After a [`Self::reset`] or [`Self::reset_state`] call
     #[doc(alias = "ts_lookahead_iterator_current_symbol")]
     #[must_use]
-    pub fn current_symbol(&self) -> u16 {
-        unsafe { ffi::ts_lookahead_iterator_current_symbol(self.0.as_ptr()) }
+    pub fn current_symbol(&self) -> Option<u16> {
+        // C signals "not positioned" through a null symbol name.
+        let name = unsafe { ffi::ts_lookahead_iterator_current_symbol_name(self.0.as_ptr()) };
+        (!name.is_null())
+            .then(|| unsafe { ffi::ts_lookahead_iterator_current_symbol(self.0.as_ptr()) })
     }
 
     /// Get the current symbol name of the lookahead iterator.
+    ///
+    /// Returns `None` if the iterator is not positioned on a symbol.
     #[doc(alias = "ts_lookahead_iterator_current_symbol_name")]
     #[must_use]
-    pub fn current_symbol_name(&self) -> &'static str {
+    pub fn current_symbol_name(&self) -> Option<&str> {
         unsafe {
-            CStr::from_ptr(ffi::ts_lookahead_iterator_current_symbol_name(
-                self.0.as_ptr(),
-            ))
-            .to_str()
-            .unwrap()
+            let name = ffi::ts_lookahead_iterator_current_symbol_name(self.0.as_ptr());
+            if name.is_null() {
+                None
+            } else {
+                Some(CStr::from_ptr(name).to_str().unwrap())
+            }
         }
     }
 
@@ -2375,30 +2391,43 @@ impl LookaheadIterator {
     }
 
     /// Iterate symbol names.
-    pub fn iter_names(&mut self) -> impl Iterator<Item = &'static str> + '_ {
+    pub fn iter_names(&mut self) -> impl iter::FusedIterator<Item = &str> + '_ {
         LookaheadNamesIterator(self)
     }
 }
 
-impl Iterator for LookaheadNamesIterator<'_> {
-    type Item = &'static str;
+impl<'a> Iterator for LookaheadNamesIterator<'a> {
+    type Item = &'a str;
 
     #[doc(alias = "ts_lookahead_iterator_next")]
     fn next(&mut self) -> Option<Self::Item> {
-        unsafe { ffi::ts_lookahead_iterator_next(self.0.0.as_ptr()) }
-            .then(|| self.0.current_symbol_name())
+        let ptr = self.0.0.as_ptr();
+        // SAFETY: The borrow keeps the iterator (and the language refcount it holds)
+        // alive for `'a`. The name is non-null because the iterator is positioned
+        // whenever `next` returns `true`.
+        unsafe {
+            ffi::ts_lookahead_iterator_next(ptr).then(|| {
+                let name = ffi::ts_lookahead_iterator_current_symbol_name(ptr);
+                debug_assert!(!name.is_null());
+                CStr::from_ptr(name).to_str().unwrap()
+            })
+        }
     }
 }
+
+impl iter::FusedIterator for LookaheadNamesIterator<'_> {}
 
 impl Iterator for LookaheadIterator {
     type Item = u16;
 
     #[doc(alias = "ts_lookahead_iterator_next")]
     fn next(&mut self) -> Option<Self::Item> {
-        // the first symbol is always `0` so we can safely skip it
-        unsafe { ffi::ts_lookahead_iterator_next(self.0.as_ptr()) }.then(|| self.current_symbol())
+        unsafe { ffi::ts_lookahead_iterator_next(self.0.as_ptr()) }
+            .then(|| unsafe { ffi::ts_lookahead_iterator_current_symbol(self.0.as_ptr()) })
     }
 }
+
+impl iter::FusedIterator for LookaheadIterator {}
 
 impl Drop for LookaheadIterator {
     #[doc(alias = "ts_lookahead_iterator_delete")]
