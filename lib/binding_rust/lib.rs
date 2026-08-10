@@ -508,7 +508,7 @@ impl Language {
     /// Get the name of this language. This returns `None` in older parsers.
     #[doc(alias = "ts_language_name")]
     #[must_use]
-    pub fn name(&self) -> Option<&'static str> {
+    pub fn name(&self) -> Option<&str> {
         let ptr = unsafe { ffi::ts_language_name(self.0) };
         (!ptr.is_null()).then(|| unsafe { CStr::from_ptr(ptr) }.to_str().unwrap())
     }
@@ -582,7 +582,7 @@ impl Language {
     /// Get the name of the node kind for the given numerical id.
     #[doc(alias = "ts_language_symbol_name")]
     #[must_use]
-    pub fn node_kind_for_id(&self, id: u16) -> Option<&'static str> {
+    pub fn node_kind_for_id(&self, id: u16) -> Option<&str> {
         let ptr = unsafe { ffi::ts_language_symbol_name(self.0, id) };
         (!ptr.is_null()).then(|| unsafe { CStr::from_ptr(ptr) }.to_str().unwrap())
     }
@@ -631,7 +631,7 @@ impl Language {
     /// Get the field name for the given numerical id.
     #[doc(alias = "ts_language_field_name_for_id")]
     #[must_use]
-    pub fn field_name_for_id(&self, field_id: u16) -> Option<&'static str> {
+    pub fn field_name_for_id(&self, field_id: u16) -> Option<&str> {
         let ptr = unsafe { ffi::ts_language_field_name_for_id(self.0, field_id) };
         (!ptr.is_null()).then(|| unsafe { CStr::from_ptr(ptr) }.to_str().unwrap())
     }
@@ -1627,7 +1627,7 @@ impl<'tree> Node<'tree> {
     /// Get this node's type as a string.
     #[doc(alias = "ts_node_type")]
     #[must_use]
-    pub fn kind(&self) -> &'static str {
+    pub fn kind(&self) -> &'tree str {
         unsafe { CStr::from_ptr(ffi::ts_node_type(self.0)) }
             .to_str()
             .unwrap()
@@ -1637,7 +1637,7 @@ impl<'tree> Node<'tree> {
     /// aliases as a string.
     #[doc(alias = "ts_node_grammar_type")]
     #[must_use]
-    pub fn grammar_name(&self) -> &'static str {
+    pub fn grammar_name(&self) -> &'tree str {
         unsafe { CStr::from_ptr(ffi::ts_node_grammar_type(self.0)) }
             .to_str()
             .unwrap()
@@ -1844,7 +1844,7 @@ impl<'tree> Node<'tree> {
     /// Get the field name of this node's child at the given index.
     #[doc(alias = "ts_node_field_name_for_child")]
     #[must_use]
-    pub fn field_name_for_child(&self, child_index: u32) -> Option<&'static str> {
+    pub fn field_name_for_child(&self, child_index: u32) -> Option<&'tree str> {
         unsafe {
             let ptr = ffi::ts_node_field_name_for_child(self.0, child_index);
             (!ptr.is_null()).then(|| CStr::from_ptr(ptr).to_str().unwrap())
@@ -1853,7 +1853,7 @@ impl<'tree> Node<'tree> {
 
     /// Get the field name of this node's named child at the given index.
     #[must_use]
-    pub fn field_name_for_named_child(&self, named_child_index: u32) -> Option<&'static str> {
+    pub fn field_name_for_named_child(&self, named_child_index: u32) -> Option<&'tree str> {
         unsafe {
             let ptr = ffi::ts_node_field_name_for_named_child(self.0, named_child_index);
             (!ptr.is_null()).then(|| CStr::from_ptr(ptr).to_str().unwrap())
@@ -2178,7 +2178,7 @@ impl<'tree> TreeCursor<'tree> {
     /// Get the field name of this tree cursor's current node.
     #[doc(alias = "ts_tree_cursor_current_field_name")]
     #[must_use]
-    pub fn field_name(&self) -> Option<&'static str> {
+    pub fn field_name(&self) -> Option<&'tree str> {
         unsafe {
             let ptr = ffi::ts_tree_cursor_current_field_name(&raw const self.0);
             (!ptr.is_null()).then(|| CStr::from_ptr(ptr).to_str().unwrap())
