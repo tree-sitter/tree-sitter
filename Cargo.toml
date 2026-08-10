@@ -107,6 +107,7 @@ libloading = "0.9.0"
 log = { features = [ "std" ], version = "0.4.30" }
 memchr = "2.8.1"
 once_cell = "1.21.3"
+ouroboros = "0.18.5"
 pretty_assertions = "1.4.1"
 rand         = "0.10.1"
 regex        = "1.12.3"

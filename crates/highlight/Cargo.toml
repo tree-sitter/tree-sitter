@@ -21,6 +21,7 @@ crate-type = [ "lib", "staticlib" ]
 path       = "src/highlight.rs"
 
 [dependencies]
+ouroboros.workspace          = true
 regex.workspace              = true
 streaming-iterator.workspace = true
 thiserror.workspace          = true

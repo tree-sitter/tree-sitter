@@ -1,12 +1,9 @@
 #![cfg_attr(not(any(test, doctest)), doc = include_str!("../README.md"))]
+#![allow(clippy::future_not_send)]
 
 pub mod c_lib;
-use core::slice;
 use std::{
     collections::HashSet,
-    iter,
-    marker::PhantomData,
-    mem::{self, MaybeUninit},
     ops::{self, ControlFlow},
     str,
     sync::{
@@ -16,11 +13,12 @@ use std::{
 };
 
 pub use c_lib as c;
+use ouroboros::self_referencing;
 use streaming_iterator::StreamingIterator;
 use thiserror::Error;
 use tree_sitter::{
-    Language, LossyUtf8, Node, ParseOptions, ParseState, Parser, Point, Query, QueryCapture,
-    QueryCaptures, QueryCursor, QueryError, QueryMatch, Range, TextProvider, Tree, ffi,
+    Language, LossyUtf8, Node, ParseOptions, ParseState, Parser, Point, Query, QueryCaptures,
+    QueryCursor, QueryError, QueryMatch, Range, Tree, ffi,
 };
 
 const CANCELLATION_CHECK_INTERVAL: usize = 100;
@@ -180,9 +178,7 @@ where
 }
 
 struct HighlightIterLayer<'a> {
-    _tree: Tree,
-    cursor: QueryCursor,
-    captures: iter::Peekable<_QueryCaptures<'a, 'a, &'a [u8], &'a [u8]>>,
+    captures: CapturesCell<'a>,
     config: &'a HighlightConfiguration,
     highlight_end_stack: Vec<usize>,
     scope_stack: Vec<LocalScope<'a>>,
@@ -190,85 +186,101 @@ struct HighlightIterLayer<'a> {
     depth: usize,
 }
 
-pub struct _QueryCaptures<'query, 'tree, T: TextProvider<I>, I: AsRef<[u8]>> {
-    ptr: *mut ffi::TSQueryCursor,
-    query: &'query Query,
-    text_provider: T,
-    buffer1: Vec<u8>,
-    buffer2: Vec<u8>,
-    _current_match: Option<(QueryMatch<'query, 'tree>, usize)>,
-    _options: Option<*mut ffi::TSQueryCursorOptions>,
-    _phantom: PhantomData<(&'tree (), I)>,
+#[self_referencing(no_doc)]
+struct CapturesCell<'a> {
+    source: &'a [u8],
+    tree: Tree,
+    cursor: QueryCursor,
+    config: &'a HighlightConfiguration,
+    #[borrows(source, tree, mut cursor, config)]
+    #[not_covariant]
+    state: PeekableQueryCaptures<'this>,
 }
 
-struct _QueryMatch<'cursor, 'tree> {
-    pub _pattern_index: usize,
-    pub _captures: &'cursor [QueryCapture<'tree>],
-    _id: u32,
-    _cursor: *mut ffi::TSQueryCursor,
-}
+impl CapturesCell<'_> {
+    fn peek(&mut self) -> Option<&(QueryMatch, usize)> {
+        self.with_state_mut(|captures| captures.peek())
+    }
 
-impl<'tree> _QueryMatch<'_, 'tree> {
-    #[expect(
-        clippy::used_underscore_items,
-        reason = "mirrors internal QueryMatch layout for transmute"
-    )]
-    fn new(m: &ffi::TSQueryMatch, cursor: *mut ffi::TSQueryCursor) -> Self {
-        _QueryMatch {
-            _cursor: cursor,
-            _id: m.id,
-            _pattern_index: m.pattern_index as usize,
-            _captures: if m.capture_count > 0 {
-                unsafe {
-                    slice::from_raw_parts(
-                        m.captures.cast::<QueryCapture<'tree>>(),
-                        m.capture_count as usize,
-                    )
-                }
-            } else {
-                Default::default()
-            },
-        }
+    fn next(&mut self) -> Option<&(QueryMatch, usize)> {
+        self.with_state_mut(|captures| captures.next())
+    }
+
+    fn get(&self) -> Option<&(QueryMatch, usize)> {
+        self.with_state(|captures| captures.get())
+    }
+
+    fn into_cursor(self) -> QueryCursor {
+        self.into_heads().cursor
     }
 }
 
-impl<'query, 'tree, T: TextProvider<I>, I: AsRef<[u8]>> Iterator
-    for _QueryCaptures<'query, 'tree, T, I>
-{
-    type Item = (QueryMatch<'query, 'tree>, usize);
+struct PeekableQueryCaptures<'a> {
+    captures: QueryCaptures<'a, 'a, 'static, &'a [u8], &'a [u8]>,
+    ready: bool,
+}
 
-    fn next(&mut self) -> Option<Self::Item> {
-        unsafe {
-            loop {
-                let mut capture_index = 0u32;
-                let mut m = MaybeUninit::<ffi::TSQueryMatch>::uninit();
-                if ffi::ts_query_cursor_next_capture(
-                    self.ptr,
-                    m.as_mut_ptr(),
-                    core::ptr::addr_of_mut!(capture_index),
-                ) {
-                    #[expect(
-                        clippy::transmute_undefined_repr,
-                        reason = "intentional transmute between mirror types"
-                    )]
-                    let result = std::mem::transmute::<_QueryMatch, QueryMatch>(_QueryMatch::new(
-                        &m.assume_init(),
-                        self.ptr,
-                    ));
-                    if result.satisfies_text_predicates(
-                        self.query,
-                        &mut self.buffer1,
-                        &mut self.buffer2,
-                        &mut self.text_provider,
-                    ) {
-                        return Some((result, capture_index as usize));
-                    }
-                    result.remove();
-                } else {
-                    return None;
-                }
-            }
+impl<'a> PeekableQueryCaptures<'a> {
+    const fn new(captures: QueryCaptures<'a, 'a, 'static, &'a [u8], &'a [u8]>) -> Self {
+        Self {
+            captures,
+            ready: false,
         }
+    }
+
+    fn peek(&mut self) -> Option<&(QueryMatch<'a, 'a>, usize)> {
+        if !self.ready {
+            self.captures.advance();
+            self.ready = true;
+        }
+        self.captures.get()
+    }
+
+    fn next(&mut self) -> Option<&(QueryMatch<'a, 'a>, usize)> {
+        if !self.ready {
+            self.captures.advance();
+        }
+        self.ready = false;
+        self.captures.get()
+    }
+
+    fn get(&self) -> Option<&(QueryMatch<'a, 'a>, usize)> {
+        self.captures.get()
+    }
+}
+
+struct CaptureSnapshot {
+    pattern_index: usize,
+    capture_index: u32,
+    node_id: usize,
+    local_def_value_range: ops::Range<usize>,
+    query_match: QueryMatch<'static, 'static>,
+}
+
+impl CaptureSnapshot {
+    fn new(m: &QueryMatch, i: usize, config: &HighlightConfiguration) -> Self {
+        let capture = m.captures[i];
+
+        let local_def_value_range = m
+            .captures
+            .iter()
+            .find(|capture| Some(capture.index) == config.local_def_value_capture_index)
+            .map_or(0..0, |capture| capture.node.byte_range());
+
+        Self {
+            pattern_index: m.pattern_index,
+            capture_index: capture.index,
+            node_id: capture.node.id(),
+            local_def_value_range,
+            // SAFETY: Since `query_match` is only used in `remove()`, the only fields that are accessed are `id`
+            // and `cursor`, which remain valid while `HighlightIter` is alive.
+            query_match: unsafe { std::mem::transmute_copy(m) },
+        }
+    }
+
+    // SAFETY: This function should only be called while the `HighlightIter` that created this snapshot is still alive.
+    unsafe fn remove(&self) {
+        self.query_match.remove();
     }
 }
 
@@ -651,25 +663,20 @@ impl<'a> HighlightIterLayer<'a> {
                     }
                 }
 
-                // SAFETY:
-                // The `captures` iterator borrows the `Tree` and the `QueryCursor`, which
-                // prevents them from being moved. But both of these values are really just
-                // pointers, so it's actually ok to move them.
-                let tree_ref = unsafe { mem::transmute::<&Tree, &'static Tree>(&tree) };
-                let cursor_ref = unsafe {
-                    mem::transmute::<&mut QueryCursor, &'static mut QueryCursor>(&mut cursor)
-                };
-                #[expect(
-                    clippy::transmute_undefined_repr,
-                    reason = "intentional transmute between mirror types"
-                )]
-                let captures = unsafe {
-                    std::mem::transmute::<QueryCaptures<_, _>, _QueryCaptures<_, _>>(
-                        cursor_ref.captures(&config.query, tree_ref.root_node(), source),
-                    )
+                let captures = CapturesCellBuilder {
+                    source,
+                    tree,
+                    cursor,
+                    config,
+                    state_builder: |source, tree, cursor, config| {
+                        PeekableQueryCaptures::new(cursor.captures(
+                            &config.query,
+                            tree.root_node(),
+                            source,
+                        ))
+                    },
                 }
-                .peekable();
-
+                .build();
                 result.push(HighlightIterLayer {
                     highlight_end_stack: Vec::new(),
                     scope_stack: vec![LocalScope {
@@ -677,9 +684,7 @@ impl<'a> HighlightIterLayer<'a> {
                         range: 0..usize::MAX,
                         local_defs: Vec::new(),
                     }],
-                    cursor,
                     depth,
-                    _tree: tree,
                     captures,
                     config,
                     ranges,
@@ -861,7 +866,7 @@ where
                 break;
             }
             let layer = self.layers.remove(0);
-            self.highlighter.cursors.push(layer.cursor);
+            self.highlighter.cursors.push(layer.captures.into_cursor());
         }
     }
 
@@ -950,22 +955,22 @@ where
                 return self.emit_event(self.source.len(), None);
             }
 
-            let (mut match_, capture_index) = layer.captures.next().unwrap();
-            let mut capture = match_.captures[capture_index];
+            let (curr_match, capture_index) = layer.captures.next().unwrap();
+            let mut snapshot = CaptureSnapshot::new(curr_match, *capture_index, layer.config);
 
             // If this capture represents an injection, then process the injection.
-            if match_.pattern_index < layer.config.locals_pattern_index {
+            if snapshot.pattern_index < layer.config.locals_pattern_index {
                 let (language_name, content_node, include_children) = injection_for_match(
                     layer.config,
                     Some(self.language_name),
                     &layer.config.query,
-                    &match_,
+                    &layer.captures.get().unwrap().0,
                     self.source,
                 );
 
                 // Explicitly remove this match so that none of its other captures will remain
                 // in the stream of captures.
-                match_.remove();
+                unsafe { snapshot.remove() };
 
                 // If a language is found with the given name, then add a new language layer
                 // to the highlighted document.
@@ -973,7 +978,7 @@ where
                     && let Some(config) = (self.injection_callback)(language_name)
                 {
                     let ranges = HighlightIterLayer::intersect_ranges(
-                        &self.layers[0].ranges,
+                        &layer.ranges,
                         &[content_node],
                         include_children,
                     );
@@ -1012,17 +1017,17 @@ where
             // local variable info.
             let mut reference_highlight = None;
             let mut definition_highlight = None;
-            while match_.pattern_index < layer.config.highlights_pattern_index {
+            while snapshot.pattern_index < layer.config.highlights_pattern_index {
                 // If the node represents a local scope, push a new local scope onto
                 // the scope stack.
-                if Some(capture.index) == layer.config.local_scope_capture_index {
+                if Some(snapshot.capture_index) == layer.config.local_scope_capture_index {
                     definition_highlight = None;
                     let mut scope = LocalScope {
                         inherits: true,
                         range: range.clone(),
                         local_defs: Vec::new(),
                     };
-                    for prop in layer.config.query.property_settings(match_.pattern_index) {
+                    for prop in layer.config.query.property_settings(snapshot.pattern_index) {
                         if prop.key.as_ref() == "local.scope-inherits" {
                             scope.inherits =
                                 prop.value.as_ref().is_none_or(|r| r.as_ref() == "true");
@@ -1032,17 +1037,12 @@ where
                 }
                 // If the node represents a definition, add a new definition to the
                 // local scope at the top of the scope stack.
-                else if Some(capture.index) == layer.config.local_def_capture_index {
+                else if Some(snapshot.capture_index) == layer.config.local_def_capture_index {
                     reference_highlight = None;
                     definition_highlight = None;
                     let scope = layer.scope_stack.last_mut().unwrap();
 
-                    let mut value_range = 0..0;
-                    for capture in match_.captures {
-                        if Some(capture.index) == layer.config.local_def_value_capture_index {
-                            value_range = capture.node.byte_range();
-                        }
-                    }
+                    let value_range = snapshot.local_def_value_range;
 
                     if let Ok(name) = str::from_utf8(&self.source[range.clone()]) {
                         scope.local_defs.push(LocalDef {
@@ -1056,7 +1056,7 @@ where
                 }
                 // If the node represents a reference, then try to find the corresponding
                 // definition in the scope stack.
-                else if Some(capture.index) == layer.config.local_ref_capture_index
+                else if Some(snapshot.capture_index) == layer.config.local_ref_capture_index
                     && definition_highlight.is_none()
                 {
                     definition_highlight = None;
@@ -1081,10 +1081,11 @@ where
 
                 // Continue processing any additional matches for the same node.
                 if let Some((next_match, next_capture_index)) = layer.captures.peek() {
-                    let next_capture = next_match.captures[*next_capture_index];
-                    if next_capture.node == capture.node {
-                        capture = next_capture;
-                        match_ = layer.captures.next().unwrap().0;
+                    let next_snapshot =
+                        CaptureSnapshot::new(next_match, *next_capture_index, layer.config);
+                    if next_snapshot.node_id == snapshot.node_id {
+                        layer.captures.next();
+                        snapshot = next_snapshot;
                         continue;
                     }
                 }
@@ -1111,9 +1112,10 @@ where
             // captures are guaranteed to be for highlighting, not injections or
             // local variables.
             while let Some((next_match, next_capture_index)) = layer.captures.peek() {
-                let next_capture = next_match.captures[*next_capture_index];
-                if next_capture.node == capture.node {
-                    let following_match = layer.captures.next().unwrap().0;
+                let next_snapshot =
+                    CaptureSnapshot::new(next_match, *next_capture_index, layer.config);
+                if next_snapshot.node_id == snapshot.node_id {
+                    let following_match = &layer.captures.next().unwrap().0;
                     // If the current node was found to be a local variable, then ignore
                     // the following match if it's a highlighting pattern that is disabled
                     // for local variables.
@@ -1122,15 +1124,14 @@ where
                     {
                         continue;
                     }
-                    match_.remove();
-                    capture = next_capture;
-                    match_ = following_match;
+                    unsafe { snapshot.remove() };
+                    snapshot = next_snapshot;
                 } else {
                     break;
                 }
             }
 
-            let current_highlight = layer.config.highlight_indices[capture.index as usize];
+            let current_highlight = layer.config.highlight_indices[snapshot.capture_index as usize];
 
             // If this node represents a local definition, then store the current
             // highlight value on the local scope entry representing this node.
