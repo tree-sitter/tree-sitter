@@ -139,7 +139,7 @@ pub fn run_wasm() -> Result<()> {
         "npm"
     };
 
-    if !node_modules_dir.join("chai").exists() || !node_modules_dir.join("mocha").exists() {
+    if !node_modules_dir.join("vitest").exists() {
         println!("Installing test dependencies...");
         let output = Command::new(npm).arg("install").output()?;
         bail_on_err(&output, "Failed to install test dependencies")?;
