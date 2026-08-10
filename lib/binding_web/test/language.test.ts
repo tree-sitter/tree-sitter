@@ -249,10 +249,51 @@ describe('Lookahead iterator', () => {
     expect(symbols).toHaveLength(expected.length);
   });
 
+  it('should stay exhausted until reset', () => {
+    expect(lookahead.resetState(state)).toBe(true);
+    expect(Array.from(lookahead)).toHaveLength(expected.length);
+    expect(Array.from(lookahead)).toHaveLength(0);
+    expect(lookahead.currentType).toBeNull();
+    expect(lookahead.currentTypeId).toBeNull();
+  });
+
+  it('should not be positioned before the first step', () => {
+    const fresh = JavaScript.lookaheadIterator(state);
+    expect(fresh).not.toBeNull();
+    expect(fresh?.currentType).toBeNull();
+    expect(fresh?.currentTypeId).toBeNull();
+    fresh?.delete();
+  });
+
   it('should reset', () => {
     expect(lookahead.reset(JavaScript, state)).toBe(true);
     const symbols = Array.from(lookahead);
     expect(symbols).toEqual(expect.arrayContaining(expected));
     expect(symbols).toHaveLength(expected.length);
+  });
+});
+
+describe('Lookahead iterator symbol names', () => {
+  let Json: Language;
+  let state: number;
+
+  beforeAll(async () => {
+    ({ JSON: Json } = await helper);
+    const parser = new Parser();
+    parser.setLanguage(Json);
+    const tree = parser.parse('{"a": 1}')!;
+    parser.delete();
+    const cursor = tree.walk();
+    expect(cursor.gotoFirstChild()).toBe(true); // object
+    state = cursor.currentNode.nextParseState;
+  });
+
+  it('hould name symbols missing from Language.types', () => {
+    const lookahead = Json.lookaheadIterator(state)!;
+    const names = Array.from(lookahead);
+    expect(names).toContain('end');
+    expect(names).not.toContain('ERROR');
+    expect(names).toHaveLength(12);
+    lookahead.delete();
   });
 });
