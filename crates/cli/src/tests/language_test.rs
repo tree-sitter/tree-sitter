@@ -31,11 +31,12 @@ fn test_lookahead_iterator() {
     let mut lookahead = language.lookahead_iterator(next_state).unwrap();
     assert_eq!(*lookahead.language(), language);
     assert!(lookahead.iter_names().eq(expected_symbols));
+    assert_eq!(lookahead.iter_names().count(), 0);
 
-    lookahead.reset_state(next_state);
+    assert!(lookahead.reset_state(next_state));
     assert!(lookahead.iter_names().eq(expected_symbols));
 
-    lookahead.reset(&language, next_state);
+    assert!(lookahead.reset(&language, next_state));
     assert!(
         lookahead
             .map(|s| language.node_kind_for_id(s).unwrap())
@@ -64,6 +65,33 @@ fn test_lookahead_iterator_modifiable_only_by_mut() {
 
     let mut names = lookahead.iter_names();
     let _ = names.next();
+}
+
+#[test]
+fn test_lookahead_iterator_exhaustion() {
+    let language = get_language("json");
+
+    for state in 0..language.parse_state_count() {
+        let state = u16::try_from(state).unwrap();
+        let mut lookahead = language.lookahead_iterator(state).unwrap();
+
+        // A fresh iterator is not positioned on a symbol.
+        assert_eq!(lookahead.current_symbol(), None);
+        assert_eq!(lookahead.current_symbol_name(), None);
+
+        let count = lookahead.by_ref().count();
+
+        // An exhausted iterator is not positioned on a symbol, and stays exhausted.
+        assert_eq!(lookahead.current_symbol(), None);
+        assert_eq!(lookahead.current_symbol_name(), None);
+        assert_eq!(lookahead.by_ref().count(), 0);
+        assert_eq!(lookahead.iter_names().count(), 0);
+
+        // Resetting restores it exactly.
+        assert!(lookahead.reset_state(state));
+        assert_eq!(lookahead.current_symbol(), None);
+        assert_eq!(lookahead.by_ref().count(), count);
+    }
 }
 
 #[test]
