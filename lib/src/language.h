@@ -19,15 +19,20 @@ typedef struct {
   bool is_reusable;
 } TableEntry;
 
+typedef enum {
+  LookaheadFresh,      // no `next()` yet
+  LookaheadPositioned, // last `next()` returned true
+  LookaheadDone,       // last `next()` returned false
+} LookaheadPhase;
+
 typedef struct {
   const TSLanguage *language;
   const uint16_t *data;
   const uint16_t *group_end;
-  TSStateId state;
   uint16_t table_value;
-  uint16_t section_index;
   uint16_t group_count;
   bool is_small_state;
+  LookaheadPhase phase;
 
   const TSParseAction *actions;
   TSSymbol symbol;
@@ -120,7 +125,7 @@ static inline LookaheadIterator ts_language_lookaheads(
     group_end = data + 1;
     group_count = *data;
   } else {
-    data = &self->parse_table[state * self->symbol_count] - 1;
+    data = &self->parse_table[state * self->symbol_count];
   }
   return (LookaheadIterator) {
     .language = self,
@@ -128,19 +133,25 @@ static inline LookaheadIterator ts_language_lookaheads(
     .group_end = group_end,
     .group_count = group_count,
     .is_small_state = is_small_state,
+    .phase = LookaheadFresh,
     .symbol = UINT16_MAX,
     .next_state = 0,
   };
 }
 
 static inline bool ts_lookahead_iterator__next(LookaheadIterator *self) {
+  if (self->phase == LookaheadDone) return false;
+
   // For small parse states, valid symbols are listed explicitly,
   // grouped by their value. There's no need to look up the actions
   // again until moving to the next group.
   if (self->is_small_state) {
     self->data++;
     if (self->data == self->group_end) {
-      if (self->group_count == 0) return false;
+      if (self->group_count == 0) {
+        self->phase = LookaheadDone;
+        return false;
+      }
       self->group_count--;
       self->table_value = *(self->data++);
       unsigned symbol_count = *(self->data++);
@@ -148,6 +159,7 @@ static inline bool ts_lookahead_iterator__next(LookaheadIterator *self) {
       self->symbol = *self->data;
     } else {
       self->symbol = *self->data;
+      self->phase = LookaheadPositioned;
       return true;
     }
   }
@@ -155,12 +167,15 @@ static inline bool ts_lookahead_iterator__next(LookaheadIterator *self) {
   // For large parse states, iterate through every symbol until one
   // is found that has valid actions.
   else {
-    do {
-      self->data++;
-      self->symbol++;
-      if (self->symbol >= self->language->symbol_count) return false;
-      self->table_value = *self->data;
-    } while (!self->table_value);
+    const uint16_t *row = self->data;
+    TSSymbol symbol = self->phase == LookaheadFresh ? 0 : self->symbol + 1;
+    while (symbol < self->language->symbol_count && !row[symbol]) symbol++;
+    if (symbol >= self->language->symbol_count) {
+      self->phase = LookaheadDone;
+      return false;
+    }
+    self->symbol = symbol;
+    self->table_value = row[symbol];
   }
 
   // Depending on if the symbol is terminal or non-terminal, the table value either
@@ -174,6 +189,7 @@ static inline bool ts_lookahead_iterator__next(LookaheadIterator *self) {
     self->action_count = 0;
     self->next_state = self->table_value;
   }
+  self->phase = LookaheadPositioned;
   return true;
 }
 

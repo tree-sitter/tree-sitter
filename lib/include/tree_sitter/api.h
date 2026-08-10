@@ -1327,8 +1327,11 @@ const char *ts_language_name(const TSLanguage *self);
  *
  * Repeatedly using [`ts_lookahead_iterator_next`] and
  * [`ts_lookahead_iterator_current_symbol`] will generate valid symbols in the
- * given parse state. Newly created lookahead iterators will contain the `ERROR`
- * symbol.
+ * given parse state. A newly created iterator is not positioned on a symbol
+ * until [`ts_lookahead_iterator_next`] is called.
+ *
+ * The iterator retains the language, so the language may be deleted while the
+ * iterator is still in use.
  *
  * Lookahead iterators can be useful to generate suggestions and improve syntax
  * error diagnostics. To get symbols valid in an ERROR node, use the lookahead
@@ -1347,7 +1350,7 @@ void ts_lookahead_iterator_delete(TSLookaheadIterator *self);
  * Reset the lookahead iterator to another state.
  *
  * This returns `true` if the iterator was reset to the given state and `false`
- * otherwise.
+ * otherwise. A reset iterator is not positioned on a symbol.
 */
 bool ts_lookahead_iterator_reset_state(TSLookaheadIterator *self, TSStateId state);
 
@@ -1355,7 +1358,7 @@ bool ts_lookahead_iterator_reset_state(TSLookaheadIterator *self, TSStateId stat
  * Reset the lookahead iterator.
  *
  * This returns `true` if the language was set successfully and `false`
- * otherwise.
+ * otherwise. A reset iterator is not positioned on a symbol.
 */
 bool ts_lookahead_iterator_reset(TSLookaheadIterator *self, const TSLanguage *language, TSStateId state);
 
@@ -1372,13 +1375,19 @@ const TSLanguage *ts_lookahead_iterator_language(const TSLookaheadIterator *self
 bool ts_lookahead_iterator_next(TSLookaheadIterator *self);
 
 /**
- * Get the current symbol of the lookahead iterator;
+ * Get the current symbol of the lookahead iterator.
+ *
+ * This is only meaningful when the most recent call to
+ * [`ts_lookahead_iterator_next`] on `self` returned `true`.
 */
 TSSymbol ts_lookahead_iterator_current_symbol(const TSLookaheadIterator *self);
 
 /**
  * Get the current symbol type of the lookahead iterator as a null terminated
  * string.
+ *
+ * This returns `NULL` unless the most recent call to
+ * [`ts_lookahead_iterator_next`] on `self` returned `true`.
 */
 const char *ts_lookahead_iterator_current_symbol_name(const TSLookaheadIterator *self);
 

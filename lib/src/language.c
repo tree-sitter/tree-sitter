@@ -246,12 +246,15 @@ TSFieldId ts_language_field_id_for_name(
 TSLookaheadIterator *ts_lookahead_iterator_new(const TSLanguage *self, TSStateId state) {
   if (state >= self->state_count) return NULL;
   LookaheadIterator *iterator = ts_malloc(sizeof(LookaheadIterator));
-  *iterator = ts_language_lookaheads(self, state);
+  *iterator = ts_language_lookaheads(ts_language_copy(self), state);
   return (TSLookaheadIterator *)iterator;
 }
 
 void ts_lookahead_iterator_delete(TSLookaheadIterator *self) {
-  ts_free(self);
+  if (!self) return;
+  LookaheadIterator *iterator = (LookaheadIterator *)self;
+  ts_language_delete(iterator->language);
+  ts_free(iterator);
 }
 
 bool ts_lookahead_iterator_reset_state(TSLookaheadIterator * self, TSStateId state) {
@@ -269,7 +272,9 @@ const TSLanguage *ts_lookahead_iterator_language(const TSLookaheadIterator *self
 bool ts_lookahead_iterator_reset(TSLookaheadIterator *self, const TSLanguage *language, TSStateId state) {
   if (state >= language->state_count) return false;
   LookaheadIterator *iterator = (LookaheadIterator *)self;
-  *iterator = ts_language_lookaheads(language, state);
+  const TSLanguage *previous = iterator->language;
+  *iterator = ts_language_lookaheads(ts_language_copy(language), state);
+  ts_language_delete(previous);
   return true;
 }
 
@@ -285,5 +290,6 @@ TSSymbol ts_lookahead_iterator_current_symbol(const TSLookaheadIterator *self) {
 
 const char *ts_lookahead_iterator_current_symbol_name(const TSLookaheadIterator *self) {
   const LookaheadIterator *iterator = (const LookaheadIterator *)self;
+  if (iterator->phase != LookaheadPositioned) return NULL;
   return ts_language_symbol_name(iterator->language, iterator->symbol);
 }
