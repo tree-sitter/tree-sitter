@@ -333,12 +333,21 @@ pub enum HtmlStyling {
     Minimal,
 }
 
+/// The output format for highlighting.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Formatter {
+    /// ANSI-colored terminal output (the default).
+    Terminal,
+    /// HTML output, reusing `--layout`/`--style` for structure and styling.
+    Html(HtmlOutput, HtmlStyling),
+}
+
 pub struct HighlightOptions {
     pub theme: Theme,
     pub check: bool,
     pub captures_path: Option<PathBuf>,
-    /// `None` for regular output, `Some((layout, style))` when emitting HTML.
-    pub html: Option<(HtmlOutput, HtmlStyling)>,
+    /// The output format, default `Formatter::Terminal`.
+    pub formatter: Formatter,
     pub quiet: bool,
     pub print_time: bool,
     pub cancellation_flag: Arc<AtomicUsize>,
@@ -421,93 +430,98 @@ pub fn highlight(
     let theme = &opts.theme;
 
     // A fragment is pure code markup, so it must not be prefixed with the filename.
-    let html_fragment = opts
-        .html
-        .is_some_and(|(layout, _)| layout == HtmlOutput::Fragment);
+    let html_fragment = matches!(
+        opts.formatter,
+        Formatter::Html(layout, _) if layout == HtmlOutput::Fragment
+    );
     if !opts.quiet && print_name && !html_fragment {
         writeln!(&mut stdout, "{name}")?;
     }
 
-    if let Some((layout, style)) = opts.html {
-        if !opts.quiet && layout != HtmlOutput::Fragment {
-            writeln!(&mut stdout, "{HTML_HEAD_HEADER}")?;
-            if layout == HtmlOutput::NumberedDocument {
-                writeln!(&mut stdout, "{HTML_LINE_NUMBER_STYLE}")?;
-            }
-            if style == HtmlStyling::Classes {
-                for (name, style) in theme.highlight_names.iter().zip(&theme.styles) {
-                    if let Some(css) = &style.css {
-                        writeln!(&mut stdout, "    .{name} {{ {css}; }}")?;
+    match &opts.formatter {
+        Formatter::Html(layout, style) => {
+            if !opts.quiet && *layout != HtmlOutput::Fragment {
+                writeln!(&mut stdout, "{HTML_HEAD_HEADER}")?;
+                if *layout == HtmlOutput::NumberedDocument {
+                    writeln!(&mut stdout, "{HTML_LINE_NUMBER_STYLE}")?;
+                }
+                if *style == HtmlStyling::Classes {
+                    for (name, style) in theme.highlight_names.iter().zip(&theme.styles) {
+                        if let Some(css) = &style.css {
+                            writeln!(&mut stdout, "    .{name} {{ {css}; }}")?;
+                        }
                     }
                 }
+                writeln!(&mut stdout, "  </style>")?;
+                writeln!(&mut stdout, "{HTML_BODY_HEADER}")?;
             }
-            writeln!(&mut stdout, "  </style>")?;
-            writeln!(&mut stdout, "{HTML_BODY_HEADER}")?;
-        }
 
-        let mut renderer = HtmlRenderer::new();
-        renderer.render(events, &source, &move |highlight, output| {
-            if style == HtmlStyling::Inline {
-                output.extend(b"style='");
-                output.extend(
-                    theme.styles[highlight.0]
-                        .css
-                        .as_ref()
-                        .map_or_else(|| "".as_bytes(), |css_style| css_style.as_bytes()),
-                );
-            } else {
-                output.extend(b"class='");
-                let mut parts = theme.highlight_names[highlight.0].split('.').peekable();
-                while let Some(part) = parts.next() {
-                    output.extend(part.as_bytes());
-                    if parts.peek().is_some() {
-                        output.extend(b" ");
+            let mut renderer = HtmlRenderer::new();
+            renderer.render(events, &source, &move |highlight, output| {
+                if *style == HtmlStyling::Inline {
+                    output.extend(b"style='");
+                    output.extend(
+                        theme.styles[highlight.0]
+                            .css
+                            .as_ref()
+                            .map_or_else(|| "".as_bytes(), |css_style| css_style.as_bytes()),
+                    );
+                } else {
+                    output.extend(b"class='");
+                    let mut parts = theme.highlight_names[highlight.0].split('.').peekable();
+                    while let Some(part) = parts.next() {
+                        output.extend(part.as_bytes());
+                        if parts.peek().is_some() {
+                            output.extend(b" ");
+                        }
                     }
                 }
-            }
-            output.extend(b"'");
-        })?;
+                output.extend(b"'");
+            })?;
 
-        if !opts.quiet {
-            if layout == HtmlOutput::NumberedDocument {
-                writeln!(&mut stdout, "<table>")?;
-                for (i, line) in renderer.lines().enumerate() {
+            if !opts.quiet {
+                if *layout == HtmlOutput::NumberedDocument {
+                    writeln!(&mut stdout, "<table>")?;
+                    for (i, line) in renderer.lines().enumerate() {
+                        writeln!(
+                            &mut stdout,
+                            "<tr><td class=line-number>{}</td><td class=line>{line}</td></tr>",
+                            i + 1,
+                        )?;
+                    }
+                    writeln!(&mut stdout, "</table>")?;
+                } else {
+                    let mut body = renderer.lines().collect::<String>();
+                    if body.ends_with('\n') {
+                        body.pop();
+                    }
                     writeln!(
                         &mut stdout,
-                        "<tr><td class=line-number>{}</td><td class=line>{line}</td></tr>",
-                        i + 1,
+                        "<div class=\"highlight\">\n<pre><code>{body}</code></pre>\n</div>",
                     )?;
                 }
-                writeln!(&mut stdout, "</table>")?;
-            } else {
-                let mut body = renderer.lines().collect::<String>();
-                if body.ends_with('\n') {
-                    body.pop();
+                if *layout != HtmlOutput::Fragment {
+                    writeln!(&mut stdout, "{HTML_FOOTER}")?;
                 }
-                writeln!(
-                    &mut stdout,
-                    "<div class=\"highlight\">\n<pre><code>{body}</code></pre>\n</div>",
-                )?;
-            }
-            if layout != HtmlOutput::Fragment {
-                writeln!(&mut stdout, "{HTML_FOOTER}")?;
             }
         }
-    } else {
-        let mut style_stack = vec![theme.default_style().ansi];
-        for event in events {
-            match event? {
-                HighlightEvent::HighlightStart(highlight) => {
-                    style_stack.push(theme.styles[highlight.0].ansi);
-                }
-                HighlightEvent::HighlightEnd => {
-                    style_stack.pop();
-                }
-                HighlightEvent::Source { start, end } => {
-                    let style = style_stack.last().unwrap();
-                    write!(&mut stdout, "{style}").unwrap();
-                    stdout.write_all(&source[start..end])?;
-                    write!(&mut stdout, "{style:#}").unwrap();
+
+        Formatter::Terminal => {
+            let mut style_stack = vec![theme.default_style().ansi];
+            for event in events {
+                match event? {
+                    HighlightEvent::HighlightStart(highlight) => {
+                        style_stack.push(theme.styles[highlight.0].ansi);
+                    }
+                    HighlightEvent::HighlightEnd => {
+                        style_stack.pop();
+                    }
+                    HighlightEvent::Source { start, end } => {
+                        let style = style_stack.last().unwrap();
+                        write!(&mut stdout, "{style}").unwrap();
+                        stdout.write_all(&source[start..end])?;
+                        write!(&mut stdout, "{style:#}").unwrap();
+                    }
                 }
             }
         }

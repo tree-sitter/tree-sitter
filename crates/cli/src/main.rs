@@ -19,7 +19,7 @@ use tree_sitter_cli::{
         DEFAULT_EDIT_COUNT, DEFAULT_ITERATION_COUNT, EDIT_COUNT, FuzzOptions, ITERATION_COUNT,
         LOG_ENABLED, LOG_GRAPH_ENABLED, START_SEED, fuzz_language_corpus,
     },
-    highlight::{self, HighlightOptions, HtmlOutput, HtmlStyling},
+    highlight::{self, Formatter, HighlightOptions, HtmlOutput, HtmlStyling},
     init::{JsonConfigOpts, TREE_SITTER_JSON_SCHEMA, generate_grammar_files},
     input::{CliInput, get_input, get_tmp_source_file},
     logger, paint,
@@ -502,20 +502,34 @@ struct Query {
     pub rebuild: bool,
 }
 
+/// The output format for the `highlight` command, used by `--formatter`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum FormatterArg {
+    /// ANSI-colored terminal output.
+    #[value(name = "terminal")]
+    Terminal,
+    /// HTML output.
+    #[value(name = "html")]
+    Html,
+}
+
 #[derive(Args)]
-#[command(alias = "hi")]
+#[command(alias = "hi", group(clap::ArgGroup::new("markup").args(["html", "formatter"])))]
 struct Highlight {
     /// Generate highlighting as an HTML document
-    #[arg(long, short = 'H')]
+    #[arg(long, short = 'H', conflicts_with = "formatter")]
     pub html: bool,
+    /// Output formats
+    #[arg(long, value_enum, default_value = "terminal", conflicts_with = "html")]
+    pub formatter: FormatterArg,
     /// Deprecated: use `--style classes`
-    #[arg(long, requires = "html", conflicts_with = "style")]
+    #[arg(long, requires = "markup", conflicts_with = "style")]
     pub css_classes: bool,
-    /// When generating HTML, the document structure to emit
-    #[arg(long, requires = "html", value_enum, default_value = "document")]
+    /// When generating markup, the document structure to emit
+    #[arg(long, requires = "markup", value_enum, default_value = "document")]
     pub layout: HtmlOutput,
-    /// When generating HTML, how token colors are applied
-    #[arg(long, requires = "html", value_enum, default_value = "classes")]
+    /// When generating markup, how token colors are applied
+    #[arg(long, requires = "markup", value_enum, default_value = "classes")]
     pub style: HtmlStyling,
     /// Check that highlighting captures conform strictly to standards
     #[arg(long)]
@@ -1718,11 +1732,20 @@ impl Highlight {
             self.style
         };
 
+        let formatter = if self.html {
+            Formatter::Html(self.layout, style)
+        } else {
+            match self.formatter {
+                FormatterArg::Terminal => Formatter::Terminal,
+                FormatterArg::Html => Formatter::Html(self.layout, style),
+            }
+        };
+
         let options = HighlightOptions {
             theme: theme_config.theme,
             check: self.check,
             captures_path: self.captures_path,
-            html: self.html.then_some((self.layout, style)),
+            formatter,
             quiet: self.quiet,
             print_time: self.time,
             cancellation_flag: cancellation_flag.clone(),
