@@ -4,7 +4,6 @@ use std::{
     fs,
     io::{self, Write as _},
     path::{self, Path, PathBuf},
-    str,
     sync::{Arc, atomic::AtomicUsize},
     time::Instant,
 };

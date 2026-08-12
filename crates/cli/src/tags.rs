@@ -2,7 +2,6 @@ use std::{
     fs,
     io::{self, Write},
     path::Path,
-    str,
     sync::{Arc, atomic::AtomicUsize},
     time::Instant,
 };

@@ -1,4 +1,4 @@
-use std::{ops::Range, str};
+use std::ops::Range;
 
 #[derive(Debug)]
 pub struct ReadRecorder<'a> {

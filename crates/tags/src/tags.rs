@@ -3,13 +3,11 @@
 pub mod c_lib;
 
 use std::{
-    char,
     collections::HashMap,
     ffi::{CStr, CString},
     mem,
     ops::{ControlFlow, Range},
     os::raw::c_char,
-    str,
     sync::atomic::{AtomicUsize, Ordering},
 };
 

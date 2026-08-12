@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap, ffi::CStr, fmt, os::raw::c_char, process::abort, slice, str,
+    collections::HashMap, ffi::CStr, fmt, os::raw::c_char, process::abort, slice,
     sync::atomic::AtomicUsize,
 };
 

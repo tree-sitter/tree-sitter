@@ -2,7 +2,7 @@ use std::{
     ffi::CString,
     fs,
     os::raw::c_char,
-    ptr, slice, str,
+    ptr, slice,
     sync::{
         LazyLock,
         atomic::{AtomicUsize, Ordering},

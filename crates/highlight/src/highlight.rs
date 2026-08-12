@@ -8,7 +8,6 @@ use std::{
     marker::PhantomData,
     mem::{self, MaybeUninit},
     ops::{self, ControlFlow},
-    str,
     sync::{
         LazyLock,
         atomic::{AtomicUsize, Ordering},
