@@ -17,7 +17,9 @@ use log::{info, warn};
 use serde::{Deserialize, Deserializer, Serialize, Serializer, ser::SerializeMap};
 use serde_json::{Value, json};
 use tree_sitter::ffi::{self, TSInputEncoding};
-use tree_sitter_highlight::{HighlightConfiguration, HighlightEvent, Highlighter, HtmlRenderer};
+use tree_sitter_highlight::{
+    HighlightConfiguration, HighlightEvent, Highlighter, HtmlRenderer, Renderer,
+};
 use tree_sitter_loader::Loader;
 
 pub const HTML_HEAD_HEADER: &str = "
