@@ -4,6 +4,7 @@ mod extract_default_aliases;
 mod extract_tokens;
 mod flatten_grammar;
 mod intern_symbols;
+mod pattern;
 mod process_inlines;
 
 use std::{
