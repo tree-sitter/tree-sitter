@@ -1486,6 +1486,121 @@ impl Renderer for HtmlRenderer {
     }
 }
 
+/// The special characters that must be escaped in TeX output, paired with the suffix of the
+/// `\${prefix}Zxx` macro that represents them. The macro definitions are emitted by the CLI's
+/// LaTeX preamble (see `write_tex_preamble`); `TexRenderer::escape_char` turns a character into
+/// `\${prefix}` + suffix. Shared so the two never drift apart.
+pub const TEX_CHAR_ESCAPES: &[(char, &str)] = &[
+    ('\\', "Zbs"),
+    ('_', "Zus"),
+    ('{', "Zob"),
+    ('}', "Zcb"),
+    ('^', "Zca"),
+    ('&', "Zam"),
+    ('<', "Zlt"),
+    ('>', "Zgt"),
+    ('#', "Zsh"),
+    ('%', "Zpc"),
+    ('$', "Zdl"),
+    ('-', "Zhy"),
+    ('\'', "Zsq"),
+    ('"', "Zdq"),
+    ('~', "Zti"),
+];
+
+/// Converts a general-purpose syntax highlighting iterator into TeX markup.
+pub struct TexRenderer {
+    content: Vec<u8>,
+    line_offsets: Vec<u32>,
+    carriage_return_highlight: Option<Highlight>,
+    // The offset in `self.content` of the last carriage return.
+    last_carriage_return: Option<usize>,
+    // Command prefix (without a leading backslash), e.g. "TS" -> emits `\TS{...}{...}`.
+    tex_prefix: String,
+}
+
+impl Default for TexRenderer {
+    fn default() -> Self {
+        Self::new("TS".to_string())
+    }
+}
+
+impl TexRenderer {
+    #[must_use]
+    pub fn new(tex_prefix: String) -> Self {
+        let mut result = Self {
+            content: Vec::with_capacity(BUFFER_RESERVE_CAPACITY),
+            line_offsets: Vec::with_capacity(BUFFER_LINES_RESERVE_CAPACITY),
+            carriage_return_highlight: None,
+            last_carriage_return: None,
+            tex_prefix,
+        };
+        result.line_offsets.push(0);
+        result
+    }
+}
+
+impl Renderer for TexRenderer {
+    fn content(&mut self) -> &mut Vec<u8> {
+        &mut self.content
+    }
+
+    fn line_offsets(&mut self) -> &mut Vec<u32> {
+        &mut self.line_offsets
+    }
+
+    fn last_carriage_return(&mut self) -> &mut Option<usize> {
+        &mut self.last_carriage_return
+    }
+
+    fn add_carriage_return<F>(&mut self, offset: usize, attribute_callback: &F)
+    where
+        F: Fn(Highlight, &mut Vec<u8>),
+    {
+        if let Some(highlight) = self.carriage_return_highlight {
+            let rest = self.content.split_off(offset);
+            // The callback writes the full opening markup (\TS{scope}{ or
+            // \textcolor[rgb]{r,g,b}{); we close the (empty) content group here.
+            (attribute_callback)(highlight, &mut self.content);
+            self.content.extend(b"}");
+            self.content.extend(rest);
+        }
+    }
+
+    fn set_carriage_return_highlight(&mut self, highlight: Option<Highlight>) {
+        self.carriage_return_highlight = highlight;
+    }
+
+    fn start_highlight<F>(&mut self, h: Highlight, attribute_callback: &F)
+    where
+        F: Fn(Highlight, &mut Vec<u8>),
+    {
+        // TeX has no uniform opening frame, so the callback writes the entire
+        // opening markup (\TS{scope}{ or \textcolor[rgb]{r,g,b}{). The renderer
+        // owns only the closing brace (see `end_highlight`).
+        (attribute_callback)(h, &mut self.content);
+    }
+
+    fn end_highlight(&mut self) {
+        self.content.extend(b"}");
+    }
+
+    fn escape_char(&self, c: u8) -> Option<Vec<u8>> {
+        // Special characters are emitted as named macros (e.g. `\TSZdl`), whose
+        // definitions live in the LaTeX preamble (see `write_tex_preamble`).
+        let suffix = TEX_CHAR_ESCAPES
+            .iter()
+            .find(|(ch, _)| *ch == c as char)
+            .map(|(_, suffix)| *suffix)?;
+        let mut bytes = Vec::with_capacity(self.tex_prefix.len() + suffix.len() + 1);
+        bytes.push(b'\\');
+        bytes.extend_from_slice(self.tex_prefix.as_bytes());
+        bytes.extend_from_slice(suffix.as_bytes());
+        bytes.extend(b"{}");
+        Some(bytes)
+    }
+}
+
 fn injection_for_match<'a>(
     config: &'a HighlightConfiguration,
     parent_name: Option<&'a str>,

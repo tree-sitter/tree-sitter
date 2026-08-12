@@ -514,6 +514,9 @@ pub enum FormatterArg {
     /// HTML output.
     #[value(name = "html")]
     Html,
+    /// LaTeX (TeX) output.
+    #[value(name = "latex")]
+    Latex,
 }
 
 #[derive(Args)]
@@ -525,6 +528,9 @@ struct Highlight {
     /// Output formats
     #[arg(long, value_enum, default_value = "terminal", conflicts_with = "html")]
     pub formatter: FormatterArg,
+    /// Command prefix for generated LaTeX macros
+    #[arg(long, default_value = "TS")]
+    pub prefix: String,
     /// Deprecated: use `--style classes`
     #[arg(long, requires = "markup", conflicts_with = "style")]
     pub css_classes: bool,
@@ -1750,6 +1756,19 @@ impl Highlight {
             }
         }
 
+        // `--prefix` only namespaces the generated macros of the LaTeX formatter, so it
+        // carries no meaning with the terminal or HTML formatters. Reject an explicit use
+        // of it instead of silently ignoring it.
+        if (self.html || !matches!(self.formatter, FormatterArg::Latex))
+            && matches
+                .value_source("prefix")
+                .is_some_and(|s| s == ValueSource::CommandLine)
+        {
+            return Err(anyhow!(
+                "--prefix is not valid with the terminal or HTML formatters"
+            ));
+        }
+
         let style = if self.css_classes {
             // TODO: Remove during the 0.28 release cycle
             warn!("--css-classes is deprecated, use --style classes instead");
@@ -1764,6 +1783,7 @@ impl Highlight {
             match self.formatter {
                 FormatterArg::Terminal => Formatter::Terminal,
                 FormatterArg::Html => Formatter::Html(self.layout, style),
+                FormatterArg::Latex => Formatter::Latex(self.layout, style),
             }
         };
 
@@ -1772,6 +1792,7 @@ impl Highlight {
             check: self.check,
             captures_path: self.captures_path,
             formatter,
+            prefix: self.prefix.trim_start_matches('\\').to_string(),
             quiet: self.quiet,
             print_time: self.time,
             cancellation_flag: cancellation_flag.clone(),

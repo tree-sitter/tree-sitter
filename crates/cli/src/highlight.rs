@@ -18,7 +18,8 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer, ser::SerializeMap}
 use serde_json::{Value, json};
 use tree_sitter::ffi::{self, TSInputEncoding};
 use tree_sitter_highlight::{
-    HighlightConfiguration, Highlighter, HtmlRenderer, Renderer, TerminalRenderer,
+    Highlight, HighlightConfiguration, Highlighter, HtmlRenderer, Renderer, TEX_CHAR_ESCAPES,
+    TerminalRenderer, TexRenderer,
 };
 use tree_sitter_loader::Loader;
 
@@ -306,6 +307,199 @@ fn write_color(buffer: &mut String, color: Color) {
     }
 }
 
+/// Resolve whether an `anstyle::Style` requests italic, bold, and/or underline.
+/// Returns `(italic, bold, underline)`.
+fn style_flags(style: anstyle::Style) -> (bool, bool, bool) {
+    let effects = style.get_effects();
+    (
+        effects.contains(anstyle::Effects::ITALIC),
+        effects.contains(anstyle::Effects::BOLD),
+        effects.contains(anstyle::Effects::UNDERLINE),
+    )
+}
+
+/// Resolve the foreground RGB (0–255) of an `anstyle::Style`, or `None` if there is no color.
+fn style_rgb(style: anstyle::Style) -> Option<(u8, u8, u8)> {
+    match style.get_fg_color()? {
+        Color::Rgb(RgbColor(r, g, b)) => Some((r, g, b)),
+        Color::Ansi256(Ansi256Color(n)) => {
+            let (r, g, b) = rgb_from_ansi256(n);
+            Some((r, g, b))
+        }
+        Color::Ansi(color) => Some(match color {
+            AnsiColor::Black => (0, 0, 0),
+            AnsiColor::Red => (187, 0, 0),
+            AnsiColor::Green => (0, 187, 0),
+            AnsiColor::Yellow => (187, 187, 0),
+            AnsiColor::Blue => (0, 0, 187),
+            AnsiColor::Magenta => (187, 0, 187),
+            AnsiColor::Cyan => (0, 187, 187),
+            AnsiColor::White => (187, 187, 187),
+            _ => (0, 0, 0),
+        }),
+    }
+}
+
+/// Emit the shared LaTeX preamble/definitions common to `--layout document` and `--layout line-numbers`.
+/// Writes the document header, the `\${prefix}@*` macro block, and (when `style == Classes`) one
+/// `\@namedef{...@tok@scope}{...}` color definition per colored scope, then closes with `\makeatother`.
+fn write_tex_preamble<W: io::Write>(
+    w: &mut W,
+    prefix: &str,
+    theme: &Theme,
+    style: HtmlStyling,
+) -> Result<()> {
+    w.write_all(b"\\makeatletter\n")?;
+    // Character-escaping macros: `\TSZdl` expands to an unescaped `$`, etc.
+    // The mapping from character to macro suffix is shared with `TexRenderer::escape_char`
+    // via `TEX_CHAR_ESCAPES` so the two stay in sync.
+    for (ch, suffix) in TEX_CHAR_ESCAPES {
+        w.write_all(
+            format!(
+                "\\def\\{prefix}{suffix}{{\\char`\\{ch}}}\n",
+                prefix = prefix,
+                suffix = suffix,
+                ch = ch
+            )
+            .as_bytes(),
+        )?;
+    }
+    w.write_all(
+        format!(
+            "\\def\\{prefix}@reset{{\\let\\{prefix}@it=\\relax\\let\\{prefix}@bf=\\relax\\let\\{prefix}@ul=\\relax \\let\\{prefix}@tc=\\relax\\let\\{prefix}@bc=\\relax\\let\\{prefix}@ff=\\relax}}\n",
+            prefix = prefix
+        )
+        .as_bytes(),
+    )?;
+    w.write_all(
+        format!(
+            "\\def\\{prefix}@tok#1{{\\csname {prefix}@tok@#1\\endcsname}}\n",
+            prefix = prefix
+        )
+        .as_bytes(),
+    )?;
+    w.write_all(
+        format!(
+            "\\def\\{prefix}@toks#1+{{\\ifx\\relax#1\\empty\\else\\{prefix}@tok{{#1}}\\expandafter\\{prefix}@toks\\fi}}\n",
+            prefix = prefix
+        )
+        .as_bytes(),
+    )?;
+    w.write_all(
+        format!(
+            "\\def\\{prefix}@do#1{{\\{prefix}@bc{{\\{prefix}@tc{{\\{prefix}@ul{{\\{prefix}@it{{\\{prefix}@bf{{\\{prefix}@ff{{#1}}}}}}}}}}}}}}\n",
+            prefix = prefix
+        )
+        .as_bytes(),
+    )?;
+    w.write_all(
+        format!(
+            "\\def\\{prefix}#1#2{{\\{prefix}@reset\\{prefix}@toks#1+\\relax+\\{prefix}@do{{#2}}}}\n",
+            prefix = prefix
+        )
+        .as_bytes(),
+    )?;
+    if style != HtmlStyling::Inline {
+        for (name, style) in theme.highlight_names.iter().zip(&theme.styles) {
+            let rgb = style_rgb(style.ansi);
+            let (italic, bold, underline) = style_flags(style.ansi);
+            // Emit a named color/style definition whenever the scope carries a
+            // color or any of the supported font styles (italic/bold/underline).
+            if rgb.is_some() || italic || bold || underline {
+                let mut def = String::new();
+                // Style switches are emitted before `\def\TS@tc` so they take
+                // effect when `@do` applies the token (see the `\TS@do` macro).
+                if italic {
+                    def.push_str(&format!("\\let\\{prefix}@it=\\textit"));
+                }
+                if bold {
+                    def.push_str(&format!("\\let\\{prefix}@bf=\\textbf"));
+                }
+                if underline {
+                    def.push_str(&format!("\\let\\{prefix}@ul=\\underline"));
+                }
+                if let Some((r, g, b)) = rgb {
+                    let (r, g, b) = (r as f64 / 255.0, g as f64 / 255.0, b as f64 / 255.0);
+                    def.push_str(&format!(
+                        "\\def\\{prefix}@tc##1{{\\textcolor[rgb]{{{r:.4},{g:.4},{b:.4}}}{{##1}}}}",
+                        prefix = prefix,
+                        r = r,
+                        g = g,
+                        b = b
+                    ));
+                } else {
+                    // No color: reset the text-color slot to a no-op so only the
+                    // style switches (if any) apply.
+                    def.push_str(&format!("\\let\\{prefix}@tc=\\relax"));
+                }
+                w.write_all(
+                    format!("\\@namedef{{{prefix}@tok@{name}}}{{{def}}}\n", prefix = prefix, name = name, def = def)
+                        .as_bytes(),
+                )?;
+            }
+        }
+    }
+    w.write_all(b"\\makeatother\n")?;
+    Ok(())
+}
+
+/// Emit a complete, standalone LaTeX document wrapping the rendered `body` in a `Verbatim` block.
+fn write_tex_document<W: io::Write>(
+    w: &mut W,
+    prefix: &str,
+    theme: &Theme,
+    style: HtmlStyling,
+    body: &str,
+) -> Result<()> {
+    w.write_all(b"\\documentclass{article}\n")?;
+    w.write_all(b"\\usepackage{fancyvrb}\n")?;
+    w.write_all(b"\\usepackage{color}\n")?;
+    w.write_all(b"\\usepackage[utf8]{inputenc}\n")?;
+    w.write_all(b"\n")?;
+    write_tex_preamble(w, prefix, theme, style)?;
+    w.write_all(b"\\begin{document}\n")?;
+    w.write_all(b"\n")?;
+    w.write_all(
+        b"\\begin{Verbatim}[commandchars=\\\\\\{\\},codes={\\catcode`\\$=3\\catcode`\\^=7\\catcode`\\_=8\\relax}]\n",
+    )?;
+    w.write_all(body.as_bytes())?;
+    w.write_all(b"\\end{Verbatim}\n")?;
+    w.write_all(b"\n")?;
+    w.write_all(b"\\end{document}\n")?;
+    Ok(())
+}
+
+/// Emit a complete, standalone LaTeX document wrapping each line of `body` in a two-column
+/// `longtable` (line number + code), with leading whitespace preserved.
+fn write_tex_linenumbers<W: io::Write>(
+    w: &mut W,
+    prefix: &str,
+    theme: &Theme,
+    style: HtmlStyling,
+    body: &str,
+) -> Result<()> {
+    w.write_all(b"\\documentclass{article}\n")?;
+    w.write_all(b"\\usepackage{fancyvrb}\n")?;
+    w.write_all(b"\\usepackage{color}\n")?;
+    w.write_all(b"\\usepackage[utf8]{inputenc}\n")?;
+    w.write_all(b"\\usepackage{longtable}\n")?;
+    w.write_all(b"\n")?;
+    write_tex_preamble(w, prefix, theme, style)?;
+    w.write_all(b"\\begin{document}\n")?;
+    w.write_all(b"\n")?;
+    w.write_all(b"\\begin{longtable}{rl}\n")?;
+    let lines: Vec<&str> = body.split('\n').collect();
+    // `render()` appends a trailing newline, so the final element is an empty string; skip it.
+    let count = lines.len().saturating_sub(1);
+    for (i, line) in lines.into_iter().take(count).enumerate() {
+        w.write_all(format!("{} & \\Verb[commandchars=\\\\\\{{\\}},codes={{\\catcode`\\$=3\\catcode`\\^=7\\catcode`\\_=8\\relax}}]-{line}-\\\\\n", i + 1).as_bytes())?;
+    }
+    w.write_all(b"\\end{longtable}\n")?;
+    w.write_all(b"\n")?;
+    w.write_all(b"\\end{document}\n")?;
+    Ok(())
+}
+
 fn terminal_supports_truecolor() -> bool {
     std::env::var("COLORTERM")
         .is_ok_and(|truecolor| truecolor == "truecolor" || truecolor == "24bit")
@@ -342,6 +536,8 @@ pub enum Formatter {
     Terminal,
     /// HTML output, reusing `--layout`/`--style` for structure and styling.
     Html(HtmlOutput, HtmlStyling),
+    /// TeX/LaTeX output, reusing `--layout`/`--style` for structure and styling.
+    Latex(HtmlOutput, HtmlStyling),
 }
 
 pub struct HighlightOptions {
@@ -350,6 +546,8 @@ pub struct HighlightOptions {
     pub captures_path: Option<PathBuf>,
     /// The output format, default `Formatter::Terminal`.
     pub formatter: Formatter,
+    /// Command prefix for generated LaTeX macros (without a leading backslash), default "TS".
+    pub prefix: String,
     pub quiet: bool,
     pub print_time: bool,
     pub cancellation_flag: Arc<AtomicUsize>,
@@ -508,6 +706,56 @@ pub fn highlight(
             }
         }
 
+        Formatter::Latex(layout, style) => {
+            let prefix = &opts.prefix; // already trimmed of leading backslash in main.rs
+            let mut renderer = TexRenderer::new(prefix.clone());
+            let attribute_callback = |highlight: Highlight, output: &mut Vec<u8>| {
+                let name = theme.highlight_names[highlight.0].as_bytes();
+                match style {
+                    HtmlStyling::Inline => {
+                        // Open a single group; within it emit font switches
+                        // (`\bf`/`\it`) and a color command (no extra group of
+                        // its own). `end_highlight` closes the group with a
+                        // single `}`, keeping the brace balance automatic.
+                        output.push(b'{');
+                        let (italic, bold, _underline) =
+                            style_flags(theme.styles[highlight.0].ansi);
+                        if bold {
+                            output.extend(b"\\bf");
+                        }
+                        if italic {
+                            output.extend(b"\\it");
+                        }
+                        if let Some((r, g, b)) = style_rgb(theme.styles[highlight.0].ansi) {
+                            let (r, g, b) = (r as f64 / 255.0, g as f64 / 255.0, b as f64 / 255.0);
+                            write!(output, "\\color[rgb]{{{r:.4},{g:.4},{b:.4}}}").unwrap();
+                        }
+                    }
+                    HtmlStyling::Classes | HtmlStyling::Minimal => {
+                        output.extend(b"\\");
+                        output.extend(prefix.as_bytes());
+                        output.extend(b"{");
+                        output.extend(name);
+                        output.extend(b"}{");
+                    }
+                }
+            };
+            renderer.render(events, &source, &attribute_callback)?;
+
+            let body = String::from_utf8(renderer.content().clone()).unwrap();
+            match layout {
+                HtmlOutput::Fragment => {
+                    write!(&mut stdout, "{body}")?;
+                }
+                HtmlOutput::Document => {
+                    write_tex_document(&mut stdout, &opts.prefix, theme, *style, &body)?;
+                }
+                HtmlOutput::NumberedDocument => {
+                    write_tex_linenumbers(&mut stdout, &opts.prefix, theme, *style, &body)?;
+                }
+            }
+        }
+
         Formatter::Terminal => {
             let styles: Vec<anstyle::Style> = theme.styles.iter().map(|style| style.ansi).collect();
             let mut renderer = TerminalRenderer::new(&styles, theme.default_style().ansi);
@@ -572,5 +820,134 @@ mod tests {
         } else {
             unsafe { env::remove_var("COLORTERM") };
         }
+    }
+
+    /// Build a one-scope theme (color is optional) with the given flags,
+    /// returning the parsed inner `anstyle::Style`.
+    fn style_with(
+        name: &str,
+        color: Option<&str>,
+        bold: bool,
+        italic: bool,
+        underline: bool,
+    ) -> anstyle::Style {
+        let mut json = serde_json::Map::new();
+        if let Some(c) = color {
+            json.insert("color".into(), Value::String(c.to_string()));
+        }
+        if bold {
+            json.insert("bold".into(), Value::Bool(true));
+        }
+        if italic {
+            json.insert("italic".into(), Value::Bool(true));
+        }
+        if underline {
+            json.insert("underline".into(), Value::Bool(true));
+        }
+        let theme: Theme =
+            serde_json::from_value(json!({ name: Value::Object(json) })).unwrap();
+        theme.styles[0].ansi
+    }
+
+    #[test]
+    fn test_latex_classes_style_switches() {
+        // keyword: color + italic; parameter: color + underline;
+        // constant: color + bold; comment: italic only (no color).
+        let theme = Theme {
+            highlight_names: vec![
+                "keyword".into(),
+                "variable.parameter".into(),
+                "constant.builtin".into(),
+                "comment".into(),
+            ],
+            styles: vec![
+                Style { ansi: style_with("keyword", Some("#3d7a7a"), false, true, false), css: None },
+                Style { ansi: style_with("variable.parameter", Some("#fcfcfc"), false, false, true), css: None },
+                Style { ansi: style_with("constant.builtin", Some("#5f00af"), true, false, false), css: None },
+                Style { ansi: style_with("comment", None, false, true, false), css: None },
+            ],
+        };
+        let mut buf = Vec::new();
+        write_tex_preamble(&mut buf, "TS", &theme, HtmlStyling::Classes).unwrap();
+        let out = String::from_utf8(buf).unwrap();
+
+        // italic emits \let\TS@it=\textit before the color definition.
+        assert!(
+            out.contains("\\@namedef{TS@tok@keyword}{\\let\\TS@it=\\textit\\def\\TS@tc##1{\\textcolor[rgb]{0.2392,0.4784,0.4784}{##1}}}"),
+            "keyword namedef missing italic switch:\n{out}"
+        );
+        // underline emits \let\TS@ul=\underline.
+        assert!(
+            out.contains("\\@namedef{TS@tok@variable.parameter}{\\let\\TS@ul=\\underline\\def\\TS@tc##1{\\textcolor[rgb]{0.9882,0.9882,0.9882}{##1}}}"),
+            "parameter namedef missing underline switch:\n{out}"
+        );
+        // bold emits \let\TS@bf=\textbf.
+        assert!(
+            out.contains("\\@namedef{TS@tok@constant.builtin}{\\let\\TS@bf=\\textbf\\def\\TS@tc##1{\\textcolor[rgb]{0.3725,0.0000,0.6863}{##1}}}"),
+            "constant namedef missing bold switch:\n{out}"
+        );
+        // No color: only the italic switch, with @tc reset to \relax.
+        assert!(
+            out.contains("\\@namedef{TS@tok@comment}{\\let\\TS@it=\\textit\\let\\TS@tc=\\relax}"),
+            "comment namedef (no color) wrong:\n{out}"
+        );
+    }
+
+    #[test]
+    fn test_latex_inline_style_switches() {
+        // Replicate the inline attribute_callback for a bold+italic+color scope.
+        let style = style_with("kw", Some("#3d7a7a"), true, true, false);
+        let (italic, bold, _underline) = style_flags(style);
+
+        let mut output: Vec<u8> = Vec::new();
+        output.push(b'{');
+        if bold {
+            output.extend(b"\\bf");
+        }
+        if italic {
+            output.extend(b"\\it");
+        }
+        if let Some((r, g, b)) = style_rgb(style) {
+            let (r, g, b) = (r as f64 / 255.0, g as f64 / 255.0, b as f64 / 255.0);
+            write!(
+                output,
+                "\\color[rgb]{{{r:.4},{g:.4},{b:.4}}}"
+            )
+            .unwrap();
+        }
+        // The renderer closes the single group with one `}`.
+        output.extend(b"}");
+
+        let out = String::from_utf8(output).unwrap();
+        assert_eq!(
+            out,
+            "{\\bf\\it\\color[rgb]{0.2392,0.4784,0.4784}}",
+            "inline markup mismatch: {out}"
+        );
+    }
+
+    #[test]
+    fn test_latex_inline_no_style_opens_single_group() {
+        let style = style_with("plain", Some("#abcdef"), false, false, false);
+        let (italic, bold, _underline) = style_flags(style);
+
+        let mut output: Vec<u8> = Vec::new();
+        output.push(b'{');
+        if bold {
+            output.extend(b"\\bf");
+        }
+        if italic {
+            output.extend(b"\\it");
+        }
+        if let Some((r, g, b)) = style_rgb(style) {
+            let (r, g, b) = (r as f64 / 255.0, g as f64 / 255.0, b as f64 / 255.0);
+            write!(output, "\\color[rgb]{{{r:.4},{g:.4},{b:.4}}}").unwrap();
+        }
+        output.extend(b"}");
+
+        assert_eq!(
+            String::from_utf8(output).unwrap(),
+            "{\\color[rgb]{0.6706,0.8039,0.9373}}"
+        );
     }
 }
