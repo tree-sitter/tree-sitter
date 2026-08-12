@@ -280,6 +280,11 @@ impl CharacterSet {
 
     /// Produces a `CharacterSet` containing every character in `self` that is not present in
     /// `other`.
+    #[allow(
+        clippy::must_use_candidate,
+        clippy::return_self_not_must_use,
+        dead_code
+    )]
     pub fn difference(mut self, mut other: Self) -> Self {
         self.remove_intersection(&mut other);
         self

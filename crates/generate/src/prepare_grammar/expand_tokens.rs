@@ -1,7 +1,4 @@
-use regex_syntax::{
-    hir::{Class, ClassUnicode, ClassUnicodeRange, Hir, HirKind},
-    ParserBuilder,
-};
+use regex_syntax::hir::{Class, Hir, HirKind};
 use serde::Serialize;
 use thiserror::Error;
 
@@ -9,13 +6,13 @@ use super::ExtractedLexicalGrammar;
 use crate::{
     grammars::{LexicalGrammar, LexicalVariable},
     nfa::{CharacterSet, Nfa, NfaState},
+    prepare_grammar::pattern,
     rules::{Precedence, Rule},
 };
 
 struct NfaBuilder {
     nfa: Nfa,
     is_sep: bool,
-    case_insensitive: bool,
     precedence_stack: Vec<i32>,
 }
 
@@ -80,7 +77,6 @@ pub fn expand_tokens(mut grammar: ExtractedLexicalGrammar) -> ExpandTokensResult
     let mut builder = NfaBuilder {
         nfa: Nfa::new(),
         is_sep: true,
-        case_insensitive: false,
         precedence_stack: vec![0],
     };
 
@@ -161,38 +157,6 @@ pub enum ExpandRegexError {
     Assertion,
 }
 
-/// Case-fold `base` for the `i` flag, keeping folding ASCII-safe.
-///
-/// `regex_syntax`'s own case folding is Unicode simple folding, which maps two
-/// non-ASCII code points onto ASCII letters:
-///     - the long s `ſ` (U+017F) onto `s`
-///     - the Kelvin sign `K` (U+212A) onto `k`
-///
-/// This leaks non-ASCII code points into otherwise-ASCII tokens, which is virtually
-/// never intended and also stops such tokens from being extracted as keywords. So
-/// we parse patterns unfolded and fold here instead: fold via `regex_syntax`, then
-/// drop those two code points *only when folding introduced them*. A set that already
-/// contained `ſ`/`K` (an explicit literal, or a broad class like `[^"]` or `\p{L}`)
-/// keeps them.
-fn case_fold_ascii_safe(base: &CharacterSet) -> CharacterSet {
-    let mut class = ClassUnicode::new(
-        base.ranges()
-            .map(|r| ClassUnicodeRange::new(*r.start(), *r.end())),
-    );
-    class.case_fold_simple();
-
-    let mut folded = CharacterSet::empty();
-    for r in class.ranges() {
-        folded = folded.add_range(r.start(), r.end());
-    }
-    for exotic in ['\u{017f}', '\u{212a}'] {
-        if folded.contains(exotic) && !base.contains(exotic) {
-            folded = folded.difference(CharacterSet::from_char(exotic));
-        }
-    }
-    folded
-}
-
 impl NfaBuilder {
     fn expand_rule(&mut self, rule: &Rule, mut next_state_id: u32) -> ExpandRuleResult<bool> {
         match rule {
@@ -212,15 +176,8 @@ impl NfaBuilder {
                 // Parse WITHOUT case folding and fold ourselves (see
                 // `case_fold_ascii_safe`). Letting `regex_syntax` fold would pull the
                 // long s `ſ` and Kelvin sign `K` into ASCII `s`/`k`.
-                let mut parser = ParserBuilder::new()
-                    .case_insensitive(false)
-                    .unicode(true)
-                    .utf8(false)
-                    .build();
-                let hir = parser
-                    .parse(&s)
+                let hir = pattern::parse(&s, f.contains('i'))
                     .map_err(|e| ExpandRuleError::Parse(e.to_string()))?;
-                self.case_insensitive = f.contains('i');
                 self.expand_regex(&hir, next_state_id)
                     .map_err(ExpandRuleError::ExpandRegex)
             }
@@ -299,13 +256,7 @@ impl NfaBuilder {
                     .chars()
                     .rev()
                 {
-                    let char_set = CharacterSet::from_char(character);
-                    let char_set = if self.case_insensitive {
-                        case_fold_ascii_safe(&char_set)
-                    } else {
-                        char_set
-                    };
-                    self.push_advance(char_set, next_state_id);
+                    self.push_advance(CharacterSet::from_char(character), next_state_id);
                     next_state_id = self.nfa.last_state_id();
                 }
 
@@ -317,21 +268,13 @@ impl NfaBuilder {
                     for c in class.ranges() {
                         chars = chars.add_range(c.start(), c.end());
                     }
-                    if self.case_insensitive {
-                        chars = case_fold_ascii_safe(&chars);
-                    }
                     self.push_advance(chars, next_state_id);
                     Ok(true)
                 }
                 Class::Bytes(bytes_class) => {
                     // Byte classes only come from non-Unicode `(?-u:...)` groups, which
                     // JS regex syntax can't express, so this is currently unreachable
-                    // from grammar patterns. Byte folding is ASCII-only (bytes are <= 0xFF)
-                    // so it can never introduce `ſ`/`K` and needs no special handling.
-                    let mut bytes_class = bytes_class.clone();
-                    if self.case_insensitive {
-                        bytes_class.case_fold_simple();
-                    }
+                    // from grammar patterns.
                     let mut chars = CharacterSet::default();
                     for c in bytes_class.ranges() {
                         chars = chars.add_range(c.start().into(), c.end().into());
@@ -795,8 +738,8 @@ mod tests {
                     ("s", Some((0, "s"))),
                 ],
             },
-            // An intentionally-written `ſ`/`K` is preserved: with no `i` flag
-            // nothing is folded at all.
+            // An intentionally-written `ſ`/`K` is preserved: the stripping above
+            // only fires when the ASCII pair it folds with is also present.
             Row {
                 rules: vec![Rule::pattern("[\u{017f}\u{212a}]+", "")],
                 separators: vec![],
@@ -812,6 +755,102 @@ mod tests {
                     ("\u{017f}", Some((0, "\u{017f}"))), // long s
                     ("\u{212a}", Some((0, "\u{212a}"))), // Kelvin sign
                     ("\"", None),                        // the one excluded character
+                ],
+            },
+            // `ſ`/`K` fold with nothing, so an explicit one pulls in no ASCII letter.
+            Row {
+                rules: vec![Rule::pattern("[\u{017f}\u{212a}]+", "i")],
+                separators: vec![],
+                examples: vec![
+                    ("\u{017f}\u{212a}.", Some((0, "\u{017f}\u{212a}"))),
+                    ("s", None),
+                    ("k", None),
+                ],
+            },
+            // `\p{L}` already contains `ſ`/`K`, so folding adds nothing to strip.
+            Row {
+                rules: vec![Rule::pattern(r"\p{L}+", "i")],
+                separators: vec![],
+                examples: vec![
+                    ("\u{017f}", Some((0, "\u{017f}"))),
+                    ("\u{212a}", Some((0, "\u{212a}"))),
+                    ("aA", Some((0, "aA"))),
+                    ("1", None),
+                ],
+            },
+            // Folding happens at the leaves, before negation: `[^a-z]` under `/i`
+            // must exclude `A-Z`, not re-admit it.
+            Row {
+                rules: vec![Rule::pattern("[^a-z]", "i")],
+                separators: vec![],
+                examples: vec![
+                    ("!", Some((0, "!"))),
+                    ("a", None),
+                    ("A", None),
+                    ("\u{017f}", Some((0, "\u{017f}"))),
+                    ("\u{212a}", Some((0, "\u{212a}"))),
+                ],
+            },
+            // The same ordering through a nested class and through class-set algebra.
+            Row {
+                rules: vec![Rule::pattern("[^[a-c]]", "i")],
+                separators: vec![],
+                examples: vec![("d", Some((0, "d"))), ("a", None), ("A", None), ("C", None)],
+            },
+            Row {
+                rules: vec![Rule::pattern("[[a-z]--[b-d]]", "i")],
+                separators: vec![],
+                examples: vec![
+                    ("a", Some((0, "a"))),
+                    ("A", Some((0, "A"))),
+                    ("b", None),
+                    ("B", None),
+                ],
+            },
+            Row {
+                rules: vec![Rule::pattern("[[a-z]&&[b-d]]", "i")],
+                separators: vec![],
+                examples: vec![
+                    ("b", Some((0, "b"))),
+                    ("B", Some((0, "B"))),
+                    ("e", None),
+                    ("E", None),
+                ],
+            },
+            // Scoped flags apply only where they are in effect.
+            Row {
+                rules: vec![Rule::pattern("(?i)a(?-i)b", "")],
+                separators: vec![],
+                examples: vec![
+                    ("ab", Some((0, "ab"))),
+                    ("Ab", Some((0, "Ab"))),
+                    ("aB", None),
+                ],
+            },
+            // Case-insensitivity does not leak from one token to the next.
+            Row {
+                rules: vec![
+                    Rule::pattern("ab", "i"),
+                    Rule::pattern("cd", ""),
+                    Rule::string("ef"),
+                ],
+                separators: vec![],
+                examples: vec![
+                    ("AB", Some((0, "AB"))),
+                    ("cd", Some((1, "cd"))),
+                    ("CD", None),
+                    ("ef", Some((2, "ef"))),
+                    ("EF", None),
+                ],
+            },
+            Row {
+                rules: vec![Rule::pattern(r"\$\{[a-z0-9_\.]*[^a-z0-9_\.\}]", "i")],
+                separators: vec![],
+                examples: vec![
+                    ("${a}", None),
+                    ("${A}", None),
+                    ("${a!", Some((0, "${a!"))),
+                    ("${!", Some((0, "${!"))),
                 ],
             },
             // Emojis
