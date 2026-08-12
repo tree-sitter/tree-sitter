@@ -176,6 +176,27 @@ pub enum ExpandRegexError {
     Utf8(String),
     #[error("Regex error: Assertions are not supported")]
     Assertion,
+    #[error(transparent)]
+    NonAsciiByteClass(NonAsciiByteClassError),
+}
+
+#[derive(Debug, Error, Serialize, Deserialize, PartialEq, Eq)]
+pub struct NonAsciiByteClassError {
+    start: u8,
+    end: u8,
+}
+
+impl std::fmt::Display for NonAsciiByteClassError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let Self { start, end } = *self;
+        write!(f, "The non-ASCII byte class ")?;
+        if start == end {
+            write!(f, "\\x{start:02x}")?;
+        } else {
+            write!(f, "\\x{start:02x}-\\x{end:02x}")?;
+        }
+        write!(f, " via (?-u:...) is not supported. Remove the `-u` flag.")
+    }
 }
 
 impl NfaBuilder {
@@ -311,12 +332,21 @@ impl NfaBuilder {
                     self.push_advance(chars, next_state_id);
                     Ok(true)
                 }
+                // Byte classes only come from non-Unicode `(?-u:...)` groups, which
+                // JS regex syntax can't express. A byte below `0x80` is its own
+                // code point, so it converts exactly. Above that, a byte is one
+                // part of a UTF-8 sequence and has no character to convert to.
                 Class::Bytes(bytes_class) => {
-                    // Byte classes only come from non-Unicode `(?-u:...)` groups, which
-                    // JS regex syntax can't express, so this is currently unreachable
-                    // from grammar patterns.
                     let mut chars = CharacterSet::default();
                     for c in bytes_class.ranges() {
+                        if !c.end().is_ascii() {
+                            Err(ExpandRegexError::NonAsciiByteClass(
+                                NonAsciiByteClassError {
+                                    start: c.start(),
+                                    end: c.end(),
+                                },
+                            ))?;
+                        }
                         chars = chars.add_range(c.start().into(), c.end().into());
                     }
                     self.push_advance(chars, next_state_id);
@@ -1031,6 +1061,23 @@ mod tests {
                 ("${!", Some((0, "${!"))),
             ],
         );
+        // `(?-u:...)` matches bytes. A byte below `0x80` is its own code point,
+        // so an ASCII byte class converts exactly.
+        check(
+            |p| {
+                let (v, f) = (p.intern(r"(?-u:[a-z])+"), p.intern(""));
+                (vec![p.pattern(v, f)], vec![])
+            },
+            &[("abc.", Some((0, "abc"))), ("ABC", None)],
+        );
+        // Byte folding is ASCII only, so it cannot pull in `K`.
+        check(
+            |p| {
+                let (v, f) = (p.intern(r"(?-u:(?i)k)+"), p.intern(""));
+                (vec![p.pattern(v, f)], vec![])
+            },
+            &[("kK.", Some((0, "kK"))), ("\u{212a}", None)],
+        );
         // Emojis
         check(
             |p| {
@@ -1113,6 +1160,30 @@ mod tests {
                 ("2", None),
                 ("567", None),
             ],
+        );
+    }
+
+    #[test]
+    fn test_non_ascii_byte_class_is_rejected() {
+        let mut pool = RulePool::default();
+        let (v, f) = (pool.intern(r"(?-u:[\xc3\xa9])"), pool.intern(""));
+        let root = pool.pattern(v, f);
+        let vars = vec![LexicalToken {
+            name: pool.intern("tok"),
+            kind: VariableType::Anonymous,
+            root,
+        }];
+        assert_eq!(
+            expand_tokens(&mut pool, &vars, &[]).unwrap_err(),
+            ExpandTokensError::Processing(ExpandTokensProcessingError {
+                rule: "tok".to_string(),
+                error: ExpandRuleError::ExpandRegex(ExpandRegexError::NonAsciiByteClass(
+                    NonAsciiByteClassError {
+                        start: 0xa9,
+                        end: 0xa9
+                    }
+                ))
+            })
         );
     }
 
