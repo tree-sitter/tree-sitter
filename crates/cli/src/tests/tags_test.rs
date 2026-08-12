@@ -1,6 +1,6 @@
 use std::{
     ffi::{CStr, CString},
-    fs, ptr, slice, str,
+    fs, ptr, slice,
     sync::atomic::{AtomicUsize, Ordering},
 };
 

@@ -21,7 +21,7 @@ unsafe extern "C" {
     pub(crate) fn _ts_dup(handle: *mut std::os::raw::c_void) -> std::os::raw::c_int;
 }
 
-use core::{marker::PhantomData, mem::ManuallyDrop, ptr::NonNull, str};
+use core::{marker::PhantomData, mem::ManuallyDrop, ptr::NonNull};
 
 use crate::{
     Language, LookaheadIterator, Node, ParseState, Parser, Query, QueryCursor, QueryCursorState,

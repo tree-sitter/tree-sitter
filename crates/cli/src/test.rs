@@ -5,7 +5,6 @@ use std::{
     fs,
     io::{self, Write},
     path::{Path, PathBuf},
-    str,
     time::Duration,
 };
 

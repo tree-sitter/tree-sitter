@@ -1,7 +1,7 @@
 use std::{
     fs,
     path::{Path, PathBuf},
-    str::{self, FromStr},
+    str::FromStr as _,
 };
 
 use anyhow::{Context, Result, anyhow};

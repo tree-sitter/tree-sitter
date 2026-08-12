@@ -1,5 +1,4 @@
 use std::{
-    char,
     cmp::{Ordering, max},
     fmt,
     iter::ExactSizeIterator,
