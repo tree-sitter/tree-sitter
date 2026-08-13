@@ -203,7 +203,7 @@ unsafe extern "C" {
     pub fn ts_parser_language(self_: *const TSParser) -> *const TSLanguage;
 }
 unsafe extern "C" {
-    #[doc = " Set the language that the parser should use for parsing.\n\n Returns a boolean indicating whether or not the language was successfully\n assigned. True means assignment succeeded. False means there was a version\n mismatch: the language was generated with an incompatible version of the\n Tree-sitter CLI. Check the language's ABI version using [`ts_language_abi_version`]\n and compare it to this library's [`TREE_SITTER_LANGUAGE_VERSION`] and\n [`TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION`] constants."]
+    #[doc = " Set the language that the parser should use for parsing.\n\n Returns a boolean indicating whether or not the language was successfully\n assigned. True means assignment succeeded. False means the language cannot\n be used for parsing, or it was generated with an incompatible version of the\n Tree-sitter CLI. Check whether the language can be used for parsing with\n [`ts_language_is_parseable`]. Check the language's ABI version using\n [`ts_language_abi_version`] and compare it to this library's\n [`TREE_SITTER_LANGUAGE_VERSION`] and\n [`TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION`] constants."]
     pub fn ts_parser_set_language(self_: *mut TSParser, language: *const TSLanguage) -> bool;
 }
 unsafe extern "C" {
@@ -291,7 +291,7 @@ unsafe extern "C" {
     ) -> TSNode;
 }
 unsafe extern "C" {
-    #[doc = " Get the language that was used to parse the syntax tree."]
+    #[doc = " Get the language that was used to parse the syntax tree.\n\n When Tree-sitter is compiled to WebAssembly, this language can be used to\n inspect the tree but cannot be assigned to a parser."]
     pub fn ts_tree_language(self_: *const TSTree) -> *const TSLanguage;
 }
 unsafe extern "C" {
@@ -323,7 +323,7 @@ unsafe extern "C" {
     pub fn ts_node_symbol(self_: TSNode) -> TSSymbol;
 }
 unsafe extern "C" {
-    #[doc = " Get the node's language."]
+    #[doc = " Get the node's language.\n\n When Tree-sitter is compiled to WebAssembly, this language can be used to\n inspect the tree but cannot be assigned to a parser."]
     pub fn ts_node_language(self_: TSNode) -> *const TSLanguage;
 }
 unsafe extern "C" {
@@ -756,6 +756,10 @@ unsafe extern "C" {
 unsafe extern "C" {
     #[doc = " Free any dynamically-allocated resources for this language, if\n this is the last reference."]
     pub fn ts_language_delete(self_: *const TSLanguage);
+}
+unsafe extern "C" {
+    #[doc = " Check whether this language can be assigned to a parser.\n\n Languages obtained from a syntax tree may be used to inspect that tree, but\n are not necessarily usable for parsing. This is the case when Tree-sitter is\n compiled to WebAssembly, because lexer function pointers are local to a\n WebAssembly instance and cannot safely be sent between threads."]
+    pub fn ts_language_is_parseable(self_: *const TSLanguage) -> bool;
 }
 unsafe extern "C" {
     #[doc = " Get the number of distinct node types in the language."]

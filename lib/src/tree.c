@@ -1,6 +1,7 @@
 #include "tree_sitter/api.h"
 #include "./array.h"
 #include "./get_changed_ranges.h"
+#include "./language.h"
 #include "./length.h"
 #include "./subtree.h"
 #include "./tree_cursor.h"
@@ -12,7 +13,7 @@ TSTree *ts_tree_new(
 ) {
   TSTree *result = ts_malloc(sizeof(TSTree));
   result->root = root;
-  result->language = ts_language_copy(language);
+  result->language = ts_language_copy_for_tree(language);
   result->included_ranges = ts_calloc(included_range_count, sizeof(TSRange));
   memcpy(result->included_ranges, included_ranges, included_range_count * sizeof(TSRange));
   result->included_range_count = included_range_count;

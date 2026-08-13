@@ -1,9 +1,37 @@
 #include "./language.h"
+#include "./atomic.h"
 #include "./wasm_store.h"
 #include "tree_sitter/api.h"
+#include <stddef.h>
 #include <string.h>
 
+#ifdef __wasm__
+
+typedef struct {
+  TSLanguage language;
+  volatile uint32_t ref_count;
+} TSTreeLanguage;
+
+static inline TSTreeLanguage *ts_language__tree_language(const TSLanguage *self) {
+  return (TSTreeLanguage *)((char *)self - offsetof(TSTreeLanguage, language));
+}
+
+static inline bool ts_language__is_tree_language(const TSLanguage *self) {
+  return (
+    self &&
+    !self->lex_fn &&
+    self->external_scanner.states == (const bool *)self
+  );
+}
+
+#endif
+
 const TSLanguage *ts_language_copy(const TSLanguage *self) {
+#ifdef __wasm__
+  if (ts_language__is_tree_language(self)) {
+    atomic_inc(&ts_language__tree_language(self)->ref_count);
+  } else
+#endif
   if (self && ts_language_is_wasm(self)) {
     ts_wasm_language_retain(self);
   }
@@ -11,9 +39,41 @@ const TSLanguage *ts_language_copy(const TSLanguage *self) {
 }
 
 void ts_language_delete(const TSLanguage *self) {
+#ifdef __wasm__
+  if (ts_language__is_tree_language(self)) {
+    TSTreeLanguage *tree_language = ts_language__tree_language(self);
+    if (atomic_dec(&tree_language->ref_count) == 0) {
+      ts_free(tree_language);
+    }
+  } else
+#endif
   if (self && ts_language_is_wasm(self)) {
     ts_wasm_language_release(self);
   }
+}
+
+bool ts_language_is_parseable(const TSLanguage *self) {
+  return self && self->lex_fn;
+}
+
+const TSLanguage *ts_language_copy_for_tree(const TSLanguage *self) {
+#ifdef __wasm__
+  if (self && ts_language_is_parseable(self)) {
+    TSTreeLanguage *result = ts_malloc(sizeof(TSTreeLanguage));
+    result->language = *self;
+    result->language.lex_fn = NULL;
+    result->language.keyword_lex_fn = NULL;
+    result->language.external_scanner.states = (const bool *)&result->language;
+    result->language.external_scanner.create = NULL;
+    result->language.external_scanner.destroy = NULL;
+    result->language.external_scanner.scan = NULL;
+    result->language.external_scanner.serialize = NULL;
+    result->language.external_scanner.deserialize = NULL;
+    result->ref_count = 1;
+    return &result->language;
+  }
+#endif
+  return ts_language_copy(self);
 }
 
 uint32_t ts_language_symbol_count(const TSLanguage *self) {

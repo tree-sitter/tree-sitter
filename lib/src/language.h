@@ -40,6 +40,7 @@ TSLexerMode ts_language_lex_mode_for_state(const TSLanguage *self, TSStateId sta
 bool ts_language_is_reserved_word(const TSLanguage *self, TSStateId state, TSSymbol symbol);
 TSSymbolMetadata ts_language_symbol_metadata(const TSLanguage *self, TSSymbol symbol);
 TSSymbol ts_language_public_symbol(const TSLanguage *self, TSSymbol symbol);
+const TSLanguage *ts_language_copy_for_tree(const TSLanguage *self);
 
 static inline const TSParseAction *ts_language_actions(
   const TSLanguage *self,
