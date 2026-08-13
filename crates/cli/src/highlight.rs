@@ -18,7 +18,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer, ser::SerializeMap}
 use serde_json::{Value, json};
 use tree_sitter::ffi::{self, TSInputEncoding};
 use tree_sitter_highlight::{
-    HighlightConfiguration, HighlightEvent, Highlighter, HtmlRenderer, Renderer,
+    HighlightConfiguration, Highlighter, HtmlRenderer, Renderer, TerminalRenderer,
 };
 use tree_sitter_loader::Loader;
 
@@ -509,23 +509,10 @@ pub fn highlight(
         }
 
         Formatter::Terminal => {
-            let mut style_stack = vec![theme.default_style().ansi];
-            for event in events {
-                match event? {
-                    HighlightEvent::HighlightStart(highlight) => {
-                        style_stack.push(theme.styles[highlight.0].ansi);
-                    }
-                    HighlightEvent::HighlightEnd => {
-                        style_stack.pop();
-                    }
-                    HighlightEvent::Source { start, end } => {
-                        let style = style_stack.last().unwrap();
-                        write!(&mut stdout, "{style}").unwrap();
-                        stdout.write_all(&source[start..end])?;
-                        write!(&mut stdout, "{style:#}").unwrap();
-                    }
-                }
-            }
+            let styles: Vec<anstyle::Style> = theme.styles.iter().map(|style| style.ansi).collect();
+            let mut renderer = TerminalRenderer::new(&styles, theme.default_style().ansi);
+            renderer.render(events, &source, &|_highlight, _output| {})?;
+            stdout.write_all(renderer.content())?;
         }
     }
 

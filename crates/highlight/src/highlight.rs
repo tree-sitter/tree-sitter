@@ -4,6 +4,7 @@ pub mod c_lib;
 use core::slice;
 use std::{
     collections::HashSet,
+    io::Write as _,
     iter,
     marker::PhantomData,
     mem::{self, MaybeUninit},
@@ -137,6 +138,112 @@ pub struct HighlightConfiguration {
 pub struct Highlighter {
     pub parser: Parser,
     cursors: Vec<QueryCursor>,
+}
+
+/// Converts a general-purpose syntax highlighting iterator into ANSI-colored terminal text.
+///
+/// Unlike `HtmlRenderer`/`TexRenderer`, which open and close a span per highlight scope, the
+/// terminal renderer re-emits the active ANSI style before *every* source segment and resets it
+/// after, so that adjacent source segments at the same scope are each individually wrapped. This
+/// keeps colored output correct even when other code interleaves raw bytes onto the same terminal
+/// stream.
+pub struct TerminalRenderer {
+    content: Vec<u8>,
+    line_offsets: Vec<u32>,
+    // The offset in `self.content` of the last carriage return.
+    last_carriage_return: Option<usize>,
+    /// Stack of active highlight scopes, bottom-to-top.
+    highlight: Vec<Highlight>,
+    /// The style applied outside of any highlight scope.
+    default_style: anstyle::Style,
+    /// ANSI styles indexed by highlight index (`Highlight.0`).
+    styles: Vec<anstyle::Style>,
+}
+
+impl Default for TerminalRenderer {
+    fn default() -> Self {
+        Self::new(&[], anstyle::Style::new())
+    }
+}
+
+impl TerminalRenderer {
+    #[must_use]
+    pub fn new(styles: &[anstyle::Style], default_style: anstyle::Style) -> Self {
+        Self {
+            content: Vec::with_capacity(BUFFER_RESERVE_CAPACITY),
+            line_offsets: Vec::with_capacity(BUFFER_LINES_RESERVE_CAPACITY),
+            last_carriage_return: None,
+            highlight: Vec::new(),
+            default_style,
+            styles: styles.to_vec(),
+        }
+    }
+}
+
+impl Renderer for TerminalRenderer {
+    fn content(&mut self) -> &mut Vec<u8> {
+        &mut self.content
+    }
+
+    fn line_offsets(&mut self) -> &mut Vec<u32> {
+        &mut self.line_offsets
+    }
+
+    fn last_carriage_return(&mut self) -> &mut Option<usize> {
+        &mut self.last_carriage_return
+    }
+
+    fn add_carriage_return<F>(&mut self, _offset: usize, _attribute_callback: &F)
+    where
+        F: Fn(Highlight, &mut Vec<u8>),
+    {
+        // Terminal output has no standalone carriage-return styling.
+    }
+
+    fn set_carriage_return_highlight(&mut self, _highlight: Option<Highlight>) {}
+
+    fn start_highlight<F>(&mut self, _h: Highlight, _attribute_callback: &F)
+    where
+        F: Fn(Highlight, &mut Vec<u8>),
+    {
+        // The terminal renderer drives its own event loop in `render` rather than the shared
+        // span-based loop, so this is unused.
+    }
+
+    fn end_highlight(&mut self) {}
+
+    fn render<F>(
+        &mut self,
+        highlighter: impl Iterator<Item = Result<HighlightEvent, Error>>,
+        source: &[u8],
+        _attribute_callback: &F,
+    ) -> Result<(), Error>
+    where
+        F: Fn(Highlight, &mut Vec<u8>),
+    {
+        self.highlight.clear();
+        for event in highlighter {
+            match event? {
+                HighlightEvent::HighlightStart(highlight) => {
+                    self.highlight.push(highlight);
+                }
+                HighlightEvent::HighlightEnd => {
+                    self.highlight.pop();
+                }
+                HighlightEvent::Source { start, end } => {
+                    let style = self
+                        .highlight
+                        .last()
+                        .map(|h| self.styles[h.0])
+                        .unwrap_or(self.default_style);
+                    write!(&mut self.content, "{style}").unwrap();
+                    self.content.extend_from_slice(&source[start..end]);
+                    write!(&mut self.content, "{style:#}").unwrap();
+                }
+            }
+        }
+        Ok(())
+    }
 }
 
 /// Converts a general-purpose syntax highlighting iterator into a sequence of lines of HTML.
