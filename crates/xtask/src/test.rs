@@ -7,7 +7,7 @@ use std::{
 use anyhow::{Result, anyhow};
 use regex::Regex;
 
-use crate::{Test, bail_on_err};
+use crate::{Test, bail_on_err, build_wasm::ensure_wasi_sdk_exists};
 
 pub fn run(args: &Test) -> Result<()> {
     let test_flags = if args.address_sanitizer {
@@ -130,6 +130,8 @@ pub fn run(args: &Test) -> Result<()> {
 }
 
 pub fn run_wasm() -> Result<()> {
+    run_sendable_tree_wasm_test()?;
+
     std::env::set_current_dir("lib/binding_web")?;
 
     let node_modules_dir = Path::new("node_modules");
@@ -155,5 +157,105 @@ pub fn run_wasm() -> Result<()> {
         println!("{line}");
     }
 
+    Ok(())
+}
+
+fn run_sendable_tree_wasm_test() -> Result<()> {
+    let clang = ensure_wasi_sdk_exists()?;
+    let manifest_path = Path::new("test/fixtures/wasm_sendable_tree/Cargo.toml");
+    let grammar_path = Path::new("test/fixtures/wasm_sendable_tree/grammar.js");
+    let target_dir = Path::new("target/wasm-sendable-tree-test");
+    let target = "wasm32-unknown-unknown";
+    std::fs::create_dir_all(target_dir)?;
+
+    let mut generate = Command::new("cargo");
+    generate.args([
+        "run",
+        "-p",
+        "tree-sitter-cli",
+        "--",
+        "generate",
+        "--abi",
+        "15",
+        grammar_path.to_str().unwrap(),
+    ]);
+    bail_on_err(
+        &generate.output()?,
+        "Failed to generate the sendable-tree test language",
+    )?;
+
+    let language_dir = grammar_path.parent().unwrap();
+    let language_path =
+        env::current_dir()?.join(target_dir.join("tree-sitter-sendable-tree-test.wasm"));
+    let mut compile_language = Command::new(&clang);
+    compile_language.current_dir(language_dir).args([
+        "--target=wasm32-wasip1",
+        "-matomics",
+        "-mbulk-memory",
+        "-o",
+        language_path.to_str().unwrap(),
+        "-fPIC",
+        "-shared",
+        "--no-wasm-opt",
+        "-Os",
+        "-Wl,--export=tree_sitter_sendable_tree_test",
+        "-Wl,--allow-undefined",
+        "-Wl,--no-entry",
+        "-Wl,--shared-memory",
+        "-Wl,--max-memory=268435456",
+        "-nostdlib",
+        "-fno-exceptions",
+        "-fvisibility=hidden",
+        "src/parser.c",
+    ]);
+    bail_on_err(
+        &compile_language.output()?,
+        "Failed to compile the sendable-tree test language",
+    )?;
+
+    let mut cargo = Command::new("cargo");
+    let nightly_toolchain =
+        env::var("TREE_SITTER_NIGHTLY_TOOLCHAIN").unwrap_or_else(|_| "nightly".to_string());
+    cargo
+        .args([
+            &format!("+{nightly_toolchain}"),
+            "build",
+            "-Z",
+            "build-std=std,panic_abort",
+            "--locked",
+            "--manifest-path",
+            manifest_path.to_str().unwrap(),
+            "--target",
+            target,
+            "--target-dir",
+            target_dir.to_str().unwrap(),
+        ])
+        .env("CC_wasm32_unknown_unknown", clang)
+        .env("CFLAGS_wasm32_unknown_unknown", "-matomics -mbulk-memory")
+        .env(
+            "RUSTFLAGS",
+            "-D warnings -A unstable-features -C target-feature=+atomics,+bulk-memory,+mutable-globals -C link-arg=--import-memory -C link-arg=--shared-memory -C link-arg=--max-memory=268435456 -C link-arg=--export-table -C link-arg=--growable-table",
+        );
+    bail_on_err(
+        &cargo.output()?,
+        "Failed to compile the sendable-tree Rust Wasm test",
+    )?;
+
+    let runtime_path = target_dir
+        .join(target)
+        .join("debug")
+        .join("wasm_sendable_tree_test.wasm");
+    let node = env::var_os("EMSDK_NODE").unwrap_or_else(|| "node".into());
+    let mut command = Command::new(node);
+    command.args([
+        "test/fixtures/wasm_sendable_tree/run.mjs",
+        runtime_path.to_str().unwrap(),
+        language_path.to_str().unwrap(),
+    ]);
+    bail_on_err(
+        &command.output()?,
+        "Failed to run the sendable-tree Rust Wasm test",
+    )?;
+    println!("Sendable-tree Rust Wasm test passed");
     Ok(())
 }

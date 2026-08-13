@@ -1,0 +1,14 @@
+[package]
+name = "wasm-sendable-tree-test"
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.90"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+tree-sitter = { path = "../../../lib" }
+
+[workspace]

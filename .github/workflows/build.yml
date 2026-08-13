@@ -128,6 +128,10 @@ jobs:
       with:
         target: ${{ matrix.target }}
 
+    - name: Install Rust Wasm test target
+      if: matrix.run-wasm-test
+      run: rustup toolchain install nightly --profile minimal --component rust-src
+
     - name: Install cross-compilation toolchain
       if: matrix.cross
       run: |
