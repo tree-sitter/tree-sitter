@@ -10,8 +10,11 @@ const runtime = await WebAssembly.instantiate(runtimeModule, { env: { memory } }
 const {
   __indirect_function_table: table,
   allocate_language_memory: allocateLanguageMemory,
-  parse,
-  reuse_and_delete: reuseAndDelete,
+  allocate_source: allocateSource,
+  delete_tree: deleteTree,
+  initialize,
+  parse_and_publish: parseAndPublish,
+  reparse_and_publish: reparseAndPublish,
 } = runtime.exports;
 
 if (!(table instanceof WebAssembly.Table)) {
@@ -19,13 +22,17 @@ if (!(table instanceof WebAssembly.Table)) {
 }
 for (const [name, value] of [
   ['allocate_language_memory', allocateLanguageMemory],
-  ['parse', parse],
-  ['reuse_and_delete', reuseAndDelete],
+  ['allocate_source', allocateSource],
+  ['delete_tree', deleteTree],
+  ['initialize', initialize],
+  ['parse_and_publish', parseAndPublish],
+  ['reparse_and_publish', reparseAndPublish],
 ]) {
   if (typeof value !== 'function') {
     throw new Error(`Rust test module did not export ${name}`);
   }
 }
+initialize();
 
 const memoryBase = allocateLanguageMemory(
   (SIDE_MODULE_DATA_PAGES + SIDE_MODULE_STACK_PAGES) * PAGE_SIZE,
@@ -62,18 +69,28 @@ if (!languageFunction) {
 }
 const languageAddress = languageFunction[1]();
 
-const tree = parse(languageAddress);
-if (!tree) {
-  throw new Error('parsing worker failed to create a Rust Tree');
+const parseResult = parseAndPublish(languageAddress);
+if (parseResult !== 0) {
+  throw new Error(`parsing worker failed to create the initial tree: ${parseResult}`);
 }
-parentPort.postMessage({ type: 'tree', tree });
+parentPort.postMessage({ type: 'initial-tree-ready' });
 
-parentPort.once('message', message => {
-  if (message.type !== 'tree') {
+parentPort.on('message', message => {
+  if (message.type === 'edited-tree-ready') {
+    const source = new TextEncoder().encode(message.source);
+    const sourceAddress = allocateSource(source.length);
+    if (!sourceAddress) {
+      throw new Error('parsing worker failed to allocate the edited source');
+    }
+    new Uint8Array(memory.buffer, sourceAddress, source.length).set(source);
+    const result = reparseAndPublish(languageAddress, sourceAddress, source.length);
+    if (result !== 0) {
+      throw new Error(`parsing worker failed to reparse the edited tree: ${result}`);
+    }
+    parentPort.postMessage({ type: 'new-tree-ready' });
+  } else if (message.type === 'new-tree-returned') {
+    parentPort.postMessage({ type: 'done', result: deleteTree() });
+  } else {
     throw new Error(`unexpected worker message ${message.type}`);
   }
-  parentPort.postMessage({
-    type: 'done',
-    result: reuseAndDelete(languageAddress, message.tree),
-  });
 });

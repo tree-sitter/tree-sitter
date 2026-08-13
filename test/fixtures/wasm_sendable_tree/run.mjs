@@ -3,6 +3,7 @@ import { Worker } from 'node:worker_threads';
 
 const MEMORY_PAGES = 256;
 const MAX_MEMORY_PAGES = 4096;
+const UPDATED_SOURCE = '{"value": [1, 2, 3], "nested": {"enabled": true}}';
 
 const [runtimePath, languagePath] = process.argv.slice(2);
 if (!runtimePath || !languagePath) {
@@ -21,9 +22,12 @@ if (!(memory.buffer instanceof SharedArrayBuffer)) {
 }
 
 const uiRuntime = await WebAssembly.instantiate(runtimeModule, { env: { memory } });
-if (typeof uiRuntime.exports.inspect !== 'function') {
-  throw new Error('Rust test module did not export inspect');
+for (const name of ['initialize', 'edit_and_publish', 'inspect_new_tree_and_publish']) {
+  if (typeof uiRuntime.exports[name] !== 'function') {
+    throw new Error(`Rust test module did not export ${name}`);
+  }
 }
+uiRuntime.exports.initialize();
 
 const worker = new Worker(new URL('./worker.mjs', import.meta.url), {
   workerData: { runtimeModule, languageModule, memory },
@@ -40,13 +44,20 @@ try {
     });
     worker.on('message', message => {
       try {
-        if (message.type === 'tree') {
-          const tree = uiRuntime.exports.inspect(message.tree);
-          if (!tree) {
-            reject(new Error('UI thread could not inspect the transferred Rust Tree'));
+        if (message.type === 'initial-tree-ready') {
+          const result = uiRuntime.exports.edit_and_publish();
+          if (result !== 0) {
+            reject(new Error(`UI thread failed to edit the initial tree: ${result}`));
             return;
           }
-          worker.postMessage({ type: 'tree', tree });
+          worker.postMessage({ type: 'edited-tree-ready', source: UPDATED_SOURCE });
+        } else if (message.type === 'new-tree-ready') {
+          const result = uiRuntime.exports.inspect_new_tree_and_publish();
+          if (result !== 0) {
+            reject(new Error(`UI thread failed to inspect the new tree: ${result}`));
+            return;
+          }
+          worker.postMessage({ type: 'new-tree-returned' });
         } else if (message.type === 'done') {
           finished = true;
           if (message.result === 0) {
