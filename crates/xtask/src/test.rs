@@ -130,8 +130,6 @@ pub fn run(args: &Test) -> Result<()> {
 }
 
 pub fn run_wasm() -> Result<()> {
-    run_sendable_tree_wasm_test()?;
-
     std::env::set_current_dir("lib/binding_web")?;
 
     let node_modules_dir = Path::new("node_modules");
@@ -160,7 +158,7 @@ pub fn run_wasm() -> Result<()> {
     Ok(())
 }
 
-fn run_sendable_tree_wasm_test() -> Result<()> {
+pub fn run_wasm_sendable_tree() -> Result<()> {
     let clang = ensure_wasi_sdk_exists()?;
     let manifest_path = Path::new("test/fixtures/wasm_sendable_tree/Cargo.toml");
     let grammar_path = Path::new("test/fixtures/grammars/json/grammar.js");

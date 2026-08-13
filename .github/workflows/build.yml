@@ -299,6 +299,10 @@ jobs:
       if: inputs.run-test && !matrix.no-run && contains(matrix.features, 'wasm') && matrix.run-wasm-test
       run: cargo run -p xtask --target='${{ matrix.target }}' -- test-wasm
 
+    - name: Run sendable-tree Wasm test
+      if: inputs.run-test && !matrix.no-run && contains(matrix.features, 'wasm') && matrix.run-wasm-test
+      run: cargo run -p xtask --target='${{ matrix.target }}' -- test-wasm-sendable-tree
+
     - name: Upload CLI artifact
       if: "!inputs.run-test && !matrix.no-run"
       uses: actions/upload-artifact@v7
