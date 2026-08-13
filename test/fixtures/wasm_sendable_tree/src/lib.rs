@@ -1,11 +1,14 @@
 use std::{
-    alloc::{Layout, alloc, alloc_zeroed, dealloc, realloc},
+    alloc::{GlobalAlloc, Layout},
+    cell::UnsafeCell,
     ffi::c_void,
+    ptr,
     slice,
     str,
-    sync::atomic::{AtomicU32, Ordering},
+    sync::atomic::{AtomicBool, AtomicU32, Ordering},
 };
 
+use dlmalloc::Dlmalloc;
 use tree_sitter::{
     InputEdit, Language, LanguageError, Parser, Point, Tree,
     ffi::TSLanguage,
@@ -17,101 +20,93 @@ const UPDATED_SOURCE: &str = r#"{"value": [1, 2, 3], "nested": {"enabled": true}
 const EDIT_START_BYTE: usize = 10;
 const EDIT_OLD_END_BYTE: usize = 11;
 const EDIT_NEW_END_BYTE: usize = 48;
-const C_ALIGNMENT: usize = 16;
+const C_ALIGNMENT: usize = 2 * size_of::<usize>();
 
 static TREE_SLOT: AtomicU32 = AtomicU32::new(0);
 
-#[repr(C, align(16))]
-struct AllocationHeader {
-    payload_size: usize,
+struct SharedDlmalloc {
+    locked: AtomicBool,
+    allocator: UnsafeCell<Dlmalloc>,
 }
+
+unsafe impl Sync for SharedDlmalloc {}
+
+impl SharedDlmalloc {
+    const fn new() -> Self {
+        Self {
+            locked: AtomicBool::new(false),
+            allocator: UnsafeCell::new(Dlmalloc::new()),
+        }
+    }
+
+    fn with_lock<T>(&self, operation: impl FnOnce(&mut Dlmalloc) -> T) -> T {
+        while self.locked.swap(true, Ordering::Acquire) {
+            std::hint::spin_loop();
+        }
+
+        struct LockGuard<'a>(&'a AtomicBool);
+
+        impl Drop for LockGuard<'_> {
+            fn drop(&mut self) {
+                self.0.store(false, Ordering::Release);
+            }
+        }
+
+        let _guard = LockGuard(&self.locked);
+        operation(unsafe { &mut *self.allocator.get() })
+    }
+}
+
+unsafe impl GlobalAlloc for SharedDlmalloc {
+    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+        self.with_lock(|allocator| unsafe { allocator.malloc(layout.size(), layout.align()) })
+    }
+
+    unsafe fn alloc_zeroed(&self, layout: Layout) -> *mut u8 {
+        self.with_lock(|allocator| unsafe { allocator.calloc(layout.size(), layout.align()) })
+    }
+
+    unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
+        self.with_lock(|allocator| unsafe {
+            allocator.free(ptr, layout.size(), layout.align());
+        });
+    }
+
+    unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
+        self.with_lock(|allocator| unsafe {
+            allocator.realloc(ptr, layout.size(), layout.align(), new_size)
+        })
+    }
+}
+
+#[global_allocator]
+static ALLOCATOR: SharedDlmalloc = SharedDlmalloc::new();
 
 fn send<T: Send>(value: T) -> T {
     value
 }
 
-fn allocation_layout(payload_size: usize) -> Option<Layout> {
-    Layout::from_size_align(size_of::<AllocationHeader>().checked_add(payload_size)?, C_ALIGNMENT)
-        .ok()
+unsafe extern "C" fn c_malloc(size: usize) -> *mut c_void {
+    ALLOCATOR.with_lock(|allocator| unsafe { allocator.c_malloc(size).cast() })
 }
 
-unsafe extern "C" fn rust_malloc(size: usize) -> *mut c_void {
-    let Some(layout) = allocation_layout(size) else {
-        return std::ptr::null_mut();
-    };
-    let allocation = unsafe { alloc(layout) };
-    if allocation.is_null() {
-        return std::ptr::null_mut();
-    }
-    unsafe {
-        allocation
-            .cast::<AllocationHeader>()
-            .write(AllocationHeader { payload_size: size });
-    }
-    unsafe { allocation.add(size_of::<AllocationHeader>()).cast() }
-}
-
-unsafe extern "C" fn rust_calloc(count: usize, size: usize) -> *mut c_void {
+unsafe extern "C" fn c_calloc(count: usize, size: usize) -> *mut c_void {
     let Some(payload_size) = count.checked_mul(size) else {
-        return std::ptr::null_mut();
+        return ptr::null_mut();
     };
-    let Some(layout) = allocation_layout(payload_size) else {
-        return std::ptr::null_mut();
-    };
-    let allocation = unsafe { alloc_zeroed(layout) };
-    if allocation.is_null() {
-        return std::ptr::null_mut();
-    }
-    unsafe {
-        allocation
-            .cast::<AllocationHeader>()
-            .write(AllocationHeader { payload_size });
-    }
-    unsafe { allocation.add(size_of::<AllocationHeader>()).cast() }
+    ALLOCATOR.with_lock(|allocator| unsafe {
+        allocator.calloc(payload_size, C_ALIGNMENT).cast()
+    })
 }
 
-unsafe fn allocation_header(ptr: *mut c_void) -> *mut AllocationHeader {
-    unsafe {
-        ptr.cast::<u8>()
-            .sub(size_of::<AllocationHeader>())
-            .cast()
-    }
+unsafe extern "C" fn c_realloc(ptr: *mut c_void, size: usize) -> *mut c_void {
+    ALLOCATOR.with_lock(|allocator| unsafe { allocator.c_realloc(ptr.cast(), size).cast() })
 }
 
-unsafe extern "C" fn rust_realloc(ptr: *mut c_void, size: usize) -> *mut c_void {
-    if ptr.is_null() {
-        return unsafe { rust_malloc(size) };
-    }
-    if size == 0 {
-        unsafe { rust_free(ptr) };
-        return std::ptr::null_mut();
-    }
-
-    let header = unsafe { allocation_header(ptr) };
-    let old_size = unsafe { (*header).payload_size };
-    let old_layout = allocation_layout(old_size).unwrap();
-    let Some(new_layout) = allocation_layout(size) else {
-        return std::ptr::null_mut();
-    };
-    let allocation = unsafe { realloc(header.cast(), old_layout, new_layout.size()) };
-    if allocation.is_null() {
-        return std::ptr::null_mut();
-    }
-    unsafe {
-        allocation
-            .cast::<AllocationHeader>()
-            .write(AllocationHeader { payload_size: size });
-    }
-    unsafe { allocation.add(size_of::<AllocationHeader>()).cast() }
-}
-
-unsafe extern "C" fn rust_free(ptr: *mut c_void) {
-    if ptr.is_null() {
-        return;
-    }
-    let header = unsafe { allocation_header(ptr) };
-    let layout = allocation_layout(unsafe { (*header).payload_size }).unwrap();
-    unsafe { dealloc(header.cast(), layout) };
+unsafe extern "C" fn c_free(ptr: *mut c_void) {
+    ALLOCATOR.with_lock(|allocator| unsafe {
+        allocator.c_free(ptr.cast());
+    });
 }
 
 fn publish(tree: Tree) -> Result<(), Tree> {
@@ -136,10 +131,10 @@ fn take() -> Option<Tree> {
 pub unsafe extern "C" fn initialize() {
     unsafe {
         set_allocator(
-            Some(rust_malloc),
-            Some(rust_calloc),
-            Some(rust_realloc),
-            Some(rust_free),
+            Some(c_malloc),
+            Some(c_calloc),
+            Some(c_realloc),
+            Some(c_free),
         );
     }
 }
@@ -152,7 +147,7 @@ pub unsafe extern "C" fn initialize() {
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn allocate_language_memory(size: u32, alignment: u32) -> u32 {
     let layout = Layout::from_size_align(size as usize, alignment as usize).unwrap();
-    unsafe { alloc_zeroed(layout) as u32 }
+    unsafe { ALLOCATOR.alloc_zeroed(layout) as u32 }
 }
 
 /// Allocate a source buffer that JavaScript can fill.
@@ -162,7 +157,7 @@ pub unsafe extern "C" fn allocate_language_memory(size: u32, alignment: u32) -> 
 /// The returned buffer must be passed exactly once to `reparse_and_publish`.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn allocate_source(size: u32) -> u32 {
-    unsafe { rust_malloc(size as usize) as u32 }
+    unsafe { c_malloc(size as usize) as u32 }
 }
 
 /// Parse the initial source and publish its tree into shared memory.
@@ -239,33 +234,33 @@ pub unsafe extern "C" fn reparse_and_publish(
     let source_bytes =
         unsafe { slice::from_raw_parts(source_address as *const u8, source_length as usize) };
     let Ok(source) = str::from_utf8(source_bytes) else {
-        unsafe { rust_free(source_ptr) };
+        unsafe { c_free(source_ptr) };
         return 1;
     };
     if source != UPDATED_SOURCE {
-        unsafe { rust_free(source_ptr) };
+        unsafe { c_free(source_ptr) };
         return 2;
     }
 
     let language = unsafe { Language::from_raw(language_address as *const TSLanguage) };
     let Some(tree) = take() else {
-        unsafe { rust_free(source_ptr) };
+        unsafe { c_free(source_ptr) };
         return 3;
     };
     let tree_language = Language::clone(&tree.language());
     if Parser::new().set_language(&tree_language) != Err(LanguageError::NotParseable) {
-        unsafe { rust_free(source_ptr) };
+        unsafe { c_free(source_ptr) };
         return 4;
     }
     drop(tree_language);
 
     let mut parser = Parser::new();
     if parser.set_language(&language).is_err() {
-        unsafe { rust_free(source_ptr) };
+        unsafe { c_free(source_ptr) };
         return 5;
     }
     let new_tree = parser.parse(source, Some(&tree));
-    unsafe { rust_free(source_ptr) };
+    unsafe { c_free(source_ptr) };
     let Some(new_tree) = new_tree else {
         return 6;
     };
