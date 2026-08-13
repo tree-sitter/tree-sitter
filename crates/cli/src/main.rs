@@ -531,6 +531,11 @@ struct Highlight {
     /// Command prefix for generated LaTeX macros
     #[arg(long, default_value = "TS")]
     pub prefix: String,
+    /// Comma-separated scopes whose contents use LaTeX math-mode escaping
+    /// (like pygmentize), e.g. `comment,string`. `comment` also matches
+    /// `comment.*`. Only valid with `--formatter=latex`.
+    #[arg(long, default_value = "")]
+    pub math_escape: String,
     /// Deprecated: use `--style classes`
     #[arg(long, requires = "markup", conflicts_with = "style")]
     pub css_classes: bool,
@@ -1769,6 +1774,19 @@ impl Highlight {
             ));
         }
 
+        // `--math-escape` only namespaces the escaping behavior of the LaTeX
+        // formatter, so it carries no meaning with the terminal or HTML
+        // formatters. Reject an explicit use of it instead of silently ignoring it.
+        if (self.html || !matches!(self.formatter, FormatterArg::Latex))
+            && matches
+                .value_source("math_escape")
+                .is_some_and(|s| s == ValueSource::CommandLine)
+        {
+            return Err(anyhow!(
+                "--math-escape is not valid with the terminal or HTML formatters"
+            ));
+        }
+
         let style = if self.css_classes {
             // TODO: Remove during the 0.28 release cycle
             warn!("--css-classes is deprecated, use --style classes instead");
@@ -1787,12 +1805,38 @@ impl Highlight {
             }
         };
 
+        // Resolve `--math-escape` scope patterns into the set of highlight
+        // indices they match. `comment` matches `comment` and `comment.*`.
+        let math_escape_indices: HashSet<usize> = {
+            let patterns: Vec<&str> = self
+                .math_escape
+                .split(',')
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .collect();
+            if patterns.is_empty() {
+                HashSet::new()
+            } else {
+                theme_config
+                    .theme
+                    .highlight_names
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, name)| {
+                        patterns.iter().any(|p| *name == p || name.starts_with(&format!("{p}.")))
+                    })
+                    .map(|(i, _)| i)
+                    .collect()
+            }
+        };
+
         let options = HighlightOptions {
             theme: theme_config.theme,
             check: self.check,
             captures_path: self.captures_path,
             formatter,
             prefix: self.prefix.trim_start_matches('\\').to_string(),
+            math_escape_indices,
             quiet: self.quiet,
             print_time: self.time,
             cancellation_flag: cancellation_flag.clone(),

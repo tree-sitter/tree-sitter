@@ -1319,7 +1319,11 @@ pub trait Renderer: Default {
 
     fn end_highlight(&mut self);
 
-    fn escape_char(&self, c: u8) -> Option<Vec<u8>> {
+    fn escape_char(
+        &mut self,
+        c: u8,
+        _highlights: &[Highlight],
+    ) -> Option<Vec<u8>> {
         match c as char {
             _ => None,
         }
@@ -1353,7 +1357,7 @@ pub trait Renderer: Default {
                 for scope in highlights {
                     self.start_highlight(*scope, attribute_callback);
                 }
-            } else if let Some(escape) = self.escape_char(c) {
+            } else if let Some(escape) = self.escape_char(c, highlights) {
                 self.content().extend(escape);
             } else {
                 self.content().push(c);
@@ -1474,7 +1478,7 @@ impl Renderer for HtmlRenderer {
         self.content().extend(b"</span>");
     }
 
-    fn escape_char(&self, c: u8) -> Option<Vec<u8>> {
+    fn escape_char(&mut self, c: u8, _highlights: &[Highlight]) -> Option<Vec<u8>> {
         match c as char {
             '>' => Some(b"&gt;".to_vec()),
             '<' => Some(b"&lt;".to_vec()),
@@ -1517,23 +1521,35 @@ pub struct TexRenderer {
     last_carriage_return: Option<usize>,
     // Command prefix (without a leading backslash), e.g. "TS" -> emits `\TS{...}{...}`.
     tex_prefix: String,
+    /// Indices (into a theme's `highlight_names`) of scopes whose contents use
+    /// LaTeX math-mode escaping (like pygmentize). Empty by default.
+    math_escape_indices: HashSet<usize>,
+    /// Whether we are currently inside a `$...$` math-mode region within a
+    /// math-escape scope.
+    in_math_mode: bool,
 }
 
 impl Default for TexRenderer {
     fn default() -> Self {
-        Self::new("TS".to_string())
+        Self::new("TS".to_string(), HashSet::new())
     }
 }
 
 impl TexRenderer {
+    /// Create a renderer with the given command `prefix` and the set of scope
+    /// indices that use LaTeX math-mode escaping (like pygmentize). Within those
+    /// scopes, characters between a pair of `$` delimiters are emitted verbatim
+    /// (so `$x_1$` is not mangled).
     #[must_use]
-    pub fn new(tex_prefix: String) -> Self {
+    pub fn new(tex_prefix: String, math_escape_indices: HashSet<usize>) -> Self {
         let mut result = Self {
             content: Vec::with_capacity(BUFFER_RESERVE_CAPACITY),
             line_offsets: Vec::with_capacity(BUFFER_LINES_RESERVE_CAPACITY),
             carriage_return_highlight: None,
             last_carriage_return: None,
             tex_prefix,
+            math_escape_indices,
+            in_math_mode: false,
         };
         result.line_offsets.push(0);
         result
@@ -1585,7 +1601,31 @@ impl Renderer for TexRenderer {
         self.content.extend(b"}");
     }
 
-    fn escape_char(&self, c: u8) -> Option<Vec<u8>> {
+    fn escape_char(&mut self, c: u8, highlights: &[Highlight]) -> Option<Vec<u8>> {
+        // Whether the current character sits within a math-escape scope. A scope
+        // is active if it is anywhere in the open-highlight stack.
+        let in_math_scope = highlights
+            .iter()
+            .any(|h| self.math_escape_indices.contains(&h.0));
+
+        if in_math_scope {
+            // A `$` toggles math mode and is emitted verbatim. Inside the `$...$`
+            // region, characters are left untouched (matching pygmentize's LaTeX
+            // formatter), so subscripts, carets, etc. render naturally. Outside
+            // the delimiters, special characters are still escaped as usual.
+            if c == b'$' {
+                self.in_math_mode = !self.in_math_mode;
+                return None;
+            }
+            if self.in_math_mode {
+                return None;
+            }
+        } else {
+            // Leaving a math-escape scope (or being outside one entirely) clears
+            // math-mode state so it cannot leak into a later region.
+            self.in_math_mode = false;
+        }
+
         // Special characters are emitted as named macros (e.g. `\TSZdl`), whose
         // definitions live in the LaTeX preamble (see `write_tex_preamble`).
         let suffix = TEX_CHAR_ESCAPES

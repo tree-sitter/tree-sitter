@@ -548,6 +548,9 @@ pub struct HighlightOptions {
     pub formatter: Formatter,
     /// Command prefix for generated LaTeX macros (without a leading backslash), default "TS".
     pub prefix: String,
+    /// Indices (into `theme.highlight_names`) of scopes whose contents use
+    /// LaTeX math-mode escaping. Empty when `--math-escape` is not given.
+    pub math_escape_indices: HashSet<usize>,
     pub quiet: bool,
     pub print_time: bool,
     pub cancellation_flag: Arc<AtomicUsize>,
@@ -708,7 +711,7 @@ pub fn highlight(
 
         Formatter::Latex(layout, style) => {
             let prefix = &opts.prefix; // already trimmed of leading backslash in main.rs
-            let mut renderer = TexRenderer::new(prefix.clone());
+            let mut renderer = TexRenderer::new(prefix.clone(), opts.math_escape_indices.clone());
             let attribute_callback = |highlight: Highlight, output: &mut Vec<u8>| {
                 let name = theme.highlight_names[highlight.0].as_bytes();
                 match style {
