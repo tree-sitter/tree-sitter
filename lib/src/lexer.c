@@ -114,6 +114,13 @@ static void ts_lexer__get_lookahead(Lexer *self) {
   }
 
   const uint8_t *chunk = (const uint8_t *)self->chunk + position_in_chunk;
+
+  if (self->input.encoding == TSInputEncodingUTF8 && chunk[0] < 0x80) {
+    self->data.lookahead = chunk[0];
+    self->lookahead_size = 1;
+    return;
+  }
+
   TSDecodeFunction decode =
     self->input.encoding == TSInputEncodingUTF8    ? ts_decode_utf8     :
     self->input.encoding == TSInputEncodingUTF16LE ? ts_decode_utf16_le :
