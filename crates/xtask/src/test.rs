@@ -161,7 +161,7 @@ pub fn run_wasm() -> Result<()> {
 pub fn run_rust_wasm_web() -> Result<()> {
     let clang = ensure_wasi_sdk_exists()?;
     let manifest_path = Path::new("test/fixtures/rust_wasm_web/Cargo.toml");
-    let grammar_path = Path::new("test/fixtures/grammars/json/grammar.js");
+    let grammar_path = Path::new("test/fixtures/grammars/javascript/grammar.js");
     let target_dir = Path::new("target/rust-wasm-web-test");
     let target = "wasm32-unknown-unknown";
     std::fs::create_dir_all(target_dir)?;
@@ -183,7 +183,9 @@ pub fn run_rust_wasm_web() -> Result<()> {
     )?;
 
     let language_dir = grammar_path.parent().unwrap();
-    let language_path = env::current_dir()?.join(target_dir.join("tree-sitter-json.wasm"));
+    let language_path = env::current_dir()?.join(target_dir.join("tree-sitter-javascript.wasm"));
+    let scanner_shim =
+        env::current_dir()?.join("test/fixtures/rust_wasm_web/src/javascript_scanner_shim.c");
     let mut compile_language = Command::new(&clang);
     compile_language.current_dir(language_dir).args([
         "--target=wasm32-wasip1",
@@ -195,7 +197,7 @@ pub fn run_rust_wasm_web() -> Result<()> {
         "-shared",
         "--no-wasm-opt",
         "-Os",
-        "-Wl,--export=tree_sitter_json",
+        "-Wl,--export=tree_sitter_javascript",
         "-Wl,--allow-undefined",
         "-Wl,--no-entry",
         "-Wl,--shared-memory",
@@ -204,6 +206,8 @@ pub fn run_rust_wasm_web() -> Result<()> {
         "-fno-exceptions",
         "-fvisibility=hidden",
         "src/parser.c",
+        "src/scanner.c",
+        scanner_shim.to_str().unwrap(),
     ]);
     bail_on_err(
         &compile_language.output()?,
@@ -231,7 +235,7 @@ pub fn run_rust_wasm_web() -> Result<()> {
         .env("CFLAGS_wasm32_unknown_unknown", "-matomics -mbulk-memory")
         .env(
             "RUSTFLAGS",
-            "-D warnings -A unstable-features -C target-feature=+atomics,+bulk-memory,+mutable-globals -C link-arg=--import-memory -C link-arg=--shared-memory -C link-arg=--max-memory=268435456 -C link-arg=--export-table -C link-arg=--growable-table",
+            "-D warnings -A unstable-features -C target-feature=+atomics,+bulk-memory,+mutable-globals -C link-arg=--import-memory -C link-arg=--shared-memory -C link-arg=--max-memory=268435456 -C link-arg=--export-table -C link-arg=--growable-table -C link-arg=--export=__stack_pointer",
         );
     bail_on_err(&cargo.output()?, "Failed to compile the Rust Wasm web test")?;
 

@@ -3,6 +3,7 @@ import { Worker } from 'node:worker_threads';
 
 const MEMORY_PAGES = 256;
 const MAX_MEMORY_PAGES = 4096;
+const control = new Int32Array(new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT));
 
 const [runtimePath, languagePath] = process.argv.slice(2);
 if (!runtimePath || !languagePath) {
@@ -33,11 +34,17 @@ const uiRuntime = await WebAssembly.instantiate(runtimeModule, {
         new Uint8Array(memory.buffer, sourceAddress, sourceLength),
       );
       pendingRequest = requestAddress;
+      if (oldTree) {
+        Atomics.store(control, 0, 0);
+      }
       worker.postMessage(oldTree ? { text: source, oldTree } : { text: source });
+    },
+    pause_worker() {
+      throw new Error('UI runtime unexpectedly paused for parsing');
     },
   },
 });
-for (const name of ['initialize', 'start', 'tree_ready']) {
+for (const name of ['initialize', 'read_tree_while_parsing', 'start', 'tree_ready']) {
   if (typeof uiRuntime.exports[name] !== 'function') {
     throw new Error(`Rust test module did not export ${name}`);
   }
@@ -45,7 +52,7 @@ for (const name of ['initialize', 'start', 'tree_ready']) {
 uiRuntime.exports.initialize();
 
 worker = new Worker(new URL('./worker.mjs', import.meta.url), {
-  workerData: { runtimeModule, languageModule, memory },
+  workerData: { control, runtimeModule, languageModule, memory },
 });
 
 try {
@@ -59,6 +66,16 @@ try {
     });
     worker.on('message', message => {
       try {
+        if (message?.ready === true) {
+          uiRuntime.exports.start();
+          return;
+        }
+        if (message?.parsing === true) {
+          uiRuntime.exports.read_tree_while_parsing(pendingRequest);
+          Atomics.store(control, 0, 1);
+          Atomics.notify(control, 0);
+          return;
+        }
         if (!Number.isInteger(message?.tree) || message.tree === 0) {
           throw new Error('worker did not return a tree');
         }
@@ -75,7 +92,6 @@ try {
         reject(error);
       }
     });
-    uiRuntime.exports.start();
   });
 } finally {
   await worker.terminate();

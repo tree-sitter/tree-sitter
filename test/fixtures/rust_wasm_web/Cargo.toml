@@ -6,6 +6,7 @@ rust-version = "1.90"
 publish = false
 
 [lib]
+path = "src/rust_wasm_web.rs"
 crate-type = ["cdylib"]
 
 [dependencies]

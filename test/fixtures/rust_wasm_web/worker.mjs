@@ -4,17 +4,23 @@ const PAGE_SIZE = 64 * 1024;
 const SIDE_MODULE_DATA_PAGES = 32;
 const SIDE_MODULE_STACK_PAGES = 16;
 const SIDE_MODULE_TABLE_ELEMENTS = 1024;
+const RUNTIME_STACK_PAGES = 16;
 
-const { runtimeModule, languageModule, memory } = workerData;
+const { control, runtimeModule, languageModule, memory } = workerData;
 const runtime = await WebAssembly.instantiate(runtimeModule, {
   env: {
     memory,
     request_parse() {
       throw new Error('parsing worker unexpectedly requested a parse');
     },
+    pause_worker() {
+      parentPort.postMessage({ parsing: true });
+      Atomics.wait(control, 0, 0);
+    },
   },
 });
 const {
+  __stack_pointer: stackPointer,
   __indirect_function_table: table,
   allocate_language_memory: allocateLanguageMemory,
   allocate_source: allocateSource,
@@ -24,6 +30,9 @@ const {
 
 if (!(table instanceof WebAssembly.Table)) {
   throw new Error('Rust test module did not export its indirect function table');
+}
+if (!(stackPointer instanceof WebAssembly.Global)) {
+  throw new Error('Rust test module did not export its stack pointer');
 }
 for (const [name, value] of [
   ['allocate_language_memory', allocateLanguageMemory],
@@ -36,6 +45,12 @@ for (const [name, value] of [
   }
 }
 initialize();
+
+const runtimeStackBase = allocateLanguageMemory(RUNTIME_STACK_PAGES * PAGE_SIZE, PAGE_SIZE);
+if (!runtimeStackBase) {
+  throw new Error('Rust test module failed to allocate the worker runtime stack');
+}
+stackPointer.value = runtimeStackBase + RUNTIME_STACK_PAGES * PAGE_SIZE;
 
 const memoryBase = allocateLanguageMemory(
   (SIDE_MODULE_DATA_PAGES + SIDE_MODULE_STACK_PAGES) * PAGE_SIZE,
@@ -72,6 +87,8 @@ if (!languageFunction) {
 }
 const languageAddress = languageFunction[1]();
 
+parentPort.postMessage({ ready: true });
+
 parentPort.on('message', message => {
   if (
     typeof message?.text !== 'string' ||
@@ -93,7 +110,7 @@ parentPort.on('message', message => {
     message.oldTree ?? 0,
   );
   if (tree === 0) {
-    throw new Error('parsing worker failed to parse JSON');
+    throw new Error('parsing worker failed to parse JavaScript');
   }
   parentPort.postMessage({ tree });
 });

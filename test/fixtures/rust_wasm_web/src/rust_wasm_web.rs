@@ -11,8 +11,12 @@ use std::{
 };
 
 use tree_sitter::{
-    InputEdit, Language, LanguageError, Parser, Point, Tree, ffi::TSLanguage,
+    InputEdit, Language, LanguageError, Node, Parser, Point, Tree, ffi::TSLanguage,
 };
+
+const INITIAL_SOURCE: &str = "const value = []\n";
+const INITIAL_SEXP: &str =
+    "(program (lexical_declaration (variable_declarator name: (identifier) value: (array))))";
 
 type Application = Pin<Box<dyn Future<Output = ()>>>;
 
@@ -22,6 +26,11 @@ unsafe impl Sync for ApplicationSlot {}
 
 static APPLICATION: ApplicationSlot = ApplicationSlot(UnsafeCell::new(None));
 
+#[unsafe(no_mangle)]
+pub extern "C" fn abort() -> ! {
+    std::process::abort()
+}
+
 #[link(wasm_import_module = "env")]
 unsafe extern "C" {
     fn request_parse(
@@ -30,10 +39,23 @@ unsafe extern "C" {
         old_tree_address: u32,
         request_address: u32,
     );
+    fn pause_worker();
 }
 
 fn send<T: Send>(value: T) -> T {
     value
+}
+
+fn assert_send_sync<T: Send + Sync>() {}
+
+fn array_node(tree: &Tree) -> Node<'_> {
+    tree.root_node()
+        .named_child(0)
+        .unwrap()
+        .named_child(0)
+        .unwrap()
+        .child_by_field_name("value")
+        .unwrap()
 }
 
 fn parse_on_worker(
@@ -63,7 +85,18 @@ fn parse_on_worker(
     if parser.set_language(&language).is_err() {
         return Err(3);
     }
-    let Some(tree) = parser.parse(source, old_tree.as_ref()) else {
+    let mut paused = false;
+    let Some(tree) = parser.parse_with_options(
+        &mut |byte_offset, _| {
+            if old_tree.is_some() && !paused {
+                paused = true;
+                unsafe { pause_worker() };
+            }
+            source.as_bytes().get(byte_offset..).unwrap_or_default()
+        },
+        old_tree.as_ref(),
+        None,
+    ) else {
         return Err(4);
     };
     Ok(send(tree))
@@ -72,6 +105,7 @@ fn parse_on_worker(
 struct ParseRequest<'a> {
     source: &'a str,
     old_tree: Option<Tree>,
+    retained_tree: Option<&'a Tree>,
     requested: bool,
     result: Option<Tree>,
     _pinned: PhantomPinned,
@@ -107,10 +141,15 @@ impl Future for ParseRequest<'_> {
     }
 }
 
-fn parse(source: &str, old_tree: Option<Tree>) -> ParseRequest<'_> {
+fn parse<'a>(
+    source: &'a str,
+    old_tree: Option<Tree>,
+    retained_tree: Option<&'a Tree>,
+) -> ParseRequest<'a> {
     ParseRequest {
         source,
         old_tree,
+        retained_tree,
         requested: false,
         result: None,
         _pinned: PhantomPinned,
@@ -118,32 +157,35 @@ fn parse(source: &str, old_tree: Option<Tree>) -> ParseRequest<'_> {
 }
 
 async fn run() {
-    let mut source = String::from(r#"{"value": 1}"#);
-    let mut tree = parse(&source, None).await;
-    assert_eq!(
-        tree.root_node().to_sexp(),
-        "(document (object (pair key: (string (string_content)) value: (number))))"
-    );
+    let mut source = String::from(INITIAL_SOURCE);
+    let mut tree = parse(&source, None, None).await;
+    assert_eq!(tree.root_node().to_sexp(), INITIAL_SEXP);
+    assert_eq!(array_node(&tree).named_child_count(), 0);
 
-    let edit_start = 10;
-    let old_end = 11;
-    let replacement = r#"[1, 2, 3], "nested": {"enabled": true}"#;
-    source.replace_range(edit_start..old_end, replacement);
-    let new_end = edit_start + replacement.len();
-    tree.edit(&InputEdit {
-        start_byte: edit_start,
-        old_end_byte: old_end,
-        new_end_byte: new_end,
-        start_position: Point::new(0, edit_start),
-        old_end_position: Point::new(0, old_end),
-        new_end_position: Point::new(0, new_end),
-    });
+    for integer in 0..100 {
+        let edit_start = source.find(']').unwrap();
+        let insertion = if integer == 0 {
+            integer.to_string()
+        } else {
+            format!(", {integer}")
+        };
+        source.insert_str(edit_start, &insertion);
+        let new_end = edit_start + insertion.len();
+        tree.edit(&InputEdit {
+            start_byte: edit_start,
+            old_end_byte: edit_start,
+            new_end_byte: new_end,
+            start_position: Point::new(0, edit_start),
+            old_end_position: Point::new(0, edit_start),
+            new_end_position: Point::new(0, new_end),
+        });
 
-    tree = parse(&source, Some(tree)).await;
-    assert_eq!(
-        tree.root_node().to_sexp(),
-        "(document (object (pair key: (string (string_content)) value: (array (number) (number) (number))) (pair key: (string (string_content)) value: (object (pair key: (string (string_content)) value: (true))))))"
-    );
+        let retained_tree = tree.clone();
+        tree = parse(&source, Some(tree), Some(&retained_tree)).await;
+        assert_eq!(array_node(&retained_tree).named_child_count(), integer);
+        assert_eq!(array_node(&tree).named_child_count(), integer + 1);
+        assert!(retained_tree.changed_ranges(&tree).len() > 0);
+    }
 }
 
 fn poll_application() -> bool {
@@ -189,7 +231,7 @@ pub unsafe extern "C" fn allocate_source(size: u32) -> u32 {
     unsafe { allocator::allocate(size as usize) as u32 }
 }
 
-/// Parse source as JSON, optionally using the given old tree.
+/// Parse JavaScript source, optionally using the given old tree.
 ///
 /// # Safety
 ///
@@ -221,6 +263,7 @@ pub unsafe extern "C" fn parse_and_return(
 /// This must be called exactly once after `initialize`.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn start() {
+    assert_send_sync::<Tree>();
     let application = unsafe { &mut *APPLICATION.0.get() };
     assert!(application.is_none());
     *application = Some(Box::pin(run()));
@@ -242,4 +285,20 @@ pub unsafe extern "C" fn tree_ready(request_address: u32, tree_address: u32) -> 
     assert!(request.result.is_none());
     request.result = Some(send(unsafe { Tree::from_raw(tree_address as *mut _) }));
     u32::from(poll_application())
+}
+
+/// Read the retained UI tree while the worker is incrementally parsing its clone.
+///
+/// # Safety
+///
+/// `request_address` must identify the pending incremental `ParseRequest`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn read_tree_while_parsing(request_address: u32) {
+    let request = unsafe { &*(request_address as *const ParseRequest<'static>) };
+    let tree = request.retained_tree.unwrap();
+    let child_count = array_node(tree).named_child_count();
+    for _ in 0..10 {
+        assert_eq!(array_node(tree).named_child_count(), child_count);
+        assert!(!tree.root_node().to_sexp().is_empty());
+    }
 }

@@ -68,11 +68,13 @@ unsafe impl GlobalAlloc for SharedDlmalloc {
 #[global_allocator]
 static ALLOCATOR: SharedDlmalloc = SharedDlmalloc::new();
 
-unsafe extern "C" fn c_malloc(size: usize) -> *mut c_void {
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn malloc(size: usize) -> *mut c_void {
     ALLOCATOR.with_lock(|allocator| unsafe { allocator.c_malloc(size).cast() })
 }
 
-unsafe extern "C" fn c_calloc(count: usize, size: usize) -> *mut c_void {
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn calloc(count: usize, size: usize) -> *mut c_void {
     let Some(payload_size) = count.checked_mul(size) else {
         return ptr::null_mut();
     };
@@ -81,11 +83,13 @@ unsafe extern "C" fn c_calloc(count: usize, size: usize) -> *mut c_void {
     })
 }
 
-unsafe extern "C" fn c_realloc(ptr: *mut c_void, size: usize) -> *mut c_void {
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn realloc(ptr: *mut c_void, size: usize) -> *mut c_void {
     ALLOCATOR.with_lock(|allocator| unsafe { allocator.c_realloc(ptr.cast(), size).cast() })
 }
 
-unsafe extern "C" fn c_free(ptr: *mut c_void) {
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn free(ptr: *mut c_void) {
     ALLOCATOR.with_lock(|allocator| unsafe {
         allocator.c_free(ptr.cast());
     });
@@ -94,16 +98,16 @@ unsafe extern "C" fn c_free(ptr: *mut c_void) {
 pub fn initialize() {
     unsafe {
         tree_sitter::set_allocator(
-            Some(c_malloc),
-            Some(c_calloc),
-            Some(c_realloc),
-            Some(c_free),
+            Some(malloc),
+            Some(calloc),
+            Some(realloc),
+            Some(free),
         );
     }
 }
 
 pub unsafe fn allocate(size: usize) -> *mut u8 {
-    unsafe { c_malloc(size).cast() }
+    unsafe { malloc(size).cast() }
 }
 
 pub unsafe fn allocate_zeroed(layout: Layout) -> *mut u8 {
@@ -111,5 +115,5 @@ pub unsafe fn allocate_zeroed(layout: Layout) -> *mut u8 {
 }
 
 pub unsafe fn deallocate(ptr: *mut u8) {
-    unsafe { c_free(ptr.cast()) };
+    unsafe { free(ptr.cast()) };
 }
