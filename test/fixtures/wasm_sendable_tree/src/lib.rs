@@ -35,14 +35,14 @@ pub unsafe extern "C" fn parse(language_address: u32) -> u32 {
         return 0;
     }
 
-    let Some(tree) = parser.parse("the-value", None) else {
+    let Some(tree) = parser.parse(r#"{"value": 1}"#, None) else {
         return 0;
     };
-    if tree.root_node().kind() != "first_rule" || tree.language().is_parseable() {
+    if tree.root_node().kind() != "document" || tree.language().is_parseable() {
         return 0;
     }
     let tree_copy = tree.clone();
-    if tree_copy.root_node().kind() != "first_rule" {
+    if tree_copy.root_node().kind() != "document" {
         return 0;
     }
     drop(tree_copy);
@@ -61,7 +61,7 @@ pub unsafe extern "C" fn parse(language_address: u32) -> u32 {
 pub unsafe extern "C" fn inspect(tree_address: u32) -> u32 {
     let tree = unsafe { Tree::from_raw(tree_address as *mut _) };
     let tree = send(tree);
-    if tree.root_node().kind() != "first_rule" || tree.language().is_parseable() {
+    if tree.root_node().kind() != "document" || tree.language().is_parseable() {
         return 0;
     }
     send(tree).into_raw() as u32
@@ -89,10 +89,10 @@ pub unsafe extern "C" fn reuse_and_delete(language_address: u32, tree_address: u
         return 2;
     }
 
-    let Some(new_tree) = parser.parse("the-value", Some(&tree)) else {
+    let Some(new_tree) = parser.parse(r#"{"value": 2}"#, Some(&tree)) else {
         return 3;
     };
-    if new_tree.root_node().kind() != "first_rule" || new_tree.language().is_parseable() {
+    if new_tree.root_node().kind() != "document" || new_tree.language().is_parseable() {
         return 4;
     }
 

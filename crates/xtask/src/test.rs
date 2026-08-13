@@ -163,7 +163,7 @@ pub fn run_wasm() -> Result<()> {
 fn run_sendable_tree_wasm_test() -> Result<()> {
     let clang = ensure_wasi_sdk_exists()?;
     let manifest_path = Path::new("test/fixtures/wasm_sendable_tree/Cargo.toml");
-    let grammar_path = Path::new("test/fixtures/wasm_sendable_tree/grammar.js");
+    let grammar_path = Path::new("test/fixtures/grammars/json/grammar.js");
     let target_dir = Path::new("target/wasm-sendable-tree-test");
     let target = "wasm32-unknown-unknown";
     std::fs::create_dir_all(target_dir)?;
@@ -185,8 +185,7 @@ fn run_sendable_tree_wasm_test() -> Result<()> {
     )?;
 
     let language_dir = grammar_path.parent().unwrap();
-    let language_path =
-        env::current_dir()?.join(target_dir.join("tree-sitter-sendable-tree-test.wasm"));
+    let language_path = env::current_dir()?.join(target_dir.join("tree-sitter-json.wasm"));
     let mut compile_language = Command::new(&clang);
     compile_language.current_dir(language_dir).args([
         "--target=wasm32-wasip1",
@@ -198,7 +197,7 @@ fn run_sendable_tree_wasm_test() -> Result<()> {
         "-shared",
         "--no-wasm-opt",
         "-Os",
-        "-Wl,--export=tree_sitter_sendable_tree_test",
+        "-Wl,--export=tree_sitter_json",
         "-Wl,--allow-undefined",
         "-Wl,--no-entry",
         "-Wl,--shared-memory",
