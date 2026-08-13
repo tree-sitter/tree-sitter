@@ -6,7 +6,10 @@ use std::{
 
 use anstyle::{AnsiColor, Color, Style};
 use anyhow::{Context, Result, anyhow};
-use clap::{ArgGroup, Args, Command, FromArgMatches as _, Subcommand, ValueEnum, crate_authors};
+use clap::parser::ValueSource;
+use clap::{
+    ArgGroup, ArgMatches, Args, Command, FromArgMatches as _, Subcommand, ValueEnum, crate_authors,
+};
 use clap_complete::generate;
 use dialoguer::{Confirm, FuzzySelect, Input, MultiSelect, theme::ColorfulTheme};
 use heck::ToUpperCamelCase;
@@ -1696,7 +1699,12 @@ impl Query {
 }
 
 impl Highlight {
-    fn run(self, mut loader: loader::Loader, current_dir: &Path) -> Result<()> {
+    fn run(
+        self,
+        matches: &ArgMatches,
+        mut loader: loader::Loader,
+        current_dir: &Path,
+    ) -> Result<()> {
         let config = Config::load(self.config_path)?;
         let theme_config: tree_sitter_cli::highlight::ThemeConfig = config.get()?;
         loader.configure_highlights(&theme_config.theme.highlight_names);
@@ -1723,6 +1731,24 @@ impl Highlight {
             Encoding::Utf16LE => ffi::TSInputEncodingUTF16LE,
             Encoding::Utf16BE => ffi::TSInputEncodingUTF16BE,
         });
+
+        // `--layout`/`--style` only affect markup formatters (html/latex). When the
+        // formatter is `terminal` (the default), those flags carry no meaning, so reject
+        // an explicit use of them instead of silently ignoring it.
+        if matches!(self.formatter, FormatterArg::Terminal) && !self.html {
+            if matches
+                .value_source("layout")
+                .is_some_and(|s| s == ValueSource::CommandLine)
+            {
+                return Err(anyhow!("--layout is not valid with the terminal formatter"));
+            }
+            if matches
+                .value_source("style")
+                .is_some_and(|s| s == ValueSource::CommandLine)
+            {
+                return Err(anyhow!("--style is not valid with the terminal formatter"));
+            }
+        }
 
         let style = if self.css_classes {
             // TODO: Remove during the 0.28 release cycle
@@ -2108,7 +2134,8 @@ fn run() -> Result<()> {
         .disable_colored_help(false);
     let mut cli = Commands::augment_subcommands(cli);
 
-    let command = Commands::from_arg_matches(&cli.clone().get_matches())?;
+    let matches = cli.clone().get_matches();
+    let command = Commands::from_arg_matches(&matches)?;
 
     let current_dir = match &command {
         Commands::Init(Init { grammar_path, .. })
@@ -2141,7 +2168,10 @@ fn run() -> Result<()> {
         Commands::Version(version_options) => version_options.run(current_dir)?,
         Commands::Fuzz(fuzz_options) => fuzz_options.run(loader, &current_dir)?,
         Commands::Query(query_options) => query_options.run(loader, &current_dir)?,
-        Commands::Highlight(highlight_options) => highlight_options.run(loader, &current_dir)?,
+        Commands::Highlight(highlight_options) => {
+            let sub_matches = matches.subcommand_matches("highlight").unwrap();
+            highlight_options.run(sub_matches, loader, &current_dir)?
+        }
         Commands::Tags(tags_options) => tags_options.run(loader, &current_dir)?,
         Commands::Playground(playground_options) => playground_options.run(&current_dir)?,
         Commands::DumpLanguages(dump_options) => dump_options.run(loader)?,
