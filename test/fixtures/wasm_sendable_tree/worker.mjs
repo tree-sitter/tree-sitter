@@ -11,10 +11,8 @@ const {
   __indirect_function_table: table,
   allocate_language_memory: allocateLanguageMemory,
   allocate_source: allocateSource,
-  delete_tree: deleteTree,
   initialize,
   parse_and_publish: parseAndPublish,
-  reparse_and_publish: reparseAndPublish,
 } = runtime.exports;
 
 if (!(table instanceof WebAssembly.Table)) {
@@ -23,10 +21,8 @@ if (!(table instanceof WebAssembly.Table)) {
 for (const [name, value] of [
   ['allocate_language_memory', allocateLanguageMemory],
   ['allocate_source', allocateSource],
-  ['delete_tree', deleteTree],
   ['initialize', initialize],
   ['parse_and_publish', parseAndPublish],
-  ['reparse_and_publish', reparseAndPublish],
 ]) {
   if (typeof value !== 'function') {
     throw new Error(`Rust test module did not export ${name}`);
@@ -69,28 +65,24 @@ if (!languageFunction) {
 }
 const languageAddress = languageFunction[1]();
 
-const parseResult = parseAndPublish(languageAddress);
-if (parseResult !== 0) {
-  throw new Error(`parsing worker failed to create the initial tree: ${parseResult}`);
-}
-parentPort.postMessage({ type: 'initial-tree-ready' });
-
 parentPort.on('message', message => {
-  if (message.type === 'edited-tree-ready') {
-    const source = new TextEncoder().encode(message.source);
-    const sourceAddress = allocateSource(source.length);
-    if (!sourceAddress) {
-      throw new Error('parsing worker failed to allocate the edited source');
-    }
-    new Uint8Array(memory.buffer, sourceAddress, source.length).set(source);
-    const result = reparseAndPublish(languageAddress, sourceAddress, source.length);
-    if (result !== 0) {
-      throw new Error(`parsing worker failed to reparse the edited tree: ${result}`);
-    }
-    parentPort.postMessage({ type: 'new-tree-ready' });
-  } else if (message.type === 'new-tree-returned') {
-    parentPort.postMessage({ type: 'done', result: deleteTree() });
-  } else {
-    throw new Error(`unexpected worker message ${message.type}`);
+  if (typeof message?.text !== 'string' || (message.oldTree !== undefined && !message.oldTree)) {
+    throw new Error('expected a text string and an optional oldTree');
   }
+  const source = new TextEncoder().encode(message.text);
+  const sourceAddress = allocateSource(source.length);
+  if (!sourceAddress) {
+    throw new Error('parsing worker failed to allocate source text');
+  }
+  new Uint8Array(memory.buffer, sourceAddress, source.length).set(source);
+  const result = parseAndPublish(
+    languageAddress,
+    sourceAddress,
+    source.length,
+    message.oldTree ? 1 : 0,
+  );
+  if (result !== 0) {
+    throw new Error(`parsing worker failed to parse JSON: ${result}`);
+  }
+  parentPort.postMessage({ tree: true });
 });
