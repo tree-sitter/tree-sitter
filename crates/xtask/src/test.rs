@@ -158,11 +158,11 @@ pub fn run_wasm() -> Result<()> {
     Ok(())
 }
 
-pub fn run_wasm_sendable_tree() -> Result<()> {
+pub fn run_rust_wasm_web() -> Result<()> {
     let clang = ensure_wasi_sdk_exists()?;
-    let manifest_path = Path::new("test/fixtures/wasm_sendable_tree/Cargo.toml");
+    let manifest_path = Path::new("test/fixtures/rust_wasm_web/Cargo.toml");
     let grammar_path = Path::new("test/fixtures/grammars/json/grammar.js");
-    let target_dir = Path::new("target/wasm-sendable-tree-test");
+    let target_dir = Path::new("target/rust-wasm-web-test");
     let target = "wasm32-unknown-unknown";
     std::fs::create_dir_all(target_dir)?;
 
@@ -179,7 +179,7 @@ pub fn run_wasm_sendable_tree() -> Result<()> {
     ]);
     bail_on_err(
         &generate.output()?,
-        "Failed to generate the sendable-tree test language",
+        "Failed to generate the Rust Wasm web test language",
     )?;
 
     let language_dir = grammar_path.parent().unwrap();
@@ -207,7 +207,7 @@ pub fn run_wasm_sendable_tree() -> Result<()> {
     ]);
     bail_on_err(
         &compile_language.output()?,
-        "Failed to compile the sendable-tree test language",
+        "Failed to compile the Rust Wasm web test language",
     )?;
 
     let mut cargo = Command::new("cargo");
@@ -233,26 +233,20 @@ pub fn run_wasm_sendable_tree() -> Result<()> {
             "RUSTFLAGS",
             "-D warnings -A unstable-features -C target-feature=+atomics,+bulk-memory,+mutable-globals -C link-arg=--import-memory -C link-arg=--shared-memory -C link-arg=--max-memory=268435456 -C link-arg=--export-table -C link-arg=--growable-table",
         );
-    bail_on_err(
-        &cargo.output()?,
-        "Failed to compile the sendable-tree Rust Wasm test",
-    )?;
+    bail_on_err(&cargo.output()?, "Failed to compile the Rust Wasm web test")?;
 
     let runtime_path = target_dir
         .join(target)
         .join("debug")
-        .join("wasm_sendable_tree_test.wasm");
+        .join("rust_wasm_web_test.wasm");
     let node = env::var_os("EMSDK_NODE").unwrap_or_else(|| "node".into());
     let mut command = Command::new(node);
     command.args([
-        "test/fixtures/wasm_sendable_tree/run.mjs",
+        "test/fixtures/rust_wasm_web/run.mjs",
         runtime_path.to_str().unwrap(),
         language_path.to_str().unwrap(),
     ]);
-    bail_on_err(
-        &command.output()?,
-        "Failed to run the sendable-tree Rust Wasm test",
-    )?;
-    println!("Sendable-tree Rust Wasm test passed");
+    bail_on_err(&command.output()?, "Failed to run the Rust Wasm web test")?;
+    println!("Rust Wasm web test passed");
     Ok(())
 }

@@ -1,5 +1,5 @@
 [package]
-name = "wasm-sendable-tree-test"
+name = "rust-wasm-web-test"
 version = "0.0.0"
 edition = "2024"
 rust-version = "1.90"

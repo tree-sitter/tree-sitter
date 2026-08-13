@@ -19,7 +19,7 @@ const {
   allocate_language_memory: allocateLanguageMemory,
   allocate_source: allocateSource,
   initialize,
-  parse_and_publish: parseAndPublish,
+  parse_and_return: parseAndReturn,
 } = runtime.exports;
 
 if (!(table instanceof WebAssembly.Table)) {
@@ -29,7 +29,7 @@ for (const [name, value] of [
   ['allocate_language_memory', allocateLanguageMemory],
   ['allocate_source', allocateSource],
   ['initialize', initialize],
-  ['parse_and_publish', parseAndPublish],
+  ['parse_and_return', parseAndReturn],
 ]) {
   if (typeof value !== 'function') {
     throw new Error(`Rust test module did not export ${name}`);
@@ -73,7 +73,11 @@ if (!languageFunction) {
 const languageAddress = languageFunction[1]();
 
 parentPort.on('message', message => {
-  if (typeof message?.text !== 'string' || (message.oldTree !== undefined && !message.oldTree)) {
+  if (
+    typeof message?.text !== 'string' ||
+    (message.oldTree !== undefined &&
+      (!Number.isInteger(message.oldTree) || message.oldTree === 0))
+  ) {
     throw new Error('expected a text string and an optional oldTree');
   }
   const source = new TextEncoder().encode(message.text);
@@ -82,14 +86,14 @@ parentPort.on('message', message => {
     throw new Error('parsing worker failed to allocate source text');
   }
   new Uint8Array(memory.buffer, sourceAddress, source.length).set(source);
-  const result = parseAndPublish(
+  const tree = parseAndReturn(
     languageAddress,
     sourceAddress,
     source.length,
-    message.oldTree ? 1 : 0,
+    message.oldTree ?? 0,
   );
-  if (result !== 0) {
-    throw new Error(`parsing worker failed to parse JSON: ${result}`);
+  if (tree === 0) {
+    throw new Error('parsing worker failed to parse JSON');
   }
-  parentPort.postMessage({ tree: true });
+  parentPort.postMessage({ tree });
 });

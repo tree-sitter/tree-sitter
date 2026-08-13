@@ -4,17 +4,15 @@ use std::{
     alloc::Layout,
     cell::UnsafeCell,
     future::Future,
+    marker::PhantomPinned,
     pin::Pin,
     slice, str,
-    sync::atomic::{AtomicU32, Ordering},
     task::{Context, Poll, Waker},
 };
 
 use tree_sitter::{
     InputEdit, Language, LanguageError, Parser, Point, Tree, ffi::TSLanguage,
 };
-
-static TREE_SLOT: AtomicU32 = AtomicU32::new(0);
 
 type Application = Pin<Box<dyn Future<Output = ()>>>;
 
@@ -26,90 +24,85 @@ static APPLICATION: ApplicationSlot = ApplicationSlot(UnsafeCell::new(None));
 
 #[link(wasm_import_module = "env")]
 unsafe extern "C" {
-    fn request_parse(source_address: u32, source_length: u32, has_old_tree: u32);
+    fn request_parse(
+        source_address: u32,
+        source_length: u32,
+        old_tree_address: u32,
+        request_address: u32,
+    );
 }
 
 fn send<T: Send>(value: T) -> T {
     value
 }
 
-fn publish(tree: Tree) -> Result<(), Tree> {
-    let tree_address = send(tree).into_raw() as u32;
-    match TREE_SLOT.compare_exchange(0, tree_address, Ordering::Release, Ordering::Relaxed) {
-        Ok(_) => Ok(()),
-        Err(_) => Err(unsafe { Tree::from_raw(tree_address as *mut _) }),
-    }
-}
-
-fn take() -> Option<Tree> {
-    let tree_address = TREE_SLOT.swap(0, Ordering::Acquire);
-    (tree_address != 0).then(|| unsafe { Tree::from_raw(tree_address as *mut _) })
-}
-
 fn parse_on_worker(
     language_address: u32,
     source_address: u32,
     source_length: u32,
-    has_old_tree: bool,
-) -> u32 {
+    old_tree_address: u32,
+) -> Result<Tree, u32> {
     let source_bytes =
         unsafe { slice::from_raw_parts(source_address as *const u8, source_length as usize) };
     let Ok(source) = str::from_utf8(source_bytes) else {
-        return 1;
+        return Err(1);
     };
 
     let language = unsafe { Language::from_raw(language_address as *const TSLanguage) };
-    let old_tree = if has_old_tree {
-        let Some(tree) = take() else {
-            return 2;
-        };
+    let old_tree = if old_tree_address == 0 {
+        None
+    } else {
+        let tree = send(unsafe { Tree::from_raw(old_tree_address as *mut _) });
         if Parser::new().set_language(&tree.language()) != Err(LanguageError::NotParseable) {
-            return 3;
+            return Err(2);
         }
         Some(tree)
-    } else {
-        None
     };
 
     let mut parser = Parser::new();
     if parser.set_language(&language).is_err() {
-        return 4;
+        return Err(3);
     }
     let Some(tree) = parser.parse(source, old_tree.as_ref()) else {
-        return 5;
+        return Err(4);
     };
-    if publish(tree).is_err() {
-        return 6;
-    }
-    0
+    Ok(send(tree))
 }
 
 struct ParseRequest<'a> {
     source: &'a str,
     old_tree: Option<Tree>,
     requested: bool,
+    result: Option<Tree>,
+    _pinned: PhantomPinned,
 }
 
 impl Future for ParseRequest<'_> {
     type Output = Tree;
 
-    fn poll(mut self: Pin<&mut Self>, _context: &mut Context<'_>) -> Poll<Self::Output> {
-        if self.requested {
-            return take().map_or(Poll::Pending, Poll::Ready);
+    fn poll(self: Pin<&mut Self>, _context: &mut Context<'_>) -> Poll<Self::Output> {
+        let this = unsafe { self.get_unchecked_mut() };
+        if let Some(tree) = this.result.take() {
+            return Poll::Ready(tree);
+        }
+        if this.requested {
+            return Poll::Pending;
         }
 
-        let has_old_tree = self.old_tree.is_some();
-        if let Some(tree) = self.old_tree.take() {
-            publish(tree).unwrap();
-        }
+        let old_tree_address = this
+            .old_tree
+            .take()
+            .map_or(0, |tree| send(tree).into_raw() as u32);
+        this.requested = true;
+        let request_address = std::ptr::from_mut(this) as u32;
         unsafe {
             request_parse(
-                self.source.as_ptr() as u32,
-                self.source.len() as u32,
-                u32::from(has_old_tree),
+                this.source.as_ptr() as u32,
+                this.source.len() as u32,
+                old_tree_address,
+                request_address,
             );
         }
-        self.requested = true;
         Poll::Pending
     }
 }
@@ -119,6 +112,8 @@ fn parse(source: &str, old_tree: Option<Tree>) -> ParseRequest<'_> {
         source,
         old_tree,
         requested: false,
+        result: None,
+        _pinned: PhantomPinned,
     }
 }
 
@@ -188,35 +183,35 @@ pub unsafe extern "C" fn allocate_language_memory(size: u32, alignment: u32) -> 
 ///
 /// # Safety
 ///
-/// The returned buffer must be passed exactly once to `parse_and_publish`.
+/// The returned buffer must be passed exactly once to `parse_and_return`.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn allocate_source(size: u32) -> u32 {
     unsafe { allocator::allocate(size as usize) as u32 }
 }
 
-/// Parse source as JSON, optionally using the tree in the shared slot.
+/// Parse source as JSON, optionally using the given old tree.
 ///
 /// # Safety
 ///
 /// `language_address` must point to a valid language. `source_address` must
 /// refer to `source_length` bytes returned by `allocate_source`. This function
-/// consumes the source allocation and, when `has_old_tree` is nonzero, the tree
-/// in the shared slot.
+/// consumes the source allocation and the tree at `old_tree_address`, if nonzero.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn parse_and_publish(
+pub unsafe extern "C" fn parse_and_return(
     language_address: u32,
     source_address: u32,
     source_length: u32,
-    has_old_tree: u32,
+    old_tree_address: u32,
 ) -> u32 {
-    let result = parse_on_worker(
+    let tree = parse_on_worker(
         language_address,
         source_address,
         source_length,
-        has_old_tree != 0,
-    );
+        old_tree_address,
+    )
+    .ok();
     unsafe { allocator::deallocate(source_address as *mut u8) };
-    result
+    tree.map_or(0, |tree| tree.into_raw() as u32)
 }
 
 /// Start the Rust application on the UI thread.
@@ -232,12 +227,19 @@ pub unsafe extern "C" fn start() {
     assert!(!poll_application());
 }
 
-/// Resume the Rust application after the worker has returned a tree.
+/// Resume the Rust application with the tree returned by the worker.
 ///
 /// # Safety
 ///
-/// The shared tree slot must contain the tree produced by the worker.
+/// `request_address` must identify the pending `ParseRequest`, and
+/// `tree_address` must be the sole owned handle for the returned tree.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn tree_ready() -> u32 {
+pub unsafe extern "C" fn tree_ready(request_address: u32, tree_address: u32) -> u32 {
+    assert_ne!(request_address, 0);
+    assert_ne!(tree_address, 0);
+    let request = unsafe { &mut *(request_address as *mut ParseRequest<'static>) };
+    assert!(request.requested);
+    assert!(request.result.is_none());
+    request.result = Some(send(unsafe { Tree::from_raw(tree_address as *mut _) }));
     u32::from(poll_application())
 }

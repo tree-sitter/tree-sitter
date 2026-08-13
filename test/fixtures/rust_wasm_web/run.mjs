@@ -21,14 +21,19 @@ if (!(memory.buffer instanceof SharedArrayBuffer)) {
 }
 
 let worker;
+let pendingRequest = 0;
 const uiRuntime = await WebAssembly.instantiate(runtimeModule, {
   env: {
     memory,
-    request_parse(sourceAddress, sourceLength, oldTree) {
+    request_parse(sourceAddress, sourceLength, oldTree, requestAddress) {
+      if (pendingRequest !== 0) {
+        throw new Error('Rust requested another parse before the prior request completed');
+      }
       const source = new TextDecoder().decode(
         new Uint8Array(memory.buffer, sourceAddress, sourceLength),
       );
-      worker.postMessage(oldTree ? { text: source, oldTree: true } : { text: source });
+      pendingRequest = requestAddress;
+      worker.postMessage(oldTree ? { text: source, oldTree } : { text: source });
     },
   },
 });
@@ -54,10 +59,15 @@ try {
     });
     worker.on('message', message => {
       try {
-        if (message?.tree !== true) {
+        if (!Number.isInteger(message?.tree) || message.tree === 0) {
           throw new Error('worker did not return a tree');
         }
-        if (uiRuntime.exports.tree_ready()) {
+        const request = pendingRequest;
+        if (request === 0) {
+          throw new Error('worker returned a tree without a pending request');
+        }
+        pendingRequest = 0;
+        if (uiRuntime.exports.tree_ready(request, message.tree)) {
           finished = true;
           resolve();
         }

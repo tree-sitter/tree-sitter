@@ -49,8 +49,8 @@ enum Commands {
     Test(Test),
     /// Run the Wasm test suite
     TestWasm,
-    /// Test transferring Tree-sitter trees between Wasm threads.
-    TestWasmSendableTree,
+    /// Test the Rust binding in a WebAssembly web environment.
+    TestRustWasmWeb,
     /// Upgrade the wasmtime dependency.
     UpgradeWasmtime(UpgradeWasmtime),
 }
@@ -238,7 +238,7 @@ fn run() -> Result<()> {
         Commands::GenerateWasmExports => generate::run_wasm_exports()?,
         Commands::Test(test_options) => test::run(&test_options)?,
         Commands::TestWasm => test::run_wasm()?,
-        Commands::TestWasmSendableTree => test::run_wasm_sendable_tree()?,
+        Commands::TestRustWasmWeb => test::run_rust_wasm_web()?,
         Commands::UpgradeWasmtime(upgrade_wasmtime_options) => {
             upgrade_wasmtime::run(&upgrade_wasmtime_options)?;
         }
