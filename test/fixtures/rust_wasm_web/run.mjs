@@ -30,14 +30,15 @@ const uiRuntime = await WebAssembly.instantiate(runtimeModule, {
       if (pendingRequest !== 0) {
         throw new Error('Rust requested another parse before the prior request completed');
       }
-      const source = new TextDecoder().decode(
-        new Uint8Array(memory.buffer, sourceAddress, sourceLength),
-      );
       pendingRequest = requestAddress;
       if (oldTree) {
         Atomics.store(control, 0, 0);
       }
-      worker.postMessage(oldTree ? { text: source, oldTree } : { text: source });
+      worker.postMessage(
+        oldTree
+          ? { sourceAddress, sourceLength, oldTree }
+          : { sourceAddress, sourceLength },
+      );
     },
     pause_worker() {
       throw new Error('UI runtime unexpectedly paused for parsing');

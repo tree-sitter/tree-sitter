@@ -23,7 +23,6 @@ const {
   __stack_pointer: stackPointer,
   __indirect_function_table: table,
   allocate_language_memory: allocateLanguageMemory,
-  allocate_source: allocateSource,
   parse_and_return: parseAndReturn,
 } = runtime.exports;
 
@@ -35,7 +34,6 @@ if (!(stackPointer instanceof WebAssembly.Global)) {
 }
 for (const [name, value] of [
   ['allocate_language_memory', allocateLanguageMemory],
-  ['allocate_source', allocateSource],
   ['parse_and_return', parseAndReturn],
 ]) {
   if (typeof value !== 'function') {
@@ -88,22 +86,18 @@ parentPort.postMessage({ ready: true });
 
 parentPort.on('message', message => {
   if (
-    typeof message?.text !== 'string' ||
+    !Number.isInteger(message?.sourceAddress) ||
+    message.sourceAddress === 0 ||
+    !Number.isInteger(message?.sourceLength) ||
     (message.oldTree !== undefined &&
       (!Number.isInteger(message.oldTree) || message.oldTree === 0))
   ) {
-    throw new Error('expected a text string and an optional oldTree');
+    throw new Error('expected a source address, source length, and optional oldTree');
   }
-  const source = new TextEncoder().encode(message.text);
-  const sourceAddress = allocateSource(source.length);
-  if (!sourceAddress) {
-    throw new Error('parsing worker failed to allocate source text');
-  }
-  new Uint8Array(memory.buffer, sourceAddress, source.length).set(source);
   const tree = parseAndReturn(
     languageAddress,
-    sourceAddress,
-    source.length,
+    message.sourceAddress,
+    message.sourceLength,
     message.oldTree ?? 0,
   );
   if (tree === 0) {

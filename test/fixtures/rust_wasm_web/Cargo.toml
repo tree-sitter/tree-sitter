@@ -10,7 +10,6 @@ path = "src/rust_wasm_web.rs"
 crate-type = ["cdylib"]
 
 [dependencies]
-dlmalloc = "0.2.14"
 tree-sitter = { path = "../../../lib" }
 
 [workspace]

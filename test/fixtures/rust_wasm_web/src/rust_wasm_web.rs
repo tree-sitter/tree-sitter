@@ -1,9 +1,6 @@
-mod allocator;
-
 use std::{
-    alloc::Layout,
+    alloc::{Layout, alloc_zeroed},
     cell::UnsafeCell,
-    ffi::c_void,
     future::Future,
     marker::PhantomPinned,
     pin::Pin,
@@ -15,10 +12,6 @@ use tree_sitter::{
     InputEdit, Language, LanguageError, Node, Parser, Point, Tree, ffi::TSLanguage,
 };
 
-const INITIAL_SOURCE: &str = "const value = []\n";
-const INITIAL_SEXP: &str =
-    "(program (lexical_declaration (variable_declarator name: (identifier) value: (array))))";
-
 type Application = Pin<Box<dyn Future<Output = ()>>>;
 
 struct ApplicationSlot(UnsafeCell<Option<Application>>);
@@ -26,17 +19,6 @@ struct ApplicationSlot(UnsafeCell<Option<Application>>);
 unsafe impl Sync for ApplicationSlot {}
 
 static APPLICATION: ApplicationSlot = ApplicationSlot(UnsafeCell::new(None));
-
-unsafe extern "C" {
-    #[link_name = "calloc"]
-    fn c_calloc(count: usize, size: usize) -> *mut c_void;
-    #[link_name = "free"]
-    fn c_free(pointer: *mut c_void);
-    #[link_name = "malloc"]
-    fn c_malloc(size: usize) -> *mut c_void;
-    #[link_name = "realloc"]
-    fn c_realloc(pointer: *mut c_void, size: usize) -> *mut c_void;
-}
 
 #[link(wasm_import_module = "env")]
 unsafe extern "C" {
@@ -54,33 +36,6 @@ fn send<T: Send>(value: T) -> T {
 }
 
 fn assert_send_sync<T: Send + Sync>() {}
-
-fn assert_c_allocator_bridge() {
-    unsafe {
-        let allocation = c_malloc(16).cast::<u8>();
-        assert!(!allocation.is_null());
-        assert_eq!(allocation.addr() % 8, 0);
-        for index in 0..16 {
-            allocation.add(index).write(index as u8);
-        }
-
-        let allocation = c_realloc(allocation.cast(), 32).cast::<u8>();
-        assert!(!allocation.is_null());
-        assert_eq!(allocation.addr() % 8, 0);
-        for index in 0..16 {
-            assert_eq!(allocation.add(index).read(), index as u8);
-        }
-        c_free(allocation.cast());
-
-        let allocation = c_calloc(4, 4).cast::<u8>();
-        assert!(!allocation.is_null());
-        assert_eq!(allocation.addr() % 8, 0);
-        for index in 0..16 {
-            assert_eq!(allocation.add(index).read(), 0);
-        }
-        c_free(allocation.cast());
-    }
-}
 
 fn array_node(tree: &Tree) -> Node<'_> {
     tree.root_node()
@@ -153,23 +108,21 @@ impl Future for ParseRequest<'_> {
         if let Some(tree) = this.result.take() {
             return Poll::Ready(tree);
         }
-        if this.requested {
-            return Poll::Pending;
-        }
-
-        let old_tree_address = this
-            .old_tree
-            .take()
-            .map_or(0, |tree| send(tree).into_raw() as u32);
-        this.requested = true;
-        let request_address = std::ptr::from_mut(this) as u32;
-        unsafe {
-            request_parse(
-                this.source.as_ptr() as u32,
-                this.source.len() as u32,
-                old_tree_address,
-                request_address,
-            );
+        if !this.requested {
+            let old_tree_address = this
+                .old_tree
+                .take()
+                .map_or(0, |tree| send(tree).into_raw() as u32);
+            this.requested = true;
+            let request_address = std::ptr::from_mut(this) as u32;
+            unsafe {
+                request_parse(
+                    this.source.as_ptr() as u32,
+                    this.source.len() as u32,
+                    old_tree_address,
+                    request_address,
+                );
+            }
         }
         Poll::Pending
     }
@@ -191,9 +144,9 @@ fn parse<'a>(
 }
 
 async fn run() {
-    let mut source = String::from(INITIAL_SOURCE);
+    let mut source = String::from("const value = []\n");
     let mut tree = parse(&source, None, None).await;
-    assert_eq!(tree.root_node().to_sexp(), INITIAL_SEXP);
+    assert_eq!(tree.root_node().to_sexp(), "(program (lexical_declaration (variable_declarator name: (identifier) value: (array))))");
     assert_eq!(array_node(&tree).named_child_count(), 0);
 
     for integer in 0..100 {
@@ -214,11 +167,11 @@ async fn run() {
             new_end_position: Point::new(0, new_end),
         });
 
-        let retained_tree = tree.clone();
-        tree = parse(&source, Some(tree), Some(&retained_tree)).await;
-        assert_eq!(array_node(&retained_tree).named_child_count(), integer);
+        let prev_tree = tree.clone();
+        tree = parse(&source, Some(tree), Some(&prev_tree)).await;
+        assert_eq!(array_node(&prev_tree).named_child_count(), integer);
         assert_eq!(array_node(&tree).named_child_count(), integer + 1);
-        assert!(retained_tree.changed_ranges(&tree).len() > 0);
+        assert!(prev_tree.changed_ranges(&tree).len() > 0);
     }
 }
 
@@ -242,18 +195,7 @@ fn poll_application() -> bool {
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn allocate_language_memory(size: u32, alignment: u32) -> u32 {
     let layout = Layout::from_size_align(size as usize, alignment as usize).unwrap();
-    unsafe { allocator::allocate_zeroed(layout) as u32 }
-}
-
-/// Allocate a source buffer that JavaScript can fill.
-///
-/// # Safety
-///
-/// The returned buffer must be passed exactly once to `parse_and_return`.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn allocate_source(size: u32) -> u32 {
-    let layout = Layout::array::<u8>(size as usize).unwrap();
-    unsafe { allocator::allocate(layout) as u32 }
+    unsafe { alloc_zeroed(layout) as u32 }
 }
 
 /// Parse JavaScript source, optionally using the given old tree.
@@ -261,8 +203,8 @@ pub unsafe extern "C" fn allocate_source(size: u32) -> u32 {
 /// # Safety
 ///
 /// `language_address` must point to a valid language. `source_address` must
-/// refer to `source_length` bytes returned by `allocate_source`. This function
-/// consumes the source allocation and the tree at `old_tree_address`, if nonzero.
+/// refer to `source_length` bytes that remain valid for this call. This function
+/// consumes the tree at `old_tree_address`, if nonzero.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn parse_and_return(
     language_address: u32,
@@ -277,8 +219,6 @@ pub unsafe extern "C" fn parse_and_return(
         old_tree_address,
     )
     .ok();
-    let source_layout = Layout::array::<u8>(source_length as usize).unwrap();
-    unsafe { allocator::deallocate(source_address as *mut u8, source_layout) };
     tree.map_or(0, |tree| tree.into_raw() as u32)
 }
 
@@ -290,7 +230,6 @@ pub unsafe extern "C" fn parse_and_return(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn start() {
     assert_send_sync::<Tree>();
-    assert_c_allocator_bridge();
     let application = unsafe { &mut *APPLICATION.0.get() };
     assert!(application.is_none());
     *application = Some(Box::pin(run()));
