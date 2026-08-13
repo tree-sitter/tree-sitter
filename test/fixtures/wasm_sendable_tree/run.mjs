@@ -3,8 +3,6 @@ import { Worker } from 'node:worker_threads';
 
 const MEMORY_PAGES = 256;
 const MAX_MEMORY_PAGES = 4096;
-const INITIAL_SOURCE = '{"value": 1}';
-const UPDATED_SOURCE = '{"value": [1, 2, 3], "nested": {"enabled": true}}';
 
 const [runtimePath, languagePath] = process.argv.slice(2);
 if (!runtimePath || !languagePath) {
@@ -22,50 +20,53 @@ if (!(memory.buffer instanceof SharedArrayBuffer)) {
   throw new Error('WebAssembly memory is not shared');
 }
 
-const uiRuntime = await WebAssembly.instantiate(runtimeModule, { env: { memory } });
-for (const name of ['initialize', 'inspect_initial_tree', 'edit_tree', 'inspect_new_tree']) {
+let worker;
+const uiRuntime = await WebAssembly.instantiate(runtimeModule, {
+  env: {
+    memory,
+    request_parse(sourceAddress, sourceLength, oldTree) {
+      const source = new TextDecoder().decode(
+        new Uint8Array(memory.buffer, sourceAddress, sourceLength),
+      );
+      worker.postMessage(oldTree ? { text: source, oldTree: true } : { text: source });
+    },
+  },
+});
+for (const name of ['initialize', 'start', 'tree_ready']) {
   if (typeof uiRuntime.exports[name] !== 'function') {
     throw new Error(`Rust test module did not export ${name}`);
   }
 }
 uiRuntime.exports.initialize();
 
-const worker = new Worker(new URL('./worker.mjs', import.meta.url), {
+worker = new Worker(new URL('./worker.mjs', import.meta.url), {
   workerData: { runtimeModule, languageModule, memory },
 });
 
-function requestParse(request) {
-  return new Promise((resolve, reject) => {
-    const onError = error => {
-      worker.off('message', onMessage);
-      reject(error);
-    };
-    const onMessage = message => {
-      worker.off('error', onError);
-      if (message?.tree === true) {
-        resolve(message.tree);
-      } else {
-        reject(new Error('worker did not return a tree'));
-      }
-    };
-    worker.once('error', onError);
-    worker.once('message', onMessage);
-    worker.postMessage(request);
-  });
-}
-
-function check(result, operation) {
-  if (result !== 0) {
-    throw new Error(`UI thread failed to ${operation}: ${result}`);
-  }
-}
-
 try {
-  let tree = await requestParse({ text: INITIAL_SOURCE });
-  check(uiRuntime.exports.inspect_initial_tree(), 'inspect the initial tree');
-  check(uiRuntime.exports.edit_tree(), 'edit the initial tree');
-  tree = await requestParse({ text: UPDATED_SOURCE, oldTree: tree });
-  check(uiRuntime.exports.inspect_new_tree(), 'inspect the new tree');
+  await new Promise((resolve, reject) => {
+    let finished = false;
+    worker.once('error', reject);
+    worker.once('exit', code => {
+      if (!finished) {
+        reject(new Error(`worker exited before completing the test with code ${code}`));
+      }
+    });
+    worker.on('message', message => {
+      try {
+        if (message?.tree !== true) {
+          throw new Error('worker did not return a tree');
+        }
+        if (uiRuntime.exports.tree_ready()) {
+          finished = true;
+          resolve();
+        }
+      } catch (error) {
+        reject(error);
+      }
+    });
+    uiRuntime.exports.start();
+  });
 } finally {
   await worker.terminate();
 }

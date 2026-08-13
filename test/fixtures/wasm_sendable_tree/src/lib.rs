@@ -2,20 +2,32 @@ mod allocator;
 
 use std::{
     alloc::Layout,
+    cell::UnsafeCell,
+    future::Future,
+    pin::Pin,
     slice, str,
     sync::atomic::{AtomicU32, Ordering},
+    task::{Context, Poll, Waker},
 };
 
 use tree_sitter::{
     InputEdit, Language, LanguageError, Parser, Point, Tree, ffi::TSLanguage,
 };
 
-const UPDATED_SOURCE: &str = r#"{"value": [1, 2, 3], "nested": {"enabled": true}}"#;
-const EDIT_START_BYTE: usize = 10;
-const EDIT_OLD_END_BYTE: usize = 11;
-const EDIT_NEW_END_BYTE: usize = 48;
-
 static TREE_SLOT: AtomicU32 = AtomicU32::new(0);
+
+type Application = Pin<Box<dyn Future<Output = ()>>>;
+
+struct ApplicationSlot(UnsafeCell<Option<Application>>);
+
+unsafe impl Sync for ApplicationSlot {}
+
+static APPLICATION: ApplicationSlot = ApplicationSlot(UnsafeCell::new(None));
+
+#[link(wasm_import_module = "env")]
+unsafe extern "C" {
+    fn request_parse(source_address: u32, source_length: u32, has_old_tree: u32);
+}
 
 fn send<T: Send>(value: T) -> T {
     value
@@ -34,7 +46,7 @@ fn take() -> Option<Tree> {
     (tree_address != 0).then(|| unsafe { Tree::from_raw(tree_address as *mut _) })
 }
 
-fn parse(
+fn parse_on_worker(
     language_address: u32,
     source_address: u32,
     source_length: u32,
@@ -70,6 +82,85 @@ fn parse(
         return 6;
     }
     0
+}
+
+struct ParseRequest<'a> {
+    source: &'a str,
+    old_tree: Option<Tree>,
+    requested: bool,
+}
+
+impl Future for ParseRequest<'_> {
+    type Output = Tree;
+
+    fn poll(mut self: Pin<&mut Self>, _context: &mut Context<'_>) -> Poll<Self::Output> {
+        if self.requested {
+            return take().map_or(Poll::Pending, Poll::Ready);
+        }
+
+        let has_old_tree = self.old_tree.is_some();
+        if let Some(tree) = self.old_tree.take() {
+            publish(tree).unwrap();
+        }
+        unsafe {
+            request_parse(
+                self.source.as_ptr() as u32,
+                self.source.len() as u32,
+                u32::from(has_old_tree),
+            );
+        }
+        self.requested = true;
+        Poll::Pending
+    }
+}
+
+fn parse(source: &str, old_tree: Option<Tree>) -> ParseRequest<'_> {
+    ParseRequest {
+        source,
+        old_tree,
+        requested: false,
+    }
+}
+
+async fn run() {
+    let mut source = String::from(r#"{"value": 1}"#);
+    let mut tree = parse(&source, None).await;
+    assert_eq!(
+        tree.root_node().to_sexp(),
+        "(document (object (pair key: (string (string_content)) value: (number))))"
+    );
+
+    let edit_start = 10;
+    let old_end = 11;
+    let replacement = r#"[1, 2, 3], "nested": {"enabled": true}"#;
+    source.replace_range(edit_start..old_end, replacement);
+    let new_end = edit_start + replacement.len();
+    tree.edit(&InputEdit {
+        start_byte: edit_start,
+        old_end_byte: old_end,
+        new_end_byte: new_end,
+        start_position: Point::new(0, edit_start),
+        old_end_position: Point::new(0, old_end),
+        new_end_position: Point::new(0, new_end),
+    });
+
+    tree = parse(&source, Some(tree)).await;
+    assert_eq!(
+        tree.root_node().to_sexp(),
+        "(document (object (pair key: (string (string_content)) value: (array (number) (number) (number))) (pair key: (string (string_content)) value: (object (pair key: (string (string_content)) value: (true))))))"
+    );
+}
+
+fn poll_application() -> bool {
+    let application = unsafe { &mut *APPLICATION.0.get() };
+    let future = application.as_mut().unwrap();
+    let mut context = Context::from_waker(Waker::noop());
+    if future.as_mut().poll(&mut context).is_ready() {
+        *application = None;
+        true
+    } else {
+        false
+    }
 }
 
 /// Install the shared allocator for Tree-sitter's C core.
@@ -118,7 +209,7 @@ pub unsafe extern "C" fn parse_and_publish(
     source_length: u32,
     has_old_tree: u32,
 ) -> u32 {
-    let result = parse(
+    let result = parse_on_worker(
         language_address,
         source_address,
         source_length,
@@ -128,104 +219,25 @@ pub unsafe extern "C" fn parse_and_publish(
     result
 }
 
-/// Inspect the initial tree on the UI thread.
+/// Start the Rust application on the UI thread.
 ///
 /// # Safety
 ///
-/// The shared tree slot must contain the sole owned handle for the initial tree.
+/// This must be called exactly once after `initialize`.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn inspect_initial_tree() -> u32 {
-    let Some(tree) = take() else {
-        return 1;
-    };
-    let root = tree.root_node();
-    let Some(object) = root.named_child(0) else {
-        return 2;
-    };
-    let Some(pair) = object.named_child(0) else {
-        return 3;
-    };
-    let Some(value) = pair.child_by_field_name("value") else {
-        return 4;
-    };
-    if root.kind() != "document"
-        || root.has_error()
-        || object.kind() != "object"
-        || object.named_child_count() != 1
-        || value.kind() != "number"
-        || tree.language().is_parseable()
-    {
-        return 5;
-    }
-    if publish(tree).is_err() {
-        return 6;
-    }
-    0
+pub unsafe extern "C" fn start() {
+    let application = unsafe { &mut *APPLICATION.0.get() };
+    assert!(application.is_none());
+    *application = Some(Box::pin(run()));
+    assert!(!poll_application());
 }
 
-/// Edit the initial tree on the UI thread.
+/// Resume the Rust application after the worker has returned a tree.
 ///
 /// # Safety
 ///
-/// The shared tree slot must contain the sole owned handle for the initial tree.
+/// The shared tree slot must contain the tree produced by the worker.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn edit_tree() -> u32 {
-    let Some(mut tree) = take() else {
-        return 1;
-    };
-    tree.edit(&InputEdit {
-        start_byte: EDIT_START_BYTE,
-        old_end_byte: EDIT_OLD_END_BYTE,
-        new_end_byte: EDIT_NEW_END_BYTE,
-        start_position: Point::new(0, EDIT_START_BYTE),
-        old_end_position: Point::new(0, EDIT_OLD_END_BYTE),
-        new_end_position: Point::new(0, EDIT_NEW_END_BYTE),
-    });
-    if tree.root_node().end_byte() != UPDATED_SOURCE.len() || !tree.root_node().has_changes() {
-        return 2;
-    }
-    if publish(tree).is_err() {
-        return 3;
-    }
-    0
-}
-
-/// Inspect and delete the reparsed tree on the UI thread.
-///
-/// # Safety
-///
-/// The shared tree slot must contain the sole owned handle for the reparsed tree.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn inspect_new_tree() -> u32 {
-    let Some(tree) = take() else {
-        return 1;
-    };
-    let root = tree.root_node();
-    let Some(object) = root.named_child(0) else {
-        return 2;
-    };
-    let Some(first_pair) = object.named_child(0) else {
-        return 3;
-    };
-    let Some(second_pair) = object.named_child(1) else {
-        return 4;
-    };
-    let Some(first_value) = first_pair.child_by_field_name("value") else {
-        return 5;
-    };
-    let Some(second_value) = second_pair.child_by_field_name("value") else {
-        return 6;
-    };
-    if root.kind() != "document"
-        || root.has_error()
-        || object.kind() != "object"
-        || object.named_child_count() != 2
-        || first_value.kind() != "array"
-        || first_value.named_child_count() != 3
-        || second_value.kind() != "object"
-        || tree.language().is_parseable()
-    {
-        return 7;
-    }
-    0
+pub unsafe extern "C" fn tree_ready() -> u32 {
+    u32::from(poll_application())
 }

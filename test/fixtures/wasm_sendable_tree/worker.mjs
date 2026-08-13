@@ -6,7 +6,14 @@ const SIDE_MODULE_STACK_PAGES = 16;
 const SIDE_MODULE_TABLE_ELEMENTS = 1024;
 
 const { runtimeModule, languageModule, memory } = workerData;
-const runtime = await WebAssembly.instantiate(runtimeModule, { env: { memory } });
+const runtime = await WebAssembly.instantiate(runtimeModule, {
+  env: {
+    memory,
+    request_parse() {
+      throw new Error('parsing worker unexpectedly requested a parse');
+    },
+  },
+});
 const {
   __indirect_function_table: table,
   allocate_language_memory: allocateLanguageMemory,
