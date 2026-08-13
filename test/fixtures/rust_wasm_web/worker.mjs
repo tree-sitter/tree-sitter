@@ -24,7 +24,6 @@ const {
   __indirect_function_table: table,
   allocate_language_memory: allocateLanguageMemory,
   allocate_source: allocateSource,
-  initialize,
   parse_and_return: parseAndReturn,
 } = runtime.exports;
 
@@ -37,14 +36,12 @@ if (!(stackPointer instanceof WebAssembly.Global)) {
 for (const [name, value] of [
   ['allocate_language_memory', allocateLanguageMemory],
   ['allocate_source', allocateSource],
-  ['initialize', initialize],
   ['parse_and_return', parseAndReturn],
 ]) {
   if (typeof value !== 'function') {
     throw new Error(`Rust test module did not export ${name}`);
   }
 }
-initialize();
 
 const runtimeStackBase = allocateLanguageMemory(RUNTIME_STACK_PAGES * PAGE_SIZE, PAGE_SIZE);
 if (!runtimeStackBase) {

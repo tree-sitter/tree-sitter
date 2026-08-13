@@ -983,8 +983,8 @@ fn update_rust_build_rs(path: &Path, language_name: &str, opts: &GenerateOpts) -
                 c_config.include(&wasm_headers);
                 c_config.files([
                     wasm_src.join("stdio.c"),
-                    wasm_src.join("stdlib.c"),
                     wasm_src.join("string.c"),
+                    wasm_src.join("wctype.c"),
                 ]);
             }
         "#}

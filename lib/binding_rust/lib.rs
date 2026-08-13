@@ -5,7 +5,10 @@
 pub mod ffi;
 mod util;
 
-#[cfg(not(feature = "std"))]
+#[cfg(any(
+    not(feature = "std"),
+    all(target_arch = "wasm32", target_os = "unknown")
+))]
 extern crate alloc;
 #[cfg(not(feature = "std"))]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec::Vec};
@@ -35,6 +38,9 @@ mod wasm_language;
 #[cfg(feature = "wasm")]
 #[cfg_attr(docsrs, doc(cfg(feature = "wasm")))]
 pub use wasm_language::*;
+
+#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+mod wasm_allocator;
 
 /// The latest ABI version that is supported by the current version of the
 /// library.

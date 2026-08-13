@@ -3,6 +3,7 @@ mod allocator;
 use std::{
     alloc::Layout,
     cell::UnsafeCell,
+    ffi::c_void,
     future::Future,
     marker::PhantomPinned,
     pin::Pin,
@@ -26,9 +27,15 @@ unsafe impl Sync for ApplicationSlot {}
 
 static APPLICATION: ApplicationSlot = ApplicationSlot(UnsafeCell::new(None));
 
-#[unsafe(no_mangle)]
-pub extern "C" fn abort() -> ! {
-    std::process::abort()
+unsafe extern "C" {
+    #[link_name = "calloc"]
+    fn c_calloc(count: usize, size: usize) -> *mut c_void;
+    #[link_name = "free"]
+    fn c_free(pointer: *mut c_void);
+    #[link_name = "malloc"]
+    fn c_malloc(size: usize) -> *mut c_void;
+    #[link_name = "realloc"]
+    fn c_realloc(pointer: *mut c_void, size: usize) -> *mut c_void;
 }
 
 #[link(wasm_import_module = "env")]
@@ -47,6 +54,33 @@ fn send<T: Send>(value: T) -> T {
 }
 
 fn assert_send_sync<T: Send + Sync>() {}
+
+fn assert_c_allocator_bridge() {
+    unsafe {
+        let allocation = c_malloc(16).cast::<u8>();
+        assert!(!allocation.is_null());
+        assert_eq!(allocation.addr() % 8, 0);
+        for index in 0..16 {
+            allocation.add(index).write(index as u8);
+        }
+
+        let allocation = c_realloc(allocation.cast(), 32).cast::<u8>();
+        assert!(!allocation.is_null());
+        assert_eq!(allocation.addr() % 8, 0);
+        for index in 0..16 {
+            assert_eq!(allocation.add(index).read(), index as u8);
+        }
+        c_free(allocation.cast());
+
+        let allocation = c_calloc(4, 4).cast::<u8>();
+        assert!(!allocation.is_null());
+        assert_eq!(allocation.addr() % 8, 0);
+        for index in 0..16 {
+            assert_eq!(allocation.add(index).read(), 0);
+        }
+        c_free(allocation.cast());
+    }
+}
 
 fn array_node(tree: &Tree) -> Node<'_> {
     tree.root_node()
@@ -200,16 +234,6 @@ fn poll_application() -> bool {
     }
 }
 
-/// Install the shared allocator for Tree-sitter's C core.
-///
-/// # Safety
-///
-/// This must be called before invoking any other export in each instance.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn initialize() {
-    allocator::initialize();
-}
-
 /// Allocate shared memory for the separately compiled language module.
 ///
 /// # Safety
@@ -228,7 +252,8 @@ pub unsafe extern "C" fn allocate_language_memory(size: u32, alignment: u32) -> 
 /// The returned buffer must be passed exactly once to `parse_and_return`.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn allocate_source(size: u32) -> u32 {
-    unsafe { allocator::allocate(size as usize) as u32 }
+    let layout = Layout::array::<u8>(size as usize).unwrap();
+    unsafe { allocator::allocate(layout) as u32 }
 }
 
 /// Parse JavaScript source, optionally using the given old tree.
@@ -252,7 +277,8 @@ pub unsafe extern "C" fn parse_and_return(
         old_tree_address,
     )
     .ok();
-    unsafe { allocator::deallocate(source_address as *mut u8) };
+    let source_layout = Layout::array::<u8>(source_length as usize).unwrap();
+    unsafe { allocator::deallocate(source_address as *mut u8, source_layout) };
     tree.map_or(0, |tree| tree.into_raw() as u32)
 }
 
@@ -260,10 +286,11 @@ pub unsafe extern "C" fn parse_and_return(
 ///
 /// # Safety
 ///
-/// This must be called exactly once after `initialize`.
+/// This must be called exactly once.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn start() {
     assert_send_sync::<Tree>();
+    assert_c_allocator_bridge();
     let application = unsafe { &mut *APPLICATION.0.get() };
     assert!(application.is_none());
     *application = Some(Box::pin(run()));

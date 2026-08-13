@@ -44,12 +44,11 @@ const uiRuntime = await WebAssembly.instantiate(runtimeModule, {
     },
   },
 });
-for (const name of ['initialize', 'read_tree_while_parsing', 'start', 'tree_ready']) {
+for (const name of ['read_tree_while_parsing', 'start', 'tree_ready']) {
   if (typeof uiRuntime.exports[name] !== 'function') {
     throw new Error(`Rust test module did not export ${name}`);
   }
 }
-uiRuntime.exports.initialize();
 
 worker = new Worker(new URL('./worker.mjs', import.meta.url), {
   workerData: { control, runtimeModule, languageModule, memory },

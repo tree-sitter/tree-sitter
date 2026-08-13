@@ -1,14 +1,10 @@
 use std::{
     alloc::{GlobalAlloc, Layout},
     cell::UnsafeCell,
-    ffi::c_void,
-    ptr,
     sync::atomic::{AtomicBool, Ordering},
 };
 
 use dlmalloc::Dlmalloc;
-
-const C_ALIGNMENT: usize = 2 * size_of::<usize>();
 
 struct SharedDlmalloc {
     locked: AtomicBool,
@@ -68,52 +64,14 @@ unsafe impl GlobalAlloc for SharedDlmalloc {
 #[global_allocator]
 static ALLOCATOR: SharedDlmalloc = SharedDlmalloc::new();
 
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn malloc(size: usize) -> *mut c_void {
-    ALLOCATOR.with_lock(|allocator| unsafe { allocator.c_malloc(size).cast() })
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn calloc(count: usize, size: usize) -> *mut c_void {
-    let Some(payload_size) = count.checked_mul(size) else {
-        return ptr::null_mut();
-    };
-    ALLOCATOR.with_lock(|allocator| unsafe {
-        allocator.calloc(payload_size, C_ALIGNMENT).cast()
-    })
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn realloc(ptr: *mut c_void, size: usize) -> *mut c_void {
-    ALLOCATOR.with_lock(|allocator| unsafe { allocator.c_realloc(ptr.cast(), size).cast() })
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn free(ptr: *mut c_void) {
-    ALLOCATOR.with_lock(|allocator| unsafe {
-        allocator.c_free(ptr.cast());
-    });
-}
-
-pub fn initialize() {
-    unsafe {
-        tree_sitter::set_allocator(
-            Some(malloc),
-            Some(calloc),
-            Some(realloc),
-            Some(free),
-        );
-    }
-}
-
-pub unsafe fn allocate(size: usize) -> *mut u8 {
-    unsafe { malloc(size).cast() }
+pub unsafe fn allocate(layout: Layout) -> *mut u8 {
+    unsafe { ALLOCATOR.alloc(layout) }
 }
 
 pub unsafe fn allocate_zeroed(layout: Layout) -> *mut u8 {
     unsafe { ALLOCATOR.alloc_zeroed(layout) }
 }
 
-pub unsafe fn deallocate(ptr: *mut u8) {
-    unsafe { free(ptr.cast()) };
+pub unsafe fn deallocate(ptr: *mut u8, layout: Layout) {
+    unsafe { ALLOCATOR.dealloc(ptr, layout) };
 }
