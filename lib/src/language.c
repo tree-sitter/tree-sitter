@@ -35,10 +35,6 @@ static inline bool ts_language__is_unparseable(const TSLanguage *self) {
   );
 }
 
-#endif
-
-#ifdef __wasm__
-
 uint32_t ts_language_current_context_id(void) {
   uint32_t result;
   __asm__(
