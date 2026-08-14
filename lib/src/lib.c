@@ -11,3 +11,9 @@
 #include "./tree_cursor.c"
 #include "./tree.c"
 #include "./wasm_store.c"
+
+#ifdef TREE_SITTER_WASM_RUNTIME
+#include "./wasm/stdio.c"
+#include "./wasm/string.c"
+#include "./wasm/wctype.c"
+#endif

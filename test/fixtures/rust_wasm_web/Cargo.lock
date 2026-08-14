@@ -113,6 +113,7 @@ name = "rust-wasm-web-test"
 version = "0.0.0"
 dependencies = [
  "tree-sitter",
+ "tree-sitter-javascript",
 ]
 
 [[package]]
@@ -189,6 +190,14 @@ dependencies = [
  "regex",
  "serde_json",
  "streaming-iterator",
+ "tree-sitter-language",
+]
+
+[[package]]
+name = "tree-sitter-javascript"
+version = "0.25.0"
+dependencies = [
+ "cc",
  "tree-sitter-language",
 ]
 

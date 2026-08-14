@@ -161,58 +161,57 @@ pub fn run_wasm() -> Result<()> {
 pub fn run_rust_wasm_web() -> Result<()> {
     let clang = ensure_wasi_sdk_exists()?;
     let manifest_path = Path::new("test/fixtures/rust_wasm_web/Cargo.toml");
-    let grammar_path = Path::new("test/fixtures/grammars/javascript/grammar.js");
     let target_dir = Path::new("target/rust-wasm-web-test");
     let target = "wasm32-unknown-unknown";
     std::fs::create_dir_all(target_dir)?;
 
-    let mut generate = Command::new("cargo");
-    generate.args([
-        "run",
-        "-p",
-        "tree-sitter-cli",
-        "--",
-        "generate",
-        "--abi",
-        "15",
-        grammar_path.to_str().unwrap(),
-    ]);
-    bail_on_err(
-        &generate.output()?,
-        "Failed to generate the Rust Wasm web test language",
-    )?;
-
-    let language_dir = grammar_path.parent().unwrap();
-    let language_path = env::current_dir()?.join(target_dir.join("tree-sitter-javascript.wasm"));
-    let scanner_shim =
-        env::current_dir()?.join("test/fixtures/rust_wasm_web/src/javascript_scanner_shim.c");
-    let mut compile_language = Command::new(&clang);
-    compile_language.current_dir(language_dir).args([
-        "--target=wasm32-wasip1",
-        "-matomics",
-        "-mbulk-memory",
-        "-o",
-        language_path.to_str().unwrap(),
-        "-fPIC",
-        "-shared",
-        "--no-wasm-opt",
-        "-Os",
-        "-Wl,--export=tree_sitter_javascript",
-        "-Wl,--allow-undefined",
-        "-Wl,--no-entry",
-        "-Wl,--shared-memory",
-        "-Wl,--max-memory=268435456",
-        "-nostdlib",
-        "-fno-exceptions",
-        "-fvisibility=hidden",
-        "src/parser.c",
-        "src/scanner.c",
-        scanner_shim.to_str().unwrap(),
-    ]);
-    bail_on_err(
-        &compile_language.output()?,
-        "Failed to compile the Rust Wasm web test language",
-    )?;
+    let mut language_paths = Vec::new();
+    for language_name in ["python", "ruby"] {
+        let language_dir = Path::new("test/fixtures/grammars").join(language_name);
+        for source_path in ["src/parser.c", "src/scanner.c"] {
+            if !language_dir.join(source_path).is_file() {
+                return Err(anyhow!(
+                    "Missing generated {language_name} source `{source_path}`; run `cargo xtask generate-fixtures --wasm` first"
+                ));
+            }
+        }
+        let language_path =
+            env::current_dir()?.join(target_dir.join(format!("tree-sitter-{language_name}.wasm")));
+        let mut compile_language = Command::new(&clang);
+        compile_language.current_dir(&language_dir).args([
+            "--target=wasm32-wasip1",
+            "-matomics",
+            "-mbulk-memory",
+            "-o",
+            language_path.to_str().unwrap(),
+            "-fPIC",
+            "-shared",
+            "--no-wasm-opt",
+            "-Os",
+            &format!("-Wl,--export=tree_sitter_{language_name}"),
+            "-Wl,--allow-undefined",
+            "-Wl,--no-entry",
+            "-Wl,--shared-memory",
+            "-Wl,--max-memory=268435456",
+            "-nostdlib",
+            "-fno-exceptions",
+            "-fvisibility=hidden",
+            "-I",
+            "src",
+            "-I",
+            env::current_dir()?
+                .join("crates/language/wasm/include")
+                .to_str()
+                .unwrap(),
+            "src/parser.c",
+            "src/scanner.c",
+        ]);
+        bail_on_err(
+            &compile_language.output()?,
+            &format!("Failed to compile the {language_name} Rust Wasm web test language"),
+        )?;
+        language_paths.push(language_path);
+    }
 
     let mut cargo = Command::new("cargo");
     let nightly_toolchain =
@@ -232,7 +231,13 @@ pub fn run_rust_wasm_web() -> Result<()> {
             target_dir.to_str().unwrap(),
         ])
         .env("CC_wasm32_unknown_unknown", clang)
-        .env("CFLAGS_wasm32_unknown_unknown", "-matomics -mbulk-memory")
+        .env(
+            "CFLAGS_wasm32_unknown_unknown",
+            format!(
+                "-matomics -mbulk-memory -I{}",
+                env::current_dir()?.join("crates/language/wasm/include").display()
+            ),
+        )
         .env(
             "RUSTFLAGS",
             "-D warnings -A unstable-features -C target-feature=+atomics,+bulk-memory,+mutable-globals -C link-arg=--import-memory -C link-arg=--shared-memory -C link-arg=--max-memory=268435456 -C link-arg=--export-table -C link-arg=--growable-table -C link-arg=--export=__stack_pointer",
@@ -245,12 +250,13 @@ pub fn run_rust_wasm_web() -> Result<()> {
         .join("rust_wasm_web_test.wasm");
     let node = env::var_os("EMSDK_NODE").unwrap_or_else(|| "node".into());
     let mut command = Command::new(node);
-    command.args([
-        "test/fixtures/rust_wasm_web/run.mjs",
-        runtime_path.to_str().unwrap(),
-        language_path.to_str().unwrap(),
-    ]);
-    bail_on_err(&command.output()?, "Failed to run the Rust Wasm web test")?;
+    command
+        .arg("test/fixtures/rust_wasm_web/run.mjs")
+        .arg(runtime_path)
+        .args(language_paths);
+    if !command.status()?.success() {
+        return Err(anyhow!("Failed to run the Rust Wasm web test"));
+    }
     println!("Rust Wasm web test passed");
     Ok(())
 }

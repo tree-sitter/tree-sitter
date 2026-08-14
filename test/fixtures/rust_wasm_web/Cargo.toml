@@ -11,5 +11,9 @@ crate-type = ["cdylib"]
 
 [dependencies]
 tree-sitter = { path = "../../../lib" }
+tree-sitter-javascript = { path = "../grammars/javascript" }
+
+[patch.crates-io]
+tree-sitter-language = { path = "../../../crates/language" }
 
 [workspace]

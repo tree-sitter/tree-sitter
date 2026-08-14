@@ -5,11 +5,21 @@
 
 typedef int wint_t;
 
-int iswlower(wint_t wch);
+#if defined(TREE_SITTER_WASM_RUNTIME) && !defined(TS_WASM_EXPORT)
+#define TS_WASM_EXPORT(name) __attribute__((visibility("default"), export_name(name)))
+#elif !defined(TS_WASM_EXPORT)
+#define TS_WASM_EXPORT(name)
+#endif
 
-int iswupper(wint_t wch);
+TS_WASM_EXPORT("iswlower") int iswlower(wint_t wch);
 
-int iswpunct(wint_t wch);
+TS_WASM_EXPORT("iswupper") int iswupper(wint_t wch);
+
+TS_WASM_EXPORT("iswpunct") int iswpunct(wint_t wch);
+
+TS_WASM_EXPORT("towlower") wint_t towlower(wint_t wch);
+
+TS_WASM_EXPORT("towupper") wint_t towupper(wint_t wch);
 
 static inline bool iswalpha(wint_t wch) {
   switch (wch) {

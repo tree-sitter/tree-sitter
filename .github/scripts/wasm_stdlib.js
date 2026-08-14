@@ -13,13 +13,17 @@ module.exports = async ({ github, context, core }) => {
 
   const changedFiles = files.map(file => file.filename);
 
-  const wasmStdLibSrc = 'crates/language/wasm/';
-  const dirChanged = changedFiles.some(file => file.startsWith(wasmStdLibSrc));
+  const wasmStdLibSources = [
+    'lib/src/wasm/external_scanner_allocator.c',
+    'lib/src/wasm/stdlib-symbols.txt',
+    'lib/src/wasm/wctype.c'
+  ];
+  const dirChanged = changedFiles.some(file => wasmStdLibSources.includes(file));
 
   if (!dirChanged) return;
 
   const wasmStdLibHeader = 'lib/src/wasm/wasm-stdlib.h';
   const requiredChanged = changedFiles.includes(wasmStdLibHeader);
 
-  if (!requiredChanged) core.setFailed(`Changes detected in ${wasmStdLibSrc} but ${wasmStdLibHeader} was not modified.`);
+  if (!requiredChanged) core.setFailed(`Changes detected in the Wasm stdlib sources but ${wasmStdLibHeader} was not modified.`);
 };

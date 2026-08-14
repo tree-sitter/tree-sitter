@@ -5,11 +5,17 @@
 
 #define NULL ((void*)0)
 
-void* malloc(size_t);
-void* calloc(size_t, size_t);
-void free(void*);
-void* realloc(void*, size_t);
+#if defined(TREE_SITTER_WASM_RUNTIME) && !defined(TS_WASM_EXPORT)
+#define TS_WASM_EXPORT(name) __attribute__((visibility("default"), export_name(name)))
+#elif !defined(TS_WASM_EXPORT)
+#define TS_WASM_EXPORT(name)
+#endif
 
-__attribute__((noreturn)) void abort(void);
+TS_WASM_EXPORT("malloc") void* malloc(size_t);
+TS_WASM_EXPORT("calloc") void* calloc(size_t, size_t);
+TS_WASM_EXPORT("free") void free(void*);
+TS_WASM_EXPORT("realloc") void* realloc(void*, size_t);
+
+TS_WASM_EXPORT("abort") __attribute__((noreturn)) void abort(void);
 
 #endif // TREE_SITTER_WASM_STDLIB_H_

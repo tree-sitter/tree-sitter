@@ -627,8 +627,8 @@ pub fn run_wasm_stdlib() -> Result<()> {
             "-Wl,--export=reset_heap",
         ])
         .args(&export_flags)
-        .arg("crates/language/wasm/src/stdlib.c")
-        .arg("crates/language/wasm/src/wctype.c")
+        .arg("lib/src/wasm/external_scanner_allocator.c")
+        .arg("lib/src/wasm/wctype.c")
         .output()?;
 
     bail_on_err(

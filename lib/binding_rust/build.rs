@@ -64,18 +64,9 @@ fn configure_wasm_build(config: &mut cc::Build) {
             "Environment variable DEP_TREE_SITTER_LANGUAGE_WASM_HEADERS must be set by the language crate"
         );
     };
-    let Ok(wasm_src) = env::var("DEP_TREE_SITTER_LANGUAGE_WASM_SRC").map(PathBuf::from) else {
-        panic!(
-            "Environment variable DEP_TREE_SITTER_LANGUAGE_WASM_SRC must be set by the language crate"
-        );
-    };
-
-    config.include(&wasm_headers);
-    config.files([
-        wasm_src.join("stdio.c"),
-        wasm_src.join("string.c"),
-        wasm_src.join("wctype.c"),
-    ]);
+    config
+        .define("TREE_SITTER_WASM_RUNTIME", "")
+        .include(&wasm_headers);
 }
 
 #[cfg(feature = "bindgen")]

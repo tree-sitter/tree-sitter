@@ -5,13 +5,15 @@ const MEMORY_PAGES = 256;
 const MAX_MEMORY_PAGES = 4096;
 const control = new Int32Array(new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT));
 
-const [runtimePath, languagePath] = process.argv.slice(2);
-if (!runtimePath || !languagePath) {
-  throw new Error('usage: node run.mjs <runtime.wasm> <language.wasm>');
+const [runtimePath, pythonPath, rubyPath] = process.argv.slice(2);
+if (!runtimePath || !pythonPath || !rubyPath) {
+  throw new Error('usage: node run.mjs <runtime.wasm> <python.wasm> <ruby.wasm>');
 }
 
 const runtimeModule = await WebAssembly.compile(await fs.readFile(runtimePath));
-const languageModule = await WebAssembly.compile(await fs.readFile(languagePath));
+const languageModules = await Promise.all(
+  [pythonPath, rubyPath].map(async path => WebAssembly.compile(await fs.readFile(path))),
+);
 const memory = new WebAssembly.Memory({
   initial: MEMORY_PAGES,
   maximum: MAX_MEMORY_PAGES,
@@ -26,7 +28,7 @@ let pendingRequest = 0;
 const uiRuntime = await WebAssembly.instantiate(runtimeModule, {
   env: {
     memory,
-    request_parse(sourceAddress, sourceLength, oldTree, requestAddress) {
+    request_parse(languageId, sourceAddress, sourceLength, oldTree, requestAddress) {
       if (pendingRequest !== 0) {
         throw new Error('Rust requested another parse before the prior request completed');
       }
@@ -36,23 +38,25 @@ const uiRuntime = await WebAssembly.instantiate(runtimeModule, {
       }
       worker.postMessage(
         oldTree
-          ? { sourceAddress, sourceLength, oldTree }
-          : { sourceAddress, sourceLength },
+          ? { languageId, sourceAddress, sourceLength, oldTree }
+          : { languageId, sourceAddress, sourceLength },
       );
     },
-    pause_worker() {
+    log(messageAddress, messageLength) {
+      console.log(
+        new TextDecoder().decode(
+          new Uint8Array(memory.buffer, messageAddress, messageLength),
+        ),
+      );
+    },
+    notify_parsing_started() {
       throw new Error('UI runtime unexpectedly paused for parsing');
     },
   },
 });
-for (const name of ['read_tree_while_parsing', 'start', 'tree_ready']) {
-  if (typeof uiRuntime.exports[name] !== 'function') {
-    throw new Error(`Rust test module did not export ${name}`);
-  }
-}
 
 worker = new Worker(new URL('./worker.mjs', import.meta.url), {
-  workerData: { control, runtimeModule, languageModule, memory },
+  workerData: { control, runtimeModule, languageModules, memory },
 });
 
 try {
@@ -70,8 +74,8 @@ try {
           uiRuntime.exports.start();
           return;
         }
-        if (message?.parsing === true) {
-          uiRuntime.exports.read_tree_while_parsing(pendingRequest);
+        if (message?.parsing) {
+          console.log('parsing...');
           Atomics.store(control, 0, 1);
           Atomics.notify(control, 0);
           return;
