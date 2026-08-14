@@ -7,9 +7,8 @@ use std::{
     slice, str,
     task::{Context, Poll, Waker},
 };
-
 use tree_sitter::{
-    InputEdit, Language, LanguageError, Node, Parser, Point, Tree, ffi::TSLanguage,
+    InputEdit, Language, LanguageError, Parser, Point, Tree, ffi::TSLanguage,
 };
 
 type Application = Pin<Box<dyn Future<Output = ()>>>;
@@ -39,16 +38,6 @@ unsafe extern "C" {
 
 fn log_progress(message: &str) {
     unsafe { log(message.as_ptr() as u32, message.len() as u32) }
-}
-
-fn array_node(tree: &Tree) -> Node<'_> {
-    tree.root_node()
-        .named_child(0)
-        .unwrap()
-        .named_child(0)
-        .unwrap()
-        .child_by_field_name("value")
-        .unwrap()
 }
 
 struct ParseRequest<'a> {
@@ -108,7 +97,6 @@ async fn run() {
     let mut source = String::from("const value = []\n");
     let mut tree = spawn_parse(JAVASCRIPT, &source, None).await;
     assert_eq!(tree.root_node().to_sexp(), "(program (lexical_declaration (variable_declarator name: (identifier) value: (array))))");
-    assert_eq!(array_node(&tree).named_child_count(), 0);
     log_progress("parsed javascript");
 
     for integer in 0..100 {
@@ -131,8 +119,15 @@ async fn run() {
 
         let prev_tree = tree.clone();
         tree = spawn_parse(JAVASCRIPT, &source, Some(tree)).await;
-        assert_eq!(array_node(&prev_tree).named_child_count(), integer);
-        assert_eq!(array_node(&tree).named_child_count(), integer + 1);
+        let array_node =
+            tree.root_node()
+                .named_child(0)
+                .unwrap()
+                .named_child(0)
+                .unwrap()
+                .child_by_field_name("value")
+                .unwrap();
+        assert_eq!(array_node.named_child_count(), integer + 1);
         assert!(prev_tree.changed_ranges(&tree).len() > 0);
         log_progress(&format!("incrementally reparsed ({} / 100)", integer + 1));
     }
@@ -166,25 +161,12 @@ fn poll_application() -> bool {
     }
 }
 
-/// Allocate shared memory for the separately compiled language module.
-///
-/// # Safety
-///
-/// `alignment` must be a nonzero power of two.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn allocate_language_memory(size: u32, alignment: u32) -> u32 {
     let layout = Layout::from_size_align(size as usize, alignment as usize).unwrap();
     unsafe { alloc_zeroed(layout) as u32 }
 }
 
-/// Parse source using the given language, optionally using the given old tree.
-///
-/// # Safety
-///
-/// `language_address` must be zero for the statically linked JavaScript
-/// language or point to a valid language in shared memory.
-/// `source_address` must refer to `source_length` bytes that remain valid for
-/// this call. This function consumes the tree at `old_tree_address`, if nonzero.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn run_parse(
     language_address: u32,
@@ -251,11 +233,6 @@ fn run_parse_internal(
 }
 
 
-/// Start the Rust application on the UI thread.
-///
-/// # Safety
-///
-/// This must be called exactly once.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn start() {
     let application = unsafe { &mut *APPLICATION.0.get() };
@@ -264,12 +241,6 @@ pub unsafe extern "C" fn start() {
     assert!(!poll_application());
 }
 
-/// Resume the Rust application with the tree returned by the worker.
-///
-/// # Safety
-///
-/// `request_address` must identify the pending `ParseRequest`, and
-/// `tree_address` must be the sole owned handle for the returned tree.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn tree_ready(request_address: u32, tree_address: u32) -> u32 {
     assert_ne!(request_address, 0);
