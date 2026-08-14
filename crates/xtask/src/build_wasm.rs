@@ -628,7 +628,6 @@ pub fn run_wasm_stdlib() -> Result<()> {
         ])
         .args(&export_flags)
         .arg("lib/src/wasm/external_scanner_allocator.c")
-        .arg("lib/src/wasm/wctype.c")
         .output()?;
 
     bail_on_err(
