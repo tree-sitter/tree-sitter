@@ -9,7 +9,7 @@
 #include "./atomic.h"
 #include "./language.h"
 #include "./lexer.h"
-#include "./wasm/wasm-stdlib.h"
+#include "./wasm-stdlib/external_scanner_stdlib.h"
 #include "./wasm_store.h"
 
 #include <string.h>
@@ -29,7 +29,7 @@
 // The following symbols from the C and C++ standard libraries are available
 // for external scanners to use.
 const char *STDLIB_SYMBOLS[] = {
-  #include "./stdlib-symbols.txt"
+  #include "./wasm-stdlib/imports.txt"
 };
 
 // The contents of the `dylink.0` custom section of a Wasm module,

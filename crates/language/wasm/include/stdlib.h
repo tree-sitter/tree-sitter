@@ -5,7 +5,7 @@
 
 #define NULL ((void*)0)
 
-#if defined(TREE_SITTER_WASM_RUNTIME) && !defined(TS_WASM_EXPORT)
+#if defined(TREE_SITTER_WASM_STDLIB) && !defined(TS_WASM_EXPORT)
 #define TS_WASM_EXPORT(name) __attribute__((visibility("default"), export_name(name)))
 #elif !defined(TS_WASM_EXPORT)
 #define TS_WASM_EXPORT(name)

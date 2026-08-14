@@ -8,7 +8,7 @@ fn main() {
     generate_bindings(&out_dir);
 
     fs::copy(
-        "src/wasm/stdlib-symbols.txt",
+        "src/wasm-stdlib/imports.txt",
         out_dir.join("stdlib-symbols.txt"),
     )
     .unwrap();
@@ -65,7 +65,7 @@ fn configure_wasm_build(config: &mut cc::Build) {
         );
     };
     config
-        .define("TREE_SITTER_WASM_RUNTIME", "")
+        .define("TREE_SITTER_WASM_STDLIB", "")
         .include(&wasm_headers);
 }
 

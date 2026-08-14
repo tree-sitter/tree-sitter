@@ -18,7 +18,7 @@ let package = Package(
                         "src/unicode/ICU_SHA",
                         "src/unicode/README.md",
                         "src/unicode/LICENSE",
-                        "src/wasm/stdlib-symbols.txt",
+                        "src/wasm-stdlib",
                         "src/lib.c",
                 ],
                 sources: ["src"],

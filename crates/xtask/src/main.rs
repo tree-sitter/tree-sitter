@@ -53,6 +53,8 @@ enum Commands {
     TestRustWasmWeb,
     /// Upgrade the wasmtime dependency.
     UpgradeWasmtime(UpgradeWasmtime),
+    /// Refresh the vendored Wasm standard-library sources.
+    VendorWasmStdlib,
 }
 
 #[derive(Args)]
@@ -242,6 +244,7 @@ fn run() -> Result<()> {
         Commands::UpgradeWasmtime(upgrade_wasmtime_options) => {
             upgrade_wasmtime::run(&upgrade_wasmtime_options)?;
         }
+        Commands::VendorWasmStdlib => build_wasm::vendor_wasm_stdlib()?,
     }
 
     Ok(())

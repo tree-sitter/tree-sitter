@@ -1,3 +1,6 @@
+// Scanner-oriented stdio compatibility functions. Formatting writes to memory,
+// while stream operations intentionally perform no I/O.
+
 #include <stdio.h>
 #include <string.h>
 

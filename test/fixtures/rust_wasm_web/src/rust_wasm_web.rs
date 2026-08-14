@@ -7,9 +7,7 @@ use std::{
     slice, str,
     task::{Context, Poll, Waker},
 };
-use tree_sitter::{
-    InputEdit, Language, LanguageError, Parser, Point, Tree, ffi::TSLanguage,
-};
+use tree_sitter::{InputEdit, Language, LanguageError, Parser, Point, Tree, ffi::TSLanguage};
 
 type Application = Pin<Box<dyn Future<Output = ()>>>;
 
@@ -34,6 +32,12 @@ unsafe extern "C" {
     );
     fn log(message_address: u32, message_length: u32);
     fn notify_parsing_started();
+}
+
+unsafe extern "C" {
+    fn iswalpha(character: u32) -> i32;
+    fn towlower(character: u32) -> u32;
+    fn towupper(character: u32) -> u32;
 }
 
 fn log_progress(message: &str) {
@@ -78,11 +82,7 @@ impl Future for ParseRequest<'_> {
     }
 }
 
-fn spawn_parse<'a>(
-    language_id: u32,
-    source: &'a str,
-    old_tree: Option<Tree>,
-) -> ParseRequest<'a> {
+fn spawn_parse<'a>(language_id: u32, source: &'a str, old_tree: Option<Tree>) -> ParseRequest<'a> {
     ParseRequest {
         language_id,
         source,
@@ -94,9 +94,16 @@ fn spawn_parse<'a>(
 }
 
 async fn run() {
+    assert_ne!(unsafe { iswalpha('α' as u32) }, 0);
+    assert_eq!(unsafe { towupper('é' as u32) }, 'É' as u32);
+    assert_eq!(unsafe { towlower('É' as u32) }, 'é' as u32);
+
     let mut source = String::from("const value = []\n");
     let mut tree = spawn_parse(JAVASCRIPT, &source, None).await;
-    assert_eq!(tree.root_node().to_sexp(), "(program (lexical_declaration (variable_declarator name: (identifier) value: (array))))");
+    assert_eq!(
+        tree.root_node().to_sexp(),
+        "(program (lexical_declaration (variable_declarator name: (identifier) value: (array))))"
+    );
     log_progress("parsed javascript");
 
     for integer in 0..100 {
@@ -119,14 +126,14 @@ async fn run() {
 
         let prev_tree = tree.clone();
         tree = spawn_parse(JAVASCRIPT, &source, Some(tree)).await;
-        let array_node =
-            tree.root_node()
-                .named_child(0)
-                .unwrap()
-                .named_child(0)
-                .unwrap()
-                .child_by_field_name("value")
-                .unwrap();
+        let array_node = tree
+            .root_node()
+            .named_child(0)
+            .unwrap()
+            .named_child(0)
+            .unwrap()
+            .child_by_field_name("value")
+            .unwrap();
         assert_eq!(array_node.named_child_count(), integer + 1);
         assert!(prev_tree.changed_ranges(&tree).len() > 0);
         log_progress(&format!("incrementally reparsed ({} / 100)", integer + 1));
@@ -231,7 +238,6 @@ fn run_parse_internal(
     };
     Ok(tree)
 }
-
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn start() {

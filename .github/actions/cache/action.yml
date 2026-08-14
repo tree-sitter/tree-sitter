@@ -21,7 +21,7 @@ runs:
           'lib/src/parser.h',
           'lib/src/array.h',
           'lib/src/alloc.h',
-          'lib/src/wasm/wasm-stdlib.h',
+          'lib/src/wasm-stdlib/external_scanner_stdlib.h',
           'crates/loader/wasi-sdk-version',
           'crates/loader/binaryen-version',
           'test/fixtures/grammars/*/**/src/*.c',

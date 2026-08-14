@@ -1,7 +1,7 @@
 #include "tree_sitter/parser.h"
 
-// Constant copied from `lib/src/wasm/external_scanner_allocator.c`,
-// Must be kept in sync for a reliable repro. 
+// Constant copied from `lib/src/wasm-stdlib/external_scanner_allocator.c`.
+// Must be kept in sync for a reliable repro.
 #define MAX_HEAP_SIZE (4 * 1024 * 1024)
 
 enum TokenType {

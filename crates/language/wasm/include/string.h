@@ -3,7 +3,16 @@
 
 #include <stdint.h>
 
-#if defined(TREE_SITTER_WASM_RUNTIME) && !defined(TS_WASM_EXPORT)
+#ifndef NULL
+#define NULL ((void *)0)
+#endif
+
+#ifndef weak_alias
+#define weak_alias(old, new) \
+  extern __typeof(old) new __attribute__((__weak__, __alias__(#old)))
+#endif
+
+#if defined(TREE_SITTER_WASM_STDLIB) && !defined(TS_WASM_EXPORT)
 #define TS_WASM_EXPORT(name) __attribute__((visibility("default"), export_name(name)))
 #elif !defined(TS_WASM_EXPORT)
 #define TS_WASM_EXPORT(name)
@@ -28,6 +37,12 @@ TS_WASM_EXPORT("strlen") size_t strlen(const char *str);
 TS_WASM_EXPORT("strncat") char *strncat(char *restrict dest, const char *restrict src, size_t count);
 
 TS_WASM_EXPORT("strncmp") int strncmp(const char *left, const char *right, size_t n);
+
+char *__stpncpy(char *restrict dest, const char *restrict src, size_t count);
+
+char *__strchrnul(const char *str, int c);
+
+char *stpncpy(char *restrict dest, const char *restrict src, size_t count);
 
 TS_WASM_EXPORT("strncpy") char *strncpy(char *restrict dest, const char *restrict src, size_t count);
 

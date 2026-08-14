@@ -12,8 +12,7 @@
 #include "./tree.c"
 #include "./wasm_store.c"
 
-#ifdef TREE_SITTER_WASM_RUNTIME
-#include "./wasm/stdio.c"
-#include "./wasm/string.c"
-#include "./wasm/wctype.c"
+#ifdef TREE_SITTER_WASM_STDLIB
+#include "./wasm-stdlib/libc.c"
+#include "./wasm-stdlib/stdio.c"
 #endif
