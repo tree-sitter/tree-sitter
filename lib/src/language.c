@@ -12,6 +12,17 @@ typedef struct {
   volatile uint32_t ref_count;
 } TSTreeLanguage;
 
+// Linear memory can be shared by multiple WebAssembly instances, but a
+// module-defined global belongs to one instance. Assign each instance an ID
+// from a counter in shared memory so trees can identify the function table
+// that owns their language callbacks.
+static volatile uint32_t ts_language_next_context_id;
+
+__asm__(
+  ".globaltype ts_language_context_id, i32\n"
+  "ts_language_context_id:\n"
+);
+
 static inline TSTreeLanguage *ts_language__tree_language(const TSLanguage *self) {
   return (TSTreeLanguage *)((char *)self - offsetof(TSTreeLanguage, language));
 }
@@ -22,6 +33,29 @@ static inline bool ts_language__is_tree_language(const TSLanguage *self) {
     !self->lex_fn &&
     self->external_scanner.states == (const bool *)self
   );
+}
+
+#endif
+
+#ifdef __wasm__
+
+uint32_t ts_language_current_context_id(void) {
+  uint32_t result;
+  __asm__(
+    "global.get ts_language_context_id\n"
+    "local.set %0\n"
+    : "=r"(result)
+  );
+  if (!result) {
+    result = atomic_inc(&ts_language_next_context_id);
+    __asm__(
+      "local.get %0\n"
+      "global.set ts_language_context_id\n"
+      :
+      : "r"(result)
+    );
+  }
+  return result;
 }
 
 #endif
@@ -56,7 +90,7 @@ bool ts_language_is_parseable(const TSLanguage *self) {
   return self && self->lex_fn;
 }
 
-const TSLanguage *ts_language_copy_for_tree(const TSLanguage *self) {
+const TSLanguage *ts_language_copy_without_callbacks(const TSLanguage *self) {
 #ifdef __wasm__
   if (self && ts_language_is_parseable(self)) {
     TSTreeLanguage *result = ts_malloc(sizeof(TSTreeLanguage));

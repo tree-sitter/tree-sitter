@@ -509,9 +509,9 @@ impl Language {
     /// Check whether this language can be assigned to a parser.
     ///
     /// When Tree-sitter is compiled to WebAssembly, languages obtained from a
-    /// syntax tree are safe to send between threads, but their lexer callbacks
-    /// cannot be sent with them. Such languages can still be used to inspect
-    /// syntax trees.
+    /// syntax tree can be used for parsing only within the same WebAssembly
+    /// instance that created the tree. In other instances, such languages can
+    /// still be used to inspect syntax trees.
     #[doc(alias = "ts_language_is_parseable")]
     #[must_use]
     pub fn is_parseable(&self) -> bool {
@@ -1474,8 +1474,10 @@ impl Tree {
 
     /// Get the language that was used to parse the syntax tree.
     ///
-    /// When Tree-sitter is compiled to WebAssembly, this language can be used
-    /// to inspect the tree but cannot be assigned to a parser.
+    /// When Tree-sitter is compiled to WebAssembly, this returns the original
+    /// language if the tree is being accessed from the same WebAssembly
+    /// instance that created it. Otherwise, this returns a copy of the language
+    /// that can be used to inspect the tree but cannot be assigned to a parser.
     #[doc(alias = "ts_tree_language")]
     #[must_use]
     pub fn language(&self) -> LanguageRef {
@@ -1641,8 +1643,11 @@ impl<'tree> Node<'tree> {
 
     /// Get the [`Language`] that was used to parse this node's syntax tree.
     ///
-    /// When Tree-sitter is compiled to WebAssembly, this language can be used
-    /// to inspect the tree but cannot be assigned to a parser.
+    /// When Tree-sitter is compiled to WebAssembly, this returns the original
+    /// language if the node is being accessed from the same WebAssembly
+    /// instance that created its tree. Otherwise, this returns a copy of the
+    /// language that can be used to inspect the tree but cannot be assigned to
+    /// a parser.
     #[doc(alias = "ts_node_language")]
     #[must_use]
     pub fn language(&self) -> LanguageRef<'tree> {

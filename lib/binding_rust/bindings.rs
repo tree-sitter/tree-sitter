@@ -291,7 +291,7 @@ unsafe extern "C" {
     ) -> TSNode;
 }
 unsafe extern "C" {
-    #[doc = " Get the language that was used to parse the syntax tree.\n\n When Tree-sitter is compiled to WebAssembly, this language can be used to\n inspect the tree but cannot be assigned to a parser."]
+    #[doc = " Get the language that was used to parse the syntax tree.\n\n When Tree-sitter is compiled to WebAssembly, this returns the original\n language if the tree is being accessed from the same WebAssembly instance\n that created it. Otherwise, this returns a copy of the language that can be\n used to inspect the tree but cannot be assigned to a parser."]
     pub fn ts_tree_language(self_: *const TSTree) -> *const TSLanguage;
 }
 unsafe extern "C" {
@@ -323,7 +323,7 @@ unsafe extern "C" {
     pub fn ts_node_symbol(self_: TSNode) -> TSSymbol;
 }
 unsafe extern "C" {
-    #[doc = " Get the node's language.\n\n When Tree-sitter is compiled to WebAssembly, this language can be used to\n inspect the tree but cannot be assigned to a parser."]
+    #[doc = " Get the node's language.\n\n When Tree-sitter is compiled to WebAssembly, this returns the original\n language if the node is being accessed from the same WebAssembly instance\n that created its tree. Otherwise, this returns a copy of the language that\n can be used to inspect the tree but cannot be assigned to a parser."]
     pub fn ts_node_language(self_: TSNode) -> *const TSLanguage;
 }
 unsafe extern "C" {
@@ -758,7 +758,7 @@ unsafe extern "C" {
     pub fn ts_language_delete(self_: *const TSLanguage);
 }
 unsafe extern "C" {
-    #[doc = " Check whether this language can be assigned to a parser.\n\n Languages obtained from a syntax tree may be used to inspect that tree, but\n are not necessarily usable for parsing. This is the case when Tree-sitter is\n compiled to WebAssembly, because lexer function pointers are local to a\n WebAssembly instance and cannot safely be sent between threads."]
+    #[doc = " Check whether this language can be assigned to a parser.\n\n Languages obtained from a syntax tree may be used to inspect that tree, but\n are not necessarily usable for parsing. When Tree-sitter is compiled to\n WebAssembly, a language obtained from a tree can be used for parsing only\n within the same WebAssembly instance that created the tree, because lexer\n function pointers are local to a WebAssembly instance."]
     pub fn ts_language_is_parseable(self_: *const TSLanguage) -> bool;
 }
 unsafe extern "C" {

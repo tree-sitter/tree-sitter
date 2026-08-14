@@ -437,8 +437,10 @@ TSNode ts_tree_root_node_with_offset(
 /**
  * Get the language that was used to parse the syntax tree.
  *
- * When Tree-sitter is compiled to WebAssembly, this language can be used to
- * inspect the tree but cannot be assigned to a parser.
+ * When Tree-sitter is compiled to WebAssembly, this returns the original
+ * language if the tree is being accessed from the same WebAssembly instance
+ * that created it. Otherwise, this returns a copy of the language that can be
+ * used to inspect the tree but cannot be assigned to a parser.
  */
 const TSLanguage *ts_tree_language(const TSTree *self);
 
@@ -510,8 +512,10 @@ TSSymbol ts_node_symbol(TSNode self);
 /**
  * Get the node's language.
  *
- * When Tree-sitter is compiled to WebAssembly, this language can be used to
- * inspect the tree but cannot be assigned to a parser.
+ * When Tree-sitter is compiled to WebAssembly, this returns the original
+ * language if the node is being accessed from the same WebAssembly instance
+ * that created its tree. Otherwise, this returns a copy of the language that
+ * can be used to inspect the tree but cannot be assigned to a parser.
  */
 const TSLanguage *ts_node_language(TSNode self);
 
@@ -1224,9 +1228,10 @@ void ts_language_delete(const TSLanguage *self);
  * Check whether this language can be assigned to a parser.
  *
  * Languages obtained from a syntax tree may be used to inspect that tree, but
- * are not necessarily usable for parsing. This is the case when Tree-sitter is
- * compiled to WebAssembly, because lexer function pointers are local to a
- * WebAssembly instance and cannot safely be sent between threads.
+ * are not necessarily usable for parsing. When Tree-sitter is compiled to
+ * WebAssembly, a language obtained from a tree can be used for parsing only
+ * within the same WebAssembly instance that created the tree, because lexer
+ * function pointers are local to a WebAssembly instance.
  */
 bool ts_language_is_parseable(const TSLanguage *self);
 

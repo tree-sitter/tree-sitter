@@ -90,6 +90,14 @@ fn spawn_parse<'a>(language_id: u32, source: &'a str, old_tree: Option<Tree>) ->
 async fn run() {
     let mut source = String::from("const value = []\n");
     let mut tree = spawn_parse(JAVASCRIPT, &source, None).await;
+    let language = tree.language();
+    assert_eq!(language.name(), Some("javascript"));
+    assert!(!language.is_parseable());
+    assert!(!tree.root_node().language().is_parseable());
+    assert_eq!(
+        Parser::new().set_language(&language),
+        Err(LanguageError::NotParseable)
+    );
     assert_eq!(
         tree.root_node().to_sexp(),
         "(program (lexical_declaration (variable_declarator name: (identifier) value: (array))))"
@@ -115,6 +123,12 @@ async fn run() {
         });
 
         let prev_tree = tree.clone();
+        if integer == 0 {
+            assert_eq!(
+                Parser::new().set_language(&prev_tree.language()),
+                Err(LanguageError::NotParseable)
+            );
+        }
         tree = spawn_parse(JAVASCRIPT, &source, Some(tree)).await;
         let array_node = tree
             .root_node()
@@ -195,24 +209,26 @@ fn run_parse_internal(
         return Err(1);
     };
 
-    let language = if language_address == JAVASCRIPT {
-        Language::from(tree_sitter_javascript::LANGUAGE)
-    } else {
-        unsafe { Language::from_raw(language_address as *const TSLanguage) }
-    };
     let old_tree = if old_tree_address == 0 {
         None
     } else {
-        let tree = unsafe { Tree::from_raw(old_tree_address as *mut _) };
-        if Parser::new().set_language(&tree.language()) != Err(LanguageError::NotParseable) {
-            return Err(2);
-        }
-        Some(tree)
+        Some(unsafe { Tree::from_raw(old_tree_address as *mut _) })
     };
 
     let mut parser = Parser::new();
-    if parser.set_language(&language).is_err() {
-        return Err(3);
+    if let Some(tree) = old_tree.as_ref() {
+        if parser.set_language(&tree.language()).is_err() {
+            return Err(2);
+        }
+    } else {
+        let language = if language_address == JAVASCRIPT {
+            Language::from(tree_sitter_javascript::LANGUAGE)
+        } else {
+            unsafe { Language::from_raw(language_address as *const TSLanguage) }
+        };
+        if parser.set_language(&language).is_err() {
+            return Err(3);
+        }
     }
     let mut paused = false;
     let Some(tree) = parser.parse_with_options(

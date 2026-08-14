@@ -467,7 +467,7 @@ const char *ts_node_type(TSNode self) {
 }
 
 const TSLanguage *ts_node_language(TSNode self) {
-  return self.tree->language;
+  return ts_tree_language(self.tree);
 }
 
 TSSymbol ts_node_grammar_symbol(TSNode self) {

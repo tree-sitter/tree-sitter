@@ -3006,7 +3006,7 @@ TSQuery *ts_query_new(
     .negated_fields = array_new(),
     .repeat_symbols_with_rootless_patterns = array_new(),
     .wildcard_root_pattern_count = 0,
-    .language = ts_language_copy_for_tree(language),
+    .language = ts_language_copy_without_callbacks(language),
   };
 
   array_push(&self->negated_fields, 0);
