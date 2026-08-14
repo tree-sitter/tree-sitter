@@ -335,6 +335,15 @@ void ts_subtree_compress(
   }
 }
 
+// The part of an error node's cost that penalizes the extent it spans, as
+// opposed to the cost of its contents.
+static inline uint32_t ts_subtree__error_extent_cost(Length size) {
+  return
+    ERROR_COST_PER_RECOVERY +
+    ERROR_COST_PER_SKIPPED_CHAR * size.bytes +
+    ERROR_COST_PER_SKIPPED_LINE * size.extent.row;
+}
+
 // Assign all of the node's properties that depend on its children.
 void ts_subtree_summarize_children(
   MutableSubtree self,
@@ -386,20 +395,25 @@ void ts_subtree_summarize_children(
       lookahead_end_byte = child_lookahead_end_byte;
     }
 
-    if (ts_subtree_symbol(child) != ts_builtin_sym_error_repeat) {
-      self.ptr->error_cost += ts_subtree_error_cost(child);
-    }
-
     uint32_t grandchild_count = ts_subtree_child_count(child);
-    if (
-      self.ptr->symbol == ts_builtin_sym_error ||
-      self.ptr->symbol == ts_builtin_sym_error_repeat
-    ) {
-      if (!ts_subtree_extra(child) && !(ts_subtree_is_error(child) && grandchild_count == 0)) {
-        if (ts_subtree_visible(child)) {
-          self.ptr->error_cost += ERROR_COST_PER_SKIPPED_TREE;
-        } else if (grandchild_count > 0) {
-          self.ptr->error_cost += ERROR_COST_PER_SKIPPED_TREE * child.ptr->visible_child_count;
+    if (ts_subtree_symbol(child) == ts_builtin_sym_error_repeat) {
+      // Refund an `_ERROR` child's extent penalty, which this node re-charges
+      // as part of its own extent below, so that the grouping is cost-neutral.
+      uint32_t extent_cost = ts_subtree__error_extent_cost(ts_subtree_size(child));
+      ts_assert(ts_subtree_error_cost(child) >= extent_cost);
+      self.ptr->error_cost += ts_subtree_error_cost(child) - extent_cost;
+    } else {
+      self.ptr->error_cost += ts_subtree_error_cost(child);
+      if (
+        self.ptr->symbol == ts_builtin_sym_error ||
+        self.ptr->symbol == ts_builtin_sym_error_repeat
+      ) {
+        if (!ts_subtree_extra(child) && !(ts_subtree_is_error(child) && grandchild_count == 0)) {
+          if (ts_subtree_visible(child)) {
+            self.ptr->error_cost += ERROR_COST_PER_SKIPPED_TREE;
+          } else if (grandchild_count > 0) {
+            self.ptr->error_cost += ERROR_COST_PER_SKIPPED_TREE * child.ptr->visible_child_count;
+          }
         }
       }
     }
@@ -443,10 +457,7 @@ void ts_subtree_summarize_children(
     self.ptr->symbol == ts_builtin_sym_error ||
     self.ptr->symbol == ts_builtin_sym_error_repeat
   ) {
-    self.ptr->error_cost +=
-      ERROR_COST_PER_RECOVERY +
-      ERROR_COST_PER_SKIPPED_CHAR * self.ptr->size.bytes +
-      ERROR_COST_PER_SKIPPED_LINE * self.ptr->size.extent.row;
+    self.ptr->error_cost += ts_subtree__error_extent_cost(self.ptr->size);
   }
 
   if (self.ptr->child_count > 0) {
@@ -539,13 +550,14 @@ Subtree ts_subtree_new_error_node(
 Subtree ts_subtree_new_missing_leaf(
   SubtreePool *pool,
   TSSymbol symbol,
+  TSStateId state,
   Length padding,
   uint32_t lookahead_bytes,
   const TSLanguage *language
 ) {
   Subtree result = ts_subtree_new_leaf(
     pool, symbol, padding, length_zero(), lookahead_bytes,
-    0, false, false, false, language
+    state, false, false, false, language
   );
   if (result.data.is_inline) {
     result.data.is_missing = true;

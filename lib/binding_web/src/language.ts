@@ -210,8 +210,9 @@ export class Language {
    * This returns `null` if state is invalid for this language.
    *
    * Iterating {@link LookaheadIterator} will yield valid symbols in the given
-   * parse state. Newly created lookahead iterators will return the `ERROR`
-   * symbol from {@link LookaheadIterator#currentType}.
+   * parse state. A newly created iterator is not positioned on a symbol, so
+   * {@link LookaheadIterator#currentType} returns `null` until the first
+   * iteration step.
    *
    * Lookahead iterators can be useful for generating suggestions and improving
    * syntax error diagnostics. To get symbols valid in an `ERROR` node, use the
@@ -227,9 +228,10 @@ export class Language {
 
   /**
    * Load a language from a WebAssembly module.
-   * The module can be provided as a path to a file or as a buffer.
+   * The module can be provided as a path to a file, a `URL` to a file, or as a
+   * buffer.
    */
-  static async load(input: string | Uint8Array): Promise<Language> {
+  static async load(input: string | URL | Uint8Array): Promise<Language> {
     let binary: Uint8Array | WebAssembly.Module;
     if (input instanceof Uint8Array) {
       binary = input;

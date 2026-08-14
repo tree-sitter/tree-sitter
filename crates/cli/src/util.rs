@@ -71,8 +71,8 @@ pub struct LogSession {
     open_log: bool,
 }
 
-pub fn print_tree_graph(tree: &Tree, path: &str, quiet: bool) -> Result<()> {
-    let session = LogSession::new(path, quiet)?;
+pub fn print_tree_graph(tree: &Tree, path: &str, open_log: bool) -> Result<()> {
+    let session = LogSession::new(path, open_log)?;
     tree.print_dot_graph(session.dot_process_stdin.as_ref().unwrap());
     Ok(())
 }

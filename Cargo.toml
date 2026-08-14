@@ -52,6 +52,7 @@ similar_names            = "allow"
 string_lit_as_bytes      = "allow"
 struct_excessive_bools   = "allow"
 too_many_lines           = "allow"
+tuple_array_conversions  = "allow"
 
 [workspace.lints.rust]
 mismatched_lifetime_syntaxes = "allow"

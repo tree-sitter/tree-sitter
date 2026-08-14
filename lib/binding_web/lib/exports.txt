@@ -65,6 +65,7 @@
 "ts_query_capture_count",
 "ts_query_capture_name_for_id",
 "ts_query_captures_wasm",
+"ts_query_copy",
 "ts_query_delete",
 "ts_query_matches_wasm",
 "ts_query_new",

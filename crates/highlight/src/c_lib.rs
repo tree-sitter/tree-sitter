@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap, ffi::CStr, fmt, os::raw::c_char, process::abort, slice, str,
+    collections::HashMap, ffi::CStr, fmt, os::raw::c_char, process::abort, slice,
     sync::atomic::AtomicUsize,
 };
 
@@ -416,7 +416,7 @@ impl TSHighlighter {
             });
             match result {
                 Err(Error::Cancelled | Error::Unknown) => ErrorCode::Timeout,
-                Err(Error::InvalidLanguage) => ErrorCode::InvalidLanguage,
+                Err(Error::InvalidLanguage(_)) => ErrorCode::InvalidLanguage,
                 Ok(()) => ErrorCode::Ok,
             }
         } else {

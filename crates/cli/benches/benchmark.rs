@@ -2,7 +2,6 @@ use std::{
     collections::BTreeMap,
     env, fs,
     path::{Path, PathBuf},
-    str,
     sync::LazyLock,
     time::Instant,
 };

@@ -3,7 +3,7 @@ use std::{
     env, fs,
     net::TcpListener,
     path::{Path, PathBuf},
-    str::{self, FromStr as _},
+    str::FromStr as _,
 };
 
 use anyhow::{Context, Result, anyhow};

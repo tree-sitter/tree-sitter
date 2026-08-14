@@ -1,5 +1,3 @@
-use std::str;
-
 use tree_sitter::{InputEdit, Parser, Point, Range, Tree};
 
 use super::helpers::fixtures::get_language;

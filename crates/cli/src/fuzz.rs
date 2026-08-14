@@ -25,7 +25,7 @@ use crate::{
         random::Rand,
     },
     parse::perform_edit,
-    test::{DiffKey, TestDiff, TestEntry, TestExpectation, parse_tests, strip_sexp_fields},
+    test::{DiffKey, TestDiff, TestEntry, TestExpectation, parse_tests, render_test_output},
 };
 
 pub static LOG_ENABLED: LazyLock<bool> = LazyLock::new(|| env::var("TREE_SITTER_LOG").is_ok());
@@ -169,31 +169,8 @@ pub fn fuzz_language_corpus(
         println!("  {test_index}. {test_name}");
 
         let passed = allocations::record_checked(|| {
-            let mut log_session = None;
-            let mut parser = get_parser(&mut log_session, "log.html");
-            parser.set_language(language).unwrap();
-            set_included_ranges(&mut parser, &test.input, test.template_delimiters);
-
-            let tree = parser.parse(&test.input, None).unwrap();
-
-            if test.error() {
-                return true;
-            }
-
-            let mut actual_output = tree.root_node().to_sexp();
-            if !test.has_fields {
-                actual_output = strip_sexp_fields(&actual_output);
-            }
-
-            if actual_output != test.output {
-                println!("Incorrect initial parse for {test_name}");
-                DiffKey::print();
-                println!("{}", TestDiff::new(&actual_output, &test.output));
-                println!();
-                return false;
-            }
-
-            true
+            let check_output = !test.error();
+            test.check_initial_parse(language, &test_name, check_output)
         })
         .unwrap_or_else(|e| {
             error!("{e}");
@@ -273,10 +250,7 @@ pub fn fuzz_language_corpus(
                 let tree3 = parser.parse(&input, Some(&tree2)).unwrap();
 
                 // Verify that the final tree matches the expectation from the corpus.
-                let mut actual_output = tree3.root_node().to_sexp();
-                if !test.has_fields {
-                    actual_output = strip_sexp_fields(&actual_output);
-                }
+                let actual_output = render_test_output(&input, &tree3, test.cst, test.has_fields).unwrap();
 
                 if actual_output != test.output && !test.error() {
                     println!("Incorrect parse for {test_name} - seed {seed}");
@@ -328,8 +302,10 @@ pub struct FlattenedTest {
     pub languages: Vec<Box<str>>,
     pub expectation: TestExpectation,
     pub has_fields: bool,
+    pub cst: bool,
     pub template_delimiters: Option<(&'static str, &'static str)>,
 }
+
 impl FlattenedTest {
     #[must_use]
     fn skip(&self) -> bool {
@@ -339,6 +315,38 @@ impl FlattenedTest {
     #[must_use]
     fn error(&self) -> bool {
         self.expectation == TestExpectation::Error
+    }
+
+    #[must_use]
+    pub(crate) fn check_initial_parse(
+        &self,
+        language: &Language,
+        display_name: &str,
+        check_output: bool,
+    ) -> bool {
+        let mut log_session = None;
+        let mut parser = get_parser(&mut log_session, "log.html");
+        parser.set_language(language).unwrap();
+        set_included_ranges(&mut parser, &self.input, self.template_delimiters);
+
+        let tree = parser.parse(&self.input, None).unwrap();
+
+        if !check_output {
+            return true;
+        }
+
+        let actual_output =
+            render_test_output(&self.input, &tree, self.cst, self.has_fields).unwrap();
+
+        if actual_output == self.output {
+            true
+        } else {
+            println!("Incorrect initial parse for {display_name}");
+            DiffKey::print();
+            println!("{}", TestDiff::new(&actual_output, &self.output));
+            println!();
+            false
+        }
     }
 }
 
@@ -384,9 +392,10 @@ pub fn flatten_tests(
                     name,
                     input,
                     output,
-                    has_fields,
                     languages: attributes.languages,
                     expectation: attributes.expectation,
+                    has_fields,
+                    cst: attributes.cst,
                     template_delimiters: None,
                 });
             }

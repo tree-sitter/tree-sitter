@@ -282,9 +282,12 @@ impl<'a> QueryCursorOptions<'a> {
     }
 }
 
-struct QueryCursorOptionsDrop(*mut ffi::TSQueryCursorOptions);
+struct QueryCursorOptionsDrop<'options>(
+    *mut ffi::TSQueryCursorOptions,
+    PhantomData<QueryProgressCallback<'options>>,
+);
 
-impl Drop for QueryCursorOptionsDrop {
+impl Drop for QueryCursorOptionsDrop<'_> {
     fn drop(&mut self) {
         unsafe {
             if !(*self.0).payload.is_null() {
@@ -307,7 +310,10 @@ pub enum LogType {
 type FieldId = NonZeroU16;
 
 /// A callback that receives log messages during parsing.
-type Logger<'a> = Box<dyn FnMut(LogType, &str) + 'a>;
+type Logger = Box<dyn FnMut(LogType, &str) + Send + 'static>;
+
+/// A callback that receives log messages during parsing, with relaxed constraints.
+type UnsafeLogger<'a> = Box<dyn FnMut(LogType, &str) + Send + 'a>;
 
 /// A callback that receives the parse state during parsing.
 type ParseProgressCallback<'a> = &'a mut dyn FnMut(&ParseState) -> ControlFlow<()>;
@@ -401,14 +407,14 @@ pub struct QueryMatch<'cursor, 'tree> {
 }
 
 /// A sequence of [`QueryMatch`]es associated with a given [`QueryCursor`].
-pub struct QueryMatches<'query, 'tree, T: TextProvider<I>, I: AsRef<[u8]>> {
+pub struct QueryMatches<'query, 'tree, 'options, T: TextProvider<I>, I: AsRef<[u8]>> {
     ptr: *mut ffi::TSQueryCursor,
     query: &'query Query,
     text_provider: T,
     buffer1: Vec<u8>,
     buffer2: Vec<u8>,
     current_match: Option<QueryMatch<'query, 'tree>>,
-    _options: Option<QueryCursorOptionsDrop>,
+    _options: Option<QueryCursorOptionsDrop<'options>>,
     _phantom: PhantomData<(&'tree (), I)>,
 }
 
@@ -416,14 +422,14 @@ pub struct QueryMatches<'query, 'tree, T: TextProvider<I>, I: AsRef<[u8]>> {
 ///
 /// During iteration, each element contains a [`QueryMatch`] and index. The index can
 /// be used to access the new capture inside of the [`QueryMatch::captures`]'s [`captures`].
-pub struct QueryCaptures<'query, 'tree, T: TextProvider<I>, I: AsRef<[u8]>> {
+pub struct QueryCaptures<'query, 'tree, 'options, T: TextProvider<I>, I: AsRef<[u8]>> {
     ptr: *mut ffi::TSQueryCursor,
     query: &'query Query,
     text_provider: T,
     buffer1: Vec<u8>,
     buffer2: Vec<u8>,
     current_match: Option<(QueryMatch<'query, 'tree>, usize)>,
-    _options: Option<QueryCursorOptionsDrop>,
+    _options: Option<QueryCursorOptionsDrop<'options>>,
     _phantom: PhantomData<(&'tree (), I)>,
 }
 
@@ -521,7 +527,7 @@ impl Language {
     /// Get the name of this language. This returns `None` in older parsers.
     #[doc(alias = "ts_language_name")]
     #[must_use]
-    pub fn name(&self) -> Option<&'static str> {
+    pub fn name(&self) -> Option<&str> {
         let ptr = unsafe { ffi::ts_language_name(self.0) };
         (!ptr.is_null()).then(|| unsafe { CStr::from_ptr(ptr) }.to_str().unwrap())
     }
@@ -595,7 +601,7 @@ impl Language {
     /// Get the name of the node kind for the given numerical id.
     #[doc(alias = "ts_language_symbol_name")]
     #[must_use]
-    pub fn node_kind_for_id(&self, id: u16) -> Option<&'static str> {
+    pub fn node_kind_for_id(&self, id: u16) -> Option<&str> {
         let ptr = unsafe { ffi::ts_language_symbol_name(self.0, id) };
         (!ptr.is_null()).then(|| unsafe { CStr::from_ptr(ptr) }.to_str().unwrap())
     }
@@ -644,7 +650,7 @@ impl Language {
     /// Get the field name for the given numerical id.
     #[doc(alias = "ts_language_field_name_for_id")]
     #[must_use]
-    pub fn field_name_for_id(&self, field_id: u16) -> Option<&'static str> {
+    pub fn field_name_for_id(&self, field_id: u16) -> Option<&str> {
         let ptr = unsafe { ffi::ts_language_field_name_for_id(self.0, field_id) };
         (!ptr.is_null()).then(|| unsafe { CStr::from_ptr(ptr) }.to_str().unwrap())
     }
@@ -683,14 +689,20 @@ impl Language {
     /// This returns `None` if state is invalid for this language.
     ///
     /// Iterating [`LookaheadIterator`] will yield valid symbols in the given
-    /// parse state. Newly created lookahead iterators will return the `ERROR`
-    /// symbol from [`LookaheadIterator::current_symbol`].
+    /// parse state. A newly created iterator is not positioned on a symbol, so
+    /// [`LookaheadIterator::current_symbol`] returns `None` until the first
+    /// [`Iterator::next`] call.
+    ///
+    /// The iterator retains the language, so the language may be dropped while
+    /// the iterator is still in use.
     ///
     /// Lookahead iterators can be useful to generate suggestions and improve
     /// syntax error diagnostics. To get symbols valid in an `ERROR` node, use the
-    /// lookahead iterator on its first leaf node state. For `MISSING` nodes, a
-    /// lookahead iterator created on the previous non-extra leaf node may be
-    /// appropriate.
+    /// lookahead iterator on its first leaf node state. For a missing node, use
+    /// the node's [`parse_state`](Node::parse_state). Keep in mind that lookahead
+    /// symbols are valid in that parse state, but are not necessarily valid
+    /// continuations in the context of the actual following token or guaranteed
+    /// to be considered during error recovery.
     #[doc(alias = "ts_lookahead_iterator_new")]
     #[must_use]
     pub fn lookahead_iterator(&self, state: u16) -> Option<LookaheadIterator> {
@@ -788,8 +800,24 @@ impl Parser {
     }
 
     /// Set the logging callback that the parser should use during parsing.
+    ///
+    /// To log through a callback that borrows non-`'static` data, see
+    /// [`set_logger_unchecked`](Parser::set_logger_unchecked).
     #[doc(alias = "ts_parser_set_logger")]
     pub fn set_logger(&mut self, logger: Option<Logger>) {
+        // SAFETY: `Logger` is `Send + 'static`
+        unsafe { self.set_logger_unchecked(logger) };
+    }
+
+    /// Set the logging callback, allowing the callback to borrow non-`'static`
+    /// data. See [`set_logger`](Parser::set_logger).
+    ///
+    /// # Safety
+    ///
+    /// Any data borrowed by `logger` must remain valid until the logger is
+    /// removed. Equivalently, the parser must not be used to parse once the
+    /// borrowed data has gone out of scope.
+    pub unsafe fn set_logger_unchecked(&mut self, logger: Option<UnsafeLogger<'_>>) {
         let prev_logger = unsafe { ffi::ts_parser_logger(self.0.as_ptr()) };
         if !prev_logger.payload.is_null() {
             drop(unsafe { Box::from_raw(prev_logger.payload.cast::<Logger>()) });
@@ -1536,7 +1564,7 @@ impl Tree {
             let ptr = ffi::ts_tree_included_ranges(self.0.as_ptr(), core::ptr::addr_of_mut!(count));
             let ranges = slice::from_raw_parts(ptr, count as usize);
             let result = ranges.iter().copied().map(Into::into).collect();
-            (FREE_FN)(ptr.cast::<c_void>());
+            ts_free(ptr.cast::<c_void>());
             result
         }
     }
@@ -1625,7 +1653,7 @@ impl<'tree> Node<'tree> {
     /// Get this node's type as a string.
     #[doc(alias = "ts_node_type")]
     #[must_use]
-    pub fn kind(&self) -> &'static str {
+    pub fn kind(&self) -> &'tree str {
         unsafe { CStr::from_ptr(ffi::ts_node_type(self.0)) }
             .to_str()
             .unwrap()
@@ -1635,7 +1663,7 @@ impl<'tree> Node<'tree> {
     /// aliases as a string.
     #[doc(alias = "ts_node_grammar_type")]
     #[must_use]
-    pub fn grammar_name(&self) -> &'static str {
+    pub fn grammar_name(&self) -> &'tree str {
         unsafe { CStr::from_ptr(ffi::ts_node_grammar_type(self.0)) }
             .to_str()
             .unwrap()
@@ -1699,7 +1727,14 @@ impl<'tree> Node<'tree> {
         unsafe { ffi::ts_node_is_error(self.0) }
     }
 
-    /// Get this node's parse state.
+    /// Get the parse state immediately before this node.
+    ///
+    /// For a missing node, this is the state from the recovery path that was
+    /// selected by the parser. It can be used with
+    /// [`Language::lookahead_iterator`] to inspect the symbols that are valid in
+    /// that state. This does not necessarily include every symbol that could be
+    /// recovered by inserting a missing node, because the recovery process can
+    /// consider multiple stack versions.
     #[doc(alias = "ts_node_parse_state")]
     #[must_use]
     pub fn parse_state(&self) -> u16 {
@@ -1841,7 +1876,7 @@ impl<'tree> Node<'tree> {
     /// Get the field name of this node's child at the given index.
     #[doc(alias = "ts_node_field_name_for_child")]
     #[must_use]
-    pub fn field_name_for_child(&self, child_index: u32) -> Option<&'static str> {
+    pub fn field_name_for_child(&self, child_index: u32) -> Option<&'tree str> {
         unsafe {
             let ptr = ffi::ts_node_field_name_for_child(self.0, child_index);
             (!ptr.is_null()).then(|| CStr::from_ptr(ptr).to_str().unwrap())
@@ -1850,7 +1885,7 @@ impl<'tree> Node<'tree> {
 
     /// Get the field name of this node's named child at the given index.
     #[must_use]
-    pub fn field_name_for_named_child(&self, named_child_index: u32) -> Option<&'static str> {
+    pub fn field_name_for_named_child(&self, named_child_index: u32) -> Option<&'tree str> {
         unsafe {
             let ptr = ffi::ts_node_field_name_for_named_child(self.0, named_child_index);
             (!ptr.is_null()).then(|| CStr::from_ptr(ptr).to_str().unwrap())
@@ -2071,7 +2106,7 @@ impl<'tree> Node<'tree> {
             .to_str()
             .unwrap()
             .to_string();
-        unsafe { (FREE_FN)(c_string.cast::<c_void>()) };
+        unsafe { ts_free(c_string.cast::<c_void>()) };
         result
     }
 
@@ -2175,7 +2210,7 @@ impl<'tree> TreeCursor<'tree> {
     /// Get the field name of this tree cursor's current node.
     #[doc(alias = "ts_tree_cursor_current_field_name")]
     #[must_use]
-    pub fn field_name(&self) -> Option<&'static str> {
+    pub fn field_name(&self) -> Option<&'tree str> {
         unsafe {
             let ptr = ffi::ts_tree_cursor_current_field_name(&raw const self.0);
             (!ptr.is_null()).then(|| CStr::from_ptr(ptr).to_str().unwrap())
@@ -2338,22 +2373,34 @@ impl LookaheadIterator {
     }
 
     /// Get the current symbol of the lookahead iterator.
+    ///
+    /// Returns `None` if the iterator is not positioned on a symbol:
+    ///
+    /// - Before the first [`Iterator::next`] call
+    /// - After the iterator is exhausted
+    /// - After a [`Self::reset`] or [`Self::reset_state`] call
     #[doc(alias = "ts_lookahead_iterator_current_symbol")]
     #[must_use]
-    pub fn current_symbol(&self) -> u16 {
-        unsafe { ffi::ts_lookahead_iterator_current_symbol(self.0.as_ptr()) }
+    pub fn current_symbol(&self) -> Option<u16> {
+        // C signals "not positioned" through a null symbol name.
+        let name = unsafe { ffi::ts_lookahead_iterator_current_symbol_name(self.0.as_ptr()) };
+        (!name.is_null())
+            .then(|| unsafe { ffi::ts_lookahead_iterator_current_symbol(self.0.as_ptr()) })
     }
 
     /// Get the current symbol name of the lookahead iterator.
+    ///
+    /// Returns `None` if the iterator is not positioned on a symbol.
     #[doc(alias = "ts_lookahead_iterator_current_symbol_name")]
     #[must_use]
-    pub fn current_symbol_name(&self) -> &'static str {
+    pub fn current_symbol_name(&self) -> Option<&str> {
         unsafe {
-            CStr::from_ptr(ffi::ts_lookahead_iterator_current_symbol_name(
-                self.0.as_ptr(),
-            ))
-            .to_str()
-            .unwrap()
+            let name = ffi::ts_lookahead_iterator_current_symbol_name(self.0.as_ptr());
+            if name.is_null() {
+                None
+            } else {
+                Some(CStr::from_ptr(name).to_str().unwrap())
+            }
         }
     }
 
@@ -2376,30 +2423,43 @@ impl LookaheadIterator {
     }
 
     /// Iterate symbol names.
-    pub fn iter_names(&mut self) -> impl Iterator<Item = &'static str> + '_ {
+    pub fn iter_names(&mut self) -> impl iter::FusedIterator<Item = &str> + '_ {
         LookaheadNamesIterator(self)
     }
 }
 
-impl Iterator for LookaheadNamesIterator<'_> {
-    type Item = &'static str;
+impl<'a> Iterator for LookaheadNamesIterator<'a> {
+    type Item = &'a str;
 
     #[doc(alias = "ts_lookahead_iterator_next")]
     fn next(&mut self) -> Option<Self::Item> {
-        unsafe { ffi::ts_lookahead_iterator_next(self.0.0.as_ptr()) }
-            .then(|| self.0.current_symbol_name())
+        let ptr = self.0.0.as_ptr();
+        // SAFETY: The borrow keeps the iterator (and the language refcount it holds)
+        // alive for `'a`. The name is non-null because the iterator is positioned
+        // whenever `next` returns `true`.
+        unsafe {
+            ffi::ts_lookahead_iterator_next(ptr).then(|| {
+                let name = ffi::ts_lookahead_iterator_current_symbol_name(ptr);
+                debug_assert!(!name.is_null());
+                CStr::from_ptr(name).to_str().unwrap()
+            })
+        }
     }
 }
+
+impl iter::FusedIterator for LookaheadNamesIterator<'_> {}
 
 impl Iterator for LookaheadIterator {
     type Item = u16;
 
     #[doc(alias = "ts_lookahead_iterator_next")]
     fn next(&mut self) -> Option<Self::Item> {
-        // the first symbol is always `0` so we can safely skip it
-        unsafe { ffi::ts_lookahead_iterator_next(self.0.as_ptr()) }.then(|| self.current_symbol())
+        unsafe { ffi::ts_lookahead_iterator_next(self.0.as_ptr()) }
+            .then(|| unsafe { ffi::ts_lookahead_iterator_current_symbol(self.0.as_ptr()) })
     }
 }
+
+impl iter::FusedIterator for LookaheadIterator {}
 
 impl Drop for LookaheadIterator {
     #[doc(alias = "ts_lookahead_iterator_delete")]
@@ -2471,9 +2531,7 @@ impl Query {
         }
         let column = offset - line_start;
 
-        let kind;
-        let message;
-        match error_type {
+        let (message, kind) = match error_type {
             // Error types that report names
             ffi::TSQueryErrorNodeType | ffi::TSQueryErrorField | ffi::TSQueryErrorCapture => {
                 let suffix = source.split_at(offset).1;
@@ -2496,27 +2554,29 @@ impl Query {
                         }
                     })
                     .unwrap_or(suffix.len());
-                message = format!("\"{}\"", suffix.split_at(end_offset).0);
-                kind = match error_type {
-                    ffi::TSQueryErrorNodeType => QueryErrorKind::NodeType,
-                    ffi::TSQueryErrorField => QueryErrorKind::Field,
-                    ffi::TSQueryErrorCapture => QueryErrorKind::Capture,
-                    _ => unreachable!(),
-                };
+                (
+                    format!("\"{}\"", suffix.split_at(end_offset).0),
+                    match error_type {
+                        ffi::TSQueryErrorNodeType => QueryErrorKind::NodeType,
+                        ffi::TSQueryErrorField => QueryErrorKind::Field,
+                        ffi::TSQueryErrorCapture => QueryErrorKind::Capture,
+                        _ => unreachable!(),
+                    },
+                )
             }
 
             // Error types that report positions
-            _ => {
-                message = line_containing_error.map_or_else(
+            _ => (
+                line_containing_error.map_or_else(
                     || "Unexpected EOF".to_string(),
                     |line| line.to_string() + "\n" + &" ".repeat(offset - line_start) + "^",
-                );
-                kind = match error_type {
+                ),
+                match error_type {
                     ffi::TSQueryErrorStructure => QueryErrorKind::Structure,
                     _ => QueryErrorKind::Syntax,
-                };
-            }
-        }
+                },
+            ),
+        };
 
         Err(QueryError {
             row,
@@ -2940,6 +3000,23 @@ impl Query {
         unsafe { ffi::ts_query_disable_pattern(self.ptr.as_ptr(), index as u32) }
     }
 
+    /// Create a deep copy of this query.
+    ///
+    /// Queries are shareable across threads and cursors without cloning. You
+    /// should only need this when you want an independent copy to mutate (e.g.
+    /// via [`disable_capture`][Query::disable_capture] or
+    /// [`disable_pattern`][Query::disable_pattern]).
+    #[doc(alias = "ts_query_copy")]
+    #[must_use]
+    pub fn deep_clone(&self) -> Self {
+        let ptr = unsafe { ffi::ts_query_copy(self.ptr.as_ptr()) };
+        // SAFETY: from_raw_parts re-derives all Rust-side fields from the C
+        // object. The source string is only used for predicate error row
+        // numbers. Since this is a copy of an already-valid query, it cannot
+        // return an error.
+        unsafe { Self::from_raw_parts(ptr, "").unwrap_unchecked() }
+    }
+
     /// Check if a given pattern within a query has a single root node.
     #[doc(alias = "ts_query_is_pattern_rooted")]
     #[must_use]
@@ -3084,7 +3161,7 @@ impl QueryCursor {
         query: &'query Query,
         node: Node<'tree>,
         text_provider: T,
-    ) -> QueryMatches<'query, 'tree, T, I> {
+    ) -> QueryMatches<'query, 'tree, 'static, T, I> {
         let ptr = self.ptr.as_ptr();
         unsafe { ffi::ts_query_cursor_exec(ptr, query.ptr.as_ptr(), node.0) };
         QueryMatches {
@@ -3110,6 +3187,7 @@ impl QueryCursor {
         'query,
         'cursor: 'query,
         'tree,
+        'options,
         T: TextProvider<I>,
         I: AsRef<[u8]>,
     >(
@@ -3117,8 +3195,8 @@ impl QueryCursor {
         query: &'query Query,
         node: Node<'tree>,
         text_provider: T,
-        options: QueryCursorOptions,
-    ) -> QueryMatches<'query, 'tree, T, I> {
+        options: QueryCursorOptions<'options>,
+    ) -> QueryMatches<'query, 'tree, 'options, T, I> {
         unsafe extern "C" fn progress(state: *mut ffi::TSQueryCursorState) -> bool {
             unsafe {
                 let callback = (*state)
@@ -3134,10 +3212,13 @@ impl QueryCursor {
         }
 
         let query_options = options.progress_callback.map(|cb| {
-            QueryCursorOptionsDrop(Box::into_raw(Box::new(ffi::TSQueryCursorOptions {
-                payload: Box::into_raw(Box::new(cb)).cast::<c_void>(),
-                progress_callback: Some(progress),
-            })))
+            QueryCursorOptionsDrop(
+                Box::into_raw(Box::new(ffi::TSQueryCursorOptions {
+                    payload: Box::into_raw(Box::new(cb)).cast::<c_void>(),
+                    progress_callback: Some(progress),
+                })),
+                PhantomData,
+            )
         });
 
         let ptr = self.ptr.as_ptr();
@@ -3176,7 +3257,7 @@ impl QueryCursor {
         query: &'query Query,
         node: Node<'tree>,
         text_provider: T,
-    ) -> QueryCaptures<'query, 'tree, T, I> {
+    ) -> QueryCaptures<'query, 'tree, 'static, T, I> {
         let ptr = self.ptr.as_ptr();
         unsafe { ffi::ts_query_cursor_exec(ptr, query.ptr.as_ptr(), node.0) };
         QueryCaptures {
@@ -3201,6 +3282,7 @@ impl QueryCursor {
         'query,
         'cursor: 'query,
         'tree,
+        'options,
         T: TextProvider<I>,
         I: AsRef<[u8]>,
     >(
@@ -3208,8 +3290,8 @@ impl QueryCursor {
         query: &'query Query,
         node: Node<'tree>,
         text_provider: T,
-        options: QueryCursorOptions,
-    ) -> QueryCaptures<'query, 'tree, T, I> {
+        options: QueryCursorOptions<'options>,
+    ) -> QueryCaptures<'query, 'tree, 'options, T, I> {
         unsafe extern "C" fn progress(state: *mut ffi::TSQueryCursorState) -> bool {
             unsafe {
                 let callback = (*state)
@@ -3225,10 +3307,13 @@ impl QueryCursor {
         }
 
         let query_options = options.progress_callback.map(|cb| {
-            QueryCursorOptionsDrop(Box::into_raw(Box::new(ffi::TSQueryCursorOptions {
-                payload: Box::into_raw(Box::new(cb)).cast::<c_void>(),
-                progress_callback: Some(progress),
-            })))
+            QueryCursorOptionsDrop(
+                Box::into_raw(Box::new(ffi::TSQueryCursorOptions {
+                    payload: Box::into_raw(Box::new(cb)).cast::<c_void>(),
+                    progress_callback: Some(progress),
+                })),
+                PhantomData,
+            )
         });
 
         let ptr = self.ptr.as_ptr();
@@ -3506,7 +3591,7 @@ impl QueryProperty {
 /// underlying object in the C library gets updated on each iteration. Copies would
 /// have their internal state overwritten, leading to Undefined Behavior
 impl<'query, 'tree, T: TextProvider<I>, I: AsRef<[u8]>> StreamingIterator
-    for QueryMatches<'query, 'tree, T, I>
+    for QueryMatches<'query, 'tree, '_, T, I>
 {
     type Item = QueryMatch<'query, 'tree>;
 
@@ -3536,14 +3621,14 @@ impl<'query, 'tree, T: TextProvider<I>, I: AsRef<[u8]>> StreamingIterator
     }
 }
 
-impl<T: TextProvider<I>, I: AsRef<[u8]>> StreamingIteratorMut for QueryMatches<'_, '_, T, I> {
+impl<T: TextProvider<I>, I: AsRef<[u8]>> StreamingIteratorMut for QueryMatches<'_, '_, '_, T, I> {
     fn get_mut(&mut self) -> Option<&mut Self::Item> {
         self.current_match.as_mut()
     }
 }
 
 impl<'query, 'tree, T: TextProvider<I>, I: AsRef<[u8]>> StreamingIterator
-    for QueryCaptures<'query, 'tree, T, I>
+    for QueryCaptures<'query, 'tree, '_, T, I>
 {
     type Item = (QueryMatch<'query, 'tree>, usize);
 
@@ -3579,13 +3664,13 @@ impl<'query, 'tree, T: TextProvider<I>, I: AsRef<[u8]>> StreamingIterator
     }
 }
 
-impl<T: TextProvider<I>, I: AsRef<[u8]>> StreamingIteratorMut for QueryCaptures<'_, '_, T, I> {
+impl<T: TextProvider<I>, I: AsRef<[u8]>> StreamingIteratorMut for QueryCaptures<'_, '_, '_, T, I> {
     fn get_mut(&mut self) -> Option<&mut Self::Item> {
         self.current_match.as_mut()
     }
 }
 
-impl<T: TextProvider<I>, I: AsRef<[u8]>> QueryMatches<'_, '_, T, I> {
+impl<T: TextProvider<I>, I: AsRef<[u8]>> QueryMatches<'_, '_, '_, T, I> {
     #[doc(alias = "ts_query_cursor_set_byte_range")]
     pub fn set_byte_range(&mut self, range: ops::Range<usize>) {
         unsafe {
@@ -3601,7 +3686,7 @@ impl<T: TextProvider<I>, I: AsRef<[u8]>> QueryMatches<'_, '_, T, I> {
     }
 }
 
-impl<T: TextProvider<I>, I: AsRef<[u8]>> QueryCaptures<'_, '_, T, I> {
+impl<T: TextProvider<I>, I: AsRef<[u8]>> QueryCaptures<'_, '_, '_, T, I> {
     #[doc(alias = "ts_query_cursor_set_byte_range")]
     pub fn set_byte_range(&mut self, range: ops::Range<usize>) {
         unsafe {
@@ -3953,27 +4038,56 @@ pub fn wasm_stdlib_symbols() -> impl Iterator<Item = &'static str> {
 }
 
 unsafe extern "C" {
-    fn free(ptr: *mut c_void);
+    static mut ts_current_free: unsafe extern "C" fn(ptr: *mut c_void);
 }
 
-static mut FREE_FN: unsafe extern "C" fn(ptr: *mut c_void) = free;
+/// Frees a pointer that was returned by a tree-sitter C API using whichever `free`
+/// function is currently installed via [`set_allocator`] or [`ffi::ts_set_allocator`].
+#[inline]
+unsafe fn ts_free(ptr: *mut c_void) {
+    let f = unsafe { core::ptr::addr_of!(ts_current_free).read() };
+    unsafe { f(ptr) };
+}
 
-/// Sets the memory allocation functions that the core library should use.
+/// A complete set of memory allocation functions for the core C library.
+#[derive(Copy, Clone)]
+pub struct Allocator {
+    pub malloc: unsafe extern "C" fn(size: usize) -> *mut c_void,
+    pub calloc: unsafe extern "C" fn(nmemb: usize, size: usize) -> *mut c_void,
+    pub realloc: unsafe extern "C" fn(ptr: *mut c_void, size: usize) -> *mut c_void,
+    pub free: unsafe extern "C" fn(ptr: *mut c_void),
+}
+
+/// Replaces the memory allocation functions used by the core C library.
+///
+/// Pass `Some` to install an allocator, or `None` to restore libc defaults.
 ///
 /// # Safety
 ///
-/// This function uses FFI and mutates a static global.
+/// All of the following must hold:
+///
+/// - The four functions must belong to a single allocator family.
+///
+/// - The functions must not return null for non-zero allocs.
+///
+/// - Returned pointers must satisfy the alignment that libc `malloc` provides.
+///
+/// - Call this before any other tree-sitter API call, and do not call it again
+///   while live tree-sitter objects exist.
+///
+/// - This function is not thread-safe.
 #[doc(alias = "ts_set_allocator")]
-pub unsafe fn set_allocator(
-    new_malloc: Option<unsafe extern "C" fn(size: usize) -> *mut c_void>,
-    new_calloc: Option<unsafe extern "C" fn(nmemb: usize, size: usize) -> *mut c_void>,
-    new_realloc: Option<unsafe extern "C" fn(ptr: *mut c_void, size: usize) -> *mut c_void>,
-    new_free: Option<unsafe extern "C" fn(ptr: *mut c_void)>,
-) {
-    unsafe {
-        FREE_FN = new_free.unwrap_or(free);
-        ffi::ts_set_allocator(new_malloc, new_calloc, new_realloc, new_free);
-    }
+pub unsafe fn set_allocator(allocator: Option<Allocator>) {
+    let (m, c, r, f) = match allocator {
+        Some(a) => (
+            Some(a.malloc),
+            Some(a.calloc),
+            Some(a.realloc),
+            Some(a.free),
+        ),
+        None => (None, None, None, None),
+    };
+    unsafe { ffi::ts_set_allocator(m, c, r, f) };
 }
 
 #[cfg(feature = "std")]

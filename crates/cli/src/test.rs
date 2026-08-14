@@ -5,7 +5,6 @@ use std::{
     fs,
     io::{self, Write},
     path::{Path, PathBuf},
-    str,
     time::Duration,
 };
 
@@ -965,11 +964,7 @@ fn run_tests(
                                 test_num: test_summary.test_num,
                             },
                         });
-                        let actual = if attributes.cst {
-                            render_test_cst(&input, &tree)?
-                        } else {
-                            tree.root_node().to_sexp()
-                        };
+                        let actual = render_test_output(&input, &tree, attributes.cst, true)?;
                         test_summary.parse_failures.push(TestFailure::new(
                             &name,
                             actual,
@@ -982,14 +977,12 @@ fn run_tests(
                         return Ok(false);
                     }
                 } else {
-                    let mut actual = if attributes.cst {
-                        render_test_cst(&input, &tree)?
-                    } else {
-                        tree.root_node().to_sexp()
-                    };
-                    if !(attributes.cst || opts.show_fields || has_fields) {
-                        actual = strip_sexp_fields(&actual);
-                    }
+                    let actual = render_test_output(
+                        &input,
+                        &tree,
+                        attributes.cst,
+                        opts.show_fields || has_fields,
+                    )?;
 
                     if actual == output {
                         test_summary.parse_results.add_case(TestResult {
@@ -1171,7 +1164,7 @@ fn run_tests(
 }
 
 /// Convenience wrapper to render a CST for a test entry.
-fn render_test_cst(input: &[u8], tree: &Tree) -> Result<String> {
+fn render_test_cst(input: &[u8], tree: &Tree) -> io::Result<String> {
     let mut rendered_cst: Vec<u8> = Vec::new();
     let mut cursor = tree.walk();
     let opts = ParseFileOptions {
@@ -1190,6 +1183,25 @@ fn render_test_cst(input: &[u8], tree: &Tree) -> Result<String> {
     };
     render_cst(input, tree, &mut cursor, &opts, &mut rendered_cst)?;
     Ok(String::from_utf8_lossy(&rendered_cst).trim().to_string())
+}
+
+/// Render a parsed tree in the output format expected by a corpus test.
+pub(crate) fn render_test_output(
+    input: &[u8],
+    tree: &Tree,
+    cst: bool,
+    include_fields: bool,
+) -> io::Result<String> {
+    if cst {
+        render_test_cst(input, tree)
+    } else {
+        let out = tree.root_node().to_sexp();
+        Ok(if include_fields {
+            out
+        } else {
+            strip_sexp_fields(&out)
+        })
+    }
 }
 
 // Parse time is interpreted in ns before converting to ms to avoid truncation issues

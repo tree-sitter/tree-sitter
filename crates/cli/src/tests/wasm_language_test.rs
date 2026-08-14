@@ -387,3 +387,18 @@ fn test_wasm_oom() {
         );
     });
 }
+
+#[test]
+fn test_lookahead_iterator_outlives_wasm_language() {
+    allocations::record(|| {
+        let mut store = WasmStore::new(&ENGINE).unwrap();
+        let wasm = fs::read(WASM_DIR.join("tree-sitter-ruby.wasm")).unwrap();
+        let language = store.load_language("ruby", &wasm).unwrap();
+
+        let mut lookahead = language.lookahead_iterator(0).unwrap();
+        drop(language);
+
+        // The iterator retains the language, so the names are still live.
+        assert!(lookahead.iter_names().count() > 0);
+    });
+}

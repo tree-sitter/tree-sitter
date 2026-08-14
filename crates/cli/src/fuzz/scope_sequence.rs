@@ -1,13 +1,13 @@
 use tree_sitter::{Point, Range, Tree};
 
 #[derive(Debug)]
-pub struct ScopeSequence(Vec<ScopeStack>);
+pub struct ScopeSequence<'a>(Vec<ScopeStack<'a>>);
 
-type ScopeStack = Vec<&'static str>;
+type ScopeStack<'a> = Vec<&'a str>;
 
-impl ScopeSequence {
+impl<'a> ScopeSequence<'a> {
     #[must_use]
-    pub fn new(tree: &Tree) -> Self {
+    pub fn new(tree: &'a Tree) -> Self {
         let mut result = Self(Vec::new());
         let mut scope_stack = Vec::new();
 
@@ -49,7 +49,7 @@ impl ScopeSequence {
         for i in 0..(self.0.len().max(other.0.len())) {
             let stack = &self.0.get(i);
             let other_stack = &other.0.get(i);
-            if *stack != *other_stack && ![b'\r', b'\n'].contains(&text[i]) {
+            if *stack != *other_stack && !b"\r\n".contains(&text[i]) {
                 let containing_range = known_changed_ranges
                     .iter()
                     .find(|range| range.start_point <= position && position < range.end_point);

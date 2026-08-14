@@ -114,6 +114,13 @@ static void ts_lexer__get_lookahead(Lexer *self) {
   }
 
   const uint8_t *chunk = (const uint8_t *)self->chunk + position_in_chunk;
+
+  if (self->input.encoding == TSInputEncodingUTF8 && chunk[0] < 0x80) {
+    self->data.lookahead = chunk[0];
+    self->lookahead_size = 1;
+    return;
+  }
+
   TSDecodeFunction decode =
     self->input.encoding == TSInputEncodingUTF8    ? ts_decode_utf8     :
     self->input.encoding == TSInputEncodingUTF16LE ? ts_decode_utf16_le :
@@ -259,6 +266,27 @@ static void ts_lexer__advance(TSLexer *_self, bool skip) {
     LOG("skip", self->data.lookahead)
   } else {
     LOG("consume", self->data.lookahead)
+  }
+
+  const uint32_t next_position = self->current_position.bytes + 1;
+  const uint32_t current_range_end =
+    self->included_ranges[self->current_included_range_index].end_byte;
+  if (
+    self->input.encoding == TSInputEncodingUTF8 &&
+    self->lookahead_size == 1 &&
+    self->data.lookahead != '\n' &&
+    next_position < current_range_end &&
+    next_position < self->chunk_start + self->chunk_size
+  ) {
+    uint8_t next_byte = (uint8_t)self->chunk[next_position - self->chunk_start];
+    if (next_byte < 0x80) {
+      ts_lexer__increment_column_data(self);
+      self->current_position.bytes++;
+      self->current_position.extent.column++;
+      if (skip) self->token_start_position = self->current_position;
+      self->data.lookahead = next_byte;
+      return;
+    }
   }
 
   ts_lexer__do_advance(self, skip);

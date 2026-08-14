@@ -1,0 +1,22 @@
+================================================================================
+Addition is right associative
+================================================================================
+
+1 + 1 + 1 + 1
+
+--------------------------------------------------------------------------------
+
+(expression
+  (addition
+    (expression
+      (number))
+    (expression
+      (addition
+        (expression
+          (number))
+        (expression
+          (addition
+            (expression
+              (number))
+            (expression
+              (number))))))))

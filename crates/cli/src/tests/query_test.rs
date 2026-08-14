@@ -5,8 +5,8 @@ use rand::{SeedableRng, prelude::StdRng};
 use streaming_iterator::StreamingIterator;
 use tree_sitter::{
     CaptureQuantifier, InputEdit, Language, Node, Parser, Point, Query, QueryCursor,
-    QueryCursorOptions, QueryError, QueryErrorKind, QueryPredicate, QueryPredicateArg,
-    QueryProperty, Range,
+    QueryCursorOptions, QueryCursorState, QueryError, QueryErrorKind, QueryPredicate,
+    QueryPredicateArg, QueryProperty, Range,
 };
 use tree_sitter_generate::load_grammar_file;
 use unindent::Unindent;
@@ -257,6 +257,51 @@ fn test_query_errors_on_invalid_syntax() {
 }
 
 #[test]
+fn test_query_errors_on_anchor_at_group_edge() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+
+        // Anchors between siblings, or at the first/last position of a *node*
+        // pattern, are valid.
+        assert!(Query::new(&language, "((_) . (_))").is_ok());
+        assert!(Query::new(&language, "(program (_) (_) .)").is_ok());
+        assert!(Query::new(&language, "(program (_)* @x . (_))").is_ok());
+
+        // A `.` at the edge of a *group* is rejected. A group is not a node, so it
+        // has no last child to anchor, and there is no sibling within the group to
+        // anchor to.
+        assert_eq!(
+            Query::new(&language, "((_) .)").unwrap_err(),
+            QueryError {
+                row: 0,
+                offset: 5,
+                column: 5,
+                kind: QueryErrorKind::Syntax,
+                message: [
+                    "((_) .)", //
+                    "     ^"
+                ]
+                .join("\n")
+            }
+        );
+        assert_eq!(
+            Query::new(&language, "(program ((_)+ .)? (_))").unwrap_err(),
+            QueryError {
+                row: 0,
+                offset: 15,
+                column: 15,
+                kind: QueryErrorKind::Syntax,
+                message: [
+                    "(program ((_)+ .)? (_))", //
+                    "               ^"
+                ]
+                .join("\n")
+            }
+        );
+    });
+}
+
+#[test]
 fn test_query_errors_on_invalid_symbols() {
     allocations::record(|| {
         let language = get_language("javascript");
@@ -369,6 +414,16 @@ fn test_query_errors_on_invalid_symbols() {
                 column: 0,
                 kind: QueryErrorKind::Field,
                 message: "\"fakefield\"".to_string()
+            }
+        );
+        assert_eq!(
+            Query::new(&language, "(MISS)").unwrap_err(),
+            QueryError {
+                row: 0,
+                offset: 1,
+                column: 1,
+                kind: QueryErrorKind::NodeType,
+                message: "\"MISS\"".to_string(),
             }
         );
     });
@@ -1178,6 +1233,209 @@ fn test_query_matches_with_immediate_siblings() {
 }
 
 #[test]
+fn test_query_matches_with_anchor_after_zero_quantifier() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+        let query = Query::new(
+            &language,
+            "(program (comment)* @doc . (function_declaration name: (identifier) @name))",
+        )
+        .unwrap();
+
+        // No comments and the function is not the first child. An anchor after a
+        // zero-matched quantifier is vacuous, so the function still matches.
+        assert_query_matches(
+            &language,
+            &query,
+            "
+class X {}
+function foo() {}
+",
+            &[(0, vec![("name", "foo")])],
+        );
+
+        // With at least one comment the anchor applies, so the comments must
+        // immediately precede the function.
+        assert_query_matches(
+            &language,
+            &query,
+            "
+// c
+function foo() {}
+",
+            &[(0, vec![("doc", "// c"), ("name", "foo")])],
+        );
+    });
+}
+
+#[test]
+fn test_query_matches_with_anchor_after_nested_zero_quantifier() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+        let query = Query::new(
+            &language,
+            r#"
+            (_
+              (field_definition
+                property: (_) @name
+                value: (_)? @value
+              ) @field
+              .
+              ";" @semicolon
+            )
+            "#,
+        )
+        .unwrap();
+
+        assert_query_matches(
+            &language,
+            &query,
+            "class Foo { bar; baz = 0; }",
+            &[
+                (
+                    0,
+                    vec![("field", "bar"), ("name", "bar"), ("semicolon", ";")],
+                ),
+                (
+                    0,
+                    vec![
+                        ("field", "baz = 0"),
+                        ("name", "baz"),
+                        ("value", "0"),
+                        ("semicolon", ";"),
+                    ],
+                ),
+            ],
+        );
+    });
+}
+
+#[test]
+fn test_query_matches_with_last_child_anchor_after_optional() {
+    allocations::record(|| {
+        let language = get_language("c");
+        let query = Query::new(
+            &language,
+            "(preproc_if (preproc_def)+ @def . (preproc_else)? @else .)",
+        )
+        .unwrap();
+
+        // The optional `(preproc_else)?` is absent, so the trailing anchor's
+        // last-child requirement transfers to the last `preproc_def`. A trailing
+        // comment means the def is not the last child, so nothing matches.
+        assert_query_matches(
+            &language,
+            &query,
+            "
+#if X
+#define A
+// c
+#endif
+",
+            &[],
+        );
+
+        // With the def as the last child, the (else-less) match is allowed.
+        assert_query_matches(
+            &language,
+            &query,
+            "
+#if X
+#define A
+#endif
+",
+            &[(0, vec![("def", "#define A\n")])],
+        );
+    });
+}
+
+#[test]
+fn test_query_matches_with_anchors_on_both_sides_of_zero_quantifier() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+        let query = Query::new(
+            &language,
+            "(program (lexical_declaration) @a . (comment)* . (function_declaration) @b)",
+        )
+        .unwrap();
+
+        // Anchors on both sides of a zero-matched quantifier collapse into a single
+        // adjacency constraint: with no comments, the declaration must be immediately
+        // followed by the function.
+        assert_query_matches(
+            &language,
+            &query,
+            "
+const a = 1;
+const b = 2;
+function foo() {}
+",
+            &[(0, vec![("a", "const b = 2;"), ("b", "function foo() {}")])],
+        );
+
+        // With a comment present the quantifier is non-zero, so the anchors apply
+        // normally: the comment must sit immediately between the declaration and the
+        // function.
+        assert_query_matches(
+            &language,
+            &query,
+            "
+const b = 2;
+// c
+function foo() {}
+",
+            &[(0, vec![("a", "const b = 2;"), ("b", "function foo() {}")])],
+        );
+    });
+}
+
+#[test]
+fn test_query_matches_with_leading_anchor_before_zero_quantifier() {
+    allocations::record(|| {
+        let language = get_language("c");
+        let query = Query::new(
+            &language,
+            "(translation_unit . (comment)* (function_definition) @f)",
+        )
+        .unwrap();
+
+        // The leading `.` anchors the comment run to the parent's first child. When the
+        // run matches zero comments, that first-child requirement transfers to the
+        // function, so it matches only when it is itself the first child.
+        assert_query_matches(
+            &language,
+            &query,
+            "
+int main() {}
+",
+            &[(0, vec![("f", "int main() {}")])],
+        );
+
+        // The function is the second child, so with no leading comments it must not match.
+        assert_query_matches(
+            &language,
+            &query,
+            "
+int a;
+int main() {}
+",
+            &[],
+        );
+
+        // With a leading comment the run starts at the first child and the function follows.
+        assert_query_matches(
+            &language,
+            &query,
+            "
+// c
+int main() {}
+",
+            &[(0, vec![("f", "int main() {}")])],
+        );
+    });
+}
+
+#[test]
 fn test_query_matches_with_last_named_child() {
     allocations::record(|| {
         let language = get_language("c");
@@ -1345,6 +1603,35 @@ fn test_query_matches_with_repeated_leaf_nodes() {
                 ),
                 (1, vec![("doc", "// eight"), ("name", "d")]),
             ],
+        );
+    });
+}
+
+#[test]
+fn test_query_matches_optional_capture_before_uncaptured_required_sibling() {
+    allocations::record(|| {
+        let language = get_language("rust");
+        let query = Query::new(&language, "(block (line_comment)? @doc (line_comment))").unwrap();
+
+        // The optional `(line_comment)? @doc` before an *uncaptured* required
+        // `(line_comment)` yields two candidate completions at the block:
+        //     - one where the optional captured `// a` (the required node is then `// b`),
+        //     - one where the optional matched zero (the required node absorbs `// a`,
+        //     leaving `@doc` unbound).
+        // The zero-match completion's captures are a strict subset of the other's, so the
+        // longest-match rule must drop it (there is exactly one match). This regressed when
+        // the dedup pass gained an early-break. Without the accompanying capture-position
+        // sort, the break skips the subset "loser" and it leaks as an extra empty match.
+        assert_query_matches(
+            &language,
+            &query,
+            "
+            fn f() {
+                // a
+                // b
+            }
+            ",
+            &[(0, vec![("doc", "// a")])],
         );
     });
 }
@@ -1587,6 +1874,148 @@ fn test_query_matches_with_leading_zero_or_more_repeated_leaf_nodes() {
                 (
                     0,
                     vec![("doc", "// four"), ("doc", "// five"), ("name", "e")],
+                ),
+            ],
+        );
+    });
+}
+
+#[test]
+fn test_matches_with_anchor_sibling_inside_parent() {
+    allocations::record(|| {
+        let language = get_language("rust");
+
+        let query = Query::new(
+            &language,
+            "
+            (source_file
+                (line_comment)
+                .
+                (function_item
+                    name: (identifier) @name)
+            )",
+        )
+        .unwrap();
+
+        assert_query_matches(
+            &language,
+            &query,
+            "
+            // A
+            fn a() {}
+
+            // B
+            fn b() {}
+            ",
+            &[(0, vec![("name", "a")]), (0, vec![("name", "b")])],
+        );
+    });
+}
+
+#[test]
+fn test_matches_with_anchor_sibling_with_quantifier_inside_parent() {
+    allocations::record(|| {
+        let language = get_language("rust");
+
+        let query = Query::new(
+            &language,
+            "
+            (source_file
+                (line_comment)+
+                .
+                (function_item
+                    name: (identifier) @name)
+            )",
+        )
+        .unwrap();
+
+        assert_query_matches(
+            &language,
+            &query,
+            "
+            // A
+            fn a() {}
+
+            // B
+            fn b() {}
+            ",
+            &[(0, vec![("name", "a")]), (0, vec![("name", "b")])],
+        );
+    });
+}
+
+#[test]
+fn test_matches_with_anchor_sibling_with_quantifier_captured_inside_parent() {
+    allocations::record(|| {
+        let language = get_language("rust");
+
+        let query = Query::new(
+            &language,
+            "
+            (source_file
+                (line_comment)+ @doc
+                .
+                (function_item
+                    name: (identifier) @name)
+            )",
+        )
+        .unwrap();
+
+        assert_query_matches(
+            &language,
+            &query,
+            "
+            // A
+            fn a() {}
+
+            // B
+            fn b() {}
+            ",
+            &[
+                (0, vec![("doc", "// A"), ("name", "a")]),
+                (0, vec![("doc", "// B"), ("name", "b")]),
+            ],
+        );
+    });
+}
+
+#[test]
+fn test_matches_anchored_quantified_sibling_inside_parent() {
+    allocations::record(|| {
+        let language = get_language("c");
+        let query = Query::new(
+            &language,
+            "(translation_unit (comment)* @comment . (declaration) @decl)",
+        )
+        .unwrap();
+        assert_query_matches(
+            &language,
+            &query,
+            "
+void foo() {}
+
+// this one has
+// two comments
+extern int baz;
+
+// this one has a comment
+extern int bar;
+",
+            &[
+                (
+                    0,
+                    vec![
+                        ("comment", "// this one has"),
+                        ("comment", "// two comments"),
+                        ("decl", "extern int baz;"),
+                    ],
+                ),
+                (
+                    0,
+                    vec![
+                        ("comment", "// this one has a comment"),
+                        ("decl", "extern int bar;"),
+                    ],
                 ),
             ],
         );
@@ -4268,6 +4697,54 @@ fn test_query_disable_pattern() {
 }
 
 #[test]
+fn test_query_deep_clone() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+        let query = Query::new(
+            &language,
+            "
+                (function_declaration
+                    name: (identifier) @name)
+                (function_declaration
+                    body: (statement_block) @body)
+            ",
+        )
+        .unwrap();
+
+        let mut clone = query.deep_clone();
+        clone.disable_pattern(1);
+
+        let source = "function foo() { return 1; }";
+        let mut parser = Parser::new();
+        parser.set_language(&language).unwrap();
+        let tree = parser.parse(source, None).unwrap();
+        let mut cursor = QueryCursor::new();
+
+        // The clone with pattern 1 disabled only produces the @name match.
+        let clone_matches = collect_matches(
+            cursor.matches(&clone, tree.root_node(), source.as_bytes()),
+            &clone,
+            source,
+        );
+        assert_eq!(clone_matches, &[(0, vec![("name", "foo")])]);
+
+        // The original is unaffected and still produces both @name and @body.
+        let original_matches = collect_matches(
+            cursor.matches(&query, tree.root_node(), source.as_bytes()),
+            &query,
+            source,
+        );
+        assert_eq!(
+            original_matches,
+            &[
+                (0, vec![("name", "foo")]),
+                (1, vec![("body", "{ return 1; }")]),
+            ]
+        );
+    });
+}
+
+#[test]
 fn test_query_alternative_predicate_prefix() {
     allocations::record(|| {
         let language = get_language("c");
@@ -5597,21 +6074,21 @@ fn test_query_execution_with_timeout() {
     let tree = parser.parse(&source_code, None).unwrap();
 
     let query = Query::new(&language, "(function_declaration) @function").unwrap();
-    let mut cursor = QueryCursor::new();
-
     let start_time = std::time::Instant::now();
+    let mut progress_callback = |_: &QueryCursorState| {
+        if start_time.elapsed().as_micros() > 1000 {
+            ControlFlow::Break(())
+        } else {
+            ControlFlow::Continue(())
+        }
+    };
+    let mut cursor = QueryCursor::new();
     let matches = cursor
         .matches_with_options(
             &query,
             tree.root_node(),
             source_code.as_bytes(),
-            QueryCursorOptions::new().progress_callback(&mut |_| {
-                if start_time.elapsed().as_micros() > 1000 {
-                    ControlFlow::Break(())
-                } else {
-                    ControlFlow::Continue(())
-                }
-            }),
+            QueryCursorOptions::new().progress_callback(&mut progress_callback),
         )
         .count();
     assert!(matches < 1000);
@@ -5620,6 +6097,33 @@ fn test_query_execution_with_timeout() {
         .matches(&query, tree.root_node(), source_code.as_bytes())
         .count();
     assert_eq!(matches, 1000);
+}
+
+#[test]
+fn test_query_progress_callback_lives_as_long_as_matches() {
+    let language = get_language("javascript");
+    let mut parser = Parser::new();
+    parser.set_language(&language).unwrap();
+
+    let source_code = "function foo() {}\n".repeat(1000);
+    let tree = parser.parse(&source_code, None).unwrap();
+    let query = Query::new(&language, "(function_declaration) @function").unwrap();
+
+    let mut cursor = QueryCursor::new();
+    let mut callback_was_called = false;
+    let mut progress_callback = |_: &QueryCursorState| {
+        callback_was_called = true;
+        ControlFlow::Continue(())
+    };
+    let matches = cursor.matches_with_options(
+        &query,
+        tree.root_node(),
+        source_code.as_bytes(),
+        QueryCursorOptions::new().progress_callback(&mut progress_callback),
+    );
+
+    assert_eq!(matches.count(), 1000);
+    assert!(callback_was_called);
 }
 
 #[test]
@@ -6032,4 +6536,65 @@ export default grammar({
     let source = "foo()\n()";
 
     assert_query_matches(&language, &query, source, &[(0, vec![("tuple", "()")])]);
+}
+
+#[test]
+fn test_last_child_anchor_looks_past_hidden_repeat() {
+    let language = get_test_fixture_language("last_child_anchor_past_hidden_repeat");
+
+    let source = "T a.b.c\nL a.b.c\nN a!.b!.c\n";
+
+    let query = Query::new(
+        &language,
+        "
+        (trailing_sep (name) @last .)
+        (leading_sep (name) @last .)
+        (trailing_named (name) @last .)
+        ",
+    )
+    .unwrap();
+
+    assert_query_matches(
+        &language,
+        &query,
+        source,
+        &[
+            (0, vec![("last", "c")]),
+            (1, vec![("last", "c")]),
+            (2, vec![("last", "c")]),
+        ],
+    );
+
+    let query = Query::new(
+        &language,
+        "
+        (trailing_sep . (name) @first)
+        (trailing_sep (name) @a . (name) @b)
+        ",
+    )
+    .unwrap();
+
+    assert_query_matches(
+        &language,
+        &query,
+        source,
+        &[
+            (0, vec![("first", "a")]),
+            (1, vec![("a", "a"), ("b", "b")]),
+            (1, vec![("a", "b"), ("b", "c")]),
+        ],
+    );
+}
+
+#[test]
+fn test_last_child_anchor_looks_past_hidden_node() {
+    allocations::record(|| {
+        let language = get_language("c");
+
+        let query = Query::new(&language, "(translation_unit (_) @last .)").unwrap();
+
+        let source = "enum E { A };\nint x;\nint y;\n";
+
+        assert_query_matches(&language, &query, source, &[(0, vec![("last", "int y;")])]);
+    });
 }

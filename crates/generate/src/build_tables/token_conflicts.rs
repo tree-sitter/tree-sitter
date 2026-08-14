@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, fmt};
+use std::cmp::Ordering;
 
 use rustc_hash::FxHashSet;
 
@@ -9,6 +9,7 @@ use crate::{
     grammars::{LexicalGrammar, SyntaxGrammar},
     nfa::{CharacterSet, NfaCursor, NfaTransition},
     rules::TokenSet,
+    strpool::StrPool,
 };
 
 bitflags! {
@@ -24,13 +25,15 @@ bitflags! {
     }
 }
 
-pub struct TokenConflictMap<'a> {
+pub struct TokenConflictMap {
     n: usize,
     status_matrix: Vec<TokenConflictStatus>,
+    #[expect(dead_code, reason = "Debugging aid")]
     following_tokens: Vec<TokenSet>,
+    #[allow(dead_code, reason = "Debugging/test aid")]
     starting_chars_by_index: Vec<CharacterSet>,
+    #[expect(dead_code, reason = "Debugging aid")]
     following_chars_by_index: Vec<CharacterSet>,
-    grammar: &'a LexicalGrammar,
     /// Per-row bitsets for fast batch conflict checks.
     /// Row `i` spans `[i * row_words .. (i+1) * row_words]`.
     /// Bit `j` is set iff [`does_conflict(i, j)`](Self::does_conflict) || [`does_match_prefix(i, j)`](Self::does_match_prefix).
@@ -40,7 +43,7 @@ pub struct TokenConflictMap<'a> {
     pub(crate) row_words: usize,
 }
 
-impl<'a> TokenConflictMap<'a> {
+impl TokenConflictMap {
     /// Create a token conflict map based on a lexical grammar, which describes the structure
     /// of each token, and a `following_token` map, which indicates which tokens may appear
     /// immediately after each other token.
@@ -48,7 +51,7 @@ impl<'a> TokenConflictMap<'a> {
     /// This analyzes the possible kinds of overlap between each pair of tokens and stores
     /// them in a matrix.
     #[must_use]
-    pub fn new(grammar: &'a LexicalGrammar, following_tokens: Vec<TokenSet>) -> Self {
+    pub fn new(grammar: &LexicalGrammar, following_tokens: Vec<TokenSet>) -> Self {
         let mut cursor = NfaCursor::new(&grammar.nfa, Vec::new());
         let starting_chars = get_starting_chars(&mut cursor, grammar);
         let following_chars = get_following_chars(&starting_chars, &following_tokens);
@@ -103,13 +106,12 @@ impl<'a> TokenConflictMap<'a> {
             }
         }
 
-        TokenConflictMap {
+        Self {
             n,
             status_matrix,
             following_tokens,
             starting_chars_by_index: starting_chars,
             following_chars_by_index: following_chars,
-            grammar,
             conflict_or_prefix_bits,
             overlap_either_bits,
             row_words,
@@ -225,52 +227,59 @@ impl<'a> TokenConflictMap<'a> {
     }
 }
 
-impl fmt::Debug for TokenConflictMap<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+#[expect(dead_code, reason = "Debugging aid")]
+struct TokenConflictMapDisplay<'a>(
+    pub &'a TokenConflictMap,
+    pub &'a LexicalGrammar,
+    pub &'a StrPool,
+);
+
+impl std::fmt::Debug for TokenConflictMapDisplay<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         writeln!(f, "TokenConflictMap {{")?;
 
         let syntax_grammar = SyntaxGrammar::default();
 
         writeln!(f, "  following_tokens: {{")?;
-        for (i, following_tokens) in self.following_tokens.iter().enumerate() {
+        for (i, following_tokens) in self.0.following_tokens.iter().enumerate() {
             writeln!(
                 f,
                 "    follow({:?}): {},",
-                self.grammar.variables[i].name,
-                TokenSetDisplay(following_tokens, &syntax_grammar, self.grammar)
+                self.1.variables[i].name,
+                TokenSetDisplay(following_tokens, &syntax_grammar, self.1, self.2)
             )?;
         }
         writeln!(f, "  }},")?;
 
         writeln!(f, "  starting_characters: {{")?;
-        for i in 0..self.n {
+        for i in 0..self.0.n {
             writeln!(
                 f,
                 "    {:?}: {:?},",
-                self.grammar.variables[i].name, self.starting_chars_by_index[i]
+                self.1.variables[i].name, self.0.starting_chars_by_index[i]
             )?;
         }
         writeln!(f, "  }},")?;
 
         writeln!(f, "  following_characters: {{")?;
-        for i in 0..self.n {
+        for i in 0..self.0.n {
             writeln!(
                 f,
                 "    {:?}: {:?},",
-                self.grammar.variables[i].name, self.following_chars_by_index[i]
+                self.1.variables[i].name, self.0.following_chars_by_index[i]
             )?;
         }
         writeln!(f, "  }},")?;
 
         writeln!(f, "  status_matrix: {{")?;
-        for i in 0..self.n {
-            writeln!(f, "    {:?}: {{", self.grammar.variables[i].name)?;
-            for j in 0..self.n {
+        for i in 0..self.0.n {
+            writeln!(f, "    {:?}: {{", self.1.variables[i].name)?;
+            for j in 0..self.0.n {
                 writeln!(
                     f,
                     "      {:?}: {:?},",
-                    self.grammar.variables[j].name,
-                    self.status_matrix[matrix_index(self.n, i, j)]
+                    self.1.variables[j].name,
+                    self.0.status_matrix[matrix_index(self.0.n, i, j)]
                 )?;
             }
             writeln!(f, "    }},")?;
@@ -309,7 +318,7 @@ fn get_following_chars(
             let mut chars = CharacterSet::empty();
             for token in following_tokens.iter() {
                 if token.is_terminal() {
-                    chars = chars.add(&starting_chars[token.index]);
+                    chars = chars.add(&starting_chars[token.index as usize]);
                 }
             }
             chars
@@ -490,29 +499,36 @@ fn compute_conflict_status(
 mod tests {
     use super::*;
     use crate::{
-        grammars::{Variable, VariableType},
-        prepare_grammar::{ExtractedLexicalGrammar, expand_tokens},
-        rules::{Precedence, Rule, Symbol},
+        grammars::VariableType,
+        prepare_grammar::{LexicalToken, expand_tokens},
+        rules::{Precedence, RulePool, Symbol},
     };
 
     #[test]
     fn test_starting_characters() {
-        let grammar = expand_tokens(ExtractedLexicalGrammar {
-            separators: Vec::new(),
-            variables: vec![
-                Variable {
-                    name: "token_0".to_string(),
-                    kind: VariableType::Named,
-                    rule: Rule::pattern("[a-f]1|0x\\d", ""),
-                },
-                Variable {
-                    name: "token_1".to_string(),
-                    kind: VariableType::Named,
-                    rule: Rule::pattern("d*ef", ""),
-                },
-            ],
-        })
-        .unwrap();
+        let mut pool = RulePool::default();
+        let empty = pool.intern("");
+        let t0 = {
+            let v = pool.intern("[a-f]1|0x\\d");
+            pool.pattern(v, empty)
+        };
+        let t1 = {
+            let v = pool.intern("d*ef");
+            pool.pattern(v, empty)
+        };
+        let vars = vec![
+            LexicalToken {
+                name: pool.intern("token_0"),
+                kind: VariableType::Named,
+                root: t0,
+            },
+            LexicalToken {
+                name: pool.intern("token_1"),
+                kind: VariableType::Named,
+                root: t1,
+            },
+        ];
+        let grammar = expand_tokens(&mut pool, &vars, &[]).unwrap();
 
         let token_map = TokenConflictMap::new(&grammar, Vec::new());
 
@@ -528,29 +544,40 @@ mod tests {
 
     #[test]
     fn test_token_conflicts() {
-        let grammar = expand_tokens(ExtractedLexicalGrammar {
-            separators: Vec::new(),
-            variables: vec![
-                Variable {
-                    name: "in".to_string(),
-                    kind: VariableType::Named,
-                    rule: Rule::string("in"),
-                },
-                Variable {
-                    name: "identifier".to_string(),
-                    kind: VariableType::Named,
-                    rule: Rule::pattern("\\w+", ""),
-                },
-                Variable {
-                    name: "instanceof".to_string(),
-                    kind: VariableType::Named,
-                    rule: Rule::string("instanceof"),
-                },
-            ],
-        })
-        .unwrap();
+        let mut pool = RulePool::default();
+        let empty = pool.intern("");
+        let in_tok = {
+            let s = pool.intern("in");
+            pool.string(s)
+        };
+        let ident = {
+            let v = pool.intern("\\w+");
+            pool.pattern(v, empty)
+        };
+        let instanceof = {
+            let s = pool.intern("instanceof");
+            pool.string(s)
+        };
+        let vars = vec![
+            LexicalToken {
+                name: pool.intern("in"),
+                kind: VariableType::Named,
+                root: in_tok,
+            },
+            LexicalToken {
+                name: pool.intern("identifier"),
+                kind: VariableType::Named,
+                root: ident,
+            },
+            LexicalToken {
+                name: pool.intern("instanceof"),
+                kind: VariableType::Named,
+                root: instanceof,
+            },
+        ];
+        let grammar = expand_tokens(&mut pool, &vars, &[]).unwrap();
 
-        let var = |name| index_of_var(&grammar, name);
+        let var = |name| index_of_var(&pool, &grammar, name);
 
         let token_map = TokenConflictMap::new(
             &grammar,
@@ -567,40 +594,51 @@ mod tests {
             ],
         );
 
-        // Given the string "in", the `in` token is preferred over the `identifier` token
+        // Given the string "in", the `in` token is preferrred over the `identifier` token
         assert!(token_map.does_match_same_string(var("in"), var("identifier")));
         assert!(!token_map.does_match_same_string(var("identifier"), var("in")));
 
         // Depending on what character follows, the string "in" may be treated as part of an
-        // `identifier` token.
+        // `identifier` token
         assert!(token_map.does_conflict(var("identifier"), var("in")));
 
-        // Depending on what character follows, the string "instanceof" may be treated as part of
-        // an `identifier` token.
+        // Depending on what character follows, the string "instanceof" may be treated as part
+        // of an `identifier` token
         assert!(token_map.does_conflict(var("identifier"), var("instanceof")));
         assert!(token_map.does_conflict(var("instanceof"), var("in")));
     }
 
     #[test]
     fn test_token_conflicts_with_separators() {
-        let grammar = expand_tokens(ExtractedLexicalGrammar {
-            separators: vec![Rule::pattern("\\s", "")],
-            variables: vec![
-                Variable {
-                    name: "x".to_string(),
-                    kind: VariableType::Named,
-                    rule: Rule::string("x"),
-                },
-                Variable {
-                    name: "newline".to_string(),
-                    kind: VariableType::Named,
-                    rule: Rule::string("\n"),
-                },
-            ],
-        })
-        .unwrap();
+        let mut pool = RulePool::default();
+        let empty = pool.intern("");
+        let sep = {
+            let v = pool.intern("\\s");
+            pool.pattern(v, empty)
+        };
+        let x = {
+            let s = pool.intern("x");
+            pool.string(s)
+        };
+        let newline = {
+            let s = pool.intern("\n");
+            pool.string(s)
+        };
+        let vars = vec![
+            LexicalToken {
+                name: pool.intern("x"),
+                kind: VariableType::Named,
+                root: x,
+            },
+            LexicalToken {
+                name: pool.intern("newline"),
+                kind: VariableType::Named,
+                root: newline,
+            },
+        ];
+        let grammar = expand_tokens(&mut pool, &vars, &[sep]).unwrap();
 
-        let var = |name| index_of_var(&grammar, name);
+        let var = |name| index_of_var(&pool, &grammar, name);
 
         let token_map = TokenConflictMap::new(&grammar, vec![TokenSet::new(); 4]);
 
@@ -610,24 +648,36 @@ mod tests {
 
     #[test]
     fn test_token_conflicts_with_open_ended_tokens() {
-        let grammar = expand_tokens(ExtractedLexicalGrammar {
-            separators: vec![Rule::pattern("\\s", "")],
-            variables: vec![
-                Variable {
-                    name: "x".to_string(),
-                    kind: VariableType::Named,
-                    rule: Rule::string("x"),
-                },
-                Variable {
-                    name: "anything".to_string(),
-                    kind: VariableType::Named,
-                    rule: Rule::prec(Precedence::Integer(-1), Rule::pattern(".*", "")),
-                },
-            ],
-        })
-        .unwrap();
+        let mut pool = RulePool::default();
+        let empty = pool.intern("");
+        let sep = {
+            let v = pool.intern("\\s");
+            pool.pattern(v, empty)
+        };
+        let x = {
+            let s = pool.intern("x");
+            pool.string(s)
+        };
+        let anything = {
+            let v = pool.intern(".*");
+            let pat = pool.pattern(v, empty);
+            pool.prec(Precedence::Integer(-1), pat)
+        };
+        let vars = vec![
+            LexicalToken {
+                name: pool.intern("x"),
+                kind: VariableType::Named,
+                root: x,
+            },
+            LexicalToken {
+                name: pool.intern("anything"),
+                kind: VariableType::Named,
+                root: anything,
+            },
+        ];
+        let grammar = expand_tokens(&mut pool, &vars, &[sep]).unwrap();
 
-        let var = |name| index_of_var(&grammar, name);
+        let var = |name| index_of_var(&pool, &grammar, name);
 
         let token_map = TokenConflictMap::new(&grammar, vec![TokenSet::new(); 4]);
 
@@ -635,11 +685,11 @@ mod tests {
         assert!(!token_map.does_match_shorter_or_longer(var("x"), var("anything")));
     }
 
-    fn index_of_var(grammar: &LexicalGrammar, name: &str) -> usize {
+    fn index_of_var(pool: &RulePool, grammar: &LexicalGrammar, name: &str) -> usize {
         grammar
             .variables
             .iter()
-            .position(|v| v.name == name)
+            .position(|v| pool.resolve(v.name) == name)
             .unwrap()
     }
 }

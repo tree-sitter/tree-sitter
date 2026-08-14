@@ -1,0 +1,43 @@
+=========================================
+Repeat ending with an anonymous separator
+=========================================
+
+T a.b.c
+
+---
+
+(source_file
+  (trailing_sep
+    (name)
+    (name)
+    (name)))
+
+===============================
+Repeat ending with a named node
+===============================
+
+L a.b.c
+
+---
+
+(source_file
+  (leading_sep
+    (name)
+    (name)
+    (name)))
+
+============================================================
+Repeat ending with an anonymous separator, preceded by a tag
+============================================================
+
+N a!.b!.c
+
+---
+
+(source_file
+  (trailing_named
+    (name)
+    (tag)
+    (name)
+    (tag)
+    (name)))

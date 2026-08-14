@@ -3,7 +3,7 @@ use std::process::Command;
 use anyhow::{Context, Result};
 use semver::Version;
 
-use crate::{UpgradeWasmtime, create_commit};
+use crate::{UpgradeWasmtime, bail_on_err, create_commit};
 
 const WASMTIME_RELEASE_URL: &str = "https://github.com/bytecodealliance/wasmtime/releases/download";
 
@@ -22,11 +22,13 @@ fn update_cargo(version: &Version) -> Result<()> {
 
     std::fs::write("lib/Cargo.toml", new_lines.join("\n") + "\n")?;
 
-    Command::new("cargo")
+    let output = Command::new("cargo")
         .arg("update")
-        .status()
-        .map(|_| ())
-        .with_context(|| "Failed to execute cargo update")
+        .spawn()?
+        .wait_with_output()?;
+    bail_on_err(&output, "Failed to run cargo update")?;
+
+    Ok(())
 }
 
 fn zig_fetch(lines: &mut Vec<String>, version: &Version, url_suffix: &str) -> Result<()> {
@@ -39,9 +41,15 @@ fn zig_fetch(lines: &mut Vec<String>, version: &Version, url_suffix: &str) -> Re
         .arg(url)
         .output()
         .with_context(|| format!("Failed to execute zig fetch {url}"))?;
+    bail_on_err(&output, &format!("`zig fetch {url}` failed"))?;
 
-    let hash = String::from_utf8_lossy(&output.stdout);
-    lines.push(format!("            .hash = \"{}\",", hash.trim_end()));
+    let hash = std::str::from_utf8(&output.stdout)
+        .with_context(|| format!("`zig fetch {url}` produced non-UTF-8 output"))?
+        .trim_end();
+    if hash.is_empty() {
+        anyhow::bail!("`zig fetch {url}` produced an empty hash");
+    }
+    lines.push(format!("            .hash = \"{hash}\","));
 
     Ok(())
 }

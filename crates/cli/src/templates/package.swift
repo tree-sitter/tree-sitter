@@ -15,7 +15,7 @@ let package = Package(
         .library(name: "PARSER_CLASS_NAME", targets: ["PARSER_CLASS_NAME"]),
     ],
     dependencies: [
-        .package(name: "SwiftTreeSitter", url: "https://github.com/tree-sitter/swift-tree-sitter", from: "0.9.0"),
+        .package(url: "https://github.com/tree-sitter/swift-tree-sitter", from: "0.10.0"),
     ],
     targets: [
         .target(
@@ -32,7 +32,7 @@ let package = Package(
         .testTarget(
             name: "PARSER_CLASS_NAMETests",
             dependencies: [
-                "SwiftTreeSitter",
+                .product(name: "SwiftTreeSitter", package: "swift-tree-sitter"),
                 "PARSER_CLASS_NAME",
             ],
             path: "bindings/swift/PARSER_CLASS_NAMETests"

@@ -3,13 +3,11 @@
 pub mod c_lib;
 
 use std::{
-    char,
     collections::HashMap,
     ffi::{CStr, CString},
     mem,
     ops::{ControlFlow, Range},
     os::raw::c_char,
-    str,
     sync::atomic::{AtomicUsize, Ordering},
 };
 
@@ -77,8 +75,8 @@ pub enum Error {
     Regex(#[from] regex::Error),
     #[error("Cancelled")]
     Cancelled,
-    #[error("Invalid language")]
-    InvalidLanguage,
+    #[error("Invalid language: {0}")]
+    InvalidLanguage(#[from] tree_sitter::LanguageError),
     #[error(
         "Invalid capture @{0}. Expected one of: @definition.*, @reference.*, @doc, @name, @local.(scope|definition|reference)."
     )]
@@ -286,9 +284,7 @@ impl TagsContext {
         source: &'a [u8],
         cancellation_flag: Option<&'a AtomicUsize>,
     ) -> Result<(impl Iterator<Item = Result<Tag, Error>> + 'a, bool), Error> {
-        self.parser
-            .set_language(&config.language)
-            .map_err(|_| Error::InvalidLanguage)?;
+        self.parser.set_language(&config.language)?;
         self.parser.reset();
         let tree = self
             .parser
@@ -516,13 +512,10 @@ where
                         // reuse results from the previous tag.
                         let mut prev_utf16_column = 0;
                         let mut prev_utf8_byte = name_range.start - span.start.column;
-                        let line_info = self.prev_line_info.as_ref().and_then(|info| {
-                            if info.utf8_position.row == span.start.row {
-                                Some(info)
-                            } else {
-                                None
-                            }
-                        });
+                        let line_info = self
+                            .prev_line_info
+                            .as_ref()
+                            .filter(|&info| info.utf8_position.row == span.start.row);
                         let line_range = if let Some(line_info) = line_info {
                             if line_info.utf8_position.column <= span.start.column {
                                 prev_utf8_byte = line_info.utf8_byte;

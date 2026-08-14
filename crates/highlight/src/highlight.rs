@@ -8,7 +8,6 @@ use std::{
     marker::PhantomData,
     mem::{self, MaybeUninit},
     ops::{self, ControlFlow},
-    str,
     sync::{
         LazyLock,
         atomic::{AtomicUsize, Ordering},
@@ -95,8 +94,8 @@ pub struct Highlight(pub usize);
 pub enum Error {
     #[error("Cancelled")]
     Cancelled,
-    #[error("Invalid language")]
-    InvalidLanguage,
+    #[error("Invalid language: {0}")]
+    InvalidLanguage(#[from] tree_sitter::LanguageError),
     #[error("Unknown error")]
     Unknown,
 }
@@ -541,10 +540,7 @@ impl<'a> HighlightIterLayer<'a> {
         let mut queue = Vec::new();
         loop {
             if highlighter.parser.set_included_ranges(&ranges).is_ok() {
-                highlighter
-                    .parser
-                    .set_language(&config.language)
-                    .map_err(|_| Error::InvalidLanguage)?;
+                highlighter.parser.set_language(&config.language)?;
 
                 let progress_callack = &mut |_: &ParseState| {
                     if let Some(cancellation_flag) = cancellation_flag {
@@ -562,8 +558,10 @@ impl<'a> HighlightIterLayer<'a> {
                 let tree = match encoding {
                     Some(encoding) if encoding == ffi::TSInputEncodingUTF16LE => {
                         let source_code_utf16 = source
-                            .chunks_exact(2)
-                            .map(|chunk| u16::from_le_bytes([chunk[0], chunk[1]]))
+                            .as_chunks::<2>()
+                            .0
+                            .iter()
+                            .map(|&chunk| u16::from_le_bytes(chunk))
                             .collect::<Vec<_>>();
                         highlighter
                             .parser
@@ -582,8 +580,10 @@ impl<'a> HighlightIterLayer<'a> {
                     }
                     Some(encoding) if encoding == ffi::TSInputEncodingUTF16BE => {
                         let source_code_utf16 = source
-                            .chunks_exact(2)
-                            .map(|chunk| u16::from_be_bytes([chunk[0], chunk[1]]))
+                            .as_chunks::<2>()
+                            .0
+                            .iter()
+                            .map(|&chunk| u16::from_be_bytes(chunk))
                             .collect::<Vec<_>>();
                         highlighter
                             .parser

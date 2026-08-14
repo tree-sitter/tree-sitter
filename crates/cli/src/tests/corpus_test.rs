@@ -2,6 +2,7 @@ use std::{collections::HashMap, env, fs};
 
 use anyhow::Context;
 use tree_sitter::Parser;
+use tree_sitter_generate::OptLevel;
 use tree_sitter_proc_macro::test_with_seed;
 
 use crate::{
@@ -16,7 +17,7 @@ use crate::{
         random::Rand,
     },
     parse::perform_edit,
-    test::{DiffKey, TestDiff, parse_tests, strip_sexp_fields},
+    test::{DiffKey, TestDiff, parse_tests, render_test_output},
     tests::{
         allocations,
         helpers::fixtures::{SCRATCH_BASE_DIR, fixtures_dir, get_language, get_test_language},
@@ -195,28 +196,7 @@ pub fn test_language_corpus(
 
         println!("  {test_index}. {test_name}");
 
-        let passed = allocations::record(|| {
-            let mut log_session = None;
-            let mut parser = get_parser(&mut log_session, "log.html");
-            parser.set_language(&language).unwrap();
-            set_included_ranges(&mut parser, &test.input, test.template_delimiters);
-
-            let tree = parser.parse(&test.input, None).unwrap();
-            let mut actual_output = tree.root_node().to_sexp();
-            if !test.has_fields {
-                actual_output = strip_sexp_fields(&actual_output);
-            }
-
-            if actual_output != test.output {
-                println!("Incorrect initial parse for {test_name}");
-                DiffKey::print();
-                println!("{}", TestDiff::new(&actual_output, &test.output));
-                println!();
-                return false;
-            }
-
-            true
-        });
+        let passed = allocations::record(|| test.check_initial_parse(&language, &test_name, true));
 
         if !passed {
             failure_count += 1;
@@ -292,10 +272,8 @@ pub fn test_language_corpus(
                 let tree3 = parser.parse(&input, Some(&tree2)).unwrap();
 
                 // Verify that the final tree matches the expectation from the corpus.
-                let mut actual_output = tree3.root_node().to_sexp();
-                if !test.has_fields {
-                    actual_output = strip_sexp_fields(&actual_output);
-                }
+                let actual_output =
+                    render_test_output(&input, &tree3, test.cst, test.has_fields).unwrap();
 
                 if actual_output != test.output {
                     println!("Incorrect parse for {test_name} - seed {seed}");
@@ -375,8 +353,12 @@ fn test_feature_corpus_files() {
                 )
             })
             .unwrap();
-        let generate_result =
-            tree_sitter_generate::generate_parser_for_grammar(&grammar_json, Some((0, 0, 0)));
+        let generate_result = tree_sitter_generate::generate_parser_for_grammar(
+            &grammar_json,
+            Some((0, 0, 0)),
+            OptLevel::default(),
+            &mut Vec::new(),
+        );
 
         if error_message_path.exists() {
             if EXAMPLE_INCLUDE.is_some() || EXAMPLE_EXCLUDE.is_some() {
@@ -420,24 +402,8 @@ fn test_feature_corpus_files() {
             for test in tests {
                 eprintln!("  example: {:?}", test.name);
 
-                let passed = allocations::record(|| {
-                    let mut log_session = None;
-                    let mut parser = get_parser(&mut log_session, "log.html");
-                    parser.set_language(&language).unwrap();
-                    let tree = parser.parse(&test.input, None).unwrap();
-                    let mut actual_output = tree.root_node().to_sexp();
-                    if !test.has_fields {
-                        actual_output = strip_sexp_fields(&actual_output);
-                    }
-                    if actual_output == test.output {
-                        true
-                    } else {
-                        DiffKey::print();
-                        print!("{}", TestDiff::new(&actual_output, &test.output));
-                        println!();
-                        false
-                    }
-                });
+                let passed =
+                    allocations::record(|| test.check_initial_parse(&language, &test.name, true));
 
                 if !passed {
                     failure_count += 1;

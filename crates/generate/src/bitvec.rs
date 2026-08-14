@@ -152,14 +152,14 @@ impl BitVec {
     }
 
     #[must_use]
-    pub fn get(&self, index: usize) -> Option<bool> {
+    pub const fn get(&self, index: usize) -> Option<bool> {
         if index >= self.num_bits as usize {
             return None;
         }
         Some(self.as_slice()[index / 64] >> (index % 64) & 1 != 0)
     }
 
-    pub fn set(&mut self, index: usize, val: bool) {
+    pub const fn set(&mut self, index: usize, val: bool) {
         let word_idx = index / 64;
         let bit_idx = index % 64;
         let words = self.as_full_slice_mut();
@@ -213,14 +213,14 @@ impl BitVec {
     }
 
     #[must_use]
-    pub fn last(&self) -> Option<bool> {
+    pub const fn last(&self) -> Option<bool> {
         if self.num_bits == 0 {
             return None;
         }
         self.get(self.num_bits as usize - 1)
     }
 
-    pub fn pop(&mut self) -> Option<bool> {
+    pub const fn pop(&mut self) -> Option<bool> {
         if self.num_bits == 0 {
             return None;
         }

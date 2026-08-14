@@ -603,6 +603,11 @@ bool ts_node_is_error(TSNode self);
 
 /**
  * Get this node's parse state.
+ *
+ * For a missing node, this is the state from the recovery path that was
+ * selected by the parser. It can be used with [`ts_lookahead_iterator_new`] to
+ * inspect the symbols that are valid in that state. This does not necessarily
+ * include every symbol that could be recovered by inserting a missing node.
 */
 TSStateId ts_node_parse_state(TSNode self);
 
@@ -934,6 +939,11 @@ TSQuery *ts_query_new(
  * Delete a query, freeing all of the memory that it used.
  */
 void ts_query_delete(TSQuery *self);
+
+/**
+ * Create a copy of a query.
+ */
+TSQuery *ts_query_copy(const TSQuery *self);
 
 /**
  * Get the number of patterns, captures, or string literals in the query.
@@ -1340,13 +1350,17 @@ const char *ts_language_name(const TSLanguage *self);
  *
  * Repeatedly using [`ts_lookahead_iterator_next`] and
  * [`ts_lookahead_iterator_current_symbol`] will generate valid symbols in the
- * given parse state. Newly created lookahead iterators will contain the `ERROR`
- * symbol.
+ * given parse state. A newly created iterator is not positioned on a symbol
+ * until [`ts_lookahead_iterator_next`] is called.
+ *
+ * The iterator retains the language, so the language may be deleted while the
+ * iterator is still in use.
  *
  * Lookahead iterators can be useful to generate suggestions and improve syntax
  * error diagnostics. To get symbols valid in an ERROR node, use the lookahead
  * iterator on its first leaf node state. For `MISSING` nodes, a lookahead
- * iterator created on the previous non-extra leaf node may be appropriate.
+ * iterator created on the previous non-extra leaf node, or using the node's
+ * parse state may be appropriate.
 */
 TSLookaheadIterator *ts_lookahead_iterator_new(const TSLanguage *self, TSStateId state);
 
@@ -1359,7 +1373,7 @@ void ts_lookahead_iterator_delete(TSLookaheadIterator *self);
  * Reset the lookahead iterator to another state.
  *
  * This returns `true` if the iterator was reset to the given state and `false`
- * otherwise.
+ * otherwise. A reset iterator is not positioned on a symbol.
 */
 bool ts_lookahead_iterator_reset_state(TSLookaheadIterator *self, TSStateId state);
 
@@ -1367,7 +1381,7 @@ bool ts_lookahead_iterator_reset_state(TSLookaheadIterator *self, TSStateId stat
  * Reset the lookahead iterator.
  *
  * This returns `true` if the language was set successfully and `false`
- * otherwise.
+ * otherwise. A reset iterator is not positioned on a symbol.
 */
 bool ts_lookahead_iterator_reset(TSLookaheadIterator *self, const TSLanguage *language, TSStateId state);
 
@@ -1384,13 +1398,19 @@ const TSLanguage *ts_lookahead_iterator_language(const TSLookaheadIterator *self
 bool ts_lookahead_iterator_next(TSLookaheadIterator *self);
 
 /**
- * Get the current symbol of the lookahead iterator;
+ * Get the current symbol of the lookahead iterator.
+ *
+ * This is only meaningful when the most recent call to
+ * [`ts_lookahead_iterator_next`] on `self` returned `true`.
 */
 TSSymbol ts_lookahead_iterator_current_symbol(const TSLookaheadIterator *self);
 
 /**
  * Get the current symbol type of the lookahead iterator as a null terminated
  * string.
+ *
+ * This returns `NULL` unless the most recent call to
+ * [`ts_lookahead_iterator_next`] on `self` returned `true`.
 */
 const char *ts_lookahead_iterator_current_symbol_name(const TSLookaheadIterator *self);
 

@@ -383,7 +383,7 @@ unsafe extern "C" {
     pub fn ts_node_is_error(self_: TSNode) -> bool;
 }
 unsafe extern "C" {
-    #[doc = " Get this node's parse state."]
+    #[doc = " Get this node's parse state.\n\n For a missing node, this is the state from the recovery path that was\n selected by the parser. It can be used with [`ts_lookahead_iterator_new`] to\n inspect the symbols that are valid in that state. This does not necessarily\n include every symbol that could be recovered by inserting a missing node."]
     pub fn ts_node_parse_state(self_: TSNode) -> TSStateId;
 }
 unsafe extern "C" {
@@ -595,6 +595,10 @@ unsafe extern "C" {
 unsafe extern "C" {
     #[doc = " Delete a query, freeing all of the memory that it used."]
     pub fn ts_query_delete(self_: *mut TSQuery);
+}
+unsafe extern "C" {
+    #[doc = " Create a copy of a query."]
+    pub fn ts_query_copy(self_: *const TSQuery) -> *mut TSQuery;
 }
 unsafe extern "C" {
     #[doc = " Get the number of patterns, captures, or string literals in the query."]
@@ -841,7 +845,7 @@ unsafe extern "C" {
     pub fn ts_language_name(self_: *const TSLanguage) -> *const ::core::ffi::c_char;
 }
 unsafe extern "C" {
-    #[doc = " Create a new lookahead iterator for the given language and parse state.\n\n This returns `NULL` if state is invalid for the language.\n\n Repeatedly using [`ts_lookahead_iterator_next`] and\n [`ts_lookahead_iterator_current_symbol`] will generate valid symbols in the\n given parse state. Newly created lookahead iterators will contain the `ERROR`\n symbol.\n\n Lookahead iterators can be useful to generate suggestions and improve syntax\n error diagnostics. To get symbols valid in an ERROR node, use the lookahead\n iterator on its first leaf node state. For `MISSING` nodes, a lookahead\n iterator created on the previous non-extra leaf node may be appropriate."]
+    #[doc = " Create a new lookahead iterator for the given language and parse state.\n\n This returns `NULL` if state is invalid for the language.\n\n Repeatedly using [`ts_lookahead_iterator_next`] and\n [`ts_lookahead_iterator_current_symbol`] will generate valid symbols in the\n given parse state. A newly created iterator is not positioned on a symbol\n until [`ts_lookahead_iterator_next`] is called.\n\n The iterator retains the language, so the language may be deleted while the\n iterator is still in use.\n\n Lookahead iterators can be useful to generate suggestions and improve syntax\n error diagnostics. To get symbols valid in an ERROR node, use the lookahead\n iterator on its first leaf node state. For `MISSING` nodes, a lookahead\n iterator created on the previous non-extra leaf node, or using the node's\n parse state may be appropriate."]
     pub fn ts_lookahead_iterator_new(
         self_: *const TSLanguage,
         state: TSStateId,
@@ -852,14 +856,14 @@ unsafe extern "C" {
     pub fn ts_lookahead_iterator_delete(self_: *mut TSLookaheadIterator);
 }
 unsafe extern "C" {
-    #[doc = " Reset the lookahead iterator to another state.\n\n This returns `true` if the iterator was reset to the given state and `false`\n otherwise."]
+    #[doc = " Reset the lookahead iterator to another state.\n\n This returns `true` if the iterator was reset to the given state and `false`\n otherwise. A reset iterator is not positioned on a symbol."]
     pub fn ts_lookahead_iterator_reset_state(
         self_: *mut TSLookaheadIterator,
         state: TSStateId,
     ) -> bool;
 }
 unsafe extern "C" {
-    #[doc = " Reset the lookahead iterator.\n\n This returns `true` if the language was set successfully and `false`\n otherwise."]
+    #[doc = " Reset the lookahead iterator.\n\n This returns `true` if the language was set successfully and `false`\n otherwise. A reset iterator is not positioned on a symbol."]
     pub fn ts_lookahead_iterator_reset(
         self_: *mut TSLookaheadIterator,
         language: *const TSLanguage,
@@ -875,11 +879,11 @@ unsafe extern "C" {
     pub fn ts_lookahead_iterator_next(self_: *mut TSLookaheadIterator) -> bool;
 }
 unsafe extern "C" {
-    #[doc = " Get the current symbol of the lookahead iterator;"]
+    #[doc = " Get the current symbol of the lookahead iterator.\n\n This is only meaningful when the most recent call to\n [`ts_lookahead_iterator_next`] on `self` returned `true`."]
     pub fn ts_lookahead_iterator_current_symbol(self_: *const TSLookaheadIterator) -> TSSymbol;
 }
 unsafe extern "C" {
-    #[doc = " Get the current symbol type of the lookahead iterator as a null terminated\n string."]
+    #[doc = " Get the current symbol type of the lookahead iterator as a null terminated\n string.\n\n This returns `NULL` unless the most recent call to\n [`ts_lookahead_iterator_next`] on `self` returned `true`."]
     pub fn ts_lookahead_iterator_current_symbol_name(
         self_: *const TSLookaheadIterator,
     ) -> *const ::core::ffi::c_char;

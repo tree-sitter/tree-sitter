@@ -1,7 +1,14 @@
 name: Release
 
 on:
+  schedule:
+    - cron: '5 5 * * *'
   workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Tag name for release'
+        required: false
+        default: nightly
   push:
     tags:
       - v[0-9]+.[0-9]+.[0-9]+
@@ -21,8 +28,19 @@ jobs:
       attestations: write
       contents: write
     steps:
+      - if: github.event_name == 'workflow_dispatch'
+        env:
+          TAG_NAME: ${{ github.event.inputs.tag_name }}
+        run: echo "TAG_NAME=${TAG_NAME}" >> $GITHUB_ENV
+
+      - if: github.event_name == 'schedule'
+        run: echo 'TAG_NAME=nightly' >> $GITHUB_ENV
+
+      - if: github.event_name == 'push'
+        run: echo "TAG_NAME=${GITHUB_REF_NAME}" >> $GITHUB_ENV
+
       - name: Checkout repository
-        uses: actions/checkout@v7.0.0
+        uses: actions/checkout@v7.0.1
 
       - name: Download build artifacts
         uses: actions/download-artifact@v8
@@ -44,6 +62,7 @@ jobs:
 
           for platform in $(cd artifacts; ls | sed 's/^tree-sitter\.//'); do
             exe=$(ls artifacts/tree-sitter.$platform/tree-sitter*)
+            chmod +x $exe
             gzip --stdout --name $exe > target/tree-sitter-$platform.gz
             zip -j9 target/tree-sitter-cli-$platform.zip $exe
           done
@@ -58,9 +77,17 @@ jobs:
             target/tree-sitter-cli-*.zip
             target/web-tree-sitter.tar.gz
 
+      - if: env.TAG_NAME == 'nightly'
+        run: |
+          echo 'PRERELEASE=--prerelease' >> $GITHUB_ENV
+          gh release delete nightly --yes || true
+          git push https://${GITHUB_ACTOR}:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY} :nightly || true
+        env:
+          GH_TOKEN: ${{ github.token }}
+
       - name: Create release
         run: |-
-          gh release create $GITHUB_REF_NAME \
+          gh release create ${{ env.TAG_NAME }} $PRERELEASE \
             target/tree-sitter-*.gz \
             target/tree-sitter-cli-*.zip \
             target/web-tree-sitter.tar.gz
@@ -69,6 +96,7 @@ jobs:
 
   crates_io:
     name: Publish packages to Crates.io
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.tag_name != 'nightly')
     runs-on: ubuntu-latest
     environment: crates
     permissions:
@@ -77,7 +105,7 @@ jobs:
     needs: release
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7.0.0
+        uses: actions/checkout@v7.0.1
 
       - name: Set up Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -93,6 +121,7 @@ jobs:
 
   npm:
     name: Publish packages to npmjs.com
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.tag_name != 'nightly')
     runs-on: ubuntu-latest
     environment: npm
     permissions:
@@ -105,10 +134,10 @@ jobs:
         directory: [crates/cli/npm, lib/binding_web]
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7.0.0
+        uses: actions/checkout@v7.0.1
 
       - name: Set up Node
-        uses: actions/setup-node@v6.4.0
+        uses: actions/setup-node@v7.0.0
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org

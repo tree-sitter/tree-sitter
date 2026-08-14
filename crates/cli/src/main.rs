@@ -6,7 +6,7 @@ use std::{
 
 use anstyle::{AnsiColor, Color, Style};
 use anyhow::{Context, Result, anyhow};
-use clap::{Args, Command, FromArgMatches as _, Subcommand, ValueEnum, crate_authors};
+use clap::{ArgGroup, Args, Command, FromArgMatches as _, Subcommand, ValueEnum, crate_authors};
 use clap_complete::generate;
 use dialoguer::{Confirm, FuzzySelect, Input, MultiSelect, theme::ColorfulTheme};
 use heck::ToUpperCamelCase;
@@ -19,7 +19,7 @@ use tree_sitter_cli::{
         DEFAULT_EDIT_COUNT, DEFAULT_ITERATION_COUNT, EDIT_COUNT, FuzzOptions, ITERATION_COUNT,
         LOG_ENABLED, LOG_GRAPH_ENABLED, START_SEED, fuzz_language_corpus,
     },
-    highlight::{self, HighlightOptions},
+    highlight::{self, HighlightOptions, HtmlOutput, HtmlStyling},
     init::{JsonConfigOpts, TREE_SITTER_JSON_SCHEMA, generate_grammar_files},
     input::{CliInput, get_input, get_tmp_source_file},
     logger, paint,
@@ -33,7 +33,7 @@ use tree_sitter_cli::{
     wasm,
 };
 use tree_sitter_config::Config;
-use tree_sitter_generate::OptLevel;
+use tree_sitter_generate::{Diagnostic, GenerateError, OptLevel};
 use tree_sitter_highlight::Highlighter;
 use tree_sitter_loader::{self as loader, Bindings, TreeSitterJSON};
 use tree_sitter_tags::TagsContext;
@@ -195,6 +195,7 @@ struct Build {
 
 #[derive(Args)]
 #[command(alias = "p")]
+#[command(group(ArgGroup::new("graph_output").multiple(true)))]
 struct Parse {
     /// The path to a file with paths to source file(s)
     #[arg(long = "paths")]
@@ -210,7 +211,7 @@ struct Parse {
     pub lib_path: Option<PathBuf>,
     /// If `--lib-path` is used, the name of the language used to extract the
     /// library's language function
-    #[arg(long)]
+    #[arg(long, requires = "lib_path")]
     pub lang_name: Option<String>,
     /// Select a language by the scope instead of a file extension
     #[arg(long)]
@@ -226,13 +227,13 @@ struct Parse {
     #[arg(long, short = '0')]
     pub debug_build: bool,
     /// Produce the log.html file with debug graphs
-    #[arg(long, short = 'D')]
+    #[arg(long, short = 'D', group = "graph_output")]
     pub debug_graph: bool,
     /// Compile parsers to Wasm instead of native dynamic libraries
     #[arg(long, hide = cfg!(not(feature = "wasm")))]
     pub wasm: bool,
     /// Output the parse data with graphviz dot
-    #[arg(long = "dot")]
+    #[arg(long = "dot", group = "graph_output")]
     pub output_dot: bool,
     /// Output the parse data in XML format
     #[arg(long = "xml", short = 'x')]
@@ -266,8 +267,8 @@ struct Parse {
     /// The encoding of the input files
     #[arg(long)]
     pub encoding: Option<Encoding>,
-    /// Open `log.html` in the default browser, if `--debug-graph` is supplied
-    #[arg(long)]
+    /// Open `log.html` in the default browser, if `--debug-graph` or `--dot` is supplied
+    #[arg(long, requires = "graph_output")]
     pub open_log: bool,
     /// Deprecated: use --json-summary
     #[arg(long, conflicts_with = "json_summary", conflicts_with = "stat")]
@@ -317,7 +318,7 @@ struct Test {
     pub lib_path: Option<PathBuf>,
     /// If `--lib-path` is used, the name of the language used to extract the
     /// library's language function
-    #[arg(long)]
+    #[arg(long, requires = "lib_path")]
     pub lang_name: Option<String>,
     /// Update all syntax trees in corpus files with current parser output
     #[arg(long, short)]
@@ -335,7 +336,7 @@ struct Test {
     #[arg(long, hide = cfg!(not(feature = "wasm")))]
     pub wasm: bool,
     /// Open `log.html` in the default browser, if `--debug-graph` is supplied
-    #[arg(long)]
+    #[arg(long, requires = "debug_graph")]
     pub open_log: bool,
     /// The path to an alternative config.json file
     #[arg(long)]
@@ -405,7 +406,7 @@ struct Fuzz {
     pub lib_path: Option<PathBuf>,
     /// If `--lib-path` is used, the name of the language used to extract the
     /// library's language function
-    #[arg(long)]
+    #[arg(long, requires = "lib_path")]
     pub lang_name: Option<String>,
     #[arg(
         long,
@@ -452,7 +453,7 @@ struct Query {
     pub lib_path: Option<PathBuf>,
     /// If `--lib-path` is used, the name of the language used to extract the
     /// library's language function
-    #[arg(long)]
+    #[arg(long, requires = "lib_path")]
     pub lang_name: Option<String>,
     /// Measure execution time
     #[arg(long, short)]
@@ -507,14 +508,20 @@ struct Highlight {
     /// Generate highlighting as an HTML document
     #[arg(long, short = 'H')]
     pub html: bool,
-    /// When generating HTML, use css classes rather than inline styles
-    #[arg(long)]
+    /// Deprecated: use `--style classes`
+    #[arg(long, requires = "html", conflicts_with = "style")]
     pub css_classes: bool,
+    /// When generating HTML, the document structure to emit
+    #[arg(long, requires = "html", value_enum, default_value = "document")]
+    pub layout: HtmlOutput,
+    /// When generating HTML, how token colors are applied
+    #[arg(long, requires = "html", value_enum, default_value = "classes")]
+    pub style: HtmlStyling,
     /// Check that highlighting captures conform strictly to standards
     #[arg(long)]
     pub check: bool,
     /// The path to a file with captures
-    #[arg(long)]
+    #[arg(long, requires = "check")]
     pub captures_path: Option<PathBuf>,
     /// The paths to files with queries
     #[arg(long, num_args = 1..)]
@@ -951,7 +958,8 @@ impl Generate {
             self.json_summary
         };
 
-        if let Err(err) = tree_sitter_generate::generate_parser_in_directory(
+        let mut diagnostics = Vec::new();
+        let result = tree_sitter_generate::generate_parser_in_directory(
             current_dir,
             self.output.as_deref(),
             self.grammar_path.as_deref(),
@@ -964,16 +972,33 @@ impl Generate {
             } else {
                 OptLevel::default()
             },
-        ) {
-            if json_summary {
-                eprintln!("{}", serde_json::to_string_pretty(&err)?);
+            &mut diagnostics,
+        );
+        if json_summary {
+            #[derive(serde::Serialize)]
+            struct Envelope<'a> {
+                diagnostics: &'a [Diagnostic],
+                error: Option<&'a GenerateError>,
+            }
+            let envelope = Envelope {
+                diagnostics: &diagnostics,
+                error: result.as_ref().err(),
+            };
+            eprintln!("{}", serde_json::to_string_pretty(&envelope)?);
+            if result.is_err() {
                 // Exit early to prevent errors from being printed a second time in the caller
                 std::process::exit(1);
-            } else {
+            }
+        } else {
+            for d in &diagnostics {
+                warn!("{d}");
+            }
+            if let Err(err) = result {
                 // Removes extra context associated with the error
                 Err(anyhow!(err.to_string())).with_context(|| "Error when generating parser")?;
             }
         }
+
         if self.build {
             warn!("--build is deprecated, use the `build` command");
             if let Some(path) = self.libdir {
@@ -1103,9 +1128,6 @@ impl Parse {
         let timeout = self.timeout.unwrap_or_default();
 
         let mut has_error = false;
-        let loader_config = config.get()?;
-        loader.find_all_languages(&loader_config)?;
-
         let should_track_stats = self.stat;
         let mut stats = parse::ParseStats::default();
         let debug: ParseDebugType = match self.debug {
@@ -1148,10 +1170,11 @@ impl Parse {
             has_error |= !parse_result.successful;
         };
 
-        if self.lib_path.is_none() && self.lang_name.is_some() {
-            warn!("--lang-name specified without --lib-path. This argument will be ignored.");
-        }
         let lib_info = get_lib_info(self.lib_path.as_ref(), self.lang_name.as_ref(), current_dir);
+        if lib_info.is_none() {
+            let loader_config = config.get()?;
+            loader.find_all_languages(&loader_config)?;
+        }
 
         let input = get_input(
             self.paths_file.as_deref(),
@@ -1319,9 +1342,6 @@ impl Test {
             });
         }
 
-        if self.lib_path.is_none() && self.lang_name.is_some() {
-            warn!("--lang-name specified without --lib-path. This argument will be ignored.");
-        }
         let languages = loader.languages_at_path(current_dir)?;
         let language = if let Some(ref lib_path) = self.lib_path {
             let lib_info =
@@ -1497,9 +1517,6 @@ impl Fuzz {
         loader.sanitize_build(true);
         loader.force_rebuild(self.rebuild || self.grammar_path.is_some());
 
-        if self.lib_path.is_none() && self.lang_name.is_some() {
-            warn!("--lang-name specified without --lib-path. This argument will be ignored.");
-        }
         let languages = loader.languages_at_path(current_dir)?;
         let (language, language_name) = if let Some(ref lib_path) = self.lib_path {
             let lib_info = get_lib_info(Some(lib_path), self.lang_name.as_ref(), current_dir)
@@ -1547,9 +1564,12 @@ impl Fuzz {
 impl Query {
     fn run(self, mut loader: loader::Loader, current_dir: &Path) -> Result<()> {
         let config = Config::load(self.config_path)?;
-        let loader_config = config.get()?;
+        let lib_info = get_lib_info(self.lib_path.as_ref(), self.lang_name.as_ref(), current_dir);
+        if lib_info.is_none() {
+            let loader_config = config.get()?;
+            loader.find_all_languages(&loader_config)?;
+        }
         loader.force_rebuild(self.rebuild || self.grammar_path.is_some());
-        loader.find_all_languages(&loader_config)?;
         let query_path = Path::new(&self.query_path);
 
         let byte_range = parse_range(self.byte_range.as_deref(), |x| x)?;
@@ -1560,11 +1580,6 @@ impl Query {
         })?;
 
         let cancellation_flag = util::cancel_on_signal();
-
-        if self.lib_path.is_none() && self.lang_name.is_some() {
-            warn!("--lang-name specified without --lib-path. This argument will be ignored.");
-        }
-        let lib_info = get_lib_info(self.lib_path.as_ref(), self.lang_name.as_ref(), current_dir);
 
         let input = get_input(
             self.paths_file.as_deref(),
@@ -1695,12 +1710,19 @@ impl Highlight {
             Encoding::Utf16BE => ffi::TSInputEncodingUTF16BE,
         });
 
+        let style = if self.css_classes {
+            // TODO: Remove during the 0.28 release cycle
+            warn!("--css-classes is deprecated, use --style classes instead");
+            HtmlStyling::Classes
+        } else {
+            self.style
+        };
+
         let options = HighlightOptions {
             theme: theme_config.theme,
             check: self.check,
             captures_path: self.captures_path,
-            inline_styles: !self.css_classes,
-            html: self.html,
+            html: self.html.then_some((self.layout, style)),
             quiet: self.quiet,
             print_time: self.time,
             cancellation_flag: cancellation_flag.clone(),
@@ -1985,7 +2007,7 @@ impl DumpLanguages {
                 concat!(
                     "name: {}\n",
                     "scope: {}\n",
-                    "parser: {:?}\n",
+                    "parser: {}\n",
                     "highlights: {:?}\n",
                     "file_types: {:?}\n",
                     "content_regex: {:?}\n",
@@ -1993,7 +2015,7 @@ impl DumpLanguages {
                 ),
                 configuration.language_name,
                 configuration.scope.as_ref().unwrap_or(&String::new()),
-                language_path,
+                language_path.display(),
                 configuration.highlights_filenames,
                 configuration.file_types,
                 configuration.content_regex,

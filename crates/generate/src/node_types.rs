@@ -7,9 +7,12 @@ use rustc_hash::FxHashSet;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+use crate::strpool::StrPool;
+
 use super::{
     grammars::{LexicalGrammar, SyntaxGrammar, VariableType},
     rules::{Alias, AliasMap, Symbol, SymbolType},
+    strpool::StrId,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -26,7 +29,7 @@ pub struct FieldInfo {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct VariableInfo {
-    pub fields: FxHashMap<String, FieldInfo>,
+    pub fields: FxHashMap<StrId, FieldInfo>,
     pub children: FieldInfo,
     pub children_without_fields: FieldInfo,
     pub has_multi_step_production: bool,
@@ -143,10 +146,33 @@ pub type VariableInfoResult<T> = Result<T, VariableInfoError>;
 
 #[derive(Debug, Error, Serialize, Deserialize)]
 pub enum VariableInfoError {
-    #[error(
-        "Grammar error: Supertype symbols must always have a single visible child, but `{0}` can have multiple"
-    )]
-    InvalidSupertype(String),
+    #[error(transparent)]
+    InvalidSupertype(InvalidSupertypeError),
+}
+
+#[derive(Debug, Error, Serialize, Deserialize)]
+pub struct InvalidSupertypeError {
+    supertype: String,
+    child: Option<String>,
+}
+
+impl std::fmt::Display for InvalidSupertypeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let supertype = &self.supertype;
+        write!(
+            f,
+            "Supertypes must have a single visible child, but `{supertype}` can have multiple."
+        )?;
+
+        if let Some(child) = &self.child {
+            write!(
+                f,
+                " The hidden child `{child}` can expand into multiple nodes. Consider making `{child}` visible."
+            )?;
+        }
+
+        Ok(())
+    }
 }
 
 /// Compute a summary of the public-facing structure of each variable in the
@@ -174,6 +200,7 @@ pub fn get_variable_info(
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
     default_aliases: &AliasMap,
+    str_pool: &StrPool,
 ) -> VariableInfoResult<Vec<VariableInfo>> {
     let child_type_is_visible = |t: &ChildType| {
         variable_type_for_child_type(t, syntax_grammar, lexical_grammar) >= VariableType::Anonymous
@@ -192,13 +219,14 @@ pub fn get_variable_info(
     while did_change {
         did_change = false;
 
-        for (i, variable) in syntax_grammar.variables.iter().enumerate() {
+        for i in 0..syntax_grammar.variables.len() {
             let mut variable_info = result[i].clone();
 
             // Examine each of the variable's productions. The variable's child types can be
             // immediately combined across all productions, but the child quantities must be
             // recorded separately for each production.
-            for production in &variable.productions {
+            for prod_id in syntax_grammar.variable_prod_ids(i) {
+                let production = syntax_grammar.production(prod_id);
                 let mut production_field_quantities = FxHashMap::default();
                 let mut production_children_quantity = ChildQuantity::zero();
                 let mut production_children_without_fields_quantity = ChildQuantity::zero();
@@ -208,15 +236,9 @@ pub fn get_variable_info(
                     variable_info.has_multi_step_production = true;
                 }
 
-                for step in &production.steps {
-                    let child_symbol = step.symbol;
-                    let child_type = if let Some(alias) = &step.alias {
-                        ChildType::Aliased(alias.clone())
-                    } else if let Some(alias) = default_aliases.get(&step.symbol) {
-                        ChildType::Aliased(alias.clone())
-                    } else {
-                        ChildType::Normal(child_symbol)
-                    };
+                for step in production.steps {
+                    let child_symbol = step.symbol();
+                    let child_type = step.child_type(default_aliases);
 
                     let child_is_hidden = !child_type_is_visible(&child_type)
                         && !syntax_grammar.supertype_symbols.contains(&child_symbol);
@@ -231,10 +253,10 @@ pub fn get_variable_info(
 
                     // Maintain the set of child types associated with each field, and the quantity
                     // of children associated with each field in this production.
-                    if let Some(field_name) = &step.field_name {
+                    if let Some(field_name) = step.field() {
                         let field_info = variable_info
                             .fields
-                            .entry(field_name.clone())
+                            .entry(field_name)
                             .or_insert_with(FieldInfo::default);
                         did_change |= extend_sorted(&mut field_info.types, Some(&child_type));
 
@@ -245,7 +267,7 @@ pub fn get_variable_info(
                         // Inherit the types and quantities of hidden children associated with
                         // fields.
                         if child_is_hidden && child_symbol.is_non_terminal() {
-                            let child_variable_info = &result[child_symbol.index];
+                            let child_variable_info = &result[child_symbol.index as usize];
                             did_change |= extend_sorted(
                                 &mut field_info.types,
                                 &child_variable_info.children.types,
@@ -266,7 +288,7 @@ pub fn get_variable_info(
 
                     // Inherit all child information from hidden children.
                     if child_is_hidden && child_symbol.is_non_terminal() {
-                        let child_variable_info = &result[child_symbol.index];
+                        let child_variable_info = &result[child_symbol.index as usize];
 
                         // If a hidden child can have multiple children, then its parent node can
                         // appear to have multiple children.
@@ -276,7 +298,7 @@ pub fn get_variable_info(
 
                         // If a hidden child has fields, then the parent node can appear to have
                         // those same fields.
-                        for (field_name, child_field_info) in &child_variable_info.fields {
+                        for (&field_name, child_field_info) in &child_variable_info.fields {
                             production_field_quantities
                                 .entry(field_name)
                                 .or_insert_with(ChildQuantity::zero)
@@ -284,7 +306,7 @@ pub fn get_variable_info(
                             did_change |= extend_sorted(
                                 &mut variable_info
                                     .fields
-                                    .entry(field_name.clone())
+                                    .entry(field_name)
                                     .or_insert_with(FieldInfo::default)
                                     .types,
                                 &child_field_info.types,
@@ -301,7 +323,7 @@ pub fn get_variable_info(
 
                         // If a hidden child can have named children without fields, then the parent
                         // node can appear to have those same children.
-                        if step.field_name.is_none() {
+                        if step.field().is_none() {
                             let grandchildren_info = &child_variable_info.children_without_fields;
                             if !grandchildren_info.types.is_empty() {
                                 production_children_without_fields_quantity
@@ -316,7 +338,7 @@ pub fn get_variable_info(
 
                     // Note whether or not this production contains children whose summaries
                     // have not yet been computed.
-                    if child_symbol.index >= i && !all_initialized {
+                    if child_symbol.index as usize >= i && !all_initialized {
                         production_has_uninitialized_invisible_children = true;
                     }
                 }
@@ -353,15 +375,40 @@ pub fn get_variable_info(
     }
 
     for supertype_symbol in &syntax_grammar.supertype_symbols {
-        if result[supertype_symbol.index].has_multi_step_production {
-            let variable = &syntax_grammar.variables[supertype_symbol.index];
-            Err(VariableInfoError::InvalidSupertype(variable.name.clone()))?;
+        if result[supertype_symbol.index as usize].has_multi_step_production {
+            let variable = &syntax_grammar.variables[supertype_symbol.index as usize];
+            // A symbol can have a multi-step production either directly or via an inlined
+            // anonymous child. In the latter case, we can report a more specific error.
+
+            let hidden_child_name = syntax_grammar
+                .variable_prod_ids(supertype_symbol.index as usize)
+                .filter(|&prod_id| syntax_grammar.production(prod_id).steps.len() == 1)
+                .find_map(|prod_id| {
+                    let step = syntax_grammar.production(prod_id).steps[0];
+                    let child_symbol = step.symbol();
+                    let child_type = step.child_type(default_aliases);
+                    let child_is_hidden = !child_type_is_visible(&child_type)
+                        && !syntax_grammar.supertype_symbols.contains(&child_symbol);
+                    (child_is_hidden
+                        && child_symbol.is_non_terminal()
+                        && result[child_symbol.index as usize].has_multi_step_production)
+                        .then(|| {
+                            str_pool
+                                .resolve(syntax_grammar.variables[child_symbol.index as usize].name)
+                                .to_string()
+                        })
+                });
+
+            Err(VariableInfoError::InvalidSupertype(InvalidSupertypeError {
+                supertype: str_pool.resolve(variable.name).to_string(),
+                child: hidden_child_name,
+            }))?;
         }
     }
 
     // Update all of the node type lists to eliminate hidden nodes.
     for supertype_symbol in &syntax_grammar.supertype_symbols {
-        result[supertype_symbol.index]
+        result[supertype_symbol.index as usize]
             .children
             .types
             .retain(child_type_is_visible);
@@ -385,10 +432,10 @@ fn get_aliases_by_symbol(
     default_aliases: &AliasMap,
 ) -> FxHashMap<Symbol, BTreeSet<Option<Alias>>> {
     let mut aliases_by_symbol = FxHashMap::default();
-    for (symbol, alias) in default_aliases {
+    for (symbol, &alias) in default_aliases {
         aliases_by_symbol.insert(*symbol, {
             let mut aliases = BTreeSet::new();
-            aliases.insert(Some(alias.clone()));
+            aliases.insert(Some(alias));
             aliases
         });
     }
@@ -400,24 +447,24 @@ fn get_aliases_by_symbol(
                 .insert(None);
         }
     }
-    for variable in &syntax_grammar.variables {
-        for production in &variable.productions {
-            for step in &production.steps {
+    for i in 0..syntax_grammar.variables.len() {
+        for prod_id in syntax_grammar.variable_prod_ids(i) {
+            for step in syntax_grammar.production(prod_id).steps {
                 aliases_by_symbol
-                    .entry(step.symbol)
+                    .entry(step.symbol())
                     .or_insert_with(BTreeSet::new)
                     .insert(
-                        step.alias
+                        step.alias()
                             .as_ref()
-                            .or_else(|| default_aliases.get(&step.symbol))
-                            .cloned(),
+                            .or_else(|| default_aliases.get(&step.symbol()))
+                            .copied(),
                     );
             }
         }
     }
     aliases_by_symbol.insert(
         Symbol::non_terminal(0),
-        std::iter::once(&None).cloned().collect(),
+        std::iter::once(&None).copied().collect(),
     );
     aliases_by_symbol
 }
@@ -478,40 +525,41 @@ pub fn generate_node_types_json(
     lexical_grammar: &LexicalGrammar,
     default_aliases: &AliasMap,
     variable_info: &[VariableInfo],
+    str_pool: &StrPool,
 ) -> SuperTypeCycleResult<Vec<NodeInfoJSON>> {
     let mut node_types_json = BTreeMap::new();
 
     let child_type_to_node_type = |child_type: &ChildType| match child_type {
         ChildType::Aliased(alias) => NodeTypeJSON {
-            kind: alias.value.clone(),
+            kind: str_pool.resolve(alias.value).to_string(),
             named: alias.is_named,
         },
         ChildType::Normal(symbol) => {
             if let Some(alias) = default_aliases.get(symbol) {
                 NodeTypeJSON {
-                    kind: alias.value.clone(),
+                    kind: str_pool.resolve(alias.value).to_string(),
                     named: alias.is_named,
                 }
             } else {
                 match symbol.kind {
                     SymbolType::NonTerminal => {
-                        let variable = &syntax_grammar.variables[symbol.index];
+                        let variable = &syntax_grammar.variables[symbol.index as usize];
                         NodeTypeJSON {
-                            kind: variable.name.clone(),
+                            kind: str_pool.resolve(variable.name).to_string(),
                             named: variable.kind != VariableType::Anonymous,
                         }
                     }
                     SymbolType::Terminal => {
-                        let variable = &lexical_grammar.variables[symbol.index];
+                        let variable = &lexical_grammar.variables[symbol.index as usize];
                         NodeTypeJSON {
-                            kind: variable.name.clone(),
+                            kind: str_pool.resolve(variable.name).to_string(),
                             named: variable.kind != VariableType::Anonymous,
                         }
                     }
                     SymbolType::External => {
-                        let variable = &syntax_grammar.external_tokens[symbol.index];
+                        let variable = &syntax_grammar.external_tokens[symbol.index as usize];
                         NodeTypeJSON {
-                            kind: variable.name.clone(),
+                            kind: str_pool.resolve(variable.name).to_string(),
                             named: variable.kind != VariableType::Anonymous,
                         }
                     }
@@ -548,10 +596,14 @@ pub fn generate_node_types_json(
                 .map(|alias| {
                     alias.as_ref().map_or_else(
                         || match symbol.kind {
-                            SymbolType::NonTerminal => &syntax_grammar.variables[symbol.index].name,
-                            SymbolType::Terminal => &lexical_grammar.variables[symbol.index].name,
+                            SymbolType::NonTerminal => {
+                                &syntax_grammar.variables[symbol.index as usize].name
+                            }
+                            SymbolType::Terminal => {
+                                &lexical_grammar.variables[symbol.index as usize].name
+                            }
                             SymbolType::External => {
-                                &syntax_grammar.external_tokens[symbol.index].name
+                                &syntax_grammar.external_tokens[symbol.index as usize].name
                             }
                             _ => unreachable!(),
                         },
@@ -568,9 +620,9 @@ pub fn generate_node_types_json(
         if syntax_grammar.supertype_symbols.contains(&symbol) {
             let node_type_json =
                 node_types_json
-                    .entry(variable.name.clone())
+                    .entry(variable.name)
                     .or_insert_with(|| NodeInfoJSON {
-                        kind: variable.name.clone(),
+                        kind: str_pool.resolve(variable.name).to_string(),
                         named: true,
                         root: false,
                         extra: extra_names.contains(&variable.name),
@@ -617,10 +669,10 @@ pub fn generate_node_types_json(
                 // There may already be an entry with this name, because multiple
                 // rules may be aliased with the same name.
                 let mut node_type_existed = true;
-                let node_type_json = node_types_json.entry(kind.clone()).or_insert_with(|| {
+                let node_type_json = node_types_json.entry(*kind).or_insert_with(|| {
                     node_type_existed = false;
                     NodeInfoJSON {
-                        kind: kind.clone(),
+                        kind: str_pool.resolve(*kind).to_string(),
                         named: is_named,
                         root: i == 0,
                         extra: extra_names.contains(&kind),
@@ -632,22 +684,28 @@ pub fn generate_node_types_json(
 
                 let fields_json = node_type_json.fields.as_mut().unwrap();
                 for (new_field, field_info) in &info.fields {
-                    let field_json = fields_json.entry(new_field.clone()).or_insert_with(|| {
-                        // If another rule is aliased with the same name, and does *not* have this
-                        // field, then this field cannot be required.
-                        let mut field_json = FieldInfoJSON::default();
-                        if node_type_existed {
-                            field_json.required = false;
-                        }
-                        field_json
-                    });
+                    let field_json = fields_json
+                        .entry(str_pool.resolve(*new_field).to_string())
+                        .or_insert_with(|| {
+                            // If another rule is aliased with the same name, and does *not* have this
+                            // field, then this field cannot be required.
+                            let mut field_json = FieldInfoJSON::default();
+                            if node_type_existed {
+                                field_json.required = false;
+                            }
+                            field_json
+                        });
                     populate_field_info_json(field_json, field_info);
                 }
 
                 // If another rule is aliased with the same name, any fields that aren't present in
                 // this cannot be required.
                 for (existing_field, field_json) in fields_json.iter_mut() {
-                    if !info.fields.contains_key(existing_field) {
+                    if !info
+                        .fields
+                        .keys()
+                        .any(|&f| str_pool.resolve(f).eq(existing_field))
+                    {
                         field_json.required = false;
                     }
                 }
@@ -746,21 +804,18 @@ pub fn generate_node_types_json(
                     })
             });
 
-    for (name, kind) in regular_tokens.chain(external_tokens) {
+    for (&name, kind) in regular_tokens.chain(external_tokens) {
         match kind {
             VariableType::Named => {
-                let node_type_json =
-                    node_types_json
-                        .entry(name.clone())
-                        .or_insert_with(|| NodeInfoJSON {
-                            kind: name.clone(),
-                            named: true,
-                            root: false,
-                            extra: extra_names.contains(&name),
-                            fields: None,
-                            children: None,
-                            subtypes: None,
-                        });
+                let node_type_json = node_types_json.entry(name).or_insert_with(|| NodeInfoJSON {
+                    kind: str_pool.resolve(name).to_string(),
+                    named: true,
+                    root: false,
+                    extra: extra_names.contains(&name),
+                    fields: None,
+                    children: None,
+                    subtypes: None,
+                });
                 if let Some(children) = &mut node_type_json.children {
                     children.required = false;
                 }
@@ -771,7 +826,7 @@ pub fn generate_node_types_json(
                 }
             }
             VariableType::Anonymous => anonymous_node_types.push(NodeInfoJSON {
-                kind: name.clone(),
+                kind: str_pool.resolve(name).to_string(),
                 named: false,
                 root: false,
                 extra: extra_names.contains(&name),
@@ -825,10 +880,11 @@ fn variable_type_for_child_type(
             } else if syntax_grammar.variables_to_inline.contains(symbol) {
                 VariableType::Hidden
             } else {
+                let symbol_index = symbol.index as usize;
                 match symbol.kind {
-                    SymbolType::NonTerminal => syntax_grammar.variables[symbol.index].kind,
-                    SymbolType::Terminal => lexical_grammar.variables[symbol.index].kind,
-                    SymbolType::External => syntax_grammar.external_tokens[symbol.index].kind,
+                    SymbolType::NonTerminal => syntax_grammar.variables[symbol_index].kind,
+                    SymbolType::Terminal => lexical_grammar.variables[symbol_index].kind,
+                    SymbolType::External => syntax_grammar.external_tokens[symbol_index].kind,
                     _ => VariableType::Hidden,
                 }
             }
@@ -857,35 +913,45 @@ mod tests {
         grammars::{
             InputGrammar, LexicalVariable, Production, ProductionStep, SyntaxVariable, Variable,
         },
-        prepare_grammar::prepare_grammar,
-        rules::Rule,
+        prepare_grammar::{PreparedGrammar, prepare_grammar},
+        rules::{Alias, Precedence, Rule, RuleId, RulePool},
+        strpool::StrPool,
     };
 
     #[test]
     fn test_node_types_simple() {
-        let node_types = get_node_types(&InputGrammar {
+        let mut pool = RulePool::default();
+        let v1 = {
+            let f1 = {
+                let v2 = named(&mut pool, "v2");
+                field(&mut pool, "f1", v2)
+            };
+            let f2 = {
+                let semi = string(&mut pool, ";");
+                field(&mut pool, "f2", semi)
+            };
+            pool.seq(&[f1, f2])
+        };
+        let v2 = string(&mut pool, "x");
+        let v3 = string(&mut pool, "y");
+        let node_types = get_node_types(InputGrammar {
             variables: vec![
                 Variable {
-                    name: "v1".to_string(),
-                    kind: VariableType::Named,
-                    rule: Rule::seq(vec![
-                        Rule::field("f1".to_string(), Rule::named("v2")),
-                        Rule::field("f2".to_string(), Rule::string(";")),
-                    ]),
+                    name: pool.intern("v1"),
+                    root: v1,
                 },
                 Variable {
-                    name: "v2".to_string(),
-                    kind: VariableType::Named,
-                    rule: Rule::string("x"),
+                    name: pool.intern("v2"),
+                    root: v2,
                 },
                 // This rule is not reachable from the start symbol
                 // so it won't be present in the node_types
                 Variable {
-                    name: "v3".to_string(),
-                    kind: VariableType::Named,
-                    rule: Rule::string("y"),
+                    name: pool.intern("v3"),
+                    root: v3,
                 },
             ],
+            pool,
             ..Default::default()
         })
         .unwrap();
@@ -959,21 +1025,31 @@ mod tests {
 
     #[test]
     fn test_node_types_simple_extras() {
-        let node_types = get_node_types(&InputGrammar {
-            extra_symbols: vec![Rule::named("v3")],
+        let mut pool = RulePool::default();
+        let v1 = {
+            let f1 = {
+                let v2 = named(&mut pool, "v2");
+                field(&mut pool, "f1", v2)
+            };
+            let f2 = {
+                let semi = string(&mut pool, ";");
+                field(&mut pool, "f2", semi)
+            };
+            pool.seq(&[f1, f2])
+        };
+        let v2 = string(&mut pool, "x");
+        let v3 = string(&mut pool, "y");
+        let extra = named(&mut pool, "v3");
+        let node_types = get_node_types(InputGrammar {
+            extra_roots: vec![extra],
             variables: vec![
                 Variable {
-                    name: "v1".to_string(),
-                    kind: VariableType::Named,
-                    rule: Rule::seq(vec![
-                        Rule::field("f1".to_string(), Rule::named("v2")),
-                        Rule::field("f2".to_string(), Rule::string(";")),
-                    ]),
+                    name: pool.intern("v1"),
+                    root: v1,
                 },
                 Variable {
-                    name: "v2".to_string(),
-                    kind: VariableType::Named,
-                    rule: Rule::string("x"),
+                    name: pool.intern("v2"),
+                    root: v2,
                 },
                 // This rule is not reachable from the start symbol, but
                 // it is reachable from the 'extra_symbols' so it
@@ -981,11 +1057,11 @@ mod tests {
                 // But because it's only a literal, it will get replaced by
                 // a lexical variable.
                 Variable {
-                    name: "v3".to_string(),
-                    kind: VariableType::Named,
-                    rule: Rule::string("y"),
+                    name: pool.intern("v3"),
+                    root: v3,
                 },
             ],
+            pool,
             ..Default::default()
         })
         .unwrap();
@@ -1071,21 +1147,38 @@ mod tests {
 
     #[test]
     fn test_node_types_deeper_extras() {
-        let node_types = get_node_types(&InputGrammar {
-            extra_symbols: vec![Rule::named("v3")],
+        let mut pool = RulePool::default();
+        let v1 = {
+            let f1 = {
+                let v2 = named(&mut pool, "v2");
+                field(&mut pool, "f1", v2)
+            };
+            let f2 = {
+                let semi = string(&mut pool, ";");
+                field(&mut pool, "f2", semi)
+            };
+            pool.seq(&[f1, f2])
+        };
+        let v2 = string(&mut pool, "x");
+        let v3 = {
+            let y = string(&mut pool, "y");
+            let z = {
+                let z = string(&mut pool, "z");
+                pool.repeat(z)
+            };
+            pool.seq(&[y, z])
+        };
+        let extra = named(&mut pool, "v3");
+        let node_types = get_node_types(InputGrammar {
+            extra_roots: vec![extra],
             variables: vec![
                 Variable {
-                    name: "v1".to_string(),
-                    kind: VariableType::Named,
-                    rule: Rule::seq(vec![
-                        Rule::field("f1".to_string(), Rule::named("v2")),
-                        Rule::field("f2".to_string(), Rule::string(";")),
-                    ]),
+                    name: pool.intern("v1"),
+                    root: v1,
                 },
                 Variable {
-                    name: "v2".to_string(),
-                    kind: VariableType::Named,
-                    rule: Rule::string("x"),
+                    name: pool.intern("v2"),
+                    root: v2,
                 },
                 // This rule is not reachable from the start symbol, but
                 // it is reachable from the 'extra_symbols' so it
@@ -1093,11 +1186,11 @@ mod tests {
                 // Because it is not just a literal, it won't get replaced
                 // by a lexical variable.
                 Variable {
-                    name: "v3".to_string(),
-                    kind: VariableType::Named,
-                    rule: Rule::seq(vec![Rule::string("y"), Rule::repeat(Rule::string("z"))]),
+                    name: pool.intern("v3"),
+                    root: v3,
                 },
             ],
+            pool,
             ..Default::default()
         })
         .unwrap();
@@ -1183,34 +1276,42 @@ mod tests {
 
     #[test]
     fn test_node_types_with_supertypes() {
-        let node_types = get_node_types(&InputGrammar {
-            supertype_symbols: vec!["_v2".to_string()],
+        let mut pool = RulePool::default();
+        let v1 = {
+            let inner = named(&mut pool, "_v2");
+            field(&mut pool, "f1", inner)
+        };
+        let v2 = {
+            let (a, b, c) = (
+                named(&mut pool, "v3"),
+                named(&mut pool, "v4"),
+                string(&mut pool, "*"),
+            );
+            pool.choice(&[a, b, c])
+        };
+        let v3 = string(&mut pool, "x");
+        let v4 = string(&mut pool, "y");
+        let node_types = get_node_types(InputGrammar {
+            supertype_names: vec![pool.intern("_v2")],
             variables: vec![
                 Variable {
-                    name: "v1".to_string(),
-                    kind: VariableType::Named,
-                    rule: Rule::field("f1".to_string(), Rule::named("_v2")),
+                    name: pool.intern("v1"),
+                    root: v1,
                 },
                 Variable {
-                    name: "_v2".to_string(),
-                    kind: VariableType::Hidden,
-                    rule: Rule::choice(vec![
-                        Rule::named("v3"),
-                        Rule::named("v4"),
-                        Rule::string("*"),
-                    ]),
+                    name: pool.intern("_v2"),
+                    root: v2,
                 },
                 Variable {
-                    name: "v3".to_string(),
-                    kind: VariableType::Named,
-                    rule: Rule::string("x"),
+                    name: pool.intern("v3"),
+                    root: v3,
                 },
                 Variable {
-                    name: "v4".to_string(),
-                    kind: VariableType::Named,
-                    rule: Rule::string("y"),
+                    name: pool.intern("v4"),
+                    root: v4,
                 },
             ],
+            pool,
             ..Default::default()
         })
         .unwrap();
@@ -1274,38 +1375,47 @@ mod tests {
     /// in the topological sort.
     #[test]
     fn test_node_types_supertype_with_only_hidden_child() {
-        let node_types = get_node_types(&InputGrammar {
-            supertype_symbols: vec!["_type_a".to_string(), "_type_b".to_string()],
+        let mut pool = RulePool::default();
+        let v1 = {
+            let (a, b) = (named(&mut pool, "_type_a"), named(&mut pool, "_type_b"));
+            pool.seq(&[a, b])
+        };
+        let type_a = {
+            let (a, b) = (named(&mut pool, "v2"), named(&mut pool, "v3"));
+            pool.choice(&[a, b])
+        };
+        let v2 = string(&mut pool, "x");
+        let v3 = string(&mut pool, "y");
+        let type_b = external(&mut pool, 0);
+        let hidden_ext = named(&mut pool, "_hidden_ext");
+        let node_types = get_node_types(InputGrammar {
+            supertype_names: vec![pool.intern("_type_a"), pool.intern("_type_b")],
+            external_roots: vec![hidden_ext],
             variables: vec![
                 Variable {
-                    name: "v1".to_string(),
-                    kind: VariableType::Named,
-                    rule: Rule::seq(vec![Rule::named("_type_a"), Rule::named("_type_b")]),
+                    name: pool.intern("v1"),
+                    root: v1,
                 },
                 // Supertype A: a normal choice of named subtypes
                 Variable {
-                    name: "_type_a".to_string(),
-                    kind: VariableType::Hidden,
-                    rule: Rule::choice(vec![Rule::named("v2"), Rule::named("v3")]),
+                    name: pool.intern("_type_a"),
+                    root: type_a,
                 },
                 Variable {
-                    name: "v2".to_string(),
-                    kind: VariableType::Named,
-                    rule: Rule::string("x"),
+                    name: pool.intern("v2"),
+                    root: v2,
                 },
                 Variable {
-                    name: "v3".to_string(),
-                    kind: VariableType::Named,
-                    rule: Rule::string("y"),
+                    name: pool.intern("v3"),
+                    root: v3,
                 },
                 // Supertype B: a hidden external token with no subtypes
                 Variable {
-                    name: "_type_b".to_string(),
-                    kind: VariableType::Hidden,
-                    rule: Rule::external(0),
+                    name: pool.intern("_type_b"),
+                    root: type_b,
                 },
             ],
-            external_tokens: vec![Rule::named("_hidden_ext")],
+            pool,
             ..Default::default()
         });
         assert!(node_types.is_ok());
@@ -1313,37 +1423,48 @@ mod tests {
 
     #[test]
     fn test_node_types_for_children_without_fields() {
-        let node_types = get_node_types(&InputGrammar {
+        let mut pool = RulePool::default();
+        let v1 = {
+            let a = named(&mut pool, "v2");
+            let f1 = {
+                let v3 = named(&mut pool, "v3");
+                field(&mut pool, "f1", v3)
+            };
+            let c = named(&mut pool, "v4");
+            pool.seq(&[a, f1, c])
+        };
+        let v2 = {
+            let open = string(&mut pool, "{");
+            let mid = {
+                let v3 = named(&mut pool, "v3");
+                let blank = pool.blank();
+                pool.choice(&[v3, blank])
+            };
+            let close = string(&mut pool, "}");
+            pool.seq(&[open, mid, close])
+        };
+        let v3 = string(&mut pool, "x");
+        let v4 = string(&mut pool, "y");
+        let node_types = get_node_types(InputGrammar {
             variables: vec![
                 Variable {
-                    name: "v1".to_string(),
-                    kind: VariableType::Named,
-                    rule: Rule::seq(vec![
-                        Rule::named("v2"),
-                        Rule::field("f1".to_string(), Rule::named("v3")),
-                        Rule::named("v4"),
-                    ]),
+                    name: pool.intern("v1"),
+                    root: v1,
                 },
                 Variable {
-                    name: "v2".to_string(),
-                    kind: VariableType::Named,
-                    rule: Rule::seq(vec![
-                        Rule::string("{"),
-                        Rule::choice(vec![Rule::named("v3"), Rule::Blank]),
-                        Rule::string("}"),
-                    ]),
+                    name: pool.intern("v2"),
+                    root: v2,
                 },
                 Variable {
-                    name: "v3".to_string(),
-                    kind: VariableType::Named,
-                    rule: Rule::string("x"),
+                    name: pool.intern("v3"),
+                    root: v3,
                 },
                 Variable {
-                    name: "v4".to_string(),
-                    kind: VariableType::Named,
-                    rule: Rule::string("y"),
+                    name: pool.intern("v4"),
+                    root: v4,
                 },
             ],
+            pool,
             ..Default::default()
         })
         .unwrap();
@@ -1410,26 +1531,34 @@ mod tests {
 
     #[test]
     fn test_node_types_with_inlined_rules() {
-        let node_types = get_node_types(&InputGrammar {
-            variables_to_inline: vec!["v2".to_string()],
+        let mut pool = RulePool::default();
+        let v1 = {
+            let (a, b) = (named(&mut pool, "v2"), named(&mut pool, "v3"));
+            pool.seq(&[a, b])
+        };
+        let v2 = {
+            let a = string(&mut pool, "a");
+            alias(&mut pool, a, "x", true)
+        };
+        let v3 = string(&mut pool, "b");
+        let node_types = get_node_types(InputGrammar {
+            inline_names: vec![pool.intern("v2")],
             variables: vec![
                 Variable {
-                    name: "v1".to_string(),
-                    kind: VariableType::Named,
-                    rule: Rule::seq(vec![Rule::named("v2"), Rule::named("v3")]),
+                    name: pool.intern("v1"),
+                    root: v1,
                 },
                 // v2 should not appear in the node types, since it is inlined
                 Variable {
-                    name: "v2".to_string(),
-                    kind: VariableType::Named,
-                    rule: Rule::alias(Rule::string("a"), "x".to_string(), true),
+                    name: pool.intern("v2"),
+                    root: v2,
                 },
                 Variable {
-                    name: "v3".to_string(),
-                    kind: VariableType::Named,
-                    rule: Rule::string("b"),
+                    name: pool.intern("v3"),
+                    root: v3,
                 },
             ],
+            pool,
             ..Default::default()
         })
         .unwrap();
@@ -1463,48 +1592,53 @@ mod tests {
 
     #[test]
     fn test_node_types_for_aliased_nodes() {
-        let node_types = get_node_types(&InputGrammar {
+        let mut pool = RulePool::default();
+        let thing = {
+            let (a, b) = (named(&mut pool, "type"), named(&mut pool, "expression"));
+            pool.choice(&[a, b])
+        };
+        let ty = {
+            let id = {
+                let inner = named(&mut pool, "identifier");
+                alias(&mut pool, inner, "type_identifier", true)
+            };
+            let void = string(&mut pool, "void");
+            pool.choice(&[id, void])
+        };
+        let expression = {
+            let id = named(&mut pool, "identifier");
+            let foo = {
+                let inner = named(&mut pool, "foo_identifier");
+                alias(&mut pool, inner, "identifier", true)
+            };
+            pool.choice(&[id, foo])
+        };
+        let identifier = pattern(&mut pool, "\\w+");
+        let foo_identifier = pattern(&mut pool, "[\\w-]+");
+        let node_types = get_node_types(InputGrammar {
             variables: vec![
                 Variable {
-                    name: "thing".to_string(),
-                    kind: VariableType::Named,
-                    rule: Rule::choice(vec![Rule::named("type"), Rule::named("expression")]),
+                    name: pool.intern("thing"),
+                    root: thing,
                 },
                 Variable {
-                    name: "type".to_string(),
-                    kind: VariableType::Named,
-                    rule: Rule::choice(vec![
-                        Rule::alias(
-                            Rule::named("identifier"),
-                            "type_identifier".to_string(),
-                            true,
-                        ),
-                        Rule::string("void"),
-                    ]),
+                    name: pool.intern("type"),
+                    root: ty,
                 },
                 Variable {
-                    name: "expression".to_string(),
-                    kind: VariableType::Named,
-                    rule: Rule::choice(vec![
-                        Rule::named("identifier"),
-                        Rule::alias(
-                            Rule::named("foo_identifier"),
-                            "identifier".to_string(),
-                            true,
-                        ),
-                    ]),
+                    name: pool.intern("expression"),
+                    root: expression,
                 },
                 Variable {
-                    name: "identifier".to_string(),
-                    kind: VariableType::Named,
-                    rule: Rule::pattern("\\w+", ""),
+                    name: pool.intern("identifier"),
+                    root: identifier,
                 },
                 Variable {
-                    name: "foo_identifier".to_string(),
-                    kind: VariableType::Named,
-                    rule: Rule::pattern("[\\w-]+", ""),
+                    name: pool.intern("foo_identifier"),
+                    root: foo_identifier,
                 },
             ],
+            pool,
             ..Default::default()
         })
         .unwrap();
@@ -1538,30 +1672,43 @@ mod tests {
 
     #[test]
     fn test_node_types_with_multiple_valued_fields() {
-        let node_types = get_node_types(&InputGrammar {
+        let mut pool = RulePool::default();
+        let a = {
+            let first = {
+                let blank = pool.blank();
+                let rep = {
+                    let f1 = {
+                        let b = named(&mut pool, "b");
+                        field(&mut pool, "f1", b)
+                    };
+                    pool.repeat(f1)
+                };
+                pool.choice(&[blank, rep])
+            };
+            let second = {
+                let c = named(&mut pool, "c");
+                pool.repeat(c)
+            };
+            pool.seq(&[first, second])
+        };
+        let b = string(&mut pool, "b");
+        let c = string(&mut pool, "c");
+        let node_types = get_node_types(InputGrammar {
             variables: vec![
                 Variable {
-                    name: "a".to_string(),
-                    kind: VariableType::Named,
-                    rule: Rule::seq(vec![
-                        Rule::choice(vec![
-                            Rule::Blank,
-                            Rule::repeat(Rule::field("f1".to_string(), Rule::named("b"))),
-                        ]),
-                        Rule::repeat(Rule::named("c")),
-                    ]),
+                    name: pool.intern("a"),
+                    root: a,
                 },
                 Variable {
-                    name: "b".to_string(),
-                    kind: VariableType::Named,
-                    rule: Rule::string("b"),
+                    name: pool.intern("b"),
+                    root: b,
                 },
                 Variable {
-                    name: "c".to_string(),
-                    kind: VariableType::Named,
-                    rule: Rule::string("c"),
+                    name: pool.intern("c"),
+                    root: c,
                 },
             ],
+            pool,
             ..Default::default()
         })
         .unwrap();
@@ -1603,15 +1750,24 @@ mod tests {
 
     #[test]
     fn test_node_types_with_fields_on_hidden_tokens() {
-        let node_types = get_node_types(&InputGrammar {
+        let mut pool = RulePool::default();
+        let script = {
+            let a = {
+                let pat = pattern(&mut pool, "hi");
+                field(&mut pool, "a", pat)
+            };
+            let b = {
+                let pat = pattern(&mut pool, "bye");
+                field(&mut pool, "b", pat)
+            };
+            pool.seq(&[a, b])
+        };
+        let node_types = get_node_types(InputGrammar {
             variables: vec![Variable {
-                name: "script".to_string(),
-                kind: VariableType::Named,
-                rule: Rule::seq(vec![
-                    Rule::field("a".to_string(), Rule::pattern("hi", "")),
-                    Rule::field("b".to_string(), Rule::pattern("bye", "")),
-                ]),
+                name: pool.intern("script"),
+                root: script,
             }],
+            pool,
             ..Default::default()
         })
         .unwrap();
@@ -1632,35 +1788,57 @@ mod tests {
 
     #[test]
     fn test_node_types_with_multiple_rules_same_alias_name() {
-        let node_types = get_node_types(&InputGrammar {
+        let mut pool = RulePool::default();
+        let script = {
+            let a = named(&mut pool, "a");
+            let b = {
+                let inner = named(&mut pool, "b");
+                alias(&mut pool, inner, "a", true)
+            };
+            pool.choice(&[a, b])
+        };
+        let a = {
+            let f1 = {
+                let s = string(&mut pool, "1");
+                field(&mut pool, "f1", s)
+            };
+            let f2 = {
+                let s = string(&mut pool, "2");
+                field(&mut pool, "f2", s)
+            };
+            pool.seq(&[f1, f2])
+        };
+        let b = {
+            let f2a = {
+                let s = string(&mut pool, "22");
+                field(&mut pool, "f2", s)
+            };
+            let f2b = {
+                let s = string(&mut pool, "222");
+                field(&mut pool, "f2", s)
+            };
+            let f3 = {
+                let s = string(&mut pool, "3");
+                field(&mut pool, "f3", s)
+            };
+            pool.seq(&[f2a, f2b, f3])
+        };
+        let node_types = get_node_types(InputGrammar {
             variables: vec![
                 Variable {
-                    name: "script".to_string(),
-                    kind: VariableType::Named,
-                    rule: Rule::choice(vec![
-                        Rule::named("a"),
-                        // Rule `b` is aliased as rule `a`
-                        Rule::alias(Rule::named("b"), "a".to_string(), true),
-                    ]),
+                    name: pool.intern("script"),
+                    root: script,
                 },
                 Variable {
-                    name: "a".to_string(),
-                    kind: VariableType::Named,
-                    rule: Rule::seq(vec![
-                        Rule::field("f1".to_string(), Rule::string("1")),
-                        Rule::field("f2".to_string(), Rule::string("2")),
-                    ]),
+                    name: pool.intern("a"),
+                    root: a,
                 },
                 Variable {
-                    name: "b".to_string(),
-                    kind: VariableType::Named,
-                    rule: Rule::seq(vec![
-                        Rule::field("f2".to_string(), Rule::string("22")),
-                        Rule::field("f2".to_string(), Rule::string("222")),
-                        Rule::field("f3".to_string(), Rule::string("3")),
-                    ]),
+                    name: pool.intern("b"),
+                    root: b,
                 },
             ],
+            pool,
             ..Default::default()
         })
         .unwrap();
@@ -1757,30 +1935,48 @@ mod tests {
 
     #[test]
     fn test_node_types_with_tokens_aliased_to_match_rules() {
-        let node_types = get_node_types(&InputGrammar {
+        let mut pool = RulePool::default();
+        let a = {
+            let (b, c) = (named(&mut pool, "b"), named(&mut pool, "c"));
+            pool.seq(&[b, c])
+        };
+        let b = {
+            let (c1, mid, c2) = (
+                named(&mut pool, "c"),
+                string(&mut pool, "B"),
+                named(&mut pool, "c"),
+            );
+            pool.seq(&[c1, mid, c2])
+        };
+        let c = {
+            let cc = string(&mut pool, "C");
+            let d = {
+                // This token is aliased as a `b`, which will produce a `b` node
+                // with no children.
+                let inner = string(&mut pool, "D");
+                alias(&mut pool, inner, "b", true)
+            };
+            pool.choice(&[cc, d])
+        };
+
+        // above Alias D
+        let node_types = get_node_types(InputGrammar {
             variables: vec![
                 Variable {
-                    name: "a".to_string(),
-                    kind: VariableType::Named,
-                    rule: Rule::seq(vec![Rule::named("b"), Rule::named("c")]),
+                    name: pool.intern("a"),
+                    root: a,
                 },
                 // Ordinarily, `b` nodes have two named `c` children.
                 Variable {
-                    name: "b".to_string(),
-                    kind: VariableType::Named,
-                    rule: Rule::seq(vec![Rule::named("c"), Rule::string("B"), Rule::named("c")]),
+                    name: pool.intern("b"),
+                    root: b,
                 },
                 Variable {
-                    name: "c".to_string(),
-                    kind: VariableType::Named,
-                    rule: Rule::choice(vec![
-                        Rule::string("C"),
-                        // This token is aliased as a `b`, which will produce a `b` node
-                        // with no children.
-                        Rule::alias(Rule::string("D"), "b".to_string(), true),
-                    ]),
+                    name: pool.intern("c"),
+                    root: c,
                 },
             ],
+            pool,
             ..Default::default()
         })
         .unwrap();
@@ -1812,340 +2008,370 @@ mod tests {
 
     #[test]
     fn test_get_variable_info() {
-        let variable_info = get_variable_info(
-            &build_syntax_grammar(
-                vec![
-                    // Required field `field1` has only one node type.
-                    SyntaxVariable {
-                        name: "rule0".to_string(),
-                        kind: VariableType::Named,
-                        productions: vec![Production {
-                            dynamic_precedence: 0,
-                            steps: vec![
-                                ProductionStep::new(Symbol::terminal(0)),
-                                ProductionStep::new(Symbol::non_terminal(1))
-                                    .with_field_name("field1"),
-                            ],
-                        }],
-                    },
-                    // Hidden node
-                    SyntaxVariable {
-                        name: "_rule1".to_string(),
-                        kind: VariableType::Hidden,
-                        productions: vec![Production {
-                            dynamic_precedence: 0,
-                            steps: vec![ProductionStep::new(Symbol::terminal(1))],
-                        }],
-                    },
-                    // Optional field `field2` can have two possible node types.
-                    SyntaxVariable {
-                        name: "rule2".to_string(),
-                        kind: VariableType::Named,
-                        productions: vec![
-                            Production {
-                                dynamic_precedence: 0,
-                                steps: vec![ProductionStep::new(Symbol::terminal(0))],
-                            },
-                            Production {
-                                dynamic_precedence: 0,
-                                steps: vec![
-                                    ProductionStep::new(Symbol::terminal(0)),
-                                    ProductionStep::new(Symbol::terminal(2))
-                                        .with_field_name("field2"),
-                                ],
-                            },
-                            Production {
-                                dynamic_precedence: 0,
-                                steps: vec![
-                                    ProductionStep::new(Symbol::terminal(0)),
-                                    ProductionStep::new(Symbol::terminal(3))
-                                        .with_field_name("field2"),
-                                ],
-                            },
+        let mut interner = StrPool::default();
+        let field1 = interner.intern("field1");
+        let field2 = interner.intern("field2");
+        let lexical_grammar = build_lexical_grammar(&mut interner);
+        let grammar = build_syntax_grammar(
+            &mut interner,
+            vec![
+                // Required field `field1` has only one node type.
+                (
+                    "rule0",
+                    VariableType::Named,
+                    vec![vec![
+                        step(Symbol::terminal(0), None),
+                        step(Symbol::non_terminal(1), Some(field1)),
+                    ]],
+                ),
+                // Hidden node
+                (
+                    "_rule1",
+                    VariableType::Hidden,
+                    vec![vec![step(Symbol::terminal(1), None)]],
+                ),
+                // Optional field `field2` can have two possible node types.
+                (
+                    "rule2",
+                    VariableType::Named,
+                    vec![
+                        vec![step(Symbol::terminal(0), None)],
+                        vec![
+                            step(Symbol::terminal(0), None),
+                            step(Symbol::terminal(2), Some(field2)),
                         ],
-                    },
-                ],
-                vec![],
-            ),
-            &build_lexical_grammar(),
-            &AliasMap::new(),
-        )
-        .unwrap();
+                        vec![
+                            step(Symbol::terminal(0), None),
+                            step(Symbol::terminal(3), Some(field2)),
+                        ],
+                    ],
+                ),
+            ],
+            vec![],
+        );
+        let variable_info =
+            get_variable_info(&grammar, &lexical_grammar, &AliasMap::new(), &interner).unwrap();
 
         assert_eq!(
             variable_info[0].fields,
             vec![(
-                "field1".to_string(),
+                field1,
                 FieldInfo {
                     quantity: ChildQuantity {
                         exists: true,
                         required: true,
-                        multiple: false,
+                        multiple: false
                     },
-                    types: vec![ChildType::Normal(Symbol::terminal(1))],
+                    types: vec![ChildType::Normal(Symbol::terminal(1))]
                 }
             )]
             .into_iter()
-            .collect::<FxHashMap<_, _>>()
+            .collect()
         );
-
         assert_eq!(
             variable_info[2].fields,
             vec![(
-                "field2".to_string(),
+                field2,
                 FieldInfo {
                     quantity: ChildQuantity {
                         exists: true,
                         required: false,
-                        multiple: false,
+                        multiple: false
                     },
                     types: vec![
                         ChildType::Normal(Symbol::terminal(2)),
-                        ChildType::Normal(Symbol::terminal(3)),
-                    ],
+                        ChildType::Normal(Symbol::terminal(3))
+                    ]
                 }
             )]
             .into_iter()
-            .collect::<FxHashMap<_, _>>()
+            .collect()
         );
     }
 
     #[test]
     fn test_get_variable_info_with_repetitions_inside_fields() {
-        let variable_info = get_variable_info(
-            &build_syntax_grammar(
-                vec![
-                    // Field associated with a repetition.
-                    SyntaxVariable {
-                        name: "rule0".to_string(),
-                        kind: VariableType::Named,
-                        productions: vec![
-                            Production {
-                                dynamic_precedence: 0,
-                                steps: vec![
-                                    ProductionStep::new(Symbol::non_terminal(1))
-                                        .with_field_name("field1"),
-                                ],
-                            },
-                            Production {
-                                dynamic_precedence: 0,
-                                steps: vec![],
-                            },
+        let mut interner = StrPool::default();
+        let field1 = interner.intern("field1");
+        let lexical_grammar = build_lexical_grammar(&mut interner);
+        let grammar = build_syntax_grammar(
+            &mut interner,
+            vec![
+                // Field associated with a repetiation.
+                (
+                    "rule0",
+                    VariableType::Named,
+                    vec![vec![step(Symbol::non_terminal(1), Some(field1))], vec![]],
+                ),
+                (
+                    "_rule0_repeat",
+                    VariableType::Hidden,
+                    vec![
+                        vec![step(Symbol::terminal(1), None)],
+                        vec![
+                            step(Symbol::non_terminal(1), None),
+                            step(Symbol::non_terminal(1), None),
                         ],
-                    },
-                    // Repetition node
-                    SyntaxVariable {
-                        name: "_rule0_repeat".to_string(),
-                        kind: VariableType::Hidden,
-                        productions: vec![
-                            Production {
-                                dynamic_precedence: 0,
-                                steps: vec![ProductionStep::new(Symbol::terminal(1))],
-                            },
-                            Production {
-                                dynamic_precedence: 0,
-                                steps: vec![
-                                    ProductionStep::new(Symbol::non_terminal(1)),
-                                    ProductionStep::new(Symbol::non_terminal(1)),
-                                ],
-                            },
-                        ],
-                    },
-                ],
-                vec![],
-            ),
-            &build_lexical_grammar(),
-            &AliasMap::new(),
-        )
-        .unwrap();
+                    ],
+                ),
+            ],
+            vec![],
+        );
+        let variable_info =
+            get_variable_info(&grammar, &lexical_grammar, &AliasMap::new(), &interner).unwrap();
 
         assert_eq!(
             variable_info[0].fields,
             vec![(
-                "field1".to_string(),
+                field1,
                 FieldInfo {
                     quantity: ChildQuantity {
                         exists: true,
                         required: false,
-                        multiple: true,
+                        multiple: true
                     },
                     types: vec![ChildType::Normal(Symbol::terminal(1))],
                 }
             )]
             .into_iter()
-            .collect::<FxHashMap<_, _>>()
+            .collect()
         );
     }
 
     #[test]
     fn test_get_variable_info_with_inherited_fields() {
-        let variable_info = get_variable_info(
-            &build_syntax_grammar(
-                vec![
-                    SyntaxVariable {
-                        name: "rule0".to_string(),
-                        kind: VariableType::Named,
-                        productions: vec![
-                            Production {
-                                dynamic_precedence: 0,
-                                steps: vec![
-                                    ProductionStep::new(Symbol::terminal(0)),
-                                    ProductionStep::new(Symbol::non_terminal(1)),
-                                    ProductionStep::new(Symbol::terminal(1)),
-                                ],
-                            },
-                            Production {
-                                dynamic_precedence: 0,
-                                steps: vec![ProductionStep::new(Symbol::non_terminal(1))],
-                            },
+        let mut interner = StrPool::default();
+        let field1 = interner.intern("field1");
+        let dot = interner.intern(".");
+        let lexical_grammar = build_lexical_grammar(&mut interner);
+        let grammar = build_syntax_grammar(
+            &mut interner,
+            vec![
+                (
+                    "rule0",
+                    VariableType::Named,
+                    vec![
+                        vec![
+                            step(Symbol::terminal(0), None),
+                            step(Symbol::non_terminal(1), None),
+                            step(Symbol::terminal(1), None),
                         ],
-                    },
-                    // Hidden node with fields
-                    SyntaxVariable {
-                        name: "_rule1".to_string(),
-                        kind: VariableType::Hidden,
-                        productions: vec![Production {
-                            dynamic_precedence: 0,
-                            steps: vec![
-                                ProductionStep::new(Symbol::terminal(2)).with_alias(".", false),
-                                ProductionStep::new(Symbol::terminal(3)).with_field_name("field1"),
-                            ],
-                        }],
-                    },
-                ],
-                vec![],
-            ),
-            &build_lexical_grammar(),
-            &AliasMap::new(),
-        )
-        .unwrap();
+                        vec![step(Symbol::non_terminal(1), None)],
+                    ],
+                ),
+                // Hidden node with fields
+                (
+                    "_rule1",
+                    VariableType::Hidden,
+                    vec![vec![
+                        ProductionStep::pack(
+                            Symbol::terminal(2),
+                            Precedence::None,
+                            None,
+                            Some(Alias {
+                                value: dot,
+                                is_named: false,
+                            }),
+                            None,
+                            ProductionStep::NO_RESERVED_WORDS,
+                        ),
+                        step(Symbol::terminal(3), Some(field1)),
+                    ]],
+                ),
+            ],
+            vec![],
+        );
+        let variable_info =
+            get_variable_info(&grammar, &lexical_grammar, &AliasMap::new(), &interner).unwrap();
 
         assert_eq!(
             variable_info[0].fields,
             vec![(
-                "field1".to_string(),
+                field1,
                 FieldInfo {
                     quantity: ChildQuantity {
                         exists: true,
                         required: true,
-                        multiple: false,
+                        multiple: false
                     },
-                    types: vec![ChildType::Normal(Symbol::terminal(3))],
+                    types: vec![ChildType::Normal(Symbol::terminal(3))]
                 }
             )]
             .into_iter()
-            .collect::<FxHashMap<_, _>>()
+            .collect()
         );
-
         assert_eq!(
             variable_info[0].children_without_fields,
             FieldInfo {
                 quantity: ChildQuantity {
                     exists: true,
                     required: false,
-                    multiple: true,
+                    multiple: true
                 },
                 types: vec![
                     ChildType::Normal(Symbol::terminal(0)),
-                    ChildType::Normal(Symbol::terminal(1)),
-                ],
+                    ChildType::Normal(Symbol::terminal(1))
+                ]
             }
         );
     }
 
     #[test]
     fn test_get_variable_info_with_supertypes() {
-        let variable_info = get_variable_info(
-            &build_syntax_grammar(
-                vec![
-                    SyntaxVariable {
-                        name: "rule0".to_string(),
-                        kind: VariableType::Named,
-                        productions: vec![Production {
-                            dynamic_precedence: 0,
-                            steps: vec![
-                                ProductionStep::new(Symbol::terminal(0)),
-                                ProductionStep::new(Symbol::non_terminal(1))
-                                    .with_field_name("field1"),
-                                ProductionStep::new(Symbol::terminal(1)),
-                            ],
-                        }],
-                    },
-                    SyntaxVariable {
-                        name: "_rule1".to_string(),
-                        kind: VariableType::Hidden,
-                        productions: vec![
-                            Production {
-                                dynamic_precedence: 0,
-                                steps: vec![ProductionStep::new(Symbol::terminal(2))],
-                            },
-                            Production {
-                                dynamic_precedence: 0,
-                                steps: vec![ProductionStep::new(Symbol::terminal(3))],
-                            },
-                        ],
-                    },
-                ],
-                // _rule1 is a supertype
-                vec![Symbol::non_terminal(1)],
-            ),
-            &build_lexical_grammar(),
-            &AliasMap::new(),
-        )
-        .unwrap();
+        let mut interner = StrPool::default();
+        let field1 = interner.intern("field1");
+        let lexical_grammar = build_lexical_grammar(&mut interner);
+        let grammar = build_syntax_grammar(
+            &mut interner,
+            vec![
+                (
+                    "rule0",
+                    VariableType::Named,
+                    vec![vec![
+                        step(Symbol::terminal(0), None),
+                        step(Symbol::non_terminal(1), Some(field1)),
+                        step(Symbol::terminal(1), None),
+                    ]],
+                ),
+                (
+                    "_rule1",
+                    VariableType::Hidden,
+                    vec![
+                        vec![step(Symbol::terminal(2), None)],
+                        vec![step(Symbol::terminal(3), None)],
+                    ],
+                ),
+            ],
+            // _rule1 is a supertype
+            vec![Symbol::non_terminal(1)],
+        );
+        let variable_info =
+            get_variable_info(&grammar, &lexical_grammar, &AliasMap::new(), &interner).unwrap();
 
         assert_eq!(
             variable_info[0].fields,
             vec![(
-                "field1".to_string(),
+                field1,
                 FieldInfo {
                     quantity: ChildQuantity {
                         exists: true,
                         required: true,
-                        multiple: false,
+                        multiple: false
                     },
-                    types: vec![ChildType::Normal(Symbol::non_terminal(1))],
+                    types: vec![ChildType::Normal(Symbol::non_terminal(1))]
                 }
             )]
             .into_iter()
-            .collect::<FxHashMap<_, _>>()
+            .collect()
         );
     }
 
-    fn get_node_types(grammar: &InputGrammar) -> SuperTypeCycleResult<Vec<NodeInfoJSON>> {
-        let (syntax_grammar, lexical_grammar, _, default_aliases) =
-            prepare_grammar(grammar).unwrap();
-        let variable_info =
-            get_variable_info(&syntax_grammar, &lexical_grammar, &default_aliases).unwrap();
+    fn get_node_types(grammar: InputGrammar) -> SuperTypeCycleResult<Vec<NodeInfoJSON>> {
+        let PreparedGrammar {
+            syntax_grammar,
+            lexical_grammar,
+            default_aliases,
+            str_pool,
+            ..
+        } = prepare_grammar(grammar, &mut Vec::new()).unwrap();
+        let variable_info = get_variable_info(
+            &syntax_grammar,
+            &lexical_grammar,
+            &default_aliases,
+            &str_pool,
+        )
+        .unwrap();
         generate_node_types_json(
             &syntax_grammar,
             &lexical_grammar,
             &default_aliases,
             &variable_info,
+            &str_pool,
         )
     }
 
+    fn named(p: &mut RulePool, name: &str) -> RuleId {
+        let name = p.intern(name);
+        p.named_symbol(name)
+    }
+    fn string(p: &mut RulePool, value: &str) -> RuleId {
+        let value = p.intern(value);
+        p.string(value)
+    }
+    fn pattern(p: &mut RulePool, value: &str) -> RuleId {
+        let (value, flags) = (p.intern(value), p.intern(""));
+        p.pattern(value, flags)
+    }
+    fn field(p: &mut RulePool, name: &str, content: RuleId) -> RuleId {
+        let name = p.intern(name);
+        p.field(name, content)
+    }
+    fn alias(p: &mut RulePool, content: RuleId, value: &str, is_named: bool) -> RuleId {
+        let value = p.intern(value);
+        p.alias(content, value, is_named)
+    }
+    fn external(p: &mut RulePool, index: u32) -> RuleId {
+        p.push_node(Rule::Sym {
+            kind: SymbolType::External,
+            index,
+        })
+    }
+
     fn build_syntax_grammar(
-        variables: Vec<SyntaxVariable>,
+        interner: &mut StrPool,
+        variables: Vec<(&str, VariableType, Vec<Vec<ProductionStep>>)>,
         supertype_symbols: Vec<Symbol>,
     ) -> SyntaxGrammar {
+        let (mut steps, mut productions, mut var_prods, mut vars) =
+            (Vec::new(), Vec::new(), Vec::new(), Vec::new());
+        for (name, kind, prods) in variables {
+            let prod_start = productions.len() as u32;
+            for prod_steps in prods {
+                let steps_start = steps.len() as u32;
+                steps.extend(prod_steps);
+                productions.push(Production {
+                    steps_start,
+                    steps_len: steps.len() as u32 - steps_start,
+                    dynamic_precedence: 0,
+                });
+            }
+            var_prods.push((prod_start, productions.len() as u32));
+            vars.push(SyntaxVariable {
+                name: interner.intern(name),
+                kind,
+            });
+        }
         SyntaxGrammar {
-            variables,
+            variables: vars,
             supertype_symbols,
-            ..SyntaxGrammar::default()
+            steps,
+            productions,
+            var_prods,
+            ..Default::default()
         }
     }
 
-    fn build_lexical_grammar() -> LexicalGrammar {
+    fn build_lexical_grammar(interner: &mut StrPool) -> LexicalGrammar {
         let mut lexical_grammar = LexicalGrammar::default();
         for i in 0..10 {
             lexical_grammar.variables.push(LexicalVariable {
-                name: format!("token_{i}"),
+                name: interner.intern(&format!("token_{i}")),
                 kind: VariableType::Named,
                 implicit_precedence: 0,
                 start_state: 0,
             });
         }
         lexical_grammar
+    }
+
+    fn step(symbol: Symbol, field: Option<StrId>) -> ProductionStep {
+        ProductionStep::pack(
+            symbol,
+            Precedence::None,
+            None,
+            None,
+            field,
+            ProductionStep::NO_RESERVED_WORDS,
+        )
     }
 }

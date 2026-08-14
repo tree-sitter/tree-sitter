@@ -8,7 +8,7 @@ use std::{
 
 pub use wasmtime_c_api::wasmtime;
 
-use crate::{FREE_FN, Language, LanguageError, Parser, ffi};
+use crate::{Language, LanguageError, Parser, ffi, ts_free};
 
 // Force Cargo to include wasmtime-c-api as a dependency of this crate,
 // even though it is only used by the C code.
@@ -92,7 +92,7 @@ impl WasmError {
             .to_str()
             .unwrap()
             .to_string();
-        unsafe { (FREE_FN)(error.message.cast()) };
+        unsafe { ts_free(error.message.cast()) };
         Self {
             kind: match error.kind {
                 ffi::TSWasmErrorKindParse => WasmErrorKind::Parse,
