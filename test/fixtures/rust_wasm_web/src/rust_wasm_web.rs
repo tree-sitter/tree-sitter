@@ -34,12 +34,6 @@ unsafe extern "C" {
     fn notify_parsing_started();
 }
 
-unsafe extern "C" {
-    fn iswalpha(character: u32) -> i32;
-    fn towlower(character: u32) -> u32;
-    fn towupper(character: u32) -> u32;
-}
-
 fn log_progress(message: &str) {
     unsafe { log(message.as_ptr() as u32, message.len() as u32) }
 }
@@ -94,10 +88,6 @@ fn spawn_parse<'a>(language_id: u32, source: &'a str, old_tree: Option<Tree>) ->
 }
 
 async fn run() {
-    assert_ne!(unsafe { iswalpha('α' as u32) }, 0);
-    assert_eq!(unsafe { towupper('é' as u32) }, 'É' as u32);
-    assert_eq!(unsafe { towlower('É' as u32) }, 'é' as u32);
-
     let mut source = String::from("const value = []\n");
     let mut tree = spawn_parse(JAVASCRIPT, &source, None).await;
     assert_eq!(
@@ -147,11 +137,13 @@ async fn run() {
     );
     log_progress("parsed python");
 
-    let ruby_source = String::from("value = <<~TEXT\n  hello\nTEXT\n");
+    // Ruby's scanner uses wide-character classification for suffixed constants
+    // and unquoted heredoc delimiters.
+    let ruby_source = String::from("Éclair!\nvalue = <<~ÉTÉ\n  héllo\nÉTÉ\n");
     let ruby_tree = spawn_parse(RUBY, &ruby_source, None).await;
     assert_eq!(
         ruby_tree.root_node().to_sexp(),
-        "(program (assignment left: (identifier) right: (heredoc_beginning)) (heredoc_body (heredoc_content) (heredoc_end)))"
+        "(program (call method: (constant)) (assignment left: (identifier) right: (heredoc_beginning)) (heredoc_body (heredoc_content) (heredoc_end)))"
     );
     log_progress("parsed ruby");
 }
