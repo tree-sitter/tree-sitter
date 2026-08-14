@@ -134,4 +134,4 @@ tree-sitter-highlight = { path = "./crates/highlight", version = "0.27.0" }
 tree-sitter-loader    = { path = "./crates/loader", version = "0.27.0" }
 tree-sitter-tags      = { path = "./crates/tags", version = "0.27.0" }
 
-tree-sitter-language = { path = "./crates/language", version = "0.1" }
+tree-sitter-language = { path = "./crates/language", version = "0.1.8" }

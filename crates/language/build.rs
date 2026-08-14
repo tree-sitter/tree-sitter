@@ -5,7 +5,8 @@ fn main() {
     {
         let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
         let wasm_headers = std::path::Path::new(&manifest_dir).join("wasm/include");
-        let wasm_src = std::path::Path::new(&manifest_dir).join("wasm/src");
+        let wasm_src =
+            std::path::Path::new(&manifest_dir).join("wasm/unsupported/tree-sitter-0.26");
 
         println!("cargo::metadata=wasm-headers={}", wasm_headers.display());
         println!("cargo::metadata=wasm-src={}", wasm_src.display());
