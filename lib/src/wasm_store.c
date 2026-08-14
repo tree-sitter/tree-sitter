@@ -1317,15 +1317,34 @@ const TSLanguage *ts_wasm_store_load_language(
     goto error;
   }
 
-  // Copy all of the static data out of the language object in Wasm memory,
-  // constructing a native language object.
-  LanguageInWasmMemory wasm_language;
   wasmtime_context_t *context = wasmtime_store_context(self->store);
   const uint8_t *memory = wasmtime_memory_data(context, &self->memory);
   WasmMemory wasm_memory = {
     .data = memory,
     .size = wasmtime_memory_data_size(context, &self->memory),
   };
+  uint32_t abi_version;
+  if (!wasm_memory__read(&wasm_memory, language_address, &abi_version, sizeof(abi_version))) {
+    goto invalid_language_memory;
+  }
+  if (
+    abi_version < TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION ||
+    abi_version > TREE_SITTER_LANGUAGE_VERSION
+  ) {
+    wasm_error->kind = TSWasmErrorKindInstantiate;
+    format(
+      &wasm_error->message,
+      "incompatible language ABI version %u; expected between %u and %u",
+      abi_version,
+      TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION,
+      TREE_SITTER_LANGUAGE_VERSION
+    );
+    goto error;
+  }
+
+  // Copy all of the static data out of the language object in Wasm memory,
+  // constructing a native language object.
+  LanguageInWasmMemory wasm_language;
   bool valid_wasm_memory = true;
   if (!wasm_memory__read(&wasm_memory, language_address, &wasm_language, sizeof(LanguageInWasmMemory))) {
     goto invalid_language_memory;
