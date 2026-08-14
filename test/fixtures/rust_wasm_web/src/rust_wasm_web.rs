@@ -5,9 +5,16 @@ use std::{
     marker::PhantomPinned,
     pin::Pin,
     slice, str,
+    sync::{
+        LazyLock,
+        atomic::{AtomicUsize, Ordering},
+    },
     task::{Context, Poll, Waker},
 };
-use tree_sitter::{InputEdit, Language, LanguageError, Parser, Point, Tree, ffi::TSLanguage};
+use tree_sitter::{
+    InputEdit, Language, LanguageError, Parser, Point, Query, QueryCursor, StreamingIterator, Tree,
+    ffi::TSLanguage,
+};
 
 type Application = Pin<Box<dyn Future<Output = ()>>>;
 
@@ -20,6 +27,16 @@ struct ApplicationSlot(UnsafeCell<Option<Application>>);
 unsafe impl Sync for ApplicationSlot {}
 
 static APPLICATION: ApplicationSlot = ApplicationSlot(UnsafeCell::new(None));
+static JAVASCRIPT_QUERY_INITIALIZATIONS: AtomicUsize = AtomicUsize::new(0);
+static WORKER_QUERY_CAPTURE_COUNT: AtomicUsize = AtomicUsize::new(0);
+static JAVASCRIPT_QUERY: LazyLock<Query> = LazyLock::new(|| {
+    JAVASCRIPT_QUERY_INITIALIZATIONS.fetch_add(1, Ordering::SeqCst);
+    Query::new(
+        &Language::from(tree_sitter_javascript::LANGUAGE),
+        "(number) @number",
+    )
+    .unwrap()
+});
 
 #[link(wasm_import_module = "env")]
 unsafe extern "C" {
@@ -36,6 +53,25 @@ unsafe extern "C" {
 
 fn log_progress(message: &str) {
     unsafe { log(message.as_ptr() as u32, message.len() as u32) }
+}
+
+fn javascript_query_capture_count(tree: &Tree, source: &str) -> usize {
+    let mut cursor = QueryCursor::new();
+    let mut captures = cursor.captures(&JAVASCRIPT_QUERY, tree.root_node(), source.as_bytes());
+    let mut count = 0;
+    while captures.next().is_some() {
+        count += 1;
+    }
+    count
+}
+
+fn assert_javascript_query(tree: &Tree, source: &str, expected_count: usize) {
+    assert_eq!(JAVASCRIPT_QUERY_INITIALIZATIONS.load(Ordering::SeqCst), 1);
+    assert_eq!(
+        WORKER_QUERY_CAPTURE_COUNT.load(Ordering::Acquire),
+        expected_count
+    );
+    assert_eq!(javascript_query_capture_count(tree, source), expected_count);
 }
 
 struct ParseRequest<'a> {
@@ -102,6 +138,7 @@ async fn run() {
         tree.root_node().to_sexp(),
         "(program (lexical_declaration (variable_declarator name: (identifier) value: (array))))"
     );
+    assert_javascript_query(&tree, &source, 0);
     log_progress("parsed javascript");
 
     for integer in 0..100 {
@@ -140,6 +177,7 @@ async fn run() {
             .unwrap();
         assert_eq!(array_node.named_child_count(), integer + 1);
         assert!(prev_tree.changed_ranges(&tree).len() > 0);
+        assert_javascript_query(&tree, &source, integer + 1);
         log_progress(&format!("incrementally reparsed ({} / 100)", integer + 1));
     }
 
@@ -244,6 +282,12 @@ fn run_parse_internal(
     ) else {
         return Err(4);
     };
+    if language_address == JAVASCRIPT {
+        WORKER_QUERY_CAPTURE_COUNT.store(
+            javascript_query_capture_count(&tree, source),
+            Ordering::Release,
+        );
+    }
     Ok(tree)
 }
 
