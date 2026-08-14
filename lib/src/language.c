@@ -10,7 +10,7 @@
 typedef struct {
   TSLanguage language;
   volatile uint32_t ref_count;
-} TSTreeLanguage;
+} TSUnparseableLanguage;
 
 // Linear memory can be shared by multiple WebAssembly instances, but a
 // module-defined global belongs to one instance. Assign each instance an ID
@@ -23,11 +23,11 @@ __asm__(
   "ts_language_context_id:\n"
 );
 
-static inline TSTreeLanguage *ts_language__tree_language(const TSLanguage *self) {
-  return (TSTreeLanguage *)((char *)self - offsetof(TSTreeLanguage, language));
+static inline TSUnparseableLanguage *ts_language__unparseable(const TSLanguage *self) {
+  return (TSUnparseableLanguage *)((char *)self - offsetof(TSUnparseableLanguage, language));
 }
 
-static inline bool ts_language__is_tree_language(const TSLanguage *self) {
+static inline bool ts_language__is_unparseable(const TSLanguage *self) {
   return (
     self &&
     !self->lex_fn &&
@@ -62,8 +62,8 @@ uint32_t ts_language_current_context_id(void) {
 
 const TSLanguage *ts_language_copy(const TSLanguage *self) {
 #ifdef __wasm__
-  if (ts_language__is_tree_language(self)) {
-    atomic_inc(&ts_language__tree_language(self)->ref_count);
+  if (ts_language__is_unparseable(self)) {
+    atomic_inc(&ts_language__unparseable(self)->ref_count);
   } else
 #endif
   if (self && ts_language_is_wasm(self)) {
@@ -74,10 +74,10 @@ const TSLanguage *ts_language_copy(const TSLanguage *self) {
 
 void ts_language_delete(const TSLanguage *self) {
 #ifdef __wasm__
-  if (ts_language__is_tree_language(self)) {
-    TSTreeLanguage *tree_language = ts_language__tree_language(self);
-    if (atomic_dec(&tree_language->ref_count) == 0) {
-      ts_free(tree_language);
+  if (ts_language__is_unparseable(self)) {
+    TSUnparseableLanguage *language = ts_language__unparseable(self);
+    if (atomic_dec(&language->ref_count) == 0) {
+      ts_free(language);
     }
   } else
 #endif
@@ -93,7 +93,7 @@ bool ts_language_is_parseable(const TSLanguage *self) {
 const TSLanguage *ts_language_copy_without_callbacks(const TSLanguage *self) {
 #ifdef __wasm__
   if (self && ts_language_is_parseable(self)) {
-    TSTreeLanguage *result = ts_malloc(sizeof(TSTreeLanguage));
+    TSUnparseableLanguage *result = ts_malloc(sizeof(TSUnparseableLanguage));
     result->language = *self;
     result->language.lex_fn = NULL;
     result->language.keyword_lex_fn = NULL;
