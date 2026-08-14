@@ -5,10 +5,11 @@ module.exports = async ({ github, context, core }) => {
   const owner = context.repo.owner;
   const repo = context.repo.repo;
 
-  const { data: files } = await github.rest.pulls.listFiles({
+  const files = await github.paginate(github.rest.pulls.listFiles, {
     owner,
     repo,
-    pull_number: prNumber
+    pull_number: prNumber,
+    per_page: 100
   });
 
   const changedFiles = files.map(file => file.filename);
