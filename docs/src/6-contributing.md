@@ -140,7 +140,15 @@ cargo xtask test-wasm
 
 #### Wasm Stdlib
 
-The tree-sitter Wasm stdlib can be built via xtask:
+The libc sources shared by Wasm external scanners and
+`wasm32-unknown-unknown` Rust applications can be refreshed from the
+`wasi-libc` revision pinned by the current WASI SDK:
+
+```sh
+cargo xtask vendor-wasm-stdlib
+```
+
+The external scanner Wasm stdlib can then be built via xtask:
 
 ```sh
 cargo xtask build-wasm-stdlib
@@ -150,7 +158,9 @@ This command looks for the [Wasi SDK][wasi_sdk] indicated by the `TREE_SITTER_WA
 environment variable. If you don't have the binary, it can be downloaded from wasi-sdk's [releases][wasi-sdk-releases]
 page. Similarly, this command also looks for [ the `wasm-opt` tool from binaryen][binaryen] indicated by the `TREE_SITTER_BINARYEN_PATH`
 environment variable. `wasm-opt` and the rest of the binaryen tool suite can be downloaded from the project's [releases][binaryen-releases]
-page. Note that any changes to `crates/language/wasm/**` requires rebuilding the tree-sitter Wasm stdlib via `cargo xtask build-wasm-stdlib`.
+page. Note that changes under `lib/src/wasm-stdlib/` require rebuilding
+`lib/src/wasm-stdlib/external_scanner_stdlib.h` via
+`cargo xtask build-wasm-stdlib`.
 
 ### Debugging
 

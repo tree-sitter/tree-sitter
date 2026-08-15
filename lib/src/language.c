@@ -1,9 +1,67 @@
 #include "./language.h"
+#include "./atomic.h"
 #include "./wasm_store.h"
 #include "tree_sitter/api.h"
+#include <stddef.h>
 #include <string.h>
 
+#ifdef __wasm__
+
+typedef struct {
+  TSLanguage language;
+  volatile uint32_t ref_count;
+} TSUnparseableLanguage;
+
+// Linear memory can be shared by multiple WebAssembly instances, but a
+// module-defined global belongs to one instance. Assign each instance an ID
+// from a counter in shared memory so trees can identify the function table
+// that owns their language callbacks.
+static volatile uint32_t ts_language_next_context_id;
+
+__asm__(
+  ".globaltype ts_language_context_id, i32\n"
+  "ts_language_context_id:\n"
+);
+
+static inline TSUnparseableLanguage *ts_language__unparseable(const TSLanguage *self) {
+  return (TSUnparseableLanguage *)((char *)self - offsetof(TSUnparseableLanguage, language));
+}
+
+static inline bool ts_language__is_unparseable(const TSLanguage *self) {
+  return (
+    self &&
+    !self->lex_fn &&
+    self->external_scanner.states == (const bool *)self
+  );
+}
+
+uint32_t ts_language_current_context_id(void) {
+  uint32_t result;
+  __asm__(
+    "global.get ts_language_context_id\n"
+    "local.set %0\n"
+    : "=r"(result)
+  );
+  if (!result) {
+    result = atomic_inc(&ts_language_next_context_id);
+    __asm__(
+      "local.get %0\n"
+      "global.set ts_language_context_id\n"
+      :
+      : "r"(result)
+    );
+  }
+  return result;
+}
+
+#endif
+
 const TSLanguage *ts_language_copy(const TSLanguage *self) {
+#ifdef __wasm__
+  if (ts_language__is_unparseable(self)) {
+    atomic_inc(&ts_language__unparseable(self)->ref_count);
+  } else
+#endif
   if (self && ts_language_is_wasm(self)) {
     ts_wasm_language_retain(self);
   }
@@ -11,9 +69,41 @@ const TSLanguage *ts_language_copy(const TSLanguage *self) {
 }
 
 void ts_language_delete(const TSLanguage *self) {
+#ifdef __wasm__
+  if (ts_language__is_unparseable(self)) {
+    TSUnparseableLanguage *language = ts_language__unparseable(self);
+    if (atomic_dec(&language->ref_count) == 0) {
+      ts_free(language);
+    }
+  } else
+#endif
   if (self && ts_language_is_wasm(self)) {
     ts_wasm_language_release(self);
   }
+}
+
+bool ts_language_is_parseable(const TSLanguage *self) {
+  return self && self->lex_fn;
+}
+
+const TSLanguage *ts_language_copy_without_callbacks(const TSLanguage *self) {
+#ifdef __wasm__
+  if (self && ts_language_is_parseable(self)) {
+    TSUnparseableLanguage *result = ts_malloc(sizeof(TSUnparseableLanguage));
+    result->language = *self;
+    result->language.lex_fn = NULL;
+    result->language.keyword_lex_fn = NULL;
+    result->language.external_scanner.states = (const bool *)&result->language;
+    result->language.external_scanner.create = NULL;
+    result->language.external_scanner.destroy = NULL;
+    result->language.external_scanner.scan = NULL;
+    result->language.external_scanner.serialize = NULL;
+    result->language.external_scanner.deserialize = NULL;
+    result->ref_count = 1;
+    return &result->language;
+  }
+#endif
+  return ts_language_copy(self);
 }
 
 uint32_t ts_language_symbol_count(const TSLanguage *self) {

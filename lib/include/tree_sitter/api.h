@@ -230,10 +230,12 @@ const TSLanguage *ts_parser_language(const TSParser *self);
  * Set the language that the parser should use for parsing.
  *
  * Returns a boolean indicating whether or not the language was successfully
- * assigned. True means assignment succeeded. False means there was a version
- * mismatch: the language was generated with an incompatible version of the
- * Tree-sitter CLI. Check the language's ABI version using [`ts_language_abi_version`]
- * and compare it to this library's [`TREE_SITTER_LANGUAGE_VERSION`] and
+ * assigned. True means assignment succeeded. False means the language cannot
+ * be used for parsing, or it was generated with an incompatible version of the
+ * Tree-sitter CLI. Check whether the language can be used for parsing with
+ * [`ts_language_is_parseable`]. Check the language's ABI version using
+ * [`ts_language_abi_version`] and compare it to this library's
+ * [`TREE_SITTER_LANGUAGE_VERSION`] and
  * [`TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION`] constants.
  */
 bool ts_parser_set_language(TSParser *self, const TSLanguage *language);
@@ -434,6 +436,11 @@ TSNode ts_tree_root_node_with_offset(
 
 /**
  * Get the language that was used to parse the syntax tree.
+ *
+ * When Tree-sitter is compiled to WebAssembly, this returns the original
+ * language if the tree is being accessed from the same WebAssembly instance
+ * that created it. Otherwise, this returns a copy of the language that can be
+ * used to inspect the tree but cannot be assigned to a parser.
  */
 const TSLanguage *ts_tree_language(const TSTree *self);
 
@@ -504,6 +511,11 @@ TSSymbol ts_node_symbol(TSNode self);
 
 /**
  * Get the node's language.
+ *
+ * When Tree-sitter is compiled to WebAssembly, this returns the original
+ * language if the node is being accessed from the same WebAssembly instance
+ * that created its tree. Otherwise, this returns a copy of the language that
+ * can be used to inspect the tree but cannot be assigned to a parser.
  */
 const TSLanguage *ts_node_language(TSNode self);
 
@@ -1221,6 +1233,17 @@ const TSLanguage *ts_language_copy(const TSLanguage *self);
  * this is the last reference.
  */
 void ts_language_delete(const TSLanguage *self);
+
+/**
+ * Check whether this language can be assigned to a parser.
+ *
+ * Languages obtained from a syntax tree may be used to inspect that tree, but
+ * are not necessarily usable for parsing. When Tree-sitter is compiled to
+ * WebAssembly, a language obtained from a tree can be used for parsing only
+ * within the same WebAssembly instance that created the tree, because lexer
+ * function pointers are local to a WebAssembly instance.
+ */
+bool ts_language_is_parseable(const TSLanguage *self);
 
 /**
  * Get the number of distinct node types in the language.

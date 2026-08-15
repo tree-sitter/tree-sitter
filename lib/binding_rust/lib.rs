@@ -5,7 +5,10 @@
 pub mod ffi;
 mod util;
 
-#[cfg(not(feature = "std"))]
+#[cfg(any(
+    not(feature = "std"),
+    all(target_arch = "wasm32", target_os = "unknown")
+))]
 extern crate alloc;
 #[cfg(not(feature = "std"))]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec::Vec};
@@ -35,6 +38,9 @@ mod wasm_language;
 #[cfg(feature = "wasm")]
 #[cfg_attr(docsrs, doc(cfg(feature = "wasm")))]
 pub use wasm_language::*;
+
+#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+mod wasm_allocator;
 
 /// The latest ABI version that is supported by the current version of the
 /// library.
@@ -444,12 +450,13 @@ pub struct QueryCapture<'tree> {
     pub index: u32,
 }
 
-/// An error that occurred when trying to assign an incompatible [`Language`] to
-/// a [`Parser`]. If the `wasm` feature is enabled, this can also indicate a failure
-/// to load the Wasm store.
+/// An error that occurred when trying to assign a [`Language`] to a [`Parser`].
+/// If the `wasm` feature is enabled, this can also indicate a failure to load
+/// the Wasm store.
 #[derive(Debug, PartialEq, Eq)]
 pub enum LanguageError {
     Version(usize),
+    NotParseable,
     #[cfg(feature = "wasm")]
     Wasm,
 }
@@ -503,6 +510,18 @@ impl Language {
     #[must_use]
     pub fn new(builder: LanguageFn) -> Self {
         Self(unsafe { builder.into_raw()().cast() })
+    }
+
+    /// Check whether this language can be assigned to a parser.
+    ///
+    /// When Tree-sitter is compiled to WebAssembly, languages obtained from a
+    /// syntax tree can be used for parsing only within the same WebAssembly
+    /// instance that created the tree. In other instances, such languages can
+    /// still be used to inspect syntax trees.
+    #[doc(alias = "ts_language_is_parseable")]
+    #[must_use]
+    pub fn is_parseable(&self) -> bool {
+        unsafe { ffi::ts_language_is_parseable(self.0) }
     }
 
     /// Get the name of this language. This returns `None` in older parsers.
@@ -738,15 +757,17 @@ impl Parser {
     /// Set the language that the parser should use for parsing.
     ///
     /// Returns a Result indicating whether or not the language was successfully
-    /// assigned. True means assignment succeeded. False means there was a
-    /// version mismatch: the language was generated with an incompatible
-    /// version of the Tree-sitter CLI. Check the language's version using
-    /// [`Language::version`] and compare it to this library's
-    /// [`LANGUAGE_VERSION`] and [`MIN_COMPATIBLE_LANGUAGE_VERSION`] constants.
+    /// assigned. Assignment fails if the language cannot be used for parsing,
+    /// or if it was generated with an incompatible version of the Tree-sitter
+    /// CLI. Check this using [`Language::is_parseable`] and
+    /// [`Language::abi_version`].
     #[doc(alias = "ts_parser_set_language")]
     pub fn set_language(&mut self, language: &Language) -> Result<(), LanguageError> {
         let version = language.abi_version();
         if (MIN_COMPATIBLE_LANGUAGE_VERSION..=LANGUAGE_VERSION).contains(&version) {
+            if !language.is_parseable() {
+                return Err(LanguageError::NotParseable);
+            }
             #[cfg_attr(
                 not(feature = "wasm"),
                 expect(unused_variables, reason = "only used when wasm feature is enabled")
@@ -1480,6 +1501,11 @@ impl Tree {
     }
 
     /// Get the language that was used to parse the syntax tree.
+    ///
+    /// When Tree-sitter is compiled to WebAssembly, this returns the original
+    /// language if the tree is being accessed from the same WebAssembly
+    /// instance that created it. Otherwise, this returns a copy of the language
+    /// that can be used to inspect the tree but cannot be assigned to a parser.
     #[doc(alias = "ts_tree_language")]
     #[must_use]
     pub fn language(&self) -> LanguageRef {
@@ -1644,6 +1670,12 @@ impl<'tree> Node<'tree> {
     }
 
     /// Get the [`Language`] that was used to parse this node's syntax tree.
+    ///
+    /// When Tree-sitter is compiled to WebAssembly, this returns the original
+    /// language if the node is being accessed from the same WebAssembly
+    /// instance that created its tree. Otherwise, this returns a copy of the
+    /// language that can be used to inspect the tree but cannot be assigned to
+    /// a parser.
     #[doc(alias = "ts_node_language")]
     #[must_use]
     pub fn language(&self) -> LanguageRef<'tree> {
@@ -3858,6 +3890,9 @@ impl fmt::Display for LanguageError {
                     "Incompatible language version {version}. Expected minimum {MIN_COMPATIBLE_LANGUAGE_VERSION}, maximum {LANGUAGE_VERSION}",
                 )
             }
+            Self::NotParseable => {
+                write!(f, "Language cannot be used for parsing.")
+            }
             #[cfg(feature = "wasm")]
             Self::Wasm => {
                 write!(f, "Failed to load the Wasm store.")
@@ -4065,19 +4100,27 @@ impl error::Error for LanguageError {}
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 impl error::Error for QueryError {}
 
+#[cfg(not(target_family = "wasm"))]
 unsafe impl Send for Language {}
+#[cfg(not(target_family = "wasm"))]
 unsafe impl Sync for Language {}
 
 unsafe impl Send for Node<'_> {}
 unsafe impl Sync for Node<'_> {}
 
+#[cfg(not(target_family = "wasm"))]
 unsafe impl Send for LookaheadIterator {}
+#[cfg(not(target_family = "wasm"))]
 unsafe impl Sync for LookaheadIterator {}
 
+#[cfg(not(target_family = "wasm"))]
 unsafe impl Send for LookaheadNamesIterator<'_> {}
+#[cfg(not(target_family = "wasm"))]
 unsafe impl Sync for LookaheadNamesIterator<'_> {}
 
+#[cfg(not(target_family = "wasm"))]
 unsafe impl Send for Parser {}
+#[cfg(not(target_family = "wasm"))]
 unsafe impl Sync for Parser {}
 
 unsafe impl Send for Query {}

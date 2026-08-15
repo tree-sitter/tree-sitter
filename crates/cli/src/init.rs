@@ -976,18 +976,8 @@ fn update_rust_build_rs(path: &Path, language_name: &str, opts: &GenerateOpts) -
                 let Ok(wasm_headers) = std::env::var("DEP_TREE_SITTER_LANGUAGE_WASM_HEADERS") else {
                     panic!("Environment variable DEP_TREE_SITTER_LANGUAGE_WASM_HEADERS must be set by the language crate");
                 };
-                let Ok(wasm_src) =
-                    std::env::var("DEP_TREE_SITTER_LANGUAGE_WASM_SRC").map(std::path::PathBuf::from)
-                else {
-                    panic!("Environment variable DEP_TREE_SITTER_LANGUAGE_WASM_SRC must be set by the language crate");
-                };
 
                 c_config.include(&wasm_headers);
-                c_config.files([
-                    wasm_src.join("stdio.c"),
-                    wasm_src.join("stdlib.c"),
-                    wasm_src.join("string.c"),
-                ]);
             }
         "#}
             .lines()

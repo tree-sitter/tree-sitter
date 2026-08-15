@@ -1,0 +1,19 @@
+[package]
+name = "rust-wasm-web-test"
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.90"
+publish = false
+
+[lib]
+path = "src/rust_wasm_web.rs"
+crate-type = ["cdylib"]
+
+[dependencies]
+tree-sitter = { path = "../../../lib" }
+tree-sitter-javascript = { path = "../grammars/javascript" }
+
+[patch.crates-io]
+tree-sitter-language = { path = "../../../crates/language" }
+
+[workspace]

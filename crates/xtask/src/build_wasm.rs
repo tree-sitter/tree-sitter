@@ -53,7 +53,40 @@ const EXPORTED_RUNTIME_METHODS: [&str; 20] = [
 ];
 
 const WASI_SDK_VERSION: &str = include_str!("../../loader/wasi-sdk-version").trim_ascii();
+const WASI_LIBC_REVISION: &str = "161b3195fc2558d2b1ba3eb9ffae3b2b47407623";
 const BINARYEN_VERSION: &str = include_str!("../../loader/binaryen-version").trim_ascii();
+
+const WASI_LIBC_FILES: &[&str] = &[
+    "ctype/alpha.h",
+    "ctype/casemap.h",
+    "ctype/isblank.c",
+    "ctype/iswalnum.c",
+    "ctype/iswalpha.c",
+    "ctype/iswblank.c",
+    "ctype/iswdigit.c",
+    "ctype/iswlower.c",
+    "ctype/iswpunct.c",
+    "ctype/iswspace.c",
+    "ctype/iswupper.c",
+    "ctype/iswxdigit.c",
+    "ctype/punct.h",
+    "ctype/towctrans.c",
+    "string/memchr.c",
+    "string/memcmp.c",
+    "string/memcpy.c",
+    "string/memmove.c",
+    "string/memset.c",
+    "string/strchr.c",
+    "string/strchrnul.c",
+    "string/strcmp.c",
+    "string/strlen.c",
+    "string/stpncpy.c",
+    "string/strncat.c",
+    "string/strncmp.c",
+    "string/strncpy.c",
+    "string/wcschr.c",
+    "string/wcslen.c",
+];
 
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
 const ARCH_OS: Result<&str, LoaderError> = Ok("arm64-macos");
@@ -173,7 +206,7 @@ pub fn run_wasm(args: &BuildWasm) -> Result<()> {
 
     let exported_functions = format!(
         "{}{}",
-        fs::read_to_string("lib/src/wasm/stdlib-symbols.txt")?,
+        fs::read_to_string("lib/src/wasm-stdlib/imports.txt")?,
         fs::read_to_string("lib/binding_web/lib/exports.txt")?
     )
     .replace('"', "")
@@ -599,8 +632,80 @@ fn extract_tar_gz_with_strip(archive_path: &Path, destination: &Path) -> Result<
     Ok(())
 }
 
+pub fn vendor_wasm_stdlib() -> Result<()> {
+    let source_dir = ensure_wasi_libc_source_exists()?;
+    let source_dir = source_dir.join("libc-top-half/musl");
+    let destination = Path::new("lib/src/wasm-stdlib/libc");
+
+    for directory in ["ctype", "string"] {
+        let directory = destination.join(directory);
+        if directory.exists() {
+            fs::remove_dir_all(&directory)?;
+        }
+        fs::create_dir_all(directory)?;
+    }
+
+    fs::copy(source_dir.join("COPYRIGHT"), destination.join("LICENSE"))?;
+    let source_dir = source_dir.join("src");
+    for relative_path in WASI_LIBC_FILES {
+        let relative_path = Path::new(relative_path);
+        fs::copy(
+            source_dir.join(relative_path),
+            destination.join(relative_path),
+        )?;
+    }
+
+    println!(
+        "Vendored {} wasi-libc files from {WASI_LIBC_REVISION}",
+        WASI_LIBC_FILES.len()
+    );
+    Ok(())
+}
+
+fn ensure_wasi_libc_source_exists() -> Result<PathBuf> {
+    let cache_dir = etcetera::choose_base_strategy()?
+        .cache_dir()
+        .join("tree-sitter")
+        .join("wasi-libc");
+    fs::create_dir_all(&cache_dir)?;
+
+    let source_dir = cache_dir.join(WASI_LIBC_REVISION);
+    if source_dir.join("libc-top-half/musl/COPYRIGHT").is_file() {
+        return Ok(source_dir);
+    }
+
+    let archive_name = format!("wasi-libc-{WASI_LIBC_REVISION}.tar.gz");
+    let archive_path = cache_dir.join(&archive_name);
+    let url =
+        format!("https://github.com/WebAssembly/wasi-libc/archive/{WASI_LIBC_REVISION}.tar.gz");
+    eprintln!("Downloading wasi-libc from {url}...");
+    let status = Command::new("curl")
+        .args(["-f", "-L", "-o"])
+        .arg(&archive_path)
+        .arg(&url)
+        .status()
+        .map_err(|error| LoaderError::Curl(url.clone(), error))?;
+    if !status.success() {
+        return Err(LoaderError::WasmToolDownload {
+            tool: "wasi-libc",
+            url,
+        }
+        .into());
+    }
+
+    let temporary_dir = cache_dir.join(format!(".{WASI_LIBC_REVISION}.tmp"));
+    if temporary_dir.exists() {
+        fs::remove_dir_all(&temporary_dir)?;
+    }
+    fs::create_dir_all(&temporary_dir)?;
+    extract_tar_gz_with_strip(&archive_path, &temporary_dir)?;
+    fs::rename(&temporary_dir, &source_dir)?;
+    fs::remove_file(archive_path)?;
+    Ok(source_dir)
+}
+
 pub fn run_wasm_stdlib() -> Result<()> {
-    let export_flags = include_str!("../../../lib/src/wasm/stdlib-symbols.txt")
+    let export_flags = include_str!("../../../lib/src/wasm-stdlib/imports.txt")
         .lines()
         .map(|line| format!("-Wl,--export={}", &line[1..line.len() - 2]))
         .collect::<Vec<String>>();
@@ -613,7 +718,7 @@ pub fn run_wasm_stdlib() -> Result<()> {
             "stdlib.wasm",
             "-Os",
             "-fPIC",
-            "-DTREE_SITTER_FEATURE_WASM",
+            "-nostdlib",
             "-Wl,--no-entry",
             "-Wl,--stack-first",
             "-Wl,-z",
@@ -627,8 +732,10 @@ pub fn run_wasm_stdlib() -> Result<()> {
             "-Wl,--export=reset_heap",
         ])
         .args(&export_flags)
-        .arg("crates/language/wasm/src/stdlib.c")
-        .arg("crates/language/wasm/src/wctype.c")
+        .arg("-Icrates/language/wasm/include")
+        .arg("lib/src/wasm-stdlib/libc.c")
+        .arg("lib/src/wasm-stdlib/stdio.c")
+        .arg("lib/src/wasm-stdlib/external_scanner_allocator.c")
         .output()?;
 
     bail_on_err(
@@ -656,7 +763,7 @@ pub fn run_wasm_stdlib() -> Result<()> {
         "Failed to run xxd on the compiled Tree-sitter Wasm stdlib",
     )?;
 
-    fs::write("lib/src/wasm/wasm-stdlib.h", xxd.stdout)?;
+    fs::write("lib/src/wasm-stdlib/external_scanner_stdlib.h", xxd.stdout)?;
 
     fs::rename("stdlib.wasm", "target/stdlib.wasm")?;
 

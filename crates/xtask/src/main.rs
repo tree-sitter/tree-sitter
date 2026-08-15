@@ -49,8 +49,12 @@ enum Commands {
     Test(Test),
     /// Run the Wasm test suite
     TestWasm,
+    /// Test the Rust binding in a WebAssembly web environment.
+    TestRustWasmWeb,
     /// Upgrade the wasmtime dependency.
     UpgradeWasmtime(UpgradeWasmtime),
+    /// Refresh the vendored Wasm standard-library sources.
+    VendorWasmStdlib,
 }
 
 #[derive(Args)]
@@ -236,9 +240,11 @@ fn run() -> Result<()> {
         Commands::GenerateWasmExports => generate::run_wasm_exports()?,
         Commands::Test(test_options) => test::run(&test_options)?,
         Commands::TestWasm => test::run_wasm()?,
+        Commands::TestRustWasmWeb => test::run_rust_wasm_web()?,
         Commands::UpgradeWasmtime(upgrade_wasmtime_options) => {
             upgrade_wasmtime::run(&upgrade_wasmtime_options)?;
         }
+        Commands::VendorWasmStdlib => build_wasm::vendor_wasm_stdlib()?,
     }
 
     Ok(())

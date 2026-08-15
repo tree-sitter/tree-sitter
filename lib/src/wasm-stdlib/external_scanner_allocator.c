@@ -1,10 +1,9 @@
-// This file implements a very simple allocator for external scanners running
-// in Wasm. Allocation is just bumping a static pointer and growing the heap
-// as needed, and freeing is just adding the freed region to a free list.
-// When additional memory is allocated, the free list is searched first.
-// If there is not a suitable region in the free list, the heap is
-// grown as necessary, and the allocation is made at the end of the heap.
-// When the heap is reset, all allocated memory is considered freed.
+// This allocator is used by external scanners in separately compiled Wasm
+// language modules. Allocation bumps a static pointer and grows the heap as
+// needed, while freeing adds the region to a free list. When additional memory
+// is allocated, the free list is searched first. If there is not a suitable
+// region, the heap is grown and the allocation is made at its end. Resetting
+// the heap frees every allocation at once.
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -15,7 +14,7 @@ extern void tree_sitter_debug_message(const char *, size_t);
 #define PAGESIZE 0x10000
 #define MAX_HEAP_SIZE (4 * 1024 * 1024)
 
-typedef struct {
+typedef struct Region {
   size_t size;
   struct Region *next;
   char data[0];

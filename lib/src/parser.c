@@ -2041,6 +2041,8 @@ bool ts_parser_set_language(TSParser *self, const TSLanguage *language) {
       language->abi_version < TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION
     ) return false;
 
+    if (!ts_language_is_parseable(language)) return false;
+
     if (ts_language_is_wasm(language)) {
       if (
         !self->wasm_store ||

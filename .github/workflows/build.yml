@@ -128,6 +128,10 @@ jobs:
       with:
         target: ${{ matrix.target }}
 
+    - name: Install Rust Wasm test target
+      if: matrix.run-wasm-test
+      run: rustup toolchain install nightly --profile minimal --component rust-src
+
     - name: Install cross-compilation toolchain
       if: matrix.cross
       run: |
@@ -294,6 +298,10 @@ jobs:
     - name: Run Wasm tests
       if: inputs.run-test && !matrix.no-run && contains(matrix.features, 'wasm') && matrix.run-wasm-test
       run: cargo run -p xtask --target='${{ matrix.target }}' -- test-wasm
+
+    - name: Run Rust Wasm web test
+      if: inputs.run-test && !matrix.no-run && contains(matrix.features, 'wasm') && matrix.run-wasm-test
+      run: cargo run -p xtask --target='${{ matrix.target }}' -- test-rust-wasm-web
 
     - name: Upload CLI artifact
       if: "!inputs.run-test && !matrix.no-run"

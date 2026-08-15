@@ -1,3 +1,6 @@
+// Scanner-oriented stdio compatibility functions. Formatting writes to memory,
+// while stream operations intentionally perform no I/O.
+
 #include <stdio.h>
 #include <string.h>
 
@@ -104,14 +107,6 @@ static int ptr_to_str(void *ptr, char *buffer) {
   buffer[1] = 'x';
   int len = int_to_str((uintptr_t)ptr, buffer + 2, 16, 0, 0);
   return 2 + len;
-}
-
-char *strncpy(char *dest, const char *src, size_t n) {
-  char *d = dest;
-  const char *s = src;
-  while (n-- && (*d++ = *s++));
-  if (n == (size_t)-1) *d = '\0';
-  return dest;
 }
 
 static int write_formatted_to_buffer(
