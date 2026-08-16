@@ -101,6 +101,11 @@ rule. In the resulting syntax tree, you can then use that field name to access s
 one passed into the `wordset` parameter. This is useful for contextual keywords, such as `if` in JavaScript, which cannot
 be used as a variable name in most contexts, but can be used as a property name.
 
+- **End of Input : `eof()`** — This function creates a rule that matches the end of the input, without consuming any
+characters. It may only appear as the final symbol of a rule, and is useful when a rule should match either an explicit
+terminator (such as a newline) or the end of the file. Choice branches where other symbols follow `eof()` can never
+match, so they are dropped, and `eof()` is not allowed inside `token()`.
+
 In addition to the `name` and `rules` fields, grammars have a few other optional public fields that influence the behavior
 of the parser. Each of these fields is a function that accepts the grammar object (`$`) as its only parameter, like the
 grammar rules themselves. These fields are:

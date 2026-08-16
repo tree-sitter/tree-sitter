@@ -238,6 +238,7 @@ impl ActionListPool {
                     lex_state_id: state.lex_state_id,
                     external_lex_state_id: state.external_lex_state_id,
                     core_id: state.core_id,
+                    has_eof_gated_reduce: state.has_eof_gated_reduce,
                 }
             })
             .collect();
@@ -293,6 +294,7 @@ pub struct ParseState<T = ActionListId> {
     pub lex_state_id: LexStateId,
     pub external_lex_state_id: LexStateId,
     pub core_id: u32,
+    pub has_eof_gated_reduce: bool,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]

@@ -1,0 +1,1 @@
+Rule `body` contains a repetition that can match the empty string at end of input

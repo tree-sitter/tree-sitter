@@ -72,7 +72,9 @@ pub(super) fn extract_default_aliases(
             SymbolType::External => &mut external_status_list[symbol_index],
             SymbolType::NonTerminal => &mut non_terminal_status_list[symbol_index],
             SymbolType::Terminal => &mut terminal_status_list[symbol_index],
-            SymbolType::End | SymbolType::EndOfNonTerminalExtra => panic!("Unexpected end token"),
+            SymbolType::End | SymbolType::EndOfNonTerminalExtra => {
+                panic!("Unexpected end token")
+            }
         };
         status.appears_unaliased = true;
     }
@@ -204,6 +206,7 @@ mod tests {
                 steps_start,
                 steps_len: steps.len() as u32,
                 dynamic_precedence: 0,
+                requires_eof_lookahead: false,
             });
             out.var_prods.push((ps, out.productions.len() as u32));
         }

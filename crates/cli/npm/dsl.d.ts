@@ -15,6 +15,8 @@ type SeqRule = { type: 'SEQ'; members: Rule[] };
 type StringRule = { type: 'STRING'; value: string };
 type SymbolRule<Name extends string> = { type: 'SYMBOL'; name: Name };
 type TokenRule = { type: 'TOKEN'; content: Rule };
+type EOFRule = { type: 'EOF' };
+
 
 type Rule =
   | AliasRule
@@ -33,7 +35,8 @@ type Rule =
   | SeqRule
   | StringRule
   | SymbolRule<string>
-  | TokenRule;
+  | TokenRule
+  | EOFRule;
 
 declare class RustRegex {
   value: string;
@@ -381,6 +384,19 @@ declare const token: {
    */
   immediate(rule: RuleOrLiteral): ImmediateTokenRule;
 };
+
+/**
+ * Matches the end of input. May only appear as the final symbol of a
+ * (possibly nested) sequence; a production ending in `eof()` reduces only
+ * when the lookahead is end-of-input, rather than shifting a token.
+ *
+ * Choice branches that continue past `eof()` are dropped as unreachable,
+ * and `eof()` is not allowed inside `token()`.
+ *
+ * Useful when a rule should match either an explicit terminator (e.g. a
+ * newline) or the end of the file.
+ */
+declare function eof(): EOFRule;
 
 /**
  * Creates a new language grammar with the provided schema.

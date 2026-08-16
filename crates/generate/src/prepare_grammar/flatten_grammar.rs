@@ -31,6 +31,8 @@ unless they are used only as the grammar's start rule.
     EmptyString(String),
     #[error("Rule `{0}` cannot be inlined because it contains a reference to itself")]
     RecursiveInline(String),
+    #[error("Rule `{0}` has no reachable productions.")]
+    NoReachableProductions(String),
 }
 
 #[derive(Clone, Copy, Default)]
@@ -179,6 +181,11 @@ fn apply(
             let child = pool.child_slice(range)[selected as usize];
             apply(pool, reserved_ids, child, f_ctx, at_end, st)
         }
+        Rule::Eof => {
+            let symbol = Symbol::end();
+            st.push_step(symbol.kind, symbol.index, f_ctx);
+            Ok(true)
+        }
         Rule::Metadata { params, rule } => {
             let params = pool.params(params);
             let mut inner_ctx = f_ctx;
@@ -227,11 +234,36 @@ fn apply(
 }
 
 /// Append the completed path as a production unless this variable already has an
-/// identical one.
-fn emit(st: &FlattenState, out: &mut ProductionStore, prod_start: u32) {
+/// identical one. A path with `eof()` anywhere but the final step is discarded,
+/// since such a production could never be completed.
+fn emit(st: &mut FlattenState, out: &mut ProductionStore, prod_start: u32) -> bool {
+    let last = st.steps.len().saturating_sub(1);
+    let Some(eof_index) = st
+        .steps
+        .iter()
+        .position(|step| step.symbol() == Symbol::end())
+    else {
+        return emit_ready(st, out, prod_start, false);
+    };
+    if eof_index != last {
+        return false;
+    }
+    st.steps.pop();
+    emit_ready(st, out, prod_start, true)
+}
+
+fn emit_ready(
+    st: &FlattenState,
+    out: &mut ProductionStore,
+    prod_start: u32,
+    requires_eof_lookahead: bool,
+) -> bool {
     for p in &out.productions[prod_start as usize..] {
-        if p.dynamic_precedence == st.dyn_prec && out.steps[p.step_range()] == st.steps[..] {
-            return;
+        if p.dynamic_precedence == st.dyn_prec
+            && p.requires_eof_lookahead == requires_eof_lookahead
+            && out.steps[p.step_range()] == st.steps[..]
+        {
+            return true;
         }
     }
     let steps_start = out.steps.len() as u32;
@@ -240,7 +272,9 @@ fn emit(st: &FlattenState, out: &mut ProductionStore, prod_start: u32) {
         steps_start,
         steps_len: st.steps.len() as u32,
         dynamic_precedence: st.dyn_prec,
+        requires_eof_lookahead,
     });
+    true
 }
 
 pub(super) fn flatten_grammar(
@@ -263,6 +297,7 @@ pub(super) fn flatten_grammar(
         .collect();
     for v in &g.variables {
         let prod_start = out.productions.len() as u32;
+        let mut dropped_for_eof = false;
         st.reset_variable();
         loop {
             apply(
@@ -274,12 +309,17 @@ pub(super) fn flatten_grammar(
                 st,
             )?;
             if !st.dead {
-                emit(st, out, prod_start);
+                dropped_for_eof |= !emit(st, out, prod_start);
             }
             if !st.choices.advance() {
                 break;
             }
             st.reset_path();
+        }
+        if dropped_for_eof && prod_start == out.productions.len() as u32 {
+            return Err(FlattenGrammarError::NoReachableProductions(
+                g.pool.resolve(v.name).to_string(),
+            ));
         }
         out.var_prods
             .push((prod_start, out.productions.len() as u32));
@@ -298,7 +338,7 @@ fn check(
         let used = out.steps.iter().any(|s| s.symbol() == symbol);
         let inlined = meta.inline.contains(&symbol);
         for p in &out.productions[p_start as usize..p_end as usize] {
-            if used && p.steps_len == 0 {
+            if used && p.steps_len == 0 && !p.requires_eof_lookahead {
                 Err(FlattenGrammarError::EmptyString(
                     g.pool.resolve(g.variables[i].name).to_string(),
                 ))?;

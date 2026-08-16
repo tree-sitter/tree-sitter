@@ -28,17 +28,19 @@ const fn start_production() -> ProdRef<'static> {
     ProdRef {
         steps: &START_STEPS,
         dynamic_precedence: 0,
+        requires_eof_lookahead: false,
     }
 }
 
 /// Precomputed identity keys for one `(production, dot)` pair.
 ///
 /// `cmp` is the rank of the content tuple `Ord` compared (dynamic precedence,
-/// length, precedence/associativity at the dot, then completed steps' aliases and fields
-/// and remaining steps in full). Equal ranks hold _exactly_ when the tuple is equal,
-/// so it doubles as the equality class for items without preceding inherited fields.
-/// `eq_with_syms` subdivides `cmp` by the completed steps' symbols, which participate
-/// in equality only when `has_preceding_inherited_fields` is set.
+/// `requires_eof_lookahead`, length, precedence/associativity at the dot, then
+/// completed steps' aliases and fields and remaining steps in full). Equal ranks
+/// hold _exactly_ when the tuple is equal, so it doubles as the equality class
+/// for items without preceding inherited fields. `eq_with_syms` subdivides `cmp`
+/// by the completed steps' symbols, which participate in equality only when
+/// `has_preceding_inherited_fields` is set.
 #[derive(Clone, Copy, Default, PartialEq, Eq, Debug)]
 pub struct DotKeys {
     pub cmp: u32,
@@ -198,6 +200,11 @@ impl Ord for ItemContent<'_> {
         self.production
             .dynamic_precedence
             .cmp(&other.production.dynamic_precedence)
+            .then_with(|| {
+                self.production
+                    .requires_eof_lookahead
+                    .cmp(&other.production.requires_eof_lookahead)
+            })
             .then_with(|| {
                 self.production
                     .steps

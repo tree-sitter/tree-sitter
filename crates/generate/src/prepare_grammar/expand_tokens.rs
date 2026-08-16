@@ -162,6 +162,12 @@ pub enum ExpandRuleError {
     UnexpectedSymbol(Symbol),
     #[error("unexpected reserved-word context {0}")]
     UnexpectedReserved(String),
+    #[error(
+        "`eof()` cannot be used inside a token. \
+        A lexical rule cannot check for end of input, \
+        so use `eof()` only at the end of a syntactic rule."
+    )]
+    UnexpectedEof,
     #[error("{0}")]
     Parse(String),
     #[error(transparent)]
@@ -297,6 +303,7 @@ impl NfaBuilder {
                 result
             }
             Rule::Blank => Ok(false),
+            Rule::Eof => Err(ExpandRuleError::UnexpectedEof)?,
             Rule::Sym { kind, index } => {
                 Err(ExpandRuleError::UnexpectedSymbol(Symbol { kind, index }))?
             }

@@ -225,12 +225,17 @@ impl std::fmt::Display for ReservedWordSetId {
     }
 }
 
-/// A flattened production consisting of a step range and its dynamic precedence
+/// A flattened production consisting of a step range, its dynamic precedence, and
+/// whether its reduce action is gated on end-of-input lookahead.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct Production {
     pub steps_start: u32,
     pub steps_len: u32,
     pub dynamic_precedence: i32,
+    /// True when the production was written ending in `eof()`. The reduce
+    /// action for this production is only emitted under the end-of-input
+    /// lookahead, never as a shift.
+    pub requires_eof_lookahead: bool,
 }
 
 impl Production {
@@ -291,6 +296,7 @@ impl SyntaxGrammar {
         ProdRef {
             steps: &self.steps[p.step_range()],
             dynamic_precedence: p.dynamic_precedence,
+            requires_eof_lookahead: p.requires_eof_lookahead,
         }
     }
 
@@ -307,6 +313,7 @@ impl SyntaxGrammar {
 pub struct ProdRef<'a> {
     pub steps: &'a [ProductionStep],
     pub dynamic_precedence: i32,
+    pub requires_eof_lookahead: bool,
 }
 
 impl ProdRef<'_> {

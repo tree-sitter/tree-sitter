@@ -32,9 +32,12 @@ use crate::{
 
 pub use self::expand_tokens::expand_tokens;
 use self::{
-    expand_repeats::expand_repeats, extract_default_aliases::extract_default_aliases,
-    extract_tokens::extract_tokens, flatten_grammar::flatten_grammar,
-    intern_symbols::intern_symbols, process_inlines::process_inlines,
+    expand_repeats::{ExpandRepeatsError, expand_repeats},
+    extract_default_aliases::extract_default_aliases,
+    extract_tokens::extract_tokens,
+    flatten_grammar::flatten_grammar,
+    intern_symbols::intern_symbols,
+    process_inlines::process_inlines,
 };
 use super::{
     Diagnostic,
@@ -51,6 +54,7 @@ pub type PrepareGrammarResult<T> = Result<T, PrepareGrammarError>;
 pub enum PrepareGrammarError {
     ValidatePrecedences(#[from] ValidatePrecedenceError),
     ValidateIndirectRecursion(#[from] IndirectRecursionError),
+    ExpandRepeats(#[from] ExpandRepeatsError),
     InternSymbols(#[from] InternSymbolsError),
     ExtractTokens(#[from] ExtractTokensError),
     FlattenGrammar(#[from] FlattenGrammarError),
@@ -116,7 +120,7 @@ pub fn prepare_grammar(
 
     let interned_meta = intern_symbols(&mut g, diagnostics)?;
     let mut ext_meta = extract_tokens(&mut g, &interned_meta)?;
-    expand_repeats(&mut g, &mut ext_meta);
+    expand_repeats(&mut g, &mut ext_meta)?;
 
     let mut state = FlattenState::default();
     let mut out = ProductionStore::default();

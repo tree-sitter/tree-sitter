@@ -115,6 +115,7 @@ pub struct Interpretation {
     pub conflicting_lookahead: String,
     pub precedence: Option<String>,
     pub associativity: Option<String>,
+    pub requires_eof_lookahead: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -142,16 +143,21 @@ impl std::fmt::Display for ConflictError {
             .iter()
             .map(|i| {
                 let line = i.to_string();
-                let prec_line = if let (Some(precedence), Some(associativity)) =
-                    (&i.precedence, &i.associativity)
-                {
-                    Some(format!(
+                let mut annotations = Vec::new();
+                if let (Some(precedence), Some(associativity)) = (&i.precedence, &i.associativity) {
+                    annotations.push(format!(
                         "(precedence: {precedence}, associativity: {associativity})",
-                    ))
+                    ));
+                } else if let Some(precedence) = &i.precedence {
+                    annotations.push(format!("(precedence: {precedence})"));
+                }
+                if i.requires_eof_lookahead {
+                    annotations.push("(reduces only at end of input)".to_string());
+                }
+                let prec_line = if annotations.is_empty() {
+                    None
                 } else {
-                    i.precedence
-                        .as_ref()
-                        .map(|precedence| format!("(precedence: {precedence})"))
+                    Some(annotations.join("  "))
                 };
 
                 (line, prec_line)
@@ -430,6 +436,7 @@ impl<'a> ParseTableBuilder<'a> {
                     nonterminal_entries: IndexMap::default(),
                     reserved_words: TokenSet::default(),
                     core_id,
+                    has_eof_gated_reduce: false,
                 });
                 self.parse_state_queue.push_back(ParseStateQueueEntry {
                     state_id,
@@ -549,7 +556,15 @@ impl<'a> ParseTableBuilder<'a> {
 
                 let precedence = item.precedence(self.syntax_grammar);
                 let associativity = item.associativity(self.syntax_grammar);
+                if item.production(self.syntax_grammar).requires_eof_lookahead {
+                    self.parse_table.states[state_id as usize].has_eof_gated_reduce = true;
+                }
                 for lookahead in self.item_set_builder.lookaheads.get(*lookaheads).iter() {
+                    if item.production(self.syntax_grammar).requires_eof_lookahead
+                        && lookahead != Symbol::end()
+                    {
+                        continue;
+                    }
                     let table_entry = self.parse_table.states[state_id as usize]
                         .terminal_entries
                         .entry(lookahead)
@@ -575,9 +590,15 @@ impl<'a> ParseTableBuilder<'a> {
                                 lookaheads_with_conflicts.remove(lookahead);
                                 *reduction_info = ReductionInfo::default();
                             }
+                            // Two items that reduce identically build the same tree, so
+                            // there is nothing for the user to resolve. Precedence is
+                            // still compared first, because an item that only repeats an
+                            // existing action can still outrank it and clear the entry.
                             Ordering::Equal => {
-                                table_entry.actions.push(action);
-                                lookaheads_with_conflicts.insert(lookahead);
+                                if !table_entry.actions.contains(&action) {
+                                    table_entry.actions.push(action);
+                                    lookaheads_with_conflicts.insert(lookahead);
+                                }
                             }
                             Ordering::Less => continue,
                         }
@@ -997,6 +1018,9 @@ impl<'a> ParseTableBuilder<'a> {
                     conflicting_lookahead: self.symbol_name(conflicting_lookahead),
                     precedence,
                     associativity,
+                    requires_eof_lookahead: item
+                        .production(self.syntax_grammar)
+                        .requires_eof_lookahead,
                 }
             })
             .collect::<Vec<_>>();

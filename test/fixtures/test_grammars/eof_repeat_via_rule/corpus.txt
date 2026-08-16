@@ -1,0 +1,23 @@
+========================
+one item at end of input
+========================
+
+aaa
+---
+
+(start
+  (body
+    (b)))
+
+========================
+item not at end of input
+========================
+
+aab
+---
+
+(start
+  (body
+    (b))
+  (ERROR
+    (UNEXPECTED 'b')))

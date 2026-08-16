@@ -129,6 +129,17 @@
       "required": ["type"]
     },
 
+    "eof-rule": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "EOF"
+        }
+      },
+      "required": ["type"]
+    },
+
     "string-rule": {
       "type": "object",
       "properties": {
@@ -321,6 +332,7 @@
       "oneOf": [
         { "$ref": "#/definitions/alias-rule" },
         { "$ref": "#/definitions/blank-rule" },
+        { "$ref": "#/definitions/eof-rule" },
         { "$ref": "#/definitions/string-rule" },
         { "$ref": "#/definitions/pattern-rule" },
         { "$ref": "#/definitions/symbol-rule" },
