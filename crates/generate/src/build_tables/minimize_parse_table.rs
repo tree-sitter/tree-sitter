@@ -159,6 +159,9 @@ impl Minimizer<'_> {
 
         let mut unit_reduction_symbols_by_state = FxHashMap::default();
         for (i, state) in self.parse_table.states.iter().enumerate() {
+            if state.has_eof_gated_reduce {
+                continue;
+            }
             let mut only_unit_reductions = true;
             let mut unit_reduction_symbol = None;
             for (_, id) in &state.terminal_entries {
@@ -431,6 +434,7 @@ impl Minimizer<'_> {
             for state_id in &state_ids[1..] {
                 let other_parse_state = mem::take(&mut self.parse_table.states[*state_id as usize]);
 
+                parse_state.has_eof_gated_reduce |= other_parse_state.has_eof_gated_reduce;
                 parse_state
                     .terminal_entries
                     .extend(other_parse_state.terminal_entries);

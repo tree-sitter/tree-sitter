@@ -81,6 +81,7 @@ enum RuleJSON {
         context_name: String,
         content: Box<Self>,
     },
+    EOF,
 }
 
 #[derive(Deserialize)]
@@ -462,6 +463,7 @@ impl RulePool {
                 let sid = self.intern(&value);
                 Ok(self.string(sid))
             }
+            RuleJSON::EOF => Ok(self.eof()),
         }
     }
 }

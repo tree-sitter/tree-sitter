@@ -2847,6 +2847,7 @@ mod tests {
                     steps_start,
                     steps_len: steps.len() as u32 - steps_start,
                     dynamic_precedence: 0,
+                    requires_eof_lookahead: false,
                 });
             }
             var_prods.push((prod_start, productions.len() as u32));

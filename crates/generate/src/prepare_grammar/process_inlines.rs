@@ -1,6 +1,6 @@
 use std::hash::{Hash as _, Hasher as _};
 
-use rustc_hash::{FxHashMap, FxHasher};
+use rustc_hash::{FxHashMap, FxHashSet, FxHasher};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -22,12 +22,17 @@ struct InlineBuilder<'a> {
 struct ScratchProd {
     steps: Vec<ProductionStep>,
     dynamic_precedence: i32,
+    requires_eof_lookahead: bool,
 }
 
 impl InlineBuilder<'_> {
-    fn build(mut self) -> InlinedProductionMap {
+    /// Returns the inline map along with the ids of productions whose every expansion
+    /// was dropped.
+    fn build(mut self) -> (InlinedProductionMap, FxHashSet<u32>) {
+        let mut dead = FxHashSet::default();
         let mut worklist = Vec::new();
         for prod_id in 0..self.first_inlined {
+            let mut survived = false;
             worklist.push((prod_id, 0u32));
             while !worklist.is_empty() {
                 let mut i = 0;
@@ -43,12 +48,16 @@ impl InlineBuilder<'_> {
                         }
                     } else {
                         worklist.remove(i);
+                        survived = true;
                     }
                 }
             }
+            if !survived {
+                dead.insert(prod_id);
+            }
         }
 
-        InlinedProductionMap { map: self.map }
+        (InlinedProductionMap { map: self.map }, dead)
     }
 
     /// Expand inlining at one step of one production, dedup, and store the results
@@ -62,6 +71,7 @@ impl InlineBuilder<'_> {
         let mut scratch = vec![ScratchProd {
             steps: self.out.steps[src.step_range()].to_vec(),
             dynamic_precedence: src.dynamic_precedence,
+            requires_eof_lookahead: src.requires_eof_lookahead,
         }];
         let mut i = 0;
         while i < scratch.len() {
@@ -77,8 +87,11 @@ impl InlineBuilder<'_> {
             let removed_step = removed_prod.steps[si];
             let (v_start, v_end) = self.out.var_prods[symbol.index as usize];
             let replacements = (v_start..v_end)
-                .map(|p_idx| {
+                .filter_map(|p_idx| {
                     let p = self.out.productions[p_idx as usize];
+                    if p.requires_eof_lookahead && si + 1 < removed_prod.steps.len() {
+                        return None;
+                    }
                     let mut production = removed_prod.clone();
                     production
                         .steps
@@ -105,7 +118,8 @@ impl InlineBuilder<'_> {
                     if p.dynamic_precedence.abs() > production.dynamic_precedence.abs() {
                         production.dynamic_precedence = p.dynamic_precedence;
                     }
-                    production
+                    production.requires_eof_lookahead |= p.requires_eof_lookahead;
+                    Some(production)
                 })
                 .collect::<Vec<_>>();
             scratch.splice(i..=i, replacements);
@@ -115,11 +129,13 @@ impl InlineBuilder<'_> {
         for sp in scratch {
             let mut hasher = FxHasher::default();
             sp.dynamic_precedence.hash(&mut hasher);
+            sp.requires_eof_lookahead.hash(&mut hasher);
             sp.steps.hash(&mut hasher);
             let candidates = self.memo.entry(hasher.finish()).or_default();
             let existing = candidates.iter().copied().find(|&id| {
                 let p = self.out.productions[id as usize];
                 p.dynamic_precedence == sp.dynamic_precedence
+                    && p.requires_eof_lookahead == sp.requires_eof_lookahead
                     && self.out.steps[p.step_range()] == sp.steps
             });
             result.push(existing.unwrap_or_else(|| {
@@ -129,6 +145,7 @@ impl InlineBuilder<'_> {
                     steps_start,
                     steps_len: sp.steps.len() as u32,
                     dynamic_precedence: sp.dynamic_precedence,
+                    requires_eof_lookahead: sp.requires_eof_lookahead,
                 });
                 let id = (self.out.productions.len() - 1) as u32;
                 candidates.push(id);
@@ -156,6 +173,8 @@ pub enum ProcessInlinesError {
     Token(String),
     #[error("Rule `{0}` cannot be inlined because it is the first rule")]
     FirstRule(String),
+    #[error("Rule `{0}` has no reachable productions after inlining")]
+    NoReachableProductions(String),
 }
 
 pub(super) fn process_inlines(
@@ -185,14 +204,30 @@ pub(super) fn process_inlines(
         }
     }
 
-    Ok(InlineBuilder {
+    let (map, dead) = InlineBuilder {
         first_inlined: out.productions.len() as u32,
-        out,
+        out: &mut *out,
         inline: &meta.inline,
         map: FxHashMap::default(),
         memo: FxHashMap::default(),
     }
-    .build())
+    .build();
+
+    if !dead.is_empty() {
+        for (i, &(p_start, p_end)) in out.var_prods.iter().enumerate() {
+            if p_start == p_end || !(p_start..p_end).all(|p| dead.contains(&p)) {
+                continue;
+            }
+            let symbol = Symbol::non_terminal(i);
+            if i == 0 || out.steps.iter().any(|s| s.symbol() == symbol) {
+                Err(ProcessInlinesError::NoReachableProductions(
+                    g.pool.resolve(g.variables[i].name).to_string(),
+                ))?;
+            }
+        }
+    }
+
+    Ok(map)
 }
 
 #[cfg(test)]
@@ -518,6 +553,7 @@ mod tests {
                 steps_start,
                 steps_len: steps.len() as u32,
                 dynamic_precedence: *dynamic_prc,
+                requires_eof_lookahead: false,
             });
         }
         out.var_prods.push((start, out.productions.len() as u32));
@@ -544,6 +580,53 @@ mod tests {
                 .collect::<Vec<_>>();
             (ids.clone(), prods)
         })
+    }
+
+    #[test]
+    fn test_error_when_inlining_removes_all_productions() {
+        // var0: [nt1]
+        // var1: [nt2, t10] (nt2 is inlined)
+        // var2: one empty eof-gated production, like a flattened `_eof: _ => eof()`
+        // Inlining var2 into var1 drops var1's only production.
+        let mut out = ProductionStore::default();
+        add_variable(&mut out, &[(vec![plain(Symbol::non_terminal(1))], 0)]);
+        add_variable(
+            &mut out,
+            &[(
+                vec![plain(Symbol::non_terminal(2)), plain(Symbol::terminal(10))],
+                0,
+            )],
+        );
+        let start = out.productions.len() as u32;
+        out.productions.push(Production {
+            steps_start: out.steps.len() as u32,
+            steps_len: 0,
+            dynamic_precedence: 0,
+            requires_eof_lookahead: true,
+        });
+        out.var_prods.push((start, start + 1));
+
+        let mut pool = RulePool::default();
+        let variables = ["rule0", "rule1", "rule2"]
+            .map(|name| {
+                let name = pool.intern(name);
+                let root = pool.push_node(crate::rules::Rule::Blank);
+                crate::grammars::Variable { name, root }
+            })
+            .to_vec();
+        let g = InputGrammar {
+            pool,
+            variables,
+            ..Default::default()
+        };
+        let meta = ExtractedGrammarMeta {
+            inline: vec![Symbol::non_terminal(2)],
+            ..Default::default()
+        };
+        assert_eq!(
+            process_inlines(&g, &meta, &mut out).unwrap_err(),
+            ProcessInlinesError::NoReachableProductions("rule1".to_string())
+        );
     }
 
     fn plain(symbol: Symbol) -> ProductionStep {

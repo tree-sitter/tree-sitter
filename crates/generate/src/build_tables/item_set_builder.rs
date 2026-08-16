@@ -193,6 +193,8 @@ impl<'a> ParseItemSetBuilder<'a> {
         //
         // Rather than computing these additions recursively, we use an explicit stack.
         let empty_lookaheads = TokenSet::new();
+        let mut eof_lookaheads = TokenSet::new();
+        eof_lookaheads.insert(Symbol::end());
         let mut stack = Vec::new();
         let mut follow_set_info_by_non_terminal = FxHashMap::<usize, FollowSetInfo>::default();
         for i in 0..syntax_grammar.variables.len() {
@@ -228,6 +230,13 @@ impl<'a> ParseItemSetBuilder<'a> {
                                 symbol.index as usize,
                                 &result.first_sets[&next_step.symbol()],
                                 result.reserved_first_sets[&next_step.symbol()],
+                                false,
+                            ));
+                        } else if production.requires_eof_lookahead {
+                            stack.push((
+                                symbol.index as usize,
+                                &eof_lookaheads,
+                                ReservedWordSetId::default(),
                                 false,
                             ));
                         } else {
@@ -269,18 +278,36 @@ impl<'a> ParseItemSetBuilder<'a> {
 
                     if let Some(ids) = inlines.inlined_prod_ids(item.prod_id, item.step_index) {
                         for &id in ids {
+                            let mut item_info = info;
+                            if syntax_grammar.production(id).requires_eof_lookahead {
+                                item_info.lookaheads =
+                                    result.lookaheads.intern_ref(&eof_lookaheads);
+                                item_info.reserved_lookaheads = ReservedWordSetId::default();
+                                item_info.propagates_lookaheads = false;
+                                item_info.contains_word = false;
+                            }
                             find_or_push(
                                 additions_for_non_terminal,
                                 TransitiveClosureAddition {
                                     item: item.substitute_production(id, key_map.keys_for(id)),
-                                    info,
+                                    info: item_info,
                                 },
                             );
                         }
                     } else {
+                        let mut item_info = info;
+                        if syntax_grammar.production(prod_id).requires_eof_lookahead {
+                            item_info.lookaheads = result.lookaheads.intern_ref(&eof_lookaheads);
+                            item_info.reserved_lookaheads = ReservedWordSetId::default();
+                            item_info.propagates_lookaheads = false;
+                            item_info.contains_word = false;
+                        }
                         find_or_push(
                             additions_for_non_terminal,
-                            TransitiveClosureAddition { item, info },
+                            TransitiveClosureAddition {
+                                item,
+                                info: item_info,
+                            },
                         );
                     }
                 }

@@ -1,0 +1,20 @@
+===========================
+single line at end of input
+===========================
+
+text
+---
+
+(source_file
+  (line))
+
+=============
+several lines
+=============
+
+texttext
+---
+
+(source_file
+  (line)
+  (line))

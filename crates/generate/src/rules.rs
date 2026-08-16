@@ -141,6 +141,7 @@ pub enum Rule {
     Seq(RuleIdRange),
     Choice(RuleIdRange),
     Repeat(RuleId),
+    Eof,
     Metadata { params: ParamsId, rule: RuleId },
     Reserved { rule: RuleId, ctx: StrId },
 }
@@ -299,6 +300,10 @@ impl RulePool {
         self.push_node(Rule::Repeat(content))
     }
 
+    pub fn eof(&mut self) -> RuleId {
+        self.push_node(Rule::Eof)
+    }
+
     pub fn seq(&mut self, ids: &[RuleId]) -> RuleId {
         let range = self.push_children(ids);
         self.push_node(Rule::Seq(range))
@@ -353,7 +358,7 @@ impl RulePool {
             let node = self.node(id);
             std::mem::discriminant(&node).hash(&mut hasher);
             match node {
-                Rule::Blank => {}
+                Rule::Blank | Rule::Eof => {}
                 Rule::String(s) | Rule::NamedSymbol(s) => s.hash(&mut hasher),
                 Rule::Pattern(p, f) => {
                     p.hash(&mut hasher);
@@ -390,7 +395,7 @@ impl RulePool {
         let mut stack = vec![(a, b)];
         while let Some((a, b)) = stack.pop() {
             match (self.node(a), self.node(b)) {
-                (Rule::Blank, Rule::Blank) => {}
+                (Rule::Blank, Rule::Blank) | (Rule::Eof, Rule::Eof) => {}
                 (Rule::String(x), Rule::String(y))
                 | (Rule::NamedSymbol(x), Rule::NamedSymbol(y)) => {
                     if x != y {
@@ -476,7 +481,9 @@ impl RulePool {
                 self.rule_is_referenced(rule, target, is_external)
             }
             Rule::Repeat(inner) => self.rule_is_referenced(inner, target, false),
-            Rule::Blank | Rule::String(_) | Rule::Pattern(..) | Rule::Sym { .. } => false,
+            Rule::Blank | Rule::Eof | Rule::String(_) | Rule::Pattern(..) | Rule::Sym { .. } => {
+                false
+            }
         }
     }
 
@@ -499,7 +506,7 @@ impl RulePool {
                 self.collect_referenced_ids(rule, skip_top_level, out);
             }
             Rule::Repeat(inner) => self.collect_referenced_ids(inner, false, out),
-            Rule::Blank | Rule::String(_) | Rule::Pattern(..) | Rule::Sym { .. } => {}
+            Rule::Blank | Rule::Eof | Rule::String(_) | Rule::Pattern(..) | Rule::Sym { .. } => {}
         }
     }
 }

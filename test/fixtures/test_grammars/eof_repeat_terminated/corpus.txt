@@ -1,0 +1,18 @@
+============
+single item at end of input
+============
+
+text
+---
+
+(source_file)
+
+============
+item not at end of input
+============
+
+texttext
+---
+
+(source_file
+  (ERROR))
