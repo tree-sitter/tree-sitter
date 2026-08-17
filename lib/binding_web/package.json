@@ -74,12 +74,12 @@
     "@types/node": "^26.2.0",
     "@vitest/coverage-v8": "^3.0.5",
     "dts-buddy": "^0.8.3",
-    "esbuild": "^0.28.1",
+    "esbuild": "^0.28.2",
     "eslint": "^10.8.1",
     "source-map": "^0.8.0",
-    "tsx": "^4.23.11",
+    "tsx": "^4.23.12",
     "typescript": "^5.7.3",
-    "typescript-eslint": "^8.66.0",
+    "typescript-eslint": "^8.67.0",
     "vitest": "^3.0.5"
   },
   "scripts": {
