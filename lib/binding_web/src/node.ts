@@ -19,6 +19,18 @@ export class Node {
   /** @internal */
   private _namedChildren?: Node[];
 
+  private _rel?: {
+    parent?: Node | null;
+    firstChild?: Node | null;
+    lastChild?: Node | null;
+    firstNamedChild?: Node | null;
+    lastNamedChild?: Node | null;
+    nextSibling?: Node | null;
+    previousSibling?: Node | null;
+    nextNamedSibling?: Node | null;
+    previousNamedSibling?: Node | null;
+  };
+
   /** @internal */
   constructor(
     internal: Internal,
@@ -326,7 +338,11 @@ export class Node {
 
   /** Get this node's first child. */
   get firstChild(): Node | null {
-    return this.child(0);
+    this._rel ??= {};
+    if (this._rel.firstChild === undefined) {
+      this._rel.firstChild = this.child(0);
+    }
+    return this._rel.firstChild;
   }
 
   /**
@@ -335,12 +351,20 @@ export class Node {
    * See also {@link Node#isNamed}.
    */
   get firstNamedChild(): Node | null {
-    return this.namedChild(0);
+    this._rel ??= {};
+    if (this._rel.firstNamedChild === undefined) {
+      this._rel.firstNamedChild = this.namedChild(0);
+    }
+    return this._rel.firstNamedChild;
   }
 
   /** Get this node's last child. */
   get lastChild(): Node | null {
-    return this.child(this.childCount - 1);
+    this._rel ??= {};
+    if (this._rel.lastChild === undefined) {
+      this._rel.lastChild = this.child(this.childCount - 1);
+    }
+    return this._rel.lastChild;
   }
 
   /**
@@ -349,7 +373,11 @@ export class Node {
    * See also {@link Node#isNamed}.
    */
   get lastNamedChild(): Node | null {
-    return this.namedChild(this.namedChildCount - 1);
+    this._rel ??= {};
+    if (this._rel.lastNamedChild === undefined) {
+      this._rel.lastNamedChild = this.namedChild(this.namedChildCount - 1);
+    }
+    return this._rel.lastNamedChild;
   }
 
   /**
@@ -467,16 +495,24 @@ export class Node {
 
   /** Get this node's next sibling. */
   get nextSibling(): Node | null {
-    marshalNode(this);
-    C._ts_node_next_sibling_wasm(this.tree[0]);
-    return unmarshalNode(this.tree);
+    this._rel ??= {};
+    if (this._rel.nextSibling === undefined) {
+      marshalNode(this);
+      C._ts_node_next_sibling_wasm(this.tree[0]);
+      this._rel.nextSibling = unmarshalNode(this.tree);
+    }
+    return this._rel.nextSibling;
   }
 
   /** Get this node's previous sibling. */
   get previousSibling(): Node | null {
-    marshalNode(this);
-    C._ts_node_prev_sibling_wasm(this.tree[0]);
-    return unmarshalNode(this.tree);
+    this._rel ??= {};
+    if (this._rel.previousSibling === undefined) {
+      marshalNode(this);
+      C._ts_node_prev_sibling_wasm(this.tree[0]);
+      this._rel.previousSibling = unmarshalNode(this.tree);
+    }
+    return this._rel.previousSibling;
   }
 
   /**
@@ -485,9 +521,13 @@ export class Node {
    * See also {@link Node#isNamed}.
    */
   get nextNamedSibling(): Node | null {
-    marshalNode(this);
-    C._ts_node_next_named_sibling_wasm(this.tree[0]);
-    return unmarshalNode(this.tree);
+    this._rel ??= {};
+    if (this._rel.nextNamedSibling === undefined) {
+      marshalNode(this);
+      C._ts_node_next_named_sibling_wasm(this.tree[0]);
+      this._rel.nextNamedSibling = unmarshalNode(this.tree);
+    }
+    return this._rel.nextNamedSibling;
   }
 
   /**
@@ -496,9 +536,13 @@ export class Node {
    * See also {@link Node#isNamed}.
    */
   get previousNamedSibling(): Node | null {
-    marshalNode(this);
-    C._ts_node_prev_named_sibling_wasm(this.tree[0]);
-    return unmarshalNode(this.tree);
+    this._rel ??= {};
+    if (this._rel.previousNamedSibling === undefined) {
+      marshalNode(this);
+      C._ts_node_prev_named_sibling_wasm(this.tree[0]);
+      this._rel.previousNamedSibling = unmarshalNode(this.tree);
+    }
+    return this._rel.previousNamedSibling;
   }
 
   /** Get the node's number of descendants, including one for the node itself. */
@@ -512,9 +556,13 @@ export class Node {
    * Prefer {@link Node#childWithDescendant} for iterating over this node's ancestors.
    */
   get parent(): Node | null {
-    marshalNode(this);
-    C._ts_node_parent_wasm(this.tree[0]);
-    return unmarshalNode(this.tree);
+    this._rel ??= {};
+    if (this._rel.parent === undefined) {
+      marshalNode(this);
+      C._ts_node_parent_wasm(this.tree[0]);
+      this._rel.parent = unmarshalNode(this.tree);
+    }
+    return this._rel.parent;
   }
 
   /**
@@ -607,6 +655,9 @@ export class Node {
    * you want to keep and continue to use after an edit.
    */
   edit(edit: Edit) {
+    this._rel = undefined;
+    this._children = undefined;
+    this._namedChildren = undefined;
     if (this.startIndex >= edit.oldEndIndex) {
       this.startIndex = edit.newEndIndex + (this.startIndex - edit.oldEndIndex);
       let subbedPointRow;

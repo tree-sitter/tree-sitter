@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
 import type { Language, Tree, Node } from '../src';
-import { Parser } from '../src';
+import { Parser, Edit } from '../src';
 import helper from './helper';
 
 let C: Language;
@@ -154,6 +154,36 @@ describe('Node', () => {
       expect(tree.rootNode.id).toBe(sumNode.parent!.id);
     });
   });
+
+    describe('relationship caching', () => {
+      it('returns reference-identical results on repeated access', () => {
+        tree = parser.parse('a + b')!;
+        const sum = tree.rootNode.firstChild!.firstChild!;
+        for (const key of [
+          'parent', 'firstChild', 'lastChild', 'firstNamedChild', 'lastNamedChild',
+          'nextSibling', 'previousSibling', 'nextNamedSibling', 'previousNamedSibling',
+        ] as const) {
+          expect(sum[key]).toBe(sum[key]);
+        }
+      });
+
+      it('invalidates cached relationships when a node is edited', () => {
+        tree = parser.parse('a + b')!;
+        const sum = tree.rootNode.firstChild!.firstChild!;
+        expect(sum.lastChild!.startIndex).toBe(4);
+
+        const edit = new Edit({
+          startIndex: 4, oldEndIndex: 4, newEndIndex: 6,
+          startPosition: { row: 0, column: 4 },
+          oldEndPosition: { row: 0, column: 4 },
+          newEndPosition: { row: 0, column: 6 },
+        });
+        tree.edit(edit);
+        sum.edit(edit);
+        expect(sum.child(sum.childCount - 1)!.startIndex).toBe(6);
+        expect(sum.lastChild!.startIndex).toBe(6);
+      });
+    });
 
   describe('.child(), .firstChild, .lastChild', () => {
     it('returns null when the node has no children', () => {
