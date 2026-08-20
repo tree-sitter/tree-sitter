@@ -75,13 +75,13 @@ typedef struct {
   WasmLanguageId *language_id;
   wasmtime_instance_t instance;
   int32_t external_states_address;
-  int32_t lex_main_fn_index;
-  int32_t lex_keyword_fn_index;
-  int32_t scanner_create_fn_index;
-  int32_t scanner_destroy_fn_index;
-  int32_t scanner_serialize_fn_index;
-  int32_t scanner_deserialize_fn_index;
-  int32_t scanner_scan_fn_index;
+  wasmtime_func_t lex_main_fn;
+  wasmtime_func_t lex_keyword_fn;
+  wasmtime_func_t scanner_create_fn;
+  wasmtime_func_t scanner_destroy_fn;
+  wasmtime_func_t scanner_serialize_fn;
+  wasmtime_func_t scanner_deserialize_fn;
+  wasmtime_func_t scanner_scan_fn;
 } LanguageWasmInstance;
 
 typedef struct {
@@ -1075,6 +1075,18 @@ static uint32_t ts_wasm_store__serialization_buffer_address(TSWasmStore *self) {
   return self->current_memory_offset;
 }
 
+static wasmtime_func_t ts_wasm_store__get_function(
+  TSWasmStore *self,
+  int32_t function_index
+) {
+  wasmtime_context_t *context = wasmtime_store_context(self->store);
+  wasmtime_val_t value;
+  bool succeeded = wasmtime_table_get(context, &self->function_table, function_index, &value);
+  ts_assert(succeeded);
+  ts_assert(value.kind == WASMTIME_FUNCREF);
+  return value.of.funcref;
+}
+
 static bool ts_wasm_store__instantiate(
   TSWasmStore *self,
   wasmtime_module_t *module,
@@ -1651,13 +1663,13 @@ const TSLanguage *ts_wasm_store_load_language(
     .language_id = language_id_clone(result->language_id),
     .instance = instance,
     .external_states_address = wasm_language.external_scanner.states,
-    .lex_main_fn_index = wasm_language.lex_fn,
-    .lex_keyword_fn_index = wasm_language.keyword_lex_fn,
-    .scanner_create_fn_index = wasm_language.external_scanner.create,
-    .scanner_destroy_fn_index = wasm_language.external_scanner.destroy,
-    .scanner_serialize_fn_index = wasm_language.external_scanner.serialize,
-    .scanner_deserialize_fn_index = wasm_language.external_scanner.deserialize,
-    .scanner_scan_fn_index = wasm_language.external_scanner.scan,
+    .lex_main_fn = ts_wasm_store__get_function(self, wasm_language.lex_fn),
+    .lex_keyword_fn = ts_wasm_store__get_function(self, wasm_language.keyword_lex_fn),
+    .scanner_create_fn = ts_wasm_store__get_function(self, wasm_language.external_scanner.create),
+    .scanner_destroy_fn = ts_wasm_store__get_function(self, wasm_language.external_scanner.destroy),
+    .scanner_serialize_fn = ts_wasm_store__get_function(self, wasm_language.external_scanner.serialize),
+    .scanner_deserialize_fn = ts_wasm_store__get_function(self, wasm_language.external_scanner.deserialize),
+    .scanner_scan_fn = ts_wasm_store__get_function(self, wasm_language.external_scanner.scan),
   }));
 
   return language;
@@ -1729,13 +1741,13 @@ bool ts_wasm_store_add_language(
       .language_id = language_id_clone(language_data->language_id),
       .instance = instance,
       .external_states_address = wasm_language.external_scanner.states,
-      .lex_main_fn_index = wasm_language.lex_fn,
-      .lex_keyword_fn_index = wasm_language.keyword_lex_fn,
-      .scanner_create_fn_index = wasm_language.external_scanner.create,
-      .scanner_destroy_fn_index = wasm_language.external_scanner.destroy,
-      .scanner_serialize_fn_index = wasm_language.external_scanner.serialize,
-      .scanner_deserialize_fn_index = wasm_language.external_scanner.deserialize,
-      .scanner_scan_fn_index = wasm_language.external_scanner.scan,
+      .lex_main_fn = ts_wasm_store__get_function(self, wasm_language.lex_fn),
+      .lex_keyword_fn = ts_wasm_store__get_function(self, wasm_language.keyword_lex_fn),
+      .scanner_create_fn = ts_wasm_store__get_function(self, wasm_language.external_scanner.create),
+      .scanner_destroy_fn = ts_wasm_store__get_function(self, wasm_language.external_scanner.destroy),
+      .scanner_serialize_fn = ts_wasm_store__get_function(self, wasm_language.external_scanner.serialize),
+      .scanner_deserialize_fn = ts_wasm_store__get_function(self, wasm_language.external_scanner.deserialize),
+      .scanner_scan_fn = ts_wasm_store__get_function(self, wasm_language.external_scanner.scan),
     }));
   }
 
@@ -1774,19 +1786,13 @@ void ts_wasm_store_reset(TSWasmStore *self) {
 
 static void ts_wasm_store__call(
   TSWasmStore *self,
-  int32_t function_index,
+  wasmtime_func_t *func,
   wasmtime_val_raw_t *args_and_results,
   size_t args_and_results_len
 ) {
   wasmtime_context_t *context = wasmtime_store_context(self->store);
-  wasmtime_val_t value;
-  bool succeeded = wasmtime_table_get(context, &self->function_table, function_index, &value);
-  ts_assert(succeeded);
-  ts_assert(value.kind == WASMTIME_FUNCREF);
-  wasmtime_func_t func = value.of.funcref;
-
   wasm_trap_t *trap = NULL;
-  wasmtime_error_t *error = wasmtime_func_call_unchecked(context, &func, args_and_results, args_and_results_len, &trap);
+  wasmtime_error_t *error = wasmtime_func_call_unchecked(context, func, args_and_results, args_and_results_len, &trap);
   if (error) {
     // wasm_message_t message;
     // wasmtime_error_message(error, &message);
@@ -1819,7 +1825,7 @@ typedef struct {
   TSSymbol result_symbol;
 } TSLexerDataPrefix;
 
-static bool ts_wasm_store__call_lex_function(TSWasmStore *self, unsigned function_index, TSStateId state) {
+static bool ts_wasm_store__call_lex_function(TSWasmStore *self, wasmtime_func_t *func, TSStateId state) {
   wasmtime_context_t *context = wasmtime_store_context(self->store);
   uint8_t *memory_data = wasmtime_memory_data(context, &self->memory);
   memcpy(
@@ -1832,7 +1838,7 @@ static bool ts_wasm_store__call_lex_function(TSWasmStore *self, unsigned functio
     {.i32 = self->lexer_address},
     {.i32 = state},
   };
-  ts_wasm_store__call(self, function_index, args, 2);
+  ts_wasm_store__call(self, func, args, 2);
   if (self->has_error) return false;
   bool result = args[0].i32;
 
@@ -1847,7 +1853,7 @@ static bool ts_wasm_store__call_lex_function(TSWasmStore *self, unsigned functio
 bool ts_wasm_store_call_lex_main(TSWasmStore *self, TSStateId state) {
   return ts_wasm_store__call_lex_function(
     self,
-    self->current_instance->lex_main_fn_index,
+    &self->current_instance->lex_main_fn,
     state
   );
 }
@@ -1855,14 +1861,14 @@ bool ts_wasm_store_call_lex_main(TSWasmStore *self, TSStateId state) {
 bool ts_wasm_store_call_lex_keyword(TSWasmStore *self, TSStateId state) {
   return ts_wasm_store__call_lex_function(
     self,
-    self->current_instance->lex_keyword_fn_index,
+    &self->current_instance->lex_keyword_fn,
     state
   );
 }
 
 uint32_t ts_wasm_store_call_scanner_create(TSWasmStore *self) {
   wasmtime_val_raw_t args[1] = {{.i32 = 0}};
-  ts_wasm_store__call(self, self->current_instance->scanner_create_fn_index, args, 1);
+  ts_wasm_store__call(self, &self->current_instance->scanner_create_fn, args, 1);
   if (self->has_error) return 0;
   return args[0].i32;
 }
@@ -1870,7 +1876,7 @@ uint32_t ts_wasm_store_call_scanner_create(TSWasmStore *self) {
 void ts_wasm_store_call_scanner_destroy(TSWasmStore *self, uint32_t scanner_address) {
   if (self->current_instance) {
     wasmtime_val_raw_t args[1] = {{.i32 = scanner_address}};
-    ts_wasm_store__call(self, self->current_instance->scanner_destroy_fn_index, args, 1);
+    ts_wasm_store__call(self, &self->current_instance->scanner_destroy_fn, args, 1);
   }
 }
 
@@ -1896,7 +1902,7 @@ bool ts_wasm_store_call_scanner_scan(
     {.i32 = self->lexer_address},
     {.i32 = valid_tokens_address}
   };
-  ts_wasm_store__call(self, self->current_instance->scanner_scan_fn_index, args, 3);
+  ts_wasm_store__call(self, &self->current_instance->scanner_scan_fn, args, 3);
   if (self->has_error) return false;
 
   memcpy(
@@ -1920,7 +1926,7 @@ uint32_t ts_wasm_store_call_scanner_serialize(
     {.i32 = scanner_address},
     {.i32 = serialization_buffer_address},
   };
-  ts_wasm_store__call(self, self->current_instance->scanner_serialize_fn_index, args, 2);
+  ts_wasm_store__call(self, &self->current_instance->scanner_serialize_fn, args, 2);
   if (self->has_error) return 0;
 
   uint32_t length = args[0].i32;
@@ -1962,7 +1968,7 @@ void ts_wasm_store_call_scanner_deserialize(
     {.i32 = serialization_buffer_address},
     {.i32 = length},
   };
-  ts_wasm_store__call(self, self->current_instance->scanner_deserialize_fn_index, args, 3);
+  ts_wasm_store__call(self, &self->current_instance->scanner_deserialize_fn, args, 3);
 }
 
 bool ts_wasm_store_has_error(const TSWasmStore *self) {
