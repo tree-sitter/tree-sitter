@@ -188,19 +188,31 @@ typedef struct {
  * WasmDylinkMemoryInfo
  ***********************/
 
-static uint8_t read_u8(const uint8_t **p) {
-  return *(*p)++;
+typedef struct {
+  const uint8_t *data;
+  size_t offset;
+  size_t size;
+} WasmReader;
+
+static bool wasm_reader__read_u8(WasmReader *reader, uint8_t *result) {
+  if (reader->offset >= reader->size) return false;
+  *result = reader->data[reader->offset++];
+  return true;
 }
 
-static inline uint64_t read_uleb128(const uint8_t **p, const uint8_t *end) {
-  uint64_t value = 0;
-  unsigned shift = 0;
-  do {
-    if (*p == end)  return UINT64_MAX;
-    value += (uint64_t)(**p & 0x7f) << shift;
-    shift += 7;
-  } while (*((*p)++) >= 128);
-  return value;
+static bool wasm_reader__read_uleb128(WasmReader *reader, uint32_t *result) {
+  uint32_t value = 0;
+  for (unsigned shift = 0; shift < 32; shift += 7) {
+    uint8_t byte;
+    if (!wasm_reader__read_u8(reader, &byte)) return false;
+    if (shift == 28 && (byte & 0xf0) != 0) return false;
+    value |= (uint32_t)(byte & 0x7f) << shift;
+    if ((byte & 0x80) == 0) {
+      *result = value;
+      return true;
+    }
+  }
+  return false;
 }
 
 static bool wasm_dylink_info__parse(
@@ -213,45 +225,64 @@ static bool wasm_dylink_info__parse(
   const uint8_t WASM_CUSTOM_SECTION = 0x0;
   const uint8_t WASM_DYLINK_MEM_INFO = 0x1;
 
-  const uint8_t *p = bytes;
-  const uint8_t *end = bytes + length;
-
   if (length < 8) return false;
-  if (memcmp(p, WASM_MAGIC_NUMBER, 4) != 0) return false;
-  p += 4;
-  if (memcmp(p, WASM_VERSION, 4) != 0) return false;
-  p += 4;
+  if (memcmp(bytes, WASM_MAGIC_NUMBER, 4) != 0) return false;
+  if (memcmp(bytes + 4, WASM_VERSION, 4) != 0) return false;
 
-  while (p < end) {
-    uint8_t section_id = read_u8(&p);
-    uint32_t section_length = read_uleb128(&p, end);
-    const uint8_t *section_end = p + section_length;
-    if (section_end > end) return false;
+  WasmReader reader = {
+    .data = bytes,
+    .offset = 8,
+    .size = length,
+  };
+
+  while (reader.offset < reader.size) {
+    uint8_t section_id;
+    uint32_t section_length;
+    if (
+      !wasm_reader__read_u8(&reader, &section_id) ||
+      !wasm_reader__read_uleb128(&reader, &section_length) ||
+      section_length > reader.size - reader.offset
+    ) return false;
+    size_t section_end = reader.offset + section_length;
 
     if (section_id == WASM_CUSTOM_SECTION) {
-      uint32_t name_length = read_uleb128(&p, section_end);
-      const uint8_t *name_end = p + name_length;
-      if (name_end > section_end) return false;
+      size_t previous_size = reader.size;
+      reader.size = section_end;
+      uint32_t name_length;
+      if (
+        !wasm_reader__read_uleb128(&reader, &name_length) ||
+        name_length > reader.size - reader.offset
+      ) return false;
+      size_t name_end = reader.offset + name_length;
 
-      if (name_length == 8 && memcmp(p, "dylink.0", 8) == 0) {
-        p = name_end;
-        while (p < section_end) {
-          uint8_t subsection_type = read_u8(&p);
-          uint32_t subsection_size = read_uleb128(&p, section_end);
-          const uint8_t *subsection_end = p + subsection_size;
-          if (subsection_end > section_end) return false;
+      if (name_length == 8 && memcmp(&reader.data[reader.offset], "dylink.0", 8) == 0) {
+        reader.offset = name_end;
+        while (reader.offset < section_end) {
+          uint8_t subsection_type;
+          uint32_t subsection_size;
+          if (
+            !wasm_reader__read_u8(&reader, &subsection_type) ||
+            !wasm_reader__read_uleb128(&reader, &subsection_size) ||
+            subsection_size > section_end - reader.offset
+          ) return false;
+          size_t subsection_end = reader.offset + subsection_size;
           if (subsection_type == WASM_DYLINK_MEM_INFO) {
-            info->memory_size = read_uleb128(&p, subsection_end);
-            info->memory_align = read_uleb128(&p, subsection_end);
-            info->table_size = read_uleb128(&p, subsection_end);
-            info->table_align = read_uleb128(&p, subsection_end);
+            reader.size = subsection_end;
+            if (
+              !wasm_reader__read_uleb128(&reader, &info->memory_size) ||
+              !wasm_reader__read_uleb128(&reader, &info->memory_align) ||
+              !wasm_reader__read_uleb128(&reader, &info->table_size) ||
+              !wasm_reader__read_uleb128(&reader, &info->table_align) ||
+              reader.offset != subsection_end
+            ) return false;
             return true;
           }
-          p = subsection_end;
+          reader.offset = subsection_end;
         }
       }
+      reader.size = previous_size;
     }
-    p = section_end;
+    reader.offset = section_end;
   }
   return false;
 }
@@ -540,7 +571,8 @@ static void delete_partially_loaded_language(
 }
 
 static bool name_eq(const wasm_name_t *name, const char *string) {
-  return strncmp(string, name->data, name->size) == 0;
+  size_t length = strlen(string);
+  return name->size == length && memcmp(name->data, string, length) == 0;
 }
 
 static inline wasm_functype_t* wasm_functype_new_4_0(
@@ -1102,6 +1134,8 @@ static bool ts_wasm_store__instantiate(
   char *language_function_name = NULL;
   wasmtime_extern_t *imports = NULL;
   wasmtime_context_t *context = wasmtime_store_context(self->store);
+  uint32_t initial_memory_offset = self->current_memory_offset;
+  uint32_t initial_function_table_offset = self->current_function_table_offset;
 
   // Grow the function table to make room for the new functions.
   wasmtime_val_t initializer = {.kind = WASMTIME_FUNCREF};
@@ -1268,6 +1302,8 @@ static bool ts_wasm_store__instantiate(
   return true;
 
 error:
+  self->current_memory_offset = initial_memory_offset;
+  self->current_function_table_offset = initial_function_table_offset;
   if (language_function_name) ts_free(language_function_name);
   if (message.size) wasm_byte_vec_delete(&message);
   if (error) wasmtime_error_delete(error);
@@ -1294,6 +1330,8 @@ const TSLanguage *ts_wasm_store_load_language(
   TSLanguage *language = NULL;
   StringData symbol_name_buffer = array_new();
   StringData field_name_buffer = array_new();
+  uint32_t initial_memory_offset = self->current_memory_offset;
+  uint32_t initial_function_table_offset = self->current_function_table_offset;
   wasm_error->kind = TSWasmErrorKindNone;
 
   if (!wasm_dylink_info__parse((const unsigned char *)wasm, wasm_len, &dylink_info)) {
@@ -1680,6 +1718,8 @@ invalid_language_memory:
   goto error;
 
 error:
+  self->current_memory_offset = initial_memory_offset;
+  self->current_function_table_offset = initial_function_table_offset;
   delete_partially_loaded_language(result, &symbol_name_buffer, &field_name_buffer);
   if (module) wasmtime_module_delete(module);
   return NULL;
@@ -1711,6 +1751,8 @@ bool ts_wasm_store_add_language(
   // If the language module has not been instantiated in this store, then add
   // it to this store.
   if (!exists) {
+    uint32_t initial_memory_offset = self->current_memory_offset;
+    uint32_t initial_function_table_offset = self->current_function_table_offset;
     *index = self->language_instances.size;
     char *message;
     wasmtime_instance_t instance;
@@ -1735,6 +1777,8 @@ bool ts_wasm_store_add_language(
       .size = wasmtime_memory_data_size(context, &self->memory),
     };
     if (!wasm_memory__read(&wasm_memory, language_address, &wasm_language, sizeof(LanguageInWasmMemory))) {
+      self->current_memory_offset = initial_memory_offset;
+      self->current_function_table_offset = initial_function_table_offset;
       return false;
     }
     array_push(&self->language_instances, ((LanguageWasmInstance) {
