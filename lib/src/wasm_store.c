@@ -1558,14 +1558,13 @@ const TSLanguage *ts_wasm_store_load_language(
     );
     if (!valid_wasm_memory) goto invalid_language_memory;
 
-    TSSymbol last_supertype = language->supertype_symbols[language->supertype_count - 1];
-    TSMapSlice last_slice = language->supertype_map_slices[last_supertype];
+    TSMapSlice last_slice = language->supertype_map_slices[largest_supertype];
     uint32_t supertype_map_entry_count = last_slice.index + last_slice.length;
 
     language->supertype_map_entries = copy(
       &wasm_memory,
       wasm_language.supertype_map_entries,
-      supertype_map_entry_count * sizeof(char *),
+      supertype_map_entry_count * sizeof(TSSymbol),
       &valid_wasm_memory
     );
     if (!valid_wasm_memory) goto invalid_language_memory;
