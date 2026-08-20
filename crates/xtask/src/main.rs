@@ -71,6 +71,9 @@ struct Benchmark {
     /// Whether to run the benchmarks in debug mode.
     #[arg(long, short = 'g')]
     debug: bool,
+    /// Benchmark Wasm grammars instead of native grammars.
+    #[arg(long)]
+    wasm: bool,
 }
 
 #[derive(Args)]

@@ -139,7 +139,7 @@ struct ItemContent<'a> {
 impl Eq for ItemContent<'_> {}
 
 impl ItemContent<'_> {
-    fn prec(&self) -> Precedence {
+    const fn prec(&self) -> Precedence {
         if self.dot > 0 {
             self.production.steps[self.dot - 1].precedence()
         } else {
@@ -147,7 +147,7 @@ impl ItemContent<'_> {
         }
     }
 
-    fn assoc(&self) -> Option<Associativity> {
+    const fn assoc(&self) -> Option<Associativity> {
         if self.dot > 0 {
             self.production.steps[self.dot - 1].associativity()
         } else {
@@ -486,7 +486,7 @@ impl<'a> ParseItem<'a> {
 
     /// This item's identity keys at the current dot.
     #[must_use]
-    fn dot_keys(&self) -> DotKeys {
+    const fn dot_keys(&self) -> DotKeys {
         self.keys[self.step_index as usize]
     }
 }
