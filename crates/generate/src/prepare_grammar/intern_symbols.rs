@@ -445,11 +445,11 @@ mod tests {
         // The supertype entry is dropped with a warning, and the rule stays inlined.
         assert!(meta.supertypes.is_empty());
         assert_eq!(meta.inline, vec![Symbol::non_terminal(1)]);
-        assert_eq!(diagnostics.len(), 1);
         assert_eq!(
-            diagnostics[0].to_string(),
-            "rule `_v2` is both a supertype and inlined. the supertype is \
-             ignored. this will become an error in a future release."
+            diagnostics,
+            [Diagnostic::SupertypeInlined {
+                name: "_v2".to_string()
+            }]
         );
     }
 
