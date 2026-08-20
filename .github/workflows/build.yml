@@ -270,7 +270,7 @@ jobs:
 
     - name: Run main tests
       if: inputs.run-test && !matrix.no-run
-      run: cargo test --target='${{ matrix.target }}' --features='${{ (matrix.run-wasm-test || !inputs.run-test) && matrix.features || '' }}'
+      run: cargo test --workspace --target='${{ matrix.target }}' --features='${{ (matrix.run-wasm-test || !inputs.run-test) && matrix.features || '' }}'
 
     - name: Run Wasm tests
       if: inputs.run-test && !matrix.no-run && contains(matrix.features, 'wasm') && matrix.run-wasm-test
