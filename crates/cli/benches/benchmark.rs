@@ -9,6 +9,8 @@ use std::{
 use anyhow::Context;
 use log::info;
 use tree_sitter::{Language, Parser, Query};
+#[cfg(feature = "wasm")]
+use tree_sitter::{WasmStore, wasmtime};
 use tree_sitter_loader::{CompileConfig, Loader};
 
 include!("../src/tests/helpers/dirs.rs");
@@ -20,8 +22,11 @@ static EXAMPLE_FILTER: LazyLock<Option<String>> =
 static REPETITION_COUNT: LazyLock<usize> = LazyLock::new(|| {
     env::var("TREE_SITTER_BENCHMARK_REPETITION_COUNT").map_or(5, |s| s.parse::<usize>().unwrap())
 });
+static WASM: LazyLock<bool> = LazyLock::new(|| env::var_os("TREE_SITTER_BENCHMARK_WASM").is_some());
 static TEST_LOADER: LazyLock<Loader> =
     LazyLock::new(|| Loader::with_parser_lib_path(SCRATCH_DIR.clone()));
+#[cfg(feature = "wasm")]
+static WASM_ENGINE: LazyLock<wasmtime::Engine> = LazyLock::new(Default::default);
 
 #[expect(
     clippy::type_complexity,
@@ -94,7 +99,11 @@ fn main() {
         }
 
         info!("\nLanguage: {language_name}");
-        let language = get_language(language_path);
+        let language = if *WASM {
+            get_wasm_language(language_name, &mut parser)
+        } else {
+            get_language(language_path)
+        };
         parser.set_language(&language).unwrap();
 
         info!("  Constructing Queries");
@@ -213,4 +222,33 @@ fn get_language(path: &Path) -> Language {
         .load_language_at_path(CompileConfig::new(&src_path, None, None))
         .with_context(|| format!("Failed to load language at path {}", src_path.display()))
         .unwrap()
+}
+
+#[cfg(feature = "wasm")]
+fn get_wasm_language(language_name: &str, parser: &mut Parser) -> Language {
+    let wasm_language_name = language_name.replace('-', "_");
+    let wasm_path = ROOT_DIR
+        .join("target")
+        .join("release")
+        .join(format!("tree-sitter-{language_name}.wasm"));
+    let wasm = fs::read(&wasm_path)
+        .with_context(|| {
+            format!(
+                "Failed to read {}. Generate Wasm fixtures with `cargo xtask generate-fixtures --wasm`",
+                wasm_path.display()
+            )
+        })
+        .unwrap();
+    let mut store = WasmStore::new(&WASM_ENGINE).expect("Failed to create Wasm store");
+    let language = store
+        .load_language(&wasm_language_name, &wasm)
+        .with_context(|| format!("Failed to load Wasm language at {}", wasm_path.display()))
+        .unwrap();
+    parser.set_wasm_store(store).unwrap();
+    language
+}
+
+#[cfg(not(feature = "wasm"))]
+fn get_wasm_language(_language_name: &str, _parser: &mut Parser) -> Language {
+    panic!("Wasm benchmarking requires the `wasm` feature");
 }

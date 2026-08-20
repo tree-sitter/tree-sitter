@@ -3,6 +3,10 @@ use anyhow::Result;
 use crate::{Benchmark, bail_on_err};
 
 pub fn run(args: &Benchmark) -> Result<()> {
+    if args.wasm {
+        unsafe { std::env::set_var("TREE_SITTER_BENCHMARK_WASM", "1") };
+    }
+
     if let Some(ref example) = args.example_file_name {
         unsafe { std::env::set_var("TREE_SITTER_BENCHMARK_EXAMPLE_FILTER", example) };
     }
@@ -26,6 +30,12 @@ pub fn run(args: &Benchmark) -> Result<()> {
             .arg("benchmark")
             .arg("-p")
             .arg("tree-sitter-cli")
+            .args(
+                args.wasm
+                    .then_some(["--features", "wasm"])
+                    .into_iter()
+                    .flatten(),
+            )
             .arg("--no-run")
             .arg("--message-format=json")
             .spawn()?
@@ -66,6 +76,12 @@ pub fn run(args: &Benchmark) -> Result<()> {
             .arg("benchmark")
             .arg("-p")
             .arg("tree-sitter-cli")
+            .args(
+                args.wasm
+                    .then_some(["--features", "wasm"])
+                    .into_iter()
+                    .flatten(),
+            )
             .status()?;
 
         if !status.success() {
