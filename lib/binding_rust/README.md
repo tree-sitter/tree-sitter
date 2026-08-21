@@ -1,4 +1,10 @@
-# Rust Tree-sitter
+let source_code = "let x = 1;";
+let tree = parser.parse(source_code, None).unwrap();
+
+assert_eq!(
+    tree.root_node().to_sexp(),
+    "(program (lexical_declaration (variable_declarator name: (identifier) value: (number))))"
+);# Rust Tree-sitter
 
 [![crates.io badge]][crates.io]
 
