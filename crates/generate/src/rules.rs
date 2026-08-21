@@ -174,6 +174,8 @@ pub struct RulePool {
     children: Vec<RuleId>,
     params: Vec<MetadataParams>,
     str_pool: StrPool,
+    /// Reusable walk scratch for choice flattening
+    scratch: Vec<RuleId>,
 }
 
 impl RulePool {
@@ -333,19 +335,29 @@ impl RulePool {
     /// Flatten nested choices and de-dup structurally, keeping a `Choice` node
     /// even for a single element
     pub fn choice(&mut self, ids: &[RuleId]) -> RuleId {
-        let mut elements: Vec<RuleId> = Vec::with_capacity(ids.len());
-        let mut stack: Vec<RuleId> = Vec::with_capacity(ids.len());
+        // Elements build directly at the children tail. The walk only reads
+        // existing nodes, so nothing else appends while the range grows
+        let start = self.children.len();
+        let mut stack = std::mem::take(&mut self.scratch);
         stack.extend(ids.iter().rev());
         while let Some(id) = stack.pop() {
             if let Rule::Choice(range) = self.node(id) {
                 let base = stack.len();
                 stack.extend_from_slice(self.child_slice(range));
                 stack[base..].reverse();
-            } else if !elements.iter().any(|&e| self.subtree_eq(e, id)) {
-                elements.push(id);
+            } else if !self.children[start..]
+                .iter()
+                .copied()
+                .any(|e| self.subtree_eq(e, id))
+            {
+                self.children.push(id);
             }
         }
-        let range = self.push_children(&elements);
+        self.scratch = stack;
+        let range = RuleIdRange {
+            start: start as u32,
+            len: (self.children.len() - start) as u32,
+        };
         self.push_node(Rule::Choice(range))
     }
 
