@@ -304,13 +304,34 @@ impl RulePool {
         self.push_node(Rule::Eof)
     }
 
+    #[cfg_attr(not(test), expect(dead_code))]
     pub fn seq(&mut self, ids: &[RuleId]) -> RuleId {
         let range = self.push_children(ids);
         self.push_node(Rule::Seq(range))
     }
 
+    pub fn try_seq<T, E>(
+        &mut self,
+        items: impl ExactSizeIterator<Item = T>,
+        mut f: impl FnMut(&mut Self, T) -> Result<RuleId, E>,
+    ) -> Result<RuleId, E> {
+        let len = items.len();
+        let start = self.children.len();
+        self.children.resize(start + len, RuleId(0));
+        for (i, item) in items.enumerate() {
+            let id = f(self, item)?;
+            self.children[start + i] = id;
+        }
+
+        let range = RuleIdRange {
+            start: start as u32,
+            len: len as u32,
+        };
+        Ok(self.push_node(Rule::Seq(range)))
+    }
+
     /// Flatten nested choices and de-dup structurally, keeping a `Choice` node
-    /// event for a single element
+    /// even for a single element
     pub fn choice(&mut self, ids: &[RuleId]) -> RuleId {
         let mut elements: Vec<RuleId> = Vec::with_capacity(ids.len());
         let mut stack: Vec<RuleId> = Vec::with_capacity(ids.len());

@@ -402,13 +402,9 @@ impl RulePool {
                     .collect::<ParseGrammarResult<Vec<_>>>()?;
                 Ok(self.choice(&members))
             }
-            RuleJSON::SEQ { members } => {
-                let members = members
-                    .into_iter()
-                    .map(|m| self.parse_rule(m, is_token, diagnostics))
-                    .collect::<ParseGrammarResult<Vec<_>>>()?;
-                Ok(self.seq(&members))
-            }
+            RuleJSON::SEQ { members } => self.try_seq(members.into_iter(), |pool, m| {
+                pool.parse_rule(m, is_token, diagnostics)
+            }),
             RuleJSON::FIELD { name, content } => {
                 let content = self.parse_rule(*content, is_token, diagnostics)?;
                 let name = self.intern(&name);
@@ -418,7 +414,10 @@ impl RulePool {
                 let content = self.parse_rule(*content, is_token, diagnostics)?;
                 let repeat = self.repeat(content);
                 let blank = self.blank();
-                Ok(self.choice(&[repeat, blank]))
+                // Neither element is a `Choice` or equal to one another, so we
+                // can skip `self.choice`'s flattening loop.
+                let range = self.push_children(&[repeat, blank]);
+                Ok(self.push_node(Rule::Choice(range)))
             }
             RuleJSON::REPEAT1 { content } => {
                 let content = self.parse_rule(*content, is_token, diagnostics)?;
