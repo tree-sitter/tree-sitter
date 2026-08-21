@@ -184,6 +184,11 @@ impl RulePool {
         self.nodes[id.index()]
     }
 
+    #[must_use]
+    pub const fn node_count(&self) -> usize {
+        self.nodes.len()
+    }
+
     pub fn set_node(&mut self, id: RuleId, node: Rule) {
         self.nodes[id.index()] = node;
     }

@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use crate::{
-    grammars::{InputGrammar, ProductionStore},
+    grammars::{InputGrammar, LexicalVariable, ProductionStore},
     prepare_grammar::extract_tokens::ExtractedGrammarMeta,
     rules::{Alias, AliasMap, Symbol, SymbolType},
 };
@@ -24,9 +24,10 @@ struct SymbolStatus {
 pub(super) fn extract_default_aliases(
     g: &InputGrammar,
     meta: &ExtractedGrammarMeta,
+    lexical_variables: &[LexicalVariable],
     out: &mut ProductionStore,
 ) -> AliasMap {
-    let mut terminal_status_list = vec![SymbolStatus::default(); meta.lexical_variables.len()];
+    let mut terminal_status_list = vec![SymbolStatus::default(); lexical_variables.len()];
     let mut non_terminal_status_list = vec![SymbolStatus::default(); g.variables.len()];
     let mut external_status_list = vec![SymbolStatus::default(); meta.external_tokens.len()];
 
@@ -171,7 +172,6 @@ mod tests {
     use super::*;
     use crate::{
         grammars::{Production, ProductionStep, Variable, VariableType},
-        prepare_grammar::extract_tokens::LexicalToken,
         rules::{Precedence, RulePool},
     };
 
@@ -181,20 +181,26 @@ mod tests {
         let dummy = pool.intern("_");
         let root = pool.blank();
 
+        let mut lexical_variables = Vec::new();
+        let t0 = add_lexical_variable(&mut pool, &mut lexical_variables, "t0");
+        let t1 = add_lexical_variable(&mut pool, &mut lexical_variables, "t1");
+        let t2 = add_lexical_variable(&mut pool, &mut lexical_variables, "t2");
+        let t3 = add_lexical_variable(&mut pool, &mut lexical_variables, "t3");
+
         // v1: every token aliased.
         let v1 = vec![
-            aliased(&mut pool, Symbol::terminal(0), "a1"),
-            aliased(&mut pool, Symbol::terminal(1), "a2"),
-            aliased(&mut pool, Symbol::terminal(2), "a3"),
-            aliased(&mut pool, Symbol::terminal(3), "a4"),
+            aliased(&mut pool, t0, "a1"),
+            aliased(&mut pool, t1, "a2"),
+            aliased(&mut pool, t2, "a3"),
+            aliased(&mut pool, t3, "a4"),
         ];
         // v2: t0 same alias, t1 unaliased, t2 aliased differently, t3 aliased twice as a6
         let v2 = vec![
-            aliased(&mut pool, Symbol::terminal(0), "a1"),
-            plain(Symbol::terminal(1)),
-            aliased(&mut pool, Symbol::terminal(2), "a5"),
-            aliased(&mut pool, Symbol::terminal(3), "a6"),
-            aliased(&mut pool, Symbol::terminal(3), "a6"),
+            aliased(&mut pool, t0, "a1"),
+            plain(t1),
+            aliased(&mut pool, t2, "a5"),
+            aliased(&mut pool, t3, "a6"),
+            aliased(&mut pool, t3, "a6"),
         ];
 
         let mut out = ProductionStore::default();
@@ -216,18 +222,8 @@ mod tests {
             pool,
             ..Default::default()
         };
-        let meta = ExtractedGrammarMeta {
-            lexical_variables: (0..4)
-                .map(|_| LexicalToken {
-                    name: dummy,
-                    kind: VariableType::Anonymous,
-                    root,
-                })
-                .collect(),
-            ..Default::default()
-        };
-
-        let pool_map = extract_default_aliases(&g, &meta, &mut out);
+        let meta = ExtractedGrammarMeta::default();
+        let pool_map = extract_default_aliases(&g, &meta, &lexical_variables, &mut out);
 
         // t0 -> a1, t2 -> a3 (v1 wins the tie from appearing first), t3 -> a6 (used twice)
         // t1 -> none (appears unaliased in v2).
@@ -257,6 +253,21 @@ mod tests {
         assert_eq!(step_alias(6), Some(("a5", true))); // v2 t2(a5) != a3
         assert_eq!(step_alias(7), None); //               v2 t3(a6) = default
         assert_eq!(step_alias(8), None); //               v2 t3(a6) = default
+    }
+
+    fn add_lexical_variable(
+        pool: &mut RulePool,
+        variables: &mut Vec<LexicalVariable>,
+        name: &str,
+    ) -> Symbol {
+        let symbol = Symbol::terminal(variables.len());
+        variables.push(LexicalVariable {
+            name: pool.intern(name),
+            kind: VariableType::Anonymous,
+            implicit_precedence: 0,
+            start_state: 0,
+        });
+        symbol
     }
 
     fn aliased(pool: &mut RulePool, symbol: Symbol, name: &str) -> ProductionStep {

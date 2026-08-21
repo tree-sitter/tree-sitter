@@ -5,7 +5,7 @@ use thiserror::Error;
 use crate::{
     grammars::{LexicalGrammar, LexicalVariable},
     nfa::{CharacterSet, Nfa, NfaState},
-    prepare_grammar::{extract_tokens::LexicalToken, pattern},
+    prepare_grammar::{LexicalToken, pattern},
     rules::{Precedence, Rule, RuleId, RulePool, Symbol},
 };
 
