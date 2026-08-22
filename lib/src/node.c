@@ -762,31 +762,45 @@ TSNode ts_node_named_child(TSNode self, uint32_t child_index) {
 }
 
 TSNode ts_node_child_by_field_id(TSNode self, TSFieldId field_id) {
-recur:
-  if (!field_id || ts_node_child_count(self) == 0) return ts_node__null();
+  typedef struct {
+    NodeChildIterator iterator;
+    const TSFieldMapEntry *field_map;
+    const TSFieldMapEntry *field_map_end;
+  } FieldSearchFrame;
 
-  const TSFieldMapEntry *field_map, *field_map_end;
+  if (!field_id) return ts_node__null();
+
+  Array(FieldSearchFrame) stack = array_new();
+  NodeChildIterator iterator;
+  const TSFieldMapEntry *field_map;
+  const TSFieldMapEntry *field_map_end;
+  TSNode child;
+
+descend:
+  if (ts_node_child_count(self) == 0) goto not_found;
+
   ts_language_field_map(
     self.tree->language,
     ts_node__subtree(self).ptr->production_id,
     &field_map,
     &field_map_end
   );
-  if (field_map == field_map_end) return ts_node__null();
+  if (field_map == field_map_end) goto not_found;
 
   // The field mappings are sorted by their field id. Scan all
   // the mappings to find the ones for the given field id.
   while (field_map->field_id < field_id) {
     field_map++;
-    if (field_map == field_map_end) return ts_node__null();
+    if (field_map == field_map_end) goto not_found;
   }
   while (field_map_end[-1].field_id > field_id) {
     field_map_end--;
-    if (field_map == field_map_end) return ts_node__null();
+    if (field_map == field_map_end) goto not_found;
   }
 
-  TSNode child;
-  NodeChildIterator iterator = ts_node_iterate_children(&self);
+  iterator = ts_node_iterate_children(&self);
+
+scan:
   while (ts_node_child_iterator_next(&iterator, &child)) {
     if (!ts_subtree_extra(ts_node__subtree(child))) {
       uint32_t index = iterator.structural_child_index - 1;
@@ -799,37 +813,54 @@ recur:
         // then perform a tail call to avoid recursion.
         if (field_map + 1 == field_map_end) {
           self = child;
-          goto recur;
+          goto descend;
         }
 
         // Otherwise, descend into this child, but if it doesn't contain
         // the field, continue searching subsequent children.
         else {
-          TSNode result = ts_node_child_by_field_id(child, field_id);
-          if (result.id) return result;
-          field_map++;
-          if (field_map == field_map_end) return ts_node__null();
+          array_push(&stack, ((FieldSearchFrame) {
+            .iterator = iterator,
+            .field_map = field_map,
+            .field_map_end = field_map_end,
+          }));
+          self = child;
+          goto descend;
         }
       }
 
       else if (ts_node__is_relevant(child, true)) {
+        array_delete(&stack);
         return child;
       }
 
       // If the field refers to a hidden node with visible children,
       // return the first visible child.
       else if (ts_node_child_count(child) > 0 ) {
-        return ts_node_child(child, 0);
+        TSNode result = ts_node_child(child, 0);
+        array_delete(&stack);
+        return result;
       }
 
       // Otherwise, continue searching subsequent children.
       else {
         field_map++;
-        if (field_map == field_map_end) return ts_node__null();
+        if (field_map == field_map_end) goto not_found;
       }
     }
   }
 
+not_found:
+  if (stack.size) {
+    FieldSearchFrame frame = array_pop(&stack);
+    iterator = frame.iterator;
+    field_map = frame.field_map + 1;
+    field_map_end = frame.field_map_end;
+    if (field_map == field_map_end) goto not_found;
+    goto scan;
+  }
+
+  array_delete(&stack);
   return ts_node__null();
 }
 
