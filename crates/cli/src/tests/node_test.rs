@@ -1280,9 +1280,39 @@ fn parse_deeply_nested_tree(depth: usize) -> Tree {
     parser.parse(source, None).unwrap()
 }
 
+fn collapse_deeply_nested_tree(tree: &mut Tree, depth: usize) {
+    let old_end_byte = depth * 2 + 1;
+    tree.edit(&InputEdit {
+        start_byte: 0,
+        old_end_byte,
+        new_end_byte: 0,
+        start_position: Point::new(0, 0),
+        old_end_position: Point::new(0, old_end_byte),
+        new_end_position: Point::new(0, 0),
+    });
+}
+
 #[test]
 fn test_deeply_nested_dot_graph_does_not_overflow_stack() {
     let tree = parse_deeply_nested_tree(100_000);
     let file = tempfile::tempfile().unwrap();
     tree.print_dot_graph(&file);
+}
+
+#[test]
+fn test_deeply_nested_node_searches_do_not_overflow_stack() {
+    let depth = 100_000;
+    let mut tree = parse_deeply_nested_tree(depth);
+    collapse_deeply_nested_tree(&mut tree, depth);
+    let root = tree.root_node();
+    let expression = root.named_child(0).unwrap();
+    let mut descendant = expression;
+    while let Some(child) = descendant.named_child(0) {
+        descendant = child;
+    }
+    let closing_parenthesis = expression.child(expression.child_count() - 1).unwrap();
+
+    assert_eq!(root.child_with_descendant(descendant), Some(expression));
+    assert_eq!(closing_parenthesis.kind(), ")");
+    assert!(closing_parenthesis.prev_sibling().is_some());
 }
