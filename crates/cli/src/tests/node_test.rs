@@ -1248,3 +1248,41 @@ fn parse_json_example() -> Tree {
     parser.set_language(&get_language("json")).unwrap();
     parser.parse(JSON_EXAMPLE, None).unwrap()
 }
+
+fn parse_deeply_nested_tree(depth: usize) -> Tree {
+    let (parser_name, parser_code) = generate_parser(
+        r#"{
+            "name": "deeply_nested",
+            "rules": {
+                "document": {"type": "SYMBOL", "name": "expression"},
+                "expression": {
+                    "type": "CHOICE",
+                    "members": [
+                        {"type": "STRING", "value": "x"},
+                        {
+                            "type": "SEQ",
+                            "members": [
+                                {"type": "STRING", "value": "("},
+                                {"type": "SYMBOL", "name": "expression"},
+                                {"type": "STRING", "value": ")"}
+                            ]
+                        }
+                    ]
+                }
+            }
+        }"#,
+    )
+    .unwrap();
+    let language = get_test_language(&parser_name, &parser_code, None);
+    let source = "(".repeat(depth) + "x" + &")".repeat(depth);
+    let mut parser = Parser::new();
+    parser.set_language(&language).unwrap();
+    parser.parse(source, None).unwrap()
+}
+
+#[test]
+fn test_deeply_nested_dot_graph_does_not_overflow_stack() {
+    let tree = parse_deeply_nested_tree(100_000);
+    let file = tempfile::tempfile().unwrap();
+    tree.print_dot_graph(&file);
+}

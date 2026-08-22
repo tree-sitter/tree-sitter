@@ -1008,9 +1008,9 @@ char *ts_subtree_string(
   return result;
 }
 
-void ts_subtree__print_dot_graph(const Subtree *self, uint32_t start_offset,
-                                 const TSLanguage *language, TSSymbol alias_symbol,
-                                 FILE *f) {
+static void ts_subtree__write_dot_node(const Subtree *self, uint32_t start_offset,
+                                       const TSLanguage *language, TSSymbol alias_symbol,
+                                       FILE *f) {
   TSSymbol subtree_symbol = ts_subtree_symbol(*self);
   TSSymbol symbol = alias_symbol ? alias_symbol : subtree_symbol;
   uint32_t end_offset = start_offset + ts_subtree_total_bytes(*self);
@@ -1046,22 +1046,60 @@ void ts_subtree__print_dot_graph(const Subtree *self, uint32_t start_offset,
   }
 
   fprintf(f, "\"]\n");
+}
 
-  uint32_t child_start_offset = start_offset;
-  uint32_t child_info_offset =
-    language->max_alias_sequence_length *
-    ts_subtree_production_id(*self);
-  for (uint32_t i = 0, n = ts_subtree_child_count(*self); i < n; i++) {
-    const Subtree *child = &ts_subtree_children(*self)[i];
-    TSSymbol subtree_alias_symbol = 0;
-    if (!ts_subtree_extra(*child) && child_info_offset) {
-      subtree_alias_symbol = language->alias_sequences[child_info_offset];
-      child_info_offset++;
+typedef struct {
+  const Subtree *subtree;
+  uint32_t child_index;
+  uint32_t child_start_offset;
+  uint32_t child_info_offset;
+} DotGraphFrame;
+
+void ts_subtree__print_dot_graph(const Subtree *self, uint32_t start_offset,
+                                 const TSLanguage *language, TSSymbol alias_symbol,
+                                 FILE *f) {
+  ts_subtree__write_dot_node(self, start_offset, language, alias_symbol, f);
+
+  Array(DotGraphFrame) stack = array_new();
+  array_push(&stack, ((DotGraphFrame) {
+    .subtree = self,
+    .child_start_offset = start_offset,
+    .child_info_offset = language->max_alias_sequence_length * ts_subtree_production_id(*self),
+  }));
+
+  while (stack.size) {
+    DotGraphFrame *frame = array_back(&stack);
+    const Subtree *subtree = frame->subtree;
+    uint32_t i = frame->child_index;
+    if (i > 0) {
+      const Subtree *child = &ts_subtree_children(*subtree)[i - 1];
+      fprintf(f, "tree_%p -> tree_%p [tooltip=%u]\n", (void *)subtree, (void *)child, i - 1);
     }
-    ts_subtree__print_dot_graph(child, child_start_offset, language, subtree_alias_symbol, f);
-    fprintf(f, "tree_%p -> tree_%p [tooltip=%u]\n", (void *)self, (void *)child, i);
-    child_start_offset += ts_subtree_total_bytes(*child);
+
+    if (i == ts_subtree_child_count(*subtree)) {
+      (void)array_pop(&stack);
+      continue;
+    }
+
+    const Subtree *child = &ts_subtree_children(*subtree)[i];
+    TSSymbol subtree_alias_symbol = 0;
+    if (!ts_subtree_extra(*child) && frame->child_info_offset) {
+      subtree_alias_symbol = language->alias_sequences[frame->child_info_offset];
+      frame->child_info_offset++;
+    }
+    ts_subtree__write_dot_node(child, frame->child_start_offset, language, subtree_alias_symbol, f);
+
+    DotGraphFrame child_frame = {
+      .subtree = child,
+      .child_start_offset = frame->child_start_offset,
+      .child_info_offset = language->max_alias_sequence_length * ts_subtree_production_id(*child),
+    };
+    frame->child_start_offset += ts_subtree_total_bytes(*child);
+    frame->child_index++;
+    array_push(&stack, child_frame);
   }
+
+  array_delete(&stack);
 }
 
 void ts_subtree_print_dot_graph(Subtree self, const TSLanguage *language, FILE *f) {
