@@ -1650,6 +1650,47 @@ static void ts_query__dump_steps(const TSQuery *self, const char *label) {
 }
 #endif
 
+// Mark as fallible every ERROR or MISSING step and every step reachable only after one matched.
+static void ts_query__mark_fallible_steps(TSQuery *self) {
+  Array(bool) entered = array_new();
+  array_grow_by(&entered, self->steps.size);
+  for (unsigned i = 0; i < self->patterns.size; i++) {
+    *array_get(&entered, array_get(&self->patterns, i)->steps.offset) = true;
+  }
+  bool done = false;
+  while (!done) {
+    done = true;
+    for (unsigned i = 0; i < self->steps.size; i++) {
+      QueryStep *step = array_get(&self->steps, i);
+      if (!*array_get(&entered, i) || step->depth == PATTERN_DONE_MARKER) continue;
+      // A dead end only jumps and a fallible step's successor needs error recovery,
+      // so neither gets a sequence edge; alternatives are entered before a match.
+      if (
+        !step->is_dead_end &&
+        !(step->is_missing || step->symbol == ts_builtin_sym_error) &&
+        i + 1 < self->steps.size &&
+        !*array_get(&entered, i + 1)
+      ) {
+        *array_get(&entered, i + 1) = true;
+        done = false;
+      }
+      if (step->alternative_index != NONE && !*array_get(&entered, step->alternative_index)) {
+        *array_get(&entered, step->alternative_index) = true;
+        done = false;
+      }
+    }
+  }
+  for (unsigned i = 0; i < self->steps.size; i++) {
+    QueryStep *step = array_get(&self->steps, i);
+    if (step->depth == PATTERN_DONE_MARKER) continue;
+    if ((step->is_missing || step->symbol == ts_builtin_sym_error) || !*array_get(&entered, i)) {
+      step->parent_pattern_guaranteed = false;
+      step->root_pattern_guaranteed = false;
+    }
+  }
+  array_delete(&entered);
+}
+
 static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
   Array(uint16_t) non_rooted_pattern_start_steps = array_new();
   for (unsigned i = 0; i < self->pattern_map.size; i++) {
@@ -2049,6 +2090,8 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
     }
   }
 
+  ts_query__mark_fallible_steps(self);
+
   // Propagate fallibility. If a pattern is fallible at a given step, then it is
   // fallible at all of its preceding steps.
   bool done = self->steps.size == 0;
@@ -2061,7 +2104,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
       // Determine if this step is definite or has definite alternatives.
       bool parent_pattern_guaranteed = false;
       for (;;) {
-        if (step->root_pattern_guaranteed) {
+        if (step->root_pattern_guaranteed && !step->is_dead_end) {
           parent_pattern_guaranteed = true;
           break;
         }
