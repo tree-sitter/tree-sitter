@@ -1316,3 +1316,48 @@ fn test_deeply_nested_node_searches_do_not_overflow_stack() {
     assert_eq!(closing_parenthesis.kind(), ")");
     assert!(closing_parenthesis.prev_sibling().is_some());
 }
+
+#[test]
+fn test_deeply_nested_field_search_does_not_overflow_stack() {
+    let (parser_name, parser_code) = generate_parser(
+        r#"{
+            "name": "deeply_nested_fields",
+            "rules": {
+                "document": {"type": "SYMBOL", "name": "_nested"},
+                "_nested": {
+                    "type": "CHOICE",
+                    "members": [
+                        {
+                            "type": "FIELD",
+                            "name": "target",
+                            "content": {"type": "STRING", "value": "x"}
+                        },
+                        {
+                            "type": "SEQ",
+                            "members": [
+                                {"type": "STRING", "value": "("},
+                                {"type": "SYMBOL", "name": "_nested"},
+                                {"type": "STRING", "value": ")"},
+                                {
+                                    "type": "FIELD",
+                                    "name": "target",
+                                    "content": {"type": "STRING", "value": "z"}
+                                }
+                            ]
+                        }
+                    ]
+                }
+            }
+        }"#,
+    )
+    .unwrap();
+    let language = get_test_language(&parser_name, &parser_code, None);
+    let depth = 100_000;
+    let source = "(".repeat(depth) + "x" + &")z".repeat(depth);
+    let mut parser = Parser::new();
+    parser.set_language(&language).unwrap();
+    let tree = parser.parse(source.as_bytes(), None).unwrap();
+    let target = tree.root_node().child_by_field_name("target").unwrap();
+
+    assert_eq!(&source[target.byte_range()], "x");
+}
