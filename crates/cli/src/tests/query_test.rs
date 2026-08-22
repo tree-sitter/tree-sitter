@@ -257,6 +257,16 @@ fn test_query_errors_on_invalid_syntax() {
 }
 
 #[test]
+fn test_query_rejects_excessive_pattern_depth() {
+    let language = get_test_fixture_language("basic_cst");
+    let nesting = 300;
+    let source = "(_ ".repeat(nesting) + "_" + &")".repeat(nesting);
+    let error = Query::new(&language, &source).unwrap_err();
+
+    assert_eq!(error.kind, QueryErrorKind::Structure);
+}
+
+#[test]
 fn test_query_errors_on_anchor_at_group_edge() {
     allocations::record(|| {
         let language = get_language("javascript");
