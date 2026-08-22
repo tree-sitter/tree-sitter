@@ -49,7 +49,7 @@ struct NodeInfoJSON {
     subtypes: Option<Vec<NodeTypeRef>>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg(feature = "load")]
 struct NodeTypeRef {
     kind: StrId,
@@ -644,7 +644,7 @@ fn generate_node_types(
         &extra_names,
     );
 
-    let mut result = node_types_json.into_iter().map(|e| e.1).collect::<Vec<_>>();
+    let mut result = node_types_json.into_values().collect::<Vec<_>>();
     result.extend(anonymous_node_types);
     result.sort_unstable_by(|a, b| {
         b.subtypes
@@ -779,7 +779,7 @@ fn collect_extra_names(
 /// Add one JSON entry per supertype and build the supertype-to-subtypes map.
 #[cfg(feature = "load")]
 fn build_supertype_entries(
-    node_types_json: &mut BTreeMap<StrId, NodeInfoJSON>,
+    node_types_json: &mut BTreeMap<NodeTypeRef, NodeInfoJSON>,
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
     default_aliases: &AliasMap,
@@ -795,7 +795,10 @@ fn build_supertype_entries(
         }
         let variable = &syntax_grammar.variables[i];
         let node_type_json = node_types_json
-            .entry(variable.name)
+            .entry(NodeTypeRef {
+                kind: variable.name,
+                named: true,
+            })
             .or_insert_with(|| NodeInfoJSON {
                 kind: variable.name,
                 named: true,
@@ -837,7 +840,7 @@ fn build_supertype_entries(
     reason = "all parameters are required to build the entries"
 )]
 fn build_regular_entries(
-    node_types_json: &mut BTreeMap<StrId, NodeInfoJSON>,
+    node_types_json: &mut BTreeMap<NodeTypeRef, NodeInfoJSON>,
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
     default_aliases: &AliasMap,
@@ -873,27 +876,32 @@ fn build_regular_entries(
                 continue;
             };
 
-            // There may already be an entry with this name, because multiple
-            // rules may be aliased with the same name.
+            // There may already be an entry with this node identity, because multiple
+            // rules may be aliased with the same name and namedness.
             let mut node_type_existed = true;
-            let node_type_json = node_types_json.entry(*kind).or_insert_with(|| {
-                node_type_existed = false;
-                NodeInfoJSON {
+            let node_type_json = node_types_json
+                .entry(NodeTypeRef {
                     kind: *kind,
                     named: is_named,
-                    root: i == 0,
-                    extra: extra_names.contains(kind),
-                    fields: Some(BTreeMap::new()),
-                    children: None,
-                    subtypes: None,
-                }
-            });
+                })
+                .or_insert_with(|| {
+                    node_type_existed = false;
+                    NodeInfoJSON {
+                        kind: *kind,
+                        named: is_named,
+                        root: i == 0,
+                        extra: extra_names.contains(kind),
+                        fields: Some(BTreeMap::new()),
+                        children: None,
+                        subtypes: None,
+                    }
+                });
 
             let fields_json = node_type_json.fields.as_mut().unwrap();
             for (new_field, field_info) in &info.fields {
                 let field_json = fields_json.entry(*new_field).or_insert_with(|| {
-                    // If another rule is aliased with the same name, and does *not* have this
-                    // field, then this field cannot be required.
+                    // If another rule is aliased with the same node identity, and
+                    // does *not* have this field, then this field cannot be required.
                     let mut field_json = FieldInfoJSON::default();
                     if node_type_existed {
                         field_json.required = false;
@@ -910,8 +918,8 @@ fn build_regular_entries(
                 );
             }
 
-            // If another rule is aliased with the same name, any fields that aren't present in
-            // this cannot be required.
+            // If another rule is aliased with the same node identity, any fields
+            // that aren't present in this cannot be required.
             for (existing_field, field_json) in fields_json.iter_mut() {
                 if !info.fields.contains_key(existing_field) {
                     field_json.required = false;
@@ -975,7 +983,7 @@ fn sort_subtype_map_topologically(
 /// field type lists.
 #[cfg(feature = "load")]
 fn apply_supertype_collapsing(
-    node_types_json: &mut BTreeMap<StrId, NodeInfoJSON>,
+    node_types_json: &mut BTreeMap<NodeTypeRef, NodeInfoJSON>,
     subtype_map: &[(NodeTypeRef, Vec<NodeTypeRef>)],
 ) {
     for node_type_json in node_types_json.values_mut() {
@@ -1002,7 +1010,7 @@ fn apply_supertype_collapsing(
 /// appended separately.
 #[cfg(feature = "load")]
 fn build_token_entries(
-    node_types_json: &mut BTreeMap<StrId, NodeInfoJSON>,
+    node_types_json: &mut BTreeMap<NodeTypeRef, NodeInfoJSON>,
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
     aliases_by_symbol: &FxHashMap<Symbol, BTreeSet<Option<Alias>>>,
@@ -1048,15 +1056,20 @@ fn build_token_entries(
     for (&name, kind) in regular_tokens.chain(external_tokens) {
         match kind {
             VariableType::Named => {
-                let node_type_json = node_types_json.entry(name).or_insert_with(|| NodeInfoJSON {
-                    kind: name,
-                    named: true,
-                    root: false,
-                    extra: extra_names.contains(&name),
-                    fields: None,
-                    children: None,
-                    subtypes: None,
-                });
+                let node_type_json = node_types_json
+                    .entry(NodeTypeRef {
+                        kind: name,
+                        named: true,
+                    })
+                    .or_insert_with(|| NodeInfoJSON {
+                        kind: name,
+                        named: true,
+                        root: false,
+                        extra: extra_names.contains(&name),
+                        fields: None,
+                        children: None,
+                        subtypes: None,
+                    });
                 if let Some(children) = &mut node_type_json.children {
                     children.required = false;
                 }
@@ -1820,6 +1833,48 @@ mod tests {
                 named: true,
             }]
         );
+    }
+
+    #[test]
+    fn test_node_types_distinguish_named_and_anonymous_aliases() {
+        let mut pool = RulePool::default();
+        let node = named(&mut pool, "_node");
+        let named_alias = alias(&mut pool, node, "same", true);
+        let anonymous_alias = alias(&mut pool, node, "same", false);
+        let document = pool.choice(&[named_alias, anonymous_alias]);
+        let node = {
+            let value = named(&mut pool, "value");
+            let suffix = string(&mut pool, "!");
+            pool.seq(&[value, suffix])
+        };
+        let value = pattern(&mut pool, "[a-z]+");
+        let same_name = pool.intern("same");
+        let node_types = get_node_types(InputGrammar {
+            variables: vec![
+                Variable {
+                    name: pool.intern("document"),
+                    root: document,
+                },
+                Variable {
+                    name: pool.intern("_node"),
+                    root: node,
+                },
+                Variable {
+                    name: pool.intern("value"),
+                    root: value,
+                },
+            ],
+            pool,
+            ..Default::default()
+        })
+        .unwrap();
+
+        let named = node_types
+            .iter()
+            .filter(|node_type| node_type.kind == same_name)
+            .map(|node_type| node_type.named)
+            .collect::<Vec<_>>();
+        assert_eq!(named, [false, true]);
     }
 
     /// A supertype whose only child is a hidden external token
