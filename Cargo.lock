@@ -2207,6 +2207,7 @@ dependencies = [
 name = "tree-sitter-highlight"
 version = "0.27.0"
 dependencies = [
+ "anstyle",
  "regex",
  "streaming-iterator",
  "thiserror",

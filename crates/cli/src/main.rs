@@ -6,7 +6,10 @@ use std::{
 
 use anstyle::{AnsiColor, Color, Style};
 use anyhow::{Context, Result, anyhow};
-use clap::{ArgGroup, Args, Command, FromArgMatches as _, Subcommand, ValueEnum, crate_authors};
+use clap::parser::ValueSource;
+use clap::{
+    ArgGroup, ArgMatches, Args, Command, FromArgMatches as _, Subcommand, ValueEnum, crate_authors,
+};
 use clap_complete::generate;
 use dialoguer::{Confirm, FuzzySelect, Input, MultiSelect, theme::ColorfulTheme};
 use heck::ToUpperCamelCase;
@@ -19,7 +22,7 @@ use tree_sitter_cli::{
         DEFAULT_EDIT_COUNT, DEFAULT_ITERATION_COUNT, EDIT_COUNT, FuzzOptions, ITERATION_COUNT,
         LOG_ENABLED, LOG_GRAPH_ENABLED, START_SEED, fuzz_language_corpus,
     },
-    highlight::{self, HighlightOptions, HtmlOutput, HtmlStyling},
+    highlight::{self, Formatter, HighlightOptions, HtmlOutput, HtmlStyling},
     init::{JsonConfigOpts, TREE_SITTER_JSON_SCHEMA, generate_grammar_files},
     input::{CliInput, get_input, get_tmp_source_file},
     logger, paint,
@@ -502,20 +505,45 @@ struct Query {
     pub rebuild: bool,
 }
 
+/// The output format for the `highlight` command, used by `--formatter`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum FormatterArg {
+    /// ANSI-colored terminal output.
+    #[value(name = "terminal")]
+    Terminal,
+    /// HTML output.
+    #[value(name = "html")]
+    Html,
+    /// LaTeX (TeX) output.
+    #[value(name = "latex")]
+    Latex,
+}
+
 #[derive(Args)]
-#[command(alias = "hi")]
+#[command(alias = "hi", group(clap::ArgGroup::new("markup").args(["html", "formatter"])))]
 struct Highlight {
     /// Generate highlighting as an HTML document
-    #[arg(long, short = 'H')]
+    #[arg(long, short = 'H', conflicts_with = "formatter")]
     pub html: bool,
+    /// Output formats
+    #[arg(long, value_enum, default_value = "terminal", conflicts_with = "html")]
+    pub formatter: FormatterArg,
+    /// Command prefix for generated LaTeX macros
+    #[arg(long, default_value = "TS")]
+    pub prefix: String,
+    /// Comma-separated scopes whose contents use LaTeX math-mode escaping
+    /// (like pygmentize), e.g. `comment,string`. `comment` also matches
+    /// `comment.*`. Only valid with `--formatter=latex`.
+    #[arg(long, default_value = "")]
+    pub math_escape: String,
     /// Deprecated: use `--style classes`
-    #[arg(long, requires = "html", conflicts_with = "style")]
+    #[arg(long, requires = "markup", conflicts_with = "style")]
     pub css_classes: bool,
-    /// When generating HTML, the document structure to emit
-    #[arg(long, requires = "html", value_enum, default_value = "document")]
+    /// When generating markup, the document structure to emit
+    #[arg(long, requires = "markup", value_enum, default_value = "document")]
     pub layout: HtmlOutput,
-    /// When generating HTML, how token colors are applied
-    #[arg(long, requires = "html", value_enum, default_value = "classes")]
+    /// When generating markup, how token colors are applied
+    #[arg(long, requires = "markup", value_enum, default_value = "classes")]
     pub style: HtmlStyling,
     /// Check that highlighting captures conform strictly to standards
     #[arg(long)]
@@ -1682,7 +1710,12 @@ impl Query {
 }
 
 impl Highlight {
-    fn run(self, mut loader: loader::Loader, current_dir: &Path) -> Result<()> {
+    fn run(
+        self,
+        matches: &ArgMatches,
+        mut loader: loader::Loader,
+        current_dir: &Path,
+    ) -> Result<()> {
         let config = Config::load(self.config_path)?;
         let theme_config: tree_sitter_cli::highlight::ThemeConfig = config.get()?;
         loader.configure_highlights(&theme_config.theme.highlight_names);
@@ -1710,6 +1743,50 @@ impl Highlight {
             Encoding::Utf16BE => ffi::TSInputEncodingUTF16BE,
         });
 
+        // `--layout`/`--style` only affect markup formatters (html/latex). When the
+        // formatter is `terminal` (the default), those flags carry no meaning, so reject
+        // an explicit use of them instead of silently ignoring it.
+        if matches!(self.formatter, FormatterArg::Terminal) && !self.html {
+            if matches
+                .value_source("layout")
+                .is_some_and(|s| s == ValueSource::CommandLine)
+            {
+                return Err(anyhow!("--layout is not valid with the terminal formatter"));
+            }
+            if matches
+                .value_source("style")
+                .is_some_and(|s| s == ValueSource::CommandLine)
+            {
+                return Err(anyhow!("--style is not valid with the terminal formatter"));
+            }
+        }
+
+        // `--prefix` only namespaces the generated macros of the LaTeX formatter, so it
+        // carries no meaning with the terminal or HTML formatters. Reject an explicit use
+        // of it instead of silently ignoring it.
+        if (self.html || !matches!(self.formatter, FormatterArg::Latex))
+            && matches
+                .value_source("prefix")
+                .is_some_and(|s| s == ValueSource::CommandLine)
+        {
+            return Err(anyhow!(
+                "--prefix is not valid with the terminal or HTML formatters"
+            ));
+        }
+
+        // `--math-escape` only namespaces the escaping behavior of the LaTeX
+        // formatter, so it carries no meaning with the terminal or HTML
+        // formatters. Reject an explicit use of it instead of silently ignoring it.
+        if (self.html || !matches!(self.formatter, FormatterArg::Latex))
+            && matches
+                .value_source("math_escape")
+                .is_some_and(|s| s == ValueSource::CommandLine)
+        {
+            return Err(anyhow!(
+                "--math-escape is not valid with the terminal or HTML formatters"
+            ));
+        }
+
         let style = if self.css_classes {
             // TODO: Remove during the 0.28 release cycle
             warn!("--css-classes is deprecated, use --style classes instead");
@@ -1718,11 +1795,48 @@ impl Highlight {
             self.style
         };
 
+        let formatter = if self.html {
+            Formatter::Html(self.layout, style)
+        } else {
+            match self.formatter {
+                FormatterArg::Terminal => Formatter::Terminal,
+                FormatterArg::Html => Formatter::Html(self.layout, style),
+                FormatterArg::Latex => Formatter::Latex(self.layout, style),
+            }
+        };
+
+        // Resolve `--math-escape` scope patterns into the set of highlight
+        // indices they match. `comment` matches `comment` and `comment.*`.
+        let math_escape_indices: HashSet<usize> = {
+            let patterns: Vec<&str> = self
+                .math_escape
+                .split(',')
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .collect();
+            if patterns.is_empty() {
+                HashSet::new()
+            } else {
+                theme_config
+                    .theme
+                    .highlight_names
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, name)| {
+                        patterns.iter().any(|p| *name == p || name.starts_with(&format!("{p}.")))
+                    })
+                    .map(|(i, _)| i)
+                    .collect()
+            }
+        };
+
         let options = HighlightOptions {
             theme: theme_config.theme,
             check: self.check,
             captures_path: self.captures_path,
-            html: self.html.then_some((self.layout, style)),
+            formatter,
+            prefix: self.prefix.trim_start_matches('\\').to_string(),
+            math_escape_indices,
             quiet: self.quiet,
             print_time: self.time,
             cancellation_flag: cancellation_flag.clone(),
@@ -2085,7 +2199,8 @@ fn run() -> Result<()> {
         .disable_colored_help(false);
     let mut cli = Commands::augment_subcommands(cli);
 
-    let command = Commands::from_arg_matches(&cli.clone().get_matches())?;
+    let matches = cli.clone().get_matches();
+    let command = Commands::from_arg_matches(&matches)?;
 
     let current_dir = match &command {
         Commands::Init(Init { grammar_path, .. })
@@ -2118,7 +2233,10 @@ fn run() -> Result<()> {
         Commands::Version(version_options) => version_options.run(current_dir)?,
         Commands::Fuzz(fuzz_options) => fuzz_options.run(loader, &current_dir)?,
         Commands::Query(query_options) => query_options.run(loader, &current_dir)?,
-        Commands::Highlight(highlight_options) => highlight_options.run(loader, &current_dir)?,
+        Commands::Highlight(highlight_options) => {
+            let sub_matches = matches.subcommand_matches("highlight").unwrap();
+            highlight_options.run(sub_matches, loader, &current_dir)?
+        }
         Commands::Tags(tags_options) => tags_options.run(loader, &current_dir)?,
         Commands::Playground(playground_options) => playground_options.run(&current_dir)?,
         Commands::DumpLanguages(dump_options) => dump_options.run(loader)?,

@@ -10,7 +10,8 @@ use std::{
 };
 
 use tree_sitter_highlight::{
-    Error, Highlight, HighlightConfiguration, HighlightEvent, Highlighter, HtmlRenderer, c,
+    Error, Highlight, HighlightConfiguration, HighlightEvent, Highlighter, HtmlRenderer, Renderer,
+    c,
 };
 
 use super::helpers::fixtures::{get_highlight_config, get_language, get_language_queries_path};

@@ -4,6 +4,7 @@ pub mod c_lib;
 use core::slice;
 use std::{
     collections::HashSet,
+    io::Write as _,
     iter,
     marker::PhantomData,
     mem::{self, MaybeUninit},
@@ -23,7 +24,7 @@ use tree_sitter::{
 };
 
 const CANCELLATION_CHECK_INTERVAL: usize = 100;
-const BUFFER_HTML_RESERVE_CAPACITY: usize = 10 * 1024;
+const BUFFER_RESERVE_CAPACITY: usize = 10 * 1024;
 const BUFFER_LINES_RESERVE_CAPACITY: usize = 1000;
 
 static STANDARD_CAPTURE_NAMES: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {
@@ -138,12 +139,118 @@ pub struct Highlighter {
     cursors: Vec<QueryCursor>,
 }
 
+/// Converts a general-purpose syntax highlighting iterator into ANSI-colored terminal text.
+///
+/// Unlike `HtmlRenderer`/`TexRenderer`, which open and close a span per highlight scope, the
+/// terminal renderer re-emits the active ANSI style before *every* source segment and resets it
+/// after, so that adjacent source segments at the same scope are each individually wrapped. This
+/// keeps colored output correct even when other code interleaves raw bytes onto the same terminal
+/// stream.
+pub struct TerminalRenderer {
+    content: Vec<u8>,
+    line_offsets: Vec<u32>,
+    // The offset in `self.content` of the last carriage return.
+    last_carriage_return: Option<usize>,
+    /// Stack of active highlight scopes, bottom-to-top.
+    highlight: Vec<Highlight>,
+    /// The style applied outside of any highlight scope.
+    default_style: anstyle::Style,
+    /// ANSI styles indexed by highlight index (`Highlight.0`).
+    styles: Vec<anstyle::Style>,
+}
+
+impl Default for TerminalRenderer {
+    fn default() -> Self {
+        Self::new(&[], anstyle::Style::new())
+    }
+}
+
+impl TerminalRenderer {
+    #[must_use]
+    pub fn new(styles: &[anstyle::Style], default_style: anstyle::Style) -> Self {
+        Self {
+            content: Vec::with_capacity(BUFFER_RESERVE_CAPACITY),
+            line_offsets: Vec::with_capacity(BUFFER_LINES_RESERVE_CAPACITY),
+            last_carriage_return: None,
+            highlight: Vec::new(),
+            default_style,
+            styles: styles.to_vec(),
+        }
+    }
+}
+
+impl Renderer for TerminalRenderer {
+    fn content(&mut self) -> &mut Vec<u8> {
+        &mut self.content
+    }
+
+    fn line_offsets(&mut self) -> &mut Vec<u32> {
+        &mut self.line_offsets
+    }
+
+    fn last_carriage_return(&mut self) -> &mut Option<usize> {
+        &mut self.last_carriage_return
+    }
+
+    fn add_carriage_return<F>(&mut self, _offset: usize, _attribute_callback: &F)
+    where
+        F: Fn(Highlight, &mut Vec<u8>),
+    {
+        // Terminal output has no standalone carriage-return styling.
+    }
+
+    fn set_carriage_return_highlight(&mut self, _highlight: Option<Highlight>) {}
+
+    fn start_highlight<F>(&mut self, _h: Highlight, _attribute_callback: &F)
+    where
+        F: Fn(Highlight, &mut Vec<u8>),
+    {
+        // The terminal renderer drives its own event loop in `render` rather than the shared
+        // span-based loop, so this is unused.
+    }
+
+    fn end_highlight(&mut self) {}
+
+    fn render<F>(
+        &mut self,
+        highlighter: impl Iterator<Item = Result<HighlightEvent, Error>>,
+        source: &[u8],
+        _attribute_callback: &F,
+    ) -> Result<(), Error>
+    where
+        F: Fn(Highlight, &mut Vec<u8>),
+    {
+        self.highlight.clear();
+        for event in highlighter {
+            match event? {
+                HighlightEvent::HighlightStart(highlight) => {
+                    self.highlight.push(highlight);
+                }
+                HighlightEvent::HighlightEnd => {
+                    self.highlight.pop();
+                }
+                HighlightEvent::Source { start, end } => {
+                    let style = self
+                        .highlight
+                        .last()
+                        .map(|h| self.styles[h.0])
+                        .unwrap_or(self.default_style);
+                    write!(&mut self.content, "{style}").unwrap();
+                    self.content.extend_from_slice(&source[start..end]);
+                    write!(&mut self.content, "{style:#}").unwrap();
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
 /// Converts a general-purpose syntax highlighting iterator into a sequence of lines of HTML.
 pub struct HtmlRenderer {
-    pub html: Vec<u8>,
-    pub line_offsets: Vec<u32>,
+    content: Vec<u8>,
+    line_offsets: Vec<u32>,
     carriage_return_highlight: Option<Highlight>,
-    // The offset in `self.html` of the last carriage return.
+    // The offset in `self.content` of the last carriage return.
     last_carriage_return: Option<usize>,
 }
 
@@ -1160,7 +1267,7 @@ impl HtmlRenderer {
     #[must_use]
     pub fn new() -> Self {
         let mut result = Self {
-            html: Vec::with_capacity(BUFFER_HTML_RESERVE_CAPACITY),
+            content: Vec::with_capacity(BUFFER_RESERVE_CAPACITY),
             line_offsets: Vec::with_capacity(BUFFER_LINES_RESERVE_CAPACITY),
             carriage_return_highlight: None,
             last_carriage_return: None,
@@ -1168,18 +1275,98 @@ impl HtmlRenderer {
         result.line_offsets.push(0);
         result
     }
+}
 
-    pub const fn set_carriage_return_highlight(&mut self, highlight: Option<Highlight>) {
-        self.carriage_return_highlight = highlight;
+/// Common interface for renderers that consume a [`HighlightEvent`] iterator.
+///
+/// A renderer owns a content buffer (exposed via [`Self::content`]) and knows how to
+/// escape individual characters in its target format ([`Self::escape`]). The event
+/// loop that drives a render is shared across all renderers via the provided
+/// [`Self::render`] method.
+///
+/// The attribute callback ([`Self::render`]'s `attribute_callback`) is
+/// `Fn(Highlight, &mut Vec<u8>)` for every implementor:
+/// the callback writes the *variable* part of a highlight's opening markup into
+/// the renderer's content buffer (e.g. ` class='keyword'` or `\TS{keyword}`),
+/// while the renderer owns the *structural* part
+/// (e.g. `<span` or `\` followed by the content-opening `{`).
+pub trait Renderer: Default {
+    /// The content buffer for the rendered document.
+    /// Every byte written by the renderer goes here.
+    fn content(&mut self) -> &mut Vec<u8>;
+
+    /// The line offsets of the rendered document.
+    fn line_offsets(&mut self) -> &mut Vec<u32>;
+
+    fn last_carriage_return(&mut self) -> &mut Option<usize>;
+
+    fn set_carriage_return_highlight(&mut self, highlight: Option<Highlight>);
+
+    fn add_carriage_return<F>(&mut self, offset: usize, attribute_callback: &F)
+    where
+        F: Fn(Highlight, &mut Vec<u8>);
+
+    fn reset(&mut self) {
+        shrink_and_clear(&mut self.content(), BUFFER_RESERVE_CAPACITY);
+        shrink_and_clear(&mut self.line_offsets(), BUFFER_LINES_RESERVE_CAPACITY);
+        self.line_offsets().push(0);
     }
 
-    pub fn reset(&mut self) {
-        shrink_and_clear(&mut self.html, BUFFER_HTML_RESERVE_CAPACITY);
-        shrink_and_clear(&mut self.line_offsets, BUFFER_LINES_RESERVE_CAPACITY);
-        self.line_offsets.push(0);
+    fn start_highlight<F>(&mut self, h: Highlight, attribute_callback: &F)
+    where
+        F: Fn(Highlight, &mut Vec<u8>);
+
+    fn end_highlight(&mut self);
+
+    fn escape_char(
+        &mut self,
+        c: u8,
+        _highlights: &[Highlight],
+    ) -> Option<Vec<u8>> {
+        match c as char {
+            _ => None,
+        }
     }
 
-    pub fn render<F>(
+    fn add_text<F>(&mut self, src: &[u8], highlights: &[Highlight], attribute_callback: &F)
+    where
+        F: Fn(Highlight, &mut Vec<u8>),
+    {
+        for c in LossyUtf8::new(src).flat_map(|p| p.bytes()) {
+            // Don't render carriage return characters, but allow lone carriage returns (not
+            // followed by line feeds) to be styled via the attribute callback.
+            if c == b'\r' {
+                *self.last_carriage_return() = Some(self.content().len());
+                continue;
+            }
+            if let Some(offset) = self.last_carriage_return().take()
+                && c != b'\n'
+            {
+                self.add_carriage_return(offset, attribute_callback);
+            }
+
+            // At line boundaries, close and re-open all of the open tags.
+            if c == b'\n' {
+                for _ in highlights {
+                    self.end_highlight();
+                }
+                self.content().push(c);
+                let offset = self.content().len() as u32;
+                self.line_offsets().push(offset);
+                for scope in highlights {
+                    self.start_highlight(*scope, attribute_callback);
+                }
+            } else if let Some(escape) = self.escape_char(c, highlights) {
+                self.content().extend(escape);
+            } else {
+                self.content().push(c);
+            }
+        }
+    }
+
+    /// Drives the full render from a [`HighlightEvent`] iterator. This is the shared
+    /// event loop; renderers normally do not override it.
+    fn render<F>(
         &mut self,
         highlighter: impl Iterator<Item = Result<HighlightEvent, Error>>,
         source: &[u8],
@@ -1193,43 +1380,66 @@ impl HtmlRenderer {
             match event {
                 Ok(HighlightEvent::HighlightStart(s)) => {
                     highlights.push(s);
-                    self.start_highlight(s, &attribute_callback);
+                    self.start_highlight(s, attribute_callback);
                 }
                 Ok(HighlightEvent::HighlightEnd) => {
                     highlights.pop();
                     self.end_highlight();
                 }
                 Ok(HighlightEvent::Source { start, end }) => {
-                    self.add_text(&source[start..end], &highlights, &attribute_callback);
+                    self.add_text(&source[start..end], &highlights, attribute_callback);
                 }
-                Err(a) => return Err(a),
+                Err(e) => return Err(e),
             }
         }
-        if let Some(offset) = self.last_carriage_return.take() {
+        if let Some(offset) = self.last_carriage_return().take() {
             self.add_carriage_return(offset, attribute_callback);
         }
-        if self.html.last() != Some(&b'\n') {
-            self.html.push(b'\n');
+        if self.content().last() != Some(&b'\n') {
+            self.content().push(b'\n');
         }
-        if self.line_offsets.last() == Some(&(self.html.len() as u32)) {
-            self.line_offsets.pop();
+        let content_len = self.content().len() as u32;
+        if self.line_offsets().last() == Some(&content_len) {
+            self.line_offsets().pop();
         }
         Ok(())
     }
 
-    pub fn lines(&self) -> impl Iterator<Item = &str> {
-        self.line_offsets
+    fn lines(&mut self) -> impl Iterator<Item = &str> {
+        // Clone the offsets into an owned value and reborrow the content as a shared
+        // slice, so we can slice without repeatedly borrowing `self` mutably from
+        // inside the closure (a `FnMut` closure cannot let a reference to a captured
+        // variable escape its body).
+        let offsets = self.line_offsets().clone();
+        let content: &[u8] = &*self.content();
+        offsets
             .iter()
             .enumerate()
-            .map(move |(i, line_start)| {
+            .map(|(i, line_start)| {
                 let line_start = *line_start as usize;
-                let line_end = if i + 1 == self.line_offsets.len() {
-                    self.html.len()
+                let line_end = if i + 1 == offsets.len() {
+                    content.len()
                 } else {
-                    self.line_offsets[i + 1] as usize
+                    offsets[i + 1] as usize
                 };
-                str::from_utf8(&self.html[line_start..line_end]).unwrap()
+                str::from_utf8(&content[line_start..line_end]).unwrap()
             })
+            .collect::<Vec<&str>>()
+            .into_iter()
+    }
+}
+
+impl Renderer for HtmlRenderer {
+    fn content(&mut self) -> &mut Vec<u8> {
+        &mut self.content
+    }
+
+    fn line_offsets(&mut self) -> &mut Vec<u32> {
+        &mut self.line_offsets
+    }
+
+    fn last_carriage_return(&mut self) -> &mut Option<usize> {
+        &mut self.last_carriage_return
     }
 
     fn add_carriage_return<F>(&mut self, offset: usize, attribute_callback: &F)
@@ -1242,71 +1452,191 @@ impl HtmlRenderer {
             // whether it is part of CRLF or on its own. To avoid unbounded
             // lookahead, save the offset of the CR and insert there now that we
             // know.
-            let rest = self.html.split_off(offset);
-            self.html.extend(b"<span ");
-            (attribute_callback)(highlight, &mut self.html);
-            self.html.extend(b"></span>");
-            self.html.extend(rest);
+            let rest = self.content.split_off(offset);
+            self.content.extend(b"<span ");
+            (attribute_callback)(highlight, &mut self.content);
+            self.content.extend(b"></span>");
+            self.content.extend(rest);
         }
+    }
+
+    fn set_carriage_return_highlight(&mut self, highlight: Option<Highlight>) {
+        self.carriage_return_highlight = highlight;
     }
 
     fn start_highlight<F>(&mut self, h: Highlight, attribute_callback: &F)
     where
         F: Fn(Highlight, &mut Vec<u8>),
     {
-        self.html.extend(b"<span ");
-        (attribute_callback)(h, &mut self.html);
-        self.html.extend(b">");
+        self.content().extend(b"<span ");
+        (attribute_callback)(h, &mut self.content());
+        self.content().extend(b">");
     }
 
     fn end_highlight(&mut self) {
-        self.html.extend(b"</span>");
+        self.content().extend(b"</span>");
     }
 
-    fn add_text<F>(&mut self, src: &[u8], highlights: &[Highlight], attribute_callback: &F)
+    fn escape_char(&mut self, c: u8, _highlights: &[Highlight]) -> Option<Vec<u8>> {
+        match c as char {
+            '>' => Some(b"&gt;".to_vec()),
+            '<' => Some(b"&lt;".to_vec()),
+            '&' => Some(b"&amp;".to_vec()),
+            '\'' => Some(b"&#39;".to_vec()),
+            '"' => Some(b"&quot;".to_vec()),
+            _ => None,
+        }
+    }
+}
+
+/// The special characters that must be escaped in TeX output, paired with the suffix of the
+/// `\${prefix}Zxx` macro that represents them. The macro definitions are emitted by the CLI's
+/// LaTeX preamble (see `write_tex_preamble`); `TexRenderer::escape_char` turns a character into
+/// `\${prefix}` + suffix. Shared so the two never drift apart.
+pub const TEX_CHAR_ESCAPES: &[(char, &str)] = &[
+    ('\\', "Zbs"),
+    ('_', "Zus"),
+    ('{', "Zob"),
+    ('}', "Zcb"),
+    ('^', "Zca"),
+    ('&', "Zam"),
+    ('<', "Zlt"),
+    ('>', "Zgt"),
+    ('#', "Zsh"),
+    ('%', "Zpc"),
+    ('$', "Zdl"),
+    ('-', "Zhy"),
+    ('\'', "Zsq"),
+    ('"', "Zdq"),
+    ('~', "Zti"),
+];
+
+/// Converts a general-purpose syntax highlighting iterator into TeX markup.
+pub struct TexRenderer {
+    content: Vec<u8>,
+    line_offsets: Vec<u32>,
+    carriage_return_highlight: Option<Highlight>,
+    // The offset in `self.content` of the last carriage return.
+    last_carriage_return: Option<usize>,
+    // Command prefix (without a leading backslash), e.g. "TS" -> emits `\TS{...}{...}`.
+    tex_prefix: String,
+    /// Indices (into a theme's `highlight_names`) of scopes whose contents use
+    /// LaTeX math-mode escaping (like pygmentize). Empty by default.
+    math_escape_indices: HashSet<usize>,
+    /// Whether we are currently inside a `$...$` math-mode region within a
+    /// math-escape scope.
+    in_math_mode: bool,
+}
+
+impl Default for TexRenderer {
+    fn default() -> Self {
+        Self::new("TS".to_string(), HashSet::new())
+    }
+}
+
+impl TexRenderer {
+    /// Create a renderer with the given command `prefix` and the set of scope
+    /// indices that use LaTeX math-mode escaping (like pygmentize). Within those
+    /// scopes, characters between a pair of `$` delimiters are emitted verbatim
+    /// (so `$x_1$` is not mangled).
+    #[must_use]
+    pub fn new(tex_prefix: String, math_escape_indices: HashSet<usize>) -> Self {
+        let mut result = Self {
+            content: Vec::with_capacity(BUFFER_RESERVE_CAPACITY),
+            line_offsets: Vec::with_capacity(BUFFER_LINES_RESERVE_CAPACITY),
+            carriage_return_highlight: None,
+            last_carriage_return: None,
+            tex_prefix,
+            math_escape_indices,
+            in_math_mode: false,
+        };
+        result.line_offsets.push(0);
+        result
+    }
+}
+
+impl Renderer for TexRenderer {
+    fn content(&mut self) -> &mut Vec<u8> {
+        &mut self.content
+    }
+
+    fn line_offsets(&mut self) -> &mut Vec<u32> {
+        &mut self.line_offsets
+    }
+
+    fn last_carriage_return(&mut self) -> &mut Option<usize> {
+        &mut self.last_carriage_return
+    }
+
+    fn add_carriage_return<F>(&mut self, offset: usize, attribute_callback: &F)
     where
         F: Fn(Highlight, &mut Vec<u8>),
     {
-        pub const fn html_escape(c: u8) -> Option<&'static [u8]> {
-            match c as char {
-                '>' => Some(b"&gt;"),
-                '<' => Some(b"&lt;"),
-                '&' => Some(b"&amp;"),
-                '\'' => Some(b"&#39;"),
-                '"' => Some(b"&quot;"),
-                _ => None,
+        if let Some(highlight) = self.carriage_return_highlight {
+            let rest = self.content.split_off(offset);
+            // The callback writes the full opening markup (\TS{scope}{ or
+            // \textcolor[rgb]{r,g,b}{); we close the (empty) content group here.
+            (attribute_callback)(highlight, &mut self.content);
+            self.content.extend(b"}");
+            self.content.extend(rest);
+        }
+    }
+
+    fn set_carriage_return_highlight(&mut self, highlight: Option<Highlight>) {
+        self.carriage_return_highlight = highlight;
+    }
+
+    fn start_highlight<F>(&mut self, h: Highlight, attribute_callback: &F)
+    where
+        F: Fn(Highlight, &mut Vec<u8>),
+    {
+        // TeX has no uniform opening frame, so the callback writes the entire
+        // opening markup (\TS{scope}{ or \textcolor[rgb]{r,g,b}{). The renderer
+        // owns only the closing brace (see `end_highlight`).
+        (attribute_callback)(h, &mut self.content);
+    }
+
+    fn end_highlight(&mut self) {
+        self.content.extend(b"}");
+    }
+
+    fn escape_char(&mut self, c: u8, highlights: &[Highlight]) -> Option<Vec<u8>> {
+        // Whether the current character sits within a math-escape scope. A scope
+        // is active if it is anywhere in the open-highlight stack.
+        let in_math_scope = highlights
+            .iter()
+            .any(|h| self.math_escape_indices.contains(&h.0));
+
+        if in_math_scope {
+            // A `$` toggles math mode and is emitted verbatim. Inside the `$...$`
+            // region, characters are left untouched (matching pygmentize's LaTeX
+            // formatter), so subscripts, carets, etc. render naturally. Outside
+            // the delimiters, special characters are still escaped as usual.
+            if c == b'$' {
+                self.in_math_mode = !self.in_math_mode;
+                return None;
             }
+            if self.in_math_mode {
+                return None;
+            }
+        } else {
+            // Leaving a math-escape scope (or being outside one entirely) clears
+            // math-mode state so it cannot leak into a later region.
+            self.in_math_mode = false;
         }
 
-        for c in LossyUtf8::new(src).flat_map(|p| p.bytes()) {
-            // Don't render carriage return characters, but allow lone carriage returns (not
-            // followed by line feeds) to be styled via the attribute callback.
-            if c == b'\r' {
-                self.last_carriage_return = Some(self.html.len());
-                continue;
-            }
-            if let Some(offset) = self.last_carriage_return.take()
-                && c != b'\n'
-            {
-                self.add_carriage_return(offset, attribute_callback);
-            }
-
-            // At line boundaries, close and re-open all of the open tags.
-            if c == b'\n' {
-                for _ in highlights {
-                    self.end_highlight();
-                }
-                self.html.push(c);
-                self.line_offsets.push(self.html.len() as u32);
-                for scope in highlights {
-                    self.start_highlight(*scope, attribute_callback);
-                }
-            } else if let Some(escape) = html_escape(c) {
-                self.html.extend_from_slice(escape);
-            } else {
-                self.html.push(c);
-            }
-        }
+        // Special characters are emitted as named macros (e.g. `\TSZdl`), whose
+        // definitions live in the LaTeX preamble (see `write_tex_preamble`).
+        let suffix = TEX_CHAR_ESCAPES
+            .iter()
+            .find(|(ch, _)| *ch == c as char)
+            .map(|(_, suffix)| *suffix)?;
+        let mut bytes = Vec::with_capacity(self.tex_prefix.len() + suffix.len() + 1);
+        bytes.push(b'\\');
+        bytes.extend_from_slice(self.tex_prefix.as_bytes());
+        bytes.extend_from_slice(suffix.as_bytes());
+        bytes.extend(b"{}");
+        Some(bytes)
     }
 }
 

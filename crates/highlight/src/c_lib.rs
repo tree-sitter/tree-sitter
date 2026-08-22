@@ -6,7 +6,7 @@ use std::{
 use regex::Regex;
 use tree_sitter::{Language, ffi};
 
-use super::{Error, Highlight, HighlightConfiguration, Highlighter, HtmlRenderer};
+use super::{Error, Highlight, HighlightConfiguration, Highlighter, HtmlRenderer, Renderer};
 
 pub struct TSHighlighter {
     pub languages: HashMap<String, (Option<Regex>, HighlightConfiguration)>,
@@ -15,9 +15,10 @@ pub struct TSHighlighter {
     pub carriage_return_index: Option<usize>,
 }
 
-pub struct TSHighlightBuffer {
+#[derive(Default)]
+pub struct TSHighlightBuffer<T: Renderer = HtmlRenderer> {
     highlighter: Highlighter,
-    renderer: HtmlRenderer,
+    renderer: T,
 }
 
 #[repr(C)]
@@ -151,10 +152,7 @@ pub unsafe extern "C" fn ts_highlighter_add_language(
 
 #[unsafe(no_mangle)]
 pub extern "C" fn ts_highlight_buffer_new() -> *mut TSHighlightBuffer {
-    Box::into_raw(Box::new(TSHighlightBuffer {
-        highlighter: Highlighter::new(),
-        renderer: HtmlRenderer::new(),
-    }))
+    Box::into_raw(Box::new(TSHighlightBuffer::default()))
 }
 
 /// Deletes a [`TSHighlighter`] instance.
@@ -201,8 +199,8 @@ pub unsafe extern "C" fn ts_highlight_buffer_delete(this: *mut TSHighlightBuffer
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn ts_highlight_buffer_content(this: *const TSHighlightBuffer) -> *const u8 {
     unsafe {
-        let this = unwrap_ptr(this);
-        this.renderer.html.as_slice().as_ptr()
+        let this = unwrap_mut_ptr(this as *mut TSHighlightBuffer);
+        this.renderer.content().as_slice().as_ptr()
     }
 }
 
@@ -222,8 +220,8 @@ pub unsafe extern "C" fn ts_highlight_buffer_line_offsets(
     this: *const TSHighlightBuffer,
 ) -> *const u32 {
     unsafe {
-        let this = unwrap_ptr(this);
-        this.renderer.line_offsets.as_slice().as_ptr()
+        let this = unwrap_mut_ptr(this as *mut TSHighlightBuffer);
+        this.renderer.line_offsets().as_slice().as_ptr()
     }
 }
 
@@ -236,8 +234,8 @@ pub unsafe extern "C" fn ts_highlight_buffer_line_offsets(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn ts_highlight_buffer_len(this: *const TSHighlightBuffer) -> u32 {
     unsafe {
-        let this = unwrap_ptr(this);
-        this.renderer.html.len() as u32
+        let this = unwrap_mut_ptr(this as *mut TSHighlightBuffer);
+        this.renderer.content().len() as u32
     }
 }
 
@@ -250,8 +248,8 @@ pub unsafe extern "C" fn ts_highlight_buffer_len(this: *const TSHighlightBuffer)
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn ts_highlight_buffer_line_count(this: *const TSHighlightBuffer) -> u32 {
     unsafe {
-        let this = unwrap_ptr(this);
-        this.renderer.line_offsets.len() as u32
+        let this = unwrap_mut_ptr(this as *mut TSHighlightBuffer);
+        this.renderer.line_offsets().len() as u32
     }
 }
 
