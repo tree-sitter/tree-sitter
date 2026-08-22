@@ -360,6 +360,7 @@ static const TSSymbol WILDCARD_SYMBOL = 0;
 // Entering or leaving a node costs one, plus one for each in-progress state,
 // because every step visits all of them.
 static const unsigned WORK_PER_QUERY_CALLBACK_CHECK = 1000;
+static const unsigned MAX_QUERY_PATTERN_DEPTH = 100;
 
 /**********
  * Stream
@@ -2400,12 +2401,14 @@ static TSQueryError ts_query__parse_pattern(
   TSQuery *self,
   Stream *stream,
   uint32_t depth,
+  uint32_t nesting_depth,
   bool is_immediate,
   bool is_inside_alternation,
   CaptureQuantifiers *capture_quantifiers
 ) {
   if (stream->next == 0) return TSQueryErrorSyntax;
   if (stream->next == ')' || stream->next == ']') return PARENT_DONE;
+  if (nesting_depth >= MAX_QUERY_PATTERN_DEPTH) return TSQueryErrorStructure;
 
   const uint32_t starting_step_index = self->steps.size;
 
@@ -2434,6 +2437,7 @@ static TSQueryError ts_query__parse_pattern(
         self,
         stream,
         depth,
+        nesting_depth + 1,
         is_immediate,
         true,
         &branch_capture_quantifiers
@@ -2510,6 +2514,7 @@ static TSQueryError ts_query__parse_pattern(
           self,
           stream,
           depth,
+          nesting_depth + 1,
           child_is_immediate,
           is_inside_alternation,
           &child_capture_quantifiers
@@ -2749,6 +2754,7 @@ static TSQueryError ts_query__parse_pattern(
           self,
           stream,
           depth + 1,
+          nesting_depth + 1,
           child_is_immediate,
           is_inside_alternation,
           &child_capture_quantifiers
@@ -2861,6 +2867,7 @@ static TSQueryError ts_query__parse_pattern(
       self,
       stream,
       depth,
+      nesting_depth + 1,
       is_immediate,
       is_inside_alternation,
       &field_capture_quantifiers
@@ -3069,7 +3076,7 @@ TSQuery *ts_query_new(
       .is_non_local = false,
     }));
     CaptureQuantifiers capture_quantifiers = capture_quantifiers_new();
-    *error_type = ts_query__parse_pattern(self, &stream, 0, false, false, &capture_quantifiers);
+    *error_type = ts_query__parse_pattern(self, &stream, 0, 0, false, false, &capture_quantifiers);
     array_push(&self->steps, query_step__new(0, PATTERN_DONE_MARKER, false));
 
     QueryPattern *pattern = array_back(&self->patterns);
