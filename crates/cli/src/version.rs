@@ -46,6 +46,8 @@ impl std::fmt::Display for UpdateErrors {
 pub enum UpdateError {
     #[error("Failed to update {1}:\n{0}")]
     Io(std::io::Error, PathBuf),
+    #[error("Failed to update {1}:\n{0}")]
+    Json(serde_json::Error, PathBuf),
     #[error("Failed to run `{0}`:\n{1}")]
     Command(&'static str, String),
 }
@@ -129,7 +131,9 @@ impl Version {
         push_err(self.update_cargo_toml()).then(|| push_err(self.update_cargo_lock()));
 
         // Only update package-lock.json if package.json was updated
-        push_err(self.update_package_json()).then(|| push_err(self.update_package_lock_json()));
+        if !push_err(self.update_package_json()) {
+            push_err(self.update_package_lock_json());
+        }
 
         push_err(self.update_makefile(is_multigrammar));
         push_err(self.update_cmakelists_txt());
@@ -266,23 +270,27 @@ impl Version {
     }
 
     fn update_package_lock_json(&self) -> Result<(), UpdateError> {
-        if self.current_dir.join("package-lock.json").exists() {
-            let Ok(cmd) = Command::new("npm")
-                .arg("install")
-                .arg("--package-lock-only")
-                .current_dir(&self.current_dir)
-                .output()
-            else {
-                return Ok(()); // npm is not `executable`, ignore
-            };
-
-            if !cmd.status.success() {
-                let stderr = String::from_utf8_lossy(&cmd.stderr);
-                return Err(UpdateError::Command("npm install", stderr.to_string()));
-            }
+        let lock_path = self.current_dir.join("package-lock.json");
+        if !lock_path.exists() {
+            return Ok(());
         }
 
-        Ok(())
+        let content =
+            fs::read_to_string(&lock_path).map_err(|e| UpdateError::Io(e, lock_path.clone()))?;
+        let mut lock = serde_json::from_str::<serde_json::Value>(&content)
+            .map_err(|e| UpdateError::Json(e, lock_path.clone()))?;
+        let version = serde_json::Value::String(self.version.as_ref().unwrap().to_string());
+
+        if let Some(lock_version) = lock.get_mut("version") {
+            *lock_version = version.clone();
+        }
+        if let Some(root_version) = lock.pointer_mut("/packages//version") {
+            *root_version = version;
+        }
+
+        let updated_content = serde_json::to_string_pretty(&lock)
+            .map_err(|e| UpdateError::Json(e, lock_path.clone()))?;
+        fs::write(&lock_path, updated_content + "\n").map_err(|e| UpdateError::Io(e, lock_path))
     }
 
     fn update_makefile(&self, is_multigrammar: bool) -> Result<(), UpdateError> {
