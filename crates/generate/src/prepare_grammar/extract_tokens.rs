@@ -4,8 +4,12 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::{
-    grammars::{ExternalToken, InputGrammar, VariableType},
-    prepare_grammar::intern_symbols::InternedGrammarMeta,
+    grammars::{ExternalToken, InputGrammar, LexicalGrammar, VariableType},
+    prepare_grammar::{
+        LexicalToken,
+        expand_tokens::{ExpandTokensResult, expand_tokens},
+        intern_symbols::InternedGrammarMeta,
+    },
     rules::{MetadataParams, Rule, RuleId, RulePool, Symbol},
     strpool::StrId,
 };
@@ -58,22 +62,13 @@ impl std::fmt::Display for NonTerminalWordTokenError {
     }
 }
 
-/// A single extracted token.
-#[derive(Clone, Debug)]
-pub struct LexicalToken {
-    /// Generated for anon tokens, rule name for absorbed variables
-    pub name: StrId,
-    pub kind: VariableType,
-    /// Pool root defining this token
-    pub root: RuleId,
-}
-
-/// The extra pass's outputs besides the in-place rewrites.
+/// Syntax grammar metadata produced during token extraction.
+///
+/// Its symbols are resolved to their final indices before deferred pool rewrites
+/// are committed.
 #[derive(Clone, Debug, Default)]
 pub(super) struct ExtractedGrammarMeta {
     pub kinds: Vec<VariableType>,
-    pub lexical_variables: Vec<LexicalToken>,
-    pub separator_roots: Vec<RuleId>,
     pub extra_symbols: Vec<Symbol>,
     pub external_tokens: Vec<ExternalToken>,
     pub reserved_sets: Vec<(StrId, Vec<Symbol>)>,
@@ -89,6 +84,8 @@ struct TokenExtractor {
     lexical: Vec<LexicalToken>,
     usage_counts: Vec<u32>,
     memo: FxHashMap<u64, Vec<u32>>,
+    /// Terminal rewrites deferred until lexical expansion has consumed the original pool nodes.
+    rewrites: Vec<(RuleId, u32)>,
 }
 
 impl TokenExtractor {
@@ -137,7 +134,8 @@ impl TokenExtractor {
         Ok(index)
     }
 
-    /// In-place token extraction over one root.
+    /// Token extraction over one root. Records each terminal rewrite so that all
+    /// roots are inspected before any shared pool node is mutated.
     ///  - `String`/`Pattern`: always extracted
     ///  - `token(...)`: metadata extracts the inner child when no other metadata
     ///    params are set, otherwise the whole metadata node
@@ -163,7 +161,7 @@ impl TokenExtractor {
                         &mut aux_token_count,
                         is_first,
                     )?;
-                    pool.set_node(id, Rule::from(Symbol::terminal(i as usize)));
+                    self.rewrites.push((id, i));
                 }
                 Rule::Pattern(..) => {
                     let i = self.extract_token(
@@ -174,7 +172,7 @@ impl TokenExtractor {
                         &mut aux_token_count,
                         is_first,
                     )?;
-                    pool.set_node(id, Rule::from(Symbol::terminal(i as usize)));
+                    self.rewrites.push((id, i));
                 }
                 Rule::Metadata { params, rule } => {
                     let p = pool.params(params);
@@ -200,7 +198,7 @@ impl TokenExtractor {
                             &mut aux_token_count,
                             is_first,
                         )?;
-                        pool.set_node(id, Rule::from(Symbol::terminal(i as usize)));
+                        self.rewrites.push((id, i));
                     } else {
                         stack.push(rule);
                     }
@@ -217,7 +215,7 @@ impl TokenExtractor {
         Ok(())
     }
 
-    /// Structural lookup
+    /// Find the lexical token whose body is structurally equal to `root`.
     fn find(&self, pool: &RulePool, root: RuleId) -> Option<u32> {
         self.memo.get(&pool.subtree_hash(root)).and_then(|cands| {
             cands
@@ -226,12 +224,122 @@ impl TokenExtractor {
                 .find(|&i| pool.subtree_eq(self.lexical[i as usize].root, root))
         })
     }
+
+    /// Sort pending rewrites for lookup and coalesce duplicate visits to shared nodes.
+    fn finalize_rewrites(&mut self) {
+        self.rewrites
+            .sort_unstable_by_key(|(id, token)| (id.index(), *token));
+        self.rewrites.dedup();
+        // Discovery only observes unmodified subtrees, so a node can map to just
+        // one terminal. The binary search in [`Self::symbol_after_rewrites`] and
+        // the commit loop both rely on the keys being unique.
+        debug_assert!(
+            self.rewrites
+                .windows(2)
+                .all(|w| w[0].0.index() != w[1].0.index())
+        );
+    }
+
+    /// Return the symbol `id` will contain after committing pending rewrites, without
+    /// mutating the pool.
+    fn symbol_after_rewrites(&self, pool: &RulePool, id: RuleId) -> Option<Symbol> {
+        self.rewrites
+            .binary_search_by_key(&id.index(), |(id, _)| id.index())
+            .ok()
+            .map(|i| Symbol::terminal(self.rewrites[i].1 as usize))
+            .or_else(|| pool.node(id).symbol())
+    }
 }
 
-pub(super) fn extract_tokens(
-    g: &mut InputGrammar,
+/// Token extraction's pending result.
+///
+/// A mutable borrow is held onto the [`InputGrammar`] to prevent other passes from
+/// changing the pool while token and separator roots still refer to their original
+/// bodies. [`Self::expand_and_commit`] consumes this, expands the bodies, and commits the
+/// deferred terminal rewrites and renumbers symbols.
+pub(super) struct PendingTokenExtraction<'g> {
+    grammar: &'g mut InputGrammar,
+    meta: ExtractedGrammarMeta,
+    lexical_variables: Vec<LexicalToken>,
+    separator_roots: Vec<RuleId>,
+    rewrites: Vec<(RuleId, u32)>,
+    syntax_variable_replacements: FxHashMap<u32, u32>,
+    syntax_variable_shift: Vec<u32>,
+    stack: Vec<RuleId>,
+}
+
+impl PendingTokenExtraction<'_> {
+    /// Expand the token and separator roots, then commit the terminal rewrites and
+    /// renumber the remaining syntax symbols.
+    pub(super) fn expand_and_commit(
+        self,
+    ) -> ExpandTokensResult<(ExtractedGrammarMeta, LexicalGrammar)> {
+        let Self {
+            grammar,
+            meta,
+            lexical_variables,
+            separator_roots,
+            rewrites,
+            syntax_variable_replacements,
+            syntax_variable_shift,
+            mut stack,
+        } = self;
+
+        let lexical_grammar =
+            expand_tokens(&mut grammar.pool, &lexical_variables, &separator_roots)?;
+
+        for (id, token_index) in rewrites {
+            grammar
+                .pool
+                .set_node(id, Rule::from(Symbol::terminal(token_index as usize)));
+        }
+
+        let replace_symbol = |symbol: Symbol| {
+            if !symbol.is_non_terminal() {
+                return symbol;
+            }
+
+            syntax_variable_replacements.get(&symbol.index).map_or_else(
+                || {
+                    Symbol::non_terminal(
+                        symbol.index as usize
+                            - syntax_variable_shift[symbol.index as usize] as usize,
+                    )
+                },
+                |&token_index| Symbol::terminal(token_index as usize),
+            )
+        };
+
+        if !syntax_variable_replacements.is_empty() {
+            let mut renumbered_nodes = vec![false; grammar.pool.node_count()];
+            for variable in &grammar.variables {
+                renumber_root(
+                    &mut grammar.pool,
+                    variable.root,
+                    &replace_symbol,
+                    &mut stack,
+                    &mut renumbered_nodes,
+                );
+            }
+            for &root in &grammar.external_roots {
+                renumber_root(
+                    &mut grammar.pool,
+                    root,
+                    &replace_symbol,
+                    &mut stack,
+                    &mut renumbered_nodes,
+                );
+            }
+        }
+
+        Ok((meta, lexical_grammar))
+    }
+}
+
+pub(super) fn extract_tokens<'g>(
+    g: &'g mut InputGrammar,
     interned: &InternedGrammarMeta,
-) -> ExtractTokensResult<ExtractedGrammarMeta> {
+) -> ExtractTokensResult<PendingTokenExtraction<'g>> {
     let mut extractor = TokenExtractor::default();
     let mut stack = Vec::new();
 
@@ -241,6 +349,7 @@ pub(super) fn extract_tokens(
     for (&root, &(name, _)) in g.external_roots.iter().zip(&interned.external_tokens) {
         extractor.extract_in_root(&mut g.pool, root, name, false, &mut stack)?;
     }
+    extractor.finalize_rewrites();
 
     // If a variable's entire rule was extracted as a token and that token didn't
     // appear within any other rule, then remove that variable from the syntax
@@ -257,7 +366,7 @@ pub(super) fn extract_tokens(
     retained.push(g.variables[0]);
     kinds.push(interned.kinds[0]);
     for (i, v) in g.variables.iter().enumerate().skip(1) {
-        if let Some(sym) = g.pool.node(v.root).symbol()
+        if let Some(sym) = extractor.symbol_after_rewrites(&g.pool, v.root)
             && sym.is_terminal()
             && extractor.usage_counts[sym.index as usize] == 1
         {
@@ -294,13 +403,6 @@ pub(super) fn extract_tokens(
         )
     };
 
-    for v in &g.variables {
-        renumber_root(&mut g.pool, v.root, &replace_symbol, &mut stack);
-    }
-    for &root in &g.external_roots {
-        renumber_root(&mut g.pool, root, &replace_symbol, &mut stack);
-    }
-
     // Renumber each conflict through absorption, then canonicalize
     let conflicts = interned
         .conflicts
@@ -333,11 +435,18 @@ pub(super) fn extract_tokens(
 
     let inline = interned.inline.iter().map(|&s| replace_symbol(s)).collect();
 
+    // Resolve each metadata root to the symbol it will represent after token extraction.
+    // If that symbol is still a non terminal, adjust its index for any grammar
+    // variables removed above. The syntax rules are renumbered only after all metadata
+    // roots have been resolved.
     let mut separator_roots = Vec::new();
     let mut extra_symbols = Vec::with_capacity(g.extra_roots.len());
     for &root in &g.extra_roots {
-        if let Some(s) = g.pool.node(root).symbol() {
-            extra_symbols.push(replace_symbol(s));
+        if let Some(s) = extractor
+            .symbol_after_rewrites(&g.pool, root)
+            .map(replace_symbol)
+        {
+            extra_symbols.push(s);
         } else if let Some(i) = extractor.find(&g.pool, root) {
             extra_symbols.push(Symbol::terminal(i as usize));
         } else {
@@ -347,7 +456,10 @@ pub(super) fn extract_tokens(
 
     let mut external_tokens = Vec::with_capacity(g.external_roots.len());
     for (&root, &(name, kind)) in g.external_roots.iter().zip(&interned.external_tokens) {
-        let Some(s) = g.pool.node(root).symbol() else {
+        let Some(s) = extractor
+            .symbol_after_rewrites(&g.pool, root)
+            .map(replace_symbol)
+        else {
             Err(ExtractTokensError::NonSymbolExternalToken)?
         };
         if s.is_non_terminal() {
@@ -397,8 +509,11 @@ pub(super) fn extract_tokens(
     for set in &g.reserved_sets {
         let mut symbols = Vec::with_capacity(set.roots.len());
         for &root in &set.roots {
-            if let Some(s) = g.pool.node(root).symbol() {
-                symbols.push(replace_symbol(s));
+            if let Some(s) = extractor
+                .symbol_after_rewrites(&g.pool, root)
+                .map(replace_symbol)
+            {
+                symbols.push(s);
             } else if let Some(i) = extractor.find(&g.pool, root) {
                 symbols.push(Symbol::terminal(i as usize));
             } else {
@@ -416,10 +531,8 @@ pub(super) fn extract_tokens(
         reserved_sets.push((set.name, symbols));
     }
 
-    Ok(ExtractedGrammarMeta {
+    let meta = ExtractedGrammarMeta {
         kinds,
-        lexical_variables: extractor.lexical,
-        separator_roots,
         extra_symbols,
         external_tokens,
         reserved_sets,
@@ -427,18 +540,34 @@ pub(super) fn extract_tokens(
         conflicts,
         inline,
         word,
+    };
+    Ok(PendingTokenExtraction {
+        grammar: g,
+        meta,
+        lexical_variables: extractor.lexical,
+        separator_roots,
+        rewrites: extractor.rewrites,
+        syntax_variable_replacements: replacements,
+        syntax_variable_shift: shift,
+        stack,
     })
 }
 
+/// Renumber nodes reachable from `root`, skipping every node already reached via
+/// another root in this renumbering pass.
 fn renumber_root(
     pool: &mut RulePool,
     root: RuleId,
     replace: &impl Fn(Symbol) -> Symbol,
     stack: &mut Vec<RuleId>,
+    visited: &mut [bool],
 ) {
     stack.clear();
     stack.push(root);
     while let Some(id) = stack.pop() {
+        if std::mem::replace(&mut visited[id.index()], true) {
+            continue;
+        }
         match pool.node(id) {
             Rule::Sym { kind, index } => {
                 let s = Symbol { kind, index };
@@ -498,7 +627,36 @@ mod test {
             Variable { name: pool.intern("rule_3"), root: r3 },
         ];
         let mut grammar = pool_grammar(pool, variables);
-        let ext = extract(&mut grammar).unwrap();
+        let pending = extract_pending(&mut grammar).unwrap();
+
+        // Token extraction must preserve each original token body until lexical
+        // expansion runs.
+        let roots = pending
+            .lexical_variables
+            .iter()
+            .map(|v| v.root)
+            .collect::<Vec<_>>();
+        {
+            let pool = &mut pending.grammar.pool;
+
+            let e0 = str(pool, "a");
+            assert!(pool.subtree_eq(roots[0], e0));
+
+            let e1 = pat(pool, "b");
+            assert!(pool.subtree_eq(roots[1], e1));
+
+            let e2 = {
+                let (c, d) = (str(pool, "c"), str(pool, "d"));
+                let cd = pool.choice(&[c, d]);
+                pool.repeat(cd)
+            };
+            assert!(pool.subtree_eq(roots[2], e2));
+
+            let e3 = pat(pool, "e");
+            assert!(pool.subtree_eq(roots[3], e3));
+        }
+
+        let (ext, lexical_grammar) = pending.expand_and_commit().unwrap();
 
         // rule_1 was absorbed into the lexical grammar, rule_0, rule_2, and rule_3 remain
         let names = grammar
@@ -555,8 +713,8 @@ mod test {
 
         // `/e/` is used in exactly one place (as rule_1's whole body), so rule_1
         // was absorbed into the lexical grammar (and donated its name to the token).
-        let lex = ext
-            .lexical_variables
+        let lex = lexical_grammar
+            .variables
             .iter()
             .map(|v| (grammar.pool.resolve(v.name), v.kind))
             .collect::<Vec<_>>();
@@ -569,24 +727,6 @@ mod test {
                 ("rule_1", VariableType::Named),
             ]
         );
-        let roots = ext
-            .lexical_variables
-            .iter()
-            .map(|v| v.root)
-            .collect::<Vec<_>>();
-        let e0 = str(&mut grammar.pool, "a");
-        assert!(grammar.pool.subtree_eq(roots[0], e0));
-        let e1 = pat(&mut grammar.pool, "b");
-        assert!(grammar.pool.subtree_eq(roots[1], e1));
-        let e2 = {
-            let p = &mut grammar.pool;
-            let (c, d) = (str(p, "c"), str(p, "d"));
-            let cd = p.choice(&[c, d]);
-            p.repeat(cd)
-        };
-        assert!(grammar.pool.subtree_eq(roots[2], e2));
-        let e3 = pat(&mut grammar.pool, "e");
-        assert!(grammar.pool.subtree_eq(roots[3], e3));
     }
 
     #[test]
@@ -600,7 +740,13 @@ mod test {
             root: r0,
         }];
         let mut grammar = pool_grammar(pool, variables);
-        let ext = extract(&mut grammar).unwrap();
+        let pending = extract_pending(&mut grammar).unwrap();
+
+        let root = pending.lexical_variables[0].root;
+        let expected = str(&mut pending.grammar.pool, "hello");
+        assert!(pending.grammar.pool.subtree_eq(root, expected));
+
+        let (_, lexical_grammar) = pending.expand_and_commit().unwrap();
 
         let names = grammar
             .variables
@@ -616,14 +762,12 @@ mod test {
             }
         );
 
-        let lex = ext
-            .lexical_variables
+        let lex = lexical_grammar
+            .variables
             .iter()
             .map(|v| (grammar.pool.resolve(v.name), v.kind))
             .collect::<Vec<_>>();
         assert_eq!(lex, [("hello", VariableType::Anonymous)]);
-        let e = str(&mut grammar.pool, "hello");
-        assert!(grammar.pool.subtree_eq(ext.lexical_variables[0].root, e));
     }
 
     #[test]
@@ -648,15 +792,18 @@ mod test {
         ];
         let mut grammar = pool_grammar(pool, variables);
         grammar.extra_roots = vec![sep, extra_ref];
-        let ext = extract(&mut grammar).unwrap();
+        let pending = extract_pending(&mut grammar).unwrap();
 
-        // comment's `//.*` was single use-> absorbed by terminal(1), so the extra ref
-        // resolves to it
-        assert_eq!(ext.extra_symbols, [Symbol::terminal(1)]);
+        // The single use `comment` rule `//.*` is absorbed as `terminal(1)`, so
+        // its extra reference becomes `extra_symbols[0]`.
+        assert_eq!(pending.separator_roots.len(), 1);
+        let separator_root = pending.separator_roots[0];
         // the " " string routes to separators, not a token symbol
-        assert_eq!(ext.separator_roots.len(), 1);
-        let e = str(&mut grammar.pool, " ");
-        assert!(grammar.pool.subtree_eq(ext.separator_roots[0], e));
+        let expected = str(&mut pending.grammar.pool, " ");
+        assert!(pending.grammar.pool.subtree_eq(separator_root, expected));
+
+        let (ext, _) = pending.expand_and_commit().unwrap();
+        assert_eq!(ext.extra_symbols, [Symbol::terminal(1)]);
     }
 
     #[test]
@@ -694,7 +841,7 @@ mod test {
         let rule_2 = pool.intern("rule_2");
         let mut grammar = pool_grammar(pool, variables);
         grammar.external_roots = vec![e0, ea, er2];
-        let ext = extract(&mut grammar).unwrap();
+        let (ext, _) = extract(&mut grammar).unwrap();
 
         assert_eq!(
             ext.external_tokens,
@@ -778,7 +925,13 @@ mod test {
             },
         ];
         let mut grammar = pool_grammar(pool, variables);
-        let ext = extract(&mut grammar).unwrap();
+        let pending = extract_pending(&mut grammar).unwrap();
+
+        let root = pending.lexical_variables[0].root;
+        let expected = str(&mut pending.grammar.pool, "a");
+        assert!(pending.grammar.pool.subtree_eq(root, expected));
+
+        let (ext, lexical_grammar) = pending.expand_and_commit().unwrap();
 
         let names = grammar
             .variables
@@ -798,14 +951,12 @@ mod test {
             Rule::Sym { kind: SymbolType::Terminal, index: 0 }
         );
 
-        let lex = ext
-            .lexical_variables
+        let lex = lexical_grammar
+            .variables
             .iter()
             .map(|v| (grammar.pool.resolve(v.name), v.kind))
             .collect::<Vec<_>>();
         assert_eq!(lex, [("a", VariableType::Anonymous)]);
-        let e = str(&mut grammar.pool, "a");
-        assert!(grammar.pool.subtree_eq(ext.lexical_variables[0].root, e));
     }
 
     #[test]
@@ -860,8 +1011,15 @@ mod test {
         }
     }
 
-    fn extract(g: &mut InputGrammar) -> ExtractTokensResult<ExtractedGrammarMeta> {
+    fn extract_pending(g: &mut InputGrammar) -> ExtractTokensResult<PendingTokenExtraction<'_>> {
         let meta = intern_symbols(g, &mut Vec::new()).unwrap();
         extract_tokens(g, &meta)
+    }
+
+    fn extract(
+        g: &mut InputGrammar,
+    ) -> ExtractTokensResult<(ExtractedGrammarMeta, LexicalGrammar)> {
+        let pending = extract_pending(g)?;
+        Ok(pending.expand_and_commit().unwrap())
     }
 }

@@ -14,9 +14,9 @@ use std::{
 };
 
 pub use expand_tokens::ExpandTokensError;
+#[cfg(test)]
+pub use expand_tokens::expand_tokens;
 pub use extract_tokens::ExtractTokensError;
-#[cfg(test)] // TODO: Is this defined in the proper place?
-pub use extract_tokens::LexicalToken;
 pub use flatten_grammar::FlattenGrammarError;
 use indexmap::IndexMap;
 pub use intern_symbols::InternSymbolsError;
@@ -26,11 +26,10 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::{
-    grammars::{InputGrammar, PrecedenceEntry, ProductionStore},
+    grammars::{InputGrammar, PrecedenceEntry, ProductionStore, VariableType},
     strpool::StrPool,
 };
 
-pub use self::expand_tokens::expand_tokens;
 use self::{
     expand_repeats::{ExpandRepeatsError, expand_repeats},
     extract_default_aliases::extract_default_aliases,
@@ -43,7 +42,7 @@ use super::{
     Diagnostic,
     grammars::{InlinedProductionMap, LexicalGrammar, SyntaxGrammar},
     prepare_grammar::flatten_grammar::{FlattenState, assemble_syntax_grammar},
-    rules::{AliasMap, Precedence, Rule},
+    rules::{AliasMap, Precedence, Rule, RuleId},
     strpool::StrId,
 };
 
@@ -109,6 +108,20 @@ pub struct PreparedGrammar {
     pub str_pool: StrPool,
 }
 
+/// A token extracted from the input grammar but not yet expanded into the lexical NFA.
+///
+/// Token extraction creates this while `root` still points to the original rule in
+/// the pool. [`PendingTokenExtraction::expand_and_commit`] passes them to `expand_tokens`
+/// before committing the deferred syntax rewrites.
+#[derive(Clone, Debug)]
+pub struct LexicalToken {
+    /// Generated for anon tokens, rule name for absorbed variables
+    pub name: StrId,
+    pub kind: VariableType,
+    /// Pool root defining this token
+    pub root: RuleId,
+}
+
 /// Transform an input grammar into separate components that are ready
 /// for parse table construction.
 pub fn prepare_grammar(
@@ -119,21 +132,17 @@ pub fn prepare_grammar(
     validate_indirect_recursion(&g)?;
 
     let interned_meta = intern_symbols(&mut g, diagnostics)?;
-    let mut ext_meta = extract_tokens(&mut g, &interned_meta)?;
+    let pending_tokens = extract_tokens(&mut g, &interned_meta)?;
+    let (mut ext_meta, lexical_grammar) = pending_tokens.expand_and_commit()?;
     expand_repeats(&mut g, &mut ext_meta)?;
 
     let mut state = FlattenState::default();
     let mut out = ProductionStore::default();
     flatten_grammar(&g, &ext_meta, &mut state, &mut out)?;
 
-    let lexical_grammar = expand_tokens(
-        &mut g.pool,
-        &ext_meta.lexical_variables,
-        &ext_meta.separator_roots,
-    )?;
-
-    let default_aliases = extract_default_aliases(&g, &ext_meta, &mut out);
-    let inlines = process_inlines(&g, &ext_meta, &mut out)?;
+    let default_aliases =
+        extract_default_aliases(&g, &ext_meta, &lexical_grammar.variables, &mut out);
+    let inlines = process_inlines(&g, &ext_meta, &lexical_grammar.variables, &mut out)?;
 
     let (syntax_grammar, str_pool) = assemble_syntax_grammar(g, ext_meta, out);
     Ok(PreparedGrammar {
@@ -308,8 +317,8 @@ fn validate_precedences(grammar: &InputGrammar) -> ValidatePrecedenceResult<()> 
 mod tests {
     use super::*;
     use crate::{
-        grammars::Variable,
-        rules::{RuleId, RulePool},
+        grammars::{ProductionStep, Variable, VariableType},
+        rules::{RuleId, RulePool, Symbol},
     };
 
     #[test]
@@ -460,6 +469,352 @@ mod tests {
         for (g, expected) in &[(case1, Err(err1)), (case2, Ok(())), (case3, Err(err3))] {
             assert_eq!(*expected, validate_indirect_recursion(g));
         }
+    }
+
+    #[test]
+    fn test_token_body_shared_with_syntax() {
+        let grammar = build_grammar(|p| {
+            let a = leaf(p, "a");
+            let b = leaf(p, "b");
+            let shared = p.seq(&[a, b]);
+            let token = p.token(shared);
+            let program = {
+                let t = named(p, "t");
+                let x = named(p, "x");
+                p.seq(&[t, x])
+            };
+
+            vec![
+                Variable {
+                    name: p.intern("program"),
+                    root: program,
+                },
+                Variable {
+                    name: p.intern("t"),
+                    root: token,
+                },
+                Variable {
+                    name: p.intern("x"),
+                    root: shared,
+                },
+            ]
+        });
+
+        let prepared = prepare_grammar(grammar, &mut Vec::new()).unwrap();
+
+        let syntax_variables = prepared
+            .syntax_grammar
+            .variables
+            .iter()
+            .map(|variable| (prepared.str_pool.resolve(variable.name), variable.kind))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            syntax_variables,
+            [("program", VariableType::Named), ("x", VariableType::Named),]
+        );
+
+        let lexical_variables = prepared
+            .lexical_grammar
+            .variables
+            .iter()
+            .map(|variable| {
+                (
+                    prepared.str_pool.resolve(variable.name),
+                    variable.kind,
+                    variable.implicit_precedence,
+                    variable.start_state,
+                )
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            lexical_variables,
+            [
+                ("t", VariableType::Named, 0, 2),
+                ("a", VariableType::Anonymous, 2, 4),
+                ("b", VariableType::Anonymous, 2, 6),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_token_body_shared_with_syntax_reversed() {
+        let grammar = build_grammar(|p| {
+            let a = leaf(p, "a");
+            let b = leaf(p, "b");
+            let shared = p.seq(&[a, b]);
+            let token = p.token(shared);
+            let program = {
+                let x = named(p, "x");
+                let t = named(p, "t");
+                p.seq(&[x, t])
+            };
+
+            vec![
+                Variable {
+                    name: p.intern("program"),
+                    root: program,
+                },
+                Variable {
+                    name: p.intern("x"),
+                    root: shared,
+                },
+                Variable {
+                    name: p.intern("t"),
+                    root: token,
+                },
+            ]
+        });
+
+        let prepared = prepare_grammar(grammar, &mut Vec::new()).unwrap();
+
+        let syntax_variables = prepared
+            .syntax_grammar
+            .variables
+            .iter()
+            .map(|variable| (prepared.str_pool.resolve(variable.name), variable.kind))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            syntax_variables,
+            [("program", VariableType::Named), ("x", VariableType::Named),]
+        );
+
+        let lexical_variables = prepared
+            .lexical_grammar
+            .variables
+            .iter()
+            .map(|variable| {
+                (
+                    prepared.str_pool.resolve(variable.name),
+                    variable.kind,
+                    variable.implicit_precedence,
+                    variable.start_state,
+                )
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            lexical_variables,
+            [
+                ("a", VariableType::Anonymous, 2, 1),
+                ("b", VariableType::Anonymous, 2, 3),
+                ("t", VariableType::Named, 0, 6),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_separator_body_shared_with_syntax() {
+        let mut pool = RulePool::default();
+        let a = leaf(&mut pool, "a");
+        let b = leaf(&mut pool, "b");
+        let shared = pool.seq(&[a, b]);
+        let program = pool.intern("program");
+
+        let grammar = InputGrammar {
+            variables: vec![Variable {
+                name: program,
+                root: shared,
+            }],
+            extra_roots: vec![shared],
+            pool,
+            ..Default::default()
+        };
+
+        let prepared = prepare_grammar(grammar, &mut Vec::new()).unwrap();
+
+        let syntax_variables = prepared
+            .syntax_grammar
+            .variables
+            .iter()
+            .map(|variable| (prepared.str_pool.resolve(variable.name), variable.kind))
+            .collect::<Vec<_>>();
+        assert_eq!(syntax_variables, [("program", VariableType::Named)]);
+
+        let lexical_variables = prepared
+            .lexical_grammar
+            .variables
+            .iter()
+            .map(|variable| {
+                (
+                    prepared.str_pool.resolve(variable.name),
+                    variable.kind,
+                    variable.implicit_precedence,
+                    variable.start_state,
+                )
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            lexical_variables,
+            [
+                ("a", VariableType::Anonymous, 2, 5),
+                ("b", VariableType::Anonymous, 2, 11),
+            ]
+        );
+
+        assert!(prepared.syntax_grammar.extra_symbols.is_empty());
+    }
+
+    #[test]
+    fn test_shared_extra_symbol_is_renumbered_once() {
+        let mut pool = RulePool::default();
+
+        let target_ref = named(&mut pool, "target");
+        let program = {
+            let kw = named(&mut pool, "kw");
+            let keep = named(&mut pool, "keep");
+            pool.seq(&[kw, keep, target_ref])
+        };
+        let kw = leaf(&mut pool, "keyword");
+        let keep = {
+            let k = leaf(&mut pool, "k");
+            let e = leaf(&mut pool, "e");
+            pool.seq(&[k, e])
+        };
+        let target = {
+            let t = leaf(&mut pool, "t");
+            let g = leaf(&mut pool, "g");
+            pool.seq(&[t, g])
+        };
+
+        let grammar = InputGrammar {
+            variables: vec![
+                Variable {
+                    name: pool.intern("program"),
+                    root: program,
+                },
+                Variable {
+                    name: pool.intern("kw"),
+                    root: kw,
+                },
+                Variable {
+                    name: pool.intern("keep"),
+                    root: keep,
+                },
+                Variable {
+                    name: pool.intern("target"),
+                    root: target,
+                },
+            ],
+            extra_roots: vec![target_ref],
+            pool,
+            ..Default::default()
+        };
+
+        let prepared = prepare_grammar(grammar, &mut Vec::new()).unwrap();
+
+        let syntax_variables = prepared
+            .syntax_grammar
+            .variables
+            .iter()
+            .map(|variable| (prepared.str_pool.resolve(variable.name), variable.kind))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            syntax_variables,
+            [
+                ("program", VariableType::Named),
+                ("keep", VariableType::Named),
+                ("target", VariableType::Named),
+            ]
+        );
+
+        let lexical_variables = prepared
+            .lexical_grammar
+            .variables
+            .iter()
+            .map(|variable| {
+                (
+                    prepared.str_pool.resolve(variable.name),
+                    variable.kind,
+                    variable.implicit_precedence,
+                    variable.start_state,
+                )
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            lexical_variables,
+            [
+                ("kw", VariableType::Named, 2, 7),
+                ("k", VariableType::Anonymous, 2, 9),
+                ("e", VariableType::Anonymous, 2, 11),
+                ("t", VariableType::Anonymous, 2, 13),
+                ("g", VariableType::Anonymous, 2, 15),
+            ]
+        );
+
+        assert_eq!(
+            prepared.syntax_grammar.extra_symbols,
+            [Symbol::non_terminal(2)]
+        );
+    }
+
+    #[test]
+    fn test_shared_syntax_subtree_is_renumbered_once() {
+        let grammar = build_grammar(|p| {
+            let pair = {
+                let thing = named(p, "thing");
+                let dash = leaf(p, "-");
+                p.seq(&[thing, dash])
+            };
+            let item_b = {
+                let semicolon = leaf(p, ";");
+                p.seq(&[pair, semicolon])
+            };
+            let program = {
+                let kw = named(p, "kw");
+                let item_a = named(p, "item_a");
+                let item_b = named(p, "item_b");
+                p.seq(&[kw, item_a, item_b])
+            };
+            let kw = leaf(p, "keyword");
+            let thing = {
+                let t = leaf(p, "t");
+                let u = leaf(p, "u");
+                p.seq(&[t, u])
+            };
+
+            vec![
+                Variable {
+                    name: p.intern("program"),
+                    root: program,
+                },
+                Variable {
+                    name: p.intern("kw"),
+                    root: kw,
+                },
+                Variable {
+                    name: p.intern("item_a"),
+                    root: pair,
+                },
+                Variable {
+                    name: p.intern("item_b"),
+                    root: item_b,
+                },
+                Variable {
+                    name: p.intern("thing"),
+                    root: thing,
+                },
+            ]
+        });
+
+        let prepared = prepare_grammar(grammar, &mut Vec::new()).unwrap();
+
+        let expected_steps = [
+            ProductionStep::pack(
+                Symbol::non_terminal(3),
+                Precedence::None,
+                None,
+                None,
+                None,
+                0,
+            ),
+            ProductionStep::pack(Symbol::terminal(1), Precedence::None, None, None, None, 0),
+        ];
+
+        let production_ids = prepared.syntax_grammar.variable_prod_ids(1);
+        assert_eq!(production_ids.len(), 1);
+
+        let production = prepared.syntax_grammar.production(production_ids.start);
+        assert_eq!(production.steps, expected_steps);
+        assert_eq!(production.dynamic_precedence, 0);
     }
 
     fn named(pool: &mut RulePool, name: &str) -> RuleId {
