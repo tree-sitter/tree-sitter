@@ -636,7 +636,7 @@ fn generate_node_types(
     sort_subtype_map_topologically(&mut subtype_map, str_pool)?;
     apply_supertype_collapsing(&mut node_types_json, &subtype_map);
 
-    let anonymous_node_types = build_token_entries(
+    build_token_entries(
         &mut node_types_json,
         syntax_grammar,
         lexical_grammar,
@@ -645,7 +645,6 @@ fn generate_node_types(
     );
 
     let mut result = node_types_json.into_values().collect::<Vec<_>>();
-    result.extend(anonymous_node_types);
     result.sort_unstable_by(|a, b| {
         b.subtypes
             .is_some()
@@ -1006,8 +1005,7 @@ fn apply_supertype_collapsing(
     }
 }
 
-/// Add JSON entries for named tokens, returning the anonymous ones to be
-/// appended separately.
+/// Add JSON entries for visible tokens.
 #[cfg(feature = "load")]
 fn build_token_entries(
     node_types_json: &mut BTreeMap<NodeTypeRef, NodeInfoJSON>,
@@ -1015,9 +1013,8 @@ fn build_token_entries(
     lexical_grammar: &LexicalGrammar,
     aliases_by_symbol: &FxHashMap<Symbol, BTreeSet<Option<Alias>>>,
     extra_names: &FxHashSet<StrId>,
-) -> Vec<NodeInfoJSON> {
+) {
     let empty = BTreeSet::new();
-    let mut anonymous_node_types = Vec::new();
 
     let regular_tokens = lexical_grammar
         .variables
@@ -1055,44 +1052,35 @@ fn build_token_entries(
 
     for (&name, kind) in regular_tokens.chain(external_tokens) {
         match kind {
-            VariableType::Named => {
-                let node_type_json = node_types_json
-                    .entry(NodeTypeRef {
-                        kind: name,
-                        named: true,
+            VariableType::Named | VariableType::Anonymous => {
+                let named = kind == VariableType::Named;
+                node_types_json
+                    .entry(NodeTypeRef { kind: name, named })
+                    .and_modify(|node_type_json| {
+                        // This token is a leaf appearance of an existing node identity,
+                        // so children and fields from other appearances are optional.
+                        if let Some(children) = &mut node_type_json.children {
+                            children.required = false;
+                        }
+                        if let Some(fields) = &mut node_type_json.fields {
+                            for field in fields.values_mut() {
+                                field.required = false;
+                            }
+                        }
                     })
                     .or_insert_with(|| NodeInfoJSON {
                         kind: name,
-                        named: true,
+                        named,
                         root: false,
                         extra: extra_names.contains(&name),
                         fields: None,
                         children: None,
                         subtypes: None,
                     });
-                if let Some(children) = &mut node_type_json.children {
-                    children.required = false;
-                }
-                if let Some(fields) = &mut node_type_json.fields {
-                    for field in fields.values_mut() {
-                        field.required = false;
-                    }
-                }
             }
-            VariableType::Anonymous => anonymous_node_types.push(NodeInfoJSON {
-                kind: name,
-                named: false,
-                root: false,
-                extra: extra_names.contains(&name),
-                fields: None,
-                children: None,
-                subtypes: None,
-            }),
             _ => {}
         }
     }
-
-    anonymous_node_types
 }
 
 #[cfg(feature = "load")]
@@ -1877,10 +1865,62 @@ mod tests {
         assert_eq!(named, [false, true]);
     }
 
-    /// A supertype whose only child is a hidden external token
-    /// xgust not cause generation to panic. The subtype map must
-    /// skip entries with empty subtypes to avoid a lookup failure
-    /// in the topological sort.
+    #[test]
+    fn test_node_types_merge_anonymous_node_and_token_aliases() {
+        let mut pool = RulePool::default();
+        let node = named(&mut pool, "_node");
+        let node = alias(&mut pool, node, "same", false);
+        let token = string(&mut pool, "!");
+        let token = alias(&mut pool, token, "same", false);
+        let document = pool.choice(&[node, token]);
+        let node = {
+            let (value1, value2) = (named(&mut pool, "value"), named(&mut pool, "value"));
+            let suffix = string(&mut pool, "?");
+            pool.seq(&[value1, value2, suffix])
+        };
+        let value = pattern(&mut pool, "[a-z]+");
+        let same_name = pool.intern("same");
+        let value_name = pool.intern("value");
+        let node_types = get_node_types(InputGrammar {
+            variables: vec![
+                Variable {
+                    name: pool.intern("document"),
+                    root: document,
+                },
+                Variable {
+                    name: pool.intern("_node"),
+                    root: node,
+                },
+                Variable {
+                    name: value_name,
+                    root: value,
+                },
+            ],
+            pool,
+            ..Default::default()
+        })
+        .unwrap();
+
+        let aliases = node_types
+            .iter()
+            .filter(|node_type| node_type.kind == same_name && !node_type.named)
+            .collect::<Vec<_>>();
+        assert_eq!(aliases.len(), 1);
+        let children = aliases[0].children.as_ref().unwrap();
+        assert!(children.multiple);
+        assert!(!children.required);
+        assert_eq!(
+            children.types,
+            [NodeTypeRef {
+                kind: value_name,
+                named: true,
+            }]
+        );
+    }
+
+    /// A supertype whose only child is a hidden external token must not cause
+    /// generation to panic. The subtype map must skip entries with empty subtypes
+    /// to avoid a lookup failure in the topological sort.
     #[test]
     fn test_node_types_supertype_with_only_hidden_child() {
         let mut pool = RulePool::default();
