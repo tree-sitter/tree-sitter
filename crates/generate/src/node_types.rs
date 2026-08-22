@@ -829,8 +829,8 @@ fn build_supertype_entries(
     subtype_map
 }
 
-/// Add JSON entries for visible non-supertype rules, merged into every name
-/// they can appear under.
+/// Add JSON entries for visible non-supertype rules and aliased supertypes (treated
+/// as regular, concrete nodes), merged into every regular name they can appear under.
 #[cfg(feature = "load")]
 #[expect(
     clippy::too_many_arguments,
@@ -849,27 +849,29 @@ fn build_regular_entries(
     let empty = BTreeSet::new();
     for (i, info) in variable_info.iter().enumerate() {
         let symbol = Symbol::non_terminal(i);
-        if syntax_grammar.supertype_symbols.contains(&symbol)
-            || syntax_grammar.variables_to_inline.contains(&symbol)
-        {
+        // Inlined symbols don't have their own node-types entries.
+        if syntax_grammar.variables_to_inline.contains(&symbol) {
             continue;
         }
+        let is_supertype = syntax_grammar.supertype_symbols.contains(&symbol);
         let variable = &syntax_grammar.variables[i];
 
         // If a rule is aliased under multiple names, then its information
         // contributes to multiple entries in the final JSON.
         for alias in aliases_by_symbol.get(&symbol).unwrap_or(&empty) {
-            let kind;
-            let is_named;
-            if let Some(alias) = alias {
-                kind = &alias.value;
-                is_named = alias.is_named;
-            } else if variable.kind.is_visible() {
-                kind = &variable.name;
-                is_named = variable.kind == VariableType::Named;
-            } else {
+            // The canonical supertype is emitted separately with its subtypes.
+            // An alias of that supertype is treated as a regular, visible node
+            // and handled here.
+            if is_supertype && alias.is_none() {
                 continue;
             }
+            let (kind, is_named) = if let Some(alias) = alias {
+                (&alias.value, alias.is_named)
+            } else if variable.kind.is_visible() {
+                (&variable.name, variable.kind == VariableType::Named)
+            } else {
+                continue;
+            };
 
             // There may already be an entry with this name, because multiple
             // rules may be aliased with the same name.
@@ -1771,6 +1773,52 @@ mod tests {
                     .collect()
                 )
             }
+        );
+    }
+
+    #[test]
+    fn test_node_types_with_aliased_supertype() {
+        let mut pool = RulePool::default();
+        let expression = named(&mut pool, "_expression");
+        let document = alias(&mut pool, expression, "expression_target", true);
+        let expression = named(&mut pool, "identifier");
+        let identifier = pattern(&mut pool, "[a-z]+");
+        let expression_name = pool.intern("_expression");
+        let expression_target_name = pool.intern("expression_target");
+        let identifier_name = pool.intern("identifier");
+        let node_types = get_node_types(InputGrammar {
+            supertype_names: vec![expression_name],
+            variables: vec![
+                Variable {
+                    name: pool.intern("document"),
+                    root: document,
+                },
+                Variable {
+                    name: expression_name,
+                    root: expression,
+                },
+                Variable {
+                    name: identifier_name,
+                    root: identifier,
+                },
+            ],
+            pool,
+            ..Default::default()
+        })
+        .unwrap();
+
+        let alias = node_types
+            .iter()
+            .find(|node_type| node_type.kind == expression_target_name)
+            .expect("the aliased supertype should have its own node-types entry");
+        assert!(alias.named);
+        assert!(alias.subtypes.is_none());
+        assert_eq!(
+            alias.children.as_ref().unwrap().types,
+            [NodeTypeRef {
+                kind: identifier_name,
+                named: true,
+            }]
         );
     }
 
