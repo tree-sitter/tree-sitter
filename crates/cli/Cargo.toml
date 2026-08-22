@@ -55,6 +55,7 @@ serde.workspace = true
 serde_json.workspace = true
 similar.workspace = true
 streaming-iterator.workspace = true
+tempfile.workspace = true
 thiserror.workspace = true
 tiny_http.workspace = true
 walkdir.workspace = true
@@ -72,7 +73,6 @@ tree_sitter_proc_macro = { package = "tree-sitter-tests-proc-macro", path = "src
 widestring = "1.2.1"
 
 pretty_assertions.workspace = true
-tempfile.workspace = true
 
 [package.metadata.binstall]
 pkg-fmt = "zip"
