@@ -47,6 +47,16 @@ fn get_main_html(tree_sitter_dir: Option<&Path>) -> Cow<'static, [u8]> {
     )
 }
 
+fn render_main_html(tree_sitter_dir: Option<&Path>, grammar_name: &str) -> String {
+    let grammar_name = grammar_name
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;");
+    str::from_utf8(&get_main_html(tree_sitter_dir))
+        .unwrap()
+        .replace("THE_LANGUAGE_NAME", &grammar_name)
+}
+
 pub fn export(grammar_path: &Path, export_path: &Path) -> Result<()> {
     let (grammar_name, language_wasm) = wasm::load_language_wasm_file(grammar_path)?;
 
@@ -67,9 +77,7 @@ pub fn export(grammar_path: &Path, export_path: &Path) -> Result<()> {
     let has_local_lib_js = !lib_js.is_empty();
     let has_local_lib_wasm = !lib_wasm.is_empty();
 
-    let mut main_html = str::from_utf8(&get_main_html(tree_sitter_dir.as_deref()))
-        .unwrap()
-        .replace("THE_LANGUAGE_NAME", &grammar_name);
+    let mut main_html = render_main_html(tree_sitter_dir.as_deref(), &grammar_name);
 
     if !has_local_playground_js {
         main_html = main_html.replace(
@@ -123,10 +131,7 @@ pub fn serve(grammar_path: &Path, open_in_browser: bool) -> Result<()> {
     }
 
     let tree_sitter_dir = env::var("TREE_SITTER_BASE_DIR").map(PathBuf::from).ok();
-    let main_html = str::from_utf8(&get_main_html(tree_sitter_dir.as_deref()))
-        .unwrap()
-        .replace("THE_LANGUAGE_NAME", &grammar_name)
-        .into_bytes();
+    let main_html = render_main_html(tree_sitter_dir.as_deref(), &grammar_name).into_bytes();
     let playground_js = get_playground_js(tree_sitter_dir.as_deref());
     let lib_js = get_lib_js(tree_sitter_dir.as_deref());
     let lib_wasm = get_lib_wasm(tree_sitter_dir.as_deref());
@@ -208,4 +213,19 @@ fn get_listener_on_available_port(addr: &str) -> Option<TcpListener> {
 
 fn bind_to(addr: &str, port: u16) -> Option<TcpListener> {
     TcpListener::bind(format!("{addr}:{port}")).ok()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn main_html_escapes_the_grammar_name() {
+        let grammar_name = r#"</title><svg onload="alert(1)">"#;
+        let escaped_name = r#"&lt;/title&gt;&lt;svg onload="alert(1)"&gt;"#;
+        let main_html = render_main_html(None, grammar_name);
+
+        assert!(!main_html.contains(grammar_name));
+        assert_eq!(main_html.matches(escaped_name).count(), 2);
+    }
 }
