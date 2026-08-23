@@ -1,6 +1,7 @@
-use std::{num::NonZeroU32, rc::Rc};
+use std::{hash::BuildHasher as _, num::NonZeroU32};
 
-use rustc_hash::FxHashMap;
+use hashbrown::{HashTable, hash_table::Entry};
+use rustc_hash::FxBuildHasher;
 
 /// Interned string id, a 1-based index into the pool's string table
 #[derive(Clone, Copy, PartialEq, PartialOrd, Ord, Hash, Debug, Eq)]
@@ -20,6 +21,11 @@ impl StrId {
     }
 
     /// Inverse of [`Self::raw`]. Caller must pass a value produced by `raw`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `raw` is 0. The resulting [`StrId`] is not guaranteed to belong
+    /// to any particular pool.
     #[must_use]
     pub const fn from_raw(raw: u32) -> Self {
         Self(NonZeroU32::new(raw).unwrap())
@@ -32,17 +38,31 @@ impl Default for StrId {
     }
 }
 
+/// Byte ranges for interned strings.
+#[derive(Clone, Copy, Debug)]
+struct StrSpan {
+    start: u32,
+    end: u32,
+}
+
+/// An append-only pool containing UTF-8 strings. Supports up to [`u32::MAX`] bytes
+/// of unique strings.
 #[derive(Clone, Debug)]
 pub struct StrPool {
-    strs: Vec<Rc<str>>,
-    str_ids: FxHashMap<Rc<str>, StrId>,
+    /// Bytes of _every_ interned string, concatenated in intern order.
+    buf: String,
+    /// Byte ranges into `buf` for each string, indexed by [`StrId::index`]
+    spans: Vec<StrSpan>,
+    /// [`StrId`]s of every interned string
+    ids: HashTable<StrId>,
 }
 
 impl Default for StrPool {
     fn default() -> Self {
         let mut pool = Self {
-            strs: Vec::default(),
-            str_ids: FxHashMap::default(),
+            buf: String::new(),
+            spans: Vec::new(),
+            ids: HashTable::default(),
         };
         let empty_id = pool.intern("");
         debug_assert_eq!(empty_id, Self::EMPTY_STR_ID);
@@ -57,18 +77,54 @@ impl StrPool {
     pub const END_NAME_ID: StrId = StrId::from_raw(2);
 
     pub fn intern(&mut self, s: &str) -> StrId {
-        if let Some(&id) = self.str_ids.get(s) {
-            return id;
+        let Self { buf, spans, ids } = self;
+        let hash = FxBuildHasher.hash_one(s);
+        match ids.entry(
+            hash,
+            |&id| Self::span_str(buf, spans, id) == s,
+            |&id| FxBuildHasher.hash_one(Self::span_str(buf, spans, id)),
+        ) {
+            Entry::Occupied(entry) => *entry.get(),
+            Entry::Vacant(entry) => {
+                // The pool is specialized for use only in the generate crate. A
+                // pool that has accumulated more than 4GB of data is not a use
+                // case we support.
+                let start = buf.len();
+                let end = start
+                    .checked_add(s.len())
+                    .and_then(|end| u32::try_from(end).ok())
+                    .unwrap();
+                // The first two `StrId`s bootstrap `""` and `"end"`. After that,
+                // every new string is unique and nonempty, so the entry count remains
+                // strictly below the buffer length. The checked `end` bound then
+                // also proves that the next 1-based `StrId` fits in a `u32`.
+                let raw = spans.len() as u32 + 1;
+                // Checking the end proves that both the `start` and `end` fit.
+                let start = start as u32;
+
+                // SAFETY: `raw` >= 1
+                let id = StrId(unsafe { NonZeroU32::new_unchecked(raw) });
+                let span = StrSpan { start, end };
+
+                buf.push_str(s);
+                spans.push(span);
+                entry.insert(id);
+                id
+            }
         }
-        let owned: Rc<str> = Rc::from(s);
-        let id = StrId(NonZeroU32::new(self.strs.len() as u32 + 1).unwrap());
-        self.strs.push(Rc::clone(&owned));
-        self.str_ids.insert(owned, id);
-        id
     }
 
     #[must_use]
     pub fn resolve(&self, id: StrId) -> &str {
-        &self.strs[id.index()]
+        Self::span_str(&self.buf, &self.spans, id)
+    }
+
+    fn span_str<'a>(buf: &'a str, spans: &[StrSpan], id: StrId) -> &'a str {
+        let span = spans[id.index()];
+        let range = span.start as usize..span.end as usize;
+        // SAFETY: Spans are private and are only added by `intern`, where `start`
+        // and `end` are the buffer lengths before and after appending a complete
+        // `str`. Both offsets are therefore in bounds and on UTF-8 boundaries.
+        unsafe { buf.get_unchecked(range) }
     }
 }
