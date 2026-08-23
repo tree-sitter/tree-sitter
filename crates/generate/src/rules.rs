@@ -60,6 +60,9 @@ pub struct MetadataParams {
     pub field: Option<StrId>,
     pub is_token: bool,
     pub is_main_token: bool,
+    /// True for `token.sameLine(rule)` — the token is only valid when its first
+    /// character appears on the same line as the previously-matched token.
+    pub is_same_line_token: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
@@ -274,6 +277,13 @@ impl RulePool {
         })
     }
 
+    pub fn same_line_token(&mut self, content: RuleId) -> RuleId {
+        self.metadata_with(content, |p| {
+            p.is_token = true;
+            p.is_same_line_token = true;
+        })
+    }
+
     pub fn prec(&mut self, value: Precedence, content: RuleId) -> RuleId {
         self.metadata_with(content, |p| p.precedence = value)
     }
@@ -379,7 +389,7 @@ impl RulePool {
                     let p = self.params(params);
                     (p.precedence, p.associativity, p.dynamic_precedence).hash(&mut hasher);
                     p.alias.map(|a| (a.value, a.is_named)).hash(&mut hasher);
-                    (p.field, p.is_token, p.is_main_token).hash(&mut hasher);
+                    (p.field, p.is_token, p.is_main_token, p.is_same_line_token).hash(&mut hasher);
                     stack.push(rule);
                 }
                 Rule::Reserved { rule, ctx } => {

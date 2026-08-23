@@ -279,7 +279,8 @@
           "type": "string",
           "enum": [
             "TOKEN",
-            "IMMEDIATE_TOKEN"
+            "IMMEDIATE_TOKEN",
+            "SAME_LINE_TOKEN"
           ]
         },
         "content": {

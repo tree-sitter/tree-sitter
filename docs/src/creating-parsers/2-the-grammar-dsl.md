@@ -89,6 +89,11 @@ down to a single token.
 - **Immediate Tokens : `token.immediate(rule)`** — Usually, whitespace (and any other extras, such as comments) is optional
 before each token. This function means that the token will only match if there is no whitespace.
 
+- **Same-Line Tokens : `token.sameLine(rule)`** — Similar to `token.immediate`, but allows horizontal whitespace (spaces
+and tabs) between the preceding token and this one. The token will only match if no newline character appears between
+the two tokens. This is useful for constructs like arrow operators or postfix markers that must appear on the same
+line as their operand, even when spaces are permitted.
+
 - **Aliases : `alias(rule, name)`** — This function causes the given rule to *appear* with an alternative name in the syntax
 tree. If `name` is a *symbol*, as in `alias($.foo, $.bar)`, then the aliased rule will *appear* as a [named node][named-vs-anonymous-nodes]
 called `bar`. And if `name` is a *string literal*, as in `alias($.foo, 'bar')`, then the aliased rule will appear as an

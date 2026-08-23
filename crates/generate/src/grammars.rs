@@ -61,6 +61,10 @@ pub struct LexicalVariable {
     pub kind: VariableType,
     pub implicit_precedence: i32,
     pub start_state: u32,
+    /// True for `token.sameLine(rule)` — this token uses a horizontal-only
+    /// separator in the NFA, so the lex function will not match if a newline
+    /// appears in the leading whitespace before the token's first character.
+    pub is_same_line_token: bool,
 }
 
 #[derive(Debug, Default, PartialEq, Eq)]

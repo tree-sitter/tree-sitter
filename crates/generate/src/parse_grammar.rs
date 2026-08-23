@@ -77,6 +77,9 @@ enum RuleJSON {
     IMMEDIATE_TOKEN {
         content: Box<Self>,
     },
+    SAME_LINE_TOKEN {
+        content: Box<Self>,
+    },
     RESERVED {
         context_name: String,
         content: Box<Self>,
@@ -458,6 +461,10 @@ impl RulePool {
             RuleJSON::IMMEDIATE_TOKEN { content } => {
                 let content = self.parse_rule(*content, true, diagnostics)?;
                 Ok(self.immediate_token(content))
+            }
+            RuleJSON::SAME_LINE_TOKEN { content } => {
+                let content = self.parse_rule(*content, true, diagnostics)?;
+                Ok(self.same_line_token(content))
             }
             RuleJSON::STRING { value } => {
                 let sid = self.intern(&value);

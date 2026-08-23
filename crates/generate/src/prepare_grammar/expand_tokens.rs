@@ -51,7 +51,8 @@ fn get_implicit_precedence(pool: &RulePool, root: RuleId) -> i32 {
         match pool.node(id) {
             Rule::String(_) => return 2 + boost,
             Rule::Metadata { params, rule } => {
-                if pool.params(params).is_main_token {
+                let p = pool.params(params);
+                if p.is_main_token || p.is_same_line_token {
                     boost += 1;
                 }
                 id = rule;
@@ -81,6 +82,7 @@ pub fn expand_tokens(
         precedence_stack: vec![0],
     };
     let separator_root = build_separator(pool, separator_roots);
+    let same_line_separator_root = build_same_line_separator(pool);
 
     let mut variables = Vec::with_capacity(lexical_variables.len());
     for (i, variable) in lexical_variables.iter().enumerate() {
@@ -89,9 +91,12 @@ pub fn expand_tokens(
                 pool.resolve(variable.name).to_string(),
             ))?;
         }
-        let is_immediate_token = match pool.node(variable.root) {
-            Rule::Metadata { params, .. } => pool.params(params).is_main_token,
-            _ => false,
+        let (is_immediate_token, is_same_line_token) = match pool.node(variable.root) {
+            Rule::Metadata { params, .. } => {
+                let p = pool.params(params);
+                (p.is_main_token, p.is_same_line_token)
+            }
+            _ => (false, false),
         };
 
         builder.is_sep = false;
@@ -109,7 +114,20 @@ pub fn expand_tokens(
                 })
             })?;
 
-        if !is_immediate_token {
+        if is_same_line_token {
+            // For same-line tokens, prefix the NFA with a restricted separator
+            // that only consumes horizontal whitespace (U+0009 TAB, U+0020 SPACE).
+            // Any other character — including LF, CR, VT, FF — has no advance
+            // action in these separator states, so the lex function returns no
+            // match when a vertical whitespace character appears before the token.
+            // This enforces the same-line constraint purely at the NFA level
+            // without any changes to parser.c or the runtime.
+            builder.is_sep = true;
+            let last_state_id = builder.nfa.last_state_id();
+            builder
+                .expand_rule(pool, same_line_separator_root, last_state_id)
+                .map_err(ExpandTokensError::ExpandRule)?;
+        } else if !is_immediate_token {
             builder.is_sep = true;
             let last_state_id = builder.nfa.last_state_id();
             builder
@@ -122,6 +140,7 @@ pub fn expand_tokens(
             kind: variable.kind,
             implicit_precedence: get_implicit_precedence(pool, variable.root),
             start_state: builder.nfa.last_state_id(),
+            is_same_line_token,
         });
     }
 
@@ -150,6 +169,26 @@ fn build_separator(pool: &mut RulePool, separator_roots: &[RuleId]) -> RuleId {
         }
     }
     let range = pool.push_children(&elements);
+    let choice = pool.push_node(Rule::Choice(range));
+    pool.push_node(Rule::Repeat(choice))
+}
+
+/// Build a separator NFA that only consumes horizontal whitespace:
+/// U+0009 HORIZONTAL TAB and U+0020 SPACE. Vertical whitespace characters
+/// (LF U+000A, VT U+000B, FF U+000C, CR U+000D) are not included, so
+/// encountering them while scanning the separator prefix causes the lex
+/// function to return no match — enforcing the same-line constraint.
+///
+/// Note: this intentionally ignores the grammar's `extras` (e.g. comments).
+/// A `token.sameLine` token only allows bare horizontal whitespace before it;
+/// inline comments or other extras are not permitted in the leading gap.
+fn build_same_line_separator(pool: &mut RulePool) -> RuleId {
+    // [ \t]* — space (U+0020) and horizontal tab (U+0009)
+    let pattern = pool.intern(r"[ \t]");
+    let flags = pool.intern("");
+    let horizontal_ws = pool.pattern(pattern, flags);
+    let blank = pool.push_node(Rule::Blank);
+    let range = pool.push_children(&[horizontal_ws, blank]);
     let choice = pool.push_node(Rule::Choice(range));
     pool.push_node(Rule::Repeat(choice))
 }
@@ -1191,6 +1230,157 @@ mod tests {
                     }
                 ))
             })
+        );
+    }
+
+    // ── Helpers used across same-line tests ──────────────────────────────────
+    // build_same_line_grammar: tok0="a" (plain), tok1="b" (sameLine).
+    // The extras separator is the standard ASCII whitespace class [\t\n\v\f\r ].
+    fn same_line_grammar(p: &mut RulePool) -> (Vec<RuleId>, Vec<RuleId>) {
+        let a = p.intern("a");
+        let b = p.intern("b");
+        let tok0 = p.string(a);
+        let tok1_inner = p.string(b);
+        let tok1 = p.same_line_token(tok1_inner);
+        // Separator is [\t-\r ] — the full ASCII whitespace set including newlines.
+        let ws = {
+            let v = p.intern(r"[\t-\r ]");
+            let f = p.intern("");
+            p.pattern(v, f)
+        };
+        (vec![tok0, tok1], vec![ws])
+    }
+
+    /// `token.sameLine` — allowed leading whitespace (no newline).
+    ///
+    /// The token must match when it is preceded only by spaces or tabs.
+    #[test]
+    fn test_same_line_token_allows_horizontal_whitespace() {
+        check(
+            same_line_grammar,
+            &[
+                // No preceding whitespace
+                ("b!", Some((1, "b"))),
+                // Single space
+                (" b!", Some((1, "b"))),
+                // Multiple spaces
+                ("   b!", Some((1, "b"))),
+                // Single tab
+                ("\tb!", Some((1, "b"))),
+                // Multiple tabs
+                ("\t\tb!", Some((1, "b"))),
+                // Mixed spaces and tabs
+                (" \t b!", Some((1, "b"))),
+            ],
+        );
+    }
+
+    /// `token.sameLine` — rejected by vertical whitespace before the token.
+    ///
+    /// LF, CR, CRLF, VT, FF must all prevent the token from matching.
+    #[test]
+    fn test_same_line_token_rejects_vertical_whitespace() {
+        check(
+            same_line_grammar,
+            &[
+                // LF (Unix newline)
+                ("\nb", None),
+                // LF followed by spaces
+                ("\n  b", None),
+                // Multiple LF
+                ("\n\nb", None),
+                // CR (classic Mac newline)
+                ("\rb", None),
+                // CRLF (Windows newline)
+                ("\r\nb", None),
+                // CRLF followed by spaces
+                ("\r\n  b", None),
+                // VT (U+000B vertical tab — a vertical whitespace character)
+                ("\x0Bb", None),
+                // FF (U+000C form feed — a vertical whitespace character)
+                ("\x0Cb", None),
+                // Space then LF then space
+                (" \n b", None),
+                // Tab then LF
+                ("\t\nb", None),
+            ],
+        );
+    }
+
+    /// `token.sameLine` — plain tokens are unaffected (existing behaviour preserved).
+    ///
+    /// Plain tokens must still match through any whitespace, including newlines.
+    #[test]
+    fn test_same_line_token_plain_token_still_crosses_newlines() {
+        check(
+            same_line_grammar,
+            &[
+                ("a!", Some((0, "a"))),
+                ("  a!", Some((0, "a"))),
+                ("\na!", Some((0, "a"))),
+                ("\n  a!", Some((0, "a"))),
+                ("\r\na!", Some((0, "a"))),
+            ],
+        );
+    }
+
+    /// `token.sameLine` — implicit-precedence boost mirrors `token.immediate`.
+    ///
+    /// When both a plain token and a same-line token match the same string at the
+    /// same position (no leading whitespace), the same-line variant wins because
+    /// its implicit precedence is boosted by 1, exactly as `token.immediate` is.
+    #[test]
+    fn test_same_line_token_implicit_precedence_boost() {
+        // tok0 = plain "b", tok1 = sameLine("b")
+        // When input starts with "b" (no separator), tok1 must win.
+        check(
+            |p| {
+                let b = p.intern("b");
+                let tok0 = p.string(b);
+                let tok1_inner = p.string(b);
+                let tok1 = p.same_line_token(tok1_inner);
+                // Whitespace separator so tok0 can also match after whitespace.
+                let ws = {
+                    let v = p.intern(r"[\t-\r ]");
+                    let f = p.intern("");
+                    p.pattern(v, f)
+                };
+                (vec![tok0, tok1], vec![ws])
+            },
+            &[
+                // No whitespace: tok1 (sameLine) wins due to precedence boost
+                ("b!", Some((1, "b"))),
+                // Space before: tok1 still wins (horizontal whitespace is OK)
+                (" b!", Some((1, "b"))),
+                // Newline before: tok1 blocked; tok0 (plain) wins
+                ("\nb!", Some((0, "b"))),
+            ],
+        );
+    }
+
+    /// `token.immediate` — existing behaviour is unchanged after adding sameLine.
+    ///
+    /// Immediate tokens must still reject *any* whitespace before them.
+    #[test]
+    fn test_immediate_token_unaffected() {
+        // immediate tokens with higher precedence (existing test, repeated for regression)
+        check(
+            |p| {
+                let f = p.intern("");
+                let (v1, v2) = (p.intern("[^a]+"), p.intern("[^ab]+"));
+                let (pat1, pat2) = (p.pattern(v1, f), p.pattern(v2, f));
+                let r1 = p.prec(Precedence::Integer(1), pat1);
+                let r2 = {
+                    let imm = p.prec(Precedence::Integer(2), pat2);
+                    p.immediate_token(imm)
+                };
+                let sep = {
+                    let s = p.intern(r"[\t-\r ]");
+                    p.pattern(s, f)
+                };
+                (vec![r1, r2], vec![sep])
+            },
+            &[("cccb", Some((1, "ccc")))],
         );
     }
 

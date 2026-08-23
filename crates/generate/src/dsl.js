@@ -201,6 +201,14 @@ token.immediate = function (value) {
   };
 }
 
+token.sameLine = function (value) {
+  checkArguments(arguments, arguments.length, token.sameLine, 'token.sameLine', '', 'literal');
+  return {
+    type: "SAME_LINE_TOKEN",
+    content: normalize(value)
+  };
+}
+
 function normalize(value) {
   if (typeof value == "undefined")
     throw new Error("Undefined symbol");

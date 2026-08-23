@@ -2874,6 +2874,7 @@ mod tests {
                 kind: VariableType::Named,
                 implicit_precedence: 0,
                 start_state: 0,
+                is_same_line_token: false,
             });
         }
         lexical_grammar
