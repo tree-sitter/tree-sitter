@@ -340,7 +340,7 @@ function grammar(baseGrammar, options) {
     }
   }
 
-  let reserved = baseGrammar.reserved;
+  let reserved = { ...baseGrammar.reserved };
   if (options.reserved) {
     if (typeof options.reserved !== "object") {
       throw new Error("Grammar's 'reserved' property must be an object.");
