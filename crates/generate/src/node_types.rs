@@ -142,13 +142,15 @@ impl ChildQuantity {
 
 pub type VariableInfoResult<T> = Result<T, VariableInfoError>;
 
-#[derive(Debug, Error, Serialize, Deserialize)]
+#[derive(Debug, Error, PartialEq, Eq, Serialize, Deserialize)]
 pub enum VariableInfoError {
     #[error(transparent)]
     InvalidSupertype(InvalidSupertypeError),
+    #[error("Named alias `{0}` conflicts with a supertype of the same name.")]
+    SupertypeAliasCollision(String),
 }
 
-#[derive(Debug, Error, Serialize, Deserialize)]
+#[derive(Debug, Error, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InvalidSupertypeError {
     supertype: String,
     child: Option<String>,
@@ -200,6 +202,7 @@ pub fn get_variable_info(
     default_aliases: &AliasMap,
     str_pool: &StrPool,
 ) -> VariableInfoResult<Vec<VariableInfo>> {
+    validate_supertype_aliases(syntax_grammar, default_aliases, str_pool)?;
     let mut result =
         compute_variable_info_fixed_point(syntax_grammar, lexical_grammar, default_aliases);
     validate_supertype_structure(
@@ -211,6 +214,34 @@ pub fn get_variable_info(
     )?;
     strip_hidden_child_types(&mut result, syntax_grammar, lexical_grammar);
     Ok(result)
+}
+
+/// Reject aliases that have the same public identity as a canonical supertype.
+/// The node-types schema cannot represent one identity as both an abstract supertype
+/// and a concrete aliased node.
+fn validate_supertype_aliases(
+    syntax_grammar: &SyntaxGrammar,
+    default_aliases: &AliasMap,
+    str_pool: &StrPool,
+) -> VariableInfoResult<()> {
+    let aliases_by_symbol = get_aliases_by_symbol(syntax_grammar, default_aliases);
+    for supertype_symbol in &syntax_grammar.supertype_symbols {
+        let supertype = &syntax_grammar.variables[supertype_symbol.index as usize];
+        let collision = Alias {
+            value: supertype.name,
+            is_named: true,
+        };
+        if aliases_by_symbol
+            .values()
+            .any(|aliases| aliases.contains(&Some(collision)))
+        {
+            return Err(VariableInfoError::SupertypeAliasCollision(
+                str_pool.resolve(supertype.name).to_string(),
+            ));
+        }
+    }
+
+    Ok(())
 }
 
 /// Iteratively compute variable info for every syntax variable until a fixed
@@ -610,7 +641,8 @@ fn generate_node_types(
     str_pool: &StrPool,
 ) -> SuperTypeCycleResult<Vec<NodeInfoJSON>> {
     let aliases_by_symbol = get_aliases_by_symbol(syntax_grammar, default_aliases);
-    let extra_names = collect_extra_names(syntax_grammar, lexical_grammar, &aliases_by_symbol);
+    let extra_node_types =
+        collect_extra_node_types(syntax_grammar, lexical_grammar, &aliases_by_symbol);
 
     let mut node_types_json = BTreeMap::new();
     let mut subtype_map = build_supertype_entries(
@@ -620,7 +652,7 @@ fn generate_node_types(
         default_aliases,
         variable_info,
         str_pool,
-        &extra_names,
+        &extra_node_types,
     );
     build_regular_entries(
         &mut node_types_json,
@@ -630,7 +662,7 @@ fn generate_node_types(
         variable_info,
         str_pool,
         &aliases_by_symbol,
-        &extra_names,
+        &extra_node_types,
     );
 
     sort_subtype_map_topologically(&mut subtype_map, str_pool)?;
@@ -641,7 +673,7 @@ fn generate_node_types(
         syntax_grammar,
         lexical_grammar,
         &aliases_by_symbol,
-        &extra_names,
+        &extra_node_types,
     );
 
     let mut result = node_types_json.into_values().collect::<Vec<_>>();
@@ -656,10 +688,7 @@ fn generate_node_types(
             })
             .then_with(|| cmp_str_ids(a.kind, b.kind, str_pool))
             .then_with(|| a.named.cmp(&b.named))
-            .then_with(|| a.root.cmp(&b.root))
-            .then_with(|| a.extra.cmp(&b.extra))
     });
-    result.dedup();
     Ok(result)
 }
 
@@ -738,13 +767,13 @@ fn populate_field_info_json(
     }
 }
 
-/// Collect every name an `extra` symbol can appear under, including aliases.
+/// Collect every node identity an `extra` symbol can appear under, including aliases.
 #[cfg(feature = "load")]
-fn collect_extra_names(
+fn collect_extra_node_types(
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
     aliases_by_symbol: &FxHashMap<Symbol, BTreeSet<Option<Alias>>>,
-) -> FxHashSet<StrId> {
+) -> FxHashSet<NodeTypeRef> {
     let empty = BTreeSet::new();
     syntax_grammar
         .extra_symbols
@@ -755,24 +784,37 @@ fn collect_extra_names(
                 .unwrap_or(&empty)
                 .iter()
                 .map(|alias| {
-                    alias.as_ref().map_or_else(
+                    let (kind, variable_type) = alias.as_ref().map_or_else(
                         || match symbol.kind {
                             SymbolType::NonTerminal => {
-                                syntax_grammar.variables[symbol.index as usize].name
+                                let variable = &syntax_grammar.variables[symbol.index as usize];
+                                (&variable.name, variable.kind)
                             }
                             SymbolType::Terminal => {
-                                lexical_grammar.variables[symbol.index as usize].name
+                                let variable = &lexical_grammar.variables[symbol.index as usize];
+                                (&variable.name, variable.kind)
                             }
                             SymbolType::External => {
-                                syntax_grammar.external_tokens[symbol.index as usize].name
+                                let variable =
+                                    &syntax_grammar.external_tokens[symbol.index as usize];
+                                (&variable.name, variable.kind)
                             }
-                            _ => unreachable!(),
+                            // `eof()` in an extra is rejected during lexical separator expansion, so
+                            // `End` cannot reach `SyntaxGrammar::extra_symbols`.
+                            SymbolType::End
+                            // Lookahead marker that `build_parse_table` inserts for nonterminal
+                            // extras _after_ this pass runs.
+                            | SymbolType::EndOfNonTerminalExtra => unreachable!(),
                         },
-                        |alias| alias.value,
-                    )
+                        |alias| (&alias.value, alias.kind()),
+                    );
+                    NodeTypeRef {
+                        kind: *kind,
+                        named: variable_type != VariableType::Anonymous,
+                    }
                 })
         })
-        .collect::<FxHashSet<_>>()
+        .collect()
 }
 
 /// Add one JSON entry per supertype and build the supertype-to-subtypes map.
@@ -784,7 +826,7 @@ fn build_supertype_entries(
     default_aliases: &AliasMap,
     variable_info: &[VariableInfo],
     str_pool: &StrPool,
-    extra_names: &FxHashSet<StrId>,
+    extra_node_types: &FxHashSet<NodeTypeRef>,
 ) -> Vec<(NodeTypeRef, Vec<NodeTypeRef>)> {
     let mut subtype_map = Vec::new();
     for (i, info) in variable_info.iter().enumerate() {
@@ -793,16 +835,17 @@ fn build_supertype_entries(
             continue;
         }
         let variable = &syntax_grammar.variables[i];
+        let node_type = NodeTypeRef {
+            kind: variable.name,
+            named: true,
+        };
         let node_type_json = node_types_json
-            .entry(NodeTypeRef {
-                kind: variable.name,
-                named: true,
-            })
+            .entry(node_type)
             .or_insert_with(|| NodeInfoJSON {
                 kind: variable.name,
                 named: true,
                 root: false,
-                extra: extra_names.contains(&variable.name),
+                extra: extra_node_types.contains(&node_type),
                 fields: None,
                 children: None,
                 subtypes: None,
@@ -846,7 +889,7 @@ fn build_regular_entries(
     variable_info: &[VariableInfo],
     str_pool: &StrPool,
     aliases_by_symbol: &FxHashMap<Symbol, BTreeSet<Option<Alias>>>,
-    extra_names: &FxHashSet<StrId>,
+    extra_node_types: &FxHashSet<NodeTypeRef>,
 ) {
     let empty = BTreeSet::new();
     for (i, info) in variable_info.iter().enumerate() {
@@ -878,23 +921,22 @@ fn build_regular_entries(
             // There may already be an entry with this node identity, because multiple
             // rules may be aliased with the same name and namedness.
             let mut node_type_existed = true;
-            let node_type_json = node_types_json
-                .entry(NodeTypeRef {
+            let node_type = NodeTypeRef {
+                kind: *kind,
+                named: is_named,
+            };
+            let node_type_json = node_types_json.entry(node_type).or_insert_with(|| {
+                node_type_existed = false;
+                NodeInfoJSON {
                     kind: *kind,
                     named: is_named,
-                })
-                .or_insert_with(|| {
-                    node_type_existed = false;
-                    NodeInfoJSON {
-                        kind: *kind,
-                        named: is_named,
-                        root: i == 0,
-                        extra: extra_names.contains(kind),
-                        fields: Some(BTreeMap::new()),
-                        children: None,
-                        subtypes: None,
-                    }
-                });
+                    root: i == 0,
+                    extra: extra_node_types.contains(&node_type),
+                    fields: Some(BTreeMap::new()),
+                    children: None,
+                    subtypes: None,
+                }
+            });
 
             let fields_json = node_type_json.fields.as_mut().unwrap();
             for (new_field, field_info) in &info.fields {
@@ -946,33 +988,33 @@ fn sort_subtype_map_topologically(
     subtype_map: &mut [(NodeTypeRef, Vec<NodeTypeRef>)],
     str_pool: &StrPool,
 ) -> SuperTypeCycleResult<()> {
-    let mut sorted_kinds = Vec::with_capacity(subtype_map.len());
-    let mut top_sort = topological_sort::TopologicalSort::<StrId>::new();
+    let mut sorted_node_types = Vec::with_capacity(subtype_map.len());
+    let mut top_sort = topological_sort::TopologicalSort::<NodeTypeRef>::new();
     for (supertype, subtypes) in subtype_map.iter() {
         for subtype in subtypes {
-            top_sort.add_dependency(subtype.kind, supertype.kind);
+            top_sort.add_dependency(*subtype, *supertype);
         }
     }
     loop {
-        let mut next_kinds = top_sort.pop_all();
-        match (next_kinds.is_empty(), top_sort.is_empty()) {
+        let mut next_node_types = top_sort.pop_all();
+        match (next_node_types.is_empty(), top_sort.is_empty()) {
             (true, true) => break,
             (true, false) => {
                 let mut items = top_sort
-                    .map(|s| str_pool.resolve(s).to_string())
+                    .map(|node_type| str_pool.resolve(node_type.kind).to_string())
                     .collect::<Vec<String>>();
                 items.sort();
                 return Err(SuperTypeCycleError { items });
             }
             (false, _) => {
-                next_kinds.sort_unstable_by(|a, b| cmp_str_ids(*a, *b, str_pool));
-                sorted_kinds.extend(next_kinds);
+                sort_node_type_refs(&mut next_node_types, str_pool);
+                sorted_node_types.extend(next_node_types);
             }
         }
     }
     subtype_map.sort_by(|a, b| {
-        let a_idx = sorted_kinds.iter().position(|n| *n == a.0.kind).unwrap();
-        let b_idx = sorted_kinds.iter().position(|n| *n == b.0.kind).unwrap();
+        let a_idx = sorted_node_types.iter().position(|n| *n == a.0).unwrap();
+        let b_idx = sorted_node_types.iter().position(|n| *n == b.0).unwrap();
         a_idx.cmp(&b_idx)
     });
     Ok(())
@@ -1012,7 +1054,7 @@ fn build_token_entries(
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
     aliases_by_symbol: &FxHashMap<Symbol, BTreeSet<Option<Alias>>>,
-    extra_names: &FxHashSet<StrId>,
+    extra_node_types: &FxHashSet<NodeTypeRef>,
 ) {
     let empty = BTreeSet::new();
 
@@ -1054,8 +1096,9 @@ fn build_token_entries(
         match kind {
             VariableType::Named | VariableType::Anonymous => {
                 let named = kind == VariableType::Named;
+                let node_type = NodeTypeRef { kind: name, named };
                 node_types_json
-                    .entry(NodeTypeRef { kind: name, named })
+                    .entry(node_type)
                     .and_modify(|node_type_json| {
                         // This token is a leaf appearance of an existing node identity,
                         // so children and fields from other appearances are optional.
@@ -1072,7 +1115,7 @@ fn build_token_entries(
                         kind: name,
                         named,
                         root: false,
-                        extra: extra_names.contains(&name),
+                        extra: extra_node_types.contains(&node_type),
                         fields: None,
                         children: None,
                         subtypes: None,
@@ -1915,6 +1958,189 @@ mod tests {
                 kind: value_name,
                 named: true,
             }]
+        );
+    }
+
+    #[test]
+    fn test_node_types_distinguish_extra_metadata_by_namedness() {
+        let mut pool = RulePool::default();
+        let node = named(&mut pool, "_node");
+        let node = alias(&mut pool, node, "same", false);
+        let extra = named(&mut pool, "_extra");
+        let extra_alias = alias(&mut pool, extra, "same", true);
+        let document = pool.choice(&[node, extra_alias]);
+        let node = {
+            let value = named(&mut pool, "value");
+            let suffix = string(&mut pool, "?");
+            pool.seq(&[value, suffix])
+        };
+        let extra_rule = {
+            let prefix = string(&mut pool, "#");
+            let value = named(&mut pool, "extra_value");
+            pool.seq(&[prefix, value])
+        };
+        let value = pattern(&mut pool, "[a-z]+");
+        let extra_value = pattern(&mut pool, "[A-Z]+");
+        let same_name = pool.intern("same");
+        let node_types = get_node_types(InputGrammar {
+            extra_roots: vec![extra],
+            variables: vec![
+                Variable {
+                    name: pool.intern("document"),
+                    root: document,
+                },
+                Variable {
+                    name: pool.intern("_node"),
+                    root: node,
+                },
+                Variable {
+                    name: pool.intern("_extra"),
+                    root: extra_rule,
+                },
+                Variable {
+                    name: pool.intern("value"),
+                    root: value,
+                },
+                Variable {
+                    name: pool.intern("extra_value"),
+                    root: extra_value,
+                },
+            ],
+            pool,
+            ..Default::default()
+        })
+        .unwrap();
+
+        let mut aliases = node_types
+            .iter()
+            .filter(|node_type| node_type.kind == same_name)
+            .collect::<Vec<_>>();
+        aliases.sort_unstable_by_key(|node_type| node_type.named);
+        assert_eq!(aliases.len(), 2);
+        assert!(!aliases[0].named);
+        assert!(!aliases[0].extra);
+        assert!(aliases[1].named);
+        assert!(aliases[1].extra);
+    }
+
+    #[test]
+    fn test_node_types_distinguish_supertype_dependencies_by_namedness() {
+        let mut pool = RulePool::default();
+        let document = named(&mut pool, "_super");
+        let supertype = {
+            let item = named(&mut pool, "item");
+            let item = alias(&mut pool, item, "_super", false);
+            let other = named(&mut pool, "other");
+            pool.choice(&[item, other])
+        };
+        let item = string(&mut pool, "x");
+        let other = string(&mut pool, "y");
+        let super_name = pool.intern("_super");
+        let node_types = get_node_types(InputGrammar {
+            supertype_names: vec![super_name],
+            variables: vec![
+                Variable {
+                    name: pool.intern("document"),
+                    root: document,
+                },
+                Variable {
+                    name: super_name,
+                    root: supertype,
+                },
+                Variable {
+                    name: pool.intern("item"),
+                    root: item,
+                },
+                Variable {
+                    name: pool.intern("other"),
+                    root: other,
+                },
+            ],
+            pool,
+            ..Default::default()
+        })
+        .unwrap();
+
+        let mut named = node_types
+            .iter()
+            .filter(|node_type| node_type.kind == super_name)
+            .map(|node_type| node_type.named)
+            .collect::<Vec<_>>();
+        named.sort_unstable();
+        assert_eq!(named, [false, true]);
+    }
+
+    #[test]
+    fn test_node_types_with_alias_matching_canonical_supertype() {
+        let mut pool = RulePool::default();
+        let document = {
+            let node = named(&mut pool, "_node");
+            let node = alias(&mut pool, node, "_super", true);
+            let supertype = named(&mut pool, "_super");
+            pool.choice(&[node, supertype])
+        };
+        let supertype = {
+            let (one, two) = (named(&mut pool, "one"), named(&mut pool, "two"));
+            pool.choice(&[one, two])
+        };
+        let node = {
+            let value = named(&mut pool, "value");
+            let suffix = string(&mut pool, "?");
+            pool.seq(&[value, suffix])
+        };
+        let one = string(&mut pool, "1");
+        let two = string(&mut pool, "2");
+        let value = pattern(&mut pool, "[a-z]+");
+        let super_name = pool.intern("_super");
+        let grammar = InputGrammar {
+            supertype_names: vec![super_name],
+            variables: vec![
+                Variable {
+                    name: pool.intern("document"),
+                    root: document,
+                },
+                Variable {
+                    name: super_name,
+                    root: supertype,
+                },
+                Variable {
+                    name: pool.intern("_node"),
+                    root: node,
+                },
+                Variable {
+                    name: pool.intern("one"),
+                    root: one,
+                },
+                Variable {
+                    name: pool.intern("two"),
+                    root: two,
+                },
+                Variable {
+                    name: pool.intern("value"),
+                    root: value,
+                },
+            ],
+            pool,
+            ..Default::default()
+        };
+        let PreparedGrammar {
+            syntax_grammar,
+            lexical_grammar,
+            default_aliases,
+            str_pool,
+            ..
+        } = prepare_grammar(grammar, &mut Vec::new()).unwrap();
+        let error = get_variable_info(
+            &syntax_grammar,
+            &lexical_grammar,
+            &default_aliases,
+            &str_pool,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            error,
+            VariableInfoError::SupertypeAliasCollision("_super".into())
         );
     }
 
