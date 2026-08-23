@@ -1542,7 +1542,6 @@ impl Tree {
     /// functions. Call it on the old tree that was passed to parse, and
     /// pass the new tree that was returned from `parse`.
     #[doc(alias = "ts_tree_get_changed_ranges")]
-    #[must_use]
     pub fn changed_ranges(&self, other: &Self) -> impl ExactSizeIterator<Item = Range> {
         let mut count = 0u32;
         unsafe {
