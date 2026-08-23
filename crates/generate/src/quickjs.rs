@@ -395,7 +395,11 @@ mod tests {
                 r"
                 module.exports = grammar({
                   name: 'test',
-                  rules: { source_file: $ => 'hello' }
+                  word: $ => $.identifier,
+                  rules: {
+                    source_file: $ => $.identifier,
+                    identifier: $ => 'hello'
+                  }
                 });
             ",
             )
@@ -403,6 +407,7 @@ mod tests {
 
             let json = execute_native_runtime(&grammar_path).expect("Failed to execute grammar");
             assert!(json.contains("\"name\": \"test\""));
+            assert!(json.contains("\"word\": \"identifier\""));
             assert!(json.contains("\"hello\""));
         });
     }
