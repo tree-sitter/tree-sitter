@@ -1429,7 +1429,7 @@ impl Loader {
 
         let mut compile_command = Command::new(&clang_exe);
         compile_command.current_dir(src_path).args([
-            "--target=wasm32-unknown-wasi",
+            "--target=wasm32-wasip1",
             "-o",
             temp_output_str,
             "-fPIC",
