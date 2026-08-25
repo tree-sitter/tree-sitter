@@ -39,6 +39,8 @@ npm run build
 Note that the build process requires a Rust toolchain to be installed. If you don't have one installed, you can install it
 by visiting the [Rust website][rust] and following the instructions there.
 
+If you use a local Emscripten installation, it must match the [version pinned in this repository][emscripten-version].
+
 > [!NOTE]
 > By default, the build process will emit an ES6 module. If you need a CommonJS module, export `CJS` to `true`, or just
 > run `CJS=true npm run build` (or the equivalent command for Windows).
@@ -134,6 +136,7 @@ file mentioned earlier, namely in the `run_wasm` function.
 [docker]: https://www.docker.com
 [dts-buddy]: https://github.com/Rich-Harris/dts-buddy
 [emscripten]: https://emscripten.org
+[emscripten-version]: ../../crates/loader/emscripten-version
 [exports.txt]: lib/exports.txt
 [podman]: https://podman.io
 [rust]: https://www.rust-lang.org/tools/install

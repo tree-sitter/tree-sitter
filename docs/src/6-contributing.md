@@ -89,6 +89,10 @@ npm install # or your JS package manager of choice
 npm run build
 ```
 
+```admonish note
+If using a local Emscripten installation, the version must match the one [pinned by this repository][emscripten-version].
+```
+
 Build the Rust libraries and the CLI:
 
 ```sh
@@ -338,6 +342,7 @@ and the tree-sitter module is fetched from [here][js url]. This, along with the 
 [docker]: https://www.docker.com
 [docs src]: https://github.com/tree-sitter/tree-sitter/tree/master/docs/src
 [emscripten]: https://emscripten.org
+[emscripten-version]: https://github.com/tree-sitter/tree-sitter/blob/master/crates/loader/emscripten-version
 [generate crate]: https://crates.io/crates/tree-sitter-generate
 [gh.io repo]: https://github.com/tree-sitter/tree-sitter.github.io
 [go.dev]: https://pkg.go.dev
