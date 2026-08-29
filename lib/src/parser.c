@@ -2124,7 +2124,10 @@ TSTree *ts_parser_parse(
   TSInput input
 ) {
   TSTree *result = NULL;
-  if (!self->language || !input.read) return NULL;
+  if (
+    !self->language || !input.read ||
+    (old_tree && old_tree->language != self->language)
+  ) return NULL;
 
   if (ts_language_is_wasm(self->language)) {
     if (!self->wasm_store) return NULL;
