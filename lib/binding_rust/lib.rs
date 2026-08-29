@@ -2122,6 +2122,19 @@ impl<'tree> Node<'tree> {
         result
     }
 
+    /// Get an S-expression representing the node with start and end positions included.
+    #[doc(alias = "ts_node_string_with_ranges")]
+    #[must_use]
+    pub fn to_sexp_with_ranges(&self) -> String {
+        let c_string = unsafe { ffi::ts_node_string_with_ranges(self.0) };
+        let result = unsafe { CStr::from_ptr(c_string) }
+            .to_str()
+            .unwrap()
+            .to_string();
+        unsafe { ts_free(c_string.cast::<c_void>()) };
+        result
+    }
+
     pub fn utf8_text<'a>(&self, source: &'a [u8]) -> Result<&'a str, str::Utf8Error> {
         str::from_utf8(&source[self.start_byte()..self.end_byte()])
     }
@@ -4040,6 +4053,9 @@ pub fn format_sexp(sexp: &str, initial_indent_level: usize) -> String {
             write!(formatted, "{scratch} ").unwrap();
             has_field = true;
             indent_level += 1;
+        } else if scratch.starts_with('[') || scratch.ends_with(']') || scratch == "-" {
+            // "[row," "column]" "-" "[row," "column]"
+            write!(formatted, " {scratch}").unwrap();
         }
     }
 

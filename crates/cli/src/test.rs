@@ -1918,6 +1918,17 @@ b
             .trim()
         );
         assert_eq!(
+            format_sexp(
+                "(source_file [0, 0] - [1, 0] (MISSING _hidden [0, 1] - [0, 1]))",
+                0,
+            ),
+            r"
+(source_file [0, 0] - [1, 0]
+  (MISSING _hidden [0, 1] - [0, 1]))
+"
+            .trim()
+        );
+        assert_eq!(
             format_sexp("(program (ERROR (UNEXPECTED ' ')) (identifier))", 0),
             r"
 (program
