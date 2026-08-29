@@ -375,7 +375,7 @@ where
                 let pattern_info = &self.config.pattern_info[mat.pattern_index];
 
                 if mat.pattern_index < self.config.tags_pattern_index {
-                    for capture in mat.captures {
+                    for capture in mat.captures() {
                         let index = Some(capture.index);
                         let range = capture.node.byte_range();
                         if index == self.config.local_scope_capture_index {
@@ -405,7 +405,7 @@ where
                 let mut docs_adjacent_node = None;
                 let mut is_ignored = false;
 
-                for capture in mat.captures {
+                for capture in mat.captures() {
                     let index = Some(capture.index);
 
                     if index == self.config.ignore_capture_index {

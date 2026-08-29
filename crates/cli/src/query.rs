@@ -75,7 +75,7 @@ pub fn query_file_at_path(
     if opts.ordered_captures {
         let mut captures = query_cursor.captures(&query, tree.root_node(), source_code.as_slice());
         while let Some((mat, capture_index)) = captures.next() {
-            let capture = mat.captures[*capture_index];
+            let capture = mat.captures()[*capture_index];
             let capture_name = &query.capture_names()[capture.index as usize];
             if !opts.quiet && !should_test {
                 writeln!(
@@ -102,7 +102,7 @@ pub fn query_file_at_path(
             if !opts.quiet && !should_test {
                 writeln!(&mut stdout, "  pattern: {}", m.pattern_index)?;
             }
-            for capture in m.captures {
+            for capture in m.captures() {
                 let start = capture.node.start_position();
                 let end = capture.node.end_position();
                 let capture_name = &query.capture_names()[capture.index as usize];

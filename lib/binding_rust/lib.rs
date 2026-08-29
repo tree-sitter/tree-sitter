@@ -401,7 +401,7 @@ pub struct QueryPredicate {
 /// A match of a [`Query`] to a particular set of [`Node`]s.
 pub struct QueryMatch<'cursor, 'tree> {
     pub pattern_index: usize,
-    pub captures: &'cursor [QueryCapture<'tree>],
+    captures: &'cursor [QueryCapture<'tree>],
     id: u32,
     cursor: *mut ffi::TSQueryCursor,
 }
@@ -3432,6 +3432,11 @@ impl<'tree> QueryMatch<'_, 'tree> {
     #[must_use]
     pub const fn id(&self) -> u32 {
         self.id
+    }
+
+    #[must_use]
+    pub const fn captures(&self) -> &[QueryCapture<'tree>] {
+        self.captures
     }
 
     #[doc(alias = "ts_query_cursor_remove_match")]

@@ -2918,7 +2918,7 @@ fn test_query_matches_with_wildcard_at_root_intersecting_byte_range() {
         );
 
         while let Some(mat) = match_iter.next() {
-            if let Some(capture) = mat.captures.first() {
+            if let Some(capture) = mat.captures().first() {
                 matches.push(capture.node.kind());
             }
         }
@@ -2934,7 +2934,7 @@ fn test_query_matches_with_wildcard_at_root_intersecting_byte_range() {
         );
 
         while let Some(mat) = match_iter.next() {
-            if let Some(capture) = mat.captures.first() {
+            if let Some(capture) = mat.captures().first() {
                 matches.push(capture.node.kind());
             }
         }
@@ -2950,7 +2950,7 @@ fn test_query_matches_with_wildcard_at_root_intersecting_byte_range() {
         );
 
         while let Some(mat) = match_iter.next() {
-            if let Some(capture) = mat.captures.first() {
+            if let Some(capture) = mat.captures().first() {
                 matches.push(capture.node.kind());
             }
         }
@@ -3008,7 +3008,7 @@ fn test_query_captures_within_byte_range_assigned_after_iterating() {
         let mut results = Vec::new();
         let mut first_five = captures.by_ref().take(5);
         while let Some((mat, capture_ix)) = first_five.next() {
-            let capture = mat.captures[*capture_ix];
+            let capture = mat.captures()[*capture_ix];
             results.push((
                 query.capture_names()[capture.index as usize],
                 &source[capture.node.byte_range()],
@@ -3031,7 +3031,7 @@ fn test_query_captures_within_byte_range_assigned_after_iterating() {
         results.clear();
         captures.set_byte_range(source.find("Ok").unwrap()..source.len());
         while let Some((mat, capture_ix)) = captures.next() {
-            let capture = mat.captures[*capture_ix];
+            let capture = mat.captures()[*capture_ix];
             results.push((
                 query.capture_names()[capture.index as usize],
                 &source[capture.node.byte_range()],
@@ -3330,7 +3330,7 @@ fn test_query_matches_with_captured_wildcard_at_root() {
 
         while let Some(m) = match_iter.next() {
             let captures = m
-                .captures
+                .captures()
                 .iter()
                 .map(|c| {
                     (
@@ -4311,7 +4311,7 @@ fn test_query_captures_with_matches_removed() {
 
         let mut captures = cursor.captures(&query, tree.root_node(), source.as_bytes());
         while let Some((m, i)) = captures.next() {
-            let capture = m.captures[*i];
+            let capture = m.captures()[*i];
             let text = capture.node.utf8_text(source.as_bytes()).unwrap();
             if text == "a" {
                 m.remove();
@@ -4356,7 +4356,7 @@ fn test_query_captures_with_matches_removed_before_they_finish() {
         let mut captured_strings = Vec::new();
         let mut captures = cursor.captures(&query, tree.root_node(), source.as_bytes());
         while let Some((m, i)) = captures.next() {
-            let capture = m.captures[*i];
+            let capture = m.captures()[*i];
             let text = capture.node.utf8_text(source.as_bytes()).unwrap();
             if text == "as" {
                 m.remove();
@@ -4397,18 +4397,18 @@ fn test_query_captures_and_matches_iterators_are_fused() {
         let mut cursor = QueryCursor::new();
         let mut captures = cursor.captures(&query, tree.root_node(), source.as_bytes());
 
-        assert_eq!(captures.next().unwrap().0.captures[0].index, 0);
-        assert_eq!(captures.next().unwrap().0.captures[0].index, 0);
-        assert_eq!(captures.next().unwrap().0.captures[0].index, 0);
+        assert_eq!(captures.next().unwrap().0.captures()[0].index, 0);
+        assert_eq!(captures.next().unwrap().0.captures()[0].index, 0);
+        assert_eq!(captures.next().unwrap().0.captures()[0].index, 0);
         assert!(captures.next().is_none());
         assert!(captures.next().is_none());
         assert!(captures.next().is_none());
         drop(captures);
 
         let mut matches = cursor.matches(&query, tree.root_node(), source.as_bytes());
-        assert_eq!(matches.next().unwrap().captures[0].index, 0);
-        assert_eq!(matches.next().unwrap().captures[0].index, 0);
-        assert_eq!(matches.next().unwrap().captures[0].index, 0);
+        assert_eq!(matches.next().unwrap().captures()[0].index, 0);
+        assert_eq!(matches.next().unwrap().captures()[0].index, 0);
+        assert_eq!(matches.next().unwrap().captures()[0].index, 0);
         assert!(matches.next().is_none());
         assert!(matches.next().is_none());
         assert!(matches.next().is_none());
@@ -4588,7 +4588,7 @@ fn test_query_lifetime_is_separate_from_nodes_lifetime() {
                 .matches(&query, node, source.as_bytes())
                 .next()
                 .unwrap()
-                .captures[0]
+                .captures()[0]
                 .node
         }
 
@@ -4609,7 +4609,7 @@ fn test_query_lifetime_is_separate_from_nodes_lifetime() {
                 .next()
                 .unwrap()
                 .0
-                .captures[0]
+                .captures()[0]
                 .node
         }
 
@@ -4819,7 +4819,7 @@ fn test_query_random() {
                 let transformed_match = Match {
                     last_node: None,
                     captures: mat
-                        .captures
+                        .captures()
                         .iter()
                         .map(|c| (query.capture_names()[c.index as usize], c.node))
                         .collect::<Vec<_>>(),
@@ -5833,10 +5833,10 @@ fn test_consecutive_zero_or_modifiers() {
         let mut len_1 = false;
 
         while let Some(m) = matches.next() {
-            if m.captures.len() == 3 {
+            if m.captures().len() == 3 {
                 len_3 = true;
             }
-            if m.captures.len() == 1 {
+            if m.captures().len() == 1 {
                 len_1 = true;
             }
         }
@@ -5898,7 +5898,7 @@ fn test_query_max_start_depth_more() {
         let query = Query::new(&language, "(compound_statement) @capture").unwrap();
 
         let mut matches = cursor.matches(&query, tree.root_node(), source.as_bytes());
-        let node = matches.next().unwrap().captures[0].node;
+        let node = matches.next().unwrap().captures()[0].node;
         assert_eq!(node.kind(), "compound_statement");
 
         for row in rows {

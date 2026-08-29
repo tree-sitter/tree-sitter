@@ -336,7 +336,7 @@ pub fn collect_matches<'a>(
     while let Some(m) = matches.next() {
         result.push((
             m.pattern_index,
-            format_captures(m.captures.iter().into_streaming_iter_ref(), query, source),
+            format_captures(m.captures().iter().into_streaming_iter_ref(), query, source),
         ));
     }
     result
@@ -347,7 +347,7 @@ pub fn collect_captures<'a>(
     query: &'a Query,
     source: &'a str,
 ) -> Vec<(&'a str, &'a str)> {
-    format_captures(captures.map(|(m, i)| m.captures[*i]), query, source)
+    format_captures(captures.map(|(m, i)| m.captures()[*i]), query, source)
 }
 
 fn format_captures<'a>(
