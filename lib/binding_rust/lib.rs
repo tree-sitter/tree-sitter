@@ -620,24 +620,37 @@ impl Language {
         }
     }
 
+    /// Check whether `id` can be used to index this language's symbol tables.
+    ///
+    /// `ts_symbol_metadata` holds one entry per grammar symbol plus one per alias,
+    /// so [`Self::node_kind_count`] is an exact bound. `ERROR` and `_ERROR` sit
+    /// at the top of the `u16` range and are handled by the C library before any
+    /// table lookup.
+    fn node_kind_id_is_valid(&self, id: u16) -> bool {
+        (id as usize) < self.node_kind_count() || id >= u16::MAX - 1
+    }
+
     /// Check if the node type for the given numerical id is named (as opposed
     /// to an anonymous node type).
     #[must_use]
     pub fn node_kind_is_named(&self, id: u16) -> bool {
-        unsafe { ffi::ts_language_symbol_type(self.0, id) == ffi::TSSymbolTypeRegular }
+        self.node_kind_id_is_valid(id)
+            && unsafe { ffi::ts_language_symbol_type(self.0, id) == ffi::TSSymbolTypeRegular }
     }
 
     /// Check if the node type for the given numerical id is visible (as opposed
     /// to a hidden node type).
     #[must_use]
     pub fn node_kind_is_visible(&self, id: u16) -> bool {
-        unsafe { ffi::ts_language_symbol_type(self.0, id) <= ffi::TSSymbolTypeAnonymous }
+        self.node_kind_id_is_valid(id)
+            && unsafe { ffi::ts_language_symbol_type(self.0, id) <= ffi::TSSymbolTypeAnonymous }
     }
 
     /// Check if the node type for the given numerical id is a supertype.
     #[must_use]
     pub fn node_kind_is_supertype(&self, id: u16) -> bool {
-        unsafe { ffi::ts_language_symbol_type(self.0, id) == ffi::TSSymbolTypeSupertype }
+        self.node_kind_id_is_valid(id)
+            && unsafe { ffi::ts_language_symbol_type(self.0, id) == ffi::TSSymbolTypeSupertype }
     }
 
     /// Get the number of distinct field names in this language.
