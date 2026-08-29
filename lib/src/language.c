@@ -129,7 +129,11 @@ const TSSymbol *ts_language_subtypes(
   TSSymbol supertype,
   uint32_t *length
 ) {
-  if (self->abi_version < LANGUAGE_VERSION_WITH_RESERVED_WORDS || !ts_language_symbol_metadata(self, supertype).supertype) {
+  if (
+    self->abi_version < LANGUAGE_VERSION_WITH_RESERVED_WORDS ||
+    supertype >= ts_language_symbol_count(self) ||
+    !ts_language_symbol_metadata(self, supertype).supertype
+  ) {
     *length = 0;
     return NULL;
   }
@@ -234,7 +238,12 @@ TSStateId ts_language_next_state(
   TSStateId state,
   TSSymbol symbol
 ) {
-  if (symbol == ts_builtin_sym_error || symbol == ts_builtin_sym_error_repeat) {
+  if (
+    symbol == ts_builtin_sym_error ||
+    symbol == ts_builtin_sym_error_repeat ||
+    symbol >= self->symbol_count ||
+    state >= self->state_count
+  ) {
     return 0;
   } else if (symbol < self->token_count) {
     uint32_t count;
