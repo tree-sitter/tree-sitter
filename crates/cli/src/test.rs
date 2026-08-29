@@ -1022,11 +1022,10 @@ fn run_tests(
                             // Only bail early before updating if `actual` does not match `output`.
                             // Sometimes users want to test cases that are intended to have
                             // errors, hence why this check isn't shown above.
-                            if actual.contains("ERROR") || actual.contains("MISSING") {
+                            if tree.root_node().has_error() {
                                 test_summary.has_parse_errors = true;
 
-                                // keep the original `expected` output if the actual output has an
-                                // error
+                                // keep the original `expected` output if the tree has an error.
                                 corrected_entries.push(TestCorrection::new(
                                     &name,
                                     input,
