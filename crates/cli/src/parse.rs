@@ -1137,30 +1137,25 @@ fn parse_edit_flag(source_code: &[u8], flag: &str) -> Result<Edit> {
 
 pub fn offset_for_position(input: &[u8], position: Point) -> Result<usize> {
     let mut row = 0;
-    let mut offset = 0;
-    let mut iter = memchr::memchr_iter(b'\n', input);
-    loop {
-        if let Some(pos) = iter.next()
-            && row < position.row
-        {
-            row += 1;
-            offset = pos;
-            continue;
+    let mut line_start = 0;
+    for line_end in memchr::memchr_iter(b'\n', input) {
+        if row == position.row {
+            if position.column > line_end - line_start {
+                return Err(anyhow!("Failed to address a column: {}", position.column));
+            }
+            return Ok(line_start + position.column);
         }
-        offset += 1;
-        break;
+        row += 1;
+        line_start = line_end + 1;
     }
-    if position.row - row > 0 {
+
+    if row != position.row {
         return Err(anyhow!("Failed to address a row: {}", position.row));
     }
-    if let Some(pos) = iter.next() {
-        if (pos - offset < position.column) || (input[offset] == b'\n' && position.column > 0) {
-            return Err(anyhow!("Failed to address a column: {}", position.column));
-        }
-    } else if input.len() - offset < position.column {
+    if position.column > input.len() - line_start {
         return Err(anyhow!("Failed to address a column over the end"));
     }
-    Ok(offset + position.column)
+    Ok(line_start + position.column)
 }
 
 pub fn position_for_offset(input: &[u8], offset: usize) -> Result<Point> {
@@ -1179,4 +1174,46 @@ pub fn position_for_offset(input: &[u8], offset: usize) -> Result<Point> {
         offset
     };
     Ok(result)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{offset_for_position, parse_edit_flag};
+    use tree_sitter::Point;
+
+    #[test]
+    fn offset_for_position_uses_zero_based_line_and_column_coordinates() {
+        let input = b"abc\n";
+        assert_eq!(
+            offset_for_position(input, Point { row: 0, column: 0 }).unwrap(),
+            0
+        );
+        assert_eq!(
+            offset_for_position(input, Point { row: 0, column: 1 }).unwrap(),
+            1
+        );
+        assert_eq!(
+            offset_for_position(input, Point { row: 0, column: 3 }).unwrap(),
+            3
+        );
+        assert_eq!(
+            offset_for_position(input, Point { row: 1, column: 0 }).unwrap(),
+            4
+        );
+    }
+
+    #[test]
+    fn offset_for_position_rejects_out_of_bounds_coordinates() {
+        let input = b"abc\ndef";
+        assert!(offset_for_position(input, Point { row: 0, column: 4 }).is_err());
+        assert!(offset_for_position(input, Point { row: 2, column: 0 }).is_err());
+    }
+
+    #[test]
+    fn parse_edit_flag_resolves_first_line_positions() {
+        let edit = parse_edit_flag(b"abc\n", "0,0 0 X").unwrap();
+        assert_eq!(edit.position, 0);
+        assert_eq!(edit.deleted_length, 0);
+        assert_eq!(edit.inserted_text, b"X");
+    }
 }
