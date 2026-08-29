@@ -351,8 +351,8 @@ unsafe extern "C" {
     pub fn ts_node_end_point(self_: TSNode) -> TSPoint;
 }
 unsafe extern "C" {
-    #[doc = " Get an S-expression representing the node as a string.\n\n This string is allocated with `malloc` and the caller is responsible for\n freeing it using `free`."]
-    pub fn ts_node_string(self_: TSNode) -> *mut ::core::ffi::c_char;
+    #[doc = " Get an S-expression representing the node as a string.\n\n If `include_ranges` is `true`, each node's start and end positions are\n included.\n\n This string is allocated with `malloc` and the caller is responsible for\n freeing it using `free`."]
+    pub fn ts_node_string(self_: TSNode, include_ranges: bool) -> *mut ::core::ffi::c_char;
 }
 unsafe extern "C" {
     #[doc = " Check if the node is null. Functions like [`ts_node_child`] and\n [`ts_node_next_sibling`] will return a null node to indicate that no such node\n was found."]

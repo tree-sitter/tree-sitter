@@ -21,7 +21,7 @@ use super::helpers::{
 };
 use crate::{
     fuzz::edits::Edit,
-    parse::perform_edit,
+    parse::{first_error_or_container, perform_edit},
     tests::{
         generate_parser,
         helpers::fixtures::{fixtures_dir, get_test_fixture_language},
@@ -48,7 +48,7 @@ fn test_parsing_simple_string() {
     assert_eq!(root_node.kind(), "source_file");
 
     assert_eq!(
-        root_node.to_sexp(),
+        root_node.to_sexp(false),
         concat!(
             "(source_file ",
             "(struct_item name: (type_identifier) body: (field_declaration_list)) ",
@@ -154,7 +154,7 @@ fn test_parsing_with_custom_utf8_input() {
 
     let root = tree.root_node();
     assert_eq!(
-        root.to_sexp(),
+        root.to_sexp(false),
         concat!(
             "(source_file ",
             "(function_item ",
@@ -203,7 +203,7 @@ fn test_parsing_with_custom_utf16le_input() {
 
     let root = tree.root_node();
     assert_eq!(
-        root.to_sexp(),
+        root.to_sexp(false),
         "(source_file (function_item (visibility_modifier) name: (identifier) parameters: (parameters) body: (block (integer_literal))))"
     );
     assert_eq!(root.kind(), "source_file");
@@ -245,7 +245,7 @@ fn test_parsing_with_custom_utf16_be_input() {
         .unwrap();
     let root = tree.root_node();
     assert_eq!(
-        root.to_sexp(),
+        root.to_sexp(false),
         "(source_file (function_item (visibility_modifier) name: (identifier) parameters: (parameters) body: (block (integer_literal))))"
     );
     assert_eq!(root.kind(), "source_file");
@@ -261,11 +261,11 @@ fn test_utf16_decodes_surrogate_pairs() {
 
     let le = [0xD83D_u16.to_le(), 0xDE00_u16.to_le()];
     let tree = parser.parse_utf16_le(le, None).unwrap();
-    assert_eq!(tree.root_node().to_sexp(), "(program (supplementary))");
+    assert_eq!(tree.root_node().to_sexp(false), "(program (supplementary))");
 
     let be = [0xD83D_u16.to_be(), 0xDE00_u16.to_be()];
     let tree = parser.parse_utf16_be(be, None).unwrap();
-    assert_eq!(tree.root_node().to_sexp(), "(program (supplementary))");
+    assert_eq!(tree.root_node().to_sexp(false), "(program (supplementary))");
 }
 
 #[test]
@@ -319,7 +319,7 @@ fn test_utf16_decode_does_not_read_oob() {
     // Correct: scanner sees raw surrogate (0xD83E) -> `surrogate` node
     // Incorrect: scanner sees supplementary (U+1F98B, aka 🦋) -> `supplementary` node
     assert_eq!(
-        root.to_sexp(),
+        root.to_sexp(false),
         "(program (surrogate))",
         "buffer over-read: decoder read past chunk boundary and formed a \
          supplementary character from OOB adjacent memory"
@@ -343,7 +343,7 @@ fn test_parsing_with_callback_returning_owned_strings() {
 
     let root = tree.root_node();
     assert_eq!(
-        root.to_sexp(),
+        root.to_sexp(false),
         "(source_file (function_item (visibility_modifier) name: (identifier) parameters: (parameters) body: (block (integer_literal))))"
     );
 }
@@ -364,7 +364,7 @@ fn test_parsing_text_with_byte_order_mark() {
         )
         .unwrap();
     assert_eq!(
-        tree.root_node().to_sexp(),
+        tree.root_node().to_sexp(false),
         "(source_file (function_item name: (identifier) parameters: (parameters) body: (block)))"
     );
     assert_eq!(tree.root_node().start_byte(), 2);
@@ -372,7 +372,7 @@ fn test_parsing_text_with_byte_order_mark() {
     // Parse UTF8 text with a BOM
     let mut tree = parser.parse("\u{FEFF}fn a() {}", None).unwrap();
     assert_eq!(
-        tree.root_node().to_sexp(),
+        tree.root_node().to_sexp(false),
         "(source_file (function_item name: (identifier) parameters: (parameters) body: (block)))"
     );
     assert_eq!(tree.root_node().start_byte(), 3);
@@ -388,7 +388,7 @@ fn test_parsing_text_with_byte_order_mark() {
     });
     let mut tree = parser.parse(" \u{FEFF}fn a() {}", Some(&tree)).unwrap();
     assert_eq!(
-        tree.root_node().to_sexp(),
+        tree.root_node().to_sexp(false),
         "(source_file (ERROR (UNEXPECTED 65279)) (function_item name: (identifier) parameters: (parameters) body: (block)))"
     );
     assert_eq!(tree.root_node().start_byte(), 1);
@@ -404,7 +404,7 @@ fn test_parsing_text_with_byte_order_mark() {
     });
     let tree = parser.parse("\u{FEFF}fn a() {}", Some(&tree)).unwrap();
     assert_eq!(
-        tree.root_node().to_sexp(),
+        tree.root_node().to_sexp(false),
         "(source_file (function_item name: (identifier) parameters: (parameters) body: (block)))"
     );
     assert_eq!(tree.root_node().start_byte(), 3);
@@ -416,8 +416,12 @@ fn test_parsing_invalid_chars_at_eof() {
     parser.set_language(&get_language("json")).unwrap();
     let tree = parser.parse(b"\xdf", None).unwrap();
     assert_eq!(
-        tree.root_node().to_sexp(),
+        tree.root_node().to_sexp(false),
         "(document (ERROR (UNEXPECTED INVALID)))"
+    );
+    assert_eq!(
+        tree.root_node().to_sexp(true),
+        "(document [0, 0] - [0, 1] (ERROR [0, 0] - [0, 1] (UNEXPECTED INVALID [0, 0] - [0, 1])))"
     );
 }
 
@@ -427,7 +431,7 @@ fn test_parsing_unexpected_null_characters_within_source() {
     parser.set_language(&get_language("javascript")).unwrap();
     let tree = parser.parse(b"var \0 something;", None).unwrap();
     assert_eq!(
-        tree.root_node().to_sexp(),
+        tree.root_node().to_sexp(false),
         "(program (variable_declaration (ERROR (UNEXPECTED '\\0')) (variable_declarator name: (identifier))))"
     );
 }
@@ -465,7 +469,7 @@ fn test_parsing_after_editing_beginning_of_code() {
     let mut code = b"123 + 456 * (10 + x);".to_vec();
     let mut tree = parser.parse(&code, None).unwrap();
     assert_eq!(
-        tree.root_node().to_sexp(),
+        tree.root_node().to_sexp(false),
         concat!(
             "(program (expression_statement (binary_expression ",
             "left: (number) ",
@@ -490,7 +494,7 @@ fn test_parsing_after_editing_beginning_of_code() {
         .parse_with_options(&mut |i, _| recorder.read(i), Some(&tree), None)
         .unwrap();
     assert_eq!(
-        tree.root_node().to_sexp(),
+        tree.root_node().to_sexp(false),
         concat!(
             "(program (expression_statement (binary_expression ",
             "left: (number) ",
@@ -513,7 +517,7 @@ fn test_parsing_after_editing_end_of_code() {
     let mut code = b"x * (100 + abc);".to_vec();
     let mut tree = parser.parse(&code, None).unwrap();
     assert_eq!(
-        tree.root_node().to_sexp(),
+        tree.root_node().to_sexp(false),
         concat!(
             "(program (expression_statement (binary_expression ",
             "left: (identifier) ",
@@ -538,7 +542,7 @@ fn test_parsing_after_editing_end_of_code() {
         .parse_with_options(&mut |i, _| recorder.read(i), Some(&tree), None)
         .unwrap();
     assert_eq!(
-        tree.root_node().to_sexp(),
+        tree.root_node().to_sexp(false),
         concat!(
             "(program (expression_statement (binary_expression ",
             "left: (identifier) ",
@@ -582,7 +586,7 @@ h + i
     .to_vec();
     let mut tree = parser.parse(&code, None).unwrap();
     assert_eq!(
-        tree.root_node().to_sexp(),
+        tree.root_node().to_sexp(false),
         concat!(
             "(block ",
             "(binary_expression (identifier) (identifier)) ",
@@ -619,7 +623,7 @@ h + i
         .unwrap();
 
     assert_eq!(
-        tree.root_node().to_sexp(),
+        tree.root_node().to_sexp(false),
         concat!(
             "(block ",
             "(binary_expression (identifier) (identifier)) ",
@@ -645,7 +649,7 @@ fn test_parsing_after_editing_tree_that_depends_on_column_position() {
 
     let mut code = b"\n x".to_vec();
     let mut tree = parser.parse(&code, None).unwrap();
-    assert_eq!(tree.root_node().to_sexp(), "(x_is_at (odd_column))");
+    assert_eq!(tree.root_node().to_sexp(false), "(x_is_at (odd_column))");
 
     perform_edit(
         &mut tree,
@@ -665,7 +669,7 @@ fn test_parsing_after_editing_tree_that_depends_on_column_position() {
         .parse_with_options(&mut |i, _| recorder.read(i), Some(&tree), None)
         .unwrap();
 
-    assert_eq!(tree.root_node().to_sexp(), "(x_is_at (even_column))",);
+    assert_eq!(tree.root_node().to_sexp(false), "(x_is_at (even_column))",);
     assert_eq!(recorder.strings_read(), vec!["\n  x"]);
 
     perform_edit(
@@ -686,7 +690,7 @@ fn test_parsing_after_editing_tree_that_depends_on_column_position() {
         .parse_with_options(&mut |i, _| recorder.read(i), Some(&tree), None)
         .unwrap();
 
-    assert_eq!(tree.root_node().to_sexp(), "(x_is_at (even_column))",);
+    assert_eq!(tree.root_node().to_sexp(false), "(x_is_at (even_column))",);
     assert_eq!(recorder.strings_read(), vec!["\n\n  x"]);
 }
 
@@ -699,7 +703,10 @@ fn test_parsing_after_failed_external_scan_that_depends_on_column() {
 
     let mut code = b"ax".to_vec();
     let mut tree = parser.parse(&code, None).unwrap();
-    assert_eq!(tree.root_node().to_sexp(), "(document (letter) (tail))");
+    assert_eq!(
+        tree.root_node().to_sexp(false),
+        "(document (letter) (tail))"
+    );
 
     perform_edit(
         &mut tree,
@@ -714,10 +721,13 @@ fn test_parsing_after_failed_external_scan_that_depends_on_column() {
 
     let incremental = parser.parse(&code, Some(&tree)).unwrap();
     let fresh = parser.parse(&code, None).unwrap();
-    assert_eq!(fresh.root_node().to_sexp(), "(document (newline) (head))");
     assert_eq!(
-        incremental.root_node().to_sexp(),
-        fresh.root_node().to_sexp()
+        fresh.root_node().to_sexp(false),
+        "(document (newline) (head))"
+    );
+    assert_eq!(
+        incremental.root_node().to_sexp(false),
+        fresh.root_node().to_sexp(false)
     );
 }
 
@@ -729,7 +739,7 @@ fn test_parsing_after_detecting_error_in_the_middle_of_a_string_token() {
     let mut source = b"a = b, 'c, d'".to_vec();
     let tree = parser.parse(&source, None).unwrap();
     assert_eq!(
-        tree.root_node().to_sexp(),
+        tree.root_node().to_sexp(false),
         "(module (expression_statement (assignment left: (identifier) right: (expression_list (identifier) (string (string_start) (string_content) (string_end))))))"
     );
 
@@ -756,7 +766,10 @@ fn test_parsing_after_detecting_error_in_the_middle_of_a_string_token() {
     let mut tree3 = tree2.clone();
     perform_edit(&mut tree3, &mut source, &undo).unwrap();
     tree3 = parser.parse(&source, Some(&tree3)).unwrap();
-    assert_eq!(tree3.root_node().to_sexp(), tree.root_node().to_sexp(),);
+    assert_eq!(
+        tree3.root_node().to_sexp(false),
+        tree.root_node().to_sexp(false),
+    );
 }
 
 // Thread safety
@@ -1239,7 +1252,7 @@ fn test_parsing_with_one_included_range() {
     let js_tree = parser.parse(source_code, None).unwrap();
 
     assert_eq!(
-        js_tree.root_node().to_sexp(),
+        js_tree.root_node().to_sexp(false),
         concat!(
             "(program (expression_statement (call_expression ",
             "function: (member_expression object: (identifier) property: (property_identifier)) ",
@@ -1299,7 +1312,7 @@ fn test_parsing_with_multiple_included_ranges() {
     let html_tree = parser.parse(source_code, None).unwrap();
 
     assert_eq!(
-        html_tree.root_node().to_sexp(),
+        html_tree.root_node().to_sexp(false),
         concat!(
             "(document (element",
             " (start_tag (tag_name))",
@@ -1379,7 +1392,7 @@ fn test_parsing_with_included_range_containing_mismatched_positions() {
     assert_eq!(html_tree.root_node().range(), range_to_parse);
 
     assert_eq!(
-        html_tree.root_node().to_sexp(),
+        html_tree.root_node().to_sexp(false),
         "(document (element (start_tag (tag_name)) (text) (end_tag (tag_name))))"
     );
 }
@@ -1447,7 +1460,10 @@ fn test_parsing_utf16_code_with_errors_at_the_end_of_an_included_range() {
         }])
         .unwrap();
     let tree = parser.parse_utf16_le(&utf16_source_code, None).unwrap();
-    assert_eq!(tree.root_node().to_sexp(), "(program (ERROR (identifier)))");
+    assert_eq!(
+        tree.root_node().to_sexp(false),
+        "(program (ERROR (identifier)))"
+    );
 }
 
 #[test]
@@ -1483,7 +1499,7 @@ fn test_parsing_with_external_scanner_that_uses_included_range_boundaries() {
     let statement2 = root.child(1).unwrap();
 
     assert_eq!(
-        root.to_sexp(),
+        root.to_sexp(false),
         concat!(
             "(program",
             " (expression_statement (call_expression function: (identifier) arguments: (arguments)))",
@@ -1546,7 +1562,7 @@ fn test_parsing_with_a_newly_excluded_range() {
         .unwrap();
 
     assert_eq!(
-        tree.root_node().to_sexp(),
+        tree.root_node().to_sexp(false),
         concat!(
             "(document (text) (element",
             " (start_tag (tag_name))",
@@ -1598,7 +1614,7 @@ fn test_parsing_with_a_newly_included_range() {
         .parse_with_options(&mut chunked_input(source_code, 3), None, None)
         .unwrap();
     assert_eq!(
-        tree.root_node().to_sexp(),
+        tree.root_node().to_sexp(false),
         concat!(
             "(program",
             " (expression_statement (call_expression function: (identifier) arguments: (arguments))))",
@@ -1617,7 +1633,7 @@ fn test_parsing_with_a_newly_included_range() {
         .parse_with_options(&mut chunked_input(source_code, 3), Some(&tree), None)
         .unwrap();
     assert_eq!(
-        tree2.root_node().to_sexp(),
+        tree2.root_node().to_sexp(false),
         concat!(
             "(program",
             " (expression_statement (call_expression function: (identifier) arguments: (arguments)))",
@@ -1640,7 +1656,7 @@ fn test_parsing_with_a_newly_included_range() {
         .unwrap();
     let tree3 = parser.parse(source_code, Some(&tree)).unwrap();
     assert_eq!(
-        tree3.root_node().to_sexp(),
+        tree3.root_node().to_sexp(false),
         concat!(
             "(program",
             " (expression_statement (call_expression function: (identifier) arguments: (arguments)))",
@@ -1708,7 +1724,7 @@ fn test_parsing_with_included_ranges_and_missing_tokens() {
     let tree = parser.parse(source_code, None).unwrap();
     let root = tree.root_node();
     assert_eq!(
-        root.to_sexp(),
+        root.to_sexp(false),
         "(program (A (MISSING a)) (b) (c) (A (MISSING a)) (b) (c))"
     );
     assert_eq!(root.start_byte(), 2);
@@ -1943,7 +1959,7 @@ fn test_decode_utf32() {
         .unwrap();
 
     assert_eq!(
-        tree.root_node().to_sexp(),
+        tree.root_node().to_sexp(false),
         "(source_file (function_item (visibility_modifier) name: (identifier) parameters: (parameters) body: (block (expression_statement (macro_invocation macro: (identifier) (token_tree (string_literal (string_content))))))))"
     );
 }
@@ -1979,7 +1995,7 @@ fn test_decode_cp1252() {
         .unwrap();
 
     assert_eq!(
-        tree.root_node().to_sexp(),
+        tree.root_node().to_sexp(false),
         "(source_file (function_item (visibility_modifier) name: (identifier) parameters: (parameters) body: (block (expression_statement (macro_invocation macro: (identifier) (token_tree (string_literal (string_content))))))))"
     );
 }
@@ -2015,7 +2031,7 @@ fn test_decode_macintosh() {
         .unwrap();
 
     assert_eq!(
-        tree.root_node().to_sexp(),
+        tree.root_node().to_sexp(false),
         "(source_file (function_item (visibility_modifier) name: (identifier) parameters: (parameters) body: (block (expression_statement (macro_invocation macro: (identifier) (token_tree (string_literal (string_content))))))))"
     );
 }
@@ -2054,7 +2070,7 @@ fn test_decode_utf24le() {
         .unwrap();
 
     assert_eq!(
-        tree.root_node().to_sexp(),
+        tree.root_node().to_sexp(false),
         "(source_file (function_item (visibility_modifier) name: (identifier) parameters: (parameters) body: (block (expression_statement (macro_invocation macro: (identifier) (token_tree (string_literal (string_content))))))))"
     );
 }
@@ -2328,7 +2344,7 @@ fn test_parsing_after_balancing_tree_that_depends_on_column() {
     let mut code = b"\nax\na".to_vec();
     let mut tree = parser.parse(&code, None).unwrap();
     assert_eq!(
-        tree.root_node().to_sexp(),
+        tree.root_node().to_sexp(false),
         "(document (newline) (word) (tail) (newline) (word))"
     );
 
@@ -2346,11 +2362,90 @@ fn test_parsing_after_balancing_tree_that_depends_on_column() {
     let incremental = parser.parse(&code, Some(&tree)).unwrap();
     let fresh = parser.parse(&code, None).unwrap();
     assert_eq!(
-        fresh.root_node().to_sexp(),
+        fresh.root_node().to_sexp(false),
         "(document (newline) (word) (newline) (head) (newline) (word))"
     );
     assert_eq!(
-        incremental.root_node().to_sexp(),
-        fresh.root_node().to_sexp()
+        incremental.root_node().to_sexp(false),
+        fresh.root_node().to_sexp(false)
+    );
+}
+
+#[test]
+fn test_hidden_missing_node_ranges() {
+    let (parser_name, parser_code) = generate_parser(
+        r#"{
+              "name": "test_hidden_missing_node_ranges",
+              "rules": {
+                  "source_file": {
+                      "type": "SEQ",
+                      "members": [
+                          {"type": "STRING", "value": "."},
+                          {"type": "SYMBOL", "name": "id"}
+                      ]
+                  },
+                  "id": {"type": "SYMBOL", "name": "_hidden"},
+                  "_hidden": {"type": "PATTERN", "value": "[A-Za-z0-9_]+"}
+              },
+              "extras": [{"type": "PATTERN", "value": "\\s"}]
+          }"#,
+    )
+    .unwrap();
+
+    let mut parser = Parser::new();
+    parser
+        .set_language(&get_test_language(&parser_name, &parser_code, None))
+        .unwrap();
+
+    let tree = parser.parse(".\n", None).unwrap();
+    let root = tree.root_node();
+    assert!(root.has_error());
+    assert_eq!(
+        root.to_sexp(true),
+        "(source_file [0, 0] - [1, 0] (id [0, 1] - [0, 1] (MISSING _hidden [0, 1] - [0, 1])))"
+    );
+
+    let container = first_error_or_container(root).unwrap();
+    assert_eq!(container.kind(), "id");
+    assert_eq!(
+        container.to_sexp(true),
+        "(id [0, 1] - [0, 1] (MISSING _hidden [0, 1] - [0, 1]))"
+    );
+
+    let tree = parser.parse(".abc\n", None).unwrap();
+    assert_eq!(first_error_or_container(tree.root_node()), None);
+}
+
+#[test]
+fn test_direct_hidden_missing_node_ranges() {
+    let (parser_name, parser_code) = generate_parser(
+        r#"{
+              "name": "test_direct_hidden_missing_node_ranges",
+              "rules": {
+                  "source_file": {
+                      "type": "SEQ",
+                      "members": [
+                          {"type": "STRING", "value": "."},
+                          {"type": "SYMBOL", "name": "_hidden"}
+                      ]
+                  },
+                  "_hidden": {"type": "PATTERN", "value": "[A-Za-z0-9_]+"}
+              },
+              "extras": [{"type": "PATTERN", "value": "\\s"}]
+          }"#,
+    )
+    .unwrap();
+
+    let mut parser = Parser::new();
+    parser
+        .set_language(&get_test_language(&parser_name, &parser_code, None))
+        .unwrap();
+
+    let tree = parser.parse(".\n", None).unwrap();
+    let root = tree.root_node();
+    assert_eq!(first_error_or_container(root), Some(root));
+    assert_eq!(
+        root.to_sexp(true),
+        "(source_file [0, 0] - [1, 0] (MISSING _hidden [0, 1] - [0, 1]))"
     );
 }

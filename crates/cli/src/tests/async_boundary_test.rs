@@ -83,7 +83,7 @@ fn test_node_and_cursor_together() {
 
         let fut = async {
             yield_once().await;
-            let _ = root.to_sexp();
+            let _ = root.to_sexp(false);
             cursor.goto_first_child();
         };
 

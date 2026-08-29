@@ -135,7 +135,7 @@ async fn run() {
         Err(LanguageError::NotParseable)
     );
     assert_eq!(
-        tree.root_node().to_sexp(),
+        tree.root_node().to_sexp(false),
         "(program (lexical_declaration (variable_declarator name: (identifier) value: (array))))"
     );
     assert_javascript_query(&tree, &source, 0);
@@ -184,7 +184,7 @@ async fn run() {
     let python_source = String::from("def answer():\n  return 42\n");
     let python_tree = spawn_parse(PYTHON, &python_source, None).await;
     assert_eq!(
-        python_tree.root_node().to_sexp(),
+        python_tree.root_node().to_sexp(false),
         "(module (function_definition name: (identifier) parameters: (parameters) body: (block (return_statement (integer)))))"
     );
     log_progress("parsed python");
@@ -194,7 +194,7 @@ async fn run() {
     let ruby_source = String::from("Éclair!\nvalue = <<~ÉTÉ\n  héllo\nÉTÉ\n");
     let ruby_tree = spawn_parse(RUBY, &ruby_source, None).await;
     assert_eq!(
-        ruby_tree.root_node().to_sexp(),
+        ruby_tree.root_node().to_sexp(false),
         "(program (call method: (constant)) (assignment left: (identifier) right: (heredoc_beginning)) (heredoc_body (heredoc_content) (heredoc_end)))"
     );
     log_progress("parsed ruby");

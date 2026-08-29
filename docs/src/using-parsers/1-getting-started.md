@@ -88,7 +88,7 @@ int main() {
   assert(ts_node_child_count(number_node) == 0);
 
   // Print the syntax tree as an S-expression.
-  char *string = ts_node_string(root_node);
+  char *string = ts_node_string(root_node, false);
   printf("Syntax tree: %s\n", string);
 
   // Free all of the heap-allocated memory.

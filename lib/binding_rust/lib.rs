@@ -2116,10 +2116,13 @@ impl<'tree> Node<'tree> {
     }
 
     /// Get an S-expression representing the node.
+    ///
+    /// If `include_ranges` is `true`, each node's start and end positions are
+    /// included.
     #[doc(alias = "ts_node_string")]
     #[must_use]
-    pub fn to_sexp(&self) -> String {
-        let c_string = unsafe { ffi::ts_node_string(self.0) };
+    pub fn to_sexp(&self, include_ranges: bool) -> String {
+        let c_string = unsafe { ffi::ts_node_string(self.0, include_ranges) };
         let result = unsafe { CStr::from_ptr(c_string) }
             .to_str()
             .unwrap()
@@ -2193,7 +2196,7 @@ impl fmt::Debug for Node<'_> {
 
 impl fmt::Display for Node<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let sexp = self.to_sexp();
+        let sexp = self.to_sexp(false);
         if sexp.is_empty() {
             write!(f, "")
         } else if !f.alternate() {
@@ -4046,6 +4049,9 @@ pub fn format_sexp(sexp: &str, initial_indent_level: usize) -> String {
             write!(formatted, "{scratch} ").unwrap();
             has_field = true;
             indent_level += 1;
+        } else if scratch.starts_with('[') || scratch.ends_with(']') || scratch == "-" {
+            // "[row," "column]" "-" "[row," "column]"
+            write!(formatted, " {scratch}").unwrap();
         }
     }
 

@@ -555,10 +555,13 @@ TSPoint ts_node_end_point(TSNode self);
 /**
  * Get an S-expression representing the node as a string.
  *
+ * If `include_ranges` is `true`, each node's start and end positions are
+ * included.
+ *
  * This string is allocated with `malloc` and the caller is responsible for
  * freeing it using `free`.
  */
-char *ts_node_string(TSNode self);
+char *ts_node_string(TSNode self, bool include_ranges);
 
 /**
  * Check if the node is null. Functions like [`ts_node_child`] and

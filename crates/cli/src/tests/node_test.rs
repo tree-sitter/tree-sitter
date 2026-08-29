@@ -680,7 +680,7 @@ fn test_node_named_child_with_aliases_and_extras() {
 
     let tree = parser.parse("b ... b ... c", None).unwrap();
     let root = tree.root_node();
-    assert_eq!(root.to_sexp(), "(a (b) (comment) (B) (comment) (C))");
+    assert_eq!(root.to_sexp(false), "(a (b) (comment) (B) (comment) (C))");
     assert_eq!(root.named_child_count(), 5);
     assert_eq!(root.named_child(0).unwrap().kind(), "b");
     assert_eq!(root.named_child(1).unwrap().kind(), "comment");
@@ -1074,11 +1074,16 @@ fn test_node_sexp() {
     let paren_node = root_node.descendant_for_byte_range(3, 3).unwrap();
     let identifier_node = root_node.descendant_for_byte_range(4, 4).unwrap();
     assert_eq!(if_node.kind(), "if");
-    assert_eq!(if_node.to_sexp(), "(\"if\")");
+    assert_eq!(if_node.to_sexp(false), "(\"if\")");
     assert_eq!(paren_node.kind(), "(");
-    assert_eq!(paren_node.to_sexp(), "(\"(\")");
+    assert_eq!(paren_node.to_sexp(false), "(\"(\")");
     assert_eq!(identifier_node.kind(), "identifier");
-    assert_eq!(identifier_node.to_sexp(), "(identifier)");
+    assert_eq!(identifier_node.to_sexp(false), "(identifier)");
+    assert_eq!(
+        identifier_node.to_sexp(true),
+        "(identifier [0, 4] - [0, 5])"
+    );
+    assert_eq!(if_node.to_sexp(true), "(\"if\" [0, 0] - [0, 2])");
 }
 
 #[test]
@@ -1285,7 +1290,7 @@ fn test_node_numeric_symbols_respect_simple_aliases() {
     let tree = parser.parse("(a((*b)))", None).unwrap();
     let root = tree.root_node();
     assert_eq!(
-        root.to_sexp(),
+        root.to_sexp(false),
         "(module (expression_statement (parenthesized_expression (call function: (identifier) arguments: (argument_list (parenthesized_expression (list_splat (identifier))))))))",
     );
 
@@ -1310,7 +1315,7 @@ fn test_node_numeric_symbols_respect_simple_aliases() {
     let tree = parser.parse("-a - b", None).unwrap();
     let root = tree.root_node();
     assert_eq!(
-        root.to_sexp(),
+        root.to_sexp(false),
         "(program (binary left: (unary operand: (identifier)) right: (identifier)))",
     );
 
