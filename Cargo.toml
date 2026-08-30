@@ -22,7 +22,7 @@ keywords = [ "incremental", "parsing" ]
 license = "MIT"
 repository = "https://github.com/tree-sitter/tree-sitter"
 rust-version = "1.90"
-version = "0.27.0"
+version = "0.28.0"
 
 [workspace.lints.clippy]
 cargo = { level = "warn", priority = -1 }
@@ -128,11 +128,11 @@ walkdir = "2.5.0"
 wasmparser = "0.244.0"
 webbrowser = "1.2.1"
 
-tree-sitter = { path = "./lib", version = "0.27.0" }
-tree-sitter-config = { path = "./crates/config", version = "0.27.0" }
-tree-sitter-generate = { default-features = false, path = "./crates/generate", version = "0.27.0" }
-tree-sitter-highlight = { path = "./crates/highlight", version = "0.27.0" }
-tree-sitter-loader = { path = "./crates/loader", version = "0.27.0" }
-tree-sitter-tags = { path = "./crates/tags", version = "0.27.0" }
+tree-sitter = { path = "./lib", version = "0.28.0" }
+tree-sitter-config = { path = "./crates/config", version = "0.28.0" }
+tree-sitter-generate = { default-features = false, path = "./crates/generate", version = "0.28.0" }
+tree-sitter-highlight = { path = "./crates/highlight", version = "0.28.0" }
+tree-sitter-loader = { path = "./crates/loader", version = "0.28.0" }
+tree-sitter-tags = { path = "./crates/tags", version = "0.28.0" }
 
 tree-sitter-language = { path = "./crates/language", version = "0.1.8" }
