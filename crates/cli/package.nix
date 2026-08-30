@@ -13,7 +13,7 @@
   installShellFiles,
 }:
 let
-  isCross = stdenv.targetPlatform == stdenv.buildPlatform;
+  canRunHost = stdenv.buildPlatform.canExecute stdenv.hostPlatform;
 in
 rustPlatform.buildRustPackage {
   pname = "tree-sitter-cli";
@@ -28,7 +28,7 @@ rustPlatform.buildRustPackage {
     pkg-config
     nodejs_22
   ]
-  ++ lib.optionals (!isCross) [ installShellFiles ];
+  ++ lib.optionals canRunHost [ installShellFiles ];
 
   cargoLock.lockFile = ../../Cargo.lock;
 
@@ -42,9 +42,9 @@ rustPlatform.buildRustPackage {
   '';
 
   preCheck = "export HOME=$TMPDIR";
-  doCheck = !isCross;
+  doCheck = canRunHost;
 
-  postInstall = lib.optionalString (!isCross) ''
+  postInstall = lib.optionalString canRunHost ''
     installShellCompletion --cmd tree-sitter \
       --bash <($out/bin/tree-sitter complete --shell bash) \
       --zsh  <($out/bin/tree-sitter complete --shell zsh) \

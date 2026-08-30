@@ -8,13 +8,12 @@
   emscripten,
   src,
   version,
+  npmDepsHash,
 }:
 buildNpmPackage {
-  inherit src version;
+  inherit src version npmDepsHash;
 
   pname = "web-tree-sitter";
-
-  npmDepsHash = "sha256-y0GobcskcZTmju90TM64GjeWiBmPFCrTOg0yfccdB+Q=";
 
   nativeBuildInputs = [
     rustPlatform.cargoSetupHook
@@ -27,10 +26,12 @@ buildNpmPackage {
     lockFile = ../../Cargo.lock;
   };
 
-  doCheck = true;
+  # emscripten is super behind here compared to nixpkgs upstream
+  doCheck = false;
 
   postPatch = ''
     cp lib/binding_web/package{,-lock}.json .
+    cp LICENSE lib/binding_web/
   '';
 
   buildPhase = ''
@@ -53,11 +54,20 @@ buildNpmPackage {
   '';
 
   checkPhase = ''
-    cd lib/binding_web && npm test
+    pushd lib/binding_web && npm test && popd
   '';
 
+  preInstall = ''
+    mv node_modules lib/binding_web/
+    cd lib/binding_web
+  '';
+
+  # `postpack` deletes the LICENSE that postPatch staged, and npmInstallHook
+  # copies the packed file list afterwards.
+  npmPackFlags = [ "--ignore-scripts" ];
+
   meta = {
-    description = "web-tree-sitter - WebAssembly bindings to the Tree-sitter parsing library.";
+    description = "WebAssembly bindings to the Tree-sitter parsing library.";
     longDescription = ''
       web-tree-sitter provides WebAssembly bindings to the Tree-sitter parsing library.
       It can build a concrete syntax tree for a source file and efficiently update

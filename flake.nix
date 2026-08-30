@@ -17,7 +17,7 @@
       eachSystem = lib.genAttrs systems;
       pkgsFor = inputs.nixpkgs.legacyPackages;
 
-          version = "0.28.0";
+      version = "0.28.0";
 
       fs = lib.fileset;
       src = fs.toSource {
@@ -34,6 +34,22 @@
         );
       };
       fixturesJson = lib.importJSON ./test/fixtures/fixtures.json;
+
+      npmDepsHash = "sha256-XeGrKPpel5XKUA63UjvteqyI5srifq3g54GjhvDEjlo=";
+
+      # `tree-sitter build --wasm` searches TREE_SITTER_WASI_SDK_PATH for `clang`,
+      # `wasm32-unknown-wasi-clang` or `wasm32-wasi-clang`. The nixpkgs wasi32
+      # toolchain only ships the `wasm32-unknown-wasip1-` prefix, so alias one.
+      wasiSdkFor =
+        pkgs:
+        let
+          cc = pkgs.pkgsCross.wasi32.stdenv.cc;
+        in
+        pkgs.symlinkJoin {
+          name = "wasi-sdk";
+          paths = [ cc ];
+          postBuild = "ln -s ${cc.targetPrefix}clang $out/bin/clang";
+        };
 
       grammarHashes = {
         bash = "sha256-vRaN/mNfpR+hdv2HVS1bzaW0o+HGjizRFsk3iinICJE=";
@@ -90,11 +106,13 @@
 
             x86_64-windows = pkgs.pkgsCross.mingwW64;
           }
-          // (lib.optionalAttrs pkgs.stdenv.isDarwin {
+          // (lib.optionalAttrs pkgs.stdenv.hostPlatform.isDarwin {
             x86_64-darwin = pkgs.pkgsCross.x86_64-darwin;
             aarch64-darwin = pkgs.pkgsCross.aarch64-darwin;
           });
 
+          # nixpkgs marks compiler-rt broken for riscv32
+          cliCrossTargets = lib.removeAttrs crossTargets [ "riscv32" ];
         in
         {
           default = self.packages.${system}.cli;
@@ -134,10 +152,11 @@
           wasm-test-grammars = pkgs.callPackage ./lib/binding_web/wasm-test-grammars.nix {
             inherit src version;
             inherit (self.packages.${system}) cli test-grammars;
+            wasi-sdk = wasiSdkFor pkgs;
           };
 
           web-tree-sitter = pkgs.callPackage ./lib/binding_web/package.nix {
-            inherit src version;
+            inherit src version npmDepsHash;
             inherit (self.packages.${system}) wasm-test-grammars;
           };
 
@@ -156,7 +175,7 @@
             inherit src version;
             inherit (self.packages.${system}) test-grammars;
           };
-        }) crossTargets)
+        }) cliCrossTargets)
         // (lib.mapAttrs' (arch: pkg: {
           name = "lib-${arch}";
           value = pkg.callPackage ./lib/package.nix {
@@ -200,7 +219,7 @@
                 echo "→ Rust..."
                 ${lib.getExe pkgs.cargo} fmt --all
                 echo "→ Nix..."
-                ${lib.getExe pkgs.nixfmt} ${filesWithExtension "nix"}
+                find . -name '*.nix' -exec ${lib.getExe pkgs.nixfmt} {} +
                 echo "→ Web (TypeScript/JavaScript)..."
                 cd lib/binding_web && ${pkgs.nodejs_22}/bin/npm install --silent && ${pkgs.nodejs_22}/bin/npm run lint:fix
                 cd ../..
@@ -223,7 +242,7 @@
                 echo "→ Running clippy..."
                 ${lib.getExe pkgs.cargo} clippy --workspace --all-targets -- -D warnings
                 echo "→ Checking Nix formatting..."
-                ${lib.getExe pkgs.nixfmt} --check ${filesWithExtension "nix"}
+                find . -name '*.nix' -exec ${lib.getExe pkgs.nixfmt} --check {} +
                 echo "→ Checking Web code..."
                 cd lib/binding_web && ${lib.getExe' pkgs.nodejs_22 "npm"} install --silent && ${lib.getExe' pkgs.nodejs_22 "npm"} run lint
                 cd ../..
@@ -248,14 +267,25 @@
             web-tree-sitter
             ;
 
-          nix-fmt = pkgs.runCommandNoCC "nix-fmt-check" { } ''
-            ${lib.getExe self.formatter.${system}} --check ${filesWithExtension "nix"}
+          nix-fmt = pkgs.runCommand "nix-fmt-check" { } ''
+            find ${filesWithExtension "nix"} -name '*.nix' \
+              -exec ${lib.getExe self.formatter.${system}} --check {} +
             touch $out
           '';
-          rust-fmt = pkgs.runCommandNoCC "rust-fmt-check" { } ''
-            ${lib.getExe pkgs.rustfmt} --check
-            touch $out
-          '';
+          rust-fmt =
+            pkgs.runCommand "rust-fmt-check"
+              {
+                nativeBuildInputs = with pkgs; [
+                  cargo
+                  rustfmt
+                ];
+              }
+              ''
+                export HOME=$TMPDIR
+                cd ${src}
+                cargo fmt --all --check
+                touch $out
+              '';
 
           rust-clippy = pkgs.rustPlatform.buildRustPackage {
             inherit src version;
@@ -286,11 +316,9 @@
           };
 
           web-lint = pkgs.buildNpmPackage {
-            inherit src version;
+            inherit src version npmDepsHash;
 
             pname = "web-tree-sitter-lint";
-
-            npmDepsHash = "sha256-y0GobcskcZTmju90TM64GjeWiBmPFCrTOg0yfccdB+Q=";
 
             postPatch = ''
               cp lib/binding_web/package{,-lock}.json .
@@ -336,8 +364,10 @@
               libclang
 
               nodejs_22
-              nodePackages.typescript
+              typescript
               emscripten
+              binaryen
+              lld
               pkgsCross.wasi32.stdenv.cc
 
               mdbook
@@ -396,7 +426,8 @@
               LIBCLANG_PATH = "${pkgs.libclang.lib}/lib";
               LLVM_COV = "${pkgs.llvm}/bin/llvm-cov";
               LLVM_PROFDATA = "${pkgs.llvm}/bin/llvm-profdata";
-              TREE_SITTER_WASI_SDK_PATH = "${pkgs.pkgsCross.wasi32.stdenv.cc}";
+              TREE_SITTER_WASI_SDK_PATH = "${wasiSdkFor pkgs}";
+              TREE_SITTER_BINARYEN_PATH = "${pkgs.binaryen}";
             };
           };
         }
