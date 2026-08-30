@@ -1666,9 +1666,9 @@ impl<'tree> Node<'tree> {
     #[doc(alias = "ts_node_type")]
     #[must_use]
     pub fn kind(&self) -> &'tree str {
-        unsafe { CStr::from_ptr(ffi::ts_node_type(self.0)) }
-            .to_str()
-            .unwrap()
+        let ptr = unsafe { ffi::ts_node_type(self.0) };
+        assert!(!ptr.is_null());
+        unsafe { CStr::from_ptr(ptr) }.to_str().unwrap()
     }
 
     /// Get this node's symbol name as it appears in the grammar ignoring
@@ -1676,9 +1676,9 @@ impl<'tree> Node<'tree> {
     #[doc(alias = "ts_node_grammar_type")]
     #[must_use]
     pub fn grammar_name(&self) -> &'tree str {
-        unsafe { CStr::from_ptr(ffi::ts_node_grammar_type(self.0)) }
-            .to_str()
-            .unwrap()
+        let ptr = unsafe { ffi::ts_node_grammar_type(self.0) };
+        assert!(!ptr.is_null());
+        unsafe { CStr::from_ptr(ptr) }.to_str().unwrap()
     }
 
     /// Get the [`Language`] that was used to parse this node's syntax tree.
