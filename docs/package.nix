@@ -3,7 +3,6 @@
   lib,
   version,
   mdbook,
-  mdbook-admonish,
 }:
 stdenv.mkDerivation {
   inherit version;
@@ -11,10 +10,7 @@ stdenv.mkDerivation {
   src = ./.;
   pname = "tree-sitter-docs";
 
-  nativeBuildInputs = [
-    mdbook
-    mdbook-admonish
-  ];
+  nativeBuildInputs = [ mdbook ];
 
   buildPhase = ''
     mdbook build

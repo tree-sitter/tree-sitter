@@ -79,7 +79,6 @@ bool ts_query_cursor_set_containing_byte_range(TSQueryCursor *self, uint32_t sta
 bool ts_query_cursor_set_containing_point_range(TSQueryCursor *self, TSPoint start_point, TSPoint end_point);
 ```
 
-```admonish note
-For all of these functions, an end value of zero is treated as unbounded (the maximum possible value).
-This means passing a byte range of `(0, 0)` (or a point range of `{0, 0}, {0, 0}`) will match the entire tree, not an empty range.
-```
+> [!NOTE]
+> For all of these functions, an end value of zero is treated as unbounded (the maximum possible value).
+> This means passing a byte range of `(0, 0)` (or a point range of `{0, 0}, {0, 0}`) will match the entire tree, not an empty range.

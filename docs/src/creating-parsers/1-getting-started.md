@@ -37,13 +37,11 @@ mkdir tree-sitter-${LOWER_PARSER_NAME}
 cd tree-sitter-${LOWER_PARSER_NAME}
 ```
 
-```admonish note
-The `LOWER_` prefix here means the "lowercase" name of the language.
-```
+> [!NOTE]
+> The `LOWER_` prefix here means the "lowercase" name of the language.
 
-```admonish warning
-Dashes are not permitted via the CLI's `init` command and should not be used in parser names.
-```
+> [!WARNING]
+> Dashes are not permitted via the CLI's `init` command and should not be used in parser names.
 
 ### Init
 
@@ -78,10 +76,9 @@ export default grammar({
 });
 ```
 
-```admonish info
-The placeholders shown above would be replaced with the corresponding data you provided in the `init` sub-command's
-prompts.
-```
+> [!NOTE]
+> The placeholders shown above would be replaced with the corresponding data you provided in the `init` sub-command's
+> prompts.
 
 To learn more about this command, check the [reference page](../cli/init.md).
 

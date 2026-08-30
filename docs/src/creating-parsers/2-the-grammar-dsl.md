@@ -20,20 +20,19 @@ DSL through the `RustRegex` class. Simply pass your regex pattern as a string:
   accepts a single pattern string. While it doesn't support separate flags, you can use inline flags within the pattern
   itself. For more details about Rust's regex syntax and capabilities, check out the [Rust regex documentation][rust regex].
 
-  ```admonish note 
-  Only a subset of the Regex engine is actually supported. This is due to certain features like lookahead and lookaround
-  assertions not being feasible to use in an LR(1) grammar, as well as certain flags being unnecessary for tree-sitter. However,
-  plenty of features are supported by default:
-
-  - Character classes
-  - Character ranges
-  - Character sets
-  - Quantifiers
-  - Alternation
-  - Grouping
-  - Unicode character escapes
-  - Unicode property escapes
-  ```
+  > [!NOTE]
+  > Only a subset of the Regex engine is actually supported. This is due to certain features like lookahead and lookaround
+  > assertions not being feasible to use in an LR(1) grammar, as well as certain flags being unnecessary for tree-sitter. However,
+  > plenty of features are supported by default:
+  >
+  > - Character classes
+  > - Character ranges
+  > - Character sets
+  > - Quantifiers
+  > - Alternation
+  > - Grouping
+  > - Unicode character escapes
+  > - Unicode property escapes
 
 - **Sequences : `seq(rule1, rule2, ...)`** — This function creates a rule that matches any number of other rules, one after
 another. It is analogous to simply writing multiple symbols next to each other in [EBNF notation][ebnf].

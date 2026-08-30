@@ -36,9 +36,8 @@ If `--lib-path` is used, the name of the language used to extract the library's 
 
 Update the expected output of tests.
 
-```admonish info
-Tests containing `ERROR` nodes or `MISSING` nodes will not be updated.
-```
+> [!NOTE]
+> Tests containing `ERROR` nodes or `MISSING` nodes will not be updated.
 
 ### `-d/--debug`
 

@@ -244,11 +244,10 @@ Possible resolutions:
   4:  Add a conflict for these rules: `binary_expression` `unary_expression`
 ```
 
-```admonish hint
-The • character in the error message indicates where exactly during
-parsing the conflict occurs, or in other words, where the parser is encountering
-ambiguity.
-```
+> [!TIP]
+> The • character in the error message indicates where exactly during
+> parsing the conflict occurs, or in other words, where the parser is encountering
+> ambiguity.
 
 For an expression like `-a * b`, it's not clear whether the `-` operator applies to the `a * b` or just to the `a`. This
 is where the `prec` function [described in the previous page][grammar dsl] comes into play. By wrapping a rule with `prec`,
@@ -364,11 +363,10 @@ In such cases, we want the parser to explore both possibilities by explicitly de
 }
 ```
 
-```admonish note
-The example is a bit contrived for the purpose of illustrating the usage of conflicts. The actual JavaScript grammar isn't
-structured like that, but this conflict is actually present in the
-[Tree-sitter JavaScript grammar](https://github.com/tree-sitter/tree-sitter-javascript/blob/108b2d4d17a04356a340aea809e4dd5b801eb40d/grammar.js#L100).
-```
+> [!NOTE]
+> The example is a bit contrived for the purpose of illustrating the usage of conflicts. The actual JavaScript grammar isn't
+> structured like that, but this conflict is actually present in the
+> [Tree-sitter JavaScript grammar](https://github.com/tree-sitter/tree-sitter-javascript/blob/108b2d4d17a04356a340aea809e4dd5b801eb40d/grammar.js#L100).
 
 ## Hiding Rules
 
@@ -420,11 +418,10 @@ module.exports = grammar({
 });
 ```
 
-```admonish warning
-When adding more complicated tokens to `extras`, it's preferable to associate the pattern
-with a rule. This way, you avoid the lexer inlining this pattern in a bunch of spots,
-which can dramatically reduce the parser size.
-```
+> [!WARNING]
+> When adding more complicated tokens to `extras`, it's preferable to associate the pattern
+> with a rule. This way, you avoid the lexer inlining this pattern in a bunch of spots,
+> which can dramatically reduce the parser size.
 
 For example, instead of defining the `comment` token inline in `extras`:
 
@@ -471,10 +468,9 @@ module.exports = grammar({
 });
 ```
 
-```admonish note
-Tree-sitter intentionally simplifies the whitespace character class, `\s`, to `[ \t\n\r]` as a performance
-optimization. This is because typically users do not require the full Unicode definition of whitespace.
-```
+> [!NOTE]
+> Tree-sitter intentionally simplifies the whitespace character class, `\s`, to `[ \t\n\r]` as a performance
+> optimization. This is because typically users do not require the full Unicode definition of whitespace.
 
 ## Using Supertypes
 
@@ -520,12 +516,11 @@ module.exports = grammar({
 Although supertype rules are hidden from the syntax tree, they can still be used in queries. See the chapter on
 [Query Syntax][query syntax] for more information.
 
-```admonish warning
-Aliasing a supertype rule makes the node in the alias match the supertype in
-name only and will not be treated as a supertype. For `alias($.foo, $.bar)` a
-query targeting `bar` will not transparently match the supertype's subtypes the
-way a query targeting `foo` would.
-```
+> [!WARNING]
+> Aliasing a supertype rule makes the node in the alias match the supertype in
+> name only and will not be treated as a supertype. For `alias($.foo, $.bar)` a
+> query targeting `bar` will not transparently match the supertype's subtypes the
+> way a query targeting `foo` would.
 
 # Lexical Analysis
 
@@ -637,11 +632,10 @@ It would then correctly recognize the code as invalid.
 Aside from improving error detection, keyword extraction also has performance benefits. It allows Tree-sitter to generate
 a smaller, simpler lexing function, which means that **the parser will compile much more quickly**.
 
-```admonish note
-The word token must be a unique token that is not reused by another rule. If you want to have a word token used in a
-rule that's called something else, you should just alias the word token instead, like how the Rust grammar does it
-<a href="https://github.com/tree-sitter/tree-sitter-rust/blob/1f63b33efee17e833e0ea29266dd3d713e27e321/grammar.js#L1605">here</a>
-```
+> [!NOTE]
+> The word token must be a unique token that is not reused by another rule. If you want to have a word token used in a
+> rule that's called something else, you should just alias the word token instead, like how the Rust grammar does it
+> <a href="https://github.com/tree-sitter/tree-sitter-rust/blob/1f63b33efee17e833e0ea29266dd3d713e27e321/grammar.js#L1605">here</a>
 
 [ambiguous-grammar]: https://en.wikipedia.org/wiki/Ambiguous_grammar
 [antlr]: https://www.antlr.org
