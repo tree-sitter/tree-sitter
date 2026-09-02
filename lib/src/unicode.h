@@ -18,7 +18,7 @@ extern "C" {
     (c)=le16toh((s)[(i)++]); \
     if(U16_IS_LEAD(c)) { \
         uint16_t __c2; \
-        if((i)!=(length) && U16_IS_TRAIL(__c2=(s)[(i)])) { \
+        if((i)!=(length) && U16_IS_TRAIL(__c2=le16toh((s)[(i)]))) { \
             ++(i); \
             (c)=U16_GET_SUPPLEMENTARY((c), __c2); \
         } \
@@ -29,7 +29,7 @@ extern "C" {
     (c)=be16toh((s)[(i)++]); \
     if(U16_IS_LEAD(c)) { \
         uint16_t __c2; \
-        if((i)!=(length) && U16_IS_TRAIL(__c2=(s)[(i)])) { \
+        if((i)!=(length) && U16_IS_TRAIL(__c2=be16toh((s)[(i)]))) { \
             ++(i); \
             (c)=U16_GET_SUPPLEMENTARY((c), __c2); \
         } \

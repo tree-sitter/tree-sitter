@@ -254,6 +254,21 @@ fn test_parsing_with_custom_utf16_be_input() {
 }
 
 #[test]
+fn test_utf16_decodes_surrogate_pairs() {
+    let mut parser = Parser::new();
+    let language = get_test_fixture_language("utf16_surrogate_oob");
+    parser.set_language(&language).unwrap();
+
+    let le = [0xD83D_u16.to_le(), 0xDE00_u16.to_le()];
+    let tree = parser.parse_utf16_le(le, None).unwrap();
+    assert_eq!(tree.root_node().to_sexp(), "(program (supplementary))");
+
+    let be = [0xD83D_u16.to_be(), 0xDE00_u16.to_be()];
+    let tree = parser.parse_utf16_be(be, None).unwrap();
+    assert_eq!(tree.root_node().to_sexp(), "(program (supplementary))");
+}
+
+#[test]
 fn test_utf16_decode_does_not_read_oob() {
     // Test for a buffer over-read in ts_decode_utf16_le/be when a lead surrogate
     // is the last code unit in a chunk. The test grammar's external scanner
