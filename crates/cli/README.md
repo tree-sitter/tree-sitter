@@ -15,7 +15,7 @@ The Tree-sitter CLI allows you to develop, test, and use Tree-sitter grammars fr
 You can install the `tree-sitter-cli` with [`cargo-binstall`](https://github.com/cargo-bins/cargo-binstall):
 
 ```sh
-cargo binstall tree-sitter-cli
+cargo install tree-sitter-cli
 ```
 
 or you can build it from source:
