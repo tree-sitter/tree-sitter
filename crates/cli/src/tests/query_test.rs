@@ -4623,7 +4623,7 @@ fn test_query_with_no_patterns() {
     allocations::record(|| {
         let language = get_language("javascript");
         let query = Query::new(&language, "").unwrap();
-        assert!(query.capture_names().is_empty());
+        assert_eq!(query.capture_names(), [] as [&str; 0]);
         assert_eq!(query.pattern_count(), 0);
     });
 }
