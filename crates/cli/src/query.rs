@@ -142,7 +142,9 @@ pub fn query_file_at_path(
         };
         // Invariant: `test_summary` will always be `Some` when `should_test` is true
         let test_summary = test_summary.unwrap();
-        match query_testing::assert_expected_captures(&results, path, &mut parser, language) {
+        let assertions =
+            query_testing::parse_position_comments(&mut parser, language, source_code.as_slice())?;
+        match query_testing::assert_expected_captures(&results, &assertions) {
             Ok(assertion_count) => {
                 test_summary.query_results.add_case(TestResult {
                     name: path_name.to_string(),

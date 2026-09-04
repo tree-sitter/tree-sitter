@@ -1,4 +1,4 @@
-use std::{fs, path::Path, sync::LazyLock};
+use std::sync::LazyLock;
 
 use anyhow::{Result, anyhow};
 use bstr::{BStr, ByteSlice};
@@ -219,19 +219,14 @@ pub fn parse_position_comments(
     Ok(result)
 }
 
-pub fn assert_expected_captures(
-    infos: &[CaptureInfo],
-    path: &Path,
-    parser: &mut Parser,
-    language: &Language,
-) -> Result<usize> {
-    let contents = fs::read_to_string(path)?;
-    let pairs = parse_position_comments(parser, language, contents.as_bytes())?;
-    for assertion in &pairs {
+pub fn assert_expected_captures(infos: &[CaptureInfo], assertions: &[Assertion]) -> Result<usize> {
+    for assertion in assertions {
         if let Some(found) = &infos.iter().find(|p| {
-            assertion.position >= p.start
-                && (assertion.position.row < p.end.row
-                    || assertion.position.column + assertion.length - 1 < p.end.column)
+            let assertion_end = Utf8Point::new(
+                assertion.position.row,
+                assertion.position.column + assertion.length - 1,
+            );
+            assertion.position >= p.start && assertion_end < p.end
         }) {
             if assertion.expected_capture_name != found.name && found.name != "name" {
                 return Err(anyhow!(
@@ -250,5 +245,24 @@ pub fn assert_expected_captures(
             ));
         }
     }
-    Ok(pairs.len())
+    Ok(assertions.len())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Assertion, CaptureInfo, Utf8Point, assert_expected_captures};
+
+    #[test]
+    fn test_assertion_after_multiline_capture_does_not_match() {
+        let captures = [CaptureInfo {
+            name: "foo".to_string(),
+            start: Utf8Point::new(0, 0),
+            end: Utf8Point::new(1, 1),
+        }];
+        let assertions = [Assertion::new(2, 0, 1, false, "foo".to_string())];
+
+        let result = assert_expected_captures(&captures, &assertions);
+
+        assert!(result.is_err());
+    }
 }
