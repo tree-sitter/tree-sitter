@@ -5,7 +5,6 @@ description = "Locates, builds, and loads tree-sitter grammars at runtime"
 authors.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-readme = "README.md"
 homepage.workspace = true
 repository.workspace = true
 documentation = "https://docs.rs/tree-sitter-loader"

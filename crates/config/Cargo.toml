@@ -5,7 +5,6 @@ description = "User configuration of tree-sitter's command line programs"
 authors.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-readme = "README.md"
 homepage.workspace = true
 repository.workspace = true
 documentation = "https://docs.rs/tree-sitter-config"

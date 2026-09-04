@@ -5,7 +5,6 @@ version = "0.1.8"
 authors.workspace = true
 edition.workspace = true
 rust-version = "1.90"
-readme = "README.md"
 homepage.workspace = true
 repository.workspace = true
 documentation = "https://docs.rs/tree-sitter-language"

@@ -5,7 +5,6 @@ description = "Library for performing syntax highlighting with Tree-sitter"
 authors = [ "Max Brunsfeld <maxbrunsfeld@gmail.com>", "Tim Clem <timothy.clem@gmail.com>" ]
 edition.workspace = true
 rust-version.workspace = true
-readme = "README.md"
 homepage.workspace = true
 repository.workspace = true
 documentation = "https://docs.rs/tree-sitter-highlight"
