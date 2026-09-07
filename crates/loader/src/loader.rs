@@ -89,7 +89,7 @@ pub enum LoaderError {
     )]
     LockFileTimeout(PathBuf),
     #[error("Failed to execute curl for {0} -- {1}")]
-    Curl(String, std::io::Error),
+    Curl(String, IoError),
     #[error("Failed to load language in current directory:\n{0}")]
     CurrentDirectoryLoad(Box<Self>),
     #[error("External file path {0} is outside of parser directory {1}")]
@@ -120,8 +120,12 @@ pub enum LoaderError {
     Symbol(SymbolError),
     #[error(transparent)]
     Tags(#[from] TagsError),
-    #[error("Failed to execute tar for {0} -- {1}")]
-    Tar(String, std::io::Error),
+    #[error(
+        "Failed to execute tar for {path} -- {error}",
+        path = .0.path.as_deref().unwrap_or_else(|| Path::new("")).display(),
+        error = .0.error,
+    )]
+    Tar(IoError),
     #[error("Unknown scope '{0}'")]
     UnknownScope(String),
     #[error("Failed to download {tool} from {url}")]
@@ -134,9 +138,9 @@ pub enum LoaderError {
     #[error(transparent)]
     Wasm(#[from] WasmError),
     #[error("Failed to run wasi-sdk clang -- {0}")]
-    WasmCompiler(std::io::Error),
+    WasmCompiler(IoError),
     #[error("Failed to run wasm-opt -- {0}")]
-    WasmOptimizer(std::io::Error),
+    WasmOptimizer(IoError),
     #[error("wasi-sdk clang command failed: {0}")]
     WasmCompilation(String),
     #[error("wasm-opt command failed: {0}")]
@@ -145,7 +149,7 @@ pub enum LoaderError {
 
 #[derive(Debug, Error)]
 pub struct CompilerError {
-    pub error: std::io::Error,
+    pub error: IoError,
     pub command: Box<Command>,
 }
 
@@ -165,6 +169,16 @@ pub struct IoError {
     pub error: std::io::Error,
     pub path: Option<PathBuf>,
 }
+
+impl PartialEq for IoError {
+    fn eq(&self, other: &Self) -> bool {
+        self.path == other.path
+            && self.error.kind() == other.error.kind()
+            && self.error.raw_os_error() == other.error.raw_os_error()
+    }
+}
+
+impl Eq for IoError {}
 
 impl IoError {
     fn new(error: std::io::Error, path: Option<&Path>) -> Self {
@@ -1326,9 +1340,10 @@ impl Loader {
             display_build_cmd(&command);
         }
 
+        let compiler_path = PathBuf::from(command.get_program());
         let output = command.output().map_err(|e| {
             LoaderError::Compiler(CompilerError {
-                error: e,
+                error: IoError::new(e, Some(&compiler_path)),
                 command: Box::new(command),
             })
         })?;
@@ -1457,7 +1472,7 @@ impl Loader {
 
         let compile_output = compile_command
             .output()
-            .map_err(LoaderError::WasmCompiler)?;
+            .map_err(|e| LoaderError::WasmCompiler(IoError::new(e, Some(&clang_exe))))?;
         if self.verbose {
             if !compile_output.stdout.is_empty() {
                 info!("stdout:{}", String::from_utf8_lossy(&compile_output.stdout));
@@ -1483,7 +1498,9 @@ impl Loader {
             display_build_cmd(&opt_command);
         }
 
-        let opt_output = opt_command.output().map_err(LoaderError::WasmOptimizer)?;
+        let opt_output = opt_command
+            .output()
+            .map_err(|e| LoaderError::WasmOptimizer(IoError::new(e, Some(&wasm_opt_exe))))?;
         if self.verbose {
             if !opt_output.stdout.is_empty() {
                 info!("stdout:{}", String::from_utf8_lossy(&opt_output.stdout));
@@ -1517,7 +1534,7 @@ impl Loader {
             .arg("-C")
             .arg(destination)
             .status()
-            .map_err(|e| LoaderError::Tar(archive_path.to_string_lossy().to_string(), e))?;
+            .map_err(|e| LoaderError::Tar(IoError::new(e, Some(archive_path))))?;
 
         if !status.success() {
             return Err(LoaderError::Extraction(
@@ -1712,7 +1729,7 @@ impl Loader {
             .arg(&temp_tar_path)
             .arg(url)
             .status()
-            .map_err(|e| LoaderError::Curl(url.to_string(), e))?;
+            .map_err(|e| LoaderError::Curl(url.to_string(), IoError::new(e, None)))?;
 
         if !status.success() {
             Err(LoaderError::WasmToolDownload {

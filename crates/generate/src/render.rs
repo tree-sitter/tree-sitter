@@ -33,7 +33,7 @@ const ABI_VERSION_WITH_RESERVED_WORDS: usize = 15;
 
 pub type RenderResult<T> = Result<T, RenderError>;
 
-#[derive(Debug, Error, Serialize, Deserialize)]
+#[derive(Debug, Error, Serialize, Deserialize, PartialEq, Eq)]
 pub enum RenderError {
     #[error("Parse table action count {0} exceeds maximum value of {max}", max=u16::MAX)]
     ParseTable(usize),

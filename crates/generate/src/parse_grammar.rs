@@ -115,7 +115,7 @@ pub struct GrammarJSON {
 
 pub type ParseGrammarResult<T> = Result<T, ParseGrammarError>;
 
-#[derive(Debug, Error, Serialize, Deserialize)]
+#[derive(Debug, Error, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ParseGrammarError {
     #[error("{0}")]
     Serialization(String),
