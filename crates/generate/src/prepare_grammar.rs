@@ -48,7 +48,7 @@ use super::{
 
 pub type PrepareGrammarResult<T> = Result<T, PrepareGrammarError>;
 
-#[derive(Debug, Error, Serialize, Deserialize)]
+#[derive(Debug, Error, Serialize, Deserialize, PartialEq, Eq)]
 #[error(transparent)]
 pub enum PrepareGrammarError {
     ValidatePrecedences(#[from] ValidatePrecedenceError),

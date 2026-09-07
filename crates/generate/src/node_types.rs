@@ -590,7 +590,7 @@ pub fn get_supertype_symbol_map(
 #[cfg(feature = "load")]
 pub type SuperTypeCycleResult<T> = Result<T, SuperTypeCycleError>;
 
-#[derive(Debug, Error, Serialize, Deserialize)]
+#[derive(Debug, Error, Serialize, Deserialize, PartialEq, Eq)]
 pub struct SuperTypeCycleError {
     items: Vec<String>,
 }

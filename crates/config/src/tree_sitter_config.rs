@@ -31,6 +31,16 @@ pub struct IoError {
     pub path: Option<PathBuf>,
 }
 
+impl PartialEq for IoError {
+    fn eq(&self, other: &Self) -> bool {
+        self.path == other.path
+            && self.error.kind() == other.error.kind()
+            && self.error.raw_os_error() == other.error.raw_os_error()
+    }
+}
+
+impl Eq for IoError {}
+
 impl IoError {
     fn new(error: std::io::Error, path: Option<&Path>) -> Self {
         Self {

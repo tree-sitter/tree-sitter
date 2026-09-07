@@ -83,7 +83,7 @@ struct ParseTableBuilder<'a> {
 
 pub type BuildTableResult<T> = Result<T, ParseTableBuilderError>;
 
-#[derive(Debug, Error, Serialize, Deserialize)]
+#[derive(Debug, Error, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ParseTableBuilderError {
     #[error("Unresolved conflict for symbol sequence:\n\n{0}")]
     Conflict(#[from] ConflictError),
@@ -97,7 +97,7 @@ pub enum ParseTableBuilderError {
     StateCount(usize),
 }
 
-#[derive(Default, Debug, Serialize, Error, Deserialize)]
+#[derive(Default, Debug, Serialize, Error, Deserialize, PartialEq, Eq)]
 pub struct ConflictError {
     pub symbol_sequence: Vec<String>,
     pub conflicting_lookahead: String,
@@ -105,7 +105,7 @@ pub struct ConflictError {
     pub possible_resolutions: Vec<Resolution>,
 }
 
-#[derive(Default, Debug, Serialize, Error, Deserialize)]
+#[derive(Default, Debug, Serialize, Error, Deserialize, PartialEq, Eq)]
 pub struct Interpretation {
     pub preceding_symbols: Vec<String>,
     pub variable_name: String,
@@ -118,14 +118,14 @@ pub struct Interpretation {
     pub requires_eof_lookahead: bool,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Resolution {
     Precedence { symbols: Vec<String> },
     Associativity { symbols: Vec<String> },
     AddConflict { symbols: Vec<String> },
 }
 
-#[derive(Debug, Serialize, Deserialize, Error)]
+#[derive(Debug, Serialize, Deserialize, Error, PartialEq, Eq)]
 pub struct AmbiguousExtraError {
     pub parent_symbols: Vec<String>,
 }

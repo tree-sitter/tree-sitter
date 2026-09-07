@@ -73,7 +73,7 @@ pub const PARSER_HEADER: &str = include_str!("parser.h.inc");
 
 pub type GenerateResult<T> = Result<T, GenerateError>;
 
-#[derive(Debug, Error, Serialize, Deserialize)]
+#[derive(Debug, Error, Serialize, Deserialize, PartialEq, Eq)]
 pub enum GenerateError {
     #[error("Error with specified path -- {0}")]
     GrammarPath(IoError),
@@ -106,6 +106,16 @@ pub struct IoError {
     pub error: std::io::Error,
     pub path: Option<PathBuf>,
 }
+
+impl PartialEq for IoError {
+    fn eq(&self, other: &Self) -> bool {
+        self.path == other.path
+            && self.error.kind() == other.error.kind()
+            && self.error.raw_os_error() == other.error.raw_os_error()
+    }
+}
+
+impl Eq for IoError {}
 
 #[cfg(feature = "load")]
 impl IoError {
@@ -163,7 +173,7 @@ impl<'de> Deserialize<'de> for IoError {
 pub type LoadGrammarFileResult<T> = Result<T, LoadGrammarError>;
 
 #[cfg(feature = "load")]
-#[derive(Debug, Error, Serialize, Deserialize)]
+#[derive(Debug, Error, Serialize, Deserialize, PartialEq, Eq)]
 pub enum LoadGrammarError {
     #[error("Path to a grammar file with `.js` or `.json` extension is required")]
     InvalidPath,
@@ -176,7 +186,7 @@ pub enum LoadGrammarError {
 }
 
 #[cfg(feature = "load")]
-#[derive(Debug, Error, Serialize, Deserialize)]
+#[derive(Debug, Error, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ParseVersionError {
     #[error("{0}")]
     Version(String),
@@ -190,7 +200,7 @@ pub enum ParseVersionError {
 pub type JSResult<T> = Result<T, JSError>;
 
 #[cfg(feature = "load")]
-#[derive(Debug, Error, Serialize, Deserialize)]
+#[derive(Debug, Error, Serialize, Deserialize, PartialEq, Eq)]
 pub enum JSError {
     #[error("Failed to run `{runtime}` -- {error}")]
     JSRuntimeSpawn { runtime: String, error: String },
