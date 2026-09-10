@@ -51,7 +51,7 @@ default-features = false
 features = [ "cranelift", "gc", "gc-null" ]
 optional = true
 package = "wasmtime-c-api-impl"
-version = "48.0.1"
+version = "48.0.2"
 
 [build-dependencies]
 bindgen = { optional = true, version = "0.72.1" }
