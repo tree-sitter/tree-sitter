@@ -10,7 +10,7 @@ use crate::{
         expand_tokens::{ExpandTokensResult, expand_tokens},
         intern_symbols::InternedGrammarMeta,
     },
-    rules::{MetadataParams, Rule, RuleId, RulePool, Symbol},
+    rules::{MetadataParams, Rule, RuleId, RulePool, Symbol, SymbolView},
     strpool::StrId,
 };
 
@@ -295,15 +295,15 @@ impl PendingTokenExtraction<'_> {
         }
 
         let replace_symbol = |symbol: Symbol| {
-            if !symbol.is_non_terminal() {
+            let SymbolView::NonTerminal(index) = symbol.view() else {
                 return symbol;
-            }
+            };
+            let index = u32::from(index);
 
-            syntax_variable_replacements.get(&symbol.index).map_or_else(
+            syntax_variable_replacements.get(&index).map_or_else(
                 || {
                     Symbol::non_terminal(
-                        symbol.index as usize
-                            - syntax_variable_shift[symbol.index as usize] as usize,
+                        index as usize - syntax_variable_shift[index as usize] as usize,
                     )
                 },
                 |&token_index| Symbol::terminal(token_index as usize),
@@ -366,16 +366,17 @@ pub(super) fn extract_tokens<'g>(
     retained.push(g.variables[0]);
     kinds.push(interned.kinds[0]);
     for (i, v) in g.variables.iter().enumerate().skip(1) {
-        if let Some(sym) = extractor.symbol_after_rewrites(&g.pool, v.root)
-            && sym.is_terminal()
-            && extractor.usage_counts[sym.index as usize] == 1
+        if let Some(SymbolView::Terminal(index)) = extractor
+            .symbol_after_rewrites(&g.pool, v.root)
+            .map(Symbol::view)
+            && extractor.usage_counts[usize::from(index)] == 1
         {
-            let lexical = &mut extractor.lexical[sym.index as usize];
+            let lexical = &mut extractor.lexical[usize::from(index)];
             if lexical.kind == VariableType::Auxiliary || interned.kinds[i] != VariableType::Hidden
             {
                 lexical.kind = interned.kinds[i];
                 lexical.name = v.name;
-                replacements.insert(i as u32, sym.index);
+                replacements.insert(i as u32, index.into());
                 continue;
             }
         }
@@ -394,11 +395,12 @@ pub(super) fn extract_tokens<'g>(
         }
     }
     let replace_symbol = |s: Symbol| {
-        if !s.is_non_terminal() {
+        let SymbolView::NonTerminal(index) = s.view() else {
             return s;
-        }
-        replacements.get(&s.index).map_or_else(
-            || Symbol::non_terminal(s.index as usize - shift[s.index as usize] as usize),
+        };
+        let index = u32::from(index);
+        replacements.get(&index).map_or_else(
+            || Symbol::non_terminal(index as usize - shift[index as usize] as usize),
             |&r| Symbol::terminal(r as usize),
         )
     };
@@ -421,10 +423,10 @@ pub(super) fn extract_tokens<'g>(
         .map(|&s| {
             let sym = replace_symbol(s);
             // A supertype that got absorbed into a token isn't allowed
-            if sym.is_terminal() {
+            if let SymbolView::Terminal(index) = sym.view() {
                 Err(ExtractTokensError::SupertypeTerminal(
                     g.pool
-                        .resolve(extractor.lexical[sym.index as usize].name)
+                        .resolve(extractor.lexical[usize::from(index)].name)
                         .to_string(),
                 ))
             } else {
@@ -462,48 +464,50 @@ pub(super) fn extract_tokens<'g>(
         else {
             Err(ExtractTokensError::NonSymbolExternalToken)?
         };
-        if s.is_non_terminal() {
+        if let SymbolView::NonTerminal(index) = s.view() {
             Err(ExtractTokensError::ExternalTokenNonTerminal(
                 g.pool
-                    .resolve(g.variables[s.index as usize].name)
+                    .resolve(g.variables[usize::from(index)].name)
                     .to_string(),
             ))?;
         }
-        external_tokens.push(if s.is_external() {
-            let Some(name) = name else {
-                Err(ExtractTokensError::NonSymbolExternalToken)?
-            };
-            ExternalToken {
-                name,
-                kind,
-                corresponding_internal_token: None,
+        external_tokens.push(match s.view() {
+            SymbolView::External(_) => {
+                let Some(name) = name else {
+                    Err(ExtractTokensError::NonSymbolExternalToken)?
+                };
+                ExternalToken {
+                    name,
+                    kind,
+                    corresponding_internal_token: None,
+                }
             }
-        } else {
-            ExternalToken {
-                name: extractor.lexical[s.index as usize].name,
+            SymbolView::Terminal(index) => ExternalToken {
+                name: extractor.lexical[usize::from(index)].name,
                 kind,
                 corresponding_internal_token: Some(s),
+            },
+            SymbolView::NonTerminal(_) | SymbolView::End | SymbolView::EndOfNonTerminalExtra => {
+                unreachable!()
             }
         });
     }
 
-    let word = match interned.word.map(replace_symbol) {
-        Some(token) if token.is_non_terminal() => {
-            let token_index = token.index as usize;
-            let word_root = g.variables[token_index].root;
-            let conflicting_symbol_name = g
-                .variables
-                .iter()
-                .enumerate()
-                .find(|(i, v)| *i != token_index && g.pool.subtree_eq(v.root, word_root))
-                .map(|(_, v)| g.pool.resolve(v.name).to_string());
-            Err(ExtractTokensError::WordToken(NonTerminalWordTokenError {
-                symbol_name: g.pool.resolve(g.variables[token_index].name).to_string(),
-                conflicting_symbol_name,
-            }))?
-        }
-        word => word,
-    };
+    let word = interned.word.map(replace_symbol);
+    if let Some(SymbolView::NonTerminal(index)) = word.map(Symbol::view) {
+        let token_index = usize::from(index);
+        let word_root = g.variables[token_index].root;
+        let conflicting_symbol_name = g
+            .variables
+            .iter()
+            .enumerate()
+            .find(|(i, v)| *i != token_index && g.pool.subtree_eq(v.root, word_root))
+            .map(|(_, v)| g.pool.resolve(v.name).to_string());
+        Err(ExtractTokensError::WordToken(NonTerminalWordTokenError {
+            symbol_name: g.pool.resolve(g.variables[token_index].name).to_string(),
+            conflicting_symbol_name,
+        }))?;
+    }
 
     let mut reserved_sets = Vec::with_capacity(g.reserved_sets.len());
     for set in &g.reserved_sets {
@@ -569,9 +573,8 @@ fn renumber_root(
             continue;
         }
         match pool.node(id) {
-            Rule::Sym { kind, index } => {
-                let s = Symbol { kind, index };
-                let replaced = replace(s);
+            Rule::Sym(symbol) => {
+                let replaced = replace(symbol);
                 pool.set_node(id, Rule::from(replaced));
             }
             Rule::Seq(range) | Rule::Choice(range) => {
@@ -590,7 +593,6 @@ mod test {
     use crate::{
         grammars::Variable,
         prepare_grammar::{extract_tokens, intern_symbols},
-        rules::SymbolType,
     };
 
     use super::*;
@@ -693,10 +695,7 @@ mod test {
         // two places (rule_0 and rule_2), so its terminal is used more than once.
         assert_eq!(
             grammar.pool.node(grammar.variables[1].root),
-            Rule::Sym {
-                kind: SymbolType::Terminal,
-                index: 1
-            }
+            Rule::from(Symbol::terminal(1))
         );
 
         // rule_3: seq(non_terminal(1), blank) -> rule_2 decremented after rule_1's removal
@@ -756,10 +755,7 @@ mod test {
         assert_eq!(names, ["rule_0"]);
         assert_eq!(
             grammar.pool.node(grammar.variables[0].root),
-            Rule::Sym {
-                kind: SymbolType::Terminal,
-                index: 0
-            }
+            Rule::from(Symbol::terminal(0))
         );
 
         let lex = lexical_grammar
@@ -943,12 +939,12 @@ mod test {
         #[rustfmt::skip]
         assert_eq!(
             grammar.pool.node(grammar.variables[0].root),
-            Rule::Sym { kind: SymbolType::NonTerminal, index: 1 }
+            Rule::from(Symbol::non_terminal(1))
         );
         #[rustfmt::skip]
         assert_eq!(
             grammar.pool.node(grammar.variables[1].root),
-            Rule::Sym { kind: SymbolType::Terminal, index: 0 }
+            Rule::from(Symbol::terminal(0))
         );
 
         let lex = lexical_grammar
@@ -991,16 +987,10 @@ mod test {
     }
 
     fn term(p: &mut RulePool, i: u32) -> RuleId {
-        p.push_node(Rule::Sym {
-            kind: SymbolType::Terminal,
-            index: i,
-        })
+        p.push_node(Rule::from(Symbol::terminal(i as usize)))
     }
     fn non_term(p: &mut RulePool, i: u32) -> RuleId {
-        p.push_node(Rule::Sym {
-            kind: SymbolType::NonTerminal,
-            index: i,
-        })
+        p.push_node(Rule::from(Symbol::non_terminal(i as usize)))
     }
 
     fn pool_grammar(pool: RulePool, variables: Vec<Variable>) -> InputGrammar {

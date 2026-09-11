@@ -62,32 +62,85 @@ pub struct MetadataParams {
     pub is_main_token: bool,
 }
 
+macro_rules! symbol_index {
+    ($($name:ident => $kind:ident),+ $(,)?) => {
+        $(
+            #[derive(
+                Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize,
+            )]
+            #[repr(transparent)]
+            pub struct $name(u32);
+
+            impl From<$name> for u32 {
+                fn from(value: $name) -> Self {
+                    value.0
+                }
+            }
+
+            impl From<$name> for usize {
+                fn from(value: $name) -> Self {
+                    value.0 as Self
+                }
+            }
+
+            /// An index knows which table it belongs to, so it can name its own symbol
+            impl From<$name> for Symbol {
+                fn from(value: $name) -> Self {
+                    Self { kind: SymbolType::$kind, index: value.0 }
+                }
+            }
+
+            #[allow(dead_code)]
+            impl $name {
+                pub(crate) const fn new(value: u32) -> Self { Self(value) }
+
+                pub(crate) const fn symbol(self) -> Symbol {
+                    Symbol { kind: SymbolType::$kind, index: self.0 }
+                }
+            }
+        )+
+    };
+}
+
+symbol_index!(
+    ExternalTokenIndex => External,
+    TerminalIndex => Terminal,
+    NonTerminalIndex => NonTerminal,
+);
+
+/// A grammar symbol: a kind together with that kind's index into its own table.
+///
+/// An index is only reachable by destructuring [`Symbol::view`], and the
+/// `End`/`EndOfNonTerminalExtra` arms there carry no payload, so an end marker
+/// cannot hand out an index to be used against `variables` or `external_tokens`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Symbol {
-    pub kind: SymbolType,
-    pub index: u32,
+    kind: SymbolType,
+    index: u32,
+}
+
+/// The destructured form of a [`Symbol`], produced by [`Symbol::view`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SymbolView {
+    External(ExternalTokenIndex),
+    End,
+    EndOfNonTerminalExtra,
+    Terminal(TerminalIndex),
+    NonTerminal(NonTerminalIndex),
 }
 
 impl Symbol {
-    #[must_use]
-    pub fn is_terminal(self) -> bool {
-        self.kind == SymbolType::Terminal
-    }
+    #[allow(non_upper_case_globals)]
+    pub const End: Self = Self {
+        kind: SymbolType::End,
+        index: 0,
+    };
 
-    #[must_use]
-    pub fn is_non_terminal(self) -> bool {
-        self.kind == SymbolType::NonTerminal
-    }
-
-    #[must_use]
-    pub fn is_external(self) -> bool {
-        self.kind == SymbolType::External
-    }
-
-    #[must_use]
-    pub fn is_eof(self) -> bool {
-        self.kind == SymbolType::End
-    }
+    #[allow(non_upper_case_globals)]
+    pub const EndOfNonTerminalExtra: Self = Self {
+        kind: SymbolType::EndOfNonTerminalExtra,
+        index: 0,
+    };
 
     #[must_use]
     pub const fn non_terminal(index: usize) -> Self {
@@ -113,22 +166,67 @@ impl Symbol {
         }
     }
 
+    #[inline]
     #[must_use]
-    pub const fn end() -> Self {
-        Self {
-            kind: SymbolType::End,
-            index: 0,
+    pub const fn kind(self) -> SymbolType {
+        self.kind
+    }
+
+    #[inline]
+    #[must_use]
+    pub const fn view(self) -> SymbolView {
+        match self.kind {
+            SymbolType::External => SymbolView::External(ExternalTokenIndex(self.index)),
+            SymbolType::End => SymbolView::End,
+            SymbolType::EndOfNonTerminalExtra => SymbolView::EndOfNonTerminalExtra,
+            SymbolType::Terminal => SymbolView::Terminal(TerminalIndex(self.index)),
+            SymbolType::NonTerminal => SymbolView::NonTerminal(NonTerminalIndex(self.index)),
         }
     }
 
+    #[inline]
     #[must_use]
-    pub const fn end_of_nonterminal_extra() -> Self {
-        Self {
-            kind: SymbolType::EndOfNonTerminalExtra,
-            index: 0,
+    pub const fn external_index(self) -> Option<ExternalTokenIndex> {
+        if matches!(self.kind, SymbolType::External) {
+            Some(ExternalTokenIndex(self.index))
+        } else {
+            None
         }
     }
+
+    #[inline]
+    #[must_use]
+    pub const fn terminal_index(self) -> Option<TerminalIndex> {
+        if matches!(self.kind, SymbolType::Terminal) {
+            Some(TerminalIndex(self.index))
+        } else {
+            None
+        }
+    }
+
+    #[inline]
+    #[must_use]
+    pub const fn non_terminal_index(self) -> Option<NonTerminalIndex> {
+        if matches!(self.kind, SymbolType::NonTerminal) {
+            Some(NonTerminalIndex(self.index))
+        } else {
+            None
+        }
+    }
+
+    /// Packed `(kind, index)` identity, ordered exactly like `Ord`.
+    ///
+    /// A fast-path key for hot tables that would otherwise compare symbols
+    /// field-by-field.
+    #[inline]
+    #[must_use]
+    pub(crate) const fn packed_key(self) -> u64 {
+        (self.kind as u64) << 32 | self.index as u64
+    }
 }
+
+const _: () = assert!(std::mem::size_of::<Symbol>() == 8);
+const _: () = assert!(std::mem::size_of::<Option<Symbol>>() == 8);
 
 /// A pooled rule node.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -137,7 +235,7 @@ pub enum Rule {
     String(StrId),
     Pattern(StrId, StrId),
     NamedSymbol(StrId),
-    Sym { kind: SymbolType, index: u32 },
+    Sym(Symbol),
     Seq(RuleIdRange),
     Choice(RuleIdRange),
     Repeat(RuleId),
@@ -150,17 +248,14 @@ const _: () = assert!(std::mem::size_of::<Rule>() <= 12);
 
 impl From<Symbol> for Rule {
     fn from(value: Symbol) -> Self {
-        Self::Sym {
-            kind: value.kind,
-            index: value.index,
-        }
+        Self::Sym(value)
     }
 }
 
 impl Rule {
     pub const fn symbol(self) -> Option<Symbol> {
         match self {
-            Self::Sym { kind, index } => Some(Symbol { kind, index }),
+            Self::Sym(symbol) => Some(symbol),
             _ => None,
         }
     }
@@ -402,10 +497,7 @@ impl RulePool {
                     p.hash(&mut hasher);
                     f.hash(&mut hasher);
                 }
-                Rule::Sym { kind, index } => {
-                    (kind as u8).hash(&mut hasher);
-                    index.hash(&mut hasher);
-                }
+                Rule::Sym(symbol) => symbol.hash(&mut hasher),
                 Rule::Seq(range) | Rule::Choice(range) => {
                     hasher.write_u32(range.len);
                     let base = stack.len();
@@ -445,7 +537,7 @@ impl RulePool {
                         return false;
                     }
                 }
-                (n1 @ Rule::Sym { .. }, n2 @ Rule::Sym { .. }) => {
+                (n1 @ Rule::Sym(_), n2 @ Rule::Sym(_)) => {
                     if n1 != n2 {
                         return false;
                     }
@@ -519,9 +611,7 @@ impl RulePool {
                 self.rule_is_referenced(rule, target, is_external)
             }
             Rule::Repeat(inner) => self.rule_is_referenced(inner, target, false),
-            Rule::Blank | Rule::Eof | Rule::String(_) | Rule::Pattern(..) | Rule::Sym { .. } => {
-                false
-            }
+            Rule::Blank | Rule::Eof | Rule::String(_) | Rule::Pattern(..) | Rule::Sym(_) => false,
         }
     }
 
@@ -544,7 +634,7 @@ impl RulePool {
                 self.collect_referenced_ids(rule, skip_top_level, out);
             }
             Rule::Repeat(inner) => self.collect_referenced_ids(inner, false, out),
-            Rule::Blank | Rule::Eof | Rule::String(_) | Rule::Pattern(..) | Rule::Sym { .. } => {}
+            Rule::Blank | Rule::Eof | Rule::String(_) | Rule::Pattern(..) | Rule::Sym(_) => {}
         }
     }
 }
@@ -639,33 +729,35 @@ impl TokenSet {
         SetBitsIter::new(self.terminal_bits.as_slice())
             .map(Symbol::terminal)
             .chain(SetBitsIter::new(self.external_bits.as_slice()).map(Symbol::external))
-            .chain(if self.eof { Some(Symbol::end()) } else { None })
+            .chain(if self.eof { Some(Symbol::End) } else { None })
             .chain(if self.end_of_nonterminal_extra {
-                Some(Symbol::end_of_nonterminal_extra())
+                Some(Symbol::EndOfNonTerminalExtra)
             } else {
                 None
             })
     }
 
-    pub fn terminals(&self) -> impl Iterator<Item = Symbol> + '_ {
-        SetBitsIter::new(self.terminal_bits.as_slice()).map(Symbol::terminal)
+    pub fn terminals(&self) -> impl Iterator<Item = TerminalIndex> + '_ {
+        SetBitsIter::new(self.terminal_bits.as_slice()).map(|i| TerminalIndex(i as u32))
+    }
+
+    pub fn externals(&self) -> impl Iterator<Item = ExternalTokenIndex> + '_ {
+        SetBitsIter::new(self.external_bits.as_slice()).map(|i| ExternalTokenIndex(i as u32))
     }
 
     #[inline]
     #[must_use]
     pub fn contains(&self, symbol: Symbol) -> bool {
-        match symbol.kind {
-            SymbolType::NonTerminal => panic!("Cannot store non-terminals in a TokenSet"),
-            SymbolType::Terminal => self
-                .terminal_bits
-                .get(symbol.index as usize)
-                .unwrap_or(false),
-            SymbolType::External => self
-                .external_bits
-                .get(symbol.index as usize)
-                .unwrap_or(false),
-            SymbolType::End => self.eof,
-            SymbolType::EndOfNonTerminalExtra => self.end_of_nonterminal_extra,
+        match symbol.view() {
+            SymbolView::NonTerminal(_) => panic!("Cannot store non-terminals in a TokenSet"),
+            SymbolView::Terminal(index) => {
+                self.terminal_bits.get(usize::from(index)).unwrap_or(false)
+            }
+            SymbolView::External(index) => {
+                self.external_bits.get(usize::from(index)).unwrap_or(false)
+            }
+            SymbolView::End => self.eof,
+            SymbolView::EndOfNonTerminalExtra => self.end_of_nonterminal_extra,
         }
     }
 
@@ -683,20 +775,19 @@ impl TokenSet {
     }
 
     pub fn insert(&mut self, other: Symbol) {
-        let vec = match other.kind {
-            SymbolType::NonTerminal => panic!("Cannot store non-terminals in a TokenSet"),
-            SymbolType::Terminal => &mut self.terminal_bits,
-            SymbolType::External => &mut self.external_bits,
-            SymbolType::End => {
+        let (vec, other_index) = match other.view() {
+            SymbolView::NonTerminal(_) => panic!("Cannot store non-terminals in a TokenSet"),
+            SymbolView::Terminal(index) => (&mut self.terminal_bits, usize::from(index)),
+            SymbolView::External(index) => (&mut self.external_bits, usize::from(index)),
+            SymbolView::End => {
                 self.eof = true;
                 return;
             }
-            SymbolType::EndOfNonTerminalExtra => {
+            SymbolView::EndOfNonTerminalExtra => {
                 self.end_of_nonterminal_extra = true;
                 return;
             }
         };
-        let other_index = other.index as usize;
         if other_index >= vec.len() {
             vec.resize(other_index + 1, false);
         }
@@ -704,11 +795,11 @@ impl TokenSet {
     }
 
     pub fn remove(&mut self, other: Symbol) -> bool {
-        let vec = match other.kind {
-            SymbolType::NonTerminal => panic!("Cannot store non-terminals in a TokenSet"),
-            SymbolType::Terminal => &mut self.terminal_bits,
-            SymbolType::External => &mut self.external_bits,
-            SymbolType::End => {
+        let (vec, other_index) = match other.view() {
+            SymbolView::NonTerminal(_) => panic!("Cannot store non-terminals in a TokenSet"),
+            SymbolView::Terminal(index) => (&mut self.terminal_bits, usize::from(index)),
+            SymbolView::External(index) => (&mut self.external_bits, usize::from(index)),
+            SymbolView::End => {
                 return if self.eof {
                     self.eof = false;
                     true
@@ -716,7 +807,7 @@ impl TokenSet {
                     false
                 };
             }
-            SymbolType::EndOfNonTerminalExtra => {
+            SymbolView::EndOfNonTerminalExtra => {
                 return if self.end_of_nonterminal_extra {
                     self.end_of_nonterminal_extra = false;
                     true
@@ -725,7 +816,6 @@ impl TokenSet {
                 };
             }
         };
-        let other_index = other.index as usize;
         if other_index < vec.len() && vec[other_index] {
             vec.set(other_index, false);
             while vec.last() == Some(false) {

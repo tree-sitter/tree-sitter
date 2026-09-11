@@ -1,4 +1,9 @@
-use crate::{grammars::LexicalGrammar, rules::Symbol, strpool::StrPool, tables::ParseTable};
+use crate::{
+    grammars::LexicalGrammar,
+    rules::{Symbol, SymbolView, TerminalIndex},
+    strpool::StrPool,
+    tables::ParseTable,
+};
 
 pub struct CoincidentTokenIndex {
     /// Flat bitset for fast [`contains()`](Self::contains) checks. Indexed as `a * n + b`
@@ -40,8 +45,10 @@ impl<'a> CoincidentTokenIndex {
                 state
                     .terminal_entries
                     .keys()
-                    .filter(|s| s.is_terminal())
-                    .map(|s| s.index),
+                    .filter_map(|s| match s.view() {
+                        SymbolView::Terminal(index) => Some(u32::from(index)),
+                        _ => None,
+                    }),
             );
             let has_word = word_token.is_some_and(|w| state.terminal_entries.contains_key(&w));
             for (i, &a) in terminal_indices.iter().enumerate() {
@@ -67,14 +74,14 @@ impl<'a> CoincidentTokenIndex {
     }
 
     #[must_use]
-    pub fn all_coincident_states_have_word(&self, a: Symbol, b: Symbol) -> bool {
-        let bit_index = a.index as usize * self.n + b.index as usize;
+    pub fn all_coincident_states_have_word(&self, a: TerminalIndex, b: TerminalIndex) -> bool {
+        let bit_index = usize::from(a) * self.n + usize::from(b);
         self.without_word_bits[bit_index / 64] & (1u64 << (bit_index % 64)) == 0
     }
 
     #[must_use]
-    pub fn contains(&self, a: Symbol, b: Symbol) -> bool {
-        let bit_index = a.index as usize * self.n + b.index as usize;
+    pub fn contains(&self, a: TerminalIndex, b: TerminalIndex) -> bool {
+        let bit_index = usize::from(a) * self.n + usize::from(b);
         self.contains_bits[bit_index / 64] & (1u64 << (bit_index % 64)) != 0
     }
 }
@@ -88,7 +95,10 @@ impl std::fmt::Debug for CoincidentTokenIndexDisplay<'_> {
         for i in 0..self.0.n {
             let mut coincident = Vec::new();
             for j in 0..self.0.n {
-                if self.0.contains(Symbol::terminal(i), Symbol::terminal(j)) {
+                if self
+                    .0
+                    .contains(TerminalIndex::new(i as u32), TerminalIndex::new(j as u32))
+                {
                     coincident.push(self.2.resolve(self.1.variables[j].name));
                 }
             }

@@ -352,7 +352,7 @@ impl<T> ParseState<T> {
     #[must_use]
     pub fn is_end_of_non_terminal_extra(&self) -> bool {
         self.terminal_entries
-            .contains_key(&Symbol::end_of_nonterminal_extra())
+            .contains_key(&Symbol::EndOfNonTerminalExtra)
     }
 }
 
@@ -451,7 +451,7 @@ mod tests {
         let mut state = ParseState::default();
         state
             .terminal_entries
-            .insert(Symbol::end(), ActionListId::new(0, true));
+            .insert(Symbol::End, ActionListId::new(0, true));
         table.states.push(state);
 
         // Slot 1 is unreferenced, so `f` must never see state 1 (else this indexes out of bounds).

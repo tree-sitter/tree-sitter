@@ -5,7 +5,7 @@ use thiserror::Error;
 use crate::{
     Diagnostic,
     grammars::{InputGrammar, VariableType},
-    rules::{Rule, RuleId, RulePool, Symbol},
+    rules::{Rule, RuleId, RulePool, Symbol, SymbolView},
     strpool::StrId,
 };
 
@@ -161,8 +161,8 @@ pub(super) fn intern_symbols(
         .transpose()?;
 
     for s in &supertypes {
-        if s.is_non_terminal() {
-            kinds[s.index as usize] = VariableType::Hidden;
+        if let SymbolView::NonTerminal(index) = s.view() {
+            kinds[usize::from(index)] = VariableType::Hidden;
         }
     }
 
@@ -191,13 +191,7 @@ fn intern_root(
     while let Some(id) = stack.pop() {
         match pool.node(id) {
             Rule::NamedSymbol(sid) => match name_of_symbol.get(&sid).copied() {
-                Some(s) => pool.set_node(
-                    id,
-                    Rule::Sym {
-                        kind: s.kind,
-                        index: s.index,
-                    },
-                ),
+                Some(s) => pool.set_node(id, Rule::from(s)),
                 None => Err(InternSymbolsError::Undefined(pool.resolve(sid).to_string()))?,
             },
             Rule::Seq(range) | Rule::Choice(range) => {
@@ -238,7 +232,7 @@ fn variable_type_for_name(name: &str) -> VariableType {
 
 #[cfg(test)]
 mod tests {
-    use crate::{grammars::Variable, rules::SymbolType};
+    use crate::grammars::Variable;
 
     use super::*;
 
@@ -511,16 +505,10 @@ mod tests {
     }
 
     fn nt(index: u32) -> Rule {
-        Rule::Sym {
-            kind: SymbolType::NonTerminal,
-            index,
-        }
+        Rule::from(Symbol::non_terminal(index as usize))
     }
 
     fn ext(index: u32) -> Rule {
-        Rule::Sym {
-            kind: SymbolType::External,
-            index,
-        }
+        Rule::from(Symbol::external(index as usize))
     }
 }

@@ -13,7 +13,7 @@ use crate::strpool::StrPool;
 
 use super::{
     grammars::{LexicalGrammar, SyntaxGrammar, VariableType},
-    rules::{Alias, AliasMap, Symbol, SymbolType},
+    rules::{Alias, AliasMap, Symbol, SymbolView},
     strpool::StrId,
 };
 
@@ -226,7 +226,10 @@ fn validate_supertype_aliases(
 ) -> VariableInfoResult<()> {
     let aliases_by_symbol = get_aliases_by_symbol(syntax_grammar, default_aliases);
     for supertype_symbol in &syntax_grammar.supertype_symbols {
-        let supertype = &syntax_grammar.variables[supertype_symbol.index as usize];
+        let SymbolView::NonTerminal(index) = supertype_symbol.view() else {
+            unreachable!();
+        };
+        let supertype = &syntax_grammar.variables[usize::from(index)];
         let collision = Alias {
             value: supertype.name,
             is_named: true,
@@ -311,8 +314,10 @@ fn compute_variable_info_fixed_point(
 
                         // Inherit the types and quantities of hidden children associated with
                         // fields.
-                        if child_is_hidden && child_symbol.is_non_terminal() {
-                            let child_variable_info = &result[child_symbol.index as usize];
+                        if child_is_hidden
+                            && let SymbolView::NonTerminal(index) = child_symbol.view()
+                        {
+                            let child_variable_info = &result[usize::from(index)];
                             did_change |= extend_sorted(
                                 &mut field_info.types,
                                 &child_variable_info.children.types,
@@ -332,9 +337,9 @@ fn compute_variable_info_fixed_point(
                     }
 
                     // Inherit all child information from hidden children.
-                    if child_is_hidden && child_symbol.is_non_terminal() {
+                    if child_is_hidden && let SymbolView::NonTerminal(index) = child_symbol.view() {
                         did_change |= inherit_hidden_child_info(
-                            &result[child_symbol.index as usize],
+                            &result[usize::from(index)],
                             step.field().is_none(),
                             &mut variable_info,
                             &mut production_field_quantities,
@@ -345,7 +350,13 @@ fn compute_variable_info_fixed_point(
 
                     // Note whether or not this production contains children whose summaries
                     // have not yet been computed.
-                    if child_symbol.index as usize >= i && !all_initialized {
+                    let child_index = match child_symbol.view() {
+                        SymbolView::External(index) => u32::from(index),
+                        SymbolView::Terminal(index) => u32::from(index),
+                        SymbolView::NonTerminal(index) => u32::from(index),
+                        SymbolView::End | SymbolView::EndOfNonTerminalExtra => unreachable!(),
+                    };
+                    if child_index as usize >= i && !all_initialized {
                         production_has_uninitialized_invisible_children = true;
                     }
                 }
@@ -455,13 +466,17 @@ fn validate_supertype_structure(
     };
 
     for supertype_symbol in &syntax_grammar.supertype_symbols {
-        if result[supertype_symbol.index as usize].has_multi_step_production {
-            let variable = &syntax_grammar.variables[supertype_symbol.index as usize];
+        let SymbolView::NonTerminal(supertype_index) = supertype_symbol.view() else {
+            unreachable!();
+        };
+        let supertype_index = usize::from(supertype_index);
+        if result[supertype_index].has_multi_step_production {
+            let variable = &syntax_grammar.variables[supertype_index];
             // A symbol can have a multi-step production either directly or via an inlined
             // anonymous child. In the latter case, we can report a more specific error.
 
             let hidden_child_name = syntax_grammar
-                .variable_prod_ids(supertype_symbol.index as usize)
+                .variable_prod_ids(supertype_index)
                 .filter(|&prod_id| syntax_grammar.production(prod_id).steps.len() == 1)
                 .find_map(|prod_id| {
                     let step = syntax_grammar.production(prod_id).steps[0];
@@ -469,12 +484,17 @@ fn validate_supertype_structure(
                     let child_type = step.child_type(default_aliases);
                     let child_is_hidden = !child_type_is_visible(&child_type)
                         && !syntax_grammar.supertype_symbols.contains(&child_symbol);
-                    (child_is_hidden
-                        && child_symbol.is_non_terminal()
-                        && result[child_symbol.index as usize].has_multi_step_production)
-                        .then(|| {
+                    let hidden_child_index = match child_symbol.view() {
+                        SymbolView::NonTerminal(index) if child_is_hidden => {
+                            Some(usize::from(index))
+                        }
+                        _ => None,
+                    };
+                    hidden_child_index
+                        .filter(|&index| result[index].has_multi_step_production)
+                        .map(|index| {
                             str_pool
-                                .resolve(syntax_grammar.variables[child_symbol.index as usize].name)
+                                .resolve(syntax_grammar.variables[index].name)
                                 .to_string()
                         })
                 });
@@ -500,7 +520,10 @@ fn strip_hidden_child_types(
     };
 
     for supertype_symbol in &syntax_grammar.supertype_symbols {
-        result[supertype_symbol.index as usize]
+        let SymbolView::NonTerminal(index) = supertype_symbol.view() else {
+            unreachable!();
+        };
+        result[usize::from(index)]
             .children
             .types
             .retain(child_type_is_visible);
@@ -712,29 +735,31 @@ fn child_type_to_node_type(
                     named: alias.is_named,
                 }
             } else {
-                match symbol.kind {
-                    SymbolType::NonTerminal => {
-                        let variable = &syntax_grammar.variables[symbol.index as usize];
+                match symbol.view() {
+                    SymbolView::NonTerminal(index) => {
+                        let variable = &syntax_grammar.variables[usize::from(index)];
                         NodeTypeRef {
                             kind: variable.name,
                             named: variable.kind != VariableType::Anonymous,
                         }
                     }
-                    SymbolType::Terminal => {
-                        let variable = &lexical_grammar.variables[symbol.index as usize];
+                    SymbolView::Terminal(index) => {
+                        let variable = &lexical_grammar.variables[usize::from(index)];
                         NodeTypeRef {
                             kind: variable.name,
                             named: variable.kind != VariableType::Anonymous,
                         }
                     }
-                    SymbolType::External => {
-                        let variable = &syntax_grammar.external_tokens[symbol.index as usize];
+                    SymbolView::External(index) => {
+                        let variable = &syntax_grammar.external_tokens[usize::from(index)];
                         NodeTypeRef {
                             kind: variable.name,
                             named: variable.kind != VariableType::Anonymous,
                         }
                     }
-                    _ => panic!("Unexpected symbol type"),
+                    SymbolView::End | SymbolView::EndOfNonTerminalExtra => {
+                        panic!("Unexpected symbol type")
+                    }
                 }
             }
         }
@@ -785,26 +810,28 @@ fn collect_extra_node_types(
                 .iter()
                 .map(|alias| {
                     let (kind, variable_type) = alias.as_ref().map_or_else(
-                        || match symbol.kind {
-                            SymbolType::NonTerminal => {
-                                let variable = &syntax_grammar.variables[symbol.index as usize];
-                                (&variable.name, variable.kind)
-                            }
-                            SymbolType::Terminal => {
-                                let variable = &lexical_grammar.variables[symbol.index as usize];
-                                (&variable.name, variable.kind)
-                            }
-                            SymbolType::External => {
+                        || match symbol.view() {
+                            SymbolView::NonTerminal(index) => {
                                 let variable =
-                                    &syntax_grammar.external_tokens[symbol.index as usize];
+                                    &syntax_grammar.variables[usize::from(index)];
+                                (&variable.name, variable.kind)
+                            }
+                            SymbolView::Terminal(index) => {
+                                let variable =
+                                    &lexical_grammar.variables[usize::from(index)];
+                                (&variable.name, variable.kind)
+                            }
+                            SymbolView::External(index) => {
+                                let variable = &syntax_grammar.external_tokens
+                                    [usize::from(index)];
                                 (&variable.name, variable.kind)
                             }
                             // `eof()` in an extra is rejected during lexical separator expansion, so
                             // `End` cannot reach `SyntaxGrammar::extra_symbols`.
-                            SymbolType::End
+                            SymbolView::End
                             // Lookahead marker that `build_parse_table` inserts for nonterminal
                             // extras _after_ this pass runs.
-                            | SymbolType::EndOfNonTerminalExtra => unreachable!(),
+                            | SymbolView::EndOfNonTerminalExtra => unreachable!(),
                         },
                         |alias| (&alias.value, alias.kind()),
                     );
@@ -1153,20 +1180,24 @@ fn variable_type_for_child_type(
             let is_inline = syntax_grammar.variables_to_inline.contains(symbol);
             debug_assert!(
                 !(is_supertype && is_inline),
-                "symbol {} is both a supertype and inlined",
-                symbol.index
+                "symbol {symbol:?} is both a supertype and inlined"
             );
             if is_supertype {
                 VariableType::Named
             } else if is_inline {
                 VariableType::Hidden
             } else {
-                let symbol_index = symbol.index as usize;
-                match symbol.kind {
-                    SymbolType::NonTerminal => syntax_grammar.variables[symbol_index].kind,
-                    SymbolType::Terminal => lexical_grammar.variables[symbol_index].kind,
-                    SymbolType::External => syntax_grammar.external_tokens[symbol_index].kind,
-                    _ => VariableType::Hidden,
+                match symbol.view() {
+                    SymbolView::NonTerminal(index) => {
+                        syntax_grammar.variables[usize::from(index)].kind
+                    }
+                    SymbolView::Terminal(index) => {
+                        lexical_grammar.variables[usize::from(index)].kind
+                    }
+                    SymbolView::External(index) => {
+                        syntax_grammar.external_tokens[usize::from(index)].kind
+                    }
+                    SymbolView::End | SymbolView::EndOfNonTerminalExtra => VariableType::Hidden,
                 }
             }
         }
@@ -3194,10 +3225,7 @@ mod tests {
         p.alias(content, value, is_named)
     }
     fn external(p: &mut RulePool, index: u32) -> RuleId {
-        p.push_node(Rule::Sym {
-            kind: SymbolType::External,
-            index,
-        })
+        p.push_node(Rule::from(Symbol::external(index as usize)))
     }
 
     fn build_syntax_grammar(
