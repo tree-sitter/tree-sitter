@@ -432,7 +432,8 @@ impl fmt::Debug for ParseItemSetBuilderDisplay<'_> {
                     .2
                     .resolve(self.0.syntax_grammar.external_tokens[symbol_index].name),
                 SymbolType::Terminal => self.2.resolve(self.1.variables[symbol_index].name),
-                SymbolType::End | SymbolType::EndOfNonTerminalExtra => "END",
+                SymbolType::End => "<EOF>",
+                SymbolType::EndOfNonTerminalExtra => "<END_OF_NONTERMINAL_EXTRA>",
             };
             writeln!(
                 f,
@@ -453,7 +454,8 @@ impl fmt::Debug for ParseItemSetBuilderDisplay<'_> {
                     .2
                     .resolve(self.0.syntax_grammar.external_tokens[symbol_index].name),
                 SymbolType::Terminal => self.2.resolve(self.1.variables[symbol_index].name),
-                SymbolType::End | SymbolType::EndOfNonTerminalExtra => "END",
+                SymbolType::End => "<EOF>",
+                SymbolType::EndOfNonTerminalExtra => "<END_OF_NONTERMINAL_EXTRA>",
             };
             writeln!(
                 f,

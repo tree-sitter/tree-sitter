@@ -13,6 +13,7 @@ use crate::{
     grammars::{LexicalGrammar, SyntaxGrammar},
     nfa::{CharacterSet, NfaCursor},
     rules::{Symbol, TokenSet},
+    strpool::StrPool,
     tables::{AdvanceAction, LexState, LexStateId, LexTable, ParseStateId, ParseTable},
 };
 
@@ -31,10 +32,11 @@ pub fn build_lex_table(
     keywords: &TokenSet,
     coincident_token_index: &CoincidentTokenIndex,
     token_conflict_map: &TokenConflictMap,
+    str_pool: &StrPool,
 ) -> LexTables {
     let keyword_lex_table = if syntax_grammar.word_token.is_some() {
         let mut builder = LexTableBuilder::new(lexical_grammar);
-        builder.add_state_for_tokens(keywords);
+        builder.add_state_for_tokens(keywords, str_pool);
         builder.table
     } else {
         LexTable::default()
@@ -83,7 +85,7 @@ pub fn build_lex_table(
 
     let mut builder = LexTableBuilder::new(lexical_grammar);
     for (tokens, parse_state_ids) in parse_state_ids_by_token_set {
-        let lex_state_id = builder.add_state_for_tokens(&tokens);
+        let lex_state_id = builder.add_state_for_tokens(&tokens, str_pool);
         for id in parse_state_ids {
             parse_table.states[id as usize].lex_state_id = lex_state_id;
         }
@@ -97,7 +99,7 @@ pub fn build_lex_table(
     for (variable_ix, _variable) in lexical_grammar.variables.iter().enumerate() {
         let symbol = Symbol::terminal(variable_ix);
         builder.reset();
-        builder.add_state_for_tokens(&TokenSet::from_iter([symbol]));
+        builder.add_state_for_tokens(&TokenSet::from_iter([symbol]), str_pool);
         for state in &builder.table.states {
             let mut characters = CharacterSet::empty();
             for (chars, action) in &state.advance_actions {
@@ -161,7 +163,7 @@ impl<'a> LexTableBuilder<'a> {
         self.state_ids_by_nfa_state_set.clear();
     }
 
-    fn add_state_for_tokens(&mut self, tokens: &TokenSet) -> LexStateId {
+    fn add_state_for_tokens(&mut self, tokens: &TokenSet, str_pool: &StrPool) -> LexStateId {
         let mut eof_valid = false;
         let nfa_states = tokens
             .iter()
@@ -181,7 +183,14 @@ impl<'a> LexTableBuilder<'a> {
                 "entry point state: {state_id}, tokens: {:?}",
                 tokens
                     .iter()
-                    .map(|t| &self.lexical_grammar.variables[t.index as usize].name)
+                    .map(|t| {
+                        if t.is_eof() {
+                            "<EOF>"
+                        } else {
+                            debug_assert!(t.is_terminal());
+                            str_pool.resolve(self.lexical_grammar.variables[t.index as usize].name)
+                        }
+                    })
                     .collect::<Vec<_>>()
             );
         }
