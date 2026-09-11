@@ -2,7 +2,10 @@ use rustc_hash::FxHashMap;
 
 use crate::{
     node_types::ChildType,
-    rules::{Alias, AliasMap, Associativity, Precedence, RuleId, RulePool, SymbolType},
+    rules::{
+        Alias, AliasMap, Associativity, ExternalTokenIndex, NonTerminalIndex, Precedence, RuleId,
+        RulePool, SymbolType, SymbolView, TerminalIndex,
+    },
     strpool::StrId,
 };
 
@@ -88,14 +91,14 @@ impl ProductionStep {
     //     - 3-4 precedence tag (None 00, Integer 01, Name 10)
     //     - 5-6 associativity  (None 00, Left 01, Right 10)
     //     - 7   alias `is_named`
-    const KIND_MASK: u8    = 0b0000_0111;
-    const PREC_INTEGER: u8 = 0b0000_1000;
-    const PREC_NAME: u8    = 0b0001_0000;
-    const PREC_MASK: u8    = 0b0001_1000;
-    const ASSOC_LEFT: u8   = 0b0010_0000;
-    const ASSOC_RIGHT: u8  = 0b0100_0000;
-    const ASSOC_MASK: u8   = 0b0110_0000;
-    const ALIAS_NAMED: u8  = 0b1000_0000;
+    pub(crate) const KIND_MASK: u8    = 0b0000_0111;
+    pub(crate) const PREC_INTEGER: u8 = 0b0000_1000;
+    pub(crate) const PREC_NAME: u8    = 0b0001_0000;
+    pub(crate) const PREC_MASK: u8    = 0b0001_1000;
+    pub(crate) const ASSOC_LEFT: u8   = 0b0010_0000;
+    pub(crate) const ASSOC_RIGHT: u8  = 0b0100_0000;
+    pub(crate) const ASSOC_MASK: u8   = 0b0110_0000;
+    pub(crate) const ALIAS_NAMED: u8  = 0b1000_0000;
 
     /// `FStep::reserved` sentinel, meaning no reserved word set at all. Only the augmented
     /// start production carries it, and it must never index the reserved-sets table.
@@ -113,10 +116,17 @@ impl ProductionStep {
         field: Option<StrId>,
         reserved: u16,
     ) -> Self {
+        let (kind, sym_index) = match symbol.view() {
+            SymbolView::External(index) => (SymbolType::External, index.into()),
+            SymbolView::End => (SymbolType::End, 0),
+            SymbolView::EndOfNonTerminalExtra => (SymbolType::EndOfNonTerminalExtra, 0),
+            SymbolView::Terminal(index) => (SymbolType::Terminal, index.into()),
+            SymbolView::NonTerminal(index) => (SymbolType::NonTerminal, index.into()),
+        };
         let mut step = Self {
-            sym_index: symbol.index,
+            sym_index,
             reserved,
-            flags: symbol.kind as u8,
+            flags: kind as u8,
             ..Default::default()
         };
         step.set_precedence(prec);
@@ -128,15 +138,21 @@ impl ProductionStep {
 
     #[must_use]
     pub const fn symbol(self) -> Symbol {
-        Symbol {
-            kind: match self.flags & Self::KIND_MASK {
-                0 => SymbolType::External,
-                1 => SymbolType::End,
-                2 => SymbolType::EndOfNonTerminalExtra,
-                3 => SymbolType::Terminal,
-                _ => SymbolType::NonTerminal,
-            },
-            index: self.sym_index,
+        match self.flags & Self::KIND_MASK {
+            0 => ExternalTokenIndex::new(self.sym_index).symbol(),
+            1 => Symbol::End,
+            2 => Symbol::EndOfNonTerminalExtra,
+            3 => TerminalIndex::new(self.sym_index).symbol(),
+            _ => NonTerminalIndex::new(self.sym_index).symbol(),
+        }
+    }
+
+    #[must_use]
+    pub const fn non_terminal_index(self) -> Option<NonTerminalIndex> {
+        if self.flags & Self::KIND_MASK == SymbolType::NonTerminal as u8 {
+            Some(NonTerminalIndex::new(self.sym_index))
+        } else {
+            None
         }
     }
 

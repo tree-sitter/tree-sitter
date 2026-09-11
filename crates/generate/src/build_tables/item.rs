@@ -9,7 +9,7 @@ use rustc_hash::{FxHashMap, FxHasher};
 
 use crate::{
     grammars::{LexicalGrammar, ProdRef, ProductionStep, ReservedWordSetId, SyntaxGrammar},
-    rules::{Associativity, Precedence, Symbol, SymbolType, TokenSet},
+    rules::{Associativity, Precedence, Symbol, SymbolType, SymbolView, TokenSet},
     strpool::StrPool,
 };
 
@@ -570,25 +570,32 @@ impl fmt::Display for ParseItemDisplay<'_> {
             }
 
             write!(f, " ")?;
-            if symbol.is_terminal() {
-                if let Some(variable) = self.2.variables.get(symbol.index as usize) {
-                    write!(f, "{}", self.3.resolve(variable.name))?;
-                } else {
-                    write!(f, "terminal-{}", symbol.index)?;
+            match symbol.view() {
+                SymbolView::Terminal(index) => {
+                    let index = u32::from(index);
+                    if let Some(variable) = self.2.variables.get(index as usize) {
+                        write!(f, "{}", self.3.resolve(variable.name))?;
+                    } else {
+                        write!(f, "terminal-{index}")?;
+                    }
                 }
-            } else if symbol.is_external() {
-                write!(
+                SymbolView::External(index) => write!(
                     f,
                     "{}",
                     self.3
-                        .resolve(self.1.external_tokens[symbol.index as usize].name)
-                )?;
-            } else {
-                write!(
-                    f,
-                    "{}",
-                    self.3.resolve(self.1.variables[symbol.index as usize].name)
-                )?;
+                        .resolve(self.1.external_tokens[usize::from(index)].name)
+                )?,
+                SymbolView::NonTerminal(index) => {
+                    write!(
+                        f,
+                        "{}",
+                        self.3.resolve(self.1.variables[usize::from(index)].name)
+                    )?;
+                }
+                SymbolView::End => write!(f, "<EOF>")?,
+                SymbolView::EndOfNonTerminalExtra => {
+                    write!(f, "<END_OF_NONTERMINAL_EXTRA>")?;
+                }
             }
 
             if let Some(alias) = &step.alias() {
@@ -653,31 +660,32 @@ impl fmt::Display for TokenSetDisplay<'_> {
                 write!(f, ", ")?;
             }
 
-            match symbol.kind {
-                SymbolType::Terminal => {
-                    if let Some(variable) = self.2.variables.get(symbol.index as usize) {
+            match symbol.view() {
+                SymbolView::Terminal(index) => {
+                    let index = u32::from(index);
+                    if let Some(variable) = self.2.variables.get(index as usize) {
                         write!(
                             f,
                             "{}",
                             display_variable_name(self.3.resolve(variable.name))
                         )?;
                     } else {
-                        write!(f, "terminal-{}", symbol.index)?;
+                        write!(f, "terminal-{index}")?;
                     }
                 }
-                SymbolType::External => write!(
+                SymbolView::External(index) => write!(
                     f,
                     "{}",
                     self.3
-                        .resolve(self.1.external_tokens[symbol.index as usize].name)
+                        .resolve(self.1.external_tokens[usize::from(index)].name)
                 )?,
-                SymbolType::NonTerminal => write!(
+                SymbolView::NonTerminal(index) => write!(
                     f,
                     "{}",
-                    self.3.resolve(self.1.variables[symbol.index as usize].name)
+                    self.3.resolve(self.1.variables[usize::from(index)].name)
                 )?,
-                SymbolType::End => write!(f, "<EOF>")?,
-                SymbolType::EndOfNonTerminalExtra => {
+                SymbolView::End => write!(f, "<EOF>")?,
+                SymbolView::EndOfNonTerminalExtra => {
                     write!(f, "<END_OF_NONTERMINAL_EXTRA>")?;
                 }
             }

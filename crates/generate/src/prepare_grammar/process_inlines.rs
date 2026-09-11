@@ -10,7 +10,7 @@ use crate::{
         ProductionStore,
     },
     prepare_grammar::extract_tokens::ExtractedGrammarMeta,
-    rules::{Precedence, Symbol, SymbolType},
+    rules::{Precedence, Symbol, SymbolView},
 };
 
 struct InlineBuilder<'a> {
@@ -88,7 +88,10 @@ impl InlineBuilder<'_> {
 
             let removed_prod = std::mem::take(&mut scratch[i]);
             let removed_step = removed_prod.steps[si];
-            let (v_start, v_end) = self.out.var_prods[symbol.index as usize];
+            let SymbolView::NonTerminal(index) = symbol.view() else {
+                unreachable!();
+            };
+            let (v_start, v_end) = self.out.var_prods[usize::from(index)];
             let replacements = (v_start..v_end)
                 .filter_map(|p_idx| {
                     let p = self.out.productions[p_idx as usize];
@@ -190,21 +193,22 @@ pub(super) fn process_inlines(
         return Ok(InlinedProductionMap::default());
     }
     for symbol in &meta.inline {
-        match symbol.kind {
-            SymbolType::External => Err(ProcessInlinesError::ExternalToken(
+        match symbol.view() {
+            SymbolView::External(index) => Err(ProcessInlinesError::ExternalToken(
                 g.pool
-                    .resolve(meta.external_tokens[symbol.index as usize].name)
+                    .resolve(meta.external_tokens[usize::from(index)].name)
                     .to_string(),
             ))?,
-            SymbolType::Terminal => Err(ProcessInlinesError::Token(
+            SymbolView::Terminal(index) => Err(ProcessInlinesError::Token(
                 g.pool
-                    .resolve(lexical_variables[symbol.index as usize].name)
+                    .resolve(lexical_variables[usize::from(index)].name)
                     .to_string(),
             ))?,
-            SymbolType::NonTerminal if symbol.index == 0 => Err(ProcessInlinesError::FirstRule(
-                g.pool.resolve(g.variables[0].name).to_string(),
-            ))?,
-            _ => {}
+            SymbolView::NonTerminal(index) if u32::from(index) == 0 => Err(
+                ProcessInlinesError::FirstRule(g.pool.resolve(g.variables[0].name).to_string()),
+            )?,
+            SymbolView::NonTerminal(_) => {}
+            SymbolView::End | SymbolView::EndOfNonTerminalExtra => unreachable!(),
         }
     }
 

@@ -19,7 +19,7 @@ use super::{
     nfa::CharacterSet,
     node_types::ChildType,
     rules::Alias,
-    rules::{AliasMap, Symbol, SymbolType, TokenSet},
+    rules::{AliasMap, Symbol, SymbolType, SymbolView, TokenSet},
     strpool::{StrId, StrPool},
     tables::{
         AdvanceAction, FieldLocation, GotoAction, LexState, LexTable, ParseAction, ParseTable,
@@ -198,8 +198,8 @@ impl Generator {
             self.assign_symbol_id(self.parse_table.symbols[i], &mut symbol_identifiers);
         }
         self.symbol_ids.insert(
-            Symbol::end_of_nonterminal_extra(),
-            self.symbol_ids[&Symbol::end()].clone(),
+            Symbol::EndOfNonTerminalExtra,
+            self.symbol_ids[&Symbol::End].clone(),
         );
 
         self.symbol_map = FxHashMap::default();
@@ -229,7 +229,7 @@ impl Generator {
             // should be represented with the same symbol in the public API. Examples:
             // * "<" and token(prec(1, "<"))
             // * "(" and token.immediate("(")
-            else if symbol.is_terminal() {
+            else if matches!(symbol.view(), SymbolView::Terminal(_)) {
                 let metadata = self.metadata_for_symbol(*symbol);
                 for other_symbol in &self.parse_table.symbols {
                     let other_metadata = self.metadata_for_symbol(*other_symbol);
@@ -388,16 +388,13 @@ impl Generator {
             .parse_table
             .symbols
             .iter()
-            .filter(|symbol| {
-                if symbol.is_terminal() || symbol.is_eof() {
-                    true
-                } else if symbol.is_external() {
-                    self.syntax_grammar.external_tokens[symbol.index as usize]
-                        .corresponding_internal_token
-                        .is_none()
-                } else {
-                    false
-                }
+            .filter(|symbol| match symbol.view() {
+                SymbolView::Terminal(_) | SymbolView::End => true,
+                SymbolView::External(index) => self.syntax_grammar.external_tokens
+                    [usize::from(index)]
+                .corresponding_internal_token
+                .is_none(),
+                SymbolView::EndOfNonTerminalExtra | SymbolView::NonTerminal(_) => false,
             })
             .count();
 
@@ -449,10 +446,10 @@ impl Generator {
     fn add_symbol_enum(&mut self) {
         add_line!(self, "enum ts_symbol_identifiers {{");
         indent!(self);
-        self.symbol_order.insert(Symbol::end(), 0);
+        self.symbol_order.insert(Symbol::End, 0);
         let mut i = 1;
         for symbol in &self.parse_table.symbols {
-            if *symbol != Symbol::end() {
+            if *symbol != Symbol::End {
                 self.symbol_order.insert(*symbol, i);
                 add_line!(self, "{} = {i},", self.symbol_ids[symbol]);
                 i += 1;
@@ -634,7 +631,7 @@ impl Generator {
             for prod_id in self.syntax_grammar.variable_prod_ids(i) {
                 for step in self.syntax_grammar.production(prod_id).steps {
                     if let Some(alias) = step.alias()
-                        && step.symbol().is_non_terminal()
+                        && matches!(step.symbol().view(), SymbolView::NonTerminal(_))
                         && Some(alias) != self.default_aliases.get(&step.symbol()).copied()
                         && self.symbol_ids.contains_key(&step.symbol())
                         && let Some(alias_id) = self.alias_ids.get(&alias)
@@ -1289,11 +1286,11 @@ impl Generator {
             if !self.parse_table.external_lex_states[i].is_empty() {
                 add_line!(self, "[{i}] = {{");
                 indent!(self);
-                for token in self.parse_table.external_lex_states[i].iter() {
+                for index in self.parse_table.external_lex_states[i].externals() {
                     add_line!(
                         self,
                         "[{}] = true,",
-                        self.external_token_id(token.index as usize)
+                        self.external_token_id(usize::from(index))
                     );
                 }
                 dedent!(self);
@@ -1740,7 +1737,7 @@ impl Generator {
 
     fn assign_symbol_id(&mut self, symbol: Symbol, used_identifiers: &mut FxHashSet<String>) {
         let mut id;
-        if symbol == Symbol::end() {
+        if symbol == Symbol::End {
             id = "ts_builtin_sym_end".to_string();
         } else {
             let (name, kind) = self.metadata_for_symbol(symbol);
@@ -1771,21 +1768,20 @@ impl Generator {
     }
 
     fn metadata_for_symbol(&self, symbol: Symbol) -> (StrId, VariableType) {
-        let symbol_index = symbol.index as usize;
-        match symbol.kind {
-            SymbolType::End | SymbolType::EndOfNonTerminalExtra => {
+        match symbol.view() {
+            SymbolView::End | SymbolView::EndOfNonTerminalExtra => {
                 (StrPool::END_NAME_ID, VariableType::Hidden)
             }
-            SymbolType::NonTerminal => {
-                let variable = &self.syntax_grammar.variables[symbol_index];
+            SymbolView::NonTerminal(index) => {
+                let variable = &self.syntax_grammar.variables[usize::from(index)];
                 (variable.name, variable.kind)
             }
-            SymbolType::Terminal => {
-                let variable = &self.lexical_grammar.variables[symbol_index];
+            SymbolView::Terminal(index) => {
+                let variable = &self.lexical_grammar.variables[usize::from(index)];
                 (variable.name, variable.kind)
             }
-            SymbolType::External => {
-                let token = &self.syntax_grammar.external_tokens[symbol_index];
+            SymbolView::External(index) => {
+                let token = &self.syntax_grammar.external_tokens[usize::from(index)];
                 (token.name, token.kind)
             }
         }

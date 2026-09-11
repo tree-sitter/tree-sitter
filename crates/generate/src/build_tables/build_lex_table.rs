@@ -12,7 +12,7 @@ use crate::{
     dedup::split_state_id_groups,
     grammars::{LexicalGrammar, SyntaxGrammar},
     nfa::{CharacterSet, NfaCursor},
-    rules::{Symbol, TokenSet},
+    rules::{Symbol, SymbolView, TokenSet},
     strpool::StrPool,
     tables::{AdvanceAction, LexState, LexStateId, LexTable, ParseStateId, ParseTable},
 };
@@ -49,18 +49,18 @@ pub fn build_lex_table(
             .keys()
             .copied()
             .chain(state.reserved_words.iter())
-            .filter_map(|token| {
-                if token.is_terminal() {
+            .filter_map(|token| match token.view() {
+                SymbolView::Terminal(_) => {
                     if keywords.contains(token) {
                         syntax_grammar.word_token
                     } else {
                         Some(token)
                     }
-                } else if token.is_eof() {
-                    Some(token)
-                } else {
-                    None
                 }
+                SymbolView::End => Some(token),
+                SymbolView::External(_)
+                | SymbolView::EndOfNonTerminalExtra
+                | SymbolView::NonTerminal(_) => None,
             })
             .collect();
 
@@ -167,12 +167,18 @@ impl<'a> LexTableBuilder<'a> {
         let mut eof_valid = false;
         let nfa_states = tokens
             .iter()
-            .filter_map(|token| {
-                if token.is_terminal() {
-                    Some(self.lexical_grammar.variables[token.index as usize].start_state)
-                } else {
+            .filter_map(|token| match token.view() {
+                SymbolView::Terminal(index) => {
+                    Some(self.lexical_grammar.variables[usize::from(index)].start_state)
+                }
+                SymbolView::End => {
                     eof_valid = true;
                     None
+                }
+                SymbolView::External(_)
+                | SymbolView::EndOfNonTerminalExtra
+                | SymbolView::NonTerminal(_) => {
+                    unreachable!()
                 }
             })
             .collect();
@@ -183,13 +189,13 @@ impl<'a> LexTableBuilder<'a> {
                 "entry point state: {state_id}, tokens: {:?}",
                 tokens
                     .iter()
-                    .map(|t| {
-                        if t.is_eof() {
-                            "<EOF>"
-                        } else {
-                            debug_assert!(t.is_terminal());
-                            str_pool.resolve(self.lexical_grammar.variables[t.index as usize].name)
-                        }
+                    .map(|t| match t.view() {
+                        SymbolView::Terminal(index) => str_pool
+                            .resolve(self.lexical_grammar.variables[usize::from(index)].name),
+                        SymbolView::End => "<EOF>",
+                        SymbolView::External(_)
+                        | SymbolView::EndOfNonTerminalExtra
+                        | SymbolView::NonTerminal(_) => unreachable!(),
                     })
                     .collect::<Vec<_>>()
             );
@@ -285,7 +291,7 @@ impl<'a> LexTableBuilder<'a> {
             self.table.states[state_id as usize].accept_action =
                 Some(Symbol::terminal(complete_id));
         } else if self.cursor.state_ids.is_empty() {
-            self.table.states[state_id as usize].accept_action = Some(Symbol::end());
+            self.table.states[state_id as usize].accept_action = Some(Symbol::End);
         }
     }
 }
@@ -328,14 +334,10 @@ fn merge_token_set(
 ) -> bool {
     if tokens
         .terminals()
-        .filter(|terminal| !other.contains_terminal(terminal.index as usize))
-        .any(|terminal| {
-            check_token_conflicts(
-                terminal.index as usize,
-                other,
-                token_conflict_map,
-                coincident_token_index,
-            )
+        .map(usize::from)
+        .filter(|&index| !other.contains_terminal(index))
+        .any(|index| {
+            check_token_conflicts(index, other, token_conflict_map, coincident_token_index)
         })
     {
         return false;
@@ -343,14 +345,10 @@ fn merge_token_set(
 
     if other
         .terminals()
-        .filter(|terminal| !tokens.contains_terminal(terminal.index as usize))
-        .any(|terminal| {
-            check_token_conflicts(
-                terminal.index as usize,
-                tokens,
-                token_conflict_map,
-                coincident_token_index,
-            )
+        .map(usize::from)
+        .filter(|&index| !tokens.contains_terminal(index))
+        .any(|index| {
+            check_token_conflicts(index, tokens, token_conflict_map, coincident_token_index)
         })
     {
         return false;

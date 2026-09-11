@@ -1,9 +1,7 @@
-use std::collections::BTreeMap;
-
 use crate::{
     grammars::{InputGrammar, LexicalVariable, ProductionStore},
     prepare_grammar::extract_tokens::ExtractedGrammarMeta,
-    rules::{Alias, AliasMap, Symbol, SymbolType},
+    rules::{Alias, AliasMap, Symbol, SymbolView},
 };
 
 #[derive(Clone, Default)]
@@ -36,12 +34,11 @@ pub(super) fn extract_default_aliases(
     for prod in &out.productions {
         for step in &out.steps[prod.step_range()] {
             let symbol = step.symbol();
-            let symbol_index = symbol.index as usize;
-            let status = match symbol.kind {
-                SymbolType::External => &mut external_status_list[symbol_index],
-                SymbolType::NonTerminal => &mut non_terminal_status_list[symbol_index],
-                SymbolType::Terminal => &mut terminal_status_list[symbol_index],
-                SymbolType::End | SymbolType::EndOfNonTerminalExtra => {
+            let status = match symbol.view() {
+                SymbolView::External(index) => &mut external_status_list[usize::from(index)],
+                SymbolView::NonTerminal(index) => &mut non_terminal_status_list[usize::from(index)],
+                SymbolView::Terminal(index) => &mut terminal_status_list[usize::from(index)],
+                SymbolView::End | SymbolView::EndOfNonTerminalExtra => {
                     panic!("Unexpected end token")
                 }
             };
@@ -68,12 +65,11 @@ pub(super) fn extract_default_aliases(
     }
 
     for symbol in &meta.extra_symbols {
-        let symbol_index = symbol.index as usize;
-        let status = match symbol.kind {
-            SymbolType::External => &mut external_status_list[symbol_index],
-            SymbolType::NonTerminal => &mut non_terminal_status_list[symbol_index],
-            SymbolType::Terminal => &mut terminal_status_list[symbol_index],
-            SymbolType::End | SymbolType::EndOfNonTerminalExtra => {
+        let status = match symbol.view() {
+            SymbolView::External(index) => &mut external_status_list[usize::from(index)],
+            SymbolView::NonTerminal(index) => &mut non_terminal_status_list[usize::from(index)],
+            SymbolView::Terminal(index) => &mut terminal_status_list[usize::from(index)],
+            SymbolView::End | SymbolView::EndOfNonTerminalExtra => {
                 panic!("Unexpected end token")
             }
         };
@@ -100,7 +96,7 @@ pub(super) fn extract_default_aliases(
     // For each symbol that always appears aliased, find the alias that occurs most often,
     // and designate that alias as the symbol's "default alias". Store all of these
     // default aliases in a map that will be returned.
-    let mut result = BTreeMap::new();
+    let mut result = AliasMap::default();
     for (symbol, status) in symbols_with_statuses {
         if status.appears_unaliased {
             status.aliases.clear();
@@ -127,12 +123,11 @@ pub(super) fn extract_default_aliases(
         for (i, prod) in productions.iter().enumerate() {
             for (j, step) in out.steps[prod.step_range()].iter().enumerate() {
                 let symbol = step.symbol();
-                let symbol_index = symbol.index as usize;
-                let status = match symbol.kind {
-                    SymbolType::External => &external_status_list[symbol_index],
-                    SymbolType::Terminal => &terminal_status_list[symbol_index],
-                    SymbolType::NonTerminal => &non_terminal_status_list[symbol_index],
-                    SymbolType::End | SymbolType::EndOfNonTerminalExtra => {
+                let status = match symbol.view() {
+                    SymbolView::External(index) => &external_status_list[usize::from(index)],
+                    SymbolView::Terminal(index) => &terminal_status_list[usize::from(index)],
+                    SymbolView::NonTerminal(index) => &non_terminal_status_list[usize::from(index)],
+                    SymbolView::End | SymbolView::EndOfNonTerminalExtra => {
                         panic!("Unexpected end token")
                     }
                 };

@@ -9,7 +9,7 @@ use crate::{
     OptLevel,
     dedup::split_state_id_groups,
     grammars::{LexicalGrammar, SyntaxGrammar, VariableType},
-    rules::{AliasMap, Symbol, SymbolType, TokenSet},
+    rules::{AliasMap, Symbol, SymbolType, SymbolView, TokenSet},
     strpool::StrPool,
     tables::{
         ActionList, ActionListId, GotoAction, ParseAction, ParseState, ParseStateId, ParseTable,
@@ -22,37 +22,29 @@ type NonterminalIndex = u32;
 
 /// A [`Symbol`] packed into a `u64` for O(1) sort-key comparison.
 ///
-/// Layout: high 3 bits = `kind` discriminant (5 variants fit in 3 bits), low 61 bits = `index`.
+/// Layout: high 32 bits = `kind` discriminant, low 32 bits = `index`.
 /// This preserves [`Symbol`]'s derived [`Ord`] ordering (kind first, then index) as a single
 /// integer comparison, and halves each entry's size vs storing a full `(Symbol, _)` tuple.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 struct SymbolKey(u64);
 
-const KEY_TAG_SHIFT: u32 = 61;
-const KEY_INDEX_MASK: u64 = (1u64 << KEY_TAG_SHIFT) - 1;
+const KEY_TAG_SHIFT: u32 = 32;
+const KEY_INDEX_MASK: u64 = u32::MAX as u64;
 
 impl SymbolKey {
     #[inline]
-    fn new(sym: Symbol) -> Self {
-        debug_assert!(
-            u64::from(sym.index) <= KEY_INDEX_MASK,
-            "symbol index too large"
-        );
-        Self((sym.kind as u64) << KEY_TAG_SHIFT | u64::from(sym.index))
+    const fn new(sym: Symbol) -> Self {
+        Self(sym.packed_key())
     }
 
     #[inline]
     const fn symbol(self) -> Symbol {
-        let kind = match self.0 >> KEY_TAG_SHIFT {
-            0 => SymbolType::External,
-            1 => SymbolType::End,
-            2 => SymbolType::EndOfNonTerminalExtra,
-            3 => SymbolType::Terminal,
-            _ => SymbolType::NonTerminal,
-        };
-        Symbol {
-            kind,
-            index: self.index(),
+        match self.0 >> KEY_TAG_SHIFT {
+            0 => Symbol::external(self.index() as usize),
+            1 => Symbol::End,
+            2 => Symbol::EndOfNonTerminalExtra,
+            3 => Symbol::terminal(self.index() as usize),
+            _ => Symbol::non_terminal(self.index() as usize),
         }
     }
 
@@ -62,15 +54,18 @@ impl SymbolKey {
     }
 
     #[inline]
-    #[expect(dead_code)]
-    const fn is_terminal(self) -> bool {
-        (self.0 >> KEY_TAG_SHIFT) == SymbolType::Terminal as u64
+    const fn tag(self) -> u64 {
+        self.0 >> KEY_TAG_SHIFT
     }
 
     #[inline]
-    #[expect(dead_code)]
-    const fn is_non_terminal(self) -> bool {
-        (self.0 >> KEY_TAG_SHIFT) == SymbolType::NonTerminal as u64
+    const fn is_external(self) -> bool {
+        self.tag() == SymbolType::External as u64
+    }
+
+    #[inline]
+    const fn is_terminal(self) -> bool {
+        self.tag() == SymbolType::Terminal as u64
     }
 }
 
@@ -118,6 +113,8 @@ struct ConflictBits {
     keywords: Vec<u64>,
     /// Tokens that are also external tokens.
     internal_external: Vec<u64>,
+    /// The grammar's word token, packed with the same ordering key as entries.
+    word_token: Option<SymbolKey>,
 }
 
 impl ConflictBits {
@@ -177,8 +174,10 @@ impl Minimizer<'_> {
                             && !self.syntax_grammar.supertype_symbols.contains(symbol)
                             && !self.syntax_grammar.extra_symbols.contains(symbol)
                             && !aliased_symbols.contains(symbol)
-                            && self.syntax_grammar.variables[symbol.index as usize].kind
-                                != VariableType::Named
+                            && matches!(symbol.non_terminal_index(), Some(index)
+                                    if self.syntax_grammar.variables[usize::from(index)].kind
+                                        != VariableType::Named
+                            )
                             && (unit_reduction_symbol.is_none()
                                 || unit_reduction_symbol == Some(symbol)) =>
                         {
@@ -313,8 +312,8 @@ impl Minimizer<'_> {
             let base = s * row_words;
             let row = &mut state_terminals[base..base + row_words];
             for symbol in state.terminal_entries.keys() {
-                if symbol.is_terminal() {
-                    set(row, symbol.index as usize);
+                if let Some(index) = symbol.terminal_index() {
+                    set(row, usize::from(index));
                 }
             }
         }
@@ -332,15 +331,18 @@ impl Minimizer<'_> {
 
         let mut keywords = vec![0u64; row_words];
         for symbol in self.keywords.iter() {
-            if symbol.is_terminal() {
-                set(&mut keywords, symbol.index as usize);
+            if let Some(index) = symbol.terminal_index() {
+                set(&mut keywords, usize::from(index));
             }
         }
 
         let mut internal_external = vec![0u64; row_words];
         for external in &self.syntax_grammar.external_tokens {
-            if let Some(token) = external.corresponding_internal_token {
-                set(&mut internal_external, token.index as usize);
+            if let Some(index) = external
+                .corresponding_internal_token
+                .and_then(Symbol::terminal_index)
+            {
+                set(&mut internal_external, usize::from(index));
             }
         }
 
@@ -350,6 +352,7 @@ impl Minimizer<'_> {
             conflict_rows,
             keywords,
             internal_external,
+            word_token: self.syntax_grammar.word_token.map(SymbolKey::new),
         };
 
         split_state_id_groups(
@@ -395,7 +398,12 @@ impl Minimizer<'_> {
                 let mut entries = state
                     .nonterminal_entries
                     .iter()
-                    .map(|(sym, action)| (sym.index, *action))
+                    .map(|(sym, action)| {
+                        let Some(index) = sym.non_terminal_index() else {
+                            unreachable!();
+                        };
+                        (u32::from(index), *action)
+                    })
                     .collect::<Vec<(NonterminalIndex, GotoAction)>>();
                 entries.sort_unstable_by_key(|&(idx, _)| idx);
                 entries
@@ -492,11 +500,10 @@ impl Minimizer<'_> {
                     // SAFETY: Equal is only reachable when i < len1 && j < len2.
                     let e1 = unsafe { entries1.get_unchecked(i) };
                     let e2 = unsafe { entries2.get_unchecked(j) };
-                    let token = e1.0.symbol();
                     if self.entries_conflict(
                         state1.id,
                         state2.id,
-                        token,
+                        e1.0,
                         e1.1,
                         e2.1,
                         group_ids_by_state_id,
@@ -509,8 +516,7 @@ impl Minimizer<'_> {
                 Ordering::Less => {
                     // SAFETY: Less is only reachable when i < len1.
                     let e1 = unsafe { entries1.get_unchecked(i) };
-                    let token = e1.0.symbol();
-                    if self.token_conflicts(state1.id, state2.id, state2, bits, token) {
+                    if self.token_conflicts(state1.id, state2.id, state2, bits, e1.0) {
                         return true;
                     }
                     i += 1;
@@ -518,8 +524,7 @@ impl Minimizer<'_> {
                 Ordering::Greater => {
                     // SAFETY: Greater is only reachable when j < len2.
                     let e2 = unsafe { entries2.get_unchecked(j) };
-                    let token = e2.0.symbol();
-                    if self.token_conflicts(state1.id, state2.id, state1, bits, token) {
+                    if self.token_conflicts(state1.id, state2.id, state1, bits, e2.0) {
                         return true;
                     }
                     j += 1;
@@ -609,7 +614,7 @@ impl Minimizer<'_> {
         &self,
         state_id1: ParseStateId,
         state_id2: ParseStateId,
-        token: Symbol,
+        token: SymbolKey,
         id1: ActionListId,
         id2: ActionListId,
         group_ids_by_state_id: &[ParseStateId],
@@ -623,7 +628,7 @@ impl Minimizer<'_> {
         if actions1.len() != actions2.len() {
             debug!(
                 "split states {state_id1} {state_id2} - differing action counts for token {}",
-                self.symbol_name(token)
+                self.symbol_name(token.symbol())
             );
             return true;
         }
@@ -648,13 +653,13 @@ impl Minimizer<'_> {
                 }
                 debug!(
                     "split states {state_id1} {state_id2} - successors for {} are split: {s1} {s2}",
-                    self.symbol_name(token),
+                    self.symbol_name(token.symbol()),
                 );
                 return true;
             } else if action1 != action2 {
                 debug!(
                     "split states {state_id1} {state_id2} - unequal actions for {}",
-                    self.symbol_name(token),
+                    self.symbol_name(token.symbol()),
                 );
                 return true;
             }
@@ -670,57 +675,72 @@ impl Minimizer<'_> {
         right_id: ParseStateId,
         right_state: &ParseState,
         bits: &ConflictBits,
-        new_token: Symbol,
+        new_token: SymbolKey,
     ) -> bool {
-        if new_token == Symbol::end_of_nonterminal_extra() {
-            debug!("split states {left_id} {right_id} - end of non-terminal extra");
-            return true;
-        }
+        let new_token_is_terminal = new_token.is_terminal();
+        let new_token_index = match new_token.tag() {
+            tag if tag == SymbolType::EndOfNonTerminalExtra as u64 => {
+                debug!("split states {left_id} {right_id} - end of non-terminal extra");
+                return true;
+            }
+            // Do not add external tokens, as they could conflict lexically with
+            // any of the state's existing lookahead tokens.
+            tag if tag == SymbolType::External as u64 => {
+                debug!(
+                    "split states {left_id} {right_id} - external token {}",
+                    self.symbol_name(new_token.symbol()),
+                );
+                return true;
+            }
+            tag if tag == SymbolType::End as u64 => 0,
+            tag if tag == SymbolType::Terminal as u64 => new_token.index() as usize,
+            _ => unreachable!(),
+        };
 
-        // Do not add external tokens; they could conflict lexically with any of the state's
-        // existing lookahead tokens.
-        if new_token.is_external() {
-            debug!(
-                "split states {left_id} {right_id} - external token {}",
-                self.symbol_name(new_token),
-            );
-            return true;
-        }
-
-        if right_state.reserved_words.contains(new_token) {
+        let is_reserved = if new_token_is_terminal {
+            right_state
+                .reserved_words
+                .contains_terminal(new_token_index)
+        } else {
+            right_state.reserved_words.contains(Symbol::End)
+        };
+        if is_reserved {
             return false;
         }
 
         // Do not add tokens which are both internal and external. Their validity could
         // influence the behavior of the external scanner. `bits.internal_external` is
-        // indexed by terminal index only, so gate on the kind
-        if new_token.is_terminal()
-            && bits.internal_external[new_token.index as usize / 64]
-                & (1 << (new_token.index as usize % 64))
-                != 0
+        // indexed by terminal index only.
+        if new_token_is_terminal
+            && bits.internal_external[new_token_index / 64] & (1 << (new_token_index % 64)) != 0
         {
             debug!(
                 "split states {left_id} {right_id} - internal/external token {}",
-                self.symbol_name(new_token),
+                self.symbol_name(new_token.symbol()),
             );
             return true;
         }
 
-        let word_token = self.syntax_grammar.word_token;
-        let new_token_is_word = word_token == Some(new_token);
-        let new_token_is_keyword = word_token.is_some() && self.keywords.contains(new_token);
+        let new_token_is_word = bits.word_token == Some(new_token);
+        let new_token_is_keyword = bits.word_token.is_some()
+            && if new_token_is_terminal {
+                bits.keywords[new_token_index / 64] & (1 << (new_token_index % 64)) != 0
+            } else {
+                self.keywords.contains(Symbol::End)
+            };
         // Do not add a token if it conflicts with an existing token. Test the candidate's
         // conflict row against the state's terminal bits, masking out the word/keyword
         // exemptions.
-        let row = bits.get_conflict_row(new_token.index as usize);
+        let row = bits.get_conflict_row(new_token_index);
         let right_terminal_bits = bits.get_state_row(right_state.id as usize);
         for (w, &row_word) in row.iter().enumerate() {
             let mut candidates = right_terminal_bits[w] & row_word;
             if new_token_is_keyword
-                && let Some(word) = word_token
-                && word.index as usize / 64 == w
+                && let Some(word) = bits.word_token
+                && (word.is_external() || word.is_terminal())
+                && word.index() as usize / 64 == w
             {
-                candidates &= !(1u64 << (word.index as usize % 64));
+                candidates &= !(1u64 << (word.index() as usize % 64));
             }
             if new_token_is_word {
                 candidates &= !bits.keywords[w];
@@ -730,7 +750,7 @@ impl Minimizer<'_> {
                     "split states {} {} - token {} conflicts with {}",
                     left_id,
                     right_id,
-                    self.symbol_name(new_token),
+                    self.symbol_name(new_token.symbol()),
                     self.symbol_name(Symbol::terminal(
                         w * 64 + candidates.trailing_zeros() as usize
                     )),
@@ -743,16 +763,18 @@ impl Minimizer<'_> {
     }
 
     fn symbol_name(&self, symbol: Symbol) -> &str {
-        let symbol_index = symbol.index as usize;
-        if symbol.is_non_terminal() {
-            self.str_pool
-                .resolve(self.syntax_grammar.variables[symbol_index].name)
-        } else if symbol.is_external() {
-            self.str_pool
-                .resolve(self.syntax_grammar.external_tokens[symbol_index].name)
-        } else {
-            self.str_pool
-                .resolve(self.lexical_grammar.variables[symbol_index].name)
+        match symbol.view() {
+            SymbolView::NonTerminal(index) => self
+                .str_pool
+                .resolve(self.syntax_grammar.variables[usize::from(index)].name),
+            SymbolView::External(index) => self
+                .str_pool
+                .resolve(self.syntax_grammar.external_tokens[usize::from(index)].name),
+            SymbolView::Terminal(index) => self
+                .str_pool
+                .resolve(self.lexical_grammar.variables[usize::from(index)].name),
+            SymbolView::End => "<EOF>",
+            SymbolView::EndOfNonTerminalExtra => "<END_OF_NONTERMINAL_EXTRA>",
         }
     }
 

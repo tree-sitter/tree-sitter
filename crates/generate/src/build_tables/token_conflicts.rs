@@ -8,7 +8,7 @@ use crate::{
     build_tables::item::TokenSetDisplay,
     grammars::{LexicalGrammar, SyntaxGrammar},
     nfa::{CharacterSet, NfaCursor, NfaTransition},
-    rules::TokenSet,
+    rules::{SymbolView, TokenSet},
     strpool::StrPool,
 };
 
@@ -319,8 +319,8 @@ fn get_following_chars(
         .map(|following_tokens| {
             let mut chars = CharacterSet::empty();
             for token in following_tokens.iter() {
-                if token.is_terminal() {
-                    chars = chars.add(&starting_chars[token.index as usize]);
+                if let SymbolView::Terminal(index) = token.view() {
+                    chars = chars.add(&starting_chars[usize::from(index)]);
                 }
             }
             chars

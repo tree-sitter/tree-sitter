@@ -7,9 +7,7 @@ use crate::{
         InputGrammar, Production, ProductionStep, ProductionStore, SyntaxGrammar, SyntaxVariable,
     },
     prepare_grammar::extract_tokens::ExtractedGrammarMeta,
-    rules::{
-        Alias, Associativity, Precedence, Rule, RuleId, RulePool, Symbol, SymbolType, TokenSet,
-    },
+    rules::{Alias, Associativity, Precedence, Rule, RuleId, RulePool, Symbol, TokenSet},
     strpool::{StrId, StrPool},
 };
 
@@ -116,9 +114,9 @@ impl FlattenState {
         self.choices.begin_path();
     }
 
-    fn push_step(&mut self, kind: SymbolType, index: u32, ctx: FlattenCtx) {
+    fn push_step(&mut self, symbol: Symbol, ctx: FlattenCtx) {
         self.steps.push(ProductionStep::pack(
-            Symbol { kind, index },
+            symbol,
             ctx.prec,
             ctx.assoc,
             ctx.alias,
@@ -149,8 +147,8 @@ fn apply(
     st: &mut FlattenState,
 ) -> FlattenGrammarResult<bool> {
     match pool.node(node) {
-        Rule::Sym { kind, index } => {
-            st.push_step(kind, index, f_ctx);
+        Rule::Sym(symbol) => {
+            st.push_step(symbol, f_ctx);
             Ok(true)
         }
         Rule::Seq(range) => {
@@ -182,8 +180,7 @@ fn apply(
             apply(pool, reserved_ids, child, f_ctx, at_end, st)
         }
         Rule::Eof => {
-            let symbol = Symbol::end();
-            st.push_step(symbol.kind, symbol.index, f_ctx);
+            st.push_step(Symbol::End, f_ctx);
             Ok(true)
         }
         Rule::Metadata { params, rule } => {
@@ -241,7 +238,7 @@ fn emit(st: &mut FlattenState, out: &mut ProductionStore, prod_start: u32) -> bo
     let Some(eof_index) = st
         .steps
         .iter()
-        .position(|step| step.symbol() == Symbol::end())
+        .position(|step| step.symbol() == Symbol::End)
     else {
         return emit_ready(st, out, prod_start, false);
     };
@@ -728,16 +725,10 @@ mod tests {
     }
 
     fn term(p: &mut RulePool, i: u32) -> RuleId {
-        p.push_node(Rule::Sym {
-            kind: SymbolType::Terminal,
-            index: i,
-        })
+        p.push_node(Rule::from(Symbol::terminal(i as usize)))
     }
     fn non_term(p: &mut RulePool, i: u32) -> RuleId {
-        p.push_node(Rule::Sym {
-            kind: SymbolType::NonTerminal,
-            index: i,
-        })
+        p.push_node(Rule::from(Symbol::non_terminal(i as usize)))
     }
 
     #[derive(Debug, PartialEq)]

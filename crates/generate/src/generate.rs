@@ -1,4 +1,3 @@
-use std::collections::BTreeMap;
 use std::path::PathBuf;
 #[cfg(feature = "load")]
 use std::{
@@ -10,7 +9,6 @@ use std::{
 
 use bitflags::bitflags;
 use node_types::VariableInfo;
-use rules::Symbol;
 #[cfg(feature = "load")]
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -43,7 +41,7 @@ use render::render_c_code;
 pub use render::{ABI_VERSION_MAX, ABI_VERSION_MIN, RenderError};
 
 use crate::{
-    grammars::InputGrammar, prepare_grammar::PreparedGrammar, rules::Alias, strpool::StrPool,
+    grammars::InputGrammar, prepare_grammar::PreparedGrammar, rules::AliasMap, strpool::StrPool,
 };
 
 struct JSONOutput {
@@ -52,7 +50,7 @@ struct JSONOutput {
     syntax_grammar: SyntaxGrammar,
     lexical_grammar: LexicalGrammar,
     inlines: InlinedProductionMap,
-    simple_aliases: BTreeMap<Symbol, Alias>,
+    simple_aliases: AliasMap,
     variable_info: Vec<VariableInfo>,
     str_pool: StrPool,
 }
