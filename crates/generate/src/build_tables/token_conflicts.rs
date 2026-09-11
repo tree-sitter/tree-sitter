@@ -245,7 +245,7 @@ impl std::fmt::Debug for TokenConflictMapDisplay<'_> {
             writeln!(
                 f,
                 "    follow({:?}): {},",
-                self.1.variables[i].name,
+                self.2.resolve(self.1.variables[i].name),
                 TokenSetDisplay(following_tokens, &syntax_grammar, self.1, self.2)
             )?;
         }
@@ -256,7 +256,8 @@ impl std::fmt::Debug for TokenConflictMapDisplay<'_> {
             writeln!(
                 f,
                 "    {:?}: {:?},",
-                self.1.variables[i].name, self.0.starting_chars_by_index[i]
+                self.2.resolve(self.1.variables[i].name),
+                self.0.starting_chars_by_index[i]
             )?;
         }
         writeln!(f, "  }},")?;
@@ -266,19 +267,20 @@ impl std::fmt::Debug for TokenConflictMapDisplay<'_> {
             writeln!(
                 f,
                 "    {:?}: {:?},",
-                self.1.variables[i].name, self.0.following_chars_by_index[i]
+                self.2.resolve(self.1.variables[i].name),
+                self.0.following_chars_by_index[i]
             )?;
         }
         writeln!(f, "  }},")?;
 
         writeln!(f, "  status_matrix: {{")?;
         for i in 0..self.0.n {
-            writeln!(f, "    {:?}: {{", self.1.variables[i].name)?;
+            writeln!(f, "    {:?}: {{", self.2.resolve(self.1.variables[i].name))?;
             for j in 0..self.0.n {
                 writeln!(
                     f,
                     "      {:?}: {:?},",
-                    self.1.variables[j].name,
+                    self.2.resolve(self.1.variables[j].name),
                     self.0.status_matrix[matrix_index(self.0.n, i, j)]
                 )?;
             }
