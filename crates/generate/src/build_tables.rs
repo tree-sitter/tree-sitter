@@ -105,6 +105,7 @@ pub fn build_tables(
         &keywords,
         &coincident_token_index,
         &token_conflict_map,
+        str_pool,
     );
     populate_external_lex_states(&mut parse_table, syntax_grammar);
     mark_fragile_tokens(&mut parse_table, &token_conflict_map);
