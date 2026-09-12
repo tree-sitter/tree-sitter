@@ -5,7 +5,10 @@ use thiserror::Error;
 use crate::{
     grammars::{LexicalGrammar, LexicalVariable},
     nfa::{CharacterSet, Nfa, NfaState},
-    prepare_grammar::{LexicalToken, pattern},
+    prepare_grammar::{
+        LexicalToken,
+        pattern::{self, RegexError},
+    },
     rules::{Precedence, Rule, RuleId, RulePool, Symbol},
 };
 
@@ -168,8 +171,8 @@ pub enum ExpandRuleError {
         so use `eof()` only at the end of a syntactic rule."
     )]
     UnexpectedEof,
-    #[error("{0}")]
-    Parse(String),
+    #[error(transparent)]
+    Parse(#[from] RegexError),
     #[error(transparent)]
     ExpandRegex(ExpandRegexError),
 }
@@ -230,8 +233,7 @@ impl NfaBuilder {
                 // Parse WITHOUT case folding and fold ourselves (see
                 // `case_fold_ascii_safe`). Letting `regex_syntax` fold would pull the
                 // long s `ſ` and Kelvin sign `K` into ASCII `s`/`k`.
-                let hir = pattern::parse(&s, pool.resolve(f).contains('i'))
-                    .map_err(|e| ExpandRuleError::Parse(e.to_string()))?;
+                let hir = pattern::parse(&s, pool.resolve(f).contains('i'))?;
                 self.expand_regex(&hir, next_state_id)
                     .map_err(ExpandRuleError::ExpandRegex)
             }

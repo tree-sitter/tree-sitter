@@ -35,8 +35,8 @@ use grammars::{InlinedProductionMap, LexicalGrammar, SyntaxGrammar};
 pub use node_types::{InvalidSupertypeError, SuperTypeCycleError, VariableInfoError};
 pub use parse_grammar::ParseGrammarError;
 use parse_grammar::parse_grammar;
-pub use prepare_grammar::PrepareGrammarError;
 use prepare_grammar::prepare_grammar;
+pub use prepare_grammar::{PatternSpan, PrepareGrammarError, RegexError, RegexErrorKind};
 use render::render_c_code;
 pub use render::{ABI_VERSION_MAX, ABI_VERSION_MIN, RenderError};
 
