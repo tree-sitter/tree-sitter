@@ -29,14 +29,20 @@ mod rules;
 mod strpool;
 mod tables;
 
-pub use build_tables::ParseTableBuilderError;
+pub use build_tables::{AmbiguousExtraError, ConflictError, ParseTableBuilderError};
 use build_tables::build_tables;
 use grammars::{InlinedProductionMap, LexicalGrammar, SyntaxGrammar};
 pub use node_types::{InvalidSupertypeError, SuperTypeCycleError, VariableInfoError};
 pub use parse_grammar::ParseGrammarError;
 use parse_grammar::parse_grammar;
 use prepare_grammar::prepare_grammar;
-pub use prepare_grammar::{PatternSpan, PrepareGrammarError, RegexError, RegexErrorKind};
+pub use prepare_grammar::{
+    ConflictingPrecedenceOrderingError, ExpandRegexError, ExpandRepeatsError, ExpandRuleError,
+    ExpandTokensError, ExpandTokensProcessingError, ExtractTokensError, FlattenGrammarError,
+    IndirectRecursionError, InternSymbolsError, NonAsciiByteClassError,
+    NonTerminalWordTokenError, PatternSpan, PrepareGrammarError, ProcessInlinesError, RegexError,
+    RegexErrorKind, UndeclaredPrecedenceError, ValidatePrecedenceError,
+};
 use render::render_c_code;
 pub use render::{ABI_VERSION_MAX, ABI_VERSION_MIN, RenderError};
 

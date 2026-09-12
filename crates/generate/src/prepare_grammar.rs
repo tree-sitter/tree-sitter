@@ -13,10 +13,14 @@ use std::{
     mem,
 };
 
-pub use expand_tokens::ExpandTokensError;
+pub use expand_repeats::ExpandRepeatsError;
 #[cfg(test)]
 pub use expand_tokens::expand_tokens;
-pub use extract_tokens::ExtractTokensError;
+pub use expand_tokens::{
+    ExpandRegexError, ExpandRuleError, ExpandTokensError, ExpandTokensProcessingError,
+    NonAsciiByteClassError,
+};
+pub use extract_tokens::{ExtractTokensError, NonTerminalWordTokenError};
 pub use flatten_grammar::FlattenGrammarError;
 use indexmap::IndexMap;
 pub use intern_symbols::InternSymbolsError;
@@ -32,7 +36,7 @@ use crate::{
 };
 
 use self::{
-    expand_repeats::{ExpandRepeatsError, expand_repeats},
+    expand_repeats::expand_repeats,
     extract_default_aliases::extract_default_aliases,
     extract_tokens::extract_tokens,
     flatten_grammar::flatten_grammar,
