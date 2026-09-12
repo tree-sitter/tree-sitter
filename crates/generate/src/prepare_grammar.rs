@@ -20,6 +20,7 @@ pub use extract_tokens::ExtractTokensError;
 pub use flatten_grammar::FlattenGrammarError;
 use indexmap::IndexMap;
 pub use intern_symbols::InternSymbolsError;
+pub use pattern::{PatternSpan, RegexError, RegexErrorKind};
 pub use process_inlines::ProcessInlinesError;
 use rustc_hash::{FxHashMap, FxHashSet};
 use serde::{Deserialize, Serialize};

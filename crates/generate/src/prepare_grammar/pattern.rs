@@ -29,6 +29,9 @@
 //! nothing and it compiles exactly what is would have with our fold in place of
 //! its own.
 
+use serde::{Deserialize, Serialize};
+use thiserror::Error;
+
 use regex_syntax::{
     ast::{
         self, Ast, ClassBracketed, ClassSet, ClassSetItem, ClassSetRange, ClassSetUnion, Flag,
@@ -66,14 +69,11 @@ struct Expander<'a> {
 }
 
 /// Parse a token pattern into an [`Hir`], folding any `i` flag manually.
-pub(super) fn parse(
-    pattern: &str,
-    case_insensitive: bool,
-) -> Result<Hir, Box<regex_syntax::Error>> {
+pub(super) fn parse(pattern: &str, case_insensitive: bool) -> Result<Hir, RegexError> {
     let mut ast = ParserBuilder::new()
         .build()
         .parse(pattern)
-        .map_err(|e| Box::new(e.into()))?;
+        .map_err(|e| RegexError::new(&e.into()))?;
 
     let mut expander = Expander {
         translator: TranslatorBuilder::new()
@@ -87,11 +87,13 @@ pub(super) fn parse(
             unicode: true,
         },
     };
-    expander.expand(&mut ast).map_err(|e| Box::new(e.into()))?;
+    expander
+        .expand(&mut ast)
+        .map_err(|e| RegexError::new(&e.into()))?;
     expander
         .translator
         .translate(pattern, &ast)
-        .map_err(|e| Box::new(e.into()))
+        .map_err(|e| RegexError::new(&e.into()))
 }
 
 impl Expander<'_> {
@@ -331,5 +333,180 @@ impl Expander<'_> {
         class.case_fold_simple();
         class.difference(&exotic);
         class.union(&asked_for);
+    }
+}
+
+/// Mirror of [`regex_syntax::ast::ErrorKind`] with [`serde::Serialize`].
+macro_rules! mirror_regex_error_kinds {
+    (
+        ast { $($av:ident => $am:literal,)* }
+        hir { $($hv:ident => $hm:literal,)* }
+    ) => {
+        #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Error)]
+        pub enum RegexErrorKind {
+            $(#[error($am)] $av,)*
+            $(#[error($hm)] $hv,)*
+            #[error("duplicate flag")]
+            FlagDuplicate,
+            #[error("flag negation operator repeated")]
+            FlagRepeatedNegation,
+            #[error("duplicate capture group name")]
+            GroupNameDuplicate,
+            #[error("exceed the maximum number of nested parentheses/brackets ({0})")]
+            NestLimitExceeded(u32),
+            /// A kind `regex_syntax` added after this mirror was written.
+            #[error("{0}")]
+            Other(Box<str>),
+        }
+
+        impl From<&ast::ErrorKind> for RegexErrorKind {
+            fn from(kind: &ast::ErrorKind) -> Self {
+                match kind {
+                    $(ast::ErrorKind::$av => Self::$av,)*
+                    ast::ErrorKind::FlagDuplicate { .. } => Self::FlagDuplicate,
+                    ast::ErrorKind::FlagRepeatedNegation { .. } => Self::FlagRepeatedNegation,
+                    ast::ErrorKind::GroupNameDuplicate { .. } => Self::GroupNameDuplicate,
+                    ast::ErrorKind::NestLimitExceeded(limit) => Self::NestLimitExceeded(*limit),
+                    other => Self::Other(other.to_string().into_boxed_str()),
+                }
+            }
+        }
+
+        impl From<&hir::ErrorKind> for RegexErrorKind {
+            fn from(kind: &hir::ErrorKind) -> Self {
+                match kind {
+                    $(hir::ErrorKind::$hv => Self::$hv,)*
+                    other => Self::Other(other.to_string().into_boxed_str()),
+                }
+            }
+        }
+    };
+}
+
+mirror_regex_error_kinds! {
+    ast {
+        CaptureLimitExceeded => "exceeded the maximum number of capturing groups (4294967295)",
+        ClassEscapeInvalid => "invalid escape sequence found in character class",
+        ClassRangeInvalid => "invalid character class range, the start must be <= the end",
+        ClassRangeLiteral => "invalid range boundary, must be a literal",
+        ClassUnclosed => "unclosed character class",
+        DecimalEmpty => "decimal literal empty",
+        DecimalInvalid => "decimal literal invalid",
+        EscapeHexEmpty => "hexadecimal literal empty",
+        EscapeHexInvalid => "hexadecimal literal is not a Unicode scalar value",
+        EscapeHexInvalidDigit => "invalid hexadecimal digit",
+        EscapeUnexpectedEof => "incomplete escape sequence, reached end of pattern prematurely",
+        EscapeUnrecognized => "unrecognized escape sequence",
+        FlagDanglingNegation => "dangling flag negation operator",
+        FlagUnexpectedEof => "expected flag but got end of regex",
+        FlagUnrecognized => "unrecognized flag",
+        GroupNameEmpty => "empty capture group name",
+        GroupNameInvalid => "invalid capture group character",
+        GroupNameUnexpectedEof => "unclosed capture group name",
+        GroupUnclosed => "unclosed group",
+        GroupUnopened => "unopened group",
+        RepetitionCountInvalid => "invalid repetition count range, the start must be <= the end",
+        RepetitionCountDecimalEmpty => "repetition quantifier expects a valid decimal",
+        RepetitionCountUnclosed => "unclosed counted repetition",
+        RepetitionMissing => "repetition operator missing expression",
+        SpecialWordBoundaryUnclosed => "special word boundary assertion is either unclosed or contains an invalid character",
+        SpecialWordBoundaryUnrecognized => "unrecognized special word boundary assertion, valid choices are: start, end, start-half or end-half",
+        SpecialWordOrRepetitionUnexpectedEof => "found either the beginning of a special word boundary or a bounded repetition on a \\b with an opening brace, but no closing brace",
+        UnicodeClassInvalid => "invalid Unicode character class",
+        UnsupportedBackreference => "backreferences are not supported",
+        UnsupportedLookAround => "look-around, including look-ahead and look-behind, is not supported",
+    }
+    hir {
+        UnicodeNotAllowed => "Unicode not allowed here",
+        InvalidUtf8 => "pattern can match invalid UTF-8",
+        InvalidLineTerminator => "invalid line terminator, must be ASCII",
+        UnicodePropertyNotFound => "Unicode property not found",
+        UnicodePropertyValueNotFound => "Unicode property value not found",
+        UnicodePerlClassNotFound => "Unicode-aware Perl class not found (make sure the unicode-perl feature is enabled)",
+        UnicodeCaseUnavailable => "Unicode-aware case insensitivity matching is not available (make sure the unicode-case feature is enabled)",
+    }
+}
+
+/// Byte range within a pattern string.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PatternSpan {
+    pub start: u32,
+    pub end: u32,
+}
+
+impl PatternSpan {
+    const fn new(span: &Span) -> Self {
+        Self {
+            start: span.start.offset as u32,
+            end: span.end.offset as u32,
+        }
+    }
+}
+
+/// A pattern rejected by [`parse`], carrying the pattern and the offending
+/// range inside it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Error)]
+pub struct RegexError {
+    pub pattern: String,
+    pub kind: RegexErrorKind,
+    pub span: Option<PatternSpan>,
+    pub aux_span: Option<PatternSpan>,
+}
+
+impl RegexError {
+    fn new(error: &regex_syntax::Error) -> Self {
+        let (pattern, kind, span, aux_span) = match error {
+            regex_syntax::Error::Parse(e) => (
+                e.pattern().to_string(),
+                RegexErrorKind::from(e.kind()),
+                Some(e.span()),
+                e.auxiliary_span(),
+            ),
+            regex_syntax::Error::Translate(e) => (
+                e.pattern().to_string(),
+                RegexErrorKind::from(e.kind()),
+                Some(e.span()),
+                None,
+            ),
+            other => (
+                String::new(),
+                RegexErrorKind::Other(other.to_string().into_boxed_str()),
+                None,
+                None,
+            ),
+        };
+        Self {
+            pattern,
+            kind,
+            span: span.map(PatternSpan::new),
+            aux_span: aux_span.map(PatternSpan::new),
+        }
+    }
+
+    fn column(&self, offset: u32) -> usize {
+        self.pattern[..offset as usize].chars().count()
+    }
+}
+
+impl std::fmt::Display for RegexError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "regex parse error:")?;
+        writeln!(f, "    {}", self.pattern)?;
+        if self.span.is_some() {
+            let mut spans = [self.span, self.aux_span];
+            spans.sort_unstable_by_key(|span| span.map(|s| (s.start, s.end)));
+
+            write!(f, "    ")?;
+            let mut column = 0;
+            for span in spans.into_iter().flatten() {
+                let start = self.column(span.start);
+                let width = self.column(span.end).saturating_sub(start).max(1);
+                let pad = start.saturating_sub(column);
+                write!(f, "{:pad$}{}", "", "^".repeat(width))?;
+                column = column.max(start) + width;
+            }
+            writeln!(f)?;
+        }
+        write!(f, "error: {}", self.kind)
     }
 }

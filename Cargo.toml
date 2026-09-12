@@ -111,7 +111,7 @@ once_cell = "1.21.3"
 pretty_assertions = "1.4.1"
 rand = "0.10.1"
 regex = "1.12.3"
-regex-syntax = "0.8.9"
+regex-syntax = "0.8.11"
 rustc-hash = "2.1.1"
 schemars = "1.2.1"
 semver = { features = [ "serde" ], version = "1.0.27" }
