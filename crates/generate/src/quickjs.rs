@@ -23,14 +23,14 @@ impl<T> JSResultExt<T> for Result<T, rquickjs::Error> {
         match self {
             Ok(v) => Ok(v),
             Err(rquickjs::Error::Exception) => Err(format_js_exception(ctx.catch())),
-            Err(e) => Err(JSError::QuickJS(e.to_string())),
+            Err(e) => Err(JSError::QuickJS(e.to_string().into())),
         }
     }
 }
 
 fn format_js_exception(v: Value) -> JSError {
     let Some(exception) = v.into_exception() else {
-        return JSError::QuickJS("Expected a JS exception".to_string());
+        return JSError::QuickJS("Expected a JS exception".to_string().into());
     };
 
     let error_obj = exception.as_object();
@@ -43,9 +43,9 @@ fn format_js_exception(v: Value) -> JSError {
     }
 
     if parts.is_empty() {
-        JSError::QuickJS(exception.to_string())
+        JSError::QuickJS(exception.to_string().into())
     } else {
-        JSError::QuickJS(parts.join("\n"))
+        JSError::QuickJS(parts.join("\n").into())
     }
 }
 

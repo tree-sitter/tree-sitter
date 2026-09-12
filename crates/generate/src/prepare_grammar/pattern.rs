@@ -69,11 +69,11 @@ struct Expander<'a> {
 }
 
 /// Parse a token pattern into an [`Hir`], folding any `i` flag manually.
-pub(super) fn parse(pattern: &str, case_insensitive: bool) -> Result<Hir, RegexError> {
+pub(super) fn parse(pattern: &str, case_insensitive: bool) -> Result<Hir, Box<RegexError>> {
     let mut ast = ParserBuilder::new()
         .build()
         .parse(pattern)
-        .map_err(|e| RegexError::new(&e.into()))?;
+        .map_err(|e| Box::new(RegexError::new(&e.into())))?;
 
     let mut expander = Expander {
         translator: TranslatorBuilder::new()
@@ -89,11 +89,11 @@ pub(super) fn parse(pattern: &str, case_insensitive: bool) -> Result<Hir, RegexE
     };
     expander
         .expand(&mut ast)
-        .map_err(|e| RegexError::new(&e.into()))?;
+        .map_err(|e| Box::new(RegexError::new(&e.into())))?;
     expander
         .translator
         .translate(pattern, &ast)
-        .map_err(|e| RegexError::new(&e.into()))
+        .map_err(|e| Box::new(RegexError::new(&e.into())))
 }
 
 impl Expander<'_> {
@@ -447,7 +447,7 @@ impl PatternSpan {
 /// range inside it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Error)]
 pub struct RegexError {
-    pub pattern: String,
+    pub pattern: Box<str>,
     pub kind: RegexErrorKind,
     pub span: Option<PatternSpan>,
     pub aux_span: Option<PatternSpan>,
@@ -457,19 +457,19 @@ impl RegexError {
     fn new(error: &regex_syntax::Error) -> Self {
         let (pattern, kind, span, aux_span) = match error {
             regex_syntax::Error::Parse(e) => (
-                e.pattern().to_string(),
+                e.pattern().into(),
                 RegexErrorKind::from(e.kind()),
                 Some(e.span()),
                 e.auxiliary_span(),
             ),
             regex_syntax::Error::Translate(e) => (
-                e.pattern().to_string(),
+                e.pattern().into(),
                 RegexErrorKind::from(e.kind()),
                 Some(e.span()),
                 None,
             ),
             other => (
-                String::new(),
+                Box::default(),
                 RegexErrorKind::Other(other.to_string().into_boxed_str()),
                 None,
                 None,

@@ -25,23 +25,23 @@ Tree-sitter does not support syntactic rules that contain an empty string
 unless they are used only as the grammar's start rule.
 "
     )]
-    EmptyString(String),
+    EmptyString(Box<str>),
     #[error("Terminal rule '{0}' cannot be used as a supertype")]
-    SupertypeTerminal(String),
+    SupertypeTerminal(Box<str>),
     #[error("Rule '{0}' cannot be used as both an external token and a non-terminal rule")]
-    ExternalTokenNonTerminal(String),
+    ExternalTokenNonTerminal(Box<str>),
     #[error("Non-symbol rules cannot be used as external tokens")]
     NonSymbolExternalToken,
     #[error(transparent)]
     WordToken(NonTerminalWordTokenError),
     #[error("Reserved word '{0}' must be a token")]
-    NonTokenReservedWord(String),
+    NonTokenReservedWord(Box<str>),
 }
 
 #[derive(Debug, Error, Serialize, Deserialize, PartialEq, Eq)]
 pub struct NonTerminalWordTokenError {
-    pub symbol_name: String,
-    pub conflicting_symbol_name: Option<String>,
+    pub symbol_name: Box<str>,
+    pub conflicting_symbol_name: Option<Box<str>>,
 }
 
 impl std::fmt::Display for NonTerminalWordTokenError {
@@ -111,7 +111,7 @@ impl TokenExtractor {
         let (name, kind) = if let Some(sid) = string_name {
             if pool.resolve(sid).is_empty() && !is_first {
                 Err(ExtractTokensError::EmptyString(
-                    var_name.map_or_else(String::new, |v| pool.resolve(v).to_string()),
+                    var_name.map_or_else(Box::default, |v| pool.resolve(v).to_string().into()),
                 ))?;
             }
             (sid, VariableType::Anonymous)
@@ -427,7 +427,7 @@ pub(super) fn extract_tokens<'g>(
                 Err(ExtractTokensError::SupertypeTerminal(
                     g.pool
                         .resolve(extractor.lexical[usize::from(index)].name)
-                        .to_string(),
+                        .into(),
                 ))
             } else {
                 Ok(sym)
@@ -466,9 +466,7 @@ pub(super) fn extract_tokens<'g>(
         };
         if let SymbolView::NonTerminal(index) = s.view() {
             Err(ExtractTokensError::ExternalTokenNonTerminal(
-                g.pool
-                    .resolve(g.variables[usize::from(index)].name)
-                    .to_string(),
+                g.pool.resolve(g.variables[usize::from(index)].name).into(),
             ))?;
         }
         external_tokens.push(match s.view() {
@@ -502,9 +500,9 @@ pub(super) fn extract_tokens<'g>(
             .iter()
             .enumerate()
             .find(|(i, v)| *i != token_index && g.pool.subtree_eq(v.root, word_root))
-            .map(|(_, v)| g.pool.resolve(v.name).to_string());
+            .map(|(_, v)| g.pool.resolve(v.name).into());
         Err(ExtractTokensError::WordToken(NonTerminalWordTokenError {
-            symbol_name: g.pool.resolve(g.variables[token_index].name).to_string(),
+            symbol_name: g.pool.resolve(g.variables[token_index].name).into(),
             conflicting_symbol_name,
         }))?;
     }
@@ -529,7 +527,7 @@ pub(super) fn extract_tokens<'g>(
                     Rule::String(s) | Rule::Pattern(s, _) => g.pool.resolve(s).to_string(),
                     _ => "unknown".to_string(),
                 };
-                Err(ExtractTokensError::NonTokenReservedWord(token_name))?;
+                Err(ExtractTokensError::NonTokenReservedWord(token_name.into()))?;
             }
         }
         reserved_sets.push((set.name, symbols));
@@ -899,7 +897,7 @@ mod test {
         let err = extract(&mut grammar).unwrap_err();
         assert_eq!(
             err,
-            ExtractTokensError::ExternalTokenNonTerminal("rule_1".to_string())
+            ExtractTokensError::ExternalTokenNonTerminal("rule_1".to_string().into())
         );
     }
 
@@ -969,7 +967,7 @@ mod test {
         let mut grammar = pool_grammar(pool, variables);
         assert_eq!(
             extract(&mut grammar).unwrap_err(),
-            ExtractTokensError::EmptyString("_rule_1".to_string())
+            ExtractTokensError::EmptyString("_rule_1".to_string().into())
         );
     }
 
