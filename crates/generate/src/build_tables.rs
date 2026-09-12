@@ -10,7 +10,7 @@ use std::collections::BTreeSet;
 
 pub use build_lex_table::LARGE_CHARACTER_RANGE_COUNT;
 use build_parse_table::BuildTableResult;
-pub use build_parse_table::ParseTableBuilderError;
+pub use build_parse_table::{AmbiguousExtraError, ConflictError, ParseTableBuilderError};
 use log::{debug, info};
 use rustc_hash::FxHashMap;
 
