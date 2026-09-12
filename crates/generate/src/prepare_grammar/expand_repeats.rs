@@ -26,7 +26,7 @@ enum Task {
 
 #[derive(Debug, Error, Serialize, Deserialize, PartialEq, Eq)]
 #[error("Rule `{0}` contains a repetition that can match the empty string at end of input")]
-pub struct ExpandRepeatsError(pub String);
+pub struct ExpandRepeatsError(pub Box<str>);
 
 impl Expander {
     /// Post-order repeat expansion over one root. Children expand first, and `Reserved`
@@ -62,7 +62,9 @@ impl Expander {
                 Task::Expand { id, content } => {
                     let width = self.zero_width.eval(pool, content);
                     if width.eof_nullable {
-                        return Err(ExpandRepeatsError(pool.resolve(var_name).to_string()));
+                        return Err(ExpandRepeatsError(
+                            pool.resolve(var_name).to_string().into(),
+                        ));
                     }
                     // For repetitions, introduce an auxiliary rule that contains the
                     // repeated content, but can also contain a recursive binary tree structure.
@@ -324,7 +326,9 @@ pub(super) fn expand_repeats(
                 .eval(&grammar.pool, content)
                 .eof_nullable
             {
-                return Err(ExpandRepeatsError(grammar.pool.resolve(name).to_string()));
+                return Err(ExpandRepeatsError(
+                    grammar.pool.resolve(name).to_string().into(),
+                ));
             }
             expander.expand_root(&mut grammar.pool, content, name, &mut aux_repeat_count)?;
             grammar.variables[i].root =
@@ -653,7 +657,7 @@ mod tests {
         };
         assert_eq!(
             expand_repeats(&mut grammar, &mut meta).unwrap_err(),
-            ExpandRepeatsError("rule0".to_string())
+            ExpandRepeatsError("rule0".to_string().into())
         );
     }
 

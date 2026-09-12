@@ -118,7 +118,7 @@ pub type ParseGrammarResult<T> = Result<T, ParseGrammarError>;
 #[derive(Debug, Error, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ParseGrammarError {
     #[error("{0}")]
-    Serialization(String),
+    Serialization(Box<str>),
     #[error("Rules in the `extras` array must not contain empty strings")]
     InvalidExtra,
     #[error("Invalid rule in precedences array. Only strings and symbols are allowed")]
@@ -126,12 +126,12 @@ pub enum ParseGrammarError {
     #[error("Reserved word sets must be arrays")]
     InvalidReservedWordSet,
     #[error("Grammar Error: Unexpected rule `{0}` in `token()` call")]
-    UnexpectedRule(String),
+    UnexpectedRule(Box<str>),
 }
 
 impl From<serde_json::Error> for ParseGrammarError {
     fn from(value: serde_json::Error) -> Self {
-        Self::Serialization(value.to_string())
+        Self::Serialization(value.to_string().into())
     }
 }
 
@@ -207,7 +207,7 @@ impl InputGrammar {
             };
             if matches_empty {
                 diagnostics.push(Diagnostic::EmptyStringMatch(
-                    self.pool.resolve(v.name).to_string(),
+                    self.pool.resolve(v.name).to_string().into(),
                 ));
             }
         }
@@ -375,7 +375,7 @@ impl RulePool {
                             if c != 'u' && c != 'v' {
                                 diagnostics.push(Diagnostic::UnsupportedRegexFlag {
                                     flag: c,
-                                    pattern: value.clone(),
+                                    pattern: value.as_str().into(),
                                 });
                             }
                             false
@@ -389,7 +389,7 @@ impl RulePool {
             }
             RuleJSON::SYMBOL { name } => {
                 if is_token {
-                    Err(ParseGrammarError::UnexpectedRule(name))?
+                    Err(ParseGrammarError::UnexpectedRule(name.into()))?
                 } else {
                     let sid = self.intern(&name);
                     Ok(self.named_symbol(sid))

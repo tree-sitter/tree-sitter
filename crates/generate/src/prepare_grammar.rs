@@ -36,12 +36,9 @@ use crate::{
 };
 
 use self::{
-    expand_repeats::expand_repeats,
-    extract_default_aliases::extract_default_aliases,
-    extract_tokens::extract_tokens,
-    flatten_grammar::flatten_grammar,
-    intern_symbols::intern_symbols,
-    process_inlines::process_inlines,
+    expand_repeats::expand_repeats, extract_default_aliases::extract_default_aliases,
+    extract_tokens::extract_tokens, flatten_grammar::flatten_grammar,
+    intern_symbols::intern_symbols, process_inlines::process_inlines,
 };
 use super::{
     Diagnostic,
@@ -76,7 +73,7 @@ pub enum ValidatePrecedenceError {
 }
 
 #[derive(Debug, Error, Serialize, Deserialize, PartialEq, Eq)]
-pub struct IndirectRecursionError(pub Vec<String>);
+pub struct IndirectRecursionError(pub Box<[Box<str>]>);
 
 impl std::fmt::Display for IndirectRecursionError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -94,15 +91,15 @@ impl std::fmt::Display for IndirectRecursionError {
 #[derive(Debug, Error, Serialize, Deserialize, PartialEq, Eq)]
 #[error("Undeclared precedence '{}' in rule '{}'", self.precedence, self.rule)]
 pub struct UndeclaredPrecedenceError {
-    pub precedence: String,
-    pub rule: String,
+    pub precedence: Box<str>,
+    pub rule: Box<str>,
 }
 
 #[derive(Debug, Error, Serialize, Deserialize, PartialEq, Eq)]
 #[error("Conflicting orderings for precedences {} and {}", self.precedence_1, self.precedence_2)]
 pub struct ConflictingPrecedenceOrderingError {
-    pub precedence_1: String,
-    pub precedence_2: String,
+    pub precedence_1: Box<str>,
+    pub precedence_2: Box<str>,
 }
 
 pub struct PreparedGrammar {
@@ -191,7 +188,7 @@ fn validate_indirect_recursion(grammar: &InputGrammar) -> Result<(), IndirectRec
         {
             let cycle_symbols = path[start_idx..=end_idx]
                 .iter()
-                .map(|&s| grammar.pool.resolve(s).to_string())
+                .map(|&s| grammar.pool.resolve(s).to_string().into())
                 .collect();
             return Err(IndirectRecursionError(cycle_symbols));
         }
@@ -269,8 +266,8 @@ fn validate_precedences(grammar: &InputGrammar) -> ValidatePrecedenceResult<()> 
                     hash_map::Entry::Occupied(e) => {
                         if e.get() != &ordering {
                             Err(ConflictingPrecedenceOrderingError {
-                                precedence_1: display(&entry1),
-                                precedence_2: display(&entry2),
+                                precedence_1: display(&entry1).into(),
+                                precedence_2: display(&entry2).into(),
                             })?;
                         }
                     }
@@ -304,8 +301,8 @@ fn validate_precedences(grammar: &InputGrammar) -> ValidatePrecedenceResult<()> 
                         && !precedence_names.contains(&sid)
                     {
                         Err(UndeclaredPrecedenceError {
-                            precedence: grammar.pool.resolve(sid).to_string(),
-                            rule: grammar.pool.resolve(variable.name).to_string(),
+                            precedence: grammar.pool.resolve(sid).to_string().into(),
+                            rule: grammar.pool.resolve(variable.name).to_string().into(),
                         })?;
                     }
                     stack.push(rule);
@@ -377,8 +374,8 @@ mod tests {
         assert_eq!(
             validate_precedences(&grammar).unwrap_err(),
             ValidatePrecedenceError::Undeclared(UndeclaredPrecedenceError {
-                precedence: "omg".to_string(),
-                rule: "v2".to_string()
+                precedence: "omg".to_string().into(),
+                rule: "v2".to_string().into()
             })
         );
     }
@@ -403,8 +400,8 @@ mod tests {
         assert_eq!(
             validate_precedences(&grammar).unwrap_err(),
             ValidatePrecedenceError::Ordering(ConflictingPrecedenceOrderingError {
-                precedence_1: "'a'".to_string(),
-                precedence_2: "'b'".to_string()
+                precedence_1: "'a'".to_string().into(),
+                precedence_2: "'b'".to_string().into()
             })
         );
     }
@@ -463,13 +460,8 @@ mod tests {
             ]
         });
 
-        let err1 = IndirectRecursionError(vec!["a".to_string(), "b".to_string(), "a".to_string()]);
-        let err3 = IndirectRecursionError(vec![
-            "b".to_string(),
-            "c".to_string(),
-            "d".to_string(),
-            "b".to_string(),
-        ]);
+        let err1 = IndirectRecursionError(["a".into(), "b".into(), "a".into()].into());
+        let err3 = IndirectRecursionError(["b".into(), "c".into(), "d".into(), "b".into()].into());
 
         for (g, expected) in &[(case1, Err(err1)), (case2, Ok(())), (case3, Err(err3))] {
             assert_eq!(*expected, validate_indirect_recursion(g));

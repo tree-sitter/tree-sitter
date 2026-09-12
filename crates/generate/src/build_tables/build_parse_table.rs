@@ -86,48 +86,54 @@ pub type BuildTableResult<T> = Result<T, ParseTableBuilderError>;
 #[derive(Debug, Error, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ParseTableBuilderError {
     #[error("Unresolved conflict for symbol sequence:\n\n{0}")]
-    Conflict(#[from] ConflictError),
+    Conflict(Box<ConflictError>),
     #[error("Extra rules must have unambiguous endings. Conflicting rules: {0}")]
     AmbiguousExtra(#[from] AmbiguousExtraError),
     #[error(
         "The non-terminal rule `{0}` is used in a non-terminal `extra` rule, which is not allowed."
     )]
-    ImproperNonTerminalExtra(String),
+    ImproperNonTerminalExtra(Box<str>),
     #[error("State count `{0}` exceeds the max value {max}.", max=u16::MAX)]
     StateCount(usize),
 }
 
+impl From<ConflictError> for ParseTableBuilderError {
+    fn from(error: ConflictError) -> Self {
+        Self::Conflict(Box::new(error))
+    }
+}
+
 #[derive(Default, Debug, Serialize, Error, Deserialize, PartialEq, Eq)]
 pub struct ConflictError {
-    pub symbol_sequence: Vec<String>,
-    pub conflicting_lookahead: String,
+    pub symbol_sequence: Box<[Box<str>]>,
+    pub conflicting_lookahead: Box<str>,
     pub possible_interpretations: Vec<Interpretation>,
     pub possible_resolutions: Vec<Resolution>,
 }
 
 #[derive(Default, Debug, Serialize, Error, Deserialize, PartialEq, Eq)]
 pub struct Interpretation {
-    pub preceding_symbols: Vec<String>,
-    pub variable_name: String,
-    pub production_step_symbols: Vec<String>,
+    pub preceding_symbols: Box<[Box<str>]>,
+    pub variable_name: Box<str>,
+    pub production_step_symbols: Box<[Box<str>]>,
     pub step_index: u32,
     pub done: bool,
-    pub conflicting_lookahead: String,
-    pub precedence: Option<String>,
-    pub associativity: Option<String>,
+    pub conflicting_lookahead: Box<str>,
+    pub precedence: Option<Box<str>>,
+    pub associativity: Option<Box<str>>,
     pub requires_eof_lookahead: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Resolution {
-    Precedence { symbols: Vec<String> },
-    Associativity { symbols: Vec<String> },
-    AddConflict { symbols: Vec<String> },
+    Precedence { symbols: Box<[Box<str>]> },
+    Associativity { symbols: Box<[Box<str>]> },
+    AddConflict { symbols: Box<[Box<str>]> },
 }
 
 #[derive(Debug, Serialize, Deserialize, Error, PartialEq, Eq)]
 pub struct AmbiguousExtraError {
-    pub parent_symbols: Vec<String>,
+    pub parent_symbols: Box<[Box<str>]>,
 }
 
 impl std::fmt::Display for ConflictError {
@@ -397,7 +403,7 @@ impl<'a> ParseTableBuilder<'a> {
                 .map(|conf| conf.iter().map(|&s| self.symbol_name(s)).collect())
                 .collect::<Vec<_>>();
             conflicts.sort_unstable();
-            diagnostics.push(Diagnostic::UnnecessaryConflicts(conflicts));
+            diagnostics.push(Diagnostic::UnnecessaryConflicts(conflicts.into()));
         }
 
         Ok((
@@ -704,9 +710,9 @@ impl<'a> ParseTableBuilder<'a> {
                     .map(|&variable_index| {
                         self.str_pool
                             .resolve(self.syntax_grammar.variables[variable_index as usize].name)
-                            .to_string()
+                            .into()
                     })
-                    .collect::<Vec<_>>();
+                    .collect();
 
                 Err(AmbiguousExtraError {
                     parent_symbols: parent_symbol_names,
@@ -973,13 +979,14 @@ impl<'a> ParseTableBuilder<'a> {
             return Ok(());
         }
 
-        let mut conflict_error = ConflictError::default();
-        for &symbol in preceding_symbols {
-            conflict_error
-                .symbol_sequence
-                .push(self.symbol_name(symbol));
-        }
-        conflict_error.conflicting_lookahead = self.symbol_name(conflicting_lookahead);
+        let mut conflict_error = ConflictError {
+            symbol_sequence: preceding_symbols
+                .iter()
+                .map(|&symbol| self.symbol_name(symbol))
+                .collect(),
+            conflicting_lookahead: self.symbol_name(conflicting_lookahead),
+            ..Default::default()
+        };
 
         let interpretations = conflicting_items
             .iter()
@@ -988,31 +995,30 @@ impl<'a> ParseTableBuilder<'a> {
                     .iter()
                     .take(preceding_symbols.len() - item.step_index as usize)
                     .map(|&symbol| self.symbol_name(symbol))
-                    .collect::<Vec<_>>();
+                    .collect();
 
                 let variable_name = self
                     .str_pool
                     .resolve(self.syntax_grammar.variables[item.variable_index as usize].name)
-                    .to_string();
+                    .into();
 
                 let production_step_symbols = item
                     .production(self.syntax_grammar)
                     .steps
                     .iter()
                     .map(|step| self.symbol_name(step.symbol()))
-                    .collect::<Vec<_>>();
+                    .collect();
 
                 let precedence = match item.precedence(self.syntax_grammar) {
                     Precedence::None => None,
-                    _ => Some(prec_display(
-                        item.precedence(self.syntax_grammar),
-                        self.str_pool,
-                    )),
+                    _ => Some(
+                        prec_display(item.precedence(self.syntax_grammar), self.str_pool).into(),
+                    ),
                 };
 
                 let associativity = item
                     .associativity(self.syntax_grammar)
-                    .map(|assoc| format!("{assoc:?}"));
+                    .map(|assoc| format!("{assoc:?}").into());
 
                 Interpretation {
                     preceding_symbols,
@@ -1043,7 +1049,7 @@ impl<'a> ParseTableBuilder<'a> {
         shift_items.sort_unstable();
         reduce_items.sort_unstable();
 
-        let get_rule_names = |items: &[&ParseItem]| -> Vec<String> {
+        let get_rule_names = |items: &[&ParseItem]| -> Box<[Box<str>]> {
             let mut last_rule_id = None;
             let mut result = Vec::with_capacity(items.len());
             for item in items {
@@ -1054,7 +1060,7 @@ impl<'a> ParseTableBuilder<'a> {
                 result.push(self.symbol_name(Symbol::non_terminal(item.variable_index as usize)));
             }
 
-            result
+            result.into()
         };
 
         if actual_conflict.len() > 1 {
@@ -1070,7 +1076,7 @@ impl<'a> ParseTableBuilder<'a> {
                 conflict_error
                     .possible_resolutions
                     .push(Resolution::Precedence {
-                        symbols: vec![name],
+                        symbols: [name].into(),
                     });
             }
         }
@@ -1255,7 +1261,7 @@ impl<'a> ParseTableBuilder<'a> {
         id
     }
 
-    fn symbol_name(&self, symbol: Symbol) -> String {
+    fn symbol_name(&self, symbol: Symbol) -> Box<str> {
         match symbol.view() {
             SymbolView::End | SymbolView::EndOfNonTerminalExtra => "EOF".to_string(),
             SymbolView::External(index) => self
@@ -1275,6 +1281,7 @@ impl<'a> ParseTableBuilder<'a> {
                 }
             }
         }
+        .into()
     }
 }
 

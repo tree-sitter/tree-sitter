@@ -147,13 +147,13 @@ pub enum VariableInfoError {
     #[error(transparent)]
     InvalidSupertype(InvalidSupertypeError),
     #[error("Named alias `{0}` conflicts with a supertype of the same name.")]
-    SupertypeAliasCollision(String),
+    SupertypeAliasCollision(Box<str>),
 }
 
 #[derive(Debug, Error, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InvalidSupertypeError {
-    supertype: String,
-    child: Option<String>,
+    supertype: Box<str>,
+    child: Option<Box<str>>,
 }
 
 impl std::fmt::Display for InvalidSupertypeError {
@@ -239,7 +239,7 @@ fn validate_supertype_aliases(
             .any(|aliases| aliases.contains(&Some(collision)))
         {
             return Err(VariableInfoError::SupertypeAliasCollision(
-                str_pool.resolve(supertype.name).to_string(),
+                str_pool.resolve(supertype.name).to_string().into(),
             ));
         }
     }
@@ -495,12 +495,12 @@ fn validate_supertype_structure(
                         .map(|index| {
                             str_pool
                                 .resolve(syntax_grammar.variables[index].name)
-                                .to_string()
+                                .into()
                         })
                 });
 
             Err(VariableInfoError::InvalidSupertype(InvalidSupertypeError {
-                supertype: str_pool.resolve(variable.name).to_string(),
+                supertype: str_pool.resolve(variable.name).to_string().into(),
                 child: hidden_child_name,
             }))?;
         }
@@ -615,7 +615,7 @@ pub type SuperTypeCycleResult<T> = Result<T, SuperTypeCycleError>;
 
 #[derive(Debug, Error, Serialize, Deserialize, PartialEq, Eq)]
 pub struct SuperTypeCycleError {
-    items: Vec<String>,
+    items: Box<[Box<str>]>,
 }
 
 impl std::fmt::Display for SuperTypeCycleError {
@@ -1028,10 +1028,12 @@ fn sort_subtype_map_topologically(
             (true, true) => break,
             (true, false) => {
                 let mut items = top_sort
-                    .map(|node_type| str_pool.resolve(node_type.kind).to_string())
-                    .collect::<Vec<String>>();
+                    .map(|node_type| str_pool.resolve(node_type.kind).into())
+                    .collect::<Vec<Box<str>>>();
                 items.sort();
-                return Err(SuperTypeCycleError { items });
+                return Err(SuperTypeCycleError {
+                    items: items.into(),
+                });
             }
             (false, _) => {
                 sort_node_type_refs(&mut next_node_types, str_pool);
