@@ -1,0 +1,33 @@
+name: Check Regex Error Kinds
+
+on:
+  pull_request:
+    paths:
+      - Cargo.lock
+      - crates/generate/src/prepare_grammar/pattern.rs
+      - crates/xtask/src/**
+  push:
+    branches: [master]
+    paths:
+      - Cargo.lock
+      - crates/generate/src/prepare_grammar/pattern.rs
+      - crates/xtask/src/**
+
+jobs:
+  check-regex-error-kinds:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up stable Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+
+      # rustdoc's JSON output is nightly-only and unstable
+      - name: Set up pinned nightly Rust toolchain
+        run: rustup toolchain install nightly-2026-09-03 --profile minimal
+
+      - name: Check regex error kinds
+        run: cargo xtask check-regex-error-kinds

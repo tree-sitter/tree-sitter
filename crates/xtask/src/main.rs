@@ -1,6 +1,7 @@
 mod benchmark;
 mod build_wasm;
 mod bump;
+mod check_regex_error_kinds;
 mod check_wasm_exports;
 mod clippy;
 mod embed_sources;
@@ -29,6 +30,8 @@ enum Commands {
     BuildWasmStdlib,
     /// Bumps the version of the workspace.
     BumpVersion(BumpVersion),
+    /// Checks that `RegexErrorKind` still mirrors `regex_syntax`'s error kinds.
+    CheckRegexErrorKinds,
     /// Checks that Wasm exports are synced.
     CheckWasmExports(CheckWasmExports),
     /// Runs `cargo clippy`.
@@ -229,6 +232,7 @@ fn run() -> Result<()> {
         Commands::BuildWasm(build_wasm_options) => build_wasm::run_wasm(&build_wasm_options)?,
         Commands::BuildWasmStdlib => build_wasm::run_wasm_stdlib()?,
         Commands::BumpVersion(bump_options) => bump::run(bump_options)?,
+        Commands::CheckRegexErrorKinds => check_regex_error_kinds::run()?,
         Commands::CheckWasmExports(check_options) => check_wasm_exports::run(&check_options)?,
         Commands::Clippy(clippy_options) => clippy::run(&clippy_options)?,
         Commands::FetchEmscripten => fetch::run_emscripten()?,
