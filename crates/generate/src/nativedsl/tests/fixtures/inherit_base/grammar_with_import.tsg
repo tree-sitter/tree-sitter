@@ -1,0 +1,8 @@
+let h = import("../import_helpers/base_sep.tsg")
+
+grammar {
+    language: "base_with_import",
+}
+
+rule program { h::comma_sep(identifier) }
+rule identifier { regexp("[a-z]+") }

@@ -2224,7 +2224,8 @@ fn test_grammar_that_should_hang_and_not_segfault() {
             .join("get_col_should_hang_not_crash");
 
         let grammar_json = load_grammar_file(&test_grammar_dir.join("grammar.js"), None)
-            .expect("Failed to load grammar file");
+            .expect("Failed to load grammar file")
+            .into_json();
 
         let (parser_name, parser_code) =
             generate_parser(grammar_json.as_str()).expect("Failed to generate parser");

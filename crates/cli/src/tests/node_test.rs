@@ -1119,7 +1119,8 @@ fn test_node_is_named_but_aliased_as_anonymous() {
             .join("grammar.js"),
         None,
     )
-    .unwrap();
+    .unwrap()
+    .into_json();
 
     let (parser_name, parser_code) = generate_parser(&grammar_json).unwrap();
 

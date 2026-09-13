@@ -14,7 +14,7 @@ to regenerate a missing `parser.c` without requiring a JavaScript runtime (usefu
 
 If there is an ambiguity or *local ambiguity* in your grammar, Tree-sitter will detect it during parser generation, and
 it will exit with a `Unresolved conflict` error message. To learn more about conflicts and how to handle them, see
-the section on [`Structuring Rules Well`](../creating-parsers/3-writing-the-grammar.md#structuring-rules-well)
+the section on [`Structuring Rules Well`](../creating-parsers/4-writing-the-grammar.md#structuring-rules-well)
 in the user guide.
 
 ## Generated files

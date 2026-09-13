@@ -24,6 +24,7 @@
   ],
   "files": [
     "grammar.js",
+    "grammar.tsg",
     "tree-sitter.json",
     "binding.gyp",
     "prebuilds/**",

@@ -140,21 +140,11 @@ fn build_separator(pool: &mut RulePool, separator_roots: &[RuleId]) -> RuleId {
         return blank;
     }
     let mut elements = Vec::with_capacity(separator_roots.len() + 1);
-    let mut stack = Vec::with_capacity(separator_roots.len() + 1);
-    stack.push(blank);
-    stack.extend(separator_roots.iter().rev().copied());
-    while let Some(id) = stack.pop() {
-        if let Rule::Choice(range) = pool.node(id) {
-            let base = stack.len();
-            stack.extend_from_slice(pool.child_slice(range));
-            stack[base..].reverse();
-        } else if !elements.iter().any(|&e| pool.subtree_eq(e, id)) {
-            elements.push(id);
-        }
-    }
-    let range = pool.push_children(&elements);
-    let choice = pool.push_node(Rule::Choice(range));
-    pool.push_node(Rule::Repeat(choice))
+    elements.extend(separator_roots.iter().rev().copied());
+    elements.push(blank);
+
+    let choice = pool.choice(&elements);
+    pool.repeat(choice)
 }
 
 pub type ExpandRuleResult<T> = Result<T, ExpandRuleError>;

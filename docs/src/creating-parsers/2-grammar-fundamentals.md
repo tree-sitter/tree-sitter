@@ -1,24 +1,14 @@
-# The Grammar DSL
+# Grammar Fundamentals
 
-The following is a complete list of built-in functions you can use in your `grammar.js` to define rules. Use-cases for some
-of these functions will be explained in more detail in later sections.
+The following functions and grammar fields have the same meaning in both frontends. Where a name differs between the
+two, the TSG name is given in parentheses. Examples are written in the JavaScript DSL, and the TSG section covers how
+they translate.
 
-- **Symbols (the `$` object)** — Every grammar rule is written as a JavaScript function that takes a parameter conventionally
-called `$`. The syntax `$.identifier` is how you refer to another grammar symbol within a rule. Names starting with `$.MISSING`
-or `$.UNEXPECTED` should be avoided as they have special meaning for the `tree-sitter test` command.
-- **String and Regex literals** — The terminal symbols in a grammar are described using JavaScript strings and regular
-expressions. Of course during parsing, Tree-sitter does not actually use JavaScript's regex engine to evaluate these regexes;
-it generates its own regex-matching logic based on the Rust regex syntax as part of each parser. Regex literals are just
-used as a convenient way of writing regular expressions in your grammar. You can use Rust regular expressions in your grammar
-DSL through the `RustRegex` class. Simply pass your regex pattern as a string:
+- **Symbols** — Grammar rules refer to other grammar symbols by name. Names starting with `MISSING` or `UNEXPECTED`
+should be avoided as they have special meaning for the `tree-sitter test` command.
 
-  ```js
-  new RustRegex('(?i)[a-z_][a-z0-9_]*') // matches a simple identifier
-  ```
-
-  Unlike JavaScript's builtin `RegExp` class, which takes a pattern and flags as separate arguments, `RustRegex` only
-  accepts a single pattern string. While it doesn't support separate flags, you can use inline flags within the pattern
-  itself. For more details about Rust's regex syntax and capabilities, check out the [Rust regex documentation][rust regex].
+- **String and Regex literals** — The terminal symbols in a grammar are described using strings and regular expressions.
+During parsing, Tree-sitter generates its own regex-matching logic based on the Rust regex syntax as part of each parser.
 
   > [!NOTE]
   > Only a subset of the Regex engine is actually supported. This is due to certain features like lookahead and lookaround
@@ -61,32 +51,32 @@ by matching the rule with the higher precedence. The default precedence of all r
   set of characters, but one token should be preferred over the other. See [Lexical Precedence vs Parse Precedence][lexical vs parse]
   for a more detailed explanation.
 
-- **Left Associativity : `prec.left([number], rule)`** — This function marks the given rule as left-associative (and optionally
-applies a numerical precedence). When an LR(1) conflict arises in which all the rules have the same numerical precedence,
-Tree-sitter will consult the rules' associativity. If there is a left-associative rule, Tree-sitter will prefer matching
-a rule that ends *earlier*. This works similarly to [associativity directives][yacc-prec] in Yacc grammars.
+- **Left Associativity : `prec.left([number], rule)` (`prec_left(number, rule)` in TSG, where the precedence is required)** —
+This function marks the given rule as left-associative (and optionally applies a numerical precedence). When an LR(1) conflict
+arises in which all the rules have the same numerical precedence, Tree-sitter will consult the rules' associativity. If there
+is a left-associative rule, Tree-sitter will prefer matching a rule that ends *earlier*. This works similarly to
+[associativity directives][yacc-prec] in Yacc grammars.
 
-- **Right Associativity : `prec.right([number], rule)`** — This function is like `prec.left`, but it instructs Tree-sitter
+- **Right Associativity : `prec.right([number], rule)` (`prec_right(number, rule)` in TSG, where the precedence is required)** —
+This function is like `prec.left`, but it instructs Tree-sitter
 to prefer matching a rule that ends *later*.
 
-- **Dynamic Precedence : `prec.dynamic(number, rule)`** — This function is similar to `prec`, but the given numerical precedence
-is applied at *runtime* instead of at parser generation time. This is only necessary when handling a conflict dynamically
-using the `conflicts` field in the grammar, and when there is a genuine *ambiguity*: multiple rules correctly match a given
-piece of code. In that event, Tree-sitter compares the total dynamic precedence associated with each rule, and selects the
-one with the highest total. This is similar to [dynamic precedence directives][bison-dprec] in Bison grammars.
+- **Dynamic Precedence : `prec.dynamic(number, rule)` (`prec_dynamic` in TSG)** — This function is similar to `prec`,
+but the given numerical precedence is applied at *runtime* instead of at parser generation time. This is only necessary
+when handling a conflict dynamically using the `conflicts` field in the grammar, and when there is a genuine *ambiguity*:
+multiple rules correctly match a given piece of code. In that event, Tree-sitter compares the total dynamic precedence associated
+with each rule, and selects the one with the highest total. This is similar to [dynamic precedence directives][bison-dprec]
+in Bison grammars.
 
-- **Tokens : `token(rule)`** — This function marks the given rule as producing only
-a single token. Tree-sitter's default is to treat each String or RegExp literal
-in the grammar as a separate token. Each token is matched separately by the lexer
-and returned as its own leaf node in the tree. The `token` function allows you to
-express a complex rule using the functions described above (rather than as a single
-regular expression) but still have Tree-sitter treat it as a single token.
-The token function will only accept terminal rules, so `token($.foo)` will not work.
-You can think of it as a shortcut for squashing complex rules of strings or regexes
-down to a single token.
+- **Tokens : `token(rule)`** — This function marks the given rule as producing only a single token. Tree-sitter's default
+is to treat each String or RegExp literal in the grammar as a separate token. Each token is matched separately by the lexer
+and returned as its own leaf node in the tree. The `token` function allows you to express a complex rule using the functions
+described above (rather than as a single regular expression) but still have Tree-sitter treat it as a single token. The
+token function will only accept terminal rules, so `token($.foo)` will not work. You can think of it as a shortcut for squashing
+complex rules of strings or regexes down to a single token.
 
-- **Immediate Tokens : `token.immediate(rule)`** — Usually, whitespace (and any other extras, such as comments) is optional
-before each token. This function means that the token will only match if there is no whitespace.
+- **Immediate Tokens : `token.immediate(rule)` (`token_immediate` in TSG)** — Usually, whitespace (and any other extras,
+such as comments) is optional before each token. This function means that the token will only match if there is no whitespace.
 
 - **Aliases : `alias(rule, name)`** — This function causes the given rule to *appear* with an alternative name in the syntax
 tree. If `name` is a *symbol*, as in `alias($.foo, $.bar)`, then the aliased rule will *appear* as a [named node][named-vs-anonymous-nodes]
@@ -105,9 +95,8 @@ characters. It may only appear as the final symbol of a rule, and is useful when
 terminator (such as a newline) or the end of the file. Choice branches where other symbols follow `eof()` can never
 match, so they are dropped, and `eof()` is not allowed inside `token()`.
 
-In addition to the `name` and `rules` fields, grammars have a few other optional public fields that influence the behavior
-of the parser. Each of these fields is a function that accepts the grammar object (`$`) as its only parameter, like the
-grammar rules themselves. These fields are:
+In addition to the grammar name (the `name` field in grammar.js, `language` in TSG) and its rules, grammars have a few
+other optional public fields that influence the behavior of the parser:
 
 - **`extras`** — an array of tokens that may appear *anywhere* in the language. This is often used for whitespace and
 comments. The default value of `extras` is to accept whitespace. To control whitespace explicitly, specify
@@ -150,14 +139,12 @@ corresponds to an empty array, signifying *no* keywords are reserved.
 
 [bison-dprec]: https://www.gnu.org/software/bison/manual/html_node/Generalized-LR-Parsing.html
 [ebnf]: https://en.wikipedia.org/wiki/Extended_Backus%E2%80%93Naur_form
-[external-scanners]: ./4-external-scanners.md
-[extras]: ./3-writing-the-grammar.md#using-extras
-[keyword-extraction]: ./3-writing-the-grammar.md#keyword-extraction
-[lexical vs parse]: ./3-writing-the-grammar.md#lexical-precedence-vs-parse-precedence
+[external-scanners]: ./6-external-scanners.md
+[extras]: ./4-writing-the-grammar.md#using-extras
+[keyword-extraction]: ./4-writing-the-grammar.md#keyword-extraction
+[lexical vs parse]: ./4-writing-the-grammar.md#lexical-precedence-vs-parse-precedence
 [lr-conflict]: https://en.wikipedia.org/wiki/LR_parser#Conflicts_in_the_constructed_tables
 [named-vs-anonymous-nodes]: ../using-parsers/2-basic-parsing.md#named-vs-anonymous-nodes
-[rust regex]: https://docs.rs/regex/1.1.8/regex/#grouping-and-flags
-[static-node-types]: ../using-parsers/6-static-node-types.md
 [static-node-types-supertypes]: ../using-parsers/6-static-node-types.md#supertype-nodes
-[supertypes]: ./3-writing-the-grammar.md#using-supertypes
+[supertypes]: ./4-writing-the-grammar.md#using-supertypes
 [yacc-prec]: https://docs.oracle.com/cd/E19504-01/802-5880/6i9k05dh3/index.html

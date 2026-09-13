@@ -6468,7 +6468,7 @@ export default grammar({
     let file = tempfile::NamedTempFile::with_suffix(".js").unwrap();
     std::fs::write(file.path(), grammar).unwrap();
 
-    let grammar_json = load_grammar_file(file.path(), None).unwrap();
+    let grammar_json = load_grammar_file(file.path(), None).unwrap().into_json();
 
     let (parser_name, parser_code) = generate_parser(&grammar_json).unwrap();
 
@@ -6521,7 +6521,7 @@ export default grammar({
     let file = tempfile::NamedTempFile::with_suffix(".js").unwrap();
     std::fs::write(file.path(), grammar).unwrap();
 
-    let grammar_json = load_grammar_file(file.path(), None).unwrap();
+    let grammar_json = load_grammar_file(file.path(), None).unwrap().into_json();
 
     let (parser_name, parser_code) = generate_parser(&grammar_json).unwrap();
 

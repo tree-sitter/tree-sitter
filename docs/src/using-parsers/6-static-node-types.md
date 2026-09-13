@@ -159,8 +159,8 @@ Example:
 }
 ```
 
-[grammar dsl]: ../creating-parsers/2-the-grammar-dsl.md
-[hidden rules]: ../creating-parsers/3-writing-the-grammar.md#hiding-rules
+[grammar dsl]: ../creating-parsers/2-grammar-fundamentals.md
+[hidden rules]: ../creating-parsers/4-writing-the-grammar.md#hiding-rules
 [named-vs-anonymous-nodes]: ./2-basic-parsing.md#named-vs-anonymous-nodes
 [node-field-names]: ./2-basic-parsing.md#node-field-names
 [syntax nodes]: ./2-basic-parsing.md#syntax-nodes

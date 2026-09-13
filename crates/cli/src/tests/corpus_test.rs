@@ -20,7 +20,9 @@ use crate::{
     test::{DiffKey, TestDiff, parse_tests, render_test_output},
     tests::{
         allocations,
-        helpers::fixtures::{SCRATCH_BASE_DIR, fixtures_dir, get_language, get_test_language},
+        helpers::fixtures::{
+            SCRATCH_BASE_DIR, find_grammar_file, fixtures_dir, get_language, get_test_language,
+        },
     },
 };
 
@@ -340,10 +342,8 @@ fn test_feature_corpus_files() {
         }
 
         let test_path = entry.path();
-        let mut grammar_path = test_path.join("grammar.js");
-        if !grammar_path.exists() {
-            grammar_path = test_path.join("grammar.json");
-        }
+        let grammar_path = find_grammar_file(&test_path)
+            .unwrap_or_else(|| panic!("no grammar file found in {}", test_path.display()));
         let error_message_path = test_path.join("expected_error.txt");
         let grammar_json = tree_sitter_generate::load_grammar_file(&grammar_path, None)
             .with_context(|| {
@@ -352,7 +352,8 @@ fn test_feature_corpus_files() {
                     grammar_path.display()
                 )
             })
-            .unwrap();
+            .unwrap()
+            .into_json();
         let generate_result = tree_sitter_generate::generate_parser_for_grammar(
             &grammar_json,
             Some((0, 0, 0)),

@@ -1,0 +1,8 @@
+// Nested helper that imports another helper (for transitive import tests)
+let h = import("helpers.tsg")
+
+macro sep_by1(sep: rule_t, item: rule_t) rule_t {
+    seq(item, repeat(seq(sep, item)))
+}
+
+let NESTED_VAL = 42

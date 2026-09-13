@@ -20,7 +20,7 @@ use tree_sitter_cli::{
         LOG_ENABLED, LOG_GRAPH_ENABLED, START_SEED, fuzz_language_corpus,
     },
     highlight::{self, HighlightOptions, HtmlOutput, HtmlStyling},
-    init::{JsonConfigOpts, TREE_SITTER_JSON_SCHEMA, generate_grammar_files},
+    init::{Frontend, JsonConfigOpts, TREE_SITTER_JSON_SCHEMA, generate_grammar_files},
     input::{CliInput, get_input, get_tmp_source_file},
     logger, paint,
     parse::{self, ParseDebugType, ParseFileOptions, ParseOutput, ParseTheme},
@@ -33,7 +33,9 @@ use tree_sitter_cli::{
     wasm,
 };
 use tree_sitter_config::Config;
-use tree_sitter_generate::{Diagnostic, GenerateError, OptLevel};
+use tree_sitter_generate::{Diagnostic, OptLevel};
+#[cfg(feature = "nativedsl")]
+use tree_sitter_generate::{GenerateError, LoadGrammarError};
 use tree_sitter_highlight::Highlighter;
 use tree_sitter_loader::{self as loader, Bindings, TreeSitterJSON};
 use tree_sitter_tags::TagsContext;
@@ -87,6 +89,9 @@ struct Init {
     /// The path to the tree-sitter grammar directory
     #[arg(long, short = 'p')]
     pub grammar_path: Option<PathBuf>,
+    /// The grammar frontend for the project
+    #[arg(long, value_enum)]
+    pub frontend: Option<Frontend>,
 }
 
 #[derive(Args)]
@@ -669,8 +674,17 @@ impl Init {
     fn run(self, current_dir: &Path) -> Result<()> {
         let configure_json = !current_dir.join("tree-sitter.json").exists();
 
-        let (language_name, json_config_opts) = if configure_json {
+        let (language_name, json_config_opts, frontend) = if configure_json {
             let mut opts = JsonConfigOpts::default();
+
+            let existing_frontend = if current_dir.join("grammar.tsg").exists() {
+                Some(Frontend::Tsg)
+            } else if current_dir.join("grammar.js").exists() {
+                Some(Frontend::Js)
+            } else {
+                None
+            };
+            let mut chosen_frontend = self.frontend.or(existing_frontend).unwrap_or_default();
 
             let name = || {
                 Input::<String>::with_theme(&ColorfulTheme::default())
@@ -683,6 +697,19 @@ impl Init {
                         }
                     })
                     .interact_text()
+            };
+
+            let frontend = |current: Frontend| {
+                let items = [
+                    "tsg (grammar.tsg, native DSL)",
+                    "js (grammar.js, JavaScript)",
+                ];
+                FuzzySelect::with_theme(&ColorfulTheme::default())
+                    .with_prompt("Grammar frontend")
+                    .items(items)
+                    .default(usize::from(current == Frontend::Js))
+                    .interact()
+                    .map(|i| if i == 0 { Frontend::Tsg } else { Frontend::Js })
             };
 
             let camelcase_name = |name: &str| {
@@ -831,6 +858,7 @@ impl Init {
 
             let choices = [
                 "name",
+                "frontend",
                 "camelcase",
                 "title",
                 "description",
@@ -852,6 +880,7 @@ impl Init {
                 ($choice:expr) => {
                     match $choice {
                         "name" => opts.name = name()?,
+                        "frontend" => chosen_frontend = frontend(chosen_frontend)?,
                         "camelcase" => opts.camelcase = camelcase_name(&opts.name)?,
                         "title" => opts.title = title(&opts.name)?,
                         "description" => opts.description = description(&opts.name)?,
@@ -874,6 +903,9 @@ impl Init {
 
             // Initial configuration
             for choice in choices.iter().take(choices.len() - 1) {
+                if *choice == "frontend" && self.frontend.is_some() {
+                    continue;
+                }
                 set_choice!(*choice);
             }
 
@@ -899,7 +931,7 @@ impl Init {
                 set_choice!(choices[idx]);
             }
 
-            (opts.name.clone(), Some(opts))
+            (opts.name.clone(), Some(opts), Some(chosen_frontend))
         } else {
             let old_config = fs::read_to_string(current_dir.join("tree-sitter.json"))
                 .with_context(|| "Failed to read tree-sitter.json")?;
@@ -921,13 +953,14 @@ impl Init {
                 .with_context(|| "Failed to write tree-sitter.json")?;
             }
 
-            (json.grammars.swap_remove(0).name, None)
+            (json.grammars.swap_remove(0).name, None, self.frontend)
         };
 
         generate_grammar_files(
             current_dir,
             &language_name,
             self.update,
+            frontend,
             json_config_opts.as_ref(),
         )?;
 
@@ -995,7 +1028,13 @@ impl Generate {
             }
             if let Err(err) = result {
                 // Removes extra context associated with the error
-                Err(anyhow!(err.to_string())).with_context(|| "Error when generating parser")?;
+                #[cfg(feature = "nativedsl")]
+                if let GenerateError::LoadGrammarFile(LoadGrammarError::NativeDsl(_)) = err {
+                    // Native DSL errors are rendered by themselves
+                    return Err(err.into());
+                }
+                // Removes extra context associated with the error
+                Err(anyhow!(err.to_string())).context("Error when generating parser")?;
             }
         }
 
@@ -2053,6 +2092,23 @@ fn main() {
         {
             return;
         }
+
+        // Pretty-render native DSL diagnostics
+        #[cfg(feature = "nativedsl")]
+        if let Some(e) = err
+            .chain()
+            .find_map(|c| match c.downcast_ref::<GenerateError>()? {
+                GenerateError::LoadGrammarFile(LoadGrammarError::NativeDsl(boxed)) => {
+                    Some(boxed.as_ref())
+                }
+                _ => None,
+            })
+        {
+            eprintln!("{e}");
+            std::process::exit(1);
+        }
+
+        // Fallback for everything else
         if !err.to_string().is_empty() {
             error!("{err:?}");
         }

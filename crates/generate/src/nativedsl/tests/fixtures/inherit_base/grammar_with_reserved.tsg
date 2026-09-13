@@ -1,0 +1,12 @@
+grammar {
+    language: "base_reserved",
+    extras: [regexp("\\s")],
+    reserved: {
+        global: ["if", "else", "for"],
+        properties: ["get", "set"],
+    },
+}
+rule program { repeat(statement) }
+rule statement { choice(expression, ";") }
+rule expression { identifier }
+rule identifier { regexp("[a-z]+") }

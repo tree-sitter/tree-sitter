@@ -1,0 +1,17 @@
+grammar {
+    language: "base_full",
+    extras: [regexp(r"\s")],
+    externals: [heredoc],
+    inline: [_inline_rule],
+    supertypes: [_expression],
+    word: identifier,
+    conflicts: [[identifier, keyword]],
+    precedences: [["member", "call"]],
+}
+
+rule program { repeat(statement) }
+rule statement { choice(_expression, ";") }
+rule _expression { choice(identifier, keyword) }
+rule identifier { regexp("[a-z]+") }
+rule keyword { "if" }
+rule _inline_rule { "inline" }

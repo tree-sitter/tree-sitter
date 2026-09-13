@@ -1,0 +1,3 @@
+macro comma_sep(item: rule_t) rule_t {
+    seq(item, repeat(seq(",", item)))
+}

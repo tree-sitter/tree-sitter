@@ -23,6 +23,17 @@ grammar({
 });
 ```
 
+Or in TSG:
+
+```tsg
+grammar {
+  language: "my_language",
+  externals: [indent, dedent, newline],
+}
+
+// ...
+```
+
 Then, add another C source file to your project. Its path must be src/scanner.c for the CLI to recognize it.
 
 In this new source file, define an [`enum`][enum] type containing the names of all of your external tokens. The ordering

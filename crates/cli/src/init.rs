@@ -65,7 +65,8 @@ const AUTHOR_NAME_PLACEHOLDER_JAVA: &str = "\n      <name>PARSER_AUTHOR_NAME</na
 const AUTHOR_EMAIL_PLACEHOLDER_JAVA: &str = "\n      <email>PARSER_AUTHOR_EMAIL</email>";
 const AUTHOR_URL_PLACEHOLDER_JAVA: &str = "\n      <url>PARSER_AUTHOR_URL</url>";
 
-const AUTHOR_BLOCK_GRAMMAR: &str = "\n * @author ";
+const AUTHOR_BLOCK_GRAMMAR_JS: &str = "\n * @author ";
+const AUTHOR_BLOCK_GRAMMAR_TSG: &str = "\n// Author: ";
 const AUTHOR_NAME_PLACEHOLDER_GRAMMAR: &str = "PARSER_AUTHOR_NAME";
 const AUTHOR_EMAIL_PLACEHOLDER_GRAMMAR: &str = " PARSER_AUTHOR_EMAIL";
 
@@ -77,6 +78,7 @@ const LOCALS_QUERY_PATH_PLACEHOLDER: &str = "LOCALS_QUERY_PATH";
 const TAGS_QUERY_PATH_PLACEHOLDER: &str = "TAGS_QUERY_PATH";
 
 const GRAMMAR_JS_TEMPLATE: &str = include_str!("./templates/grammar.js");
+const GRAMMAR_TSG_TEMPLATE: &str = include_str!("./templates/grammar.tsg");
 const PACKAGE_JSON_TEMPLATE: &str = include_str!("./templates/package.json");
 const GITIGNORE_TEMPLATE: &str = include_str!("./templates/gitignore");
 const GITATTRIBUTES_TEMPLATE: &str = include_str!("./templates/gitattributes");
@@ -125,6 +127,25 @@ const TEST_ZIG_TEMPLATE: &str = include_str!("./templates/test.zig");
 
 pub const TREE_SITTER_JSON_SCHEMA: &str =
     "https://tree-sitter.github.io/tree-sitter/assets/schemas/config.schema.json";
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, clap::ValueEnum)]
+#[serde(rename_all = "lowercase")]
+pub enum Frontend {
+    /// A native DSL `grammar.tsg`
+    #[default]
+    Tsg,
+    /// A JavaScript `grammar.js`
+    Js,
+}
+
+impl std::fmt::Display for Frontend {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Self::Tsg => "tsg",
+            Self::Js => "js",
+        })
+    }
+}
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct JsonConfigOpts {
@@ -243,12 +264,14 @@ struct InitContext<'a> {
     dashed_language_name: String,
     allow_update: bool,
     has_multiple_language_configs: bool,
+    frontend: Frontend,
 }
 
 pub fn generate_grammar_files(
     repo_path: &Path,
     language_name: &str,
     allow_update: bool,
+    frontend: Option<Frontend>,
     opts: Option<&JsonConfigOpts>,
 ) -> Result<()> {
     let dashed_language_name = language_name.to_kebab_case();
@@ -340,12 +363,22 @@ pub fn generate_grammar_files(
         namespace: tree_sitter_config.metadata.namespace.as_deref(),
     };
 
+    let existing_frontend = if repo_path.join("grammar.tsg").exists() {
+        Some(Frontend::Tsg)
+    } else if repo_path.join("grammar.js").exists() {
+        Some(Frontend::Js)
+    } else {
+        None
+    };
+    let frontend = frontend.or(existing_frontend).unwrap_or_default();
+
     let ctx = InitContext {
         repo_path,
         language_name,
         dashed_language_name,
         allow_update,
         has_multiple_language_configs: tree_sitter_config.has_multiple_language_configs(),
+        frontend,
     };
 
     let bindings_dir = repo_path.join("bindings");
@@ -396,14 +429,33 @@ fn generate_common_files(ctx: &InitContext, opts: &GenerateOpts) -> Result<()> {
         update_package_json,
     )?;
 
-    // Do not create a grammar.js file in a repo with multiple language configs
+    // Do not create a grammar file in a repo with multiple language configs
     if !ctx.has_multiple_language_configs {
-        missing_path_else(
-            ctx.repo_path.join("grammar.js"),
-            ctx.allow_update,
-            |path| generate_file(path, GRAMMAR_JS_TEMPLATE, ctx.language_name, opts),
-            update_grammar_js,
-        )?;
+        match ctx.frontend {
+            Frontend::Js => {
+                let state = missing_path_else(
+                    ctx.repo_path.join("grammar.js"),
+                    ctx.allow_update,
+                    |path| generate_file(path, GRAMMAR_JS_TEMPLATE, ctx.language_name, opts),
+                    update_grammar_js,
+                )?;
+                if matches!(state, PathState::Missing(_))
+                    && ctx.repo_path.join("grammar.tsg").exists()
+                {
+                    info!("grammar.tsg now takes priority over grammar.js for generation");
+                }
+            }
+            Frontend::Tsg => {
+                let state = missing_path(ctx.repo_path.join("grammar.tsg"), |path| {
+                    generate_file(path, GRAMMAR_TSG_TEMPLATE, ctx.language_name, opts)
+                })?;
+                if matches!(state, PathState::Missing(_))
+                    && ctx.repo_path.join("grammar.js").exists()
+                {
+                    info!("grammar.tsg now takes priority over grammar.js for generation");
+                }
+            }
+        }
     }
 
     // Write .gitignore file
@@ -862,6 +914,9 @@ fn update_package_json(path: &Path) -> Result<()> {
               "repository":"#},
         );
     }
+    if !contents.contains(r#""grammar.tsg""#) {
+        contents = contents.replace("\"grammar.js\",", "\"grammar.js\",\n    \"grammar.tsg\",");
+    }
     write_file(path, contents)?;
     Ok(())
 }
@@ -1065,6 +1120,11 @@ fn update_c_makefile(path: &Path, language_name: &str, opts: &GenerateOpts) -> R
                 &format!("{version_line}\nDESCRIPTION := {description}"),
             );
         }
+        contents = contents.replace(
+            "$(SRC_DIR)/grammar.json: grammar.js",
+            "$(SRC_DIR)/grammar.json: $(wildcard grammar.js grammar.tsg)",
+        );
+        contents = contents.replace("generate --no-parser $^", "generate --no-parser");
         write_file(path, contents)?;
     }
     Ok(())
@@ -1124,6 +1184,37 @@ fn update_c_cmakelists(path: &Path, language_name: &str) -> Result<()> {
                                COMMENT "Generating parser.c")
             "#}
         );
+    // Migrate the grammar.json rule to follow the repo's grammar file, but only
+    // when the variable's defining block can be anchored in.
+    let anchored = replaced_contents.replace(
+        indoc! {r#"
+        find_program(TREE_SITTER_CLI tree-sitter DOC "Tree-sitter CLI" REQUIRED)
+
+        add_custom_command"#},
+        indoc! {r#"
+        find_program(TREE_SITTER_CLI tree-sitter DOC "Tree-sitter CLI" REQUIRED)
+
+        if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/grammar.tsg)
+            set(TREE_SITTER_GRAMMAR_FILE grammar.tsg)
+        else()
+            set(TREE_SITTER_GRAMMAR_FILE grammar.js)
+        endif()
+
+        add_custom_command"#},
+    );
+    let replaced_contents = if anchored.contains("set(TREE_SITTER_GRAMMAR_FILE") {
+        anchored
+            .replace(
+                r#"DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/grammar.js""#,
+                r#"DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/${TREE_SITTER_GRAMMAR_FILE}""#,
+            )
+            .replace(
+                "generate grammar.js --no-parser",
+                "generate ${TREE_SITTER_GRAMMAR_FILE} --no-parser",
+            )
+    } else {
+        anchored
+    };
     if !replaced_contents.eq(&contents) {
         info!("Updating CMakeLists.txt");
         write_file(path, replaced_contents)?;
@@ -1381,7 +1472,7 @@ fn generate_file(
             "pyproject.toml" => {
                 replacement = replacement.replace(AUTHOR_NAME_PLACEHOLDER_PY, "");
             }
-            "grammar.js" => {
+            "grammar.js" | "grammar.tsg" => {
                 replacement = replacement.replace(AUTHOR_NAME_PLACEHOLDER_GRAMMAR, "");
             }
             "Cargo.toml" => {
@@ -1396,7 +1487,7 @@ fn generate_file(
 
     if let Some(email) = generate_opts.author_email {
         replacement = match filename {
-            "Cargo.toml" | "grammar.js" => {
+            "Cargo.toml" | "grammar.js" | "grammar.tsg" => {
                 replacement.replace(AUTHOR_EMAIL_PLACEHOLDER, &format!("<{email}>"))
             }
             _ => replacement.replace(AUTHOR_EMAIL_PLACEHOLDER, email),
@@ -1409,7 +1500,7 @@ fn generate_file(
             "pyproject.toml" => {
                 replacement = replacement.replace(AUTHOR_EMAIL_PLACEHOLDER_PY, "");
             }
-            "grammar.js" => {
+            "grammar.js" | "grammar.tsg" => {
                 replacement = replacement.replace(AUTHOR_EMAIL_PLACEHOLDER_GRAMMAR, "");
             }
             "Cargo.toml" => {
@@ -1460,7 +1551,9 @@ fn generate_file(
             }
             _ => {}
         }
-    } else if generate_opts.author_name.is_none() && generate_opts.author_email.is_none() {
+    }
+
+    if generate_opts.author_name.is_none() && generate_opts.author_email.is_none() {
         match filename {
             "pyproject.toml" => {
                 if let Some(start_idx) = replacement.find(AUTHOR_BLOCK_PY)
@@ -1471,8 +1564,13 @@ fn generate_file(
                     replacement.replace_range(start_idx..end_idx, "");
                 }
             }
-            "grammar.js" => {
-                if let Some(start_idx) = replacement.find(AUTHOR_BLOCK_GRAMMAR)
+            "grammar.js" | "grammar.tsg" => {
+                let block = if filename == "grammar.js" {
+                    AUTHOR_BLOCK_GRAMMAR_JS
+                } else {
+                    AUTHOR_BLOCK_GRAMMAR_TSG
+                };
+                if let Some(start_idx) = replacement.find(block)
                     && let Some(end_idx) = replacement[start_idx..]
                         .find(" \n")
                         .map(|i| i + start_idx + 1)

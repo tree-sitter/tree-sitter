@@ -1,0 +1,23 @@
+// Test helper module for import tests
+
+macro comma_sep1(item: rule_t) rule_t {
+    seq(item, repeat(seq(",", item)))
+}
+
+macro comma_sep(item: rule_t) rule_t {
+    optional(comma_sep1(item))
+}
+
+macro sep_by(separator: str_t, item: rule_t) rule_t {
+    seq(item, repeat(seq(separator, item)))
+}
+
+let PREC = { ADD: 1, MUL: 2 }
+
+let GREETING = "hello"
+
+// Rules carrying metadata, referenced by import tests to exercise import_rule's
+// Metadata/Reserved arms (importing a rule with prec/field/alias/token/reserved).
+rule decorated { prec_left(1, field(f, alias(token("kw"), Kw))) }
+
+rule reserved_rule { reserved("ctx", "rw") }

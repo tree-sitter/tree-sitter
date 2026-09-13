@@ -61,9 +61,21 @@ pub fn get_test_fixture_language_wasm(name: &str) -> Language {
 
 fn get_test_fixture_language_internal(name: &str, wasm: bool) -> Language {
     let grammar_dir_path = fixtures_dir().join("test_grammars").join(name);
-    let grammar_json = load_grammar_file(&grammar_dir_path.join("grammar.js"), None).unwrap();
+    let grammar_path = find_grammar_file(&grammar_dir_path)
+        .unwrap_or_else(|| panic!("no grammar file found in {}", grammar_dir_path.display()));
+    let grammar_json = load_grammar_file(&grammar_path, None).unwrap().into_json();
     let (parser_name, parser_code) = generate_parser(&grammar_json).unwrap();
     get_test_language_internal(&parser_name, &parser_code, Some(&grammar_dir_path), wasm)
+}
+
+pub fn find_grammar_file(dir: &Path) -> Option<PathBuf> {
+    for ext in ["tsg", "js", "json"] {
+        let path = dir.join(format!("grammar.{ext}"));
+        if path.exists() {
+            return Some(path);
+        }
+    }
+    None
 }
 
 pub fn get_language_queries_path(language_name: &str) -> PathBuf {
