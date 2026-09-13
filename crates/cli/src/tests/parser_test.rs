@@ -21,7 +21,7 @@ use super::helpers::{
 };
 use crate::{
     fuzz::edits::Edit,
-    parse::perform_edit,
+    parse::{first_error_or_container, perform_edit},
     tests::{
         generate_parser,
         helpers::fixtures::{fixtures_dir, get_test_fixture_language},
@@ -418,6 +418,10 @@ fn test_parsing_invalid_chars_at_eof() {
     assert_eq!(
         tree.root_node().to_sexp(),
         "(document (ERROR (UNEXPECTED INVALID)))"
+    );
+    assert_eq!(
+        tree.root_node().to_sexp_with_ranges(),
+        "(document [0, 0] - [0, 1] (ERROR [0, 0] - [0, 1] (UNEXPECTED INVALID [0, 0] - [0, 1])))"
     );
 }
 
@@ -2257,4 +2261,83 @@ fn test_grammar_that_should_hang_and_not_segfault() {
             panic!("The test thread disconnected unexpectedly")
         }
     }
+}
+
+#[test]
+fn test_hidden_missing_node_ranges() {
+    let (parser_name, parser_code) = generate_parser(
+        r#"{
+              "name": "test_hidden_missing_node_ranges",
+              "rules": {
+                  "source_file": {
+                      "type": "SEQ",
+                      "members": [
+                          {"type": "STRING", "value": "."},
+                          {"type": "SYMBOL", "name": "id"}
+                      ]
+                  },
+                  "id": {"type": "SYMBOL", "name": "_hidden"},
+                  "_hidden": {"type": "PATTERN", "value": "[A-Za-z0-9_]+"}
+              },
+              "extras": [{"type": "PATTERN", "value": "\\s"}]
+          }"#,
+    )
+    .unwrap();
+
+    let mut parser = Parser::new();
+    parser
+        .set_language(&get_test_language(&parser_name, &parser_code, None))
+        .unwrap();
+
+    let tree = parser.parse(".\n", None).unwrap();
+    let root = tree.root_node();
+    assert!(root.has_error());
+    assert_eq!(
+        root.to_sexp_with_ranges(),
+        "(source_file [0, 0] - [1, 0] (id [0, 1] - [0, 1] (MISSING _hidden [0, 1] - [0, 1])))"
+    );
+
+    let container = first_error_or_container(root).unwrap();
+    assert_eq!(container.kind(), "id");
+    assert_eq!(
+        container.to_sexp_with_ranges(),
+        "(id [0, 1] - [0, 1] (MISSING _hidden [0, 1] - [0, 1]))"
+    );
+
+    let tree = parser.parse(".abc\n", None).unwrap();
+    assert_eq!(first_error_or_container(tree.root_node()), None);
+}
+
+#[test]
+fn test_direct_hidden_missing_node_ranges() {
+    let (parser_name, parser_code) = generate_parser(
+        r#"{
+              "name": "test_direct_hidden_missing_node_ranges",
+              "rules": {
+                  "source_file": {
+                      "type": "SEQ",
+                      "members": [
+                          {"type": "STRING", "value": "."},
+                          {"type": "SYMBOL", "name": "_hidden"}
+                      ]
+                  },
+                  "_hidden": {"type": "PATTERN", "value": "[A-Za-z0-9_]+"}
+              },
+              "extras": [{"type": "PATTERN", "value": "\\s"}]
+          }"#,
+    )
+    .unwrap();
+
+    let mut parser = Parser::new();
+    parser
+        .set_language(&get_test_language(&parser_name, &parser_code, None))
+        .unwrap();
+
+    let tree = parser.parse(".\n", None).unwrap();
+    let root = tree.root_node();
+    assert_eq!(first_error_or_container(root), Some(root));
+    assert_eq!(
+        root.to_sexp_with_ranges(),
+        "(source_file [0, 0] - [1, 0] (MISSING _hidden [0, 1] - [0, 1]))"
+    );
 }
