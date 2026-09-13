@@ -70,7 +70,6 @@ pub fn run(args: BumpVersion) -> Result<()> {
     update_crates(&current_version, &next_version)?;
     update_makefile(&next_version)?;
     update_cmake(&next_version)?;
-    update_nix(&next_version)?;
     update_npm(&next_version)?;
     update_zig(&next_version)?;
     tag_next_version(&next_version)?;
@@ -86,7 +85,6 @@ fn tag_next_version(next_version: &Version) -> Result<()> {
             "Cargo.toml",
             "Makefile",
             "build.zig.zon",
-            "flake.nix",
             "crates/cli/Cargo.toml",
             "crates/cli/npm/package.json",
             "crates/cli/npm/package-lock.json",
@@ -166,26 +164,6 @@ fn update_cmake(next_version: &Version) -> Result<()> {
         + "\n";
 
     std::fs::write("CMakeLists.txt", cmake)?;
-
-    Ok(())
-}
-
-fn update_nix(next_version: &Version) -> Result<()> {
-    let nix = std::fs::read_to_string("flake.nix")?;
-    let nix = nix
-        .lines()
-        .map(|line| {
-            if line.trim_start().starts_with("version =") {
-                format!("          version = \"{next_version}\";")
-            } else {
-                line.to_string()
-            }
-        })
-        .collect::<Vec<_>>()
-        .join("\n")
-        + "\n";
-
-    std::fs::write("flake.nix", nix)?;
 
     Ok(())
 }
