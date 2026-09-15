@@ -4,6 +4,8 @@ use rustc_hash::FxHashSet;
 
 use bitflags::bitflags;
 
+use super::{token_languages::TokenLanguageRelations, token_precedence::TokenPrecedence};
+
 use crate::{
     build_tables::item::TokenSetDisplay,
     grammars::{LexicalGrammar, SyntaxGrammar},
@@ -26,6 +28,8 @@ bitflags! {
 }
 
 pub struct TokenConflictMap {
+    pub(super) languages: TokenLanguageRelations,
+    precedences: TokenPrecedence,
     n: usize,
     status_matrix: Vec<TokenConflictStatus>,
     #[expect(dead_code, reason = "Debugging aid")]
@@ -50,8 +54,13 @@ impl TokenConflictMap {
     ///
     /// This analyzes the possible kinds of overlap between each pair of tokens and stores
     /// them in a matrix.
-    #[must_use]
-    pub fn new(grammar: &LexicalGrammar, following_tokens: Vec<TokenSet>) -> Self {
+    pub fn new(
+        grammar: &LexicalGrammar,
+        following_tokens: Vec<TokenSet>,
+        syntax: &SyntaxGrammar,
+    ) -> Result<Self, Vec<usize>> {
+        let precedences = TokenPrecedence::new(syntax, grammar)?;
+        let languages = TokenLanguageRelations::new(grammar);
         let mut cursor = NfaCursor::new(&grammar.nfa, Vec::new());
         let starting_chars = get_starting_chars(&mut cursor, grammar);
         let following_chars = get_following_chars(&starting_chars, &following_tokens);
@@ -73,6 +82,8 @@ impl TokenConflictMap {
                     &nfa_state_to_var,
                     i,
                     j,
+                    &languages,
+                    &precedences,
                 );
                 status_matrix[matrix_index(n, i, j)] = status.0;
                 status_matrix[matrix_index(n, j, i)] = status.1;
@@ -106,7 +117,9 @@ impl TokenConflictMap {
             }
         }
 
-        Self {
+        Ok(Self {
+            languages,
+            precedences,
             n,
             status_matrix,
             following_tokens,
@@ -115,7 +128,7 @@ impl TokenConflictMap {
             conflict_or_prefix_bits,
             overlap_either_bits,
             row_words,
-        }
+        })
     }
 
     /// Does token `i` match any strings that token `j` also matches, such that token `i`
@@ -130,8 +143,7 @@ impl TokenConflictMap {
     /// Does token `i` match any strings that token `j` does *not* match?
     #[must_use]
     pub fn does_match_different_string(&self, i: usize, j: usize) -> bool {
-        self.status_matrix[matrix_index(self.n, i, j)]
-            .contains(TokenConflictStatus::MATCHES_DIFFERENT_STRING)
+        !self.languages.is_subset(i, j)
     }
 
     /// Does token `i` match any strings that token `j` also matches, where
@@ -185,19 +197,41 @@ impl TokenConflictMap {
     }
 
     #[must_use]
-    pub fn prefer_token(grammar: &LexicalGrammar, left: (i32, usize), right: (i32, usize)) -> bool {
-        match left.0.cmp(&right.0) {
-            Ordering::Less => false,
-            Ordering::Greater => true,
-            Ordering::Equal => match grammar.variables[left.1]
-                .implicit_precedence
-                .cmp(&grammar.variables[right.1].implicit_precedence)
-            {
-                Ordering::Less => false,
-                Ordering::Greater => true,
-                Ordering::Equal => left.1 < right.1,
-            },
+    pub fn select_tokens(
+        &self,
+        grammar: &LexicalGrammar,
+        mut completions: Vec<(usize, i32)>,
+    ) -> Vec<(usize, i32)> {
+        let Some(max_precedence) = completions.iter().map(|(_, precedence)| *precedence).max()
+        else {
+            return completions;
+        };
+        completions.retain(|(_, precedence)| *precedence == max_precedence);
+        completions.sort_unstable();
+        completions.dedup();
+        if completions.len() < 2 {
+            return completions;
         }
+
+        // Apply partial orders in separate stages. Combining explicit edges
+        // with default subset edges into one graph could introduce a cycle.
+        let all = completions.clone();
+        completions.retain(|(id, _)| {
+            !all.iter()
+                .any(|(other, _)| self.precedences.prefers(*other, *id))
+        });
+        let all = completions.clone();
+        completions.retain(|(id, _)| {
+            !all.iter()
+                .any(|(other, _)| self.languages.is_strict_subset(*other, *id))
+        });
+        let immediate = completions
+            .iter()
+            .map(|(id, _)| grammar.variables[*id].implicit_precedence)
+            .max()
+            .unwrap();
+        completions.retain(|(id, _)| grammar.variables[*id].implicit_precedence == immediate);
+        completions
     }
 
     #[must_use]
@@ -328,22 +362,38 @@ fn get_following_chars(
         .collect()
 }
 
-/// Hash a sorted slice of NFA state IDs to a single `u64` for use as a
-/// visited-set key.
-///
-/// NOTE: This trades exact equality for speed. Two distinct state sets that
-/// hash to the same `u64` will be treated as "already visited," potentially
-/// causing the BFS to skip a state set. In practice the collision probability
-/// is negligible (1 in 2^64 per comparison), but this is technically a
-/// probabilistic optimization rather than an exact one.
-#[inline]
-fn hash_state_set(states: &[u32]) -> u64 {
-    use std::hash::{Hash, Hasher};
-    let mut h = rustc_hash::FxHasher::default();
-    states.hash(&mut h);
-    h.finish()
+fn compare_completions(
+    grammar: &LexicalGrammar,
+    languages: &TokenLanguageRelations,
+    precedences: &TokenPrecedence,
+    left: (usize, i32),
+    right: (usize, i32),
+) -> Ordering {
+    let numeric = left.1.cmp(&right.1);
+    if numeric != Ordering::Equal {
+        return numeric;
+    }
+    if precedences.prefers(left.0, right.0) {
+        return Ordering::Greater;
+    }
+    if precedences.prefers(right.0, left.0) {
+        return Ordering::Less;
+    }
+    if languages.is_strict_subset(left.0, right.0) {
+        return Ordering::Greater;
+    }
+    if languages.is_strict_subset(right.0, left.0) {
+        return Ordering::Less;
+    }
+    grammar.variables[left.0]
+        .implicit_precedence
+        .cmp(&grammar.variables[right.0].implicit_precedence)
 }
 
+#[expect(
+    clippy::too_many_arguments,
+    reason = "pairwise NFA analysis and preference inputs"
+)]
 fn compute_conflict_status(
     cursor: &mut NfaCursor,
     grammar: &LexicalGrammar,
@@ -351,8 +401,10 @@ fn compute_conflict_status(
     nfa_state_to_var: &[usize],
     i: usize,
     j: usize,
+    languages: &TokenLanguageRelations,
+    precedences: &TokenPrecedence,
 ) -> (TokenConflictStatus, TokenConflictStatus) {
-    let mut visited_state_sets = FxHashSet::<u64>::default();
+    let mut visited_state_sets = FxHashSet::<Vec<u32>>::default();
     let mut state_set_queue = Vec::with_capacity(4);
     state_set_queue.push(vec![
         grammar.variables[i].start_state,
@@ -389,7 +441,8 @@ fn compute_conflict_status(
         let mut within_separator: Option<bool> = None;
 
         // Examine each possible completed token in this state.
-        let mut completion = None;
+        let mut completed_i: Option<i32> = None;
+        let mut completed_j: Option<i32> = None;
         for (id, precedence) in cursor.completions() {
             let sep = *within_separator
                 .get_or_insert_with(|| cursor.transition_chars().any(|(_, sep)| sep));
@@ -401,44 +454,39 @@ fn compute_conflict_status(
                 }
             }
 
-            // If the other token has already completed, then this is
-            // a same-string conflict.
-            if let Some((prev_id, prev_precedence)) = completion {
-                if id == prev_id {
-                    continue;
-                }
-
-                // Determine which of the two tokens is preferred.
-                let preferred_id;
-                if TokenConflictMap::prefer_token(
-                    grammar,
-                    (prev_precedence, prev_id),
-                    (precedence, id),
-                ) {
-                    preferred_id = prev_id;
-                } else {
-                    preferred_id = id;
-                    completion = Some((id, precedence));
-                }
-
-                if preferred_id == i {
-                    result.0.insert(TokenConflictStatus::MATCHES_SAME_STRING);
-                } else {
-                    result.1.insert(TokenConflictStatus::MATCHES_SAME_STRING);
-                }
+            let completed = if id == i {
+                &mut completed_i
             } else {
-                completion = Some((id, precedence));
-            }
+                &mut completed_j
+            };
+            *completed = Some(completed.map_or(precedence, |previous| previous.max(precedence)));
         }
+        let completions = match (completed_i, completed_j) {
+            (Some(left), Some(right)) => {
+                let preference =
+                    compare_completions(grammar, languages, precedences, (i, left), (j, right));
+                let mut completions = Vec::with_capacity(2);
+                if preference != Ordering::Less {
+                    result.0.insert(TokenConflictStatus::MATCHES_SAME_STRING);
+                    completions.push((i, left));
+                }
+                if preference != Ordering::Greater {
+                    result.1.insert(TokenConflictStatus::MATCHES_SAME_STRING);
+                    completions.push((j, right));
+                }
+                completions
+            }
+            (Some(precedence), None) => vec![(i, precedence)],
+            (None, Some(precedence)) => vec![(j, precedence)],
+            (None, None) => Vec::new(),
+        };
 
         // Examine each possible transition from this state to detect substring conflicts.
         for transition in cursor.transitions() {
-            let mut can_advance = true;
-
             // If there is already a completed token in this state, then determine
             // if the next state can also match the completed token. If so, then
             // this is *not* a conflict.
-            if let Some((completed_id, completed_precedence)) = completion {
+            for &(completed_id, completed_precedence) in &completions {
                 let mut advanced_id = None;
                 let mut successor_contains_completed_id = false;
                 let mut prev_var = None;
@@ -465,7 +513,6 @@ fn compute_conflict_status(
                         completed_precedence,
                         within_separator.unwrap_or(false),
                     ) {
-                        can_advance = true;
                         if advanced_id == i {
                             result
                                 .0
@@ -489,7 +536,7 @@ fn compute_conflict_status(
                 }
             }
 
-            if can_advance && visited_state_sets.insert(hash_state_set(&transition.states)) {
+            if visited_state_sets.insert(transition.states.clone()) {
                 state_set_queue.push(transition.states);
             }
         }
@@ -532,7 +579,8 @@ mod tests {
         ];
         let grammar = expand_tokens(&mut pool, &vars, &[]).unwrap();
 
-        let token_map = TokenConflictMap::new(&grammar, Vec::new());
+        let token_map =
+            TokenConflictMap::new(&grammar, Vec::new(), &SyntaxGrammar::default()).unwrap();
 
         assert_eq!(
             token_map.starting_chars_by_index[0],
@@ -594,7 +642,9 @@ mod tests {
                     .copied()
                     .collect(),
             ],
-        );
+            &SyntaxGrammar::default(),
+        )
+        .unwrap();
 
         // Given the string "in", the `in` token is preferrred over the `identifier` token
         assert!(token_map.does_match_same_string(var("in"), var("identifier")));
@@ -642,7 +692,12 @@ mod tests {
 
         let var = |name| index_of_var(&pool, &grammar, name);
 
-        let token_map = TokenConflictMap::new(&grammar, vec![TokenSet::new(); 4]);
+        let token_map = TokenConflictMap::new(
+            &grammar,
+            vec![TokenSet::new(); 4],
+            &SyntaxGrammar::default(),
+        )
+        .unwrap();
 
         assert!(token_map.does_conflict(var("newline"), var("x")));
         assert!(!token_map.does_conflict(var("x"), var("newline")));
@@ -681,7 +736,12 @@ mod tests {
 
         let var = |name| index_of_var(&pool, &grammar, name);
 
-        let token_map = TokenConflictMap::new(&grammar, vec![TokenSet::new(); 4]);
+        let token_map = TokenConflictMap::new(
+            &grammar,
+            vec![TokenSet::new(); 4],
+            &SyntaxGrammar::default(),
+        )
+        .unwrap();
 
         assert!(token_map.does_match_shorter_or_longer(var("anything"), var("x")));
         assert!(!token_map.does_match_shorter_or_longer(var("x"), var("anything")));

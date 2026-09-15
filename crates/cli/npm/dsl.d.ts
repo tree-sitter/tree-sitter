@@ -94,6 +94,7 @@ interface ModuleGrammarOptions {
   conflicts?: RuleHandle[][];
   inline?: RuleHandle[];
   supertypes?: RuleHandle[];
+  /** Descending parse/token orderings. Token order overrides subset specificity, not numeric precedence or longest match. */
   precedences?: (string | RuleHandle)[][];
   externals?: RuleOrLiteral[];
   /** Merged by key with inherited sets; a provided set replaces that key. */
@@ -147,8 +148,10 @@ interface Grammar<
    * a *descending* ordering. Names/rules listed earlier in one of these arrays
    * have higher precedence than any names/rules listed later in the same array.
    *
-   * Using rules is just a shorthand way for using a name then calling prec()
-   * with that name. It is just a convenience.
+   * Rules that identify tokens also order otherwise tied lexical matches,
+   * overriding language-subset specificity. Token ordering is transitive across
+   * lists, but does not override numeric lexical precedence or longest match.
+   * String entries retain their named parse-precedence meaning.
    */
   precedences?: (
     $: GrammarSymbols<RuleName | BaseGrammarRuleName>,

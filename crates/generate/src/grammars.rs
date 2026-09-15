@@ -62,7 +62,10 @@ pub struct ReservedWordContext {
 pub struct LexicalVariable {
     pub name: StrId,
     pub kind: VariableType,
+    /// Immediate-token preference, independent of the spelling of the pattern.
     pub implicit_precedence: i32,
+    /// The token's own NFA entry, excluding leading separator transitions.
+    pub token_start_state: u32,
     pub start_state: u32,
 }
 

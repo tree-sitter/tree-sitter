@@ -45,12 +45,18 @@ impl<'a> CoincidentTokenIndex {
                 state
                     .terminal_entries
                     .keys()
+                    .copied()
+                    .chain(state.reserved_words.iter())
                     .filter_map(|s| match s.view() {
                         SymbolView::Terminal(index) => Some(u32::from(index)),
                         _ => None,
                     }),
             );
-            let has_word = word_token.is_some_and(|w| state.terminal_entries.contains_key(&w));
+            terminal_indices.sort_unstable();
+            terminal_indices.dedup();
+            let has_word = word_token.is_some_and(|w| {
+                state.terminal_entries.contains_key(&w) || state.reserved_words.contains(w)
+            });
             for (i, &a) in terminal_indices.iter().enumerate() {
                 for &b in &terminal_indices[i..] {
                     let (a, b) = (a as usize, b as usize);

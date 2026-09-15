@@ -3,8 +3,12 @@ mod build_parse_table;
 mod coincident_tokens;
 mod item;
 mod item_set_builder;
+#[cfg(test)]
+mod lexical_tests;
 mod minimize_parse_table;
 mod token_conflicts;
+mod token_languages;
+mod token_precedence;
 
 use std::collections::BTreeSet;
 
@@ -12,10 +16,10 @@ pub use build_lex_table::LARGE_CHARACTER_RANGE_COUNT;
 use build_parse_table::BuildTableResult;
 pub use build_parse_table::{AmbiguousExtraError, ConflictError, ParseTableBuilderError};
 use log::{debug, info};
-use rustc_hash::FxHashMap;
+use rustc_hash::{FxHashMap, FxHashSet};
 
 use self::{
-    build_lex_table::build_lex_table,
+    build_lex_table::{build_lex_table, validate_lexical_ambiguities},
     build_parse_table::{ParseStateInfo, build_parse_table},
     coincident_tokens::CoincidentTokenIndex,
     item::ItemKeyMap,
@@ -26,7 +30,7 @@ use self::{
 use crate::{
     Diagnostic, OptLevel,
     grammars::{InlinedProductionMap, LexicalGrammar, SyntaxGrammar},
-    nfa::{CharacterSet, NfaCursor},
+    nfa::{CharacterSet, NfaCursor, NfaState},
     node_types::VariableInfo,
     rules::{AliasMap, Symbol, SymbolView, TerminalIndex, TokenSet},
     strpool::StrPool,
@@ -67,7 +71,22 @@ pub fn build_tables(
         str_pool,
         diagnostics,
     )?;
-    let token_conflict_map = TokenConflictMap::new(lexical_grammar, following_tokens);
+    let token_conflict_map =
+        TokenConflictMap::new(lexical_grammar, following_tokens, syntax_grammar).map_err(
+            |tokens| {
+                ParseTableBuilderError::CyclicTokenPrecedence(
+                    tokens
+                        .into_iter()
+                        .map(|index| {
+                            str_pool
+                                .resolve(lexical_grammar.variables[index].name)
+                                .into()
+                        })
+                        .collect(),
+                )
+            },
+        )?;
+    validate_lexical_ambiguities(&parse_table, lexical_grammar, &token_conflict_map, str_pool)?;
     let coincident_token_index =
         CoincidentTokenIndex::new(&parse_table, lexical_grammar, syntax_grammar.word_token);
     let keywords = identify_keywords(
@@ -106,7 +125,7 @@ pub fn build_tables(
         &coincident_token_index,
         &token_conflict_map,
         str_pool,
-    );
+    )?;
     populate_external_lex_states(&mut parse_table, syntax_grammar);
     mark_fragile_tokens(&mut parse_table, &token_conflict_map);
     parse_table
@@ -356,6 +375,37 @@ fn populate_external_lex_states(parse_table: &mut ParseTable, syntax_grammar: &S
     }
 }
 
+fn uniform_token_precedence(grammar: &LexicalGrammar, index: usize) -> Option<i32> {
+    let mut pending = vec![grammar.variables[index].token_start_state];
+    let mut visited = FxHashSet::default();
+    let mut result = None;
+    while let Some(state) = pending.pop() {
+        if !visited.insert(state) {
+            continue;
+        }
+        let precedence = match grammar.nfa.states[state as usize] {
+            NfaState::Advance {
+                state_id,
+                precedence,
+                ..
+            } => {
+                pending.push(state_id);
+                precedence
+            }
+            NfaState::Accept { precedence, .. } => precedence,
+            NfaState::Split(left, right) => {
+                pending.extend([left, right]);
+                continue;
+            }
+        };
+        if result.is_some_and(|previous| previous != precedence) {
+            return None;
+        }
+        result = Some(precedence);
+    }
+    result
+}
+
 fn identify_keywords(
     lexical_grammar: &LexicalGrammar,
     word_token: Option<Symbol>,
@@ -375,6 +425,9 @@ fn identify_keywords(
         }
     };
     let mut cursor = NfaCursor::new(&lexical_grammar.nfa, Vec::new());
+    let Some(word_precedence) = uniform_token_precedence(lexical_grammar, word_token_index) else {
+        return TokenSet::new();
+    };
 
     // First find all of the candidate keyword tokens: tokens that start with
     // letters or underscore and can match the same string as a word token.
@@ -385,6 +438,10 @@ fn identify_keywords(
         .filter_map(|(i, variable)| {
             cursor.reset(vec![variable.start_state]);
             if all_chars_are_alphabetical(&cursor)
+                && variable.implicit_precedence
+                    == lexical_grammar.variables[word_token_index].implicit_precedence
+                && uniform_token_precedence(lexical_grammar, i) == Some(word_precedence)
+                && token_conflict_map.languages.overlaps(i, word_token_index)
                 && token_conflict_map.does_match_same_string(i, word_token_index)
                 && !token_conflict_map.does_match_different_string(i, word_token_index)
             {
@@ -400,7 +457,7 @@ fn identify_keywords(
         .collect::<TokenSet>();
 
     // Exclude keyword candidates that shadow another keyword candidate.
-    let keywords = keyword_candidates
+    let mut keywords = keyword_candidates
         .terminals()
         .filter(|&token| {
             for other in keyword_candidates.terminals() {
@@ -421,49 +478,51 @@ fn identify_keywords(
         .map(Symbol::from)
         .collect::<TokenSet>();
 
-    // Exclude keyword candidates for which substituting the keyword capture
-    // token would introduce new lexical conflicts with other tokens.
-
-    keywords
-        .terminals()
-        .filter(|&token| {
-            let token_index = usize::from(token);
-            for other_index in 0..lexical_grammar.variables.len() {
-                if keyword_candidates.contains(Symbol::terminal(other_index)) {
-                    continue;
+    // Removing a keyword can change which other candidates survive explicit
+    // precedence or subset selection, even if the word token was already valid.
+    // Decline extraction whenever the keyword competes with a remaining token.
+    // Iterate to a fixed point: rejected candidates stay in the main lexer and
+    // must participate in subsequent substitution-safety checks.
+    loop {
+        let next = keywords
+            .terminals()
+            .filter(|&token| {
+                let token_index = usize::from(token);
+                for other_index in 0..lexical_grammar.variables.len() {
+                    let other = TerminalIndex::new(other_index as u32);
+                    if other_index == word_token_index
+                        || keywords.contains(Symbol::terminal(other_index))
+                        || !coincident_token_index.contains(token, other)
+                    {
+                        continue;
+                    }
+                    let competes = token_conflict_map.does_overlap(token_index, other_index)
+                        || token_conflict_map.does_overlap(other_index, token_index);
+                    let changes_context = !coincident_token_index
+                        .all_coincident_states_have_word(token, other)
+                        && !token_conflict_map.has_same_conflict_status(
+                            token_index,
+                            word_token_index,
+                            other_index,
+                        );
+                    if competes || changes_context {
+                        debug!(
+                            "Keywords - exclude {} because of conflict with {}",
+                            str_pool.resolve(lexical_grammar.variables[token_index].name),
+                            str_pool.resolve(lexical_grammar.variables[other_index].name)
+                        );
+                        return false;
+                    }
                 }
-
-                // If the word token was already valid in every state containing
-                // this keyword candidate, then substituting the word token won't
-                // introduce any new lexical conflicts.
-                if coincident_token_index
-                    .all_coincident_states_have_word(token, TerminalIndex::new(other_index as u32))
-                {
-                    continue;
-                }
-
-                if !token_conflict_map.has_same_conflict_status(
-                    token_index,
-                    word_token_index,
-                    other_index,
-                ) {
-                    debug!(
-                        "Keywords - exclude {} because of conflict with {}",
-                        str_pool.resolve(lexical_grammar.variables[token_index].name),
-                        str_pool.resolve(lexical_grammar.variables[other_index].name)
-                    );
-                    return false;
-                }
-            }
-
-            debug!(
-                "Keywords - include {}",
-                str_pool.resolve(lexical_grammar.variables[token_index].name),
-            );
-            true
-        })
-        .map(Symbol::from)
-        .collect()
+                true
+            })
+            .map(Symbol::from)
+            .collect::<TokenSet>();
+        if next == keywords {
+            return keywords;
+        }
+        keywords = next;
+    }
 }
 
 fn mark_fragile_tokens(parse_table: &mut ParseTable, token_conflict_map: &TokenConflictMap) {

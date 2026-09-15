@@ -126,9 +126,12 @@ pick the subtree whose corresponding rule has the highest total *dynamic precede
 [*external scanner*][external-scanners]. External scanners allow you to write custom C code which runs during the lexing
 process to handle lexical rules (e.g. Python's indentation tokens) that cannot be described by regular expressions.
 
-- **`precedences`** — an array of arrays of strings, where each array of strings defines named precedence levels in descending
-order. These names can be used in the `prec` functions to define precedence relative only to other names in the array, rather
-than globally. Can only be used with parse precedence, not lexical precedence.
+- **`precedences`** — arrays of named parse precedences or rules, ordered from higher to lower precedence.
+String entries name parse precedence levels used by `prec`. Rule entries also order token matches when they refer to lexical
+tokens (including single-token wrappers and choices). Token orderings are transitive across lists; unrelated tokens are not
+implicitly ordered, and cycles are rejected. For example, `precedences: $ => [[$.keyword, $.identifier]]` prefers the keyword
+over the identifier when both match equally long text with equal numeric lexical precedence. These orderings override the
+default language-subset specificity, but do not override longest match or numeric lexical precedence.
 
 - **`word`** — the name of a token that will match keywords to the
 [keyword extraction][keyword-extraction] optimization.

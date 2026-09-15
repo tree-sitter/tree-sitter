@@ -370,7 +370,7 @@ test("a named rule called grammar is not mistaken for the legacy schema", () => 
   assert.deepEqual(actual.rules, { grammar: string("g") });
 });
 
-test("rule declaration order, not export-name order, determines lexical tie priority", () => {
+test("rule invocation order is retained for structural GLR ties", () => {
   const actual = compile({
     "grammar.mjs": `
       export const z_keyword = rule(() => /int/),

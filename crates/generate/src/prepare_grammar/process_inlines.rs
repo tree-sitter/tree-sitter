@@ -543,6 +543,7 @@ mod tests {
             name,
             kind: VariableType::Named,
             implicit_precedence: 0,
+            token_start_state: 0,
             start_state: 0,
         }];
         let mut out = ProductionStore::default();
@@ -565,6 +566,7 @@ mod tests {
                 name: pool.intern(&format!("t{i}")),
                 kind: VariableType::Anonymous,
                 implicit_precedence: 0,
+                token_start_state: 0,
                 start_state: 0,
             })
             .collect()

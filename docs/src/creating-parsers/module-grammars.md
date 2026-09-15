@@ -43,9 +43,10 @@ to rules declared later. Put the default configuration after the declarations:
 unlike rule callbacks, its property values are evaluated immediately and cannot
 reference uninitialized bindings.
 
-Rule declaration/construction order is preserved because it breaks lexical ties.
-The selected start rule is emitted first. In derived grammars, overrides retain
-their inherited positions and new rules are appended in declaration order.
+Rule construction order is retained for symbol numbering and the existing GLR
+structural tie-break, but does not assign lexical precedence. The selected start
+rule is emitted first, overrides keep their inherited positions, and new rules
+follow their invocation order.
 
 All existing expression combinators accept handles, including `seq`, `choice`,
 `repeat`, `field`, `prec`, `token`, and `reserved`. `alias(value, handle)` produces
@@ -92,7 +93,7 @@ direct arrays or handles, not callbacks receiving `$`.
 | `extras` | Array of expressions, handles, strings, or regular expressions |
 | `conflicts` | Array of arrays of rule handles |
 | `inline`, `supertypes` | Arrays of rule handles |
-| `precedences` | Arrays of precedence strings or rule handles, highest first |
+| `precedences` | Arrays of named parse precedences or rule handles, highest first; token handles also order lexical ties |
 | `externals` | Array of token expressions or handles, in scanner token order |
 | `reserved` | Object mapping context names to arrays of expressions |
 
@@ -109,6 +110,38 @@ TypeScript `satisfies ModuleGrammar`. Keep actual imports and declarations intac
 instead of casting them to a broad dictionary: ordinary bindings preserve
 go-to-definition and rename. TypeScript authoring still requires producing a
 JavaScript module for the loader.
+
+## Token specificity and precedence
+
+Token priority does not depend on declaration order or whether the pattern is
+spelled as a string, a regex, or a composition of literals. For otherwise tied
+matches, a proper language subset wins:
+
+```javascript
+export const
+  keyword = rule(() => token(seq('wh', 'ile'))),
+  identifier = rule(() => /[a-z]+/);
+```
+
+Here `keyword` is preferred for `while`, while the longer match `whilex` remains
+an identifier. The existing configuration field can override this default:
+
+```javascript
+precedences: [
+  [identifier, keyword],
+],
+```
+
+Token orderings are partial and transitive. They apply after numeric lexical
+precedence and longest match, but before subset specificity. String entries in
+`precedences` retain their meaning as named parse precedences; use handles for
+tokens. Equivalent or incomparable tokens that remain tied in the same parser
+context produce a generation error, rather than a declaration-order decision.
+
+GLR tree selection still uses error cost, dynamic precedence, and its existing
+structural tie-break. Invocation order can still affect that last fallback, even
+though it no longer decides lexical precedence. Use `prec.dynamic` when a
+particular interpretation of an otherwise ambiguous input must be preferred.
 
 ## Inheritance and overrides
 

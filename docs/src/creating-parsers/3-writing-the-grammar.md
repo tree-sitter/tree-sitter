@@ -543,12 +543,20 @@ that match the characters at a given position in the document, Tree-sitter will 
 3. **Match Length** — If multiple valid tokens with the same precedence match the characters at a given position in a document,
 Tree-sitter will select the token that matches the [longest sequence of characters][longest-match].
 
-4. **Match Specificity** — If there are two valid tokens with the same precedence, and they both match the same number
-of characters, Tree-sitter will prefer a token that is specified in the grammar as a `String` over a token specified as
-a `RegExp`.
+4. **Declared Token Precedence** — For otherwise tied matches, token orderings in `precedences` eliminate lower-priority
+candidates. These form a partial order: the order of the outer lists has no significance.
 
-5. **Rule Order** — If none of the above criteria can be used to select one token over another, Tree-sitter will prefer
-the token that appears earlier in the grammar.
+5. **Match Specificity** — Among the remaining candidates, a token is preferred if its accepted language is a proper subset
+of another's: it matches only strings the other token matches, and the other token also matches additional strings. This is
+independent of how the token is written. For example, `"if"`, `/if/`, and `token(seq("i", "f"))` are equally specific, and all
+are more specific than `/[a-z]+/`. Choices of keywords and narrower regexes benefit from the same rule.
+
+6. **Immediate Tokens** — If candidates remain tied, `token.immediate` takes preference over non-immediate tokens.
+
+There is no declaration-order fallback. If multiple candidates remain in a normal parser context, generation reports an
+unresolved lexical ambiguity with an example input and token names. Add an ordering in `precedences` to express the intended
+choice. Tokens whose languages overlap but which are never valid together need no ordering. Error recovery uses a stable
+name-based fallback for tokens that would not normally be valid together.
 
 If there is an external scanner it may have [an additional impact][external scanner] over regular tokens
 defined in the grammar.

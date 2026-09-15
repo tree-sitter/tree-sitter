@@ -260,6 +260,7 @@ mod tests {
             name: pool.intern(name),
             kind: VariableType::Anonymous,
             implicit_precedence: 0,
+            token_start_state: 0,
             start_state: 0,
         });
         symbol

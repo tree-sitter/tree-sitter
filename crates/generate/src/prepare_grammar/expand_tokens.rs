@@ -47,12 +47,11 @@ impl std::fmt::Display for ExpandTokensProcessingError {
     }
 }
 
-fn get_implicit_precedence(pool: &RulePool, root: RuleId) -> i32 {
+fn get_immediate_precedence(pool: &RulePool, root: RuleId) -> i32 {
     let mut id = root;
     let mut boost = 0;
     loop {
         match pool.node(id) {
-            Rule::String(_) => return 2 + boost,
             Rule::Metadata { params, rule } => {
                 if pool.params(params).is_main_token {
                     boost += 1;
@@ -112,6 +111,7 @@ pub fn expand_tokens(
                 })
             })?;
 
+        let token_start_state = builder.nfa.last_state_id();
         if !is_immediate_token {
             builder.is_sep = true;
             let last_state_id = builder.nfa.last_state_id();
@@ -123,7 +123,8 @@ pub fn expand_tokens(
         variables.push(LexicalVariable {
             name: variable.name,
             kind: variable.kind,
-            implicit_precedence: get_implicit_precedence(pool, variable.root),
+            implicit_precedence: get_immediate_precedence(pool, variable.root),
+            token_start_state,
             start_state: builder.nfa.last_state_id(),
         });
     }

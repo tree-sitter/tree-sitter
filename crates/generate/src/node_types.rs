@@ -3272,6 +3272,7 @@ mod tests {
                 name: interner.intern(&format!("token_{i}")),
                 kind: VariableType::Named,
                 implicit_precedence: 0,
+                token_start_state: 0,
                 start_state: 0,
             });
         }

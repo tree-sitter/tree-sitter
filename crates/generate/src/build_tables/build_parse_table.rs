@@ -85,6 +85,15 @@ pub type BuildTableResult<T> = Result<T, ParseTableBuilderError>;
 
 #[derive(Debug, Error, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ParseTableBuilderError {
+    #[error("Cyclic token precedences involving: {0:?}")]
+    CyclicTokenPrecedence(Vec<Box<str>>),
+    #[error(
+        "Unresolved lexical ambiguity after input {input:?} between tokens {tokens:?}.\nAdd an ordering between these tokens to `precedences`."
+    )]
+    LexicalAmbiguity {
+        input: String,
+        tokens: Vec<Box<str>>,
+    },
     #[error("Unresolved conflict for symbol sequence:\n\n{0}")]
     Conflict(Box<ConflictError>),
     #[error("Extra rules must have unambiguous endings. Conflicting rules: {0}")]

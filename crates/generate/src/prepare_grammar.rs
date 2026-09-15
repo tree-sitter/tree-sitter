@@ -527,8 +527,8 @@ mod tests {
             lexical_variables,
             [
                 ("t", VariableType::Named, 0, 2),
-                ("a", VariableType::Anonymous, 2, 4),
-                ("b", VariableType::Anonymous, 2, 6),
+                ("a", VariableType::Anonymous, 0, 4),
+                ("b", VariableType::Anonymous, 0, 6),
             ]
         );
     }
@@ -591,8 +591,8 @@ mod tests {
         assert_eq!(
             lexical_variables,
             [
-                ("a", VariableType::Anonymous, 2, 1),
-                ("b", VariableType::Anonymous, 2, 3),
+                ("a", VariableType::Anonymous, 0, 1),
+                ("b", VariableType::Anonymous, 0, 3),
                 ("t", VariableType::Named, 0, 6),
             ]
         );
@@ -642,8 +642,8 @@ mod tests {
         assert_eq!(
             lexical_variables,
             [
-                ("a", VariableType::Anonymous, 2, 5),
-                ("b", VariableType::Anonymous, 2, 11),
+                ("a", VariableType::Anonymous, 0, 5),
+                ("b", VariableType::Anonymous, 0, 11),
             ]
         );
 
@@ -729,11 +729,11 @@ mod tests {
         assert_eq!(
             lexical_variables,
             [
-                ("kw", VariableType::Named, 2, 7),
-                ("k", VariableType::Anonymous, 2, 9),
-                ("e", VariableType::Anonymous, 2, 11),
-                ("t", VariableType::Anonymous, 2, 13),
-                ("g", VariableType::Anonymous, 2, 15),
+                ("kw", VariableType::Named, 0, 7),
+                ("k", VariableType::Anonymous, 0, 9),
+                ("e", VariableType::Anonymous, 0, 11),
+                ("t", VariableType::Anonymous, 0, 13),
+                ("g", VariableType::Anonymous, 0, 15),
             ]
         );
 

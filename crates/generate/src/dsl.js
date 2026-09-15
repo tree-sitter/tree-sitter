@@ -146,11 +146,11 @@ function collectModule(module, ancestors = new Set()) {
     if (!definition) {
       throw new TypeError(`Export '${name}' is not a rule handle. Use rule(() => ...), or keep helpers unexported.`);
     }
-    return { name, handle, definition };
+    return { name, handle, order: definition.order };
   });
-  // Namespace keys are alphabetized, but rule order breaks lexical ties. Use
-  // declaration/construction order; Map.set keeps inherited override slots.
-  exports.sort((left, right) => left.definition.order - right.definition.order);
+  // Preserve construction order for symbol numbering and the existing GLR
+  // fallback, not for lexical precedence. Overrides keep their inherited slots.
+  exports.sort((left, right) => left.order - right.order);
   for (const { name, handle } of exports) {
     const previousName = symbols.get(handle);
     if (previousName !== undefined && previousName !== name) {
@@ -305,8 +305,8 @@ function compileModule(module) {
     }
   }
 
-  // The JSON format uses the first rule as the start rule. Other rules keep
-  // declaration order, independently of how the module enumerates its exports.
+  // The JSON format uses the first rule as the start rule. Other rules retain
+  // invocation order, with inherited positions preserved by collectModule.
   const orderedRules = new Map([[start, rules.get(start)], ...rules]);
   const bodies = [];
   for (const [name, record] of orderedRules) {
