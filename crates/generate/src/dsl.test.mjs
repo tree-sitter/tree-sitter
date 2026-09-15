@@ -46,6 +46,162 @@ function rejects(source, ...messages) {
   for (const message of messages) assert.match(result.stderr, message);
 }
 
+function cleanFailure(files, entry) {
+  const result = run(files, entry);
+  assert.notEqual(result.status, 0, "Invalid grammar unexpectedly compiled");
+  assert.equal(result.stdout, "");
+  assert.doesNotMatch(result.stderr, /tree-sitter:grammar-dsl/);
+  return result.stderr;
+}
+
+for (const builder of ["rule(() => 'x')", "rule()", "external()", "override(original, () => 'y')"]) {
+  test(`unexported ${builder} points to its declaration`, () => {
+    const error = cleanFailure({
+      "dsl.mjs": `const original = rule(() => 'x');\nconst hidden = ${builder};\nexport const getHidden = () => hidden;`,
+      "grammar.mjs": [
+        "import { getHidden } from './dsl.mjs';",
+        "export const root = rule(() => alias('x', getHidden()));",
+        "export default { name: 'test', start: root };",
+      ].join("\n"),
+    });
+    assert.match(error, /Rule 'root': Unregistered rule handle/);
+    assert.match(error, /Unexported rule declared at:\n[\s\S]*dsl\.mjs:2:/);
+    assert.doesNotMatch(error, /symbolName|referenceName|Array\.map|node:internal/);
+  });
+}
+
+test("callback errors retain user helper frames and refresh an already captured heading", () => {
+  const error = cleanFailure({
+    "package.json": '{"type":"module"}',
+    "dsl.js": [
+      "export function normalize() {",
+      "  const error = new TypeError('helper failure');",
+      "  void error.stack;",
+      "  throw Object.freeze(error);",
+      "}",
+    ].join("\n"),
+    "grammar.mjs": [
+      "import { normalize } from './dsl.js';",
+      "export const root = rule(() => normalize());",
+      "export default { name: 'test', start: root };",
+    ].join("\n"),
+  });
+  assert.match(error, /TypeError: Rule 'root': helper failure/);
+  assert.match(error, /at normalize \([^\n]*dsl\.js:2:/);
+  assert.match(error, /grammar\.mjs:2:/);
+  assert.equal(error.match(/helper failure/g).length, 1);
+});
+
+test("module initialization errors retain user locations", () => {
+  const error = cleanFailure({
+    "grammar.mjs": "// User module initialization\nthrow new Error('initialization failure');",
+  });
+  assert.match(error, /Error: initialization failure/);
+  assert.match(error, /grammar\.mjs:2:/);
+});
+
+test("changed messages do not leave stale stack headings", () => {
+  const error = cleanFailure({
+    "grammar.mjs": `
+      export const root = rule(() => {
+        const error = new Error("old message\\nold detail");
+        void error.stack;
+        error.name = "ChangedError";
+        error.message = "new message\\nnew detail";
+        throw error;
+      });
+      export default {name: 'test', start: root};
+    `,
+  });
+  assert.match(error, /ChangedError: Rule 'root': new message\nnew detail/);
+  assert.doesNotMatch(error, /old message|old detail/);
+});
+
+test("causes and aggregate members retain their messages and filtered stacks", () => {
+  const error = cleanFailure({
+    "grammar.mjs": `
+      export const root = rule(() => {
+        let cause;
+        try { seq(() => 'invalid'); } catch (error) { cause = error; }
+        throw new AggregateError(
+          [new Error('first failure'), new Error('second failure')],
+          'build failed', {cause},
+        );
+      });
+      export default {name: 'test', start: root};
+    `,
+  });
+  assert.match(error, /AggregateError: Rule 'root': build failed/);
+  assert.match(error, /Caused by:\nTypeError: Expected a rule handle/);
+  assert.match(error, /Aggregate error 1:\nError: first failure/);
+  assert.match(error, /Aggregate error 2:\nError: second failure/);
+});
+
+test("circular error causes terminate without losing the outer message", () => {
+  const error = cleanFailure({
+    "grammar.mjs": `
+      export const root = rule(() => {
+        const error = new Error('circular failure');
+        error.cause = error;
+        throw error;
+      });
+      export default {name: 'test', start: root};
+    `,
+  });
+  assert.match(error, /Rule 'root': circular failure/);
+  assert.match(error, /Caused by:\n\[Circular error\]/);
+});
+
+test("syntax errors retain the imported source excerpt", () => {
+  const error = cleanFailure({
+    "grammar.mjs": "export const broken = ;",
+  });
+  assert.match(error, /SyntaxError/);
+  assert.match(error, /grammar\.mjs:1/);
+  assert.match(error, /export const broken = ;/);
+});
+
+test("legacy callback errors retain CommonJS helper locations", () => {
+  const error = cleanFailure({
+    "legacy-dsl.cjs": "exports.normalize = () => { throw new Error('legacy helper failure'); };",
+    "grammar.cjs": [
+      "const { normalize } = require('./legacy-dsl.cjs');",
+      "module.exports = grammar({name: 'legacy', rules: {root: () => normalize()}});",
+    ].join("\n"),
+  }, "grammar.cjs");
+  assert.match(error, /legacy helper failure/);
+  assert.match(error, /legacy-dsl\.cjs:1:/);
+  assert.match(error, /grammar\.cjs:2:/);
+});
+
+test("diagnostics do not depend on Error.captureStackTrace", () => {
+  const error = cleanFailure({
+    "grammar.mjs": [
+      "Error.captureStackTrace = () => { throw new Error('V8-only API was called'); };",
+      "export const root = rule(() => optional('a', 'b'));",
+      "export default {name: 'test', start: root};",
+    ].join("\n"),
+  });
+  assert.match(error, /only takes one rule argument/);
+  assert.match(error, /grammar\.mjs:2:/);
+  assert.doesNotMatch(error, /V8-only API was called/);
+});
+
+test("errors without stacks still report their message and containing rule", () => {
+  const error = cleanFailure({
+    "grammar.mjs": [
+      "export const root = rule(() => {",
+      "  const error = new Error('no stack');",
+      "  Object.defineProperty(error, 'stack', { value: undefined });",
+      "  throw error;",
+      "});",
+      "export default {name: 'test', start: root};",
+    ].join("\n"),
+  });
+  assert.match(error, /Error: Rule 'root': no stack/);
+  assert.match(error, /grammar\.mjs:1:/);
+});
+
 const symbol = name => ({ type: "SYMBOL", name });
 const string = value => ({ type: "STRING", value });
 const pattern = value => ({ type: "PATTERN", value });

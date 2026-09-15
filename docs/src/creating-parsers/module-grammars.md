@@ -139,3 +139,26 @@ that context's inherited array. The derived grammar supplies its own `name`.
 For this prototype, `extends` accepts only the namespace of another module
 grammar. Mixing legacy `grammar(...)` inheritance with module grammar inheritance
 is not supported.
+
+## Error locations
+
+Rule handles record their declaration stacks when they are created. If a rule is
+referenced without being exported, the error names the containing rule and points
+back to the missing handle's declaration:
+
+```text
+Error: Rule 'call_expression': Unregistered rule handle. Export the rule from this grammar, or inherit its module with 'extends'.
+Unexported rule declared at:
+    at file:///path/to/grammar.mjs:12:18
+```
+
+Reported stacks hide Tree-sitter's DSL/bootstrap frames while preserving frames
+from grammar files and user helpers. The same filtering applies to legacy
+grammars and errors during module initialization. Nested error causes and
+aggregate members are retained, with their internal frames filtered as well.
+
+This uses `new Error().stack`, supported by Node and QuickJS, not V8's
+`Error.captureStackTrace`. Stack properties and their formatting are not part of
+the ECMAScript standard, so exact frame formatting varies by runtime. If a runtime
+does not provide a stack, the diagnostic still reports the error and rule context
+but cannot recover a declaration location.

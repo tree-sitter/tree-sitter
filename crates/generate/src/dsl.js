@@ -3,8 +3,79 @@
 // the embedded DSL. Neither implementation depends on Node-specific APIs.
 const ruleDefinitions = new WeakMap();
 
+// Error.stack is not standardized, but is supported by Node, Bun, Deno, and
+// QuickJS. Filter by source identity, never by function names: grammar helpers
+// can legitimately be named "normalize", "rule", etc. The bootstrap's identity
+// is assigned by the sourceURL below and by the embedded QuickJS loader.
+function grammarStack(error) {
+  let stack = error?.stack;
+  if (typeof stack !== "string") return [];
+
+  // V8 includes the error heading; QuickJS normally supplies frames only.
+  const heading = String(error);
+  if (stack.startsWith(heading)) stack = stack.slice(heading.length);
+  // A user may have changed error.message after materializing .stack. Select
+  // frames independently of that heading, rather than reporting the stale text.
+  const frames = stack.split(/\r?\n/).filter(line =>
+    /^\s*at(?:\s|$)/.test(line) || /^[^\n]*@.+:\d+(?::\d+)?$/.test(line));
+  const result = [];
+  let internalCaller = false;
+  for (let index = frames.length - 1; index >= 0; index--) {
+    const frame = frames[index];
+    if (!frame.trim()) continue;
+    const internal = /(?:\(|@|\s)tree-sitter:grammar-dsl(?::\d+){0,2}\)?$/.test(frame)
+      || /(?:\(|@|\s)node:internal\//.test(frame);
+    const native = /\((?:native|<anonymous>|\[native code\])\)$/.test(frame);
+    if (internal || (native && internalCaller)) {
+      internalCaller = true;
+    } else {
+      internalCaller = false;
+      result.push(frame);
+    }
+  }
+  return result.reverse();
+}
+
+function diagnosticError(thrown, description, fallbackStack = [], seen = new Map()) {
+  if (seen.has(thrown)) return seen.get(thrown);
+  const message = thrown instanceof Error ? thrown.message : String(thrown);
+  const error = new Error(description ? `${description}: ${message}` : message);
+  if (thrown instanceof Error) error.name = thrown.name;
+  const frames = grammarStack(thrown);
+  // Copy rather than mutate user exceptions, which may be frozen. Rebuild the
+  // heading as well, so materializing a stack before adding context is harmless.
+  error.stack = [String(error), ...(frames.length ? frames : fallbackStack)].join("\n");
+  if (thrown instanceof Error) {
+    seen.set(thrown, error);
+    if ("cause" in thrown) {
+      error.cause = diagnosticError(thrown.cause, undefined, [], seen);
+    }
+    if (Array.isArray(thrown.errors)) {
+      error.errors = thrown.errors.map(member => diagnosticError(member, undefined, [], seen));
+    }
+  }
+  return error;
+}
+
+function formatDiagnostic(error, ancestors = new Set()) {
+  if (ancestors.has(error)) return "[Circular error]";
+  ancestors.add(error);
+  let output = error.stack;
+  if ("cause" in error) {
+    output += `\nCaused by:\n${formatDiagnostic(error.cause, ancestors)}`;
+  }
+  if (Array.isArray(error.errors)) {
+    error.errors.forEach((member, index) => {
+      output += `\nAggregate error ${index + 1}:\n${formatDiagnostic(member, ancestors)}`;
+    });
+  }
+  ancestors.delete(error);
+  return output;
+}
+
 function makeRuleHandle(definition) {
   const handle = Object.freeze({});
+  definition.declarationStack = grammarStack(new Error());
   ruleDefinitions.set(handle, definition);
   return handle;
 }
@@ -34,16 +105,11 @@ function override(base, build) {
   return makeRuleHandle({ symbol: definition.symbol, build, base });
 }
 
-function withContext(description, operation) {
+function withContext(description, operation, fallbackStack) {
   try {
     return operation();
   } catch (error) {
-    // Keep the original exception and its source stack, including helper calls.
-    if (error instanceof Error) {
-      error.message = `${description}: ${error.message}`;
-      throw error;
-    }
-    throw new Error(`${description}: ${String(error)}`);
+    throw diagnosticError(error, description, fallbackStack);
   }
 }
 
@@ -134,7 +200,11 @@ function compileModule(module) {
     }
     const name = symbols.get(definition.symbol);
     if (name === undefined) {
-      throw new Error("Unregistered rule handle. Export the rule from this grammar, or inherit its module with 'extends'.");
+      let message = "Unregistered rule handle. Export the rule from this grammar, or inherit its module with 'extends'.";
+      if (definition.declarationStack.length) {
+        message += "\nUnexported rule declared at:";
+      }
+      throw diagnosticError(new Error(message), undefined, definition.declarationStack);
     }
     return name;
   }
@@ -218,7 +288,7 @@ function compileModule(module) {
         throw new Error("Returned undefined. Did you forget to return the rule expression?");
       }
       return resolve(value);
-    });
+    }, definition.declarationStack);
     bodies.push([name, body]);
   }
 
@@ -256,32 +326,68 @@ Object.assign(globalThis, {
   sym, token, grammar, field, RustRegex, rule, override, external,
 });
 
-const grammarPath = getEnv("TREE_SITTER_GRAMMAR_PATH");
-const result = await import(grammarPath);
+try {
+  const grammarPath = getEnv("TREE_SITTER_GRAMMAR_PATH");
+  const result = await import(grammarPath);
 
-// Detect the API from evaluated exports, not source syntax or file extension:
-// both legacy and module grammars can be authored as ES modules.
-// A module rule can itself be named "grammar", so a truthy export is not enough.
-const legacyGrammar = [
-  result.default?.grammar,
-  result.grammar,
-  globalThis.native && Object.keys(result).length === 0
-    ? globalThis.module?.exports?.grammar
-    : undefined,
-].find(value => value && typeof value.name === "string"
-  && value.rules && typeof value.rules === "object");
-const grammarObj = legacyGrammar ?? compileModule(result);
-const output = JSON.stringify({
-  "$schema": "https://tree-sitter.github.io/tree-sitter/assets/schemas/grammar.schema.json",
-  ...grammarObj,
-});
+  // Detect the API from evaluated exports, not source syntax or file extension:
+  // both legacy and module grammars can be authored as ES modules.
+  // A module rule can itself be named "grammar", so a truthy export is not enough.
+  const legacyGrammar = [
+    result.default?.grammar,
+    result.grammar,
+    globalThis.native && Object.keys(result).length === 0
+      ? globalThis.module?.exports?.grammar
+      : undefined,
+  ].find(value => value && typeof value.name === "string"
+    && value.rules && typeof value.rules === "object");
+  const grammarObj = legacyGrammar ?? compileModule(result);
+  const output = JSON.stringify({
+    "$schema": "https://tree-sitter.github.io/tree-sitter/assets/schemas/grammar.schema.json",
+    ...grammarObj,
+  });
 
-if (globalThis.native) {
-  globalThis.output = output;
-} else if (globalThis.process) { // Node/Bun
-  process.stdout.write(output);
-} else if (globalThis.Deno) { // Deno
-  Deno.stdout.writeSync(new TextEncoder().encode(output));
-} else {
-  throw Error("Unsupported JS runtime");
+  if (globalThis.native) {
+    globalThis.output = output;
+  } else if (globalThis.process) { // Node/Bun
+    process.stdout.write(output);
+  } else if (globalThis.Deno) { // Deno
+    Deno.stdout.writeSync(new TextEncoder().encode(output));
+  } else {
+    throw Error("Unsupported JS runtime");
+  }
+} catch (thrown) {
+  const error = diagnosticError(thrown);
+  const report = formatDiagnostic(error);
+  if (globalThis.native) {
+    error.stack = report;
+    throw error;
+  } else if (globalThis.process) {
+    // Node retains syntax-error source excerpts outside .stack. Preserve that
+    // metadata when possible: parser errors originate in the imported source,
+    // not in our diagnostic wrapper.
+    if (thrown instanceof SyntaxError && !("cause" in thrown) && !Array.isArray(thrown.errors)) {
+      let canRethrow = false;
+      try {
+        Object.defineProperty(thrown, "stack", {
+          value: report, configurable: true, writable: true,
+        });
+        canRethrow = true;
+      } catch {
+        // A frozen/custom error can still be reported below without mutation.
+      }
+      if (canRethrow) throw thrown;
+    }
+    // Do not let the engine's uncaught-exception reporter print the internal
+    // throw site/source excerpt after we have removed it from the stack.
+    process.stderr.write(`${report}\n`);
+    process.exitCode = 1;
+  } else if (globalThis.Deno) {
+    Deno.stderr.writeSync(new TextEncoder().encode(`${report}\n`));
+    Deno.exitCode = 1;
+  } else {
+    throw error;
+  }
 }
+
+//# sourceURL=tree-sitter:grammar-dsl

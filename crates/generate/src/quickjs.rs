@@ -6,6 +6,7 @@ use std::{
 use log::{error, info, warn};
 use rquickjs::{
     Context, Ctx, Function, Module, Object, Runtime, Type, Value,
+    context::EvalOptions,
     loader::{FileResolver, ScriptLoader},
 };
 use rustc_hash::FxHashMap;
@@ -32,19 +33,25 @@ fn format_js_exception(v: Value) -> JSError {
     };
 
     let error_obj = exception.as_object();
-    let mut parts = Vec::new();
-
-    for (key, label) in [("message", "Message"), ("stack", "Stack"), ("name", "Type")] {
-        if let Ok(value) = error_obj.get::<_, String>(key) {
-            parts.push(format!("{label}: {value}"));
-        }
-    }
-
-    if parts.is_empty() {
-        JSError::QuickJS(exception.to_string().into())
+    let name = error_obj
+        .get::<_, String>("name")
+        .unwrap_or_else(|_| "Error".to_string());
+    let heading = match error_obj.get::<_, String>("message") {
+        Ok(message) if message.is_empty() => name,
+        Ok(message) => format!("{name}: {message}"),
+        Err(_) => exception.to_string(),
+    };
+    let stack = error_obj.get::<_, String>("stack").unwrap_or_default();
+    // QuickJS's own stacks contain frames only; the DSL's filtered diagnostics
+    // already include a heading. Do not print their message a second time.
+    let diagnostic = if stack.is_empty() {
+        heading
+    } else if stack.starts_with(&heading) {
+        stack
     } else {
-        JSError::QuickJS(parts.join("\n").into())
-    }
+        format!("{heading}\n{stack}")
+    };
+    JSError::QuickJS(diagnostic.into())
 }
 
 static FILE_CACHE: LazyLock<Mutex<FxHashMap<String, String>>> =
@@ -281,7 +288,11 @@ fn load_module_from_content<'js>(
     let wrapper =
         format!("(function(exports, require, module, __filename, __dirname) {{ {contents} }})");
 
-    let module_func = ctx.eval::<Function<'js>, _>(wrapper)?;
+    // Keep the wrapper on the first source line so module line numbers remain
+    // unchanged, and give callbacks loaded by require() their original filename.
+    let mut options = EvalOptions::default();
+    options.filename = Some(filename.clone());
+    let module_func = ctx.eval_with_options::<Function<'js>, _>(wrapper, options)?;
     module_func.call::<_, Value<'js>>((exports, require, module_obj.clone(), filename, dirname))?;
 
     module_obj.get("exports")
@@ -349,7 +360,8 @@ pub fn execute_native_runtime(grammar_path: &Path) -> JSResult<String> {
         )?;
         globals.set("require", main_require).or_js_error(&ctx)?;
 
-        let promise = Module::evaluate(ctx.clone(), "dsl", DSL).or_js_error(&ctx)?;
+        let promise =
+            Module::evaluate(ctx.clone(), "tree-sitter:grammar-dsl", DSL).or_js_error(&ctx)?;
         promise.finish::<()>().or_js_error(&ctx)?;
 
         let grammar_json = ctx
@@ -408,6 +420,196 @@ mod tests {
         let json = super::super::load_grammar_file(&temp_dir.path().join(entry), Some("native"))
             .expect("Failed to execute module grammar");
         serde_json::from_str(&json).unwrap()
+    }
+
+    fn fixture_error(files: &[(&str, &str)], entry: &str) -> String {
+        let temp_dir = TempDir::new().unwrap();
+        for (path, source) in files {
+            let path = temp_dir.path().join(path);
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            fs::write(path, source).unwrap();
+        }
+        let error = execute_native_runtime(&temp_dir.path().join(entry))
+            .unwrap_err()
+            .to_string();
+        assert!(!error.contains("tree-sitter:grammar-dsl"), "{error}");
+        error
+    }
+
+    #[test]
+    fn test_nested_and_circular_error_diagnostics() {
+        with_test_lock(|| {
+            let error = fixture_error(
+                &[(
+                    "grammar.mjs",
+                    r"
+                    export const root = rule(() => {
+                      const cause = new Error('original cause');
+                      void cause.stack;
+                      cause.message = 'changed cause';
+                      cause.cause = cause;
+                      throw new AggregateError(
+                        [new Error('member failure')], 'build failed', {cause}
+                      );
+                    });
+                    export default { name: 'test', start: root };
+                    ",
+                )],
+                "grammar.mjs",
+            );
+            assert!(error.contains("Rule 'root': build failed"), "{error}");
+            assert!(error.contains("changed cause"), "{error}");
+            assert!(!error.contains("original cause"), "{error}");
+            assert!(error.contains("member failure"), "{error}");
+            assert!(error.contains("[Circular error]"), "{error}");
+        });
+    }
+
+    #[test]
+    fn test_unexported_handle_declaration_stack() {
+        with_test_lock(|| {
+            for helper in ["lib/dsl.js", "lib/dsl.mjs"] {
+                let source = format!(
+                    "import {{ privateRule }} from './{helper}';\n\
+                     export const root = rule(() => privateRule());\n\
+                     export default {{ name: 'test', start: root }};"
+                );
+                let error = fixture_error(
+                    &[
+                        (
+                            helper,
+                            "// The handle is not exported, only its accessor is.\n\
+                             const hidden = rule(() => 'x');\n\
+                             export const privateRule = () => hidden;",
+                        ),
+                        ("grammar.mjs", &source),
+                    ],
+                    "grammar.mjs",
+                );
+                assert!(error.contains("Rule 'root'"), "{error}");
+                assert!(error.contains("Unregistered rule handle"), "{error}");
+                assert!(error.contains(&format!("{helper}:2")), "{error}");
+            }
+        });
+    }
+
+    #[test]
+    fn test_module_callback_error_keeps_user_frames() {
+        with_test_lock(|| {
+            for helper in ["lib/dsl.js", "lib/dsl.mjs"] {
+                let source = format!(
+                    "import {{ normalize }} from './{helper}';\n\
+                     export const root = rule(() => normalize());\n\
+                     export default {{ name: 'test', start: root }};"
+                );
+                let error = fixture_error(
+                    &[
+                        (
+                            helper,
+                            "export function normalize() {\n\
+                             throw new Error('helper failure');\n\
+                             }",
+                        ),
+                        ("grammar.mjs", &source),
+                    ],
+                    "grammar.mjs",
+                );
+                assert!(error.contains("helper failure"), "{error}");
+                assert!(error.contains("normalize"), "{error}");
+                assert!(error.contains(&format!("{helper}:2")), "{error}");
+                assert!(error.contains("grammar.mjs:2"), "{error}");
+            }
+        });
+    }
+
+    #[test]
+    fn test_module_initialization_error_stack() {
+        with_test_lock(|| {
+            for helper in ["lib/dsl.js", "lib/dsl.mjs"] {
+                let source = format!("import './{helper}';");
+                let error = fixture_error(
+                    &[
+                        (
+                            helper,
+                            "// initialization\nthrow new Error('initialization failure');",
+                        ),
+                        ("grammar.mjs", &source),
+                    ],
+                    "grammar.mjs",
+                );
+                assert!(error.contains("initialization failure"), "{error}");
+                assert!(error.contains(&format!("{helper}:2")), "{error}");
+            }
+        });
+    }
+
+    #[test]
+    fn test_legacy_callback_error_stack() {
+        with_test_lock(|| {
+            for (entry, export) in [
+                ("grammar.js", "export default"),
+                ("grammar.mjs", "export default"),
+                ("grammar.cjs", "module.exports ="),
+            ] {
+                let source = format!(
+                    "{export} grammar({{\n\
+                     name: 'legacy',\n\
+                     rules: {{ root: function normalize() {{ throw new Error('legacy failure'); }} }}\n\
+                     }});"
+                );
+                let error = fixture_error(&[(entry, &source)], entry);
+                assert!(error.contains("legacy failure"), "{error}");
+                assert!(error.contains("normalize"), "{error}");
+                assert!(error.contains(&format!("{entry}:3")), "{error}");
+            }
+        });
+    }
+
+    #[test]
+    fn test_commonjs_helper_callback_error_stack() {
+        with_test_lock(|| {
+            let error = fixture_error(
+                &[
+                    (
+                        "lib/dsl.js",
+                        "exports.normalize = function normalize() {\n\
+                         throw new Error('commonjs helper failure');\n\
+                         };",
+                    ),
+                    (
+                        "grammar.cjs",
+                        "const { normalize } = require('./lib/dsl.js');\n\
+                         module.exports = grammar({ name: 'test', rules: {\n\
+                         root: () => normalize()\n\
+                         }});",
+                    ),
+                ],
+                "grammar.cjs",
+            );
+            assert!(error.contains("commonjs helper failure"), "{error}");
+            assert!(error.contains("normalize"), "{error}");
+            assert!(error.contains("lib/dsl.js:2"), "{error}");
+            assert!(error.contains("grammar.cjs:3"), "{error}");
+        });
+    }
+
+    #[test]
+    fn test_callback_error_without_stack() {
+        with_test_lock(|| {
+            let error = fixture_error(
+                &[(
+                    "grammar.mjs",
+                    "export const root = rule(() => {\n\
+                     const error = new Error('no stack failure');\n\
+                     Object.defineProperty(error, 'stack', { value: undefined });\n\
+                     throw error;\n\
+                     });\n\
+                     export default { name: 'test', start: root };",
+                )],
+                "grammar.mjs",
+            );
+            assert!(error.contains("no stack failure"), "{error}");
+        });
     }
 
     #[test]

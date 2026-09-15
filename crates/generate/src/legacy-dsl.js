@@ -65,7 +65,7 @@ function choice(...elements) {
 }
 
 function optional(value) {
-  checkArguments(arguments, arguments.length, optional, 'optional');
+  checkArguments(arguments, arguments.length, 'optional');
   return choice(value, blank());
 }
 
@@ -74,7 +74,6 @@ function prec(number, rule) {
   checkArguments(
     arguments,
     arguments.length - 1,
-    prec,
     'prec',
     ' and a precedence argument'
   );
@@ -96,7 +95,6 @@ prec.left = function (number, rule) {
   checkArguments(
     arguments,
     arguments.length - 1,
-    prec.left,
     'prec.left',
     ' and an optional precedence argument'
   );
@@ -118,7 +116,6 @@ prec.right = function (number, rule) {
   checkArguments(
     arguments,
     arguments.length - 1,
-    prec.right,
     'prec.right',
     ' and an optional precedence argument'
   );
@@ -135,7 +132,6 @@ prec.dynamic = function (number, rule) {
   checkArguments(
     arguments,
     arguments.length - 1,
-    prec.dynamic,
     'prec.dynamic',
     ' and a precedence argument'
   );
@@ -148,7 +144,7 @@ prec.dynamic = function (number, rule) {
 }
 
 function repeat(rule) {
-  checkArguments(arguments, arguments.length, repeat, 'repeat');
+  checkArguments(arguments, arguments.length, 'repeat');
   return {
     type: "REPEAT",
     content: normalize(rule)
@@ -156,7 +152,7 @@ function repeat(rule) {
 }
 
 function repeat1(rule) {
-  checkArguments(arguments, arguments.length, repeat1, 'repeat1');
+  checkArguments(arguments, arguments.length, 'repeat1');
   return {
     type: "REPEAT1",
     content: normalize(rule)
@@ -193,7 +189,7 @@ function sym(name) {
 }
 
 function token(value) {
-  checkArguments(arguments, arguments.length, token, 'token', '', 'literal');
+  checkArguments(arguments, arguments.length, 'token', '', 'literal');
   return {
     type: "TOKEN",
     content: normalize(value)
@@ -201,7 +197,7 @@ function token(value) {
 }
 
 token.immediate = function (value) {
-  checkArguments(arguments, arguments.length, token.immediate, 'token.immediate', '', 'literal');
+  checkArguments(arguments, arguments.length, 'token.immediate', '', 'literal');
   return {
     type: "IMMEDIATE_TOKEN",
     content: normalize(value)
@@ -542,7 +538,7 @@ class RustRegex {
   }
 }
 
-function checkArguments(args, ruleCount, caller, callerName, suffix = '', argType = 'rule') {
+function checkArguments(args, ruleCount, callerName, suffix = '', argType = 'rule') {
   // Allow for .map() usage where additional arguments are index and the entire array.
   const isMapCall = ruleCount === 3 && typeof args[1] === 'number' && Array.isArray(args[2]);
   if (isMapCall) {
@@ -553,7 +549,6 @@ function checkArguments(args, ruleCount, caller, callerName, suffix = '', argTyp
       `The \`${callerName}\` function only takes one ${argType} argument${suffix}.`,
       `You passed in multiple ${argType}s. Did you mean to call \`seq\`?\n`
     ].join('\n'));
-    if (Error.captureStackTrace) Error.captureStackTrace(error, caller);
     throw error
   }
 }
