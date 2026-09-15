@@ -64,11 +64,11 @@ interface ExternalHandle extends RuleHandle {
 /**
  * Declares a symbol. The builder is evaluated after the module has loaded.
  * Without a builder, the symbol may only be used as an alias target.
+ * Exporting an inherited name replaces its body. Calling original() returns a
+ * fresh normalized copy of the inherited body, or throws if there is none.
+ * Inherited bodies are evaluated only when original() is called.
  */
-declare function rule(build?: () => RuleOrLiteral): RuleHandle;
-
-/** Replaces a symbol's body in a derived grammar without mutating the base. */
-declare function override(base: RuleHandle, build: () => RuleOrLiteral): RuleHandle;
+declare function rule(build?: (original: () => Rule) => RuleOrLiteral): RuleHandle;
 
 // Editors often include lib.dom even for grammar files. Merge its existing
 // External/external declarations rather than conflicting with the browser global.

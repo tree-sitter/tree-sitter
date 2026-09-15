@@ -2,6 +2,7 @@
 // Expression constructors and the legacy grammar() API precede this file in
 // the embedded DSL. Neither implementation depends on Node-specific APIs.
 const ruleDefinitions = new WeakMap();
+let nextRuleOrder = 0;
 
 // Error.stack is not standardized, but is supported by Node, Bun, Deno, and
 // QuickJS. Filter by source identity, never by function names: grammar helpers
@@ -75,6 +76,7 @@ function formatDiagnostic(error, ancestors = new Set()) {
 
 function makeRuleHandle(definition) {
   const handle = Object.freeze({});
+  definition.order = nextRuleOrder++;
   definition.declarationStack = grammarStack(new Error());
   ruleDefinitions.set(handle, definition);
   return handle;
@@ -82,27 +84,16 @@ function makeRuleHandle(definition) {
 
 function rule(build) {
   if (build === undefined) {
-    return makeRuleHandle({ symbol: Symbol(), alias: true });
+    return makeRuleHandle({ alias: true });
   }
   if (typeof build !== "function") {
     throw new TypeError("rule() expects a zero-argument function, or no arguments for an alias-only symbol.");
   }
-  return makeRuleHandle({ symbol: Symbol(), build });
+  return makeRuleHandle({ build });
 }
 
 function external() {
-  return makeRuleHandle({ symbol: Symbol(), external: true });
-}
-
-function override(base, build) {
-  const definition = ruleDefinitions.get(base);
-  if (!definition || !definition.build) {
-    throw new TypeError("override() expects an inherited rule handle with a body as its first argument.");
-  }
-  if (typeof build !== "function") {
-    throw new TypeError("override() expects a zero-argument function as its second argument.");
-  }
-  return makeRuleHandle({ symbol: definition.symbol, build, base });
+  return makeRuleHandle({ external: true });
 }
 
 function withContext(description, operation, fallbackStack) {
@@ -147,31 +138,30 @@ function collectModule(module, ancestors = new Set()) {
 
   const rules = new Map(base?.rules);
   const symbols = new Map(base?.symbols);
-  for (const name of Object.keys(module)) {
-    if (name === "default") continue;
+  const exports = Object.entries(module).filter(([name]) => name !== "default").map(([name, handle]) => {
     if (!/^[a-zA-Z_]\w*$/.test(name)) {
       throw new Error(`Invalid exported rule name '${name}'.`);
     }
-    const handle = module[name];
     const definition = ruleDefinitions.get(handle);
     if (!definition) {
       throw new TypeError(`Export '${name}' is not a rule handle. Use rule(() => ...), or keep helpers unexported.`);
     }
-    const previousName = symbols.get(definition.symbol);
+    return { name, handle, definition };
+  });
+  // Namespace keys are alphabetized, but rule order breaks lexical ties. Use
+  // declaration/construction order; Map.set keeps inherited override slots.
+  exports.sort((left, right) => left.definition.order - right.definition.order);
+  for (const { name, handle } of exports) {
+    const previousName = symbols.get(handle);
     if (previousName !== undefined && previousName !== name) {
       throw new Error(`The same rule is exported as both '${previousName}' and '${name}'. Each symbol must have one name.`);
     }
     const previous = rules.get(name);
-    if (previous !== undefined && previous !== handle) {
-      if (!definition.base || ruleDefinitions.get(previous).symbol !== definition.symbol) {
-        throw new Error(`Rule '${name}' replaces an inherited rule without override().`);
-      }
-    }
-    if (definition.base && !base?.symbols.has(definition.symbol)) {
-      throw new Error(`Override '${name}' does not belong to the grammar specified by 'extends'.`);
-    }
-    rules.set(name, handle);
-    symbols.set(definition.symbol, name);
+    if (previous?.handle === handle) continue;
+    // Keep predecessor records separate from handles. A handle may be re-exported
+    // in another inheritance layer without changing its original definition.
+    rules.set(name, { handle, previous });
+    symbols.set(handle, name);
   }
 
   for (const source of [base?.config.reserved, config.reserved]) {
@@ -198,7 +188,7 @@ function compileModule(module) {
     if (!definition) {
       throw new TypeError("Expected a rule handle.");
     }
-    const name = symbols.get(definition.symbol);
+    const name = symbols.get(handle);
     if (name === undefined) {
       let message = "Unregistered rule handle. Export the rule from this grammar, or inherit its module with 'extends'.";
       if (definition.declarationStack.length) {
@@ -210,7 +200,7 @@ function compileModule(module) {
   }
 
   function checkReference(name) {
-    const definition = ruleDefinitions.get(rules.get(name));
+    const definition = ruleDefinitions.get(rules.get(name)?.handle);
     if (!definition) {
       throw new Error(`Undefined symbol '${name}'.`);
     }
@@ -260,7 +250,7 @@ function compileModule(module) {
       throw new Error("Specify a start rule handle. Module export order does not determine the start rule.");
     }
     const name = referenceName(config.start);
-    if (ruleDefinitions.get(rules.get(name)).external) {
+    if (ruleDefinitions.get(rules.get(name).handle).external) {
       throw new Error("The start rule must have a body, not be an external token.");
     }
     return name;
@@ -269,27 +259,60 @@ function compileModule(module) {
   const externals = option("externals", [], value =>
     array(value, "Externals").map(resolve));
   const externalNames = new Set(externals.filter(e => e.type === "SYMBOL").map(e => e.name));
-  for (const [name, handle] of rules) {
+  for (const [name, { handle }] of rules) {
     if (ruleDefinitions.get(handle).external && !externalNames.has(name)) {
       throw new Error(`External token '${name}' must be listed in 'externals' to specify its scanner order.`);
     }
   }
 
-  // The generator's JSON format uses the first rule as the start rule. Module
-  // namespace keys are sorted, so explicitly emit the selected rule first.
+  const evaluated = new Map();
+  const evaluating = new Set();
+  function evaluate(record, inherited = false) {
+    if (evaluated.has(record)) {
+      const result = evaluated.get(record);
+      if ("error" in result) throw result.error;
+      return result.body;
+    }
+    const name = symbolName(record.handle);
+    const definition = ruleDefinitions.get(record.handle);
+    if (evaluating.has(record)) {
+      throw new Error(`Recursive original() evaluation for rule '${name}'.`);
+    }
+    evaluating.add(record);
+    try {
+      const body = withContext(inherited ? `Original body of rule '${name}'` : `Rule '${name}'`, () => {
+        // Previous bodies are evaluated only on demand. Resolve again to give
+        // the callback its own copy, so edits cannot mutate cached/base bodies.
+        const original = () => {
+          if (!record.previous || !ruleDefinitions.get(record.previous.handle).build) {
+            throw new Error(`Rule '${name}' has no inherited body.`);
+          }
+          return resolve(evaluate(record.previous, true));
+        };
+        const value = definition.build(original);
+        if (value === undefined) {
+          throw new Error("Returned undefined. Did you forget to return the rule expression?");
+        }
+        return resolve(value);
+      }, definition.declarationStack);
+      evaluated.set(record, { body });
+      return body;
+    } catch (error) {
+      evaluated.set(record, { error });
+      throw error;
+    } finally {
+      evaluating.delete(record);
+    }
+  }
+
+  // The JSON format uses the first rule as the start rule. Other rules keep
+  // declaration order, independently of how the module enumerates its exports.
   const orderedRules = new Map([[start, rules.get(start)], ...rules]);
   const bodies = [];
-  for (const [name, handle] of orderedRules) {
-    const definition = ruleDefinitions.get(handle);
+  for (const [name, record] of orderedRules) {
+    const definition = ruleDefinitions.get(record.handle);
     if (definition.external || definition.alias) continue;
-    const body = withContext(`Rule '${name}'`, () => {
-      const value = definition.build();
-      if (value === undefined) {
-        throw new Error("Returned undefined. Did you forget to return the rule expression?");
-      }
-      return resolve(value);
-    }, definition.declarationStack);
-    bodies.push([name, body]);
+    bodies.push([name, evaluate(record)]);
   }
 
   return {
@@ -323,7 +346,7 @@ function getEnv(name) {
 
 Object.assign(globalThis, {
   alias, blank, eof, choice, optional, prec, repeat, repeat1, reserved, seq,
-  sym, token, grammar, field, RustRegex, rule, override, external,
+  sym, token, grammar, field, RustRegex, rule, external,
 });
 
 try {

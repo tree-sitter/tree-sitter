@@ -54,7 +54,7 @@ function cleanFailure(files, entry) {
   return result.stderr;
 }
 
-for (const builder of ["rule(() => 'x')", "rule()", "external()", "override(original, () => 'y')"]) {
+for (const builder of ["rule(() => 'x')", "rule()", "external()"]) {
   test(`unexported ${builder} points to its declaration`, () => {
     const error = cleanFailure({
       "dsl.mjs": `const original = rule(() => 'x');\nconst hidden = ${builder};\nexport const getHidden = () => hidden;`,
@@ -318,7 +318,7 @@ test("alias-only declarations and their references are inherited", () => {
     `,
     "grammar.mjs": `
       import * as base from "./base.mjs";
-      export const root = override(base.root, () => alias("y", base.label));
+      export const root = rule(() => alias("y", base.label));
       export default { name: "derived", extends: base };
     `,
   });
@@ -370,6 +370,166 @@ test("a named rule called grammar is not mistaken for the legacy schema", () => 
   assert.deepEqual(actual.rules, { grammar: string("g") });
 });
 
+test("rule declaration order, not export-name order, determines lexical tie priority", () => {
+  const actual = compile({
+    "grammar.mjs": `
+      export const z_keyword = rule(() => /int/),
+        a_identifier = rule(() => /[a-z]+/),
+        root = rule(() => choice(z_keyword, a_identifier));
+      export default {name: 'ordered', start: root};
+    `,
+  });
+  assert.deepEqual(Object.keys(actual.rules), ["root", "z_keyword", "a_identifier"]);
+});
+
+test("original bodies are lazy, normalized, evaluated once, and copied for each access", () => {
+  const actual = compile({
+    "base.mjs": `
+      let evaluations = 0;
+      export const z_item = rule(() => {
+        if (++evaluations > 1) throw new Error("base body evaluated twice");
+        return choice('base', a_other);
+      }), a_other = rule(() => 'old'), root = rule(() => z_item);
+      export default {name: 'base', start: root};
+    `,
+    "grammar.mjs": `
+      import * as base from './base.mjs';
+      export const z_item = rule(original => {
+        const changed = original();
+        if (changed.members[1].name !== 'a_other') throw new Error('not normalized');
+        changed.members[0].value = 'changed';
+        const unchanged = original();
+        if (unchanged.members[0].value !== 'base') throw new Error('base was mutated');
+        return choice(...changed.members, ...unchanged.members);
+      }), a_other = rule(() => 'new');
+      export default {name: 'derived', extends: base};
+    `,
+  });
+  assert.deepEqual(Object.keys(actual.rules), ["root", "z_item", "a_other"]);
+  assert.deepEqual(actual.rules.z_item, {
+    type: "CHOICE",
+    members: [string("changed"), symbol("a_other"), string("base"), symbol("a_other")],
+  });
+  assert.deepEqual(actual.rules.a_other, string("new"));
+});
+
+test("original follows the immediate predecessor through multiple overrides", () => {
+  const actual = compile({
+    "base.mjs": `
+      export const root = rule(() => 'base');
+      export default {name: 'base', start: root};
+    `,
+    "middle.mjs": `
+      import * as base from './base.mjs';
+      export const root = rule(original => seq(original(), 'middle'));
+      export default {name: 'middle', extends: base};
+    `,
+    "grammar.mjs": `
+      import * as middle from './middle.mjs';
+      export const root = rule(original => seq(original(), 'leaf'));
+      export default {name: 'leaf', extends: middle};
+    `,
+  });
+  assert.deepEqual(actual.rules.root, seq(seq(string("base"), string("middle")), string("leaf")));
+});
+
+test("failed original bodies are evaluated only once", () => {
+  const actual = compile({
+    "base.mjs": `
+      let calls = 0;
+      export const root = rule(() => {
+        if (++calls > 1) throw new Error('evaluated twice');
+        throw new Error('original failure');
+      });
+      export default {name: 'base', start: root};
+    `,
+    "grammar.mjs": `
+      import * as base from './base.mjs';
+      export const root = rule(original => {
+        let first;
+        try { original(); } catch (error) { first = error; }
+        if (!first || !first.message.includes('original failure')) {
+          throw new Error('original failure was not reported');
+        }
+        let second;
+        try { original(); } catch (error) {
+          second = error;
+        }
+        if (second !== first) throw new Error('failure was not cached');
+        return 'recovered';
+      });
+      export default {name: 'derived', extends: base};
+    `,
+  });
+  assert.deepEqual(actual.rules.root, string("recovered"));
+});
+
+test("reusing an ancestor handle evaluates its builder against the active predecessor", () => {
+  const actual = compile({
+    "base.mjs": `
+      export const root = rule(() => 'base');
+      export default {name: 'base', start: root};
+    `,
+    "middle.mjs": `
+      import * as base from './base.mjs';
+      export const root = rule(original => seq(original(), 'middle'));
+      export default {name: 'middle', extends: base};
+    `,
+    "replacement.mjs": `
+      import * as middle from './middle.mjs';
+      export const root = rule(original => seq(original(), 'replacement'));
+      export default {name: 'replacement', extends: middle};
+    `,
+    "grammar.mjs": `
+      import * as middle from './middle.mjs';
+      import * as replacement from './replacement.mjs';
+      export const root = middle.root;
+      export default {name: 'leaf', extends: replacement};
+    `,
+  });
+  assert.deepEqual(actual.rules.root,
+    seq(seq(seq(string("base"), string("middle")), string("replacement")), string("middle")));
+});
+
+test("original without inheritance reports the containing rule", () => {
+  rejects(`
+    export const root = rule(original => original());
+    export default {name: 'test', start: root};
+  `, /Rule 'root' has no inherited body\./);
+});
+
+for (const inherited of ["rule()", "external()"]) {
+  test(`original rejects an inherited declaration without a body: ${inherited}`, () => {
+    const error = cleanFailure({
+      "base.mjs": `
+        export const item = ${inherited}, root = rule(() => 'base');
+        export default {name: 'base', start: root};
+      `,
+      "grammar.mjs": `
+        import * as base from './base.mjs';
+        export const item = rule(original => original());
+        export default {name: 'derived', extends: base};
+      `,
+    });
+    assert.match(error, /Rule 'item' has no inherited body\./);
+  });
+}
+
+test("original for a new name has no predecessor even in a derived grammar", () => {
+  const error = cleanFailure({
+    "base.mjs": `
+      export const root = rule(() => 'base');
+      export default {name: 'base', start: root};
+    `,
+    "grammar.mjs": `
+      import * as base from './base.mjs';
+      export const item = rule(original => original());
+      export default {name: 'derived', extends: base};
+    `,
+  });
+  assert.match(error, /Rule 'item' has no inherited body\./);
+});
+
 test("namespace inheritance preserves identity through multiple overrides without evaluating replaced bodies", () => {
   const actual = compile({
     "base.mjs": `
@@ -379,13 +539,13 @@ test("namespace inheritance preserves identity through multiple overrides withou
     `,
     "middle.mjs": `
       import * as base from "./base.mjs";
-      export const item = override(base.item, () => { throw new Error("middle body must never execute"); });
+      export const item = rule(() => { throw new Error("middle body must never execute"); });
       export default { name: "middle", extends: base };
     `,
     "grammar.mjs": `
       import * as base from "./base.mjs";
       import * as middle from "./middle.mjs";
-      export const item = override(middle.item, () => choice("leaf", base.item, middle.item));
+      export const item = rule(() => choice("leaf", base.item, middle.item, item));
       export default { name: "leaf", extends: middle };
     `,
   });
@@ -394,7 +554,7 @@ test("namespace inheritance preserves identity through multiple overrides withou
   assert.deepEqual(Object.keys(actual.rules), ["root", "item"]);
   assert.deepEqual(actual.rules.root, seq(symbol("item"), symbol("item")));
   assert.deepEqual(actual.rules.item, {
-    type: "CHOICE", members: [string("leaf"), symbol("item"), symbol("item")],
+    type: "CHOICE", members: [string("leaf"), symbol("item"), symbol("item"), symbol("item")],
   });
 });
 
@@ -412,7 +572,7 @@ test("inherited config replaces arrays, merges reserved sets, and resolves metad
     `,
     "grammar.mjs": `
       import * as base from "./base.mjs";
-      export const item = override(base.item, () => alias("new", base.item));
+      export const item = rule(() => alias("new", base.item));
       export default {
         name: "derived", extends: base, extras: [base.item],
         externals: [base.new_external, base.old_external],

@@ -43,6 +43,10 @@ to rules declared later. Put the default configuration after the declarations:
 unlike rule callbacks, its property values are evaluated immediately and cannot
 reference uninitialized bindings.
 
+Rule declaration/construction order is preserved because it breaks lexical ties.
+The selected start rule is emitted first. In derived grammars, overrides retain
+their inherited positions and new rules are appended in declaration order.
+
 All existing expression combinators accept handles, including `seq`, `choice`,
 `repeat`, `field`, `prec`, `token`, and `reserved`. `alias(value, handle)` produces
 a named alias; `alias(value, 'name')` produces an anonymous alias.
@@ -95,8 +99,8 @@ direct arrays or handles, not callbacks receiving `$`.
 Declare named external tokens with `export const indent = external()`, then
 include `indent` in `externals`. These handles can be referenced in expressions
 but have no rule builder; an external scanner supplies the tokens. The explicit
-`start` and `externals` options are necessary because ES module exports are
-enumerated by name, not in declaration order.
+`start` and `externals` options select the entry rule and scanner token order
+independently of where the handles are declared or how exports are enumerated.
 
 Include `tree-sitter-cli/dsl.d.ts` in your editor's types (or use the triple-slash
 reference above). The explicit extension works with NodeNext's ESM resolution.
@@ -113,7 +117,7 @@ Import the base grammar as a module namespace:
 ```javascript
 import * as base from './grammar.mjs';
 
-export const identifier = override(base.identifier, () => /[a-z_]+/);
+export const identifier = rule(() => /[a-z_]+/);
 
 /** @satisfies {ModuleGrammar} */
 export default {
@@ -122,14 +126,31 @@ export default {
 };
 ```
 
-`override(baseHandle, () => expression)` creates a replacement body with the same
-symbol identity. Inherited references to that symbol use the replacement in the
-derived grammar. The base grammar and its handles are not mutated; independent
-derived grammars can override the same symbol differently.
+Exporting a `rule()` handle under an inherited name replaces that symbol's body.
+Both inherited and new handles reference the same symbol and use its replacement
+in the derived grammar. The base grammar and its handles are not mutated;
+independent derived grammars can replace the same symbol differently.
 
-Export an override under the inherited symbol's name. Referencing `base.identifier`
-inside an override still references that symbol; it does not expand the previous
-body. Rule handles are not callable, and this prototype has no body-expansion API.
+Referencing `base.identifier` inside a builder still references that symbol; it
+does not expand the previous body. Rule handles are not callable. To extend or
+transform the inherited body, use the lazy accessor passed to every `rule` callback:
+
+```javascript
+export const identifier = rule(original =>
+  choice(original(), /special_identifier/));
+```
+
+`original()` returns a normalized copy of the immediate predecessor's expression.
+It can also be inspected or transformed, for example by filtering a choice's
+`members`. Each definition is evaluated at most once per compilation. A previous
+body is evaluated only if requested; each call receives a fresh copy so edits
+cannot mutate the base.
+Overrides that ignore the accessor do not evaluate the replaced body.
+The predecessor is the active definition of the same exported name in the
+grammar being extended, including replacements made by intermediate grammars.
+Failed evaluations are cached too. Calling `original()` without an inherited
+body (including when the predecessor is alias-only or external) reports
+`Rule 'name' has no inherited body.`
 
 The start rule and all omitted options are inherited. An explicitly provided
 option replaces the inherited value, including an empty array. `reserved` is

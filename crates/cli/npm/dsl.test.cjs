@@ -109,7 +109,8 @@ for (const extension of ['mjs', 'mts']) {
     `;
     const derived = `
       import * as base from './navigation-base.mjs';
-      export const identifier = override(base.identifier, () => /[a-z_]+/);
+      export const identifier = rule(original => choice(original(), /[a-z_]+/, expression)),
+        expression = rule(() => choice(identifier, base.identifier));
       /** @satisfies {ModuleGrammar} */
       export default { name: 'derived', extends: base };
     `;
@@ -165,6 +166,10 @@ test('handles cannot be called or forged, and root configuration requires a star
       const forged: RuleHandle = {};
       // @ts-expect-error Helpers must be called, not passed as rule references.
       choice(() => 'x');
+      // @ts-expect-error Replacement bodies use rule(), not a separate factory.
+      override(item, () => 'y');
+      // @ts-expect-error rule is a plain function, with no override property.
+      rule.override(item, () => 'y');
       // @ts-expect-error Root grammars require a start rule.
       const config: ModuleGrammar = { name: 'example' };
     `,

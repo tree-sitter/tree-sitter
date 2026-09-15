@@ -302,7 +302,9 @@ pub fn execute_native_runtime(grammar_path: &Path) -> JSResult<String> {
     let runtime = Runtime::new()?;
 
     runtime.set_memory_limit(64 * 1024 * 1024); // 64MB
-    runtime.set_max_stack_size(256 * 1024); // 256KB
+    // Normalizing nested expressions (including inherited bodies) needs more
+    // stack than the small legacy-only bootstrap did. Keep recursion bounded.
+    runtime.set_max_stack_size(1024 * 1024); // 1MB
 
     let context = Context::full(&runtime)?;
 
@@ -677,6 +679,89 @@ mod tests {
     }
 
     #[test]
+    fn test_nested_module_expressions() {
+        with_test_lock(|| {
+            let grammar = execute_fixture(
+                &[(
+                    "grammar.mjs",
+                    r"
+                    export const root = rule(() => {
+                      let expression = 'x';
+                      for (let i = 0; i < 32; i++) expression = seq(expression);
+                      return expression;
+                    });
+                    export default {name: 'nested', start: root};
+                    ",
+                )],
+                "grammar.mjs",
+            );
+            let mut expression = &grammar["rules"]["root"];
+            for _ in 0..32 {
+                assert_eq!(expression["type"], "SEQ");
+                expression = &expression["members"][0];
+            }
+            assert_eq!(
+                expression,
+                &serde_json::json!({"type": "STRING", "value": "x"})
+            );
+        });
+    }
+
+    #[test]
+    fn test_module_original_body_and_declaration_order() {
+        with_test_lock(|| {
+            let grammar = execute_fixture(
+                &[
+                    (
+                        "base.mjs",
+                        r"
+                        let calls = 0;
+                        export const z_keyword = rule(() => {
+                          if (++calls > 1) throw new Error('evaluated twice');
+                          return /int/;
+                        }), a_identifier = rule(() => /[a-z]+/),
+                          root = rule(() => choice(z_keyword, a_identifier));
+                        export default {name: 'base', start: root};
+                        ",
+                    ),
+                    (
+                        "grammar.mjs",
+                        r"
+                        import * as base from './base.mjs';
+                        export const z_keyword = rule(original => {
+                          const changed = original();
+                          changed.value = 'bool';
+                          return choice(changed, original());
+                        });
+                        export default {name: 'derived', extends: base};
+                        ",
+                    ),
+                ],
+                "grammar.mjs",
+            );
+            assert_eq!(
+                grammar["rules"]
+                    .as_object()
+                    .unwrap()
+                    .keys()
+                    .map(String::as_str)
+                    .collect::<Vec<_>>(),
+                ["root", "z_keyword", "a_identifier"]
+            );
+            assert_eq!(
+                grammar["rules"]["z_keyword"],
+                serde_json::json!({
+                    "type": "CHOICE",
+                    "members": [
+                        {"type": "PATTERN", "value": "bool"},
+                        {"type": "PATTERN", "value": "int"}
+                    ]
+                })
+            );
+        });
+    }
+
+    #[test]
     fn test_module_grammar_relative_helpers_and_base_override() {
         with_test_lock(|| {
             let grammar = execute_fixture(
@@ -698,7 +783,7 @@ mod tests {
                         "grammar.mjs",
                         r"
                         import * as base from './lib/base.js';
-                        export const item = override(base.item, () => choice(base.item, 'child'));
+                        export const item = rule(() => choice(base.item, 'child'));
                         export default { name: 'child', extends: base, start: base.source_file };
                         ",
                     ),
