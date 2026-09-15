@@ -29,6 +29,11 @@ mod rules;
 mod strpool;
 mod tables;
 
+// Both runtimes evaluate the same bootstrap. Keep the legacy API available
+// while module grammars use handles and an explicit start rule.
+#[cfg(feature = "load")]
+const DSL: &str = concat!(include_str!("legacy-dsl.js"), "\n", include_str!("dsl.js"));
+
 use build_tables::build_tables;
 pub use build_tables::{AmbiguousExtraError, ConflictError, ParseTableBuilderError};
 use grammars::{InlinedProductionMap, LexicalGrammar, SyntaxGrammar};
@@ -179,9 +184,9 @@ pub type LoadGrammarFileResult<T> = Result<T, LoadGrammarError>;
 #[cfg(feature = "load")]
 #[derive(Debug, Error, Serialize, Deserialize, PartialEq, Eq)]
 pub enum LoadGrammarError {
-    #[error("Path to a grammar file with `.js` or `.json` extension is required")]
+    #[error("Path to a grammar file with `.js`, `.mjs`, `.cjs`, or `.json` extension is required")]
     InvalidPath,
-    #[error("Failed to load grammar.js -- {0}")]
+    #[error("Failed to load JavaScript grammar -- {0}")]
     LoadJSGrammarFile(#[from] JSError),
     #[error("Failed to load grammar.json -- {0}")]
     IO(IoError),
@@ -612,7 +617,7 @@ pub fn load_grammar_file(
         Err(LoadGrammarError::InvalidPath)?;
     }
     match grammar_path.extension().and_then(|e| e.to_str()) {
-        Some("js") => Ok(load_js_grammar_file(grammar_path, js_runtime)?),
+        Some("js" | "mjs" | "cjs") => Ok(load_js_grammar_file(grammar_path, js_runtime)?),
         Some("json") => Ok(fs::read_to_string(grammar_path)
             .map_err(|e| LoadGrammarError::IO(IoError::new(e, Some(grammar_path))))?),
         _ => Err(LoadGrammarError::FileExtension(grammar_path.to_owned()))?,
@@ -681,7 +686,7 @@ fn load_js_grammar_file(grammar_path: &Path, js_runtime: Option<&str>) -> JSResu
         error: e.to_string().into(),
     })?;
     js_stdin
-        .write(include_bytes!("./dsl.js"))
+        .write_all(DSL.as_bytes())
         .map_err(|e| JSError::JSRuntimeWrite {
             runtime: js_runtime.to_string().into(),
             item: "grammar dsl".to_string().into(),

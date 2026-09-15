@@ -46,7 +46,68 @@ declare class RustRegex {
   constructor(pattern: string);
 }
 
-type RuleOrLiteral = Rule | RegExp | RustRegex | string;
+type RuleOrLiteral = Rule | RuleHandle | RegExp | RustRegex | string;
+
+declare const ruleHandleBrand: unique symbol;
+declare const externalHandleBrand: unique symbol;
+
+/** An opaque, non-callable reference to a module grammar symbol. */
+interface RuleHandle {
+  readonly [ruleHandleBrand]: true;
+}
+
+/** A module grammar symbol whose token is supplied by an external scanner. */
+interface ExternalHandle extends RuleHandle {
+  readonly [externalHandleBrand]: true;
+}
+
+/**
+ * Declares a symbol. The builder is evaluated after the module has loaded.
+ * Without a builder, the symbol may only be used as an alias target.
+ */
+declare function rule(build?: () => RuleOrLiteral): RuleHandle;
+
+/** Replaces a symbol's body in a derived grammar without mutating the base. */
+declare function override(base: RuleHandle, build: () => RuleOrLiteral): RuleHandle;
+
+// Editors often include lib.dom even for grammar files. Merge its existing
+// External/external declarations rather than conflicting with the browser global.
+interface External {
+  /** Declares an external token; include it in the grammar's externals list. */
+  (): ExternalHandle;
+}
+declare var external: External;
+
+/**
+ * The namespace imported from a module grammar, not a legacy grammar() result.
+ * Concrete imports retain their named bindings and editor navigation.
+ */
+interface GrammarModule {
+  readonly default: ModuleGrammar;
+}
+
+/** Options are inherited when omitted; provided values replace inherited ones. */
+interface ModuleGrammarOptions {
+  name: string;
+  word?: RuleHandle;
+  extras?: RuleOrLiteral[];
+  conflicts?: RuleHandle[][];
+  inline?: RuleHandle[];
+  supertypes?: RuleHandle[];
+  precedences?: (string | RuleHandle)[][];
+  externals?: RuleOrLiteral[];
+  /** Merged by key with inherited sets; a provided set replaces that key. */
+  reserved?: Record<string, RuleOrLiteral[]>;
+}
+
+/**
+ * Default export of a module grammar. Roots require an explicit start symbol;
+ * derived grammars may inherit it. Available globally for satisfies or JSDoc.
+ */
+type ModuleGrammar = ModuleGrammarOptions & (
+  | { extends?: never; start: RuleHandle }
+  | { extends: GrammarModule; start?: RuleHandle }
+);
 
 type GrammarSymbols<RuleName extends string> = {
   [name in RuleName]: SymbolRule<name>;
@@ -236,7 +297,7 @@ declare function alias(rule: RuleOrLiteral, name: string): AliasRule;
  */
 declare function alias(
   rule: RuleOrLiteral,
-  symbol: SymbolRule<string>,
+  symbol: SymbolRule<string> | RuleHandle,
 ): AliasRule;
 
 /**

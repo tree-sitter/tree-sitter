@@ -10,9 +10,7 @@ use rquickjs::{
 };
 use rustc_hash::FxHashMap;
 
-use super::{IoError, JSError, JSResult};
-
-const DSL: &[u8] = include_bytes!("dsl.js");
+use super::{DSL, IoError, JSError, JSResult};
 
 trait JSResultExt<T> {
     fn or_js_error(self, ctx: &Ctx) -> JSResult<T>;
@@ -297,11 +295,19 @@ pub fn execute_native_runtime(grammar_path: &Path) -> JSResult<String> {
 
     let context = Context::full(&runtime)?;
 
+    // Both defaults include `.js`; these additions also allow `.mjs` and `.cjs`.
+    // Always parse imports as modules, regardless of extension. CommonJS
+    // grammars use the global module/require shim below, while require() loads
+    // dependencies in their own CommonJS wrapper. No source-text format
+    // detection is needed, so comments and strings cannot affect loading.
     let resolver = FileResolver::default()
         .with_path("./node_modules")
         .with_path("./")
-        .with_pattern("{}.mjs");
-    let loader = ScriptLoader::default().with_extension("mjs");
+        .with_pattern("{}.mjs")
+        .with_pattern("{}.cjs");
+    let loader = ScriptLoader::default()
+        .with_extension("mjs")
+        .with_extension("cjs");
     runtime.set_loader(resolver, loader);
 
     let cwd = std::env::current_dir().map_err(|e| JSError::IO(IoError::new(e, None)))?;
@@ -373,14 +379,282 @@ mod tests {
     where
         F: FnOnce() -> R,
     {
-        let _guard = TEST_MUTEX.get_or_init(|| Arc::new(Mutex::new(()))).lock();
-        let result = test();
-        cleanup_runtime_state();
-        result
+        let _guard = TEST_MUTEX
+            .get_or_init(|| Arc::new(Mutex::new(())))
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        struct RestoreWorkingDirectory(PathBuf);
+        impl Drop for RestoreWorkingDirectory {
+            fn drop(&mut self) {
+                std::env::set_current_dir(&self.0).unwrap();
+                cleanup_runtime_state();
+            }
+        }
+        let _restore = RestoreWorkingDirectory(std::env::current_dir().unwrap());
+        test()
     }
 
     fn cleanup_runtime_state() {
         FILE_CACHE.lock().unwrap().clear();
+    }
+
+    fn execute_fixture(files: &[(&str, &str)], entry: &str) -> serde_json::Value {
+        let temp_dir = TempDir::new().unwrap();
+        for (path, source) in files {
+            let path = temp_dir.path().join(path);
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            fs::write(path, source).unwrap();
+        }
+        let json = super::super::load_grammar_file(&temp_dir.path().join(entry), Some("native"))
+            .expect("Failed to execute module grammar");
+        serde_json::from_str(&json).unwrap()
+    }
+
+    #[test]
+    fn test_module_grammar_generates_parser() {
+        with_test_lock(|| {
+            let grammar = execute_fixture(
+                &[(
+                    "grammar.mjs",
+                    r"
+                    export const
+                      identifier = rule(() => /[a-z]+/),
+                      type_identifier = rule(),
+                      grammar = rule(() => seq(alias(identifier, type_identifier), ';')),
+                      source_file = rule(() => repeat(grammar));
+                    export default { name: 'module_example', start: source_file };
+                    ",
+                )],
+                "grammar.mjs",
+            );
+            let (name, parser) = super::super::generate_parser_for_grammar(
+                &serde_json::to_string(&grammar).unwrap(),
+                None,
+                super::super::OptLevel::default(),
+                &mut Vec::new(),
+            )
+            .expect("Module grammar must produce a valid parser");
+            assert_eq!(name, "module_example");
+            assert!(parser.contains("tree_sitter_module_example"));
+        });
+    }
+
+    #[test]
+    fn test_module_grammar_extensions_and_recursive_start() {
+        with_test_lock(|| {
+            for entry in ["grammar.js", "grammar.mjs"] {
+                let grammar = execute_fixture(
+                    &[(
+                        entry,
+                        r"
+                        export const identifier = rule(() => /[a-z]+/);
+                        export const expression = rule(() =>
+                          choice(identifier, seq('(', source_file, ')')));
+                        export const source_file = rule(() => repeat(expression));
+                        export default { name: 'recursive', start: source_file };
+                        ",
+                    )],
+                    entry,
+                );
+                assert_eq!(grammar["name"], "recursive");
+                assert_eq!(
+                    grammar["rules"].as_object().unwrap().keys().next().unwrap(),
+                    "source_file"
+                );
+                assert_eq!(grammar["rules"]["source_file"]["type"], "REPEAT");
+                assert_eq!(
+                    grammar["rules"]["source_file"]["content"],
+                    serde_json::json!({"type": "SYMBOL", "name": "expression"})
+                );
+                assert_eq!(
+                    grammar["rules"]["expression"]["members"][1]["members"][1],
+                    serde_json::json!({"type": "SYMBOL", "name": "source_file"})
+                );
+            }
+        });
+    }
+
+    #[test]
+    fn test_module_grammar_relative_helpers_and_base_override() {
+        with_test_lock(|| {
+            let grammar = execute_fixture(
+                &[
+                    (
+                        "lib/helpers.js",
+                        "export const commaSep = member => seq(member, repeat(seq(',', member)));",
+                    ),
+                    (
+                        "lib/base.js",
+                        r"
+                        import { commaSep } from './helpers.js';
+                        export const item = rule(() => 'base');
+                        export const source_file = rule(() => commaSep(item));
+                        export default { name: 'base', start: source_file };
+                        ",
+                    ),
+                    (
+                        "grammar.mjs",
+                        r"
+                        import * as base from './lib/base.js';
+                        export const item = override(base.item, () => choice(base.item, 'child'));
+                        export default { name: 'child', extends: base, start: base.source_file };
+                        ",
+                    ),
+                ],
+                "grammar.mjs",
+            );
+            assert_eq!(grammar["name"], "child");
+            assert_eq!(
+                grammar["rules"]["item"],
+                serde_json::json!({
+                    "type": "CHOICE",
+                    "members": [
+                        {"type": "SYMBOL", "name": "item"},
+                        {"type": "STRING", "value": "child"}
+                    ]
+                })
+            );
+            assert_eq!(
+                grammar["rules"]["source_file"]["members"][0],
+                serde_json::json!({"type": "SYMBOL", "name": "item"})
+            );
+        });
+    }
+
+    #[test]
+    fn test_module_grammar_external_handle() {
+        with_test_lock(|| {
+            let grammar = execute_fixture(
+                &[(
+                    "grammar.js",
+                    r"
+                    export const newline = external();
+                    export const source_file = rule(() => repeat(newline));
+                    export default {
+                      name: 'with_external', start: source_file, externals: [newline]
+                    };
+                    ",
+                )],
+                "grammar.js",
+            );
+            assert_eq!(
+                grammar["externals"],
+                serde_json::json!([{"type": "SYMBOL", "name": "newline"}])
+            );
+            assert!(grammar["rules"].get("newline").is_none());
+            assert_eq!(
+                grammar["rules"]["source_file"]["content"],
+                serde_json::json!({"type": "SYMBOL", "name": "newline"})
+            );
+        });
+    }
+
+    #[test]
+    fn test_module_grammar_errors() {
+        with_test_lock(|| {
+            for (source, expected) in [
+                (
+                    "export const root = rule(() => 'x'); export default { name: 'test' };",
+                    "Specify a start rule handle",
+                ),
+                (
+                    "export const root = rule(() => {}); export default { name: 'test', start: root };",
+                    "Rule 'root': Returned undefined",
+                ),
+                (
+                    "export const root = rule(() => root()); export default { name: 'test', start: root };",
+                    "Rule 'root':",
+                ),
+                (
+                    "const privateRule = rule(() => 'x'); export const root = rule(() => privateRule); export default { name: 'test', start: root };",
+                    "Rule 'root': Unregistered rule handle",
+                ),
+                (
+                    "const helper = () => 'x'; export const root = rule(() => seq(helper)); export default { name: 'test', start: root };",
+                    "Expected a rule handle or expression, not a function",
+                ),
+                (
+                    "export const root = rule(() => optional('a', 'b')); export default { name: 'test', start: root };",
+                    "only takes one rule argument",
+                ),
+                (
+                    "export const helper = () => 'x'; export default { name: 'test', start: helper };",
+                    "Export 'helper' is not a rule handle",
+                ),
+                (
+                    "export const root = rule(() => 'x'); export { root as other }; export default { name: 'test', start: root };",
+                    "Each symbol must have one name",
+                ),
+                (
+                    "export const root = external(); export default { name: 'test', start: root, externals: [root] };",
+                    "The start rule must have a body",
+                ),
+            ] {
+                let temp_dir = TempDir::new().unwrap();
+                let path = temp_dir.path().join("grammar.mjs");
+                fs::write(&path, source).unwrap();
+                let error = execute_native_runtime(&path).unwrap_err().to_string();
+                assert!(error.contains(expected), "{source}\n{error}");
+            }
+        });
+    }
+
+    #[test]
+    fn test_legacy_esm_grammar() {
+        with_test_lock(|| {
+            for entry in ["grammar.js", "grammar.mjs"] {
+                let grammar = execute_fixture(
+                    &[(
+                        entry,
+                        r"
+                        export default grammar({
+                          name: 'legacy_module',
+                          rules: { source_file: $ => 'legacy' }
+                        });
+                        ",
+                    )],
+                    entry,
+                );
+                assert_eq!(grammar["name"], "legacy_module");
+                assert_eq!(
+                    grammar["rules"]["source_file"],
+                    serde_json::json!({"type": "STRING", "value": "legacy"})
+                );
+            }
+        });
+    }
+
+    #[test]
+    fn test_legacy_cjs_grammar() {
+        with_test_lock(|| {
+            let grammar = execute_fixture(
+                &[
+                    (
+                        "lib/helper.cjs",
+                        "module.exports = require('./value.json').value;",
+                    ),
+                    ("lib/value.json", r#"{"value":"legacy"}"#),
+                    (
+                        "grammar.cjs",
+                        r"
+                        // export default is merely a comment, not format detection.
+                        const misleading = 'import rule from somewhere';
+                        const value = require('./lib/helper.cjs');
+                        module.exports = grammar({
+                          name: 'legacy_commonjs',
+                          rules: { source_file: $ => value }
+                        });
+                        ",
+                    ),
+                ],
+                "grammar.cjs",
+            );
+            assert_eq!(grammar["name"], "legacy_commonjs");
+            assert_eq!(
+                grammar["rules"]["source_file"],
+                serde_json::json!({"type": "STRING", "value": "legacy"})
+            );
+        });
     }
 
     #[test]

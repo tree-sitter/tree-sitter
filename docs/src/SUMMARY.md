@@ -19,6 +19,7 @@
 - [Creating Parsers](./creating-parsers/index.md)
   - [Getting Started](./creating-parsers/1-getting-started.md)
   - [The Grammar DSL](./creating-parsers/2-the-grammar-dsl.md)
+  - [Module Grammars](./creating-parsers/module-grammars.md)
   - [Writing the Grammar](./creating-parsers/3-writing-the-grammar.md)
   - [External Scanners](./creating-parsers/4-external-scanners.md)
   - [Writing Tests](./creating-parsers/5-writing-tests.md)
