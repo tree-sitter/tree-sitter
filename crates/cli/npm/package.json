@@ -27,10 +27,14 @@
   },
   "scripts": {
     "install": "node install.js",
+    "test": "node --test dsl.test.cjs",
     "prepack": "cp ../../../LICENSE ../README.md .",
     "postpack": "rm LICENSE README.md"
   },
   "bin": {
     "tree-sitter": "cli.js"
+  },
+  "devDependencies": {
+    "typescript": "~5.9.3"
   }
 }

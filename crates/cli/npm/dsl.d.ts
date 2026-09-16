@@ -46,7 +46,60 @@ declare class RustRegex {
   constructor(pattern: string);
 }
 
-type RuleOrLiteral = Rule | RegExp | RustRegex | string;
+type RuleOrLiteral = Rule | RuleRef | RegExp | RustRegex | string;
+
+declare const ruleRefBrand: unique symbol;
+
+/** An opaque, non-callable reference to a module grammar symbol. */
+interface RuleRef {
+  readonly [ruleRefBrand]: true;
+  /**
+   * Returns a fresh normalized copy of this handle's definition, not the active
+   * override. Only valid during grammar evaluation; throws for bodyless handles.
+   * Evaluation results and errors are cached per handle per compilation.
+   */
+  body(): Rule;
+}
+
+/**
+ * Declares a symbol. The builder is evaluated after the module has loaded.
+ * Without a builder, the symbol is an alias target or, when listed in externals,
+ * an external token. Exporting an inherited name replaces its active definition.
+ * Use a specific handle's body() to inspect or extend that handle's definition.
+ */
+declare function rule(build?: () => RuleOrLiteral): RuleRef;
+
+/**
+ * The namespace imported from a module grammar, not a legacy grammar() result.
+ * Concrete imports retain their named bindings and editor navigation.
+ */
+interface GrammarModule {
+  readonly default: ModuleGrammar;
+}
+
+/** Options are inherited when omitted; provided values replace inherited ones. */
+interface ModuleGrammarOptions {
+  name: string;
+  word?: RuleRef;
+  extras?: RuleOrLiteral[];
+  conflicts?: RuleRef[][];
+  inline?: RuleRef[];
+  supertypes?: RuleRef[];
+  precedences?: (string | RuleRef)[][];
+  /** Sole designation of scanner tokens; named tokens may use bodyless rule handles. */
+  externals?: RuleOrLiteral[];
+  /** Merged by key with inherited sets; a provided set replaces that key. */
+  reserved?: Record<string, RuleOrLiteral[]>;
+}
+
+/**
+ * Default export of a module grammar. Roots require an explicit start symbol;
+ * derived grammars may inherit it. Available globally for satisfies or JSDoc.
+ */
+type ModuleGrammar = ModuleGrammarOptions & (
+  | { extends?: never; start: RuleRef }
+  | { extends: GrammarModule; start?: RuleRef }
+);
 
 type GrammarSymbols<RuleName extends string> = {
   [name in RuleName]: SymbolRule<name>;
@@ -236,7 +289,7 @@ declare function alias(rule: RuleOrLiteral, name: string): AliasRule;
  */
 declare function alias(
   rule: RuleOrLiteral,
-  symbol: SymbolRule<string>,
+  symbol: SymbolRule<string> | RuleRef,
 ): AliasRule;
 
 /**
