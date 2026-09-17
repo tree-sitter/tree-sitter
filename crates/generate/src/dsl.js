@@ -3,7 +3,7 @@
 // the embedded DSL. Neither implementation depends on Node-specific APIs.
 const ruleDefinitions = new WeakMap();
 let nextRuleOrder = 0;
-let evaluateRuleBody;
+let ruleEvaluation;
 
 // Error.stack is not standardized, but is supported by Node, Bun, Deno, and
 // QuickJS. Filter by source identity, never by function names: grammar helpers
@@ -78,10 +78,17 @@ function formatDiagnostic(error, ancestors = new Set()) {
 function makeRuleRef(definition) {
   const handle = Object.freeze({
     body() {
-      if (!evaluateRuleBody) {
+      if (!ruleEvaluation) {
         throw new Error("Rule bodies can only be accessed during grammar evaluation.");
       }
-      return evaluateRuleBody(handle);
+      return ruleEvaluation.body(handle);
+    },
+    equals(expression) {
+      if (!ruleEvaluation) {
+        throw new Error("Rule references can only be compared during grammar evaluation.");
+      }
+      const name = ruleEvaluation.symbolName(handle);
+      return expression.type === "SYMBOL" && expression.name === name;
     },
   });
   definition.order = nextRuleOrder++;
@@ -298,13 +305,16 @@ function compileModule(module) {
         }
         // Body access is scoped to this compilation. Resolve again for a fresh
         // copy; callers may transform it without mutating the cached definition.
-        const previousEvaluator = evaluateRuleBody;
+        const previousEvaluation = ruleEvaluation;
         let value;
         try {
-          evaluateRuleBody = target => resolve(evaluate(target));
+          ruleEvaluation = {
+            body: target => resolve(evaluate(target)),
+            symbolName,
+          };
           value = definition.build();
         } finally {
-          evaluateRuleBody = previousEvaluator;
+          ruleEvaluation = previousEvaluation;
         }
         if (value === undefined) {
           throw new Error("Returned undefined. Did you forget to return the rule expression?");

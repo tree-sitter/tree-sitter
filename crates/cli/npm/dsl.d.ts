@@ -59,6 +59,12 @@ interface RuleRef {
    * Evaluation results and errors are cached per handle per compilation.
    */
   body(): Rule;
+  /**
+   * Tests whether a normalized expression directly references this symbol.
+   * Does not expand bodies or look through wrappers. Only valid during grammar
+   * evaluation; inherited and overriding definitions match the same symbol.
+   */
+  equals(expression: Rule): boolean;
 }
 
 /**

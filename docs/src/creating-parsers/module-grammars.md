@@ -183,6 +183,25 @@ once per compilation, and failed evaluations are cached too. Each successful
 `body()` call returns a fresh normalized copy so edits cannot mutate the cached
 definition. Replaced bodies are evaluated only if requested.
 
+Use `RuleRef.equals(expression: Rule)` to test whether a normalized expression
+directly references a symbol, without comparing its name as a string:
+
+```javascript
+export const expression = rule(() => {
+  const body = base.expression.body();
+  if (body.type !== 'CHOICE') {
+    throw new Error('Expected a choice');
+  }
+  return choice(...body.members.filter(member => !base.jsx_element.equals(member)));
+});
+```
+
+Like `body()`, `equals()` is only available during grammar evaluation.
+It compares symbol identity, not bodies: inherited and overriding references
+match the same normalized symbol. It does not expand definitions or look through
+aliases, optional expressions, or other wrappers. Its argument must be a normalized
+`Rule`, not a `RuleRef`, string, or regex.
+
 Ordinary recursive symbol references remain valid. Cyclic body expansion, such
 as a builder calling its own `body()` or two builders requesting each other's
 bodies, instead reports a cycle diagnostic.

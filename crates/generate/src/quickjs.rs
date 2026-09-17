@@ -785,6 +785,65 @@ mod tests {
     }
 
     #[test]
+    fn test_module_symbol_equality() {
+        with_test_lock(|| {
+            let grammar = execute_fixture(
+                &[
+                    (
+                        "base.mjs",
+                        r"
+                        export const root = rule(() => choice(for_, other)),
+                          for_ = rule(() => { throw new Error('unused base body'); }),
+                          other = rule(() => 'other');
+                        export default {name: 'base', start: root};
+                        ",
+                    ),
+                    (
+                        "grammar.mjs",
+                        r"
+                        import * as base from './base.mjs';
+                        export const for_ = rule(() => 'for'),
+                          root = rule(() => {
+                            const body = base.root.body();
+                            const symbol = body.members[0];
+                            if (!for_.equals(symbol) || !base.for_.equals(symbol)) {
+                              throw new Error('symbol identity lost');
+                            }
+                            if (for_.equals(body.members[1]) || for_.equals(optional(symbol))) {
+                              throw new Error('non-symbol equality');
+                            }
+                            return choice(...body.members.filter(member => !for_.equals(member)));
+                          });
+                        export default {name: 'test', extends: base};
+                        ",
+                    ),
+                ],
+                "grammar.mjs",
+            );
+            assert_eq!(
+                grammar["rules"]["root"],
+                serde_json::json!({
+                    "type": "CHOICE",
+                    "members": [{"type": "SYMBOL", "name": "other"}]
+                })
+            );
+            let error = fixture_error(
+                &[(
+                    "grammar.mjs",
+                    "export const root = rule(() => 'x');\n\
+                     root.equals({type: 'SYMBOL', name: 'root'});\n\
+                     export default {name: 'test', start: root};",
+                )],
+                "grammar.mjs",
+            );
+            assert!(
+                error.contains("only be compared during grammar evaluation"),
+                "{error}"
+            );
+        });
+    }
+
+    #[test]
     fn test_module_body_cache_and_exact_definition() {
         with_test_lock(|| {
             let grammar = execute_fixture(
@@ -822,7 +881,7 @@ mod tests {
                             if (arguments.length) throw new Error('unexpected arguments');
                             if (typeof root !== 'object' || !Object.isFrozen(root))
                               throw new Error('invalid handle');
-                            if (Reflect.ownKeys(root).some(key => key !== 'body'))
+                            if (Reflect.ownKeys(root).some(key => !['body', 'equals'].includes(key)))
                               throw new Error('exposed internals');
                             let first, second;
                             try { base.broken.body(); } catch (error) { first = error; }

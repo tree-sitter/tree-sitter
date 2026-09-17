@@ -54,6 +54,79 @@ function cleanFailure(files, entry) {
   return result.stderr;
 }
 
+test("equals compares normalized symbol identity without expanding definitions", () => {
+  const grammar = compile({
+    "base.mjs": `
+      export const root = rule(() => choice(item, other)),
+        item = rule(() => { throw new Error('base body must not run'); }),
+        other = rule(() => 'other');
+      export default {name: 'base', start: root};
+    `,
+    "grammar.mjs": `
+      import * as base from './base.mjs';
+      export const root = rule(() => {
+        const body = base.root.body();
+        const symbol = body.members[0];
+        if (!base.item.equals(symbol) || !item.equals(symbol)) {
+          throw new Error('overrides must share symbol identity');
+        }
+        for (const other of [
+          body.members[1], blank(), {type: 'STRING', value: 'item'},
+          alias(symbol, 'item'), optional(symbol), seq(symbol), field('item', symbol),
+        ]) {
+          if (item.equals(other)) throw new Error('non-symbol unexpectedly equal');
+        }
+        if (!for_.equals({type: 'SYMBOL', name: 'for'})) throw new Error('escaped name');
+        if (!label.equals({type: 'SYMBOL', name: 'label'})) throw new Error('alias symbol');
+        if (!newline.equals({type: 'SYMBOL', name: 'newline'})) throw new Error('external symbol');
+        return choice(...body.members.filter(member => !item.equals(member)));
+      }),
+        item = rule(() => 'replacement'),
+        for_ = rule(() => 'for'),
+        label = rule(),
+        newline = rule();
+      export default {name: 'test', extends: base, externals: [newline]};
+    `,
+  });
+  assert.deepEqual(grammar.rules.root, {
+    type: "CHOICE",
+    members: [{type: "SYMBOL", name: "other"}],
+  });
+});
+
+test("equals requires a registered reference and an active evaluation", () => {
+  rejects(`
+    const hidden = rule();
+    export const root = rule(() => {
+      hidden.equals({type: 'SYMBOL', name: 'hidden'});
+      return 'x';
+    });
+    export default {name: 'test', start: root};
+  `, /Unregistered rule handle/);
+  rejects(`
+    export const root = rule(() => 'x');
+    root.equals({type: 'SYMBOL', name: 'root'});
+    export default {name: 'test', start: root};
+  `, /Rule references can only be compared during grammar evaluation/);
+  const result = run({
+    "grammar.mjs": `
+      export const root = rule(() => {
+        try { broken.body(); } catch {}
+        if (!root.equals({type: 'SYMBOL', name: 'root'})) throw new Error('lost context');
+        return 'x';
+      }), broken = rule();
+      export default {name: 'test', start: root};
+    `,
+  }, undefined, `
+    const module = await import(process.env.TREE_SITTER_GRAMMAR_PATH);
+    let rejected = false;
+    try { module.root.equals({type: 'SYMBOL', name: 'root'}); }
+    catch (error) { rejected = /only be compared during grammar evaluation/.test(error.message); }
+    if (!rejected) throw new Error('evaluation context leaked');
+  `);
+  assert.equal(result.status, 0, result.stderr);
+});
+
 for (const builder of ["rule(() => 'x')", "rule()"]) {
   test(`unexported ${builder} points to its declaration`, () => {
     const error = cleanFailure({
@@ -596,8 +669,9 @@ test("handles are frozen opaque noncallable objects and builders receive no argu
         return 'ok';
       });
       if (typeof root !== 'object' || !Object.isFrozen(root)) throw new Error('mutable handle');
-      if (Reflect.ownKeys(root).some(key => key !== 'body')) throw new Error('exposed internals');
+      if (Reflect.ownKeys(root).some(key => !['body', 'equals'].includes(key))) throw new Error('exposed internals');
       if (typeof root.body !== 'function') throw new Error('missing body method');
+      if (typeof root.equals !== 'function') throw new Error('missing equals method');
       export default {name: 'test', start: root};
     `,
   });

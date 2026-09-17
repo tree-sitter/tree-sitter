@@ -158,6 +158,37 @@ for (const extension of ['mjs', 'mts']) {
   });
 }
 
+test('symbol equality accepts normalized rules, not authoring inputs', () => {
+  const name = 'rule-equality.mts';
+  const service = languageService({
+    [name]: `
+      const item = rule(() => 'x');
+      const root = rule(() => {
+        const body = item.body();
+        const equal: boolean = item.equals(body);
+        if (body.type === 'CHOICE' || body.type === 'SEQ') {
+          return choice(...body.members.filter(member => !item.equals(member)));
+        }
+        if (body.type === 'FIELD') {
+          item.equals(body.content);
+        }
+        item.equals({type: 'SYMBOL', name: 'item'});
+        // @ts-expect-error Strings are authoring literals, not normalized rules.
+        item.equals('item');
+        // @ts-expect-error Regexes are authoring literals, not normalized rules.
+        item.equals(/x/);
+        // @ts-expect-error Rule references are not normalized expressions.
+        item.equals(item);
+        // @ts-expect-error Rust regexes also require normalization.
+        item.equals(new RustRegex('x'));
+        return body;
+      });
+    `,
+  });
+  assert.deepEqual(diagnostics(service, path.join(__dirname, name)), []);
+  service.dispose();
+});
+
 test('handles cannot be called or forged, and root configuration requires a start', () => {
   const name = 'invalid-handles.mts';
   const service = languageService({
@@ -174,8 +205,8 @@ test('handles cannot be called or forged, and root configuration requires a star
       item();
       // @ts-expect-error Handles cannot be constructed outside the DSL.
       const forged: RuleRef = {};
-      // @ts-expect-error A body method alone does not forge an opaque handle.
-      const forgedBody: RuleRef = { body: () => ({type: 'BLANK'}) };
+      // @ts-expect-error Public methods alone cannot forge an opaque reference.
+      const forgedBody: RuleRef = { body: () => ({type: 'BLANK'}), equals: () => false };
       // @ts-expect-error Builders receive no original callback.
       rule((original: () => Rule) => original());
       // @ts-expect-error body takes no arguments.
