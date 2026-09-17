@@ -12,7 +12,15 @@ repository = "PARSER_URL"
 version = "PARSER_VERSION"
 
 build = "bindings/rust/build.rs"
-include = [ "bindings/rust/*", "grammar.js", "queries/*", "src/*", "tree-sitter.json", "/LICENSE" ]
+include = [
+  "bindings/rust/*",
+  "grammar.js",
+  "grammar.tsg",
+  "queries/*",
+  "src/*",
+  "tree-sitter.json",
+  "/LICENSE",
+]
 
 [lib]
 path = "bindings/rust/lib.rs"

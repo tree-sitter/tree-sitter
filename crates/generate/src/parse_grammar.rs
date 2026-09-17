@@ -12,7 +12,7 @@ use crate::{
     strpool::StrId,
 };
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(tag = "type")]
 #[expect(
     non_camel_case_types,
@@ -22,7 +22,7 @@ use crate::{
     clippy::upper_case_acronyms,
     reason = "variant names match JSON grammar format"
 )]
-enum RuleJSON {
+pub(crate) enum RuleJSON {
     ALIAS {
         content: Box<Self>,
         named: bool,
@@ -34,6 +34,7 @@ enum RuleJSON {
     },
     PATTERN {
         value: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
         flags: Option<String>,
     },
     SYMBOL {
@@ -84,9 +85,9 @@ enum RuleJSON {
     EOF,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(untagged)]
-enum PrecedenceValueJSON {
+pub(crate) enum PrecedenceValueJSON {
     Integer(i32),
     Name(String),
 }
@@ -143,7 +144,8 @@ impl InputGrammar {
     /// A variable is "used" if it is the start rule, the word token, named in
     /// `extras`/`externals`, or transitively reachable via rule references from
     /// any of the above.
-    fn normalize(mut self, diagnostics: &mut Vec<Diagnostic>) -> Self {
+    #[must_use]
+    pub fn normalize(mut self, diagnostics: &mut Vec<Diagnostic>) -> Self {
         // Compute the used set via forward DFS from the implicit roots
         // (start rule, word_token, refs in extras and externals).
         //

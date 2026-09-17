@@ -28,4 +28,7 @@ schemars.workspace = true
 semver.workspace = true
 serde_json.workspace = true
 tree-sitter-cli = { path = "../cli/" }
+tree-sitter-generate = { default-features = false, features = [
+  "nativedsl",
+], path = "../generate/" }
 tree-sitter-loader = { path = "../loader/" }

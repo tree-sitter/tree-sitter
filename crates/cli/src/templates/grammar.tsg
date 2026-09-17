@@ -1,0 +1,10 @@
+// PARSER_DESCRIPTION
+// Author: PARSER_AUTHOR_NAME PARSER_AUTHOR_EMAIL
+// License: PARSER_LICENSE
+
+grammar {
+  language: "LOWER_PARSER_NAME",
+}
+
+// TODO: add the actual grammar rules
+rule source_file { "hello" }

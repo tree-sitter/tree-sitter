@@ -1,0 +1,9 @@
+// Helper that defines a rule-set macro and calls it locally. The expanded
+// rules should land in the importing grammar.
+
+rules pair(suffix: str_t) {
+    rule @concat("a", suffix) { "x" }
+    rule @concat("b", suffix) { "y" }
+}
+
+@pair("_helper")

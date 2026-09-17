@@ -127,4 +127,10 @@ impl StrPool {
         // `str`. Both offsets are therefore in bounds and on UTF-8 boundaries.
         unsafe { buf.get_unchecked(range) }
     }
+
+    #[must_use]
+    pub fn get(&self, s: &str) -> Option<StrId> {
+        let hash = FxBuildHasher.hash_one(s);
+        self.ids.find(hash, |&id| self.resolve(id) == s).copied()
+    }
 }

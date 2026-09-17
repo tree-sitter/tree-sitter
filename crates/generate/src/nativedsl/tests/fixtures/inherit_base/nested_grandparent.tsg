@@ -1,0 +1,11 @@
+grammar {
+    language: "grandparent",
+    extras: [regexp(r"\s")],
+    word: identifier,
+    inline: [_gp_inline],
+}
+
+rule program { repeat(statement) }
+rule statement { identifier }
+rule identifier { regexp("[a-z]+") }
+rule _gp_inline { "gp" }

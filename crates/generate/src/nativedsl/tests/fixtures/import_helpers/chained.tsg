@@ -1,0 +1,9 @@
+// Helper with functions that call each other (intra-module calls)
+
+macro wrap(x: rule_t) rule_t {
+    seq("(", x, ")")
+}
+
+macro double_wrap(x: rule_t) rule_t {
+    wrap(seq(x, ",", x))
+}

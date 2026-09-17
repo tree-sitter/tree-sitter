@@ -1,0 +1,3 @@
+// This file must exist on disk so that parse_native_dsl can canonicalize
+// the grammar path. Tests pass source text directly via the dsl() helper
+// and never read this file, but the path must be resolvable.

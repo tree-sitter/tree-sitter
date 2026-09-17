@@ -1,0 +1,12 @@
+let gp = inherit("nested_grandparent.tsg")
+
+grammar {
+    language: "parent",
+    inherits: gp,
+    inline: append(grammar_config(gp, inline), [_parent_inline]),
+}
+
+rule parent_only { "parent" }
+rule _parent_inline { "p" }
+
+override rule statement { choice(identifier, "!") }

@@ -192,4 +192,4 @@ TSNode ts_node_child_by_field_id(TSNode, TSFieldId);
 [piece table]: <https://en.wikipedia.org/wiki/Piece_table>
 [rope]: <https://en.wikipedia.org/wiki/Rope_(data_structure)>
 [syntax highlighting]: https://en.wikipedia.org/wiki/Syntax_highlighting
-[using fields]: ../creating-parsers/3-writing-the-grammar.md#using-fields
+[using fields]: ../creating-parsers/4-writing-the-grammar.md#using-fields

@@ -253,6 +253,7 @@ impl From<Symbol> for Rule {
 }
 
 impl Rule {
+    #[must_use]
     pub const fn symbol(self) -> Option<Symbol> {
         match self {
             Self::Sym(symbol) => Some(symbol),
@@ -269,8 +270,10 @@ pub struct RulePool {
     children: Vec<RuleId>,
     params: Vec<MetadataParams>,
     str_pool: StrPool,
-    /// Reusable walk scratch for choice flattening
-    scratch: Vec<RuleId>,
+    /// Reusable traversal stack for choice flattening.
+    choice_walk: Vec<RuleId>,
+    /// Reusable equality stack for choice deduplication.
+    choice_eq: Vec<(RuleId, RuleId)>,
 }
 
 impl RulePool {
@@ -406,7 +409,7 @@ impl RulePool {
         self.push_node(Rule::Eof)
     }
 
-    #[cfg_attr(not(test), expect(dead_code))]
+    #[cfg_attr(not(any(test, feature = "nativedsl")), expect(dead_code))]
     pub fn seq(&mut self, ids: &[RuleId]) -> RuleId {
         let range = self.push_children(ids);
         self.push_node(Rule::Seq(range))
@@ -438,27 +441,56 @@ impl RulePool {
         // Elements build directly at the children tail. The walk only reads
         // existing nodes, so nothing else appends while the range grows
         let start = self.children.len();
-        let mut stack = std::mem::take(&mut self.scratch);
-        stack.extend(ids.iter().rev());
-        while let Some(id) = stack.pop() {
+        let mut walk = std::mem::take(&mut self.choice_walk);
+        let mut eq = std::mem::take(&mut self.choice_eq);
+        walk.extend(ids.iter().rev());
+        while let Some(id) = walk.pop() {
             if let Rule::Choice(range) = self.node(id) {
-                let base = stack.len();
-                stack.extend_from_slice(self.child_slice(range));
-                stack[base..].reverse();
-            } else if !self.children[start..]
-                .iter()
-                .copied()
-                .any(|e| self.subtree_eq(e, id))
-            {
+                let base = walk.len();
+                walk.extend_from_slice(self.child_slice(range));
+                walk[base..].reverse();
+            } else if !self.choice_contains(&self.children[start..], id, &mut eq) {
                 self.children.push(id);
             }
         }
-        self.scratch = stack;
+        self.choice_walk = walk;
+        self.choice_eq = eq;
         let range = RuleIdRange {
             start: start as u32,
             len: (self.children.len() - start) as u32,
         };
         self.push_node(Rule::Choice(range))
+    }
+
+    /// Is `id` structurally equal to any element of `prior`? Exact roots and
+    /// leaf pairs are decided inline; only compatible container roots require
+    /// a full subtree walk.
+    fn choice_contains(&self, prev: &[RuleId], id: RuleId, eq: &mut Vec<(RuleId, RuleId)>) -> bool {
+        let candidate = self.node(id);
+        prev.iter().any(|&existing_id| {
+            if existing_id == id {
+                return true;
+            }
+
+            let existing = self.node(existing_id);
+            if existing == candidate {
+                return true;
+            }
+
+            match (existing, candidate) {
+                (Rule::Seq(a), Rule::Seq(b)) | (Rule::Choice(a), Rule::Choice(b)) => {
+                    a.len == b.len && self.subtree_eq_with_scratch(existing_id, id, eq)
+                }
+                (Rule::Reserved { ctx: a, .. }, Rule::Reserved { ctx: b, .. }) => {
+                    a == b && self.subtree_eq_with_scratch(existing_id, id, eq)
+                }
+                (Rule::Repeat(_), Rule::Repeat(_))
+                | (Rule::Metadata { .. }, Rule::Metadata { .. }) => {
+                    self.subtree_eq_with_scratch(existing_id, id, eq)
+                }
+                _ => false,
+            }
+        })
     }
 
     pub fn reserved(&mut self, content: RuleId, ctx: StrId) -> RuleId {
@@ -478,7 +510,17 @@ impl RulePool {
     }
 
     #[must_use]
-    pub fn into_interner(self) -> StrPool {
+    pub const fn strs(&self) -> &StrPool {
+        &self.str_pool
+    }
+
+    #[must_use]
+    pub const fn strs_mut(&mut self) -> &mut StrPool {
+        &mut self.str_pool
+    }
+
+    #[must_use]
+    pub fn into_strs(self) -> StrPool {
         self.str_pool
     }
 
@@ -521,8 +563,20 @@ impl RulePool {
         hasher.finish()
     }
 
+    #[must_use]
     pub fn subtree_eq(&self, a: RuleId, b: RuleId) -> bool {
-        let mut stack = vec![(a, b)];
+        self.subtree_eq_with_scratch(a, b, &mut Vec::new())
+    }
+
+    /// [`subtree_eq`](Self::subtree_eq) reusing a caller-owned work stack.
+    pub fn subtree_eq_with_scratch(
+        &self,
+        a: RuleId,
+        b: RuleId,
+        stack: &mut Vec<(RuleId, RuleId)>,
+    ) -> bool {
+        stack.clear();
+        stack.push((a, b));
         while let Some((a, b)) = stack.pop() {
             match (self.node(a), self.node(b)) {
                 (Rule::Blank, Rule::Blank) | (Rule::Eof, Rule::Eof) => {}
@@ -574,6 +628,7 @@ impl RulePool {
     }
 
     /// Whether the subtree at `id` can only match the empty string.
+    #[must_use]
     pub fn subtree_matches_empty_str(&self, id: RuleId) -> bool {
         match self.node(id) {
             Rule::String(sid) => self.resolve(sid).is_empty(),
@@ -600,6 +655,7 @@ impl RulePool {
     ///
     /// For example, if we have an external rule **and** a normal rule both called `foo`,
     /// `foo` should not be thought of as directly used unless it's used within another rule.
+    #[must_use]
     pub fn rule_is_referenced(&self, id: RuleId, target: StrId, is_external: bool) -> bool {
         match self.node(id) {
             Rule::NamedSymbol(name) => name == target && !is_external,

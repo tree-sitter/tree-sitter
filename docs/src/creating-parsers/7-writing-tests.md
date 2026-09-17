@@ -188,7 +188,7 @@ as-needed whenever you update it by re-running `tree-sitter generate`, or whenev
 file is changed.
 
 [constants]: https://doc.rust-lang.org/std/env/consts/constant.OS.html
-[external-scanners]: ./4-external-scanners.md
+[external-scanners]: ./6-external-scanners.md
 [node-field-names]: ../using-parsers/2-basic-parsing.md#node-field-names
 [s-exp]: https://en.wikipedia.org/wiki/S-expression
 [named-vs-anonymous-nodes]: ../using-parsers/2-basic-parsing.md#named-vs-anonymous-nodes

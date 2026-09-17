@@ -1,16 +1,26 @@
 # Getting Started
 
+## Frontend Choices
+
+Tree-sitter offers two frontends for writing grammars:
+
+- **The JavaScript frontend** - Tree-sitter's original DSL.
+- **The TSG frontend** - a purpose-built grammar DSL (`grammar.tsg`). It offers improved tooling, faster iteration, and
+no generation-time dependencies beyond the `tree-sitter` CLI.
+
 ## Dependencies
 
-To develop a Tree-sitter parser, there are two dependencies that you need to install:
-
-- **A JavaScript runtime** — Tree-sitter grammars are written in JavaScript, and Tree-sitter uses a JavaScript runtime
-(the default being [Node.js][node.js]) to interpret JavaScript files. It requires this runtime command (default: `node`)
-to be in one of the directories in your [`PATH`][path-env].
+To develop a Tree-sitter parser, there are a few dependencies that you need to install:
 
 - **A C Compiler** — Tree-sitter creates parsers that are written in C. To run and test these parsers with the
 `tree-sitter parse` or `tree-sitter test` commands, you must have a C/C++ compiler installed. Tree-sitter will try to look
 for these compilers in the standard places for each platform.
+
+If you are using the JavaScript frontend, you'll also need:
+
+- **A JavaScript runtime** — Tree-sitter grammars are written in JavaScript, and Tree-sitter uses a JavaScript runtime
+(the default being [Node.js][node.js]) to interpret JavaScript files. It requires this runtime command (default: `node`)
+to be in one of the directories in your [`PATH`][path-env].
 
 ## Installation
 
@@ -53,8 +63,8 @@ be used from multiple languages.
 tree-sitter init
 ```
 
-The `init` command will create a bunch of files in the project.
-There should be a file called `grammar.js` with the following contents:
+The `init` command will create a bunch of files in the project. If using the JavaScript frontend, there should be a file
+called `grammar.js` with the following contents:
 
 ```js
 /**
@@ -74,6 +84,21 @@ export default grammar({
     source_file: $ => 'hello'
   }
 });
+```
+
+Using the TSG frontend will create a file called `grammar.tsg` with the following contents:
+
+```tsg
+// PARSER_DESCRIPTION
+// Author: PARSER_AUTHOR_NAME PARSER_AUTHOR_EMAIL
+// License: PARSER_LICENSE
+
+grammar {
+  language: "LOWER_PARSER_NAME",
+}
+
+// TODO: add the actual grammar rules
+rule source_file { "hello" }
 ```
 
 > [!NOTE]
@@ -114,13 +139,16 @@ This should print the following:
 
 You now have a working parser.
 
-Finally, look back at the [triple-slash][] and [`@ts-check`][ts-check] comments in `grammar.js`; these tell your editor
-to provide documentation and type information as you edit your grammar. For these to work, you must download Tree-sitter's
-TypeScript API from npm into a `node_modules` directory in your project:
+If you're using the JavaScript frontend, look back at the [triple-slash][] and [`@ts-check`][ts-check] comments in `grammar.js`;
+these tell your editor to provide documentation and type information as you edit your grammar. For these to work, you must
+download Tree-sitter's TypeScript API from npm into a `node_modules` directory in your project:
 
 ```sh
 npm install # or your package manager of choice
 ```
+
+If you're using the TSG frontend, [`ts_grammar_ls`][ts-grammar-ls] provides documentation and type information as you edit
+your grammar.
 
 To learn more about this command, check the [reference page](../cli/generate.md).
 
@@ -135,3 +163,4 @@ To learn more about this command, check the [reference page](../cli/generate.md)
 [tree-sitter-cli]: https://github.com/tree-sitter/tree-sitter/tree/master/crates/cli
 [triple-slash]: https://www.typescriptlang.org/docs/handbook/triple-slash-directives.html
 [ts-check]: https://www.typescriptlang.org/docs/handbook/intro-to-js-ts.html
+[ts-grammar-ls]: https://github.com/WillLillis/ts_grammar_ls

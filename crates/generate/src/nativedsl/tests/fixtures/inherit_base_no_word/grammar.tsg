@@ -1,0 +1,8 @@
+grammar {
+    language: "base_no_word",
+    extras: [regexp(r"\s")],
+}
+rule program { repeat(statement) }
+rule statement { choice(expression, ";") }
+rule expression { identifier }
+rule identifier { regexp("[a-z]+") }

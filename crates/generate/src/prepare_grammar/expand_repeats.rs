@@ -282,24 +282,16 @@ impl ZeroWidth {
 fn wrap_in_binary_tree(pool: &mut RulePool, symbol: Symbol, inner: RuleId) -> RuleId {
     let s1 = pool.push_node(Rule::from(symbol));
     let s2 = pool.push_node(Rule::from(symbol));
-    let range = pool.push_children(&[s1, s2]);
-    let seq = pool.push_node(Rule::Seq(range));
-    let mut elements = vec![seq];
-    let mut stack = vec![inner];
-    while let Some(id) = stack.pop() {
-        if let Rule::Choice(range) = pool.node(id) {
-            let base = stack.len();
-            stack.extend_from_slice(pool.child_slice(range));
-            stack[base..].reverse();
-        } else if !elements.iter().any(|&e| pool.subtree_eq(e, id)) {
-            elements.push(id);
-        }
-    }
-    if elements.len() == 1 {
-        elements[0]
+    let seq = pool.seq(&[s1, s2]);
+    let choice = pool.choice(&[seq, inner]);
+
+    let Rule::Choice(range) = pool.node(choice) else {
+        unreachable!();
+    };
+    if range.len == 1 {
+        pool.child_slice(range)[0]
     } else {
-        let range = pool.push_children(&elements);
-        pool.push_node(Rule::Choice(range))
+        choice
     }
 }
 

@@ -1,0 +1,12 @@
+grammar {
+    language: "base",
+    extras: [regexp(r"\s")],
+    inline: [_inline_rule],
+    word: identifier,
+}
+
+rule program { repeat(statement) }
+rule statement { choice(expression, ";") }
+rule expression { identifier }
+rule identifier { regexp("[a-z]+") }
+rule _inline_rule { "inline" }

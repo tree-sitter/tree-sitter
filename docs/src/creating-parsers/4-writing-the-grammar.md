@@ -642,9 +642,9 @@ a smaller, simpler lexing function, which means that **the parser will compile m
 [bison]: https://en.wikipedia.org/wiki/GNU_bison
 [cst]: https://en.wikipedia.org/wiki/Parse_tree
 [ecmascript-spec]: https://262.ecma-international.org/6.0/
-[external scanner]: ./4-external-scanners.md#other-external-scanner-details
+[external scanner]: ./6-external-scanners.md#other-external-scanner-details
 [glr-parsing]: https://en.wikipedia.org/wiki/GLR_parser
-[grammar dsl]: ./2-the-grammar-dsl.md
+[grammar dsl]: ./2-grammar-fundamentals.md
 [language-spec]: https://en.wikipedia.org/wiki/Programming_language_specification
 [lexing]: https://en.wikipedia.org/wiki/Lexical_analysis
 [longest-match]: https://en.wikipedia.org/wiki/Maximal_munch

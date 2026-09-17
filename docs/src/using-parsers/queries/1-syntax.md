@@ -121,7 +121,7 @@ This also applies to anonymous nodes. For example, this pattern would match `"()
 (expression/"()") @empty-expression
 ```
 
-[grammar]: ../../creating-parsers/3-writing-the-grammar.md#structuring-rules-well
+[grammar]: ../../creating-parsers/4-writing-the-grammar.md#structuring-rules-well
 [node-field-names]: ../2-basic-parsing.md#node-field-names
 [named-vs-anonymous-nodes]: ../2-basic-parsing.md#named-vs-anonymous-nodes
 [s-exp]: https://en.wikipedia.org/wiki/S-expression

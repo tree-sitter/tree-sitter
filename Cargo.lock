@@ -2232,11 +2232,13 @@ dependencies = [
 name = "tree-sitter-generate"
 version = "0.28.0"
 dependencies = [
+ "anstyle",
  "bitflags",
  "dunce",
  "hashbrown 0.17.1",
  "indexmap",
  "log",
+ "memchr",
  "pathdiff",
  "regex",
  "regex-syntax",
@@ -2825,6 +2827,7 @@ dependencies = [
  "semver",
  "serde_json",
  "tree-sitter-cli",
+ "tree-sitter-generate",
  "tree-sitter-loader",
 ]
 

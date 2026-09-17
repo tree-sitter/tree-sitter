@@ -19,16 +19,19 @@ path = "src/generate.rs"
 workspace = true
 
 [features]
-default = [ "qjs-rt" ]
+default = [ "nativedsl", "qjs-rt" ]
 load = [ "dep:semver" ]
+nativedsl = [ "dep:anstyle" ]
 qjs-rt = [ "load", "rquickjs", "pathdiff" ]
 
 [dependencies]
+anstyle = { optional = true, workspace = true }
 bitflags = "2.11.1"
 dunce = "1.0.5"
 hashbrown.workspace = true
-indexmap.workspace = true
+indexmap = { features = [ "serde" ], workspace = true }
 log.workspace = true
+memchr.workspace = true
 pathdiff = { optional = true, version = "0.2.3" }
 regex.workspace = true
 regex-syntax.workspace = true
