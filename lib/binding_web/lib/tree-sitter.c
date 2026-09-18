@@ -939,6 +939,9 @@ void ts_query_matches_wasm(
   TRANSFER_BUFFER[0] = (const void *)(match_count);
   TRANSFER_BUFFER[1] = (const void *)result.contents;
   TRANSFER_BUFFER[2] = (const void *)(did_exceed_match_limit);
+
+  ts_query_cursor_delete(scratch_query_cursor);
+  scratch_query_cursor = NULL;
 }
 
 void ts_query_captures_wasm(
@@ -1016,4 +1019,7 @@ void ts_query_captures_wasm(
   TRANSFER_BUFFER[0] = (const void *)(capture_count);
   TRANSFER_BUFFER[1] = (const void *)result.contents;
   TRANSFER_BUFFER[2] = (const void *)(did_exceed_match_limit);
+
+  ts_query_cursor_delete(scratch_query_cursor);
+  scratch_query_cursor = NULL;
 }
