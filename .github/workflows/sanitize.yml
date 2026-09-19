@@ -21,7 +21,7 @@ jobs:
         run: sudo apt-get update -y && sudo apt-get install -y libubsan1
 
       - name: Set up Rust
-        uses: actions-rust-lang/setup-rust-toolchain@v1
+        uses: actions-rust-lang/setup-rust-toolchain@v2
 
       - name: Build project
         run: cargo build --release
