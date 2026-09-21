@@ -32,7 +32,7 @@ jobs:
       NVIM_TS_DIR: nvim-treesitter
     steps:
       - uses: actions/checkout@v7.0.1
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - uses: actions-rust-lang/setup-rust-toolchain@v2
       - run: cargo build --profile optimize
 
       - name: Clone Neovim
