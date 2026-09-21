@@ -124,7 +124,7 @@ jobs:
 
     - name: Set up Rust
       if: ${{ !matrix.vm }}
-      uses: actions-rust-lang/setup-rust-toolchain@v1
+      uses: actions-rust-lang/setup-rust-toolchain@v2
       with:
         target: ${{ matrix.target }}
 
