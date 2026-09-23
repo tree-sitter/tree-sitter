@@ -41,11 +41,23 @@ jobs:
       - name: Lint web files
         run: make lint-web
 
+      # rustdoc's JSON output is nightly-only and unstable
+      - name: Set up pinned nightly Rust toolchain
+        run: rustup toolchain install nightly-2026-09-03 --profile minimal
+
+      - name: Check regex error kinds
+        run: cargo xtask check-regex-error-kinds
+
+      - name: Check Wasm stdlib
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const scriptPath = `${process.env.GITHUB_WORKSPACE}/.github/scripts/wasm_stdlib.js`;
+            const script = require(scriptPath);
+            return script({ github, context, core });
+
   sanitize:
     uses: ./.github/workflows/sanitize.yml
 
   build:
     uses: ./.github/workflows/build.yml
-
-  check-wasm-stdlib:
-    uses: ./.github/workflows/wasm_stdlib.yml
