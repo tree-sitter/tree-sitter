@@ -51,3 +51,18 @@ updates:
     groups:
       npm:
         patterns: ["*"]
+
+  - package-ecosystem: "nix"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 3
+    commit-message:
+      prefix: "build(deps)"
+    labels:
+      - "dependencies"
+      - "nix"
+    groups:
+      nix:
+        patterns: ["*"]
