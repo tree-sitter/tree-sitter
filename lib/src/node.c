@@ -486,7 +486,22 @@ char *ts_node_string(TSNode self) {
     alias_symbol,
     ts_language_symbol_metadata(self.tree->language, alias_symbol).visible,
     self.tree->language,
-    false
+    false,
+    false,
+    (Length) {ts_node_start_byte(self), ts_node_start_point(self)}
+  );
+}
+
+char *ts_node_string_with_ranges(TSNode self) {
+  TSSymbol alias_symbol = ts_node__alias(&self);
+  return ts_subtree_string(
+    ts_node__subtree(self),
+    alias_symbol,
+    ts_language_symbol_metadata(self.tree->language, alias_symbol).visible,
+    self.tree->language,
+    false,
+    true,
+    (Length) {ts_node_start_byte(self), ts_node_start_point(self)}
   );
 }
 

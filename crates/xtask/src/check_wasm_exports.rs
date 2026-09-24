@@ -16,10 +16,12 @@ use notify_debouncer_full::new_debouncer;
 
 use crate::{CheckWasmExports, bail_on_err, watch_wasm};
 
-const EXCLUDES: [&str; 25] = [
+const EXCLUDES: [&str; 26] = [
     // Unneeded because the JS side has its own way of implementing it
     "ts_node_child_by_field_name",
     "ts_node_edit",
+    // Serialized point columns use bytes, unlike the Web binding's UTF-16 columns
+    "ts_node_string_with_ranges",
     // Precomputed and stored in the JS side
     "ts_node_type",
     "ts_node_grammar_type",
