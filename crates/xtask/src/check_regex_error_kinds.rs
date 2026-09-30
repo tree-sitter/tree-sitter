@@ -88,6 +88,7 @@ fn rustdoc_json(target_dir: &str, package: &str, crate_name: &str) -> Result<Val
         .arg(format!("+{TOOLCHAIN}"))
         .args(["rustdoc", "--package", package, "--lib", "--"])
         .args(["-Zunstable-options", "--output-format", "json"])
+        .arg("--cap-lints=allow")
         .output()
         .with_context(|| format!("Failed to run cargo rustdoc for `{package}`"))?;
     bail_on_err(&output, &format!("Failed to document `{package}`"))?;
