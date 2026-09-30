@@ -12,6 +12,7 @@ on:
       - Cargo.lock
       - crates/generate/src/prepare_grammar/pattern.rs
       - crates/xtask/src/**
+      - .github/workflows/regex_error_kinds.yml
 
 jobs:
   check-regex-error-kinds:
