@@ -76,7 +76,7 @@
   "devDependencies": {
     "@eslint/js": "^9.39.1",
     "@types/emscripten": "^1.41.6",
-    "@types/node": "^26.6.2",
+    "@types/node": "^26.6.3",
     "@vitest/coverage-v8": "^3.0.5",
     "dts-buddy": "^0.8.3",
     "esbuild": "^0.28.2",
