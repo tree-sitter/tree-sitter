@@ -368,16 +368,16 @@ impl Generator {
         add_line!(self, "#endif");
         add_line!(self, "");
 
-        // Compiling large lexer functions can be very slow. Disabling optimizations
-        // is not ideal, but only a very small fraction of overall parse time is
-        // spent lexing, so the performance impact of this is negligible.
+        // Compiling large lexer functions with optimization can be very slow, so
+        // disable most optimizations for large lexers. GCC 15 and later also
+        // disable jump tables at O0, which makes the lexer much slower at runtime.
         if self.main_lex_table.states.len() > 300 {
             add_line!(self, "#ifdef _MSC_VER");
             add_line!(self, "#pragma optimize(\"\", off)");
             add_line!(self, "#elif defined(__clang__)");
             add_line!(self, "#pragma clang optimize off");
             add_line!(self, "#elif defined(__GNUC__)");
-            add_line!(self, "#pragma GCC optimize (\"O0\")");
+            add_line!(self, "#pragma GCC optimize (\"O0\", \"jump-tables\")");
             add_line!(self, "#endif");
             add_line!(self, "");
         }
