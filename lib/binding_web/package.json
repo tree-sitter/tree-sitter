@@ -84,7 +84,7 @@
     "source-map": "^0.8.0",
     "tsx": "^4.23.15",
     "typescript": "^5.7.3",
-    "typescript-eslint": "^8.70.1",
+    "typescript-eslint": "^8.71.0",
     "vitest": "^3.0.5"
   },
   "scripts": {
