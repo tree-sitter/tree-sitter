@@ -401,7 +401,7 @@ fn minimize_lex_table(table: &mut LexTable, parse_table: &mut ParseTable) {
         &mut state_ids_by_group_id,
         &mut group_ids_by_state_id,
         1,
-        lex_states_differ,
+        &mut lex_states_differ,
     ) {}
 
     let mut new_states = Vec::with_capacity(state_ids_by_group_id.len());

@@ -1,13 +1,17 @@
-use std::{cmp::Ordering, mem};
+use std::{
+    cmp::Ordering,
+    hash::{Hash, Hasher},
+    mem,
+};
 
-use rustc_hash::{FxHashMap, FxHashSet};
+use rustc_hash::{FxHashMap, FxHashSet, FxHasher};
 
 use log::debug;
 
 use super::token_conflicts::TokenConflictMap;
 use crate::{
     OptLevel,
-    dedup::split_state_id_groups,
+    dedup::{SplitCriterion, split_state_id_groups},
     grammars::{LexicalGrammar, SyntaxGrammar, VariableType},
     rules::{AliasMap, Symbol, SymbolType, SymbolView, TokenSet},
     strpool::StrPool,
@@ -123,6 +127,181 @@ impl ConflictBits {
     fn get_state_row(&self, state: usize) -> &[u64] {
         let base = state * self.row_words;
         &self.state_terminals[base..base + self.row_words]
+    }
+}
+
+/// The first pass of [`Minimizer::merge_compatible_states`]: splits states whose terminal
+/// entries can't be merged.
+struct ConflictPass<'min, 'a> {
+    minimizer: &'min Minimizer<'a>,
+    /// Each state's terminal entries, sorted by symbol.
+    entry_maps: Vec<Vec<(SymbolKey, ActionListId)>>,
+    bits: ConflictBits,
+    /// A hash of each state's reserved words and terminal entries, apart from its shift
+    /// targets, whose groups change as groups split.
+    static_signatures: Vec<u64>,
+    /// Each state's shift targets, sorted by symbol.
+    shift_maps: &'min [Vec<(SymbolKey, ParseStateId)>],
+}
+
+impl SplitCriterion<ParseState> for ConflictPass<'_, '_> {
+    fn should_split(
+        &mut self,
+        left: &ParseState,
+        right: &ParseState,
+        group_ids_by_state_id: &[ParseStateId],
+    ) -> bool {
+        self.minimizer.states_conflict(
+            left,
+            right,
+            group_ids_by_state_id,
+            &self.entry_maps,
+            &self.bits,
+        )
+    }
+
+    fn signature(
+        &mut self,
+        state: &ParseState,
+        group_ids_by_state_id: &[ParseStateId],
+    ) -> Option<u64> {
+        let mut hasher = FxHasher::default();
+        self.static_signatures[state.id as usize].hash(&mut hasher);
+        for &(_, successor) in &self.shift_maps[state.id as usize] {
+            group_ids_by_state_id[successor as usize].hash(&mut hasher);
+        }
+        Some(hasher.finish())
+    }
+
+    /// Whether two states have the same reserved words and terminal entries, with shift
+    /// targets compared by group. Then [`Minimizer::states_conflict`] never separates them,
+    /// and separates either from exactly the same states.
+    fn equivalent(
+        &mut self,
+        left: &ParseState,
+        right: &ParseState,
+        group_ids_by_state_id: &[ParseStateId],
+    ) -> bool {
+        let entries1 = &self.entry_maps[left.id as usize];
+        let entries2 = &self.entry_maps[right.id as usize];
+        let action_lists = &self.minimizer.parse_table.action_lists;
+        left.reserved_words == right.reserved_words
+            && entries1.len() == entries2.len()
+            && entries1
+                .iter()
+                .zip(entries2)
+                .all(|(&(key1, id1), &(key2, id2))| {
+                    if key1 != key2 {
+                        return false;
+                    }
+                    if id1.index() == id2.index() {
+                        return true;
+                    }
+                    let actions1 = action_lists.get(id1);
+                    let actions2 = action_lists.get(id2);
+                    actions1.len() == actions2.len()
+                        && actions1.iter().zip(actions2).all(|pair| match pair {
+                            (
+                                ParseAction::Shift {
+                                    state: s1,
+                                    is_repetition: is_repetition1,
+                                },
+                                ParseAction::Shift {
+                                    state: s2,
+                                    is_repetition: is_repetition2,
+                                },
+                            ) => {
+                                group_ids_by_state_id[*s1 as usize]
+                                    == group_ids_by_state_id[*s2 as usize]
+                                    && is_repetition1 == is_repetition2
+                            }
+                            (action1, action2) => action1 == action2,
+                        })
+                })
+    }
+}
+
+/// The second pass of [`Minimizer::merge_compatible_states`], repeated until nothing splits:
+/// splits states whose successors are in different groups.
+struct SuccessorPass<'min, 'a> {
+    minimizer: &'min Minimizer<'a>,
+    /// Each state's shift targets, sorted by symbol.
+    shift_maps: Vec<Vec<(SymbolKey, ParseStateId)>>,
+    /// Each state's nonterminal entries, sorted by symbol.
+    nonterminal_maps: Vec<Vec<(NonterminalIndex, GotoAction)>>,
+}
+
+impl SplitCriterion<ParseState> for SuccessorPass<'_, '_> {
+    fn should_split(
+        &mut self,
+        left: &ParseState,
+        right: &ParseState,
+        group_ids_by_state_id: &[ParseStateId],
+    ) -> bool {
+        self.minimizer.state_successors_differ(
+            left,
+            right,
+            group_ids_by_state_id,
+            &self.shift_maps,
+            &self.nonterminal_maps,
+        )
+    }
+
+    fn signature(
+        &mut self,
+        state: &ParseState,
+        group_ids_by_state_id: &[ParseStateId],
+    ) -> Option<u64> {
+        let mut hasher = FxHasher::default();
+        for &(key, successor) in &self.shift_maps[state.id as usize] {
+            (key.0, group_ids_by_state_id[successor as usize]).hash(&mut hasher);
+        }
+        for &(index, action) in &self.nonterminal_maps[state.id as usize] {
+            let group = match action {
+                GotoAction::Goto(successor) => Some(group_ids_by_state_id[successor as usize]),
+                GotoAction::ShiftExtra => None,
+            };
+            (index, group).hash(&mut hasher);
+        }
+        Some(hasher.finish())
+    }
+
+    /// Whether two states shift and go to on the same symbols, with successors in the same
+    /// groups. Then [`Minimizer::state_successors_differ`] never separates them, and separates
+    /// either from exactly the same states.
+    fn equivalent(
+        &mut self,
+        left: &ParseState,
+        right: &ParseState,
+        group_ids_by_state_id: &[ParseStateId],
+    ) -> bool {
+        let shifts1 = &self.shift_maps[left.id as usize];
+        let shifts2 = &self.shift_maps[right.id as usize];
+        let gotos1 = &self.nonterminal_maps[left.id as usize];
+        let gotos2 = &self.nonterminal_maps[right.id as usize];
+        shifts1.len() == shifts2.len()
+            && gotos1.len() == gotos2.len()
+            && shifts1
+                .iter()
+                .zip(shifts2)
+                .all(|(&(key1, s1), &(key2, s2))| {
+                    key1 == key2
+                        && group_ids_by_state_id[s1 as usize] == group_ids_by_state_id[s2 as usize]
+                })
+            && gotos1
+                .iter()
+                .zip(gotos2)
+                .all(|(&(index1, action1), &(index2, action2))| {
+                    index1 == index2
+                        && match (action1, action2) {
+                            (GotoAction::Goto(s1), GotoAction::Goto(s2)) => {
+                                group_ids_by_state_id[s1 as usize]
+                                    == group_ids_by_state_id[s2 as usize]
+                            }
+                            (GotoAction::ShiftExtra, GotoAction::ShiftExtra) => true,
+                            _ => false,
+                        }
+                })
     }
 }
 
@@ -350,14 +529,6 @@ impl Minimizer<'_> {
             word_token: self.syntax_grammar.word_token.map(SymbolKey::new),
         };
 
-        split_state_id_groups(
-            &self.parse_table.states,
-            &mut state_ids_by_group_id,
-            &mut group_ids_by_state_id,
-            0,
-            |left, right, groups| self.states_conflict(left, right, groups, &entry_maps, &bits),
-        );
-
         // Precompute per-state sorted shift actions and nonterminal goto actions.
         // State actions are stable across loop iterations; only group assignments change.
         // Keys are packed u64s (symbol_key) for single-instruction comparison.
@@ -383,6 +554,46 @@ impl Minimizer<'_> {
             })
             .collect::<Vec<_>>();
 
+        // Hash each state's terminal entries once, apart from its shift targets, whose groups
+        // change as groups split.
+        let static_signatures = self
+            .parse_table
+            .states
+            .iter()
+            .map(|state| {
+                let mut hasher = FxHasher::default();
+                state.reserved_words.hash(&mut hasher);
+                for &(key, id) in &entry_maps[state.id as usize] {
+                    key.0.hash(&mut hasher);
+                    for action in self.parse_table.action_lists.get(id) {
+                        match *action {
+                            ParseAction::Shift { is_repetition, .. } => {
+                                is_repetition.hash(&mut hasher);
+                            }
+                            action => action.hash(&mut hasher),
+                        }
+                    }
+                }
+                hasher.finish()
+            })
+            .collect::<Vec<_>>();
+
+        let mut conflict_pass = ConflictPass {
+            minimizer: self,
+            entry_maps,
+            bits,
+            static_signatures,
+            shift_maps: &shift_maps,
+        };
+        split_state_id_groups(
+            &self.parse_table.states,
+            &mut state_ids_by_group_id,
+            &mut group_ids_by_state_id,
+            0,
+            &mut conflict_pass,
+        );
+        drop(conflict_pass); // The rest only looks at successors.
+
         // Store only the symbol index: all nonterminal entries share the same kind,
         // so index alone is sufficient for sorting and comparison.
         let nonterminal_maps = self
@@ -405,15 +616,20 @@ impl Minimizer<'_> {
             })
             .collect::<Vec<_>>();
 
+        let mut successor_pass = SuccessorPass {
+            minimizer: self,
+            shift_maps,
+            nonterminal_maps,
+        };
+
         while split_state_id_groups(
             &self.parse_table.states,
             &mut state_ids_by_group_id,
             &mut group_ids_by_state_id,
             0,
-            |left, right, groups| {
-                self.state_successors_differ(left, right, groups, &shift_maps, &nonterminal_maps)
-            },
+            &mut successor_pass,
         ) {}
+        drop(successor_pass);
 
         let error_group_index = state_ids_by_group_id
             .iter()
