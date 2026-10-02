@@ -172,8 +172,8 @@ struct ActionListRange {
 /// 98-99% of these lists are duplicates. Each entry holds an [`ActionListId`] pointing
 /// into  [`Self::ranges`], which points to a representative slice into [`Self::actions`].
 ///
-/// [`intern_table`] builds this pool immediately after the parse table is constructed
-/// (every inline becomes an id). `minimize` then rewrites shift targets at the pool
+/// The parse table builder interns each state's lists into this pool as it completes the
+/// state (every inline becomes an id). `minimize` then rewrites shift targets at the pool
 /// level. `canonicalize` rebuilds the pool before `render` with each list stored exactly
 /// once. Pool index 0 is always the empty list.
 #[derive(Clone, Debug, Default)]
@@ -211,45 +211,6 @@ impl ActionListPool {
             let index = self.push(&list);
             dedup.insert(list, index);
             index
-        }
-    }
-
-    pub fn intern_table(table: ParseTable<ParseTableEntry>) -> ParseTable<ActionListId> {
-        let mut pool = Self::default();
-        let mut ids = FxHashMap::default();
-        let states = table
-            .states
-            .into_iter()
-            .map(|state| {
-                let terminal_entries = state
-                    .terminal_entries
-                    .into_iter()
-                    .map(|(symbol, entry)| {
-                        let index = pool.intern(&mut ids, entry.actions);
-                        (symbol, ActionListId::new(index, entry.reusable))
-                    })
-                    .collect();
-
-                ParseState {
-                    id: state.id,
-                    terminal_entries,
-                    nonterminal_entries: state.nonterminal_entries,
-                    reserved_words: state.reserved_words,
-                    lex_state_id: state.lex_state_id,
-                    external_lex_state_id: state.external_lex_state_id,
-                    core_id: state.core_id,
-                    has_eof_gated_reduce: state.has_eof_gated_reduce,
-                }
-            })
-            .collect();
-
-        ParseTable {
-            states,
-            action_lists: pool,
-            symbols: table.symbols,
-            production_infos: table.production_infos,
-            max_aliased_production_length: table.max_aliased_production_length,
-            external_lex_states: table.external_lex_states,
         }
     }
 
