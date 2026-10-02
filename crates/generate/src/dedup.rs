@@ -30,8 +30,9 @@ pub trait SplitCriterion<S> {
 
     /// Whether `state` can stay in its group with all of `kept`.
     ///
-    /// `kept` holds the first state of each class that stayed before `state`, in order. `false`
-    /// is always safe: the states are then compared one at a time.
+    /// `kept` holds the first state of each class that stayed before `state`, in order. This is
+    /// only asked once [`Self::should_split`] has found that `state` can stay with `kept[0]`.
+    /// `false` is always correct: the states are then compared one at a time.
     fn compatible_with_all(
         &mut self,
         _state: &S,
@@ -39,14 +40,6 @@ pub trait SplitCriterion<S> {
         _group_ids_by_state_id: &[u32],
     ) -> bool {
         false
-    }
-}
-
-/// Lets a function that decides [`SplitCriterion::should_split`], like the lexer's, be a
-/// criterion. It has no classes, so every state is compared.
-impl<S, F: FnMut(&S, &S, &[u32]) -> bool> SplitCriterion<S> for F {
-    fn should_split(&mut self, left: &S, right: &S, group_ids_by_state_id: &[u32]) -> bool {
-        self(left, right, group_ids_by_state_id)
     }
 }
 
