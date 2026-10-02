@@ -57,7 +57,7 @@ impl<'a> CoincidentTokenIndex {
                     }),
             );
             terminal_indices.sort_unstable();
-            let has_word = word_token.is_some_and(|w| state.terminal_entries.contains_key(&w));
+            let has_word = word_token.is_some_and(|w| state.terminal_entries.contains_key(w));
             let recorded = if has_word {
                 &mut recorded_with_word
             } else {

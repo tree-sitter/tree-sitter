@@ -246,10 +246,96 @@ pub struct ParseTableEntry {
     pub reusable: bool,
 }
 
+/// A parse state's terminal entries: the action list for each lookahead, in the order the
+/// entries were added.
+#[derive(Clone, Debug, Default)]
+pub struct TerminalEntries(Vec<(Symbol, ActionListId)>);
+
+impl TerminalEntries {
+    #[must_use]
+    pub const fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = (&Symbol, &ActionListId)> {
+        self.0.iter().map(|(symbol, id)| (symbol, id))
+    }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (&Symbol, &mut ActionListId)> {
+        self.0.iter_mut().map(|(symbol, id)| (&*symbol, id))
+    }
+
+    pub fn keys(&self) -> impl Iterator<Item = &Symbol> {
+        self.0.iter().map(|(symbol, _)| symbol)
+    }
+
+    pub fn values(&self) -> impl Iterator<Item = &ActionListId> {
+        self.0.iter().map(|(_, id)| id)
+    }
+
+    pub fn values_mut(&mut self) -> impl Iterator<Item = &mut ActionListId> {
+        self.0.iter_mut().map(|(_, id)| id)
+    }
+
+    #[must_use]
+    pub fn get_index(&self, index: usize) -> Option<(&Symbol, &ActionListId)> {
+        self.0.get(index).map(|(symbol, id)| (symbol, id))
+    }
+
+    pub fn get_index_mut(&mut self, index: usize) -> Option<(&Symbol, &mut ActionListId)> {
+        self.0.get_mut(index).map(|(symbol, id)| (&*symbol, id))
+    }
+
+    #[must_use]
+    pub fn contains_key(&self, symbol: Symbol) -> bool {
+        self.0
+            .iter()
+            .any(|&(entry_symbol, _)| entry_symbol == symbol)
+    }
+
+    /// Sets the action list for `symbol`. An existing entry keeps its place.
+    pub fn insert(&mut self, symbol: Symbol, id: ActionListId) {
+        match self
+            .0
+            .iter_mut()
+            .find(|(entry_symbol, _)| *entry_symbol == symbol)
+        {
+            Some((_, entry_id)) => *entry_id = id,
+            None => self.0.push((symbol, id)),
+        }
+    }
+
+    /// Adds an entry for `symbol`, unless it already has one.
+    pub fn insert_if_missing(&mut self, symbol: Symbol, id: ActionListId) {
+        if !self.contains_key(symbol) {
+            self.0.push((symbol, id));
+        }
+    }
+
+    /// Adds an entry for `symbol`, which must not have one yet.
+    pub fn push(&mut self, symbol: Symbol, id: ActionListId) {
+        debug_assert!(!self.contains_key(symbol));
+        self.0.push((symbol, id));
+    }
+
+    pub fn reserve_exact(&mut self, additional: usize) {
+        self.0.reserve_exact(additional);
+    }
+}
+
+impl IntoIterator for TerminalEntries {
+    type Item = (Symbol, ActionListId);
+    type IntoIter = std::vec::IntoIter<(Symbol, ActionListId)>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct ParseState {
     pub id: ParseStateId,
-    pub terminal_entries: IndexMap<Symbol, ActionListId, BuildHasherDefault<FxHasher>>,
+    pub terminal_entries: TerminalEntries,
     pub nonterminal_entries: IndexMap<Symbol, GotoAction, BuildHasherDefault<FxHasher>>,
     pub reserved_words: TokenSet,
     pub lex_state_id: LexStateId,
@@ -313,7 +399,7 @@ impl ParseState {
     #[must_use]
     pub fn is_end_of_non_terminal_extra(&self) -> bool {
         self.terminal_entries
-            .contains_key(&Symbol::EndOfNonTerminalExtra)
+            .contains_key(Symbol::EndOfNonTerminalExtra)
     }
 
     pub fn referenced_states<'a>(
