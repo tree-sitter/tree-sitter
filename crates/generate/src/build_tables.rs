@@ -40,6 +40,55 @@ pub struct Tables {
     pub large_character_sets: Vec<(Option<Symbol>, CharacterSet)>,
 }
 
+/// Gives each of a grammar's symbols a position. Positions follow `Symbol` order:
+/// - external tokens
+/// - [`Symbol::End`]
+/// - [`Symbol::EndOfNonTerminalExtra`]
+/// - terminals
+/// - non-terminals
+#[derive(Clone, Copy, Default)]
+#[expect(clippy::struct_field_names)]
+struct SymbolIndexer {
+    external_count: u32,
+    terminal_count: u32,
+    non_terminal_count: u32,
+}
+
+impl SymbolIndexer {
+    const fn new(syntax_grammar: &SyntaxGrammar, lexical_grammar: &LexicalGrammar) -> Self {
+        Self {
+            external_count: syntax_grammar.external_tokens.len() as u32,
+            terminal_count: lexical_grammar.variables.len() as u32,
+            non_terminal_count: syntax_grammar.variables.len() as u32,
+        }
+    }
+
+    /// This symbol's position.
+    #[inline]
+    fn index(self, symbol: Symbol) -> usize {
+        let position = match symbol.view() {
+            SymbolView::External(index) => u32::from(index),
+            SymbolView::End => self.external_count,
+            SymbolView::EndOfNonTerminalExtra => self.external_count + 1,
+            SymbolView::Terminal(index) => self.external_count + 2 + u32::from(index),
+            SymbolView::NonTerminal(index) => self.token_count() + u32::from(index),
+        };
+        position as usize
+    }
+
+    /// How many positions [`Self::index`] gives to tokens _only_: one per external token, one
+    /// each for `End` and `EndOfNonTerminalExtra`, and one per terminal.
+    const fn token_count(self) -> u32 {
+        self.external_count + 2 + self.terminal_count
+    }
+
+    /// How many positions [`Self::index`] gives out in _total_: the tokens, then one per
+    /// non-terminal.
+    const fn symbol_count(self) -> u32 {
+        self.token_count() + self.non_terminal_count
+    }
+}
+
 #[expect(
     clippy::too_many_arguments,
     reason = "all parameters are required for table building"
