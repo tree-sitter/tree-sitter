@@ -501,20 +501,31 @@ impl<'a> ParseItem<'a> {
 impl<'a> ParseItemSet<'a> {
     #[inline]
     pub fn insert(&mut self, item: ParseItem<'a>) -> &mut ParseItemSetEntry<'a> {
-        match self.entries.binary_search_by(|e| e.item.cmp(&item)) {
-            Err(i) => {
-                self.entries.insert(
-                    i,
-                    ParseItemSetEntry {
-                        item,
-                        lookaheads: LookaheadSetPool::EMPTY,
-                        following_reserved_word_set: ReservedWordSetId::default(),
-                    },
-                );
-                &mut self.entries[i]
+        // `entries` is sorted with no duplicates, so an item that sorts after the last entry
+        // belongs at the end, which is where the binary search would put it.
+        //
+        // Checking the end first pays off because items mostly arrive in order: `add_actions`
+        // builds each successor set by advancing a sorted closure's items past the same symbol.
+        // Items are ordered by step index, then rule, then their content at the dot. Advancing
+        // adds one to every step index and keeps every rule, so only items of the same rule at
+        // the same step can change places.
+        let index = if self.entries.last().is_none_or(|last| last.item < item) {
+            self.entries.len()
+        } else {
+            match self.entries.binary_search_by(|e| e.item.cmp(&item)) {
+                Ok(i) => return &mut self.entries[i],
+                Err(i) => i,
             }
-            Ok(i) => &mut self.entries[i],
-        }
+        };
+        self.entries.insert(
+            index,
+            ParseItemSetEntry {
+                item,
+                lookaheads: LookaheadSetPool::EMPTY,
+                following_reserved_word_set: ReservedWordSetId::default(),
+            },
+        );
+        &mut self.entries[index]
     }
 
     #[must_use]
