@@ -819,15 +819,24 @@ impl<'a> ParseTableBuilder<'a> {
         // * choose one action over the others using precedence or associativity
         // * keep multiple actions if this conflict has been whitelisted in the grammar
         // * fail, terminating the parser generation process
-        for symbol in lookaheads_with_conflicts.iter() {
-            self.handle_conflict(
-                item_set,
-                state_id,
-                &preceding_symbols,
-                auxiliary_context,
-                symbol,
-                reduction_infos.get(&symbol).unwrap(),
-            )?;
+        if !lookaheads_with_conflicts.is_empty() {
+            // Only fnished items and items past their first step can take part in a
+            // conflict. Most of a closure is neither, so find those items once per state.
+            let candidates = item_set
+                .entries
+                .iter()
+                .filter(|entry| entry.item.step_index > 0 || entry.item.is_done())
+                .collect::<Vec<_>>();
+            for symbol in lookaheads_with_conflicts.iter() {
+                self.handle_conflict(
+                    &candidates,
+                    state_id,
+                    &preceding_symbols,
+                    auxiliary_context,
+                    symbol,
+                    reduction_infos.get(&symbol).unwrap(),
+                )?;
+            }
         }
 
         // Add actions for the grammar's `extra` symbols.
@@ -937,7 +946,7 @@ impl<'a> ParseTableBuilder<'a> {
 
     fn handle_conflict(
         &mut self,
-        item_set: &ParseItemSet,
+        candidates: &[&ParseItemSetEntry],
         state_id: ParseStateId,
         preceding_symbols: &SymbolSequence,
         auxiliary_context: Option<AuxiliaryContextId>,
@@ -960,7 +969,7 @@ impl<'a> ParseTableBuilder<'a> {
         let mut conflicting_items = BTreeSet::new();
         for ParseItemSetEntry {
             item, lookaheads, ..
-        } in &item_set.entries
+        } in candidates
         {
             if let Some(step) = item.step(self.syntax_grammar) {
                 if item.step_index > 0
