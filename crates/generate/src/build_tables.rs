@@ -304,16 +304,14 @@ fn populate_error_state(
         );
         state
             .terminal_entries
-            .entry(symbol)
-            .or_insert(recover_entry);
+            .insert_if_missing(symbol, recover_entry);
     }
 
     for (i, external_token) in syntax_grammar.external_tokens.iter().enumerate() {
         if external_token.corresponding_internal_token.is_none() {
             state
                 .terminal_entries
-                .entry(Symbol::external(i))
-                .or_insert(recover_entry);
+                .insert_if_missing(Symbol::external(i), recover_entry);
         }
     }
 
@@ -532,7 +530,7 @@ fn mark_fragile_tokens(parse_table: &mut ParseTable, token_conflict_map: &TokenC
                 valid_terminal_indices.push(index);
             }
         }
-        for (token, id) in &mut state.terminal_entries {
+        for (token, id) in state.terminal_entries.iter_mut() {
             if let SymbolView::Terminal(index) = token.view() {
                 for &i in &valid_terminal_indices {
                     if token_conflict_map.does_overlap(usize::from(i), usize::from(index)) {

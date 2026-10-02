@@ -718,7 +718,7 @@ impl Minimizer<'_> {
             }
             let mut only_unit_reductions = true;
             let mut unit_reduction_symbol = None;
-            for (_, id) in &state.terminal_entries {
+            for (_, id) in state.terminal_entries.iter() {
                 for action in self.parse_table.action_lists.get(*id) {
                     match action {
                         ParseAction::ShiftExtra => continue,
@@ -888,9 +888,15 @@ impl Minimizer<'_> {
 
         // Create a list of new parse states: one state for each group of old states.
         let mut new_states = Vec::with_capacity(state_ids_by_group_id.len());
+        // Scratch for merging: the position of each token's entry in the new state, by
+        // `SymbolIndexer::index`.
+        let mut positions = vec![None; self.indexer.token_count() as usize];
         for state_ids in &state_ids_by_group_id {
             // Initialize the new state based on the first old state in the group.
             let mut parse_state = mem::take(&mut self.parse_table.states[state_ids[0] as usize]);
+            for (position, symbol) in parse_state.terminal_entries.keys().enumerate() {
+                positions[self.indexer.index(*symbol)] = Some(position);
+            }
 
             // Extend the new state with all of the actions from the other old states
             // in the group.
@@ -898,9 +904,22 @@ impl Minimizer<'_> {
                 let other_parse_state = mem::take(&mut self.parse_table.states[*state_id as usize]);
 
                 parse_state.has_eof_gated_reduce |= other_parse_state.has_eof_gated_reduce;
-                parse_state
-                    .terminal_entries
-                    .extend(other_parse_state.terminal_entries);
+                // A token the new state already has keeps its place and takes the other state's
+                // action list.
+                for (symbol, id) in other_parse_state.terminal_entries {
+                    let position = &mut positions[self.indexer.index(symbol)];
+                    if let Some(position) = *position {
+                        // INVARIANT: `positions` only holds positions of the new state's entries.
+                        *parse_state
+                            .terminal_entries
+                            .get_index_mut(position)
+                            .unwrap()
+                            .1 = id;
+                    } else {
+                        *position = Some(parse_state.terminal_entries.len());
+                        parse_state.terminal_entries.push(symbol, id);
+                    }
+                }
                 parse_state
                     .nonterminal_entries
                     .extend(other_parse_state.nonterminal_entries);
@@ -910,6 +929,10 @@ impl Minimizer<'_> {
                 for &symbol in parse_state.terminal_entries.keys() {
                     parse_state.reserved_words.remove(symbol);
                 }
+            }
+
+            for symbol in parse_state.terminal_entries.keys() {
+                positions[self.indexer.index(*symbol)] = None;
             }
 
             // Update the new state's outgoing references using the new grouping.

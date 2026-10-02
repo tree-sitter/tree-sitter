@@ -29,6 +29,7 @@ use crate::{
     tables::{
         ActionList, ActionListId, ActionListPool, FieldLocation, GotoAction, ParseAction,
         ParseState, ParseStateId, ParseTable, ParseTableEntry, ProductionInfo, ProductionInfoId,
+        TerminalEntries,
     },
 };
 
@@ -719,7 +720,7 @@ impl<'a> ParseTableBuilder<'a> {
                     id: state_id,
                     lex_state_id: 0,
                     external_lex_state_id: 0,
-                    terminal_entries: IndexMap::default(),
+                    terminal_entries: TerminalEntries::default(),
                     nonterminal_entries: IndexMap::default(),
                     reserved_words: TokenSet::default(),
                     core_id,
@@ -1054,8 +1055,8 @@ impl<'a> ParseTableBuilder<'a> {
         }
 
         // Every state stays in the table until minimization, so store its terminal entries as
-        // interned action lists, in a map with no spare capacity, and give back the capacity
-        // its non-terminal map grew into.
+        // interned action lists, with no spare capacity, and give back the capacity its
+        // non-terminal map grew into.
         state
             .terminal_entries
             .reserve_exact(self.terminal_entries.len());
@@ -1066,7 +1067,7 @@ impl<'a> ParseTableBuilder<'a> {
                 .intern(&mut self.action_list_ids, entry.actions);
             state
                 .terminal_entries
-                .insert(symbol, ActionListId::new(index, entry.reusable));
+                .push(symbol, ActionListId::new(index, entry.reusable));
         }
         state.nonterminal_entries.shrink_to_fit();
 
