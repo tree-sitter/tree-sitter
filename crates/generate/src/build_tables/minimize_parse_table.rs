@@ -66,6 +66,25 @@ impl SymbolKey {
     const fn is_terminal(self) -> bool {
         self.tag() == SymbolType::Terminal as u64
     }
+
+    /// This token's position among all tokens in `SymbolKey` order: external tokens,
+    /// `End`, `EndOfNonTerminalExtra`, then the terminals.
+    #[inline]
+    const fn token_index(self, external_count: usize) -> usize {
+        match self.tag() {
+            tag if tag == SymbolType::External as u64 => self.index() as usize,
+            tag if tag == SymbolType::End as u64 => external_count,
+            tag if tag == SymbolType::EndOfNonTerminalExtra as u64 => external_count + 1,
+            tag if tag == SymbolType::Terminal as u64 => external_count + 2 + self.index() as usize,
+            _ => unreachable!(),
+        }
+    }
+
+    /// How many positions [`Self::token_index`] gives out: one per external token, one each for
+    /// `End` and `EndOfNonTerminalExtra`, and one per terminal.
+    const fn token_count(external_count: usize, terminal_count: usize) -> usize {
+        external_count + 2 + terminal_count
+    }
 }
 
 #[expect(
@@ -201,6 +220,8 @@ struct ConflictPass<'min, 'a> {
     static_signatures: Vec<u64>,
     /// Each state's shift targets, sorted by symbol.
     shift_maps: &'min [Vec<(SymbolKey, ParseStateId)>],
+    /// Scratch for [`SplitCriterion::compatible_with_all`].
+    kept: KeptStates,
 }
 
 impl<'min, 'a> ConflictPass<'min, 'a> {
@@ -256,7 +277,181 @@ impl<'min, 'a> ConflictPass<'min, 'a> {
             bits: ConflictBits::new(minimizer),
             static_signatures,
             shift_maps,
+            kept: KeptStates::new(
+                minimizer.syntax_grammar.external_tokens.len(),
+                minimizer.lexical_grammar.variables.len(),
+            ),
         }
+    }
+
+    /// Whether the state has an entry for `key`.
+    fn has_token(&self, state_id: ParseStateId, key: SymbolKey) -> bool {
+        if key.is_terminal() {
+            let row = self.bits.get_state_row(state_id as usize);
+            let index = key.index() as usize;
+            row[index / 64] & (1 << (index % 64)) != 0
+        } else {
+            self.entry_maps[state_id as usize]
+                .binary_search_by_key(&key, |&(key, _)| key)
+                .is_ok()
+        }
+    }
+
+    /// Whether `key` can be added to `target`, or `target` already has it.
+    fn can_take(&self, target: &ParseState, key: SymbolKey) -> bool {
+        self.has_token(target.id, key)
+            || !self
+                .minimizer
+                .token_conflicts(target.id, target.id, target, &self.bits, key)
+    }
+
+    /// [`SplitCriterion::compatible_with_all`], with the kept states merged into `kept_states`.
+    fn compatible_with_merged(
+        &self,
+        kept_states: &mut KeptStates,
+        state: &ParseState,
+        kept: &[u32],
+        group_ids_by_state_id: &[ParseStateId],
+    ) -> bool {
+        let states = &self.minimizer.parse_table.states;
+        for &(key, action_list) in &self.entry_maps[state.id as usize] {
+            let token = kept_states.tokens[key.token_index(kept_states.external_count)];
+            if let Some(kept_action_list) = token.action_list
+                && self.minimizer.entries_conflict(
+                    state.id,
+                    state.id,
+                    key,
+                    kept_action_list,
+                    action_list,
+                    group_ids_by_state_id,
+                )
+            {
+                return false;
+            }
+            if (token.count as usize) < kept.len()
+                && !kept_states.addable_to_all(key, kept, |kept_id| {
+                    self.can_take(&states[kept_id as usize], key)
+                })
+            {
+                return false;
+            }
+        }
+        kept_states
+            .merged_tokens
+            .iter()
+            .all(|&key| self.can_take(state, key))
+    }
+}
+
+/// What the states kept so far in a group of the conflict pass have in common, to check a state
+/// against all of them at once. Kept states never need to be split from each other, so any two
+/// agree on every token they share, and one entry per token stands for all of them.
+#[derive(Default)]
+struct KeptStates {
+    /// What the merged states have for each token, by [`SymbolKey::token_index`].
+    tokens: Vec<KeptToken>,
+    /// How many of the kept states are merged into `tokens`.
+    merged_count: usize,
+    /// The tokens that some merged state has.
+    merged_tokens: Vec<SymbolKey>,
+    /// The tokens that have been checked against kept states lacking them.
+    checked_tokens: Vec<SymbolKey>,
+    /// The number of external tokens, for [`SymbolKey::token_index`].
+    external_count: usize,
+}
+
+/// What the kept states have for a token. See [`KeptStates`].
+#[derive(Clone, Copy, Default)]
+struct KeptToken {
+    /// The action list of the first merged state with this token.
+    action_list: Option<ActionListId>,
+    /// How many merged states have this token.
+    count: u32,
+    /// Whether this token can be added to the kept states that lack it.
+    addable: Addable,
+}
+
+/// Whether a token can be added to the kept states that lack it, as far as they've been
+/// checked, in order.
+#[derive(Clone, Copy)]
+enum Addable {
+    /// To each of the first this many kept states.
+    UpTo(u32),
+    /// Not to one of them.
+    Blocked,
+}
+
+impl Default for Addable {
+    fn default() -> Self {
+        Self::UpTo(0)
+    }
+}
+
+impl KeptStates {
+    fn new(external_count: usize, terminal_count: usize) -> Self {
+        Self {
+            tokens: vec![
+                KeptToken::default();
+                SymbolKey::token_count(external_count, terminal_count)
+            ],
+            merged_count: 0,
+            merged_tokens: Vec::new(),
+            checked_tokens: Vec::new(),
+            external_count,
+        }
+    }
+
+    /// Forgets the kept states, for the next group.
+    fn clear(&mut self) {
+        for key in self
+            .merged_tokens
+            .drain(..)
+            .chain(self.checked_tokens.drain(..))
+        {
+            self.tokens[key.token_index(self.external_count)] = KeptToken::default();
+        }
+        self.merged_count = 0;
+    }
+
+    /// Merges the entries of the kept states that aren't merged yet.
+    fn merge(&mut self, kept: &[u32], entry_maps: &[Vec<(SymbolKey, ActionListId)>]) {
+        for &state_id in &kept[self.merged_count..] {
+            for &(key, action_list) in &entry_maps[state_id as usize] {
+                let token = &mut self.tokens[key.token_index(self.external_count)];
+                if token.action_list.is_none() {
+                    token.action_list = Some(action_list);
+                    self.merged_tokens.push(key);
+                }
+                token.count += 1;
+            }
+        }
+        self.merged_count = kept.len();
+    }
+
+    /// Whether `key` can be added to every kept state that lacks it, asking `can_take` about
+    /// each kept state at most once per group: the answer doesn't depend on the state being
+    /// checked.
+    fn addable_to_all(
+        &mut self,
+        key: SymbolKey,
+        kept: &[u32],
+        mut can_take: impl FnMut(u32) -> bool,
+    ) -> bool {
+        let token = &mut self.tokens[key.token_index(self.external_count)];
+        let Addable::UpTo(checked) = token.addable else {
+            return false;
+        };
+        if checked == 0 {
+            self.checked_tokens.push(key);
+        }
+        for &kept_id in &kept[checked as usize..] {
+            if !can_take(kept_id) {
+                token.addable = Addable::Blocked;
+                return false;
+            }
+        }
+        token.addable = Addable::UpTo(kept.len() as u32);
+        true
     }
 }
 
@@ -334,6 +529,30 @@ impl SplitCriterion<ParseState> for ConflictPass<'_, '_> {
                             (action1, action2) => action1 == action2,
                         })
                 })
+    }
+
+    fn start_group(&mut self) {
+        self.kept.clear();
+    }
+
+    /// Checks `state` against what the kept states have in common, which covers everything
+    /// [`Minimizer::states_conflict`] compares:
+    /// - the tokens `state` shares with kept states, whose entries all agree.
+    /// - `state`'s tokens that some kept state lacks, which must be addable to it.
+    /// - the kept states' tokens that `state` lacks, which must be addable to `state`.
+    fn compatible_with_all(
+        &mut self,
+        state: &ParseState,
+        kept: &[u32],
+        group_ids_by_state_id: &[ParseStateId],
+    ) -> bool {
+        self.kept.merge(kept, &self.entry_maps);
+        // The check reads the rest of `self` while it updates the scratch.
+        let mut kept_states = mem::take(&mut self.kept);
+        let compatible =
+            self.compatible_with_merged(&mut kept_states, state, kept, group_ids_by_state_id);
+        self.kept = kept_states;
+        compatible
     }
 }
 
@@ -841,6 +1060,7 @@ impl Minimizer<'_> {
         false
     }
 
+    #[inline]
     fn entries_conflict(
         &self,
         state_id1: ParseStateId,
@@ -851,9 +1071,27 @@ impl Minimizer<'_> {
         group_ids_by_state_id: &[ParseStateId],
     ) -> bool {
         // To be compatible, entries need to have the same actions.
-        if id1.index() == id2.index() {
-            return false;
-        }
+        id1.index() != id2.index()
+            && self.action_lists_conflict(
+                state_id1,
+                state_id2,
+                token,
+                id1,
+                id2,
+                group_ids_by_state_id,
+            )
+    }
+
+    /// [`Self::entries_conflict`] for entries with different action lists.
+    fn action_lists_conflict(
+        &self,
+        state_id1: ParseStateId,
+        state_id2: ParseStateId,
+        token: SymbolKey,
+        id1: ActionListId,
+        id2: ActionListId,
+        group_ids_by_state_id: &[ParseStateId],
+    ) -> bool {
         let actions1 = self.parse_table.action_lists.get(id1);
         let actions2 = self.parse_table.action_lists.get(id2);
         if actions1.len() != actions2.len() {

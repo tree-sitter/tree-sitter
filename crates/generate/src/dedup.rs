@@ -23,6 +23,23 @@ pub trait SplitCriterion<S> {
     fn equivalent(&mut self, _left: &S, _right: &S, _group_ids_by_state_id: &[u32]) -> bool {
         false
     }
+
+    /// Called before a group's states are compared, e.g. to reset what
+    /// [`Self::compatible_with_all`] keeps.
+    fn start_group(&mut self) {}
+
+    /// Whether `state` can stay in its group with all of `kept`.
+    ///
+    /// `kept` holds the first state of each class that stayed before `state`, in order. `false`
+    /// is always safe: the states are then compared one at a time.
+    fn compatible_with_all(
+        &mut self,
+        _state: &S,
+        _kept: &[u32],
+        _group_ids_by_state_id: &[u32],
+    ) -> bool {
+        false
+    }
 }
 
 /// Lets a function that decides [`SplitCriterion::should_split`], like the lexer's, be a
@@ -67,16 +84,36 @@ pub fn split_state_id_groups<S>(
         classes.classify(states, state_ids, group_ids_by_state_id, criterion);
 
         // A class follows its first state, so compare only those.
+        criterion.start_group();
         kept.clear();
         split_from.clear();
         for &state_id in &classes.first_states {
             let state = &states[state_id as usize];
-            let splitter = kept
-                .iter()
-                .position(|&kept_id: &u32| {
-                    criterion.should_split(&states[kept_id as usize], state, group_ids_by_state_id)
-                })
-                .map(|position| position as u32);
+            // Most states that are split off are split from the first kept state. Past it, one
+            // check against all kept states can save comparing the state with each.
+            let splitter = match kept.split_first() {
+                None => None,
+                Some((&first, rest)) => {
+                    if criterion.should_split(&states[first as usize], state, group_ids_by_state_id)
+                    {
+                        Some(0)
+                    } else if rest.is_empty()
+                        || criterion.compatible_with_all(state, &kept, group_ids_by_state_id)
+                    {
+                        None
+                    } else {
+                        rest.iter()
+                            .position(|&kept_id| {
+                                criterion.should_split(
+                                    &states[kept_id as usize],
+                                    state,
+                                    group_ids_by_state_id,
+                                )
+                            })
+                            .map(|position| position as u32 + 1)
+                    }
+                }
+            };
             if splitter.is_none() {
                 kept.push(state_id);
             }
