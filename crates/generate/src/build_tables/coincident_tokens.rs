@@ -25,8 +25,8 @@ pub struct CoincidentTokenIndex {
 
 impl<'a> CoincidentTokenIndex {
     #[must_use]
-    pub fn new<T>(
-        table: &ParseTable<T>,
+    pub fn new(
+        table: &ParseTable,
         lexical_grammar: &'a LexicalGrammar,
         word_token: Option<Symbol>,
     ) -> Self {

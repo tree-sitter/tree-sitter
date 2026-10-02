@@ -247,9 +247,9 @@ pub struct ParseTableEntry {
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct ParseState<T = ActionListId> {
+pub struct ParseState {
     pub id: ParseStateId,
-    pub terminal_entries: IndexMap<Symbol, T, BuildHasherDefault<FxHasher>>,
+    pub terminal_entries: IndexMap<Symbol, ActionListId, BuildHasherDefault<FxHasher>>,
     pub nonterminal_entries: IndexMap<Symbol, GotoAction, BuildHasherDefault<FxHasher>>,
     pub reserved_words: TokenSet,
     pub lex_state_id: LexStateId,
@@ -271,8 +271,8 @@ pub struct ProductionInfo {
 }
 
 #[derive(Debug, Default)]
-pub struct ParseTable<T = ActionListId> {
-    pub states: Vec<ParseState<T>>,
+pub struct ParseTable {
+    pub states: Vec<ParseState>,
     pub action_lists: ActionListPool,
     pub symbols: Vec<Symbol>,
     pub production_infos: Vec<ProductionInfo>,
@@ -309,15 +309,13 @@ impl ParseTableEntry {
     }
 }
 
-impl<T> ParseState<T> {
+impl ParseState {
     #[must_use]
     pub fn is_end_of_non_terminal_extra(&self) -> bool {
         self.terminal_entries
             .contains_key(&Symbol::EndOfNonTerminalExtra)
     }
-}
 
-impl ParseState<ActionListId> {
     pub fn referenced_states<'a>(
         &'a self,
         pool: &'a ActionListPool,
@@ -359,7 +357,7 @@ impl ParseState<ActionListId> {
     }
 }
 
-impl ParseTable<ActionListId> {
+impl ParseTable {
     pub fn remap_terminal_references(&mut self, mut f: impl FnMut(ParseStateId) -> ParseStateId) {
         self.action_lists
             .remap_scratch
