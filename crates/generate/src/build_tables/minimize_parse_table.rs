@@ -300,9 +300,10 @@ impl<'min, 'a> ConflictPass<'min, 'a> {
     /// Whether `key` can be added to `target`, or `target` already has it.
     fn can_take(&self, target: &ParseState, key: SymbolKey) -> bool {
         self.has_token(target.id, key)
-            || !self
+            || self
                 .minimizer
-                .token_conflicts(target.id, target.id, target, &self.bits, key)
+                .token_conflicts(target, &self.bits, key)
+                .is_none()
     }
 
     /// [`SplitCriterion::compatible_with_all`], with the kept states merged into `kept_states`.
@@ -317,14 +318,10 @@ impl<'min, 'a> ConflictPass<'min, 'a> {
         for &(key, action_list) in &self.entry_maps[state.id as usize] {
             let token = kept_states.tokens[key.token_index(kept_states.external_count)];
             if let Some(kept_action_list) = token.action_list
-                && self.minimizer.entries_conflict(
-                    state.id,
-                    state.id,
-                    key,
-                    kept_action_list,
-                    action_list,
-                    group_ids_by_state_id,
-                )
+                && self
+                    .minimizer
+                    .entries_conflict(kept_action_list, action_list, group_ids_by_state_id)
+                    .is_some()
             {
                 return false;
             }
@@ -675,6 +672,26 @@ impl SplitCriterion<ParseState> for SuccessorPass<'_, '_> {
     }
 }
 
+/// Why two states can't be merged: either their entries for a token differ, or a token that
+/// only one of them has can't be added to the other.
+#[derive(Clone, Copy)]
+enum Conflict {
+    /// Their entries have different numbers of actions.
+    ActionCounts,
+    /// Their entries shift to these states, which are in different groups.
+    SplitSuccessors(ParseStateId, ParseStateId),
+    /// Their entries have different actions.
+    UnequalActions,
+    /// The token ends a non-terminal extra.
+    EndOfNonTerminalExtra,
+    /// The token is external, so it could conflict lexically with any of the other state's.
+    ExternalToken,
+    /// The token is both internal and external.
+    InternalExternalToken,
+    /// The token conflicts lexically with this terminal, which the other state has.
+    Lexical(usize),
+}
+
 struct Minimizer<'a> {
     parse_table: &'a mut ParseTable,
     syntax_grammar: &'a SyntaxGrammar,
@@ -950,14 +967,9 @@ impl Minimizer<'_> {
                     // SAFETY: Equal is only reachable when i < len1 && j < len2.
                     let e1 = unsafe { entries1.get_unchecked(i) };
                     let e2 = unsafe { entries2.get_unchecked(j) };
-                    if self.entries_conflict(
-                        state1.id,
-                        state2.id,
-                        e1.0,
-                        e1.1,
-                        e2.1,
-                        group_ids_by_state_id,
-                    ) {
+                    if let Some(conflict) = self.entries_conflict(e1.1, e2.1, group_ids_by_state_id)
+                    {
+                        self.log_conflict(state1.id, state2.id, e1.0, conflict);
                         return true;
                     }
                     i += 1;
@@ -966,7 +978,8 @@ impl Minimizer<'_> {
                 Ordering::Less => {
                     // SAFETY: Less is only reachable when i < len1.
                     let e1 = unsafe { entries1.get_unchecked(i) };
-                    if self.token_conflicts(state1.id, state2.id, state2, bits, e1.0) {
+                    if let Some(conflict) = self.token_conflicts(state2, bits, e1.0) {
+                        self.log_conflict(state1.id, state2.id, e1.0, conflict);
                         return true;
                     }
                     i += 1;
@@ -974,7 +987,8 @@ impl Minimizer<'_> {
                 Ordering::Greater => {
                     // SAFETY: Greater is only reachable when j < len2.
                     let e2 = unsafe { entries2.get_unchecked(j) };
-                    if self.token_conflicts(state1.id, state2.id, state1, bits, e2.0) {
+                    if let Some(conflict) = self.token_conflicts(state1, bits, e2.0) {
+                        self.log_conflict(state1.id, state2.id, e2.0, conflict);
                         return true;
                     }
                     j += 1;
@@ -1060,46 +1074,33 @@ impl Minimizer<'_> {
         false
     }
 
+    /// Why two entries for the same token can't be merged.
     #[inline]
     fn entries_conflict(
         &self,
-        state_id1: ParseStateId,
-        state_id2: ParseStateId,
-        token: SymbolKey,
         id1: ActionListId,
         id2: ActionListId,
         group_ids_by_state_id: &[ParseStateId],
-    ) -> bool {
+    ) -> Option<Conflict> {
         // To be compatible, entries need to have the same actions.
-        id1.index() != id2.index()
-            && self.action_lists_conflict(
-                state_id1,
-                state_id2,
-                token,
-                id1,
-                id2,
-                group_ids_by_state_id,
-            )
+        if id1.index() == id2.index() {
+            None
+        } else {
+            self.action_lists_conflict(id1, id2, group_ids_by_state_id)
+        }
     }
 
     /// [`Self::entries_conflict`] for entries with different action lists.
     fn action_lists_conflict(
         &self,
-        state_id1: ParseStateId,
-        state_id2: ParseStateId,
-        token: SymbolKey,
         id1: ActionListId,
         id2: ActionListId,
         group_ids_by_state_id: &[ParseStateId],
-    ) -> bool {
+    ) -> Option<Conflict> {
         let actions1 = self.parse_table.action_lists.get(id1);
         let actions2 = self.parse_table.action_lists.get(id2);
         if actions1.len() != actions2.len() {
-            debug!(
-                "split states {state_id1} {state_id2} - differing action counts for token {}",
-                self.symbol_name(token.symbol())
-            );
-            return true;
+            return Some(Conflict::ActionCounts);
         }
 
         for (action1, action2) in actions1.iter().zip(actions2.iter()) {
@@ -1120,47 +1121,31 @@ impl Minimizer<'_> {
                 if group1 == group2 && is_repetition1 == is_repetition2 {
                     continue;
                 }
-                debug!(
-                    "split states {state_id1} {state_id2} - successors for {} are split: {s1} {s2}",
-                    self.symbol_name(token.symbol()),
-                );
-                return true;
+                return Some(Conflict::SplitSuccessors(*s1, *s2));
             } else if action1 != action2 {
-                debug!(
-                    "split states {state_id1} {state_id2} - unequal actions for {}",
-                    self.symbol_name(token.symbol()),
-                );
-                return true;
+                return Some(Conflict::UnequalActions);
             }
         }
 
-        false
+        None
     }
 
+    /// Why `new_token` can't be added to `right_state`, if it can't.
     #[inline]
     fn token_conflicts(
         &self,
-        left_id: ParseStateId,
-        right_id: ParseStateId,
         right_state: &ParseState,
         bits: &ConflictBits,
         new_token: SymbolKey,
-    ) -> bool {
+    ) -> Option<Conflict> {
         let new_token_is_terminal = new_token.is_terminal();
         let new_token_index = match new_token.tag() {
             tag if tag == SymbolType::EndOfNonTerminalExtra as u64 => {
-                debug!("split states {left_id} {right_id} - end of non-terminal extra");
-                return true;
+                return Some(Conflict::EndOfNonTerminalExtra);
             }
             // Do not add external tokens, as they could conflict lexically with
             // any of the state's existing lookahead tokens.
-            tag if tag == SymbolType::External as u64 => {
-                debug!(
-                    "split states {left_id} {right_id} - external token {}",
-                    self.symbol_name(new_token.symbol()),
-                );
-                return true;
-            }
+            tag if tag == SymbolType::External as u64 => return Some(Conflict::ExternalToken),
             tag if tag == SymbolType::End as u64 => 0,
             tag if tag == SymbolType::Terminal as u64 => new_token.index() as usize,
             _ => unreachable!(),
@@ -1174,7 +1159,7 @@ impl Minimizer<'_> {
             right_state.reserved_words.contains(Symbol::End)
         };
         if is_reserved {
-            return false;
+            return None;
         }
 
         // Do not add tokens which are both internal and external. Their validity could
@@ -1183,11 +1168,7 @@ impl Minimizer<'_> {
         if new_token_is_terminal
             && bits.internal_external[new_token_index / 64] & (1 << (new_token_index % 64)) != 0
         {
-            debug!(
-                "split states {left_id} {right_id} - internal/external token {}",
-                self.symbol_name(new_token.symbol()),
-            );
-            return true;
+            return Some(Conflict::InternalExternalToken);
         }
 
         let new_token_is_word = bits.word_token == Some(new_token);
@@ -1215,20 +1196,53 @@ impl Minimizer<'_> {
                 candidates &= !bits.keywords[w];
             }
             if candidates != 0 {
-                debug!(
-                    "split states {} {} - token {} conflicts with {}",
-                    left_id,
-                    right_id,
-                    self.symbol_name(new_token.symbol()),
-                    self.symbol_name(Symbol::terminal(
-                        w * 64 + candidates.trailing_zeros() as usize
-                    )),
-                );
-                return true;
+                return Some(Conflict::Lexical(
+                    w * 64 + candidates.trailing_zeros() as usize,
+                ));
             }
         }
 
-        false
+        None
+    }
+
+    /// Logs that the states `id1` and `id2` are split because of `conflict`, over `token`.
+    fn log_conflict(
+        &self,
+        id1: ParseStateId,
+        id2: ParseStateId,
+        token: SymbolKey,
+        conflict: Conflict,
+    ) {
+        match conflict {
+            Conflict::ActionCounts => debug!(
+                "split states {id1} {id2} - differing action counts for token {}",
+                self.symbol_name(token.symbol())
+            ),
+            Conflict::SplitSuccessors(s1, s2) => debug!(
+                "split states {id1} {id2} - successors for {} are split: {s1} {s2}",
+                self.symbol_name(token.symbol()),
+            ),
+            Conflict::UnequalActions => debug!(
+                "split states {id1} {id2} - unequal actions for {}",
+                self.symbol_name(token.symbol()),
+            ),
+            Conflict::EndOfNonTerminalExtra => {
+                debug!("split states {id1} {id2} - end of non-terminal extra");
+            }
+            Conflict::ExternalToken => debug!(
+                "split states {id1} {id2} - external token {}",
+                self.symbol_name(token.symbol()),
+            ),
+            Conflict::InternalExternalToken => debug!(
+                "split states {id1} {id2} - internal/external token {}",
+                self.symbol_name(token.symbol()),
+            ),
+            Conflict::Lexical(terminal) => debug!(
+                "split states {id1} {id2} - token {} conflicts with {}",
+                self.symbol_name(token.symbol()),
+                self.symbol_name(Symbol::terminal(terminal)),
+            ),
+        }
     }
 
     fn symbol_name(&self, symbol: Symbol) -> &str {
