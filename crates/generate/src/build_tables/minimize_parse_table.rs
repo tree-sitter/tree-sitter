@@ -8,7 +8,7 @@ use rustc_hash::{FxHashMap, FxHashSet, FxHasher};
 
 use log::debug;
 
-use super::token_conflicts::TokenConflictMap;
+use super::{SymbolIndexer, token_conflicts::TokenConflictMap};
 use crate::{
     OptLevel,
     dedup::{SplitCriterion, split_state_id_groups},
@@ -65,25 +65,6 @@ impl SymbolKey {
     #[inline]
     const fn is_terminal(self) -> bool {
         self.tag() == SymbolType::Terminal as u64
-    }
-
-    /// This token's position among all tokens in `SymbolKey` order: external tokens,
-    /// `End`, `EndOfNonTerminalExtra`, then the terminals.
-    #[inline]
-    const fn token_index(self, external_count: usize) -> usize {
-        match self.tag() {
-            tag if tag == SymbolType::External as u64 => self.index() as usize,
-            tag if tag == SymbolType::End as u64 => external_count,
-            tag if tag == SymbolType::EndOfNonTerminalExtra as u64 => external_count + 1,
-            tag if tag == SymbolType::Terminal as u64 => external_count + 2 + self.index() as usize,
-            _ => unreachable!(),
-        }
-    }
-
-    /// How many positions [`Self::token_index`] gives out: one per external token, one each for
-    /// `End` and `EndOfNonTerminalExtra`, and one per terminal.
-    const fn token_count(external_count: usize, terminal_count: usize) -> usize {
-        external_count + 2 + terminal_count
     }
 }
 
@@ -277,10 +258,10 @@ impl<'min, 'a> ConflictPass<'min, 'a> {
             bits: ConflictBits::new(minimizer),
             static_signatures,
             shift_maps,
-            kept: KeptStates::new(
-                minimizer.syntax_grammar.external_tokens.len(),
-                minimizer.lexical_grammar.variables.len(),
-            ),
+            kept: KeptStates::new(SymbolIndexer::new(
+                minimizer.syntax_grammar,
+                minimizer.lexical_grammar,
+            )),
         }
     }
 
@@ -316,7 +297,7 @@ impl<'min, 'a> ConflictPass<'min, 'a> {
     ) -> bool {
         let states = &self.minimizer.parse_table.states;
         for &(key, action_list) in &self.entry_maps[state.id as usize] {
-            let token = kept_states.tokens[key.token_index(kept_states.external_count)];
+            let token = kept_states.tokens[kept_states.indexer.index(key.symbol())];
             if let Some(kept_action_list) = token.action_list
                 && self
                     .minimizer
@@ -345,7 +326,7 @@ impl<'min, 'a> ConflictPass<'min, 'a> {
 /// agree on every token they share, and one entry per token stands for all of them.
 #[derive(Default)]
 struct KeptStates {
-    /// What the merged states have for each token, by [`SymbolKey::token_index`].
+    /// What the merged states have for each token, by [`SymbolIndexer::index`].
     tokens: Vec<KeptToken>,
     /// How many of the kept states are merged into `tokens`.
     merged_count: usize,
@@ -353,8 +334,8 @@ struct KeptStates {
     merged_tokens: Vec<SymbolKey>,
     /// The tokens that have been checked against kept states lacking them.
     checked_tokens: Vec<SymbolKey>,
-    /// The number of external tokens, for [`SymbolKey::token_index`].
-    external_count: usize,
+    /// Gives each token its slot in `tokens`.
+    indexer: SymbolIndexer,
 }
 
 /// What the kept states have for a token. See [`KeptStates`].
@@ -385,16 +366,13 @@ impl Default for Addable {
 }
 
 impl KeptStates {
-    fn new(external_count: usize, terminal_count: usize) -> Self {
+    fn new(indexer: SymbolIndexer) -> Self {
         Self {
-            tokens: vec![
-                KeptToken::default();
-                SymbolKey::token_count(external_count, terminal_count)
-            ],
+            tokens: vec![KeptToken::default(); indexer.token_count() as usize],
             merged_count: 0,
             merged_tokens: Vec::new(),
             checked_tokens: Vec::new(),
-            external_count,
+            indexer,
         }
     }
 
@@ -405,7 +383,7 @@ impl KeptStates {
             .drain(..)
             .chain(self.checked_tokens.drain(..))
         {
-            self.tokens[key.token_index(self.external_count)] = KeptToken::default();
+            self.tokens[self.indexer.index(key.symbol())] = KeptToken::default();
         }
         self.merged_count = 0;
     }
@@ -414,7 +392,7 @@ impl KeptStates {
     fn merge(&mut self, kept: &[u32], entry_maps: &[Vec<(SymbolKey, ActionListId)>]) {
         for &state_id in &kept[self.merged_count..] {
             for &(key, action_list) in &entry_maps[state_id as usize] {
-                let token = &mut self.tokens[key.token_index(self.external_count)];
+                let token = &mut self.tokens[self.indexer.index(key.symbol())];
                 if token.action_list.is_none() {
                     token.action_list = Some(action_list);
                     self.merged_tokens.push(key);
@@ -434,7 +412,7 @@ impl KeptStates {
         kept: &[u32],
         mut can_take: impl FnMut(u32) -> bool,
     ) -> bool {
-        let token = &mut self.tokens[key.token_index(self.external_count)];
+        let token = &mut self.tokens[self.indexer.index(key.symbol())];
         let Addable::UpTo(checked) = token.addable else {
             return false;
         };
