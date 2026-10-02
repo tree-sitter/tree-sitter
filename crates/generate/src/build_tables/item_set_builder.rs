@@ -1,6 +1,7 @@
-use std::fmt;
+use std::hash::{BuildHasher as _, Hash};
 
-use rustc_hash::{FxHashMap, FxHashSet};
+use hashbrown::{HashTable, hash_table};
+use rustc_hash::{FxBuildHasher, FxHashMap, FxHashSet};
 
 use super::item::{
     ItemKeyMap, ParseItem, ParseItemDisplay, ParseItemSet, ParseItemSetEntry, TokenSetDisplay,
@@ -14,14 +15,14 @@ use crate::{
     strpool::StrPool,
 };
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 struct TransitiveClosureAddition<'a> {
     item: ParseItem<'a>,
     info: AdditionInfo,
 }
 
 /// [`FollowSetInfo`] with an interned lookahead set and word-token membership precomputed.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 struct AdditionInfo {
     lookaheads: LookaheadSetId,
     reserved_lookaheads: ReservedWordSetId,
@@ -50,10 +51,21 @@ pub struct ParseItemSetBuilder<'a> {
     pub key_map: &'a ItemKeyMap,
     pub lookaheads: LookaheadSetPool,
     transitive_closure_additions: Vec<Vec<TransitiveClosureAddition<'a>>>,
+    /// Scratch for [`Self::transitive_closure`]. The positions of the entries added
+    /// so far, by the hash of their items.
+    closure_indices: HashTable<u32>,
 }
 
-fn find_or_push<T: Eq>(vector: &mut Vec<T>, value: T) {
-    if !vector.contains(&value) {
+/// Pushes `value` unless `vector` already has it. `indices` holds the positions
+/// of `vector`'s elements, by hash.
+fn push_unique<T: Eq + Hash>(vector: &mut Vec<T>, indices: &mut HashTable<u32>, value: T) {
+    let hash = FxBuildHasher.hash_one(&value);
+    if let hash_table::Entry::Vacant(entry) = indices.entry(
+        hash,
+        |&index| vector[index as usize] == value,
+        |&index| FxBuildHasher.hash_one(&vector[index as usize]),
+    ) {
+        entry.insert(vector.len() as u32);
         vector.push(value);
     }
 }
@@ -76,6 +88,7 @@ impl<'a> ParseItemSetBuilder<'a> {
             key_map,
             lookaheads: LookaheadSetPool::new(),
             transitive_closure_additions: vec![Vec::new(); syntax_grammar.variables.len()],
+            closure_indices: HashTable::new(),
         };
 
         // For each grammar symbol, populate the FIRST and LAST sets: the set of
@@ -212,6 +225,7 @@ impl<'a> ParseItemSetBuilder<'a> {
         eof_lookaheads.insert(Symbol::End);
         let mut stack = Vec::new();
         let mut follow_set_info_by_non_terminal = FxHashMap::<usize, FollowSetInfo>::default();
+        let mut addition_indices = HashTable::new();
         for i in 0..syntax_grammar.variables.len() {
             // First, build up a map whose keys are all of the non-terminals that can
             // appear at the beginning of non-terminal `i`, and whose values store
@@ -270,6 +284,7 @@ impl<'a> ParseItemSetBuilder<'a> {
 
             // Store all of those non-terminals' productions, along with their associated
             // lookahead info, as *additions* associated with non-terminal `i`.
+            addition_indices.clear();
             for (&variable_index, follow_set_info) in &follow_set_info_by_non_terminal {
                 let non_terminal = Symbol::non_terminal(variable_index);
                 if syntax_grammar.variables_to_inline.contains(&non_terminal) {
@@ -303,8 +318,9 @@ impl<'a> ParseItemSetBuilder<'a> {
                                 item_info.propagates_lookaheads = false;
                                 item_info.contains_word = false;
                             }
-                            find_or_push(
+                            push_unique(
                                 additions_for_non_terminal,
+                                &mut addition_indices,
                                 TransitiveClosureAddition {
                                     item: item.substitute_production(id, key_map.keys_for(id)),
                                     info: item_info,
@@ -319,8 +335,9 @@ impl<'a> ParseItemSetBuilder<'a> {
                             item_info.propagates_lookaheads = false;
                             item_info.contains_word = false;
                         }
-                        find_or_push(
+                        push_unique(
                             additions_for_non_terminal,
+                            &mut addition_indices,
                             TransitiveClosureAddition {
                                 item,
                                 info: item_info,
@@ -337,6 +354,7 @@ impl<'a> ParseItemSetBuilder<'a> {
     #[must_use]
     pub fn transitive_closure(&mut self, item_set: &ParseItemSet<'a>) -> ParseItemSet<'a> {
         let mut result = ParseItemSet::default();
+        self.closure_indices.clear();
         for entry in &item_set.entries {
             if let Some(ids) = self
                 .inlines
@@ -358,6 +376,9 @@ impl<'a> ParseItemSetBuilder<'a> {
                 self.add_item(&mut result, entry);
             }
         }
+        // Items are appended as they're first added, so restore the set's order
+        // once at the end.
+        result.entries.sort_unstable_by(|a, b| a.item.cmp(&b.item));
         result
     }
 
@@ -375,6 +396,33 @@ impl<'a> ParseItemSetBuilder<'a> {
     #[must_use]
     pub fn last_set(&self, symbol: Symbol) -> &TokenSet {
         &self.last_sets[&symbol]
+    }
+
+    /// Returns the entry for `item` in a closure being built, appending it if new.
+    fn closure_entry<'set>(
+        indices: &mut HashTable<u32>,
+        set: &'set mut ParseItemSet<'a>,
+        item: ParseItem<'a>,
+    ) -> &'set mut ParseItemSetEntry<'a> {
+        let entries = &mut set.entries;
+        let index = match indices.entry(
+            FxBuildHasher.hash_one(item),
+            |&index| entries[index as usize].item == item,
+            |&index| FxBuildHasher.hash_one(entries[index as usize].item),
+        ) {
+            hash_table::Entry::Occupied(entry) => *entry.get(),
+            hash_table::Entry::Vacant(entry) => {
+                let index = entries.len() as u32;
+                entry.insert(index);
+                entries.push(ParseItemSetEntry {
+                    item,
+                    lookaheads: LookaheadSetPool::EMPTY,
+                    following_reserved_word_set: ReservedWordSetId::default(),
+                });
+                index
+            }
+        };
+        &mut entries[index as usize]
     }
 
     fn add_item(&mut self, set: &mut ParseItemSet<'a>, entry: &ParseItemSetEntry<'a>) {
@@ -395,7 +443,7 @@ impl<'a> ParseItemSetBuilder<'a> {
 
             // Use the pre-computed *additions* to expand the non-terminal.
             for addition in &self.transitive_closure_additions[usize::from(index)] {
-                let e = set.insert(addition.item);
+                let e = Self::closure_entry(&mut self.closure_indices, set, addition.item);
                 e.lookaheads = self
                     .lookaheads
                     .union(e.lookaheads, addition.info.lookaheads);
@@ -419,7 +467,7 @@ impl<'a> ParseItemSetBuilder<'a> {
             }
         }
 
-        let e = set.insert(entry.item);
+        let e = Self::closure_entry(&mut self.closure_indices, set, entry.item);
         e.lookaheads = self.lookaheads.union(e.lookaheads, entry.lookaheads);
         e.following_reserved_word_set = e
             .following_reserved_word_set
@@ -434,8 +482,8 @@ struct ParseItemSetBuilderDisplay<'a>(
     pub &'a StrPool,
 );
 
-impl fmt::Debug for ParseItemSetBuilderDisplay<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+impl std::fmt::Debug for ParseItemSetBuilderDisplay<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         writeln!(f, "ParseItemSetBuilder {{")?;
 
         writeln!(f, "  first_sets: {{")?;
