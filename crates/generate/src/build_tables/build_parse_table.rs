@@ -1053,6 +1053,11 @@ impl<'a> ParseTableBuilder<'a> {
             }
         }
 
+        // Every state stays in the table until minimization, so give back the capacity its
+        // maps grew into now that they're complete.
+        state.terminal_entries.shrink_to_fit();
+        state.nonterminal_entries.shrink_to_fit();
+
         Ok(())
     }
 
