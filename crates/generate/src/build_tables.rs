@@ -76,6 +76,23 @@ impl SymbolIndexer {
         position as usize
     }
 
+    /// The symbol at a position, the inverse of [`Self::index`].
+    #[inline]
+    const fn symbol(self, index: usize) -> Symbol {
+        let position = index as u32;
+        if position < self.external_count {
+            Symbol::external(index)
+        } else if position == self.external_count {
+            Symbol::End
+        } else if position == self.external_count + 1 {
+            Symbol::EndOfNonTerminalExtra
+        } else if position < self.token_count() {
+            Symbol::terminal((position - self.external_count - 2) as usize)
+        } else {
+            Symbol::non_terminal((position - self.token_count()) as usize)
+        }
+    }
+
     /// How many positions [`Self::index`] gives to tokens _only_: one per external token, one
     /// each for `End` and `EndOfNonTerminalExtra`, and one per terminal.
     const fn token_count(self) -> u32 {
