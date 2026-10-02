@@ -213,16 +213,6 @@ impl Symbol {
             None
         }
     }
-
-    /// Packed `(kind, index)` identity, ordered exactly like `Ord`.
-    ///
-    /// A fast-path key for hot tables that would otherwise compare symbols
-    /// field-by-field.
-    #[inline]
-    #[must_use]
-    pub(crate) const fn packed_key(self) -> u64 {
-        (self.kind as u64) << 32 | self.index as u64
-    }
 }
 
 const _: () = assert!(std::mem::size_of::<Symbol>() == 8);

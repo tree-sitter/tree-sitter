@@ -13,7 +13,7 @@ use crate::{
     OptLevel,
     dedup::{SplitCriterion, split_state_id_groups},
     grammars::{LexicalGrammar, SyntaxGrammar, VariableType},
-    rules::{AliasMap, Symbol, SymbolType, SymbolView, TokenSet},
+    rules::{AliasMap, Symbol, SymbolView, TokenSet},
     strpool::StrPool,
     tables::{
         ActionList, ActionListId, GotoAction, ParseAction, ParseState, ParseStateId, ParseTable,
@@ -24,47 +24,26 @@ use crate::{
 /// the same `kind`, so storing the index alone is sufficient for ordering.
 type NonterminalIndex = u32;
 
-/// A [`Symbol`] packed into a `u64` for O(1) sort-key comparison.
-///
-/// Layout: high 32 bits = `kind` discriminant, low 32 bits = `index`.
-/// This preserves [`Symbol`]'s derived [`Ord`] ordering (kind first, then index) as a single
-/// integer comparison, and halves each entry's size vs storing a full `(Symbol, _)` tuple.
+/// A [`Symbol`]'s position from [`SymbolIndexer::index`]. Positions follow [`Symbol`]'s
+/// order, so keys sort like their symbols.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-struct SymbolKey(u64);
-
-const KEY_TAG_SHIFT: u32 = 32;
-const KEY_INDEX_MASK: u64 = u32::MAX as u64;
+struct SymbolKey(u32);
 
 impl SymbolKey {
     #[inline]
-    const fn new(sym: Symbol) -> Self {
-        Self(sym.packed_key())
+    fn new(indexer: SymbolIndexer, symbol: Symbol) -> Self {
+        Self(indexer.index(symbol) as u32)
+    }
+
+    /// The key's position, for indexing a table by [`SymbolIndexer::index`].
+    #[inline]
+    const fn index(self) -> usize {
+        self.0 as usize
     }
 
     #[inline]
-    const fn symbol(self) -> Symbol {
-        match self.0 >> KEY_TAG_SHIFT {
-            0 => Symbol::external(self.index() as usize),
-            1 => Symbol::End,
-            2 => Symbol::EndOfNonTerminalExtra,
-            3 => Symbol::terminal(self.index() as usize),
-            _ => Symbol::non_terminal(self.index() as usize),
-        }
-    }
-
-    #[inline]
-    const fn index(self) -> u32 {
-        (self.0 & KEY_INDEX_MASK) as u32
-    }
-
-    #[inline]
-    const fn tag(self) -> u64 {
-        self.0 >> KEY_TAG_SHIFT
-    }
-
-    #[inline]
-    const fn is_terminal(self) -> bool {
-        self.tag() == SymbolType::Terminal as u64
+    const fn symbol(self, indexer: SymbolIndexer) -> Symbol {
+        indexer.symbol(self.index())
     }
 }
 
@@ -86,6 +65,7 @@ pub fn minimize_parse_table(
         parse_table,
         syntax_grammar,
         lexical_grammar,
+        indexer: SymbolIndexer::new(syntax_grammar, lexical_grammar),
         token_conflict_map,
         keywords,
         simple_aliases,
@@ -112,8 +92,9 @@ struct ConflictBits {
     keywords: Vec<u64>,
     /// Tokens that are also external tokens.
     internal_external: Vec<u64>,
-    /// The grammar's word token, packed with the same ordering key as entries.
-    word_token: Option<SymbolKey>,
+    /// The grammar's word token, as a key and as its bit in a row, if it's a terminal. An
+    /// external word token has no keywords (see `identify_keywords`).
+    word_token: Option<(SymbolKey, usize)>,
 }
 
 impl ConflictBits {
@@ -172,7 +153,10 @@ impl ConflictBits {
             conflict_rows,
             keywords,
             internal_external,
-            word_token: minimizer.syntax_grammar.word_token.map(SymbolKey::new),
+            word_token: minimizer.syntax_grammar.word_token.and_then(|word| {
+                let index = word.terminal_index()?;
+                Some((SymbolKey::new(minimizer.indexer, word), usize::from(index)))
+            }),
         }
     }
 
@@ -211,8 +195,8 @@ impl<'min, 'a> ConflictPass<'min, 'a> {
         shift_maps: &'min [Vec<(SymbolKey, ParseStateId)>],
     ) -> Self {
         // Precompute sorted terminal entry references for merge-join in states_conflict.
-        // entry_maps[state_id][i] = (symbol_key, action_list_id). Keys are packed u64s
-        // (symbol_key) for easy comparison.
+        // entry_maps[state_id][i] = (symbol_key, action_list_id). Keys are symbol positions
+        // for easy comparison.
         let entry_maps = minimizer
             .parse_table
             .states
@@ -221,7 +205,7 @@ impl<'min, 'a> ConflictPass<'min, 'a> {
                 let mut entries = state
                     .terminal_entries
                     .iter()
-                    .map(|(sym, id)| (SymbolKey::new(*sym), *id))
+                    .map(|(sym, id)| (SymbolKey::new(minimizer.indexer, *sym), *id))
                     .collect::<Vec<(SymbolKey, ActionListId)>>();
                 entries.sort_unstable_by_key(|&(key, _)| key);
                 entries
@@ -258,18 +242,15 @@ impl<'min, 'a> ConflictPass<'min, 'a> {
             bits: ConflictBits::new(minimizer),
             static_signatures,
             shift_maps,
-            kept: KeptStates::new(SymbolIndexer::new(
-                minimizer.syntax_grammar,
-                minimizer.lexical_grammar,
-            )),
+            kept: KeptStates::new(minimizer.indexer),
         }
     }
 
     /// Whether the state has an entry for `key`.
     fn has_token(&self, state_id: ParseStateId, key: SymbolKey) -> bool {
-        if key.is_terminal() {
+        if let Some(index) = key.symbol(self.minimizer.indexer).terminal_index() {
             let row = self.bits.get_state_row(state_id as usize);
-            let index = key.index() as usize;
+            let index = usize::from(index);
             row[index / 64] & (1 << (index % 64)) != 0
         } else {
             self.entry_maps[state_id as usize]
@@ -297,7 +278,7 @@ impl<'min, 'a> ConflictPass<'min, 'a> {
     ) -> bool {
         let states = &self.minimizer.parse_table.states;
         for &(key, action_list) in &self.entry_maps[state.id as usize] {
-            let token = kept_states.tokens[kept_states.indexer.index(key.symbol())];
+            let token = kept_states.tokens[key.index()];
             if let Some(kept_action_list) = token.action_list
                 && self
                     .minimizer
@@ -334,8 +315,6 @@ struct KeptStates {
     merged_tokens: Vec<SymbolKey>,
     /// The tokens that have been checked against kept states lacking them.
     checked_tokens: Vec<SymbolKey>,
-    /// Gives each token its slot in `tokens`.
-    indexer: SymbolIndexer,
 }
 
 /// What the kept states have for a token. See [`KeptStates`].
@@ -372,7 +351,6 @@ impl KeptStates {
             merged_count: 0,
             merged_tokens: Vec::new(),
             checked_tokens: Vec::new(),
-            indexer,
         }
     }
 
@@ -383,7 +361,7 @@ impl KeptStates {
             .drain(..)
             .chain(self.checked_tokens.drain(..))
         {
-            self.tokens[self.indexer.index(key.symbol())] = KeptToken::default();
+            self.tokens[key.index()] = KeptToken::default();
         }
         self.merged_count = 0;
     }
@@ -392,7 +370,7 @@ impl KeptStates {
     fn merge(&mut self, kept: &[u32], entry_maps: &[Vec<(SymbolKey, ActionListId)>]) {
         for &state_id in &kept[self.merged_count..] {
             for &(key, action_list) in &entry_maps[state_id as usize] {
-                let token = &mut self.tokens[self.indexer.index(key.symbol())];
+                let token = &mut self.tokens[key.index()];
                 if token.action_list.is_none() {
                     token.action_list = Some(action_list);
                     self.merged_tokens.push(key);
@@ -412,7 +390,7 @@ impl KeptStates {
         kept: &[u32],
         mut can_take: impl FnMut(u32) -> bool,
     ) -> bool {
-        let token = &mut self.tokens[self.indexer.index(key.symbol())];
+        let token = &mut self.tokens[key.index()];
         let Addable::UpTo(checked) = token.addable else {
             return false;
         };
@@ -674,6 +652,8 @@ struct Minimizer<'a> {
     parse_table: &'a mut ParseTable,
     syntax_grammar: &'a SyntaxGrammar,
     lexical_grammar: &'a LexicalGrammar,
+    /// Gives each symbol its [`SymbolKey`].
+    indexer: SymbolIndexer,
     token_conflict_map: &'a TokenConflictMap,
     keywords: &'a TokenSet,
     simple_aliases: &'a AliasMap,
@@ -821,7 +801,7 @@ impl Minimizer<'_> {
 
         // Precompute per-state sorted shift actions, for both passes.
         // State actions are stable across loop iterations; only group assignments change.
-        // Keys are packed u64s (symbol_key) for single-instruction comparison.
+        // Keys are symbol positions, for single-instruction comparison.
         let shift_maps = self
             .parse_table
             .states
@@ -833,7 +813,7 @@ impl Minimizer<'_> {
                     .filter_map(|(sym, entry)| {
                         let action = self.parse_table.action_lists.get(*entry).last()?;
                         if let ParseAction::Shift { state: s, .. } = action {
-                            Some((SymbolKey::new(*sym), *s))
+                            Some((SymbolKey::new(self.indexer, *sym), *s))
                         } else {
                             None
                         }
@@ -1003,7 +983,7 @@ impl Minimizer<'_> {
                             "split states {} {} - successors for {} are split: {s1} {s2}",
                             state1.id,
                             state2.id,
-                            self.symbol_name(k1.symbol()),
+                            self.symbol_name(k1.symbol(self.indexer)),
                         );
                         return true;
                     }
@@ -1116,17 +1096,14 @@ impl Minimizer<'_> {
         bits: &ConflictBits,
         new_token: SymbolKey,
     ) -> Option<Conflict> {
-        let new_token_is_terminal = new_token.is_terminal();
-        let new_token_index = match new_token.tag() {
-            tag if tag == SymbolType::EndOfNonTerminalExtra as u64 => {
-                return Some(Conflict::EndOfNonTerminalExtra);
-            }
+        let (new_token_index, new_token_is_terminal) = match new_token.symbol(self.indexer).view() {
+            SymbolView::EndOfNonTerminalExtra => return Some(Conflict::EndOfNonTerminalExtra),
             // Do not add external tokens, as they could conflict lexically with
             // any of the state's existing lookahead tokens.
-            tag if tag == SymbolType::External as u64 => return Some(Conflict::ExternalToken),
-            tag if tag == SymbolType::End as u64 => 0,
-            tag if tag == SymbolType::Terminal as u64 => new_token.index() as usize,
-            _ => unreachable!(),
+            SymbolView::External(_) => return Some(Conflict::ExternalToken),
+            SymbolView::End => (0, false),
+            SymbolView::Terminal(index) => (usize::from(index), true),
+            SymbolView::NonTerminal(_) => unreachable!(),
         };
 
         let is_reserved = if new_token_is_terminal {
@@ -1149,7 +1126,7 @@ impl Minimizer<'_> {
             return Some(Conflict::InternalExternalToken);
         }
 
-        let new_token_is_word = bits.word_token == Some(new_token);
+        let new_token_is_word = bits.word_token.is_some_and(|(word, _)| word == new_token);
         let new_token_is_keyword = bits.word_token.is_some()
             && if new_token_is_terminal {
                 bits.keywords[new_token_index / 64] & (1 << (new_token_index % 64)) != 0
@@ -1164,11 +1141,10 @@ impl Minimizer<'_> {
         for (w, &row_word) in row.iter().enumerate() {
             let mut candidates = right_terminal_bits[w] & row_word;
             if new_token_is_keyword
-                && let Some(word) = bits.word_token
-                && word.is_terminal()
-                && word.index() as usize / 64 == w
+                && let Some((_, word)) = bits.word_token
+                && word / 64 == w
             {
-                candidates &= !(1u64 << (word.index() as usize % 64));
+                candidates &= !(1u64 << (word % 64));
             }
             if new_token_is_word {
                 candidates &= !bits.keywords[w];
@@ -1194,30 +1170,30 @@ impl Minimizer<'_> {
         match conflict {
             Conflict::ActionCounts => debug!(
                 "split states {id1} {id2} - differing action counts for token {}",
-                self.symbol_name(token.symbol())
+                self.symbol_name(token.symbol(self.indexer))
             ),
             Conflict::SplitSuccessors(s1, s2) => debug!(
                 "split states {id1} {id2} - successors for {} are split: {s1} {s2}",
-                self.symbol_name(token.symbol()),
+                self.symbol_name(token.symbol(self.indexer)),
             ),
             Conflict::UnequalActions => debug!(
                 "split states {id1} {id2} - unequal actions for {}",
-                self.symbol_name(token.symbol()),
+                self.symbol_name(token.symbol(self.indexer)),
             ),
             Conflict::EndOfNonTerminalExtra => {
                 debug!("split states {id1} {id2} - end of non-terminal extra");
             }
             Conflict::ExternalToken => debug!(
                 "split states {id1} {id2} - external token {}",
-                self.symbol_name(token.symbol()),
+                self.symbol_name(token.symbol(self.indexer)),
             ),
             Conflict::InternalExternalToken => debug!(
                 "split states {id1} {id2} - internal/external token {}",
-                self.symbol_name(token.symbol()),
+                self.symbol_name(token.symbol(self.indexer)),
             ),
             Conflict::Lexical(terminal) => debug!(
                 "split states {id1} {id2} - token {} conflicts with {}",
-                self.symbol_name(token.symbol()),
+                self.symbol_name(token.symbol(self.indexer)),
                 self.symbol_name(Symbol::terminal(terminal)),
             ),
         }
