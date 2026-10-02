@@ -16,7 +16,8 @@ use crate::{
     rules::{AliasMap, Symbol, SymbolView, TokenSet},
     strpool::StrPool,
     tables::{
-        ActionList, ActionListId, GotoAction, ParseAction, ParseState, ParseStateId, ParseTable,
+        ActionList, ActionListId, GotoAction, ParseAction, ParseState, ParseStateEntries,
+        ParseStateId, ParseTable,
     },
 };
 
@@ -780,7 +781,7 @@ impl Minimizer<'_> {
                         other_state_id,
                         |symbol| {
                             done = false;
-                            match state.nonterminal_entries.get(symbol) {
+                            match state.nonterminal_entries.get(*symbol) {
                                 Some(GotoAction::Goto(state_id)) => *state_id,
                                 _ => other_state_id,
                             }
@@ -799,7 +800,7 @@ impl Minimizer<'_> {
                         if let ParseAction::Shift { state: target, .. } = action
                             && let Some(symbol) = unit_reduction_symbols_by_state.get(target)
                             && let Some(GotoAction::Goto(new_target)) =
-                                state.nonterminal_entries.get(symbol)
+                                state.nonterminal_entries.get(*symbol)
                             && *new_target != *target
                         {
                             *target = *new_target;
@@ -888,15 +889,18 @@ impl Minimizer<'_> {
 
         // Create a list of new parse states: one state for each group of old states.
         let mut new_states = Vec::with_capacity(state_ids_by_group_id.len());
-        // Scratch for merging: the position of each token's entry in the new state, by
+        // Scratch for merging: the position of each symbol's entry in the new state, by
         // `SymbolIndexer::index`.
-        let mut positions = vec![None; self.indexer.token_count() as usize];
+        let mut positions = vec![None; self.indexer.symbol_count() as usize];
         for state_ids in &state_ids_by_group_id {
             // Initialize the new state based on the first old state in the group.
             let mut parse_state = mem::take(&mut self.parse_table.states[state_ids[0] as usize]);
-            for (position, symbol) in parse_state.terminal_entries.keys().enumerate() {
-                positions[self.indexer.index(*symbol)] = Some(position);
-            }
+            set_positions(&parse_state.terminal_entries, &mut positions, self.indexer);
+            set_positions(
+                &parse_state.nonterminal_entries,
+                &mut positions,
+                self.indexer,
+            );
 
             // Extend the new state with all of the actions from the other old states
             // in the group.
@@ -904,25 +908,18 @@ impl Minimizer<'_> {
                 let other_parse_state = mem::take(&mut self.parse_table.states[*state_id as usize]);
 
                 parse_state.has_eof_gated_reduce |= other_parse_state.has_eof_gated_reduce;
-                // A token the new state already has keeps its place and takes the other state's
-                // action list.
-                for (symbol, id) in other_parse_state.terminal_entries {
-                    let position = &mut positions[self.indexer.index(symbol)];
-                    if let Some(position) = *position {
-                        // INVARIANT: `positions` only holds positions of the new state's entries.
-                        *parse_state
-                            .terminal_entries
-                            .get_index_mut(position)
-                            .unwrap()
-                            .1 = id;
-                    } else {
-                        *position = Some(parse_state.terminal_entries.len());
-                        parse_state.terminal_entries.push(symbol, id);
-                    }
-                }
-                parse_state
-                    .nonterminal_entries
-                    .extend(other_parse_state.nonterminal_entries);
+                merge_entries(
+                    &mut parse_state.terminal_entries,
+                    other_parse_state.terminal_entries,
+                    &mut positions,
+                    self.indexer,
+                );
+                merge_entries(
+                    &mut parse_state.nonterminal_entries,
+                    other_parse_state.nonterminal_entries,
+                    &mut positions,
+                    self.indexer,
+                );
                 parse_state
                     .reserved_words
                     .insert_all(&other_parse_state.reserved_words);
@@ -931,7 +928,11 @@ impl Minimizer<'_> {
                 }
             }
 
-            for symbol in parse_state.terminal_entries.keys() {
+            for symbol in parse_state
+                .terminal_entries
+                .keys()
+                .chain(parse_state.nonterminal_entries.keys())
+            {
                 positions[self.indexer.index(*symbol)] = None;
             }
 
@@ -1337,5 +1338,38 @@ impl Minimizer<'_> {
             .collect();
         self.parse_table
             .remap_terminal_references(|id| new_ids_by_old_id[id as usize]);
+    }
+}
+
+/// Records the position of each of `entries`' symbols in `positions`, by
+/// [`SymbolIndexer::index`].
+fn set_positions<V>(
+    entries: &ParseStateEntries<V>,
+    positions: &mut [Option<usize>],
+    indexer: SymbolIndexer,
+) {
+    for (position, symbol) in entries.keys().enumerate() {
+        positions[indexer.index(*symbol)] = Some(position);
+    }
+}
+
+/// Merges `other` into `entries` like `IndexMap::extend`: a symbol that `entries` already has
+/// keeps its place and takes `other`'s value, and the rest are added in order. `positions` holds
+/// the position of each of `entries`' symbols, by [`SymbolIndexer::index`].
+fn merge_entries<V>(
+    entries: &mut ParseStateEntries<V>,
+    other: ParseStateEntries<V>,
+    positions: &mut [Option<usize>],
+    indexer: SymbolIndexer,
+) {
+    for (symbol, value) in other {
+        let position = &mut positions[indexer.index(symbol)];
+        if let Some(position) = *position {
+            // INVARIANT: `positions` only holds positions of `entries`' entries.
+            *entries.get_index_mut(position).unwrap().1 = value;
+        } else {
+            *position = Some(entries.len());
+            entries.push(symbol, value);
+        }
     }
 }

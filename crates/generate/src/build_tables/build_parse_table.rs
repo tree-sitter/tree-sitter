@@ -27,9 +27,9 @@ use crate::{
     rules::{Associativity, NonTerminalIndex, Precedence, Symbol, SymbolView, TokenSet},
     strpool::StrPool,
     tables::{
-        ActionList, ActionListId, ActionListPool, FieldLocation, GotoAction, ParseAction,
-        ParseState, ParseStateId, ParseTable, ParseTableEntry, ProductionInfo, ProductionInfoId,
-        TerminalEntries,
+        ActionList, ActionListId, ActionListPool, FieldLocation, GotoAction, NonterminalEntries,
+        ParseAction, ParseState, ParseStateId, ParseTable, ParseTableEntry, ProductionInfo,
+        ProductionInfoId, TerminalEntries,
     },
 };
 
@@ -721,7 +721,7 @@ impl<'a> ParseTableBuilder<'a> {
                     lex_state_id: 0,
                     external_lex_state_id: 0,
                     terminal_entries: TerminalEntries::default(),
-                    nonterminal_entries: IndexMap::default(),
+                    nonterminal_entries: NonterminalEntries::default(),
                     reserved_words: TokenSet::default(),
                     core_id,
                     has_eof_gated_reduce: false,
@@ -929,7 +929,7 @@ impl<'a> ParseTableBuilder<'a> {
             preceding_symbols.pop();
             self.parse_table.states[state_id as usize]
                 .nonterminal_entries
-                .insert(symbol, GotoAction::Goto(next_state_id));
+                .push(symbol, GotoAction::Goto(next_state_id));
         }
         self.successor_sets.recycle(successors);
 
