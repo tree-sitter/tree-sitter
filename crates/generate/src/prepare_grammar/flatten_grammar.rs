@@ -330,12 +330,21 @@ fn check(
     meta: &ExtractedGrammarMeta,
     out: &ProductionStore,
 ) -> FlattenGrammarResult<()> {
+    // Which variables appear in some production, by index. A step naming a non-terminal
+    // that has no variable (as in some hand-built test grammars) uses none of them.
+    let mut used = vec![false; out.var_prods.len()];
+    for step in &out.steps {
+        if let Some(index) = step.symbol().non_terminal_index()
+            && let Some(slot) = used.get_mut(usize::from(index))
+        {
+            *slot = true;
+        }
+    }
     for (i, &(p_start, p_end)) in out.var_prods.iter().enumerate() {
         let symbol = Symbol::non_terminal(i);
-        let used = out.steps.iter().any(|s| s.symbol() == symbol);
         let inlined = meta.inline.contains(&symbol);
         for p in &out.productions[p_start as usize..p_end as usize] {
-            if used && p.steps_len == 0 && !p.requires_eof_lookahead {
+            if used[i] && p.steps_len == 0 && !p.requires_eof_lookahead {
                 Err(FlattenGrammarError::EmptyString(
                     g.pool.resolve(g.variables[i].name).to_string().into(),
                 ))?;
