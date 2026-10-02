@@ -439,7 +439,7 @@ mod tests {
         let meta = intern_symbols(&mut grammar, &mut diagnostics).unwrap();
 
         // The supertype entry is dropped with a warning, and the rule stays inlined.
-        assert!(meta.supertypes.is_empty());
+        assert_eq!(meta.supertypes, [] as [Symbol; 0]);
         assert_eq!(meta.inline, vec![Symbol::non_terminal(1)]);
         assert_eq!(
             diagnostics,
