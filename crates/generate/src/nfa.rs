@@ -134,6 +134,12 @@ impl CharacterSet {
     }
 
     fn add_int_range(&mut self, mut i: usize, start: u32, end: u32) -> usize {
+        // Regex character classes provide sorted, disjoint ranges.
+        if self.ranges.last().is_none_or(|range| range.end < start) {
+            let index = self.ranges.len();
+            self.ranges.push(start..end);
+            return index;
+        }
         while i < self.ranges.len() {
             let range = &mut self.ranges[i];
             if range.start > end {
@@ -698,6 +704,25 @@ mod tests {
             .add_range('n', 'r');
         set = set.add_range('d', 'o');
         assert_eq!(set, CharacterSet::empty().add_range('c', 'r'));
+    }
+
+    #[test]
+    fn test_adding_sorted_ranges() {
+        let expected = (0..4096).map(|i| (4 * i)..(4 * i + 2)).collect::<Vec<_>>();
+        let mut set = CharacterSet::empty();
+        for range in &expected {
+            set = set.add_range(
+                char::from_u32(range.start).unwrap(),
+                char::from_u32(range.end - 1).unwrap(),
+            );
+        }
+        assert_eq!(set.ranges, expected);
+
+        // A touching range must still merge with the tail, not be appended.
+        let end = expected.last().unwrap().end;
+        set = set.add_range(char::from_u32(end).unwrap(), char::MAX);
+        assert_eq!(set.range_count(), expected.len());
+        assert_eq!(set.ranges.last().unwrap().end, END);
     }
 
     #[test]
