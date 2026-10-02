@@ -240,6 +240,12 @@ impl BitVec {
         Some(val)
     }
 
+    /// Unsets every bit, keeping the length.
+    pub fn unset_all(&mut self) {
+        let n_words = self.words_in_use();
+        self.as_full_slice_mut()[..n_words].fill(0);
+    }
+
     /// Word-level OR: self |= other. Returns true if any new bits were set.
     #[inline]
     pub fn insert_all(&mut self, other: &Self) -> bool {
