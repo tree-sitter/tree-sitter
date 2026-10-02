@@ -175,13 +175,13 @@ fn get_test_language_internal(
             if env::var("TREE_SITTER_GRAMMAR_DEBUG").is_ok() {
                 loader.debug_build(true);
             }
-            loader.load_language_at_path_with_name(config).unwrap()
+            return loader.load_language_at_path_with_name(config).unwrap();
         }
         #[cfg(not(feature = "wasm"))]
         {
             unimplemented!("Wasm feature is not enabled")
         }
-    } else {
-        TEST_LOADER.load_language_at_path_with_name(config).unwrap()
     }
+
+    TEST_LOADER.load_language_at_path_with_name(config).unwrap()
 }
