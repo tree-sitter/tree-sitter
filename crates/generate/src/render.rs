@@ -1415,7 +1415,7 @@ impl Generator {
                         .or_default()
                         .push(**symbol);
                 }
-                for (symbol, action) in &state.nonterminal_entries {
+                for (symbol, action) in state.nonterminal_entries.iter() {
                     let state_id = match action {
                         GotoAction::Goto(i) => *i,
                         GotoAction::ShiftExtra => {
