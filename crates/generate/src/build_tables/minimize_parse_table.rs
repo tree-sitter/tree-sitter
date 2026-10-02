@@ -59,11 +59,6 @@ impl SymbolKey {
     }
 
     #[inline]
-    const fn is_external(self) -> bool {
-        self.tag() == SymbolType::External as u64
-    }
-
-    #[inline]
     const fn is_terminal(self) -> bool {
         self.tag() == SymbolType::Terminal as u64
     }
@@ -737,7 +732,7 @@ impl Minimizer<'_> {
             let mut candidates = right_terminal_bits[w] & row_word;
             if new_token_is_keyword
                 && let Some(word) = bits.word_token
-                && (word.is_external() || word.is_terminal())
+                && word.is_terminal()
                 && word.index() as usize / 64 == w
             {
                 candidates &= !(1u64 << (word.index() as usize % 64));

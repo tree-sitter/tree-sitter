@@ -288,13 +288,7 @@ fn populate_used_symbols(
             // ensure that a subtree's symbol can be successfully reassigned to the word token
             // without having to move the subtree to the heap.
             // See https://github.com/tree-sitter/tree-sitter/issues/258
-            if syntax_grammar.word_token.is_some_and(|t| match t.view() {
-                SymbolView::External(index) => usize::from(index) == i,
-                SymbolView::Terminal(index) => usize::from(index) == i,
-                SymbolView::End
-                | SymbolView::EndOfNonTerminalExtra
-                | SymbolView::NonTerminal(_) => false,
-            }) {
+            if syntax_grammar.word_token == Some(Symbol::terminal(i)) {
                 parse_table.symbols.insert(1, Symbol::terminal(i));
             } else {
                 parse_table.symbols.push(Symbol::terminal(i));
@@ -363,14 +357,12 @@ fn identify_keywords(
     coincident_token_index: &CoincidentTokenIndex,
     str_pool: &StrPool,
 ) -> TokenSet {
-    if word_token.is_none() {
-        return TokenSet::new();
-    }
-
-    let word_token_index = match word_token.unwrap().view() {
-        SymbolView::External(index) => usize::from(index),
-        SymbolView::Terminal(index) => usize::from(index),
-        SymbolView::End | SymbolView::EndOfNonTerminalExtra | SymbolView::NonTerminal(_) => {
+    let word_token_index = match word_token.map(Symbol::view) {
+        Some(SymbolView::Terminal(index)) => usize::from(index),
+        // An external token has no lexical rule to compare with keywords.
+        None | Some(SymbolView::External(_)) => return TokenSet::new(),
+        // INVARIANT: Token extraction rejects a non-terminal word token.
+        Some(SymbolView::End | SymbolView::EndOfNonTerminalExtra | SymbolView::NonTerminal(_)) => {
             unreachable!()
         }
     };
