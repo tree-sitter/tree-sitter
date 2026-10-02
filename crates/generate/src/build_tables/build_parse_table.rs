@@ -6,7 +6,10 @@ use std::{
 };
 
 use hashbrown::{HashTable, hash_table};
-use indexmap::{IndexMap, map::Entry};
+use indexmap::{
+    IndexMap,
+    map::{Entry, RawEntryApiV1, raw_entry_v1::RawEntryMut},
+};
 use rustc_hash::{FxBuildHasher, FxHashMap, FxHashSet, FxHasher};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -263,14 +266,20 @@ struct SuccessorSets<'a> {
     sets: Vec<Option<ParseItemSet<'a>>>,
     /// The symbols that have a set in `sets`, in the order their sets were added.
     symbols: Vec<Symbol>,
+    /// Empty item sets to build successors in, so that most successors don't allocate.
+    pool: Vec<ParseItemSet<'a>>,
 }
 
 impl<'a> SuccessorSets<'a> {
+    /// The capacity of the largest item set `pool` keeps.
+    const MAX_POOLED_CAPACITY: usize = 256;
+
     fn new(indexer: SymbolIndexer) -> Self {
         Self {
             indexer,
             sets: vec![None; indexer.symbol_count() as usize],
             symbols: Vec::new(),
+            pool: Vec::new(),
         }
     }
 
@@ -280,7 +289,7 @@ impl<'a> SuccessorSets<'a> {
         if slot.is_none() {
             self.symbols.push(symbol);
         }
-        slot.get_or_insert_default()
+        slot.get_or_insert_with(|| self.pool.pop().unwrap_or_default())
     }
 
     /// Takes the sets out in symbol order, leaving this empty for the next state.
@@ -294,6 +303,16 @@ impl<'a> SuccessorSets<'a> {
                 (symbol, set)
             })
             .collect()
+    }
+
+    /// Takes back the sets from [`Self::take_all`], to build later successors in.
+    fn recycle(&mut self, sets: Vec<(Symbol, ParseItemSet<'a>)>) {
+        for (_, mut set) in sets {
+            if set.entries.capacity() <= Self::MAX_POOLED_CAPACITY {
+                set.entries.clear();
+                self.pool.push(set);
+            }
+        }
     }
 }
 
@@ -554,14 +573,14 @@ impl<'a> ParseTableBuilder<'a> {
             .push(ProductionInfo::default());
 
         // Add the error state at index 0.
-        self.add_parse_state(&Vec::new(), None, ParseItemSet::default());
+        self.add_parse_state(&Vec::new(), None, &ParseItemSet::default());
 
         // Add the starting state at index 1.
         let end_lookaheads = self.item_set_builder.lookaheads.singleton(Symbol::End);
         self.add_parse_state(
             &Vec::new(),
             None,
-            ParseItemSet {
+            &ParseItemSet {
                 entries: vec![ParseItemSetEntry {
                     item: ParseItem::start(self.item_set_builder.key_map),
                     lookaheads: end_lookaheads,
@@ -619,7 +638,7 @@ impl<'a> ParseTableBuilder<'a> {
 
             // Add the parse state, and *then* push the terminal and the state id into the
             // list of nonterminal extra states
-            let state_id = self.add_parse_state(&Vec::new(), None, item_set);
+            let state_id = self.add_parse_state(&Vec::new(), None, &item_set);
             self.non_terminal_extra_states.push((terminal, state_id));
         }
 
@@ -666,17 +685,23 @@ impl<'a> ParseTableBuilder<'a> {
         &mut self,
         preceding_symbols: &SymbolSequence,
         preceding_auxiliary_context: Option<AuxiliaryContextId>,
-        item_set: ParseItemSet<'a>,
+        item_set: &ParseItemSet<'a>,
     ) -> ParseStateId {
-        match self.state_ids_by_item_set.entry(item_set) {
+        // Hash the item set once, for both the lookup and a possible insert.
+        let hash = self.state_ids_by_item_set.hasher().hash_one(item_set);
+        match self
+            .state_ids_by_item_set
+            .raw_entry_mut_v1()
+            .from_key_hashed_nocheck(hash, item_set)
+        {
             // If an equivalent item set has already been processed, then return
             // the existing parse state index.
-            Entry::Occupied(o) => *o.get(),
+            RawEntryMut::Occupied(o) => *o.get(),
 
             // Otherwise, insert a new parse state and add it to the queue of
             // parse states to populate.
-            Entry::Vacant(v) => {
-                let core = v.key().core();
+            RawEntryMut::Vacant(v) => {
+                let core = item_set.core();
                 let core_count = self.core_ids_by_core.len() as u32;
                 let core_id = *self.core_ids_by_core.entry(core).or_insert(core_count);
 
@@ -697,7 +722,7 @@ impl<'a> ParseTableBuilder<'a> {
                     state_id,
                     preceding_auxiliary_context,
                 });
-                v.insert(state_id);
+                v.insert_hashed_nocheck(hash, item_set.clone(), state_id);
                 state_id
             }
         }
@@ -862,13 +887,12 @@ impl<'a> ParseTableBuilder<'a> {
         // Having computed the successor item sets for each symbol, add a new
         // parse state for each of these item sets, and add a corresponding Shift
         // action to this state.
-        let mut terminal_successors = self.successor_sets.take_all();
+        let successors = self.successor_sets.take_all();
         // Non-terminals come last in symbol order.
-        let non_terminal_successors = terminal_successors.split_off(
-            terminal_successors
-                .partition_point(|(symbol, _)| symbol.non_terminal_index().is_none()),
+        let (terminal_successors, non_terminal_successors) = successors.split_at(
+            successors.partition_point(|(symbol, _)| symbol.non_terminal_index().is_none()),
         );
-        for (symbol, next_item_set) in terminal_successors {
+        for &(symbol, ref next_item_set) in terminal_successors {
             preceding_symbols.push(symbol);
             let next_state_id =
                 self.add_parse_state(&preceding_symbols, auxiliary_context, next_item_set);
@@ -892,7 +916,7 @@ impl<'a> ParseTableBuilder<'a> {
                 });
         }
 
-        for (symbol, next_item_set) in non_terminal_successors {
+        for &(symbol, ref next_item_set) in non_terminal_successors {
             preceding_symbols.push(symbol);
             let next_state_id =
                 self.add_parse_state(&preceding_symbols, auxiliary_context, next_item_set);
@@ -901,6 +925,7 @@ impl<'a> ParseTableBuilder<'a> {
                 .nonterminal_entries
                 .insert(symbol, GotoAction::Goto(next_state_id));
         }
+        self.successor_sets.recycle(successors);
 
         // For any symbol with multiple actions, perform conflict resolution.
         // This will either
