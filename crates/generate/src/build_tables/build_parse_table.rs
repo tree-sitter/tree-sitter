@@ -27,8 +27,8 @@ use crate::{
     rules::{Associativity, NonTerminalIndex, Precedence, Symbol, SymbolView, TokenSet},
     strpool::StrPool,
     tables::{
-        ActionList, ActionListPool, FieldLocation, GotoAction, ParseAction, ParseState,
-        ParseStateId, ParseTable, ParseTableEntry, ProductionInfo, ProductionInfoId,
+        ActionList, ActionListId, ActionListPool, FieldLocation, GotoAction, ParseAction,
+        ParseState, ParseStateId, ParseTable, ParseTableEntry, ProductionInfo, ProductionInfoId,
     },
 };
 
@@ -334,11 +334,16 @@ struct ParseTableBuilder<'a> {
     auxiliary_contexts: AuxiliarySymbolContexts,
     non_terminal_extra_states: Vec<(Symbol, ParseStateId)>,
     actual_conflicts: FxHashSet<Vec<Symbol>>,
-    parse_table: ParseTable<ParseTableEntry>,
+    parse_table: ParseTable,
+    /// The pool index of each action list interned into `parse_table` so far.
+    action_list_ids: FxHashMap<ActionList, u32>,
     str_pool: &'a StrPool,
-    /// Scratch for `add_actions`: The successor item sets of the state it's working on.
+    /// Scratch for `add_actions`: The terminal entries of the state it's working on. They are
+    /// interned into the table once the state is complete.
+    terminal_entries: IndexMap<Symbol, ParseTableEntry, BuildHasherDefault<FxHasher>>,
+    /// Scratch for `add_actions`: The successor item sets of the state currently being built.
     successor_sets: SuccessorSets<'a>,
-    /// Scratch for `add_actions`: The reductions on each lookahead of the state it's working on.
+    /// Scratch for `add_actions`: The reductions on each lookahead of the state currently being built.
     reduction_infos: ReductionInfos,
 }
 
@@ -557,7 +562,9 @@ impl<'a> ParseTableBuilder<'a> {
                 production_infos: Vec::new(),
                 max_aliased_production_length: 1,
             },
+            action_list_ids: FxHashMap::default(),
             str_pool,
+            terminal_entries: IndexMap::default(),
             successor_sets: SuccessorSets::new(symbol_indexer),
             reduction_infos: ReductionInfos::new(symbol_indexer),
         }
@@ -566,7 +573,7 @@ impl<'a> ParseTableBuilder<'a> {
     fn build(
         mut self,
         diagnostics: &mut Vec<Diagnostic>,
-    ) -> BuildTableResult<(ParseTable<ParseTableEntry>, ParseStateInfo<'a>)> {
+    ) -> BuildTableResult<(ParseTable, ParseStateInfo<'a>)> {
         // Ensure that the empty alias sequence has index 0.
         self.parse_table
             .production_infos
@@ -823,7 +830,7 @@ impl<'a> ParseTableBuilder<'a> {
                     {
                         continue;
                     }
-                    let table_entry = self.parse_table.states[state_id as usize]
+                    let table_entry = self
                         .terminal_entries
                         .entry(lookahead)
                         .or_insert_with(ParseTableEntry::new);
@@ -898,9 +905,7 @@ impl<'a> ParseTableBuilder<'a> {
                 self.add_parse_state(&preceding_symbols, auxiliary_context, next_item_set);
             preceding_symbols.pop();
 
-            let entry = self.parse_table.states[state_id as usize]
-                .terminal_entries
-                .entry(symbol);
+            let entry = self.terminal_entries.entry(symbol);
             if let Entry::Occupied(e) = &entry
                 && !e.get().actions.is_empty()
             {
@@ -941,25 +946,22 @@ impl<'a> ParseTableBuilder<'a> {
                 .filter(|entry| entry.item.step_index > 0 || entry.item.is_done())
                 .collect::<Vec<_>>();
             for symbol in lookaheads_with_conflicts.iter() {
-                self.handle_conflict(
-                    &candidates,
-                    state_id,
-                    &preceding_symbols,
-                    auxiliary_context,
-                    symbol,
-                )?;
+                self.handle_conflict(&candidates, &preceding_symbols, auxiliary_context, symbol)?;
             }
         }
 
         // Add actions for the grammar's `extra` symbols.
         let state = &mut self.parse_table.states[state_id as usize];
-        let is_end_of_non_terminal_extra = state.is_end_of_non_terminal_extra();
+        // Same check as `ParseState::is_end_of_non_terminal_extra` for entries not in the table yet
+        let is_end_of_non_terminal_extra = self
+            .terminal_entries
+            .contains_key(&Symbol::EndOfNonTerminalExtra);
 
         // If this state represents the end of a non-terminal extra rule, then make sure that
         // it doesn't have other successor states. Non-terminal extra rules must have
         // unambiguous endings.
         if is_end_of_non_terminal_extra {
-            if state.terminal_entries.len() > 1 {
+            if self.terminal_entries.len() > 1 {
                 let parent_symbols = item_set
                     .entries
                     .iter()
@@ -988,8 +990,7 @@ impl<'a> ParseTableBuilder<'a> {
         // Add actions for the start tokens of each non-terminal extra rule.
         else {
             for (terminal, state_id) in &self.non_terminal_extra_states {
-                state
-                    .terminal_entries
+                self.terminal_entries
                     .entry(*terminal)
                     .or_insert(ParseTableEntry {
                         reusable: true,
@@ -1011,8 +1012,7 @@ impl<'a> ParseTableBuilder<'a> {
                             .insert(*extra_token, GotoAction::ShiftExtra);
                     }
                     SymbolView::Terminal(_) | SymbolView::External(_) => {
-                        state
-                            .terminal_entries
+                        self.terminal_entries
                             .entry(*extra_token)
                             .or_insert(ParseTableEntry {
                                 reusable: true,
@@ -1053,9 +1053,21 @@ impl<'a> ParseTableBuilder<'a> {
             }
         }
 
-        // Every state stays in the table until minimization, so give back the capacity its
-        // maps grew into now that they're complete.
-        state.terminal_entries.shrink_to_fit();
+        // Every state stays in the table until minimization, so store its terminal entries as
+        // interned action lists, in a map with no spare capacity, and give back the capacity
+        // its non-terminal map grew into.
+        state
+            .terminal_entries
+            .reserve_exact(self.terminal_entries.len());
+        for (symbol, entry) in self.terminal_entries.drain(..) {
+            let index = self
+                .parse_table
+                .action_lists
+                .intern(&mut self.action_list_ids, entry.actions);
+            state
+                .terminal_entries
+                .insert(symbol, ActionListId::new(index, entry.reusable));
+        }
         state.nonterminal_entries.shrink_to_fit();
 
         Ok(())
@@ -1064,12 +1076,11 @@ impl<'a> ParseTableBuilder<'a> {
     fn handle_conflict(
         &mut self,
         candidates: &[&ParseItemSetEntry],
-        state_id: ParseStateId,
         preceding_symbols: &SymbolSequence,
         auxiliary_context: Option<AuxiliaryContextId>,
         conflicting_lookahead: Symbol,
     ) -> BuildTableResult<()> {
-        let entry = self.parse_table.states[state_id as usize]
+        let entry = self
             .terminal_entries
             .get_mut(&conflicting_lookahead)
             .unwrap();
@@ -1206,7 +1217,7 @@ impl<'a> ParseTableBuilder<'a> {
         }
 
         // If all of the actions but one have been eliminated, then there's no problem.
-        let entry = self.parse_table.states[state_id as usize]
+        let entry = self
             .terminal_entries
             .get_mut(&conflicting_lookahead)
             .unwrap();
@@ -1532,7 +1543,7 @@ pub fn build_parse_table<'a>(
     variable_info: &'a [VariableInfo],
     str_pool: &'a StrPool,
     diagnostics: &mut Vec<Diagnostic>,
-) -> BuildTableResult<(ParseTable<ParseTableEntry>, ParseStateInfo<'a>)> {
+) -> BuildTableResult<(ParseTable, ParseStateInfo<'a>)> {
     ParseTableBuilder::new(
         syntax_grammar,
         lexical_grammar,

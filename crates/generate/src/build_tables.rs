@@ -30,7 +30,7 @@ use crate::{
     node_types::VariableInfo,
     rules::{AliasMap, Symbol, SymbolView, TerminalIndex, TokenSet},
     strpool::StrPool,
-    tables::{ActionList, ActionListPool, LexTable, ParseAction, ParseTable, ParseTableEntry},
+    tables::{ActionListId, LexTable, ParseAction, ParseTable},
 };
 
 pub struct Tables {
@@ -136,7 +136,6 @@ pub fn build_tables(
         str_pool,
     );
     populate_used_symbols(&mut parse_table, syntax_grammar, lexical_grammar);
-    let mut parse_table = ActionListPool::intern_table(parse_table);
     minimize_parse_table(
         &mut parse_table,
         syntax_grammar,
@@ -225,7 +224,7 @@ fn get_following_tokens(
 }
 
 fn populate_error_state(
-    parse_table: &mut ParseTable<ParseTableEntry>,
+    parse_table: &mut ParseTable,
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
     coincident_token_index: &CoincidentTokenIndex,
@@ -233,7 +232,6 @@ fn populate_error_state(
     keywords: &TokenSet,
     str_pool: &StrPool,
 ) {
-    let state = &mut parse_table.states[0];
     let n = lexical_grammar.variables.len();
 
     // First identify the *conflict-free tokens*: tokens that do not overlap with
@@ -258,10 +256,11 @@ fn populate_error_state(
         })
         .collect::<TokenSet>();
 
-    let recover_entry = ParseTableEntry {
-        reusable: false,
-        actions: ActionList::One(ParseAction::Recover),
-    };
+    let recover_entry = ActionListId::new(
+        parse_table.action_lists.push(&[ParseAction::Recover]),
+        false,
+    );
+    let state = &mut parse_table.states[0];
 
     // Exclude from the error-recovery state any token that conflicts with one of
     // the *conflict-free tokens* identified above.
@@ -289,7 +288,7 @@ fn populate_error_state(
         state
             .terminal_entries
             .entry(symbol)
-            .or_insert_with(|| recover_entry.clone());
+            .or_insert(recover_entry);
     }
 
     for (i, external_token) in syntax_grammar.external_tokens.iter().enumerate() {
@@ -297,7 +296,7 @@ fn populate_error_state(
             state
                 .terminal_entries
                 .entry(Symbol::external(i))
-                .or_insert_with(|| recover_entry.clone());
+                .or_insert(recover_entry);
         }
     }
 
@@ -305,7 +304,7 @@ fn populate_error_state(
 }
 
 fn populate_used_symbols(
-    parse_table: &mut ParseTable<ParseTableEntry>,
+    parse_table: &mut ParseTable,
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
 ) {
