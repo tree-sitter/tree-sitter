@@ -206,13 +206,53 @@ impl<'a> ParseStateInfo<'a> {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 struct ReductionInfo {
     precedence: Precedence,
     symbols: Vec<Symbol>,
     has_left_assoc: bool,
     has_right_assoc: bool,
     has_non_assoc: bool,
+}
+
+impl ReductionInfo {
+    /// Resets this to the default, keeping the `symbols` buffer.
+    fn clear(&mut self) {
+        self.symbols.clear();
+        *self = Self {
+            symbols: std::mem::take(&mut self.symbols),
+            ..Self::default()
+        };
+    }
+}
+
+/// The reductions on each lookahead of the state that `add_actions` is working on.
+struct ReductionInfos {
+    /// Gives each lookahead its slot in `infos`.
+    indexer: SymbolIndexer,
+    /// Each lookahead's reductions, by [`SymbolIndexer::index`]. Only the lookaheads with a
+    /// reduction in the current state are up to date: `add_actions` clears a lookahead's info at
+    /// its first reduction in each state.
+    infos: Vec<ReductionInfo>,
+}
+
+impl ReductionInfos {
+    fn new(indexer: SymbolIndexer) -> Self {
+        Self {
+            indexer,
+            infos: vec![ReductionInfo::default(); indexer.token_count() as usize],
+        }
+    }
+
+    /// The reductions on `lookahead`.
+    fn get(&self, lookahead: Symbol) -> &ReductionInfo {
+        &self.infos[self.indexer.index(lookahead)]
+    }
+
+    /// The reductions on `lookahead`, to update.
+    fn get_mut(&mut self, lookahead: Symbol) -> &mut ReductionInfo {
+        &mut self.infos[self.indexer.index(lookahead)]
+    }
 }
 
 /// The item sets of a state's successors, one for each symbol that follows a dot in the state.
@@ -279,6 +319,8 @@ struct ParseTableBuilder<'a> {
     str_pool: &'a StrPool,
     /// Scratch for `add_actions`: The successor item sets of the state it's working on.
     successor_sets: SuccessorSets<'a>,
+    /// Scratch for `add_actions`: The reductions on each lookahead of the state it's working on.
+    reduction_infos: ReductionInfos,
 }
 
 pub type BuildTableResult<T> = Result<T, ParseTableBuilderError>;
@@ -474,6 +516,7 @@ impl<'a> ParseTableBuilder<'a> {
         variable_info: &'a [VariableInfo],
         str_pool: &'a StrPool,
     ) -> Self {
+        let symbol_indexer = SymbolIndexer::new(syntax_grammar, lexical_grammar);
         Self {
             syntax_grammar,
             lexical_grammar,
@@ -496,7 +539,8 @@ impl<'a> ParseTableBuilder<'a> {
                 max_aliased_production_length: 1,
             },
             str_pool,
-            successor_sets: SuccessorSets::new(SymbolIndexer::new(syntax_grammar, lexical_grammar)),
+            successor_sets: SuccessorSets::new(symbol_indexer),
+            reduction_infos: ReductionInfos::new(symbol_indexer),
         }
     }
 
@@ -667,7 +711,6 @@ impl<'a> ParseTableBuilder<'a> {
         item_set: &ParseItemSet<'a>,
     ) -> BuildTableResult<()> {
         let mut lookaheads_with_conflicts = TokenSet::new();
-        let mut reduction_infos = FxHashMap::<Symbol, ReductionInfo>::default();
         let mut auxiliary_uses = Vec::new();
 
         // Each item in the item set contributes to either or a Shift action or a Reduce
@@ -759,12 +802,15 @@ impl<'a> ParseTableBuilder<'a> {
                         .terminal_entries
                         .entry(lookahead)
                         .or_insert_with(ParseTableEntry::new);
-                    let reduction_info = reduction_infos.entry(lookahead).or_default();
+                    let reduction_info = self.reduction_infos.get_mut(lookahead);
 
                     // While inserting Reduce actions, eagerly resolve conflicts related
                     // to precedence: avoid inserting lower-precedence reductions, and
                     // clear the action list when inserting higher-precedence reductions.
                     if table_entry.actions.is_empty() {
+                        // This is the lookahead's first reduction in this state, so its info is
+                        // still from an earlier state.
+                        reduction_info.clear();
                         table_entry.actions.push(action);
                     } else {
                         match Self::compare_precedence(
@@ -778,7 +824,7 @@ impl<'a> ParseTableBuilder<'a> {
                                 table_entry.actions.clear();
                                 table_entry.actions.push(action);
                                 lookaheads_with_conflicts.remove(lookahead);
-                                *reduction_info = ReductionInfo::default();
+                                reduction_info.clear();
                             }
                             // Two items that reduce identically build the same tree, so
                             // there is nothing for the user to resolve. Precedence is
@@ -876,7 +922,6 @@ impl<'a> ParseTableBuilder<'a> {
                     &preceding_symbols,
                     auxiliary_context,
                     symbol,
-                    reduction_infos.get(&symbol).unwrap(),
                 )?;
             }
         }
@@ -993,12 +1038,12 @@ impl<'a> ParseTableBuilder<'a> {
         preceding_symbols: &SymbolSequence,
         auxiliary_context: Option<AuxiliaryContextId>,
         conflicting_lookahead: Symbol,
-        reduction_info: &ReductionInfo,
     ) -> BuildTableResult<()> {
         let entry = self.parse_table.states[state_id as usize]
             .terminal_entries
             .get_mut(&conflicting_lookahead)
             .unwrap();
+        let reduction_info = self.reduction_infos.get(conflicting_lookahead);
 
         // Determine which items in the set conflict with each other, and the
         // precedences associated with SHIFT vs REDUCE actions. There won't
