@@ -117,6 +117,65 @@ struct ConflictBits {
 }
 
 impl ConflictBits {
+    fn new(minimizer: &Minimizer) -> Self {
+        // Precompute word-aligned bitsets so `token_conflicts` can test a candidate
+        // token against a whole state's terminals.
+        //   - per state: which terminal indices have entries
+        //   - per token: which terminal indices it lexically conflicts with
+        //   - the keyword set as bits
+        let n_terminals = minimizer.lexical_grammar.variables.len();
+        let row_words = n_terminals.div_ceil(64);
+        let set = |bits: &mut [u64], index: usize| bits[index / 64] |= 1 << (index % 64);
+
+        let mut state_terminals = vec![0u64; minimizer.parse_table.states.len() * row_words];
+        for (s, state) in minimizer.parse_table.states.iter().enumerate() {
+            let base = s * row_words;
+            let row = &mut state_terminals[base..base + row_words];
+            for symbol in state.terminal_entries.keys() {
+                if let Some(index) = symbol.terminal_index() {
+                    set(row, usize::from(index));
+                }
+            }
+        }
+
+        let mut conflict_rows = vec![0u64; n_terminals * row_words];
+        for i in 0..n_terminals {
+            let base = i * row_words;
+            let row = &mut conflict_rows[base..base + row_words];
+            for j in 0..n_terminals {
+                if minimizer.token_conflict_map.does_conflict(i, j) {
+                    set(row, j);
+                }
+            }
+        }
+
+        let mut keywords = vec![0u64; row_words];
+        for symbol in minimizer.keywords.iter() {
+            if let Some(index) = symbol.terminal_index() {
+                set(&mut keywords, usize::from(index));
+            }
+        }
+
+        let mut internal_external = vec![0u64; row_words];
+        for external in &minimizer.syntax_grammar.external_tokens {
+            if let Some(index) = external
+                .corresponding_internal_token
+                .and_then(Symbol::terminal_index)
+            {
+                set(&mut internal_external, usize::from(index));
+            }
+        }
+
+        Self {
+            row_words,
+            state_terminals,
+            conflict_rows,
+            keywords,
+            internal_external,
+            word_token: minimizer.syntax_grammar.word_token.map(SymbolKey::new),
+        }
+    }
+
     #[inline]
     fn get_conflict_row(&self, token: usize) -> &[u64] {
         let base = token * self.row_words;
@@ -142,6 +201,63 @@ struct ConflictPass<'min, 'a> {
     static_signatures: Vec<u64>,
     /// Each state's shift targets, sorted by symbol.
     shift_maps: &'min [Vec<(SymbolKey, ParseStateId)>],
+}
+
+impl<'min, 'a> ConflictPass<'min, 'a> {
+    fn new(
+        minimizer: &'min Minimizer<'a>,
+        shift_maps: &'min [Vec<(SymbolKey, ParseStateId)>],
+    ) -> Self {
+        // Precompute sorted terminal entry references for merge-join in states_conflict.
+        // entry_maps[state_id][i] = (symbol_key, action_list_id). Keys are packed u64s
+        // (symbol_key) for easy comparison.
+        let entry_maps = minimizer
+            .parse_table
+            .states
+            .iter()
+            .map(|state| {
+                let mut entries = state
+                    .terminal_entries
+                    .iter()
+                    .map(|(sym, id)| (SymbolKey::new(*sym), *id))
+                    .collect::<Vec<(SymbolKey, ActionListId)>>();
+                entries.sort_unstable_by_key(|&(key, _)| key);
+                entries
+            })
+            .collect::<Vec<_>>();
+
+        // Hash each state's terminal entries once, apart from its shift targets, whose groups
+        // change as groups split.
+        let static_signatures = minimizer
+            .parse_table
+            .states
+            .iter()
+            .map(|state| {
+                let mut hasher = FxHasher::default();
+                state.reserved_words.hash(&mut hasher);
+                for &(key, id) in &entry_maps[state.id as usize] {
+                    key.0.hash(&mut hasher);
+                    for action in minimizer.parse_table.action_lists.get(id) {
+                        match *action {
+                            ParseAction::Shift { is_repetition, .. } => {
+                                is_repetition.hash(&mut hasher);
+                            }
+                            action => action.hash(&mut hasher),
+                        }
+                    }
+                }
+                hasher.finish()
+            })
+            .collect::<Vec<_>>();
+
+        Self {
+            minimizer,
+            entry_maps,
+            bits: ConflictBits::new(minimizer),
+            static_signatures,
+            shift_maps,
+        }
+    }
 }
 
 impl SplitCriterion<ParseState> for ConflictPass<'_, '_> {
@@ -229,6 +345,41 @@ struct SuccessorPass<'min, 'a> {
     shift_maps: Vec<Vec<(SymbolKey, ParseStateId)>>,
     /// Each state's nonterminal entries, sorted by symbol.
     nonterminal_maps: Vec<Vec<(NonterminalIndex, GotoAction)>>,
+}
+
+impl<'min, 'a> SuccessorPass<'min, 'a> {
+    fn new(
+        minimizer: &'min Minimizer<'a>,
+        shift_maps: Vec<Vec<(SymbolKey, ParseStateId)>>,
+    ) -> Self {
+        // Store only the symbol index: all nonterminal entries share the same kind,
+        // so index alone is sufficient for sorting and comparison.
+        let nonterminal_maps = minimizer
+            .parse_table
+            .states
+            .iter()
+            .map(|state| {
+                let mut entries = state
+                    .nonterminal_entries
+                    .iter()
+                    .map(|(sym, action)| {
+                        let Some(index) = sym.non_terminal_index() else {
+                            unreachable!();
+                        };
+                        (u32::from(index), *action)
+                    })
+                    .collect::<Vec<(NonterminalIndex, GotoAction)>>();
+                entries.sort_unstable_by_key(|&(idx, _)| idx);
+                entries
+            })
+            .collect::<Vec<_>>();
+
+        Self {
+            minimizer,
+            shift_maps,
+            nonterminal_maps,
+        }
+    }
 }
 
 impl SplitCriterion<ParseState> for SuccessorPass<'_, '_> {
@@ -454,82 +605,7 @@ impl Minimizer<'_> {
             group_ids_by_state_id.push(state.core_id);
         }
 
-        // Precompute sorted terminal entry references for merge-join in states_conflict.
-        // entry_maps[state_id][i] = (symbol_key, action_list_id). Keys are packed u64s
-        // (symbol_key) for easy comparison.
-        let entry_maps = self
-            .parse_table
-            .states
-            .iter()
-            .map(|state| {
-                let mut entries = state
-                    .terminal_entries
-                    .iter()
-                    .map(|(sym, id)| (SymbolKey::new(*sym), *id))
-                    .collect::<Vec<(SymbolKey, ActionListId)>>();
-                entries.sort_unstable_by_key(|&(key, _)| key);
-                entries
-            })
-            .collect::<Vec<_>>();
-
-        // Precompute word-aligned bitsets so `token_conflicts` can test a candidate
-        // token against a whole state's terminals.
-        //   - per state: which terminal indices have entries
-        //   - per token: which terminal indices it lexically conflicts with
-        //   - the keyword set as bits
-        let n_terminals = self.lexical_grammar.variables.len();
-        let row_words = n_terminals.div_ceil(64);
-        let set = |bits: &mut [u64], index: usize| bits[index / 64] |= 1 << (index % 64);
-
-        let mut state_terminals = vec![0u64; self.parse_table.states.len() * row_words];
-        for (s, state) in self.parse_table.states.iter().enumerate() {
-            let base = s * row_words;
-            let row = &mut state_terminals[base..base + row_words];
-            for symbol in state.terminal_entries.keys() {
-                if let Some(index) = symbol.terminal_index() {
-                    set(row, usize::from(index));
-                }
-            }
-        }
-
-        let mut conflict_rows = vec![0u64; n_terminals * row_words];
-        for i in 0..n_terminals {
-            let base = i * row_words;
-            let row = &mut conflict_rows[base..base + row_words];
-            for j in 0..n_terminals {
-                if self.token_conflict_map.does_conflict(i, j) {
-                    set(row, j);
-                }
-            }
-        }
-
-        let mut keywords = vec![0u64; row_words];
-        for symbol in self.keywords.iter() {
-            if let Some(index) = symbol.terminal_index() {
-                set(&mut keywords, usize::from(index));
-            }
-        }
-
-        let mut internal_external = vec![0u64; row_words];
-        for external in &self.syntax_grammar.external_tokens {
-            if let Some(index) = external
-                .corresponding_internal_token
-                .and_then(Symbol::terminal_index)
-            {
-                set(&mut internal_external, usize::from(index));
-            }
-        }
-
-        let bits = ConflictBits {
-            row_words,
-            state_terminals,
-            conflict_rows,
-            keywords,
-            internal_external,
-            word_token: self.syntax_grammar.word_token.map(SymbolKey::new),
-        };
-
-        // Precompute per-state sorted shift actions and nonterminal goto actions.
+        // Precompute per-state sorted shift actions, for both passes.
         // State actions are stable across loop iterations; only group assignments change.
         // Keys are packed u64s (symbol_key) for single-instruction comparison.
         let shift_maps = self
@@ -554,37 +630,7 @@ impl Minimizer<'_> {
             })
             .collect::<Vec<_>>();
 
-        // Hash each state's terminal entries once, apart from its shift targets, whose groups
-        // change as groups split.
-        let static_signatures = self
-            .parse_table
-            .states
-            .iter()
-            .map(|state| {
-                let mut hasher = FxHasher::default();
-                state.reserved_words.hash(&mut hasher);
-                for &(key, id) in &entry_maps[state.id as usize] {
-                    key.0.hash(&mut hasher);
-                    for action in self.parse_table.action_lists.get(id) {
-                        match *action {
-                            ParseAction::Shift { is_repetition, .. } => {
-                                is_repetition.hash(&mut hasher);
-                            }
-                            action => action.hash(&mut hasher),
-                        }
-                    }
-                }
-                hasher.finish()
-            })
-            .collect::<Vec<_>>();
-
-        let mut conflict_pass = ConflictPass {
-            minimizer: self,
-            entry_maps,
-            bits,
-            static_signatures,
-            shift_maps: &shift_maps,
-        };
+        let mut conflict_pass = ConflictPass::new(self, &shift_maps);
         split_state_id_groups(
             &self.parse_table.states,
             &mut state_ids_by_group_id,
@@ -594,33 +640,7 @@ impl Minimizer<'_> {
         );
         drop(conflict_pass); // The rest only looks at successors.
 
-        // Store only the symbol index: all nonterminal entries share the same kind,
-        // so index alone is sufficient for sorting and comparison.
-        let nonterminal_maps = self
-            .parse_table
-            .states
-            .iter()
-            .map(|state| {
-                let mut entries = state
-                    .nonterminal_entries
-                    .iter()
-                    .map(|(sym, action)| {
-                        let Some(index) = sym.non_terminal_index() else {
-                            unreachable!();
-                        };
-                        (u32::from(index), *action)
-                    })
-                    .collect::<Vec<(NonterminalIndex, GotoAction)>>();
-                entries.sort_unstable_by_key(|&(idx, _)| idx);
-                entries
-            })
-            .collect::<Vec<_>>();
-
-        let mut successor_pass = SuccessorPass {
-            minimizer: self,
-            shift_maps,
-            nonterminal_maps,
-        };
+        let mut successor_pass = SuccessorPass::new(self, shift_maps);
 
         while split_state_id_groups(
             &self.parse_table.states,
