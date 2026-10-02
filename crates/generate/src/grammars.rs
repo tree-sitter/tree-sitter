@@ -259,6 +259,17 @@ impl Production {
     pub const fn step_range(self) -> std::ops::Range<usize> {
         self.steps_start as usize..(self.steps_start + self.steps_len) as usize
     }
+
+    /// This production's contents, with its steps taken from `steps`.
+    #[inline]
+    #[must_use]
+    pub fn contents(self, steps: &[ProductionStep]) -> ProdRef<'_> {
+        ProdRef {
+            steps: &steps[self.step_range()],
+            dynamic_precedence: self.dynamic_precedence,
+            requires_eof_lookahead: self.requires_eof_lookahead,
+        }
+    }
 }
 
 /// Flattened output: one backing store of steps, productions as `[start, len)`
@@ -268,6 +279,14 @@ pub struct ProductionStore {
     pub steps: Vec<ProductionStep>,
     pub productions: Vec<Production>,
     pub var_prods: Vec<(u32, u32)>,
+}
+
+impl ProductionStore {
+    /// The production at this position in [`Self::productions`].
+    #[must_use]
+    pub fn production(&self, id: u32) -> ProdRef<'_> {
+        self.productions[id as usize].contents(&self.steps)
+    }
 }
 
 #[derive(Debug, Default)]
@@ -308,12 +327,7 @@ pub struct SyntaxGrammar {
 impl SyntaxGrammar {
     #[must_use]
     pub fn production(&self, id: u32) -> ProdRef<'_> {
-        let p = self.productions[id as usize];
-        ProdRef {
-            steps: &self.steps[p.step_range()],
-            dynamic_precedence: p.dynamic_precedence,
-            requires_eof_lookahead: p.requires_eof_lookahead,
-        }
+        self.productions[id as usize].contents(&self.steps)
     }
 
     /// The pooled production ids belonging to a variable
@@ -324,8 +338,8 @@ impl SyntaxGrammar {
     }
 }
 
-/// A production in the pooled [`SyntaxGrammar`] storage
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// A production's contents, with its steps borrowed from wherever they're stored.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct ProdRef<'a> {
     pub steps: &'a [ProductionStep],
     pub dynamic_precedence: i32,
