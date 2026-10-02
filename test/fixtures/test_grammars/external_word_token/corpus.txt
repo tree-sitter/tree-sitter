@@ -1,0 +1,19 @@
+================================================================================
+Keywords with an external word token
+================================================================================
+
+let a = b;
+@ here
+let c = d;
+
+--------------------------------------------------------------------------------
+
+(program
+  (let_statement
+    (identifier)
+    (identifier))
+  (label
+    (label_name))
+  (let_statement
+    (identifier)
+    (identifier)))

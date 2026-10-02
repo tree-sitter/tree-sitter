@@ -766,4 +766,41 @@ mod tests {
             "parser.h.inc is out of sync with lib/src/parser.h. Run: cp lib/src/parser.h crates/generate/src/parser.h.inc"
         );
     }
+
+    #[test]
+    fn test_external_word_token_outside_terminal_range() {
+        let grammar_json = r#"{
+            "name": "external_word_token_out_of_bounds",
+            "word": "ext_word",
+            "rules": {
+                "program": {"type": "REPEAT", "content": {"type": "SYMBOL", "name": "item"}},
+                "item": {"type": "CHOICE", "members": [
+                    {"type": "SEQ", "members": [
+                        {"type": "STRING", "value": "{"},
+                        {"type": "SYMBOL", "name": "ext_word"},
+                        {"type": "SYMBOL", "name": "ext_a"}
+                    ]},
+                    {"type": "SEQ", "members": [
+                        {"type": "STRING", "value": "let"},
+                        {"type": "SYMBOL", "name": "ext_word"},
+                        {"type": "SYMBOL", "name": "ext_b"}
+                    ]}
+                ]}
+            },
+            "externals": [
+                {"type": "SYMBOL", "name": "ext_a"},
+                {"type": "SYMBOL", "name": "ext_b"},
+                {"type": "SYMBOL", "name": "ext_word"}
+            ]
+        }"#;
+
+        // An external word token must not index the internal terminal table.
+        super::generate_parser_for_grammar(
+            grammar_json,
+            None,
+            super::OptLevel::default(),
+            &mut Vec::new(),
+        )
+        .unwrap();
+    }
 }
