@@ -718,6 +718,7 @@ impl Minimizer<'_> {
             let mut candidates = right_terminal_bits[w] & row_word;
             if new_token_is_keyword
                 && let Some(word) = word_token
+                && word.is_terminal()
                 && word.index as usize / 64 == w
             {
                 candidates &= !(1u64 << (word.index as usize % 64));
