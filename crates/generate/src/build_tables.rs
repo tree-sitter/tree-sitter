@@ -282,10 +282,7 @@ fn populate_used_symbols(
             // ensure that a subtree's symbol can be successfully reassigned to the word token
             // without having to move the subtree to the heap.
             // See https://github.com/tree-sitter/tree-sitter/issues/258
-            if syntax_grammar
-                .word_token
-                .is_some_and(|t| t.index as usize == i)
-            {
+            if syntax_grammar.word_token == Some(Symbol::terminal(i)) {
                 parse_table.symbols.insert(1, Symbol::terminal(i));
             } else {
                 parse_table.symbols.push(Symbol::terminal(i));
@@ -347,11 +344,17 @@ fn identify_keywords(
     coincident_token_index: &CoincidentTokenIndex,
     str_pool: &StrPool,
 ) -> TokenSet {
-    if word_token.is_none() {
-        return TokenSet::new();
-    }
-
-    let word_token = word_token.unwrap();
+    let word_token = match word_token {
+        Some(token) if token.is_terminal() => token,
+        // An external token has no lexical rule to compare with keywords.
+        Some(Symbol {
+            kind: SymbolType::External,
+            ..
+        })
+        | None => return TokenSet::new(),
+        // INVARIANT: Token extraction rejects a non-terminal word token.
+        Some(_) => unreachable!(),
+    };
     let mut cursor = NfaCursor::new(&lexical_grammar.nfa, Vec::new());
 
     // First find all of the candidate keyword tokens: tokens that start with
