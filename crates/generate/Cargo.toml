@@ -32,7 +32,7 @@ log.workspace = true
 pathdiff = { optional = true, version = "0.2.3" }
 regex.workspace = true
 regex-syntax.workspace = true
-rquickjs = { features = [ "bindgen", "loader", "macro", "phf" ], optional = true, version = "0.13" }
+rquickjs = { features = [ "bindgen", "loader", "macro", "phf" ], optional = true, version = "0.14" }
 rustc-hash.workspace = true
 semver = { optional = true, workspace = true }
 serde.workspace = true
