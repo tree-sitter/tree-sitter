@@ -224,7 +224,15 @@ void ts_subtree_set_symbol(MutableSubtree *self, TSSymbol symbol, const TSLangua
 void ts_subtree_compress(MutableSubtree self, unsigned count, const TSLanguage *language, MutableSubtreeArray *stack);
 void ts_subtree_summarize_children(MutableSubtree self, const TSLanguage *language);
 Subtree ts_subtree_edit(Subtree self, const TSInputEdit *edit, SubtreePool *pool);
-char *ts_subtree_string(Subtree self, TSSymbol alias_symbol, bool alias_is_named, const TSLanguage *language, bool include_all);
+char *ts_subtree_string(
+  Subtree self,
+  TSSymbol alias_symbol,
+  bool alias_is_named,
+  const TSLanguage *language,
+  bool include_all,
+  bool include_ranges,
+  Length position
+);
 void ts_subtree_print_dot_graph(Subtree self, const TSLanguage *language, FILE *f);
 Subtree ts_subtree_last_external_token(Subtree tree);
 const ExternalScannerState *ts_subtree_external_scanner_state(Subtree self);

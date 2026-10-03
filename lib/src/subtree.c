@@ -832,6 +832,8 @@ static const char *const ROOT_FIELD = "__ROOT__";
 
 typedef struct {
   Subtree subtree;
+  Length position;
+  Length child_position;
   TSSymbol alias_symbol;
   bool alias_is_named;
   const char *field_name;
@@ -846,9 +848,28 @@ typedef struct {
   const TSFieldMapEntry *field_map_end;
 } WriteToStringFrame;
 
+static size_t ts_subtree__write_range_to_string(
+  char *string,
+  size_t limit,
+  Length start,
+  Length size
+) {
+  Length end = length_add(start, size);
+  return snprintf(
+    string,
+    limit,
+    " [%u, %u] - [%u, %u]",
+    start.extent.row,
+    start.extent.column,
+    end.extent.row,
+    end.extent.column
+  );
+}
+
 static size_t ts_subtree__write_to_string(
   Subtree self, char *string, size_t limit,
   const TSLanguage *language, bool include_all,
+  bool include_ranges, Length root_position,
   TSSymbol root_alias_symbol, bool root_alias_is_named, const char *root_field_name
 ) {
   char *cursor = string;
@@ -857,6 +878,8 @@ static size_t ts_subtree__write_to_string(
   Array(WriteToStringFrame) stack = array_new();
   array_push(&stack, ((WriteToStringFrame) {
     .subtree = self,
+    .position = root_position,
+    .child_position = root_position,
     .alias_symbol = root_alias_symbol,
     .alias_is_named = root_alias_is_named,
     .field_name = root_field_name,
@@ -914,15 +937,35 @@ static size_t ts_subtree__write_to_string(
             cursor += snprintf(*writer, limit, "(%s", symbol_name);
           }
         }
+
+        if (include_ranges) {
+          cursor += ts_subtree__write_range_to_string(
+            *writer,
+            limit,
+            frame->position,
+            ts_subtree_size(node)
+          );
+        }
       } else if (frame->is_root) {
         TSSymbol symbol = frame->alias_symbol ? frame->alias_symbol : ts_subtree_symbol(node);
         const char *symbol_name = ts_language_symbol_name(language, symbol);
         if (ts_subtree_child_count(node) > 0) {
           cursor += snprintf(*writer, limit, "(%s", symbol_name);
         } else if (ts_subtree_named(node)) {
-          cursor += snprintf(*writer, limit, "(%s)", symbol_name);
+          cursor += snprintf(*writer, limit, "(%s", symbol_name);
         } else {
-          cursor += snprintf(*writer, limit, "(\"%s\")", symbol_name);
+          cursor += snprintf(*writer, limit, "(\"%s\"", symbol_name);
+        }
+        if (include_ranges) {
+          cursor += ts_subtree__write_range_to_string(
+            *writer,
+            limit,
+            frame->position,
+            ts_subtree_size(node)
+          );
+        }
+        if (ts_subtree_child_count(node) == 0) {
+          cursor += snprintf(*writer, limit, ")");
         }
       }
 
@@ -942,8 +985,13 @@ static size_t ts_subtree__write_to_string(
 
     if (frame->child_index < ts_subtree_child_count(node)) {
       Subtree child = ts_subtree_children(node)[frame->child_index];
+      if (frame->child_index > 0) {
+        frame->child_position = length_add(frame->child_position, ts_subtree_padding(child));
+      }
       WriteToStringFrame child_frame = {
         .subtree = child,
+        .position = frame->child_position,
+        .child_position = frame->child_position,
         .is_root = false,
       };
 
@@ -972,6 +1020,7 @@ static size_t ts_subtree__write_to_string(
       }
 
       frame->child_index++;
+      frame->child_position = length_add(frame->child_position, ts_subtree_size(child));
       // After this push, `frame` may be invalidated by a realloc.
       array_push(&stack, child_frame);
       continue;
@@ -990,18 +1039,20 @@ char *ts_subtree_string(
   TSSymbol alias_symbol,
   bool alias_is_named,
   const TSLanguage *language,
-  bool include_all
+  bool include_all,
+  bool include_ranges,
+  Length position
 ) {
   char scratch_string[1];
   size_t size = ts_subtree__write_to_string(
     self, scratch_string, 1,
-    language, include_all,
+    language, include_all, include_ranges, position,
     alias_symbol, alias_is_named, ROOT_FIELD
   ) + 1;
   char *result = ts_malloc(size * sizeof(char));
   ts_subtree__write_to_string(
     self, result, size,
-    language, include_all,
+    language, include_all, include_ranges, position,
     alias_symbol, alias_is_named, ROOT_FIELD
   );
   return result;

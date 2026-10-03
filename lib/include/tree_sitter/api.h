@@ -561,6 +561,15 @@ TSPoint ts_node_end_point(TSNode self);
 char *ts_node_string(TSNode self);
 
 /**
+ * Get an S-expression representing the node as a string with start and end
+ * positions included.
+ *
+ * This string is allocated with `malloc` and the caller is responsible for
+ * freeing it using `free`.
+ */
+char *ts_node_string_with_ranges(TSNode self);
+
+/**
  * Check if the node is null. Functions like [`ts_node_child`] and
  * [`ts_node_next_sibling`] will return a null node to indicate that no such node
  * was found.
