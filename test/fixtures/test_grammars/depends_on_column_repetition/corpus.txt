@@ -1,0 +1,10 @@
+===========================
+Column-dependent repetition
+===========================
+
+ax
+x
+
+---
+
+(document (newline) (word) (tail) (newline) (head) (newline))
