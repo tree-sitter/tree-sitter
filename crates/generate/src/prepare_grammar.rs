@@ -49,7 +49,7 @@ use super::{
 
 pub type PrepareGrammarResult<T> = Result<T, PrepareGrammarError>;
 
-#[derive(Debug, Error, Serialize, Deserialize)]
+#[derive(Debug, Error, Serialize, Deserialize, PartialEq, Eq)]
 #[error(transparent)]
 pub enum PrepareGrammarError {
     ValidatePrecedences(#[from] ValidatePrecedenceError),
@@ -116,7 +116,6 @@ pub fn prepare_grammar(
     diagnostics: &mut Vec<Diagnostic>,
 ) -> PrepareGrammarResult<PreparedGrammar> {
     validate_precedences(&g)?;
-    validate_indirect_recursion(&g)?;
 
     let interned_meta = intern_symbols(&mut g, diagnostics)?;
     let mut ext_meta = extract_tokens(&mut g, &interned_meta)?;
@@ -125,6 +124,7 @@ pub fn prepare_grammar(
     let mut state = FlattenState::default();
     let mut out = ProductionStore::default();
     flatten_grammar(&g, &ext_meta, &mut state, &mut out)?;
+    validate_indirect_recursion(&g, &out)?;
 
     let lexical_grammar = expand_tokens(
         &mut g.pool,
@@ -148,29 +148,28 @@ pub fn prepare_grammar(
 /// Check for indirect recursion cycles in the grammar that can cause infinite loops while
 /// parsing. An indirect recursion cycle occurs when a non-terminal can derive itself through
 /// a chain of single-symbol productions (e.g., A -> B, B -> A).
-fn validate_indirect_recursion(grammar: &InputGrammar) -> Result<(), IndirectRecursionError> {
+fn validate_indirect_recursion(
+    grammar: &InputGrammar,
+    productions: &ProductionStore,
+) -> Result<(), IndirectRecursionError> {
     let mut epsilon_transitions = IndexMap::new();
-    let mut stack = Vec::new();
-    for variable in &grammar.variables {
-        let mut productions = BTreeSet::new();
-        stack.clear();
-        stack.push(variable.root);
-        while let Some(id) = stack.pop() {
-            match grammar.pool.node(id) {
-                Rule::NamedSymbol(sid) if sid != variable.name => {
-                    // Rules that *directly* reference themselves don't cause a parsing loop.
-                    productions.insert(sid);
-                }
-                Rule::Choice(range) => stack.extend_from_slice(grammar.pool.child_slice(range)),
-                Rule::Metadata { rule, .. } => stack.push(rule),
-                _ => {}
-            }
-        }
-        epsilon_transitions.insert(variable.name, productions);
+    for (variable, &(start, end)) in grammar.variables.iter().zip(&productions.var_prods) {
+        let symbols = productions.productions[start as usize..end as usize]
+            .iter()
+            // Only a production containing exactly one nonterminal adds an edge
+            .filter_map(|p| match productions.steps[p.step_range()] {
+                [step] if step.symbol().is_non_terminal() => Some(step.sym_index as usize),
+                _ => None,
+            })
+            .map(|index| grammar.variables[index].name)
+            // Rules that *directly* reference themselves don't cause a parsing loop.
+            .filter(|&name| name != variable.name)
+            .collect::<BTreeSet<_>>();
+        epsilon_transitions.insert(variable.name, symbols);
     }
 
+    let mut visited = BTreeSet::new();
     for &start_symbol in epsilon_transitions.keys() {
-        let mut visited = BTreeSet::new();
         let mut path = Vec::new();
         if let Some((start_idx, end_idx)) =
             get_cycle(start_symbol, &epsilon_transitions, &mut visited, &mut path)
@@ -448,6 +447,48 @@ mod tests {
                 },
             ]
         });
+        // b -> c -> b, through `seq(optional('|'), $.b, repeat(seq('|', $.b)))`
+        let case4 = build_grammar(|p| {
+            let a = {
+                let b = named(p, "b");
+                let assign = leaf(p, ":=");
+                p.seq(&[b, assign])
+            };
+            let b = {
+                let x = leaf(p, "x");
+                let c = named(p, "c");
+                p.choice(&[x, c])
+            };
+            let c = {
+                let pipe = leaf(p, "|");
+                let blank = p.blank();
+                let leading_pipe = p.choice(&[pipe, blank]);
+                let b = named(p, "b");
+                let rest = {
+                    let pipe = leaf(p, "|");
+                    let b = named(p, "b");
+                    let item = p.seq(&[pipe, b]);
+                    let items = p.repeat(item);
+                    let blank = p.blank();
+                    p.choice(&[items, blank])
+                };
+                p.seq(&[leading_pipe, b, rest])
+            };
+            vec![
+                Variable {
+                    name: p.intern("a"),
+                    root: a,
+                },
+                Variable {
+                    name: p.intern("b"),
+                    root: b,
+                },
+                Variable {
+                    name: p.intern("c"),
+                    root: c,
+                },
+            ]
+        });
 
         let err1 = IndirectRecursionError(vec!["a".to_string(), "b".to_string(), "a".to_string()]);
         let err3 = IndirectRecursionError(vec![
@@ -456,9 +497,18 @@ mod tests {
             "d".to_string(),
             "b".to_string(),
         ]);
+        let err4 = IndirectRecursionError(vec!["b".to_string(), "c".to_string(), "b".to_string()]);
 
-        for (g, expected) in &[(case1, Err(err1)), (case2, Ok(())), (case3, Err(err3))] {
-            assert_eq!(*expected, validate_indirect_recursion(g));
+        for (g, expected) in [
+            (case1, Some(err1)),
+            (case2, None),
+            (case3, Some(err3)),
+            (case4, Some(err4)),
+        ] {
+            assert_eq!(
+                prepare_grammar(g, &mut Vec::new()).err(),
+                expected.map(PrepareGrammarError::from)
+            );
         }
     }
 
