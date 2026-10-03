@@ -1,0 +1,12 @@
+========================
+recovery reaches end of input
+========================
+<<a/a>{[:aaaaa
+---
+
+(program
+  (ERROR
+    (expression
+      (type)
+      (ERROR)
+      (ERROR))))

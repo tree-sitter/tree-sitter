@@ -1207,6 +1207,9 @@ static bool ts_parser__do_all_potential_reductions(
       continue;
     } else if (lookahead_symbol != 0) {
       ts_stack_remove_version(self->stack, version);
+      // Removing this version shifts the next reduction version into its slot.
+      // Check that version before advancing.
+      continue;
     }
 
     if (version == starting_version) {
