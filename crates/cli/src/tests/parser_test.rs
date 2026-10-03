@@ -2217,6 +2217,34 @@ fn test_parse_options_reborrow() {
 }
 
 #[test]
+fn test_error_recovery_checks_versions_after_failed_missing_token_reduction() {
+    let mut parser = Parser::new();
+    parser
+        .set_language(&get_test_fixture_language("error_recovery_loop"))
+        .unwrap();
+
+    let input = b"<<a/a>{[:aaaaa";
+    let mut progress_checks = 0;
+    let tree = parser
+        .parse_with_options(
+            &mut |offset, _| &input[offset..],
+            None,
+            Some(ParseOptions::new().progress_callback(&mut |_| {
+                progress_checks += 1;
+                if progress_checks > 100 {
+                    // error recovery should finish without repeating the same stack versions
+                    ControlFlow::Break(())
+                } else {
+                    ControlFlow::Continue(())
+                }
+            })),
+        )
+        .unwrap();
+
+    assert_eq!(tree.root_node().end_byte(), input.len());
+}
+
+#[test]
 fn test_grammar_that_should_hang_and_not_segfault() {
     fn hang_test() {
         let test_grammar_dir = fixtures_dir()
