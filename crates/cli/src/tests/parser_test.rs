@@ -2286,3 +2286,40 @@ fn test_grammar_that_should_hang_and_not_segfault() {
         }
     }
 }
+
+#[test]
+fn test_parsing_after_balancing_tree_that_depends_on_column() {
+    let mut parser = Parser::new();
+    parser
+        .set_language(&get_test_fixture_language("depends_on_column_repetition"))
+        .unwrap();
+
+    let mut code = b"\nax\na".to_vec();
+    let mut tree = parser.parse(&code, None).unwrap();
+    assert_eq!(
+        tree.root_node().to_sexp(),
+        "(document (newline) (word) (tail) (newline) (word))"
+    );
+
+    perform_edit(
+        &mut tree,
+        &mut code,
+        &Edit {
+            position: 2,
+            deleted_length: 0,
+            inserted_text: b"\n".to_vec(),
+        },
+    )
+    .unwrap();
+
+    let incremental = parser.parse(&code, Some(&tree)).unwrap();
+    let fresh = parser.parse(&code, None).unwrap();
+    assert_eq!(
+        fresh.root_node().to_sexp(),
+        "(document (newline) (word) (newline) (head) (newline) (word))"
+    );
+    assert_eq!(
+        incremental.root_node().to_sexp(),
+        fresh.root_node().to_sexp()
+    );
+}

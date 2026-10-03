@@ -370,7 +370,7 @@ void ts_subtree_summarize_children(
     Subtree child = children[i];
 
     if (
-      self.ptr->size.extent.row == 0 &&
+      (i == 0 || self.ptr->size.extent.row == 0) &&
       ts_subtree_depends_on_column(child)
     ) {
       self.ptr->depends_on_column = true;
