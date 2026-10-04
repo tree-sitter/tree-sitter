@@ -234,11 +234,11 @@ typedef struct {
   // never allow `list` to allocate more entries than this, dropping pending
   // matches if needed to stay under the limit.
   uint32_t max_capture_list_count;
-  // The number of capture lists allocated in `list` that are not currently in
+  // The ids of the capture lists allocated in `list` that are not currently in
   // use. We reuse those existing-but-unused capture lists before trying to
-  // allocate any new ones. We use an invalid value (UINT32_MAX) for a capture
+  // allocate any new ones. We use an invalid value (`UINT32_MAX`) for a capture
   // list's length to indicate that it's not in use.
-  uint32_t free_capture_list_count;
+  Array(uint32_t) free_id_stack;
 } CaptureListPool;
 
 /*
@@ -445,16 +445,17 @@ static CaptureListPool capture_list_pool_new(void) {
     .list = array_new(),
     .empty_list = array_new(),
     .max_capture_list_count = UINT32_MAX,
-    .free_capture_list_count = 0,
+    .free_id_stack = array_new(),
   };
 }
 
 static void capture_list_pool_reset(CaptureListPool *self) {
+  array_clear(&self->free_id_stack);
   for (uint32_t i = 0; i < self->list.size; i++) {
     // This invalid size means that the list is not in use.
     array_get(&self->list, i)->size = UINT32_MAX;
+    array_push(&self->free_id_stack, i);
   }
-  self->free_capture_list_count = self->list.size;
 }
 
 static void capture_list_pool_delete(CaptureListPool *self) {
@@ -462,6 +463,7 @@ static void capture_list_pool_delete(CaptureListPool *self) {
     array_delete(array_get(&self->list, i));
   }
   array_delete(&self->list);
+  array_delete(&self->free_id_stack);
 }
 
 static const CaptureList *capture_list_pool_get(const CaptureListPool *self, uint32_t id) {
@@ -477,19 +479,15 @@ static CaptureList *capture_list_pool_get_mut(CaptureListPool *self, uint32_t id
 static bool capture_list_pool_is_empty(const CaptureListPool *self) {
   // The capture list pool is empty if all allocated lists are in use, and we
   // have reached the maximum allowed number of allocated lists.
-  return self->free_capture_list_count == 0 && self->list.size >= self->max_capture_list_count;
+  return self->free_id_stack.size == 0 && self->list.size >= self->max_capture_list_count;
 }
 
 static uint32_t capture_list_pool_acquire(CaptureListPool *self) {
   // First see if any already allocated capture list is currently unused.
-  if (self->free_capture_list_count > 0) {
-    for (uint32_t i = 0; i < self->list.size; i++) {
-      if (array_get(&self->list, i)->size == UINT32_MAX) {
-        array_clear(array_get(&self->list, i));
-        self->free_capture_list_count--;
-        return i;
-      }
-    }
+  if (self->free_id_stack.size > 0) {
+    uint32_t id = array_pop(&self->free_id_stack);
+    array_clear(array_get(&self->list, id));
+    return id;
   }
 
   // Otherwise allocate and initialize a new capture list, as long as that
@@ -506,8 +504,10 @@ static uint32_t capture_list_pool_acquire(CaptureListPool *self) {
 
 static void capture_list_pool_release(CaptureListPool *self, uint32_t id) {
   if (id >= self->list.size) return;
-  array_get(&self->list, id)->size = UINT32_MAX;
-  self->free_capture_list_count++;
+  CaptureList *list = array_get(&self->list, id);
+  if (list->size == UINT32_MAX) return; // Guard against releasing a list twice
+  list->size = UINT32_MAX;
+  array_push(&self->free_id_stack, id);
 }
 
 /********************
