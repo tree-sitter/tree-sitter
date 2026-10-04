@@ -1,0 +1,10 @@
+========================================
+Column-dependent failed external scan
+========================================
+
+ax
+x
+
+---
+
+(document (newline) (letter) (tail) (newline) (head) (newline))
