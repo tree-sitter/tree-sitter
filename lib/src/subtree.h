@@ -49,13 +49,14 @@ typedef struct {
 // the pointer or the inline struct.
 typedef struct SubtreeInlineData SubtreeInlineData;
 
-#define SUBTREE_BITS    \
-  bool visible : 1;     \
-  bool named : 1;       \
-  bool extra : 1;       \
-  bool has_changes : 1; \
-  bool is_missing : 1;  \
-  bool is_keyword : 1;
+#define SUBTREE_BITS           \
+  bool visible : 1;            \
+  bool named : 1;              \
+  bool extra : 1;              \
+  bool has_changes : 1;        \
+  bool is_missing : 1;         \
+  bool is_keyword : 1;         \
+  bool depends_on_column : 1;
 
 #define SUBTREE_SIZE           \
   uint8_t padding_columns;     \
@@ -71,7 +72,6 @@ struct SubtreeInlineData {
   uint16_t parse_state;
   uint8_t symbol;
   SUBTREE_BITS
-  bool unused : 1;
   bool is_inline : 1;
   SUBTREE_SIZE
 };
@@ -83,7 +83,6 @@ struct SubtreeInlineData {
   uint16_t parse_state;
   uint8_t symbol;
   SUBTREE_BITS
-  bool unused : 1;
   bool is_inline : 1;
 };
 
@@ -366,7 +365,7 @@ static inline bool ts_subtree_has_external_scanner_state_change(Subtree self) {
 }
 
 static inline bool ts_subtree_depends_on_column(Subtree self) {
-  return self.data.is_inline ? false : self.ptr->depends_on_column;
+  return self.data.is_inline ? self.data.depends_on_column : self.ptr->depends_on_column;
 }
 
 static inline bool ts_subtree_is_fragile(Subtree self) {
