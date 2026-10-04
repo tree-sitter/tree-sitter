@@ -193,6 +193,7 @@ Subtree ts_subtree_new_leaf(
       .has_changes = false,
       .is_missing = false,
       .is_keyword = is_keyword,
+      .depends_on_column = depends_on_column,
       .is_inline = true,
     }};
   } else {
@@ -722,7 +723,7 @@ Subtree ts_subtree_edit(Subtree self, const TSInputEdit *input_edit, SubtreePool
         data->fragile_right = false;
         data->has_changes = false;
         data->has_external_tokens = false;
-        data->depends_on_column = false;
+        data->depends_on_column = result.data.depends_on_column;
         data->is_missing = result.data.is_missing;
         data->is_keyword = result.data.is_keyword;
         result.ptr = data;
