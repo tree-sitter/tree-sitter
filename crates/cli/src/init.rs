@@ -519,7 +519,7 @@ fn generate_node_bindings(
             |path| {
                 regenerate_if_missing(
                     path,
-                    "import",
+                    "await assert.doesNotReject",
                     BINDING_TEST_JS_TEMPLATE,
                     ctx.language_name,
                     opts,
