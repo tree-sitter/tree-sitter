@@ -45,6 +45,7 @@ crc32fast.workspace = true
 ctor.workspace = true
 ctrlc.workspace = true
 dialoguer.workspace = true
+dunce.workspace = true
 glob.workspace = true
 heck.workspace = true
 html-escape.workspace = true

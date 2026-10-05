@@ -1036,7 +1036,8 @@ impl Build {
                     .file_name()
                     .context("Output path must have a filename")?;
                 fs::create_dir_all(parent_path).context("Failed to create output path")?;
-                let mut canon_path = parent_path.canonicalize().context("Invalid output path")?;
+                let mut canon_path =
+                    dunce::canonicalize(parent_path).context("Invalid output path")?;
                 canon_path.push(name);
                 canon_path
             } else {
