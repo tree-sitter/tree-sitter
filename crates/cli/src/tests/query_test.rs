@@ -1,4 +1,4 @@
-use std::{env, fmt::Write, ops::ControlFlow, sync::LazyLock};
+use std::{cell::Cell, env, fmt::Write, ops::ControlFlow, sync::LazyLock};
 
 use indoc::indoc;
 use rand::{SeedableRng, prelude::StdRng};
@@ -6124,6 +6124,127 @@ fn test_query_progress_callback_lives_as_long_as_matches() {
 
     assert_eq!(matches.count(), 1000);
     assert!(callback_was_called);
+}
+
+#[test]
+fn test_query_captures_progress_callback_stops_behind_an_open_match() {
+    let language = get_language("javascript");
+    let mut parser = Parser::new();
+    parser.set_language(&language).unwrap();
+
+    let numbers = (0..1000).map(|i| i.to_string()).collect::<Vec<_>>();
+    let source_code = format!("[{}];", numbers.join(","));
+    let tree = parser.parse(&source_code, None).unwrap();
+
+    // The first pattern stays in progress until the array ends, so every number
+    // capture finishes behind it.
+    let query = Query::new(
+        &language,
+        "(array (number) @first (string)) (number) @number",
+    )
+    .unwrap();
+
+    let mut calls = 0;
+    let mut progress_callback = |_: &QueryCursorState| {
+        calls += 1;
+        ControlFlow::Break(())
+    };
+    let mut cursor = QueryCursor::new();
+    let captures = cursor
+        .captures_with_options(
+            &query,
+            tree.root_node(),
+            source_code.as_bytes(),
+            QueryCursorOptions::new().progress_callback(&mut progress_callback),
+        )
+        .count();
+
+    assert!(captures < 1000);
+    assert_eq!(calls, 1);
+}
+
+#[test]
+fn test_query_captures_progress_callback_discards_in_progress_matches() {
+    let language = get_language("json");
+    let mut parser = Parser::new();
+    parser.set_language(&language).unwrap();
+
+    // Within each element, the first pattern holds back the second pattern's captures
+    // until the inner array ends. The second pattern then stays in progress, but
+    // definite, until the element itself ends.
+    let element = format!("[[{{\"a\":1}},1,2],{}]", ["true"; 12].join(","));
+    let source_code = format!("[{}]", vec![element; 50].join(","));
+    let tree = parser.parse(&source_code, None).unwrap();
+    let query = Query::new(
+        &language,
+        r#"
+        (array (object) @object (string))
+        (array (array (number) @number) "]" @close)
+        (number) @n
+        "#,
+    )
+    .unwrap();
+
+    for cancel_at in 1..=20 {
+        let calls = Cell::new(0);
+        let mut progress_callback = |_: &QueryCursorState| {
+            calls.set(calls.get() + 1);
+            if calls.get() >= cancel_at {
+                ControlFlow::Break(())
+            } else {
+                ControlFlow::Continue(())
+            }
+        };
+        let mut cursor = QueryCursor::new();
+        let mut captures = cursor.captures_with_options(
+            &query,
+            tree.root_node(),
+            source_code.as_bytes(),
+            QueryCursorOptions::new().progress_callback(&mut progress_callback),
+        );
+        while let Some((m, _)) = captures.next() {
+            // Once the callback has asked to stop, only finished matches may be returned.
+            if calls.get() >= cancel_at && m.pattern_index == 1 {
+                assert_eq!(m.captures().len(), 2, "cancelled at callback {cancel_at}");
+            }
+        }
+    }
+}
+
+#[test]
+fn test_query_progress_callback_halts_for_good() {
+    let language = get_language("javascript");
+    let mut parser = Parser::new();
+    parser.set_language(&language).unwrap();
+
+    let source_code = "function foo() {}\n".repeat(1000);
+    let tree = parser.parse(&source_code, None).unwrap();
+    let query = Query::new(&language, "(function_declaration) @function").unwrap();
+
+    let stop = Cell::new(true);
+    let mut progress_callback = |_: &QueryCursorState| {
+        if stop.get() {
+            ControlFlow::Break(())
+        } else {
+            ControlFlow::Continue(())
+        }
+    };
+    let mut cursor = QueryCursor::new();
+    let mut matches = cursor.matches_with_options(
+        &query,
+        tree.root_node(),
+        source_code.as_bytes(),
+        QueryCursorOptions::new().progress_callback(&mut progress_callback),
+    );
+    let mut count = 0;
+    while matches.next().is_some() {
+        count += 1;
+    }
+    assert!(count < 1000);
+
+    // Asking the cursor for more after a cancellation does not resume the query.
+    stop.set(false);
+    assert!(matches.next().is_none());
 }
 
 #[test]
