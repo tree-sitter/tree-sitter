@@ -585,9 +585,10 @@ describe('Query', () => {
     });
   });
 
-  describe('Executes with a timeout', { timeout: 10000 }, () => {
+  describe('Executes with a timeout', { timeout: 60000 }, () => {
     it('Returns less than the expected matches', () => {
-      tree = parser.parse('function foo() while (true) { } }\n'.repeat(1000))!;
+      const count = 10000;
+      tree = parser.parse('function foo() while (true) { } }\n'.repeat(count))!;
       query = new Query(JavaScript, '(function_declaration) @function');
 
       const startTime = performance.now();
@@ -603,10 +604,10 @@ describe('Query', () => {
           },
         }
       );
-      expect(matches.length).toBeLessThan(1000);
+      expect(matches.length).toBeLessThan(count);
 
       const matches2 = query.matches(tree.rootNode);
-      expect(matches2).toHaveLength(1000);
+      expect(matches2).toHaveLength(count);
     });
   });
 });
