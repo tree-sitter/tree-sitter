@@ -6070,7 +6070,8 @@ fn test_query_execution_with_timeout() {
     let mut parser = Parser::new();
     parser.set_language(&language).unwrap();
 
-    let source_code = "function foo() { while (true) { } }\n".repeat(1000);
+    let count = 10_000;
+    let source_code = "function foo() { while (true) { } }\n".repeat(count);
     let tree = parser.parse(&source_code, None).unwrap();
 
     let query = Query::new(&language, "(function_declaration) @function").unwrap();
@@ -6091,12 +6092,12 @@ fn test_query_execution_with_timeout() {
             QueryCursorOptions::new().progress_callback(&mut progress_callback),
         )
         .count();
-    assert!(matches < 1000);
+    assert!(matches < count);
 
     let matches = cursor
         .matches(&query, tree.root_node(), source_code.as_bytes())
         .count();
-    assert_eq!(matches, 1000);
+    assert_eq!(matches, count);
 }
 
 #[test]
