@@ -107,7 +107,7 @@ pub fn export(grammar_path: &Path, export_path: &Path) -> Result<()> {
 
     println!(
         "Exported playground to {}",
-        export_path.canonicalize()?.display()
+        dunce::canonicalize(export_path)?.display()
     );
 
     Ok(())

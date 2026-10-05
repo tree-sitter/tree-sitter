@@ -2139,6 +2139,7 @@ dependencies = [
  "ctor",
  "ctrlc",
  "dialoguer",
+ "dunce",
  "encoding_rs",
  "glob",
  "heck",
