@@ -25,7 +25,7 @@ qjs-rt = [ "load", "rquickjs", "pathdiff" ]
 
 [dependencies]
 bitflags = "2.11.1"
-dunce = "1.0.5"
+dunce.workspace = true
 hashbrown.workspace = true
 indexmap.workspace = true
 log.workspace = true
