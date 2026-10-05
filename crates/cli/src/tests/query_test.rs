@@ -6248,6 +6248,39 @@ fn test_query_progress_callback_halts_for_good() {
 }
 
 #[test]
+fn test_query_progress_callback_keeps_up_with_in_progress_states() {
+    let language = get_language("javascript");
+    let mut parser = Parser::new();
+    parser.set_language(&language).unwrap();
+
+    let depth = 1000;
+    let source_code = format!("{}{};", "[".repeat(depth), "]".repeat(depth));
+    let tree = parser.parse(&source_code, None).unwrap();
+
+    // No array has a string, so every enclosing array keeps a state in
+    // progress, and the cursor visits all of them at every node it steps over.
+    let query = Query::new(&language, "(array (string) @string)").unwrap();
+
+    let mut calls = 0;
+    let mut progress_callback = |_: &QueryCursorState| {
+        calls += 1;
+        ControlFlow::Continue(())
+    };
+    let mut cursor = QueryCursor::new();
+    let matches = cursor
+        .matches_with_options(
+            &query,
+            tree.root_node(),
+            source_code.as_bytes(),
+            QueryCursorOptions::new().progress_callback(&mut progress_callback),
+        )
+        .count();
+
+    assert_eq!(matches, 0);
+    assert!(calls > depth, "{calls} calls for {depth} nested arrays");
+}
+
+#[test]
 fn test_query_execution_with_points_causing_underflow() {
     let language = get_language("rust");
     let mut parser = Parser::new();
