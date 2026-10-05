@@ -984,7 +984,8 @@ void ts_query_captures_wasm(
   );
   ts_query_cursor_set_match_limit(scratch_query_cursor, match_limit);
   ts_query_cursor_set_max_start_depth(scratch_query_cursor, max_start_depth);
-  ts_query_cursor_exec(scratch_query_cursor, self, node);
+  TSQueryCursorOptions options = {.payload = NULL, .progress_callback = query_progress_callback};
+  ts_query_cursor_exec_with_options(scratch_query_cursor, self, node, &options);
 
   unsigned index = 0;
   unsigned capture_count = 0;
