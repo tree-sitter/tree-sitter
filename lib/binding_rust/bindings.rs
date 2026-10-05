@@ -683,7 +683,7 @@ unsafe extern "C" {
     pub fn ts_query_cursor_exec(self_: *mut TSQueryCursor, query: *const TSQuery, node: TSNode);
 }
 unsafe extern "C" {
-    #[doc = " Start running a given query on a given node, with some options."]
+    #[doc = " Start running a given query on a given node, with some options.\n\n If a progress callback is given, it is called periodically while the query\n runs. If it returns `true`, query execution halts. Matches that were still in\n progress are discarded, matches that had already finished can still be\n returned, and after that the cursor returns nothing more until it is started\n again with [`ts_query_cursor_exec`] or [`ts_query_cursor_exec_with_options`]."]
     pub fn ts_query_cursor_exec_with_options(
         self_: *mut TSQueryCursor,
         query: *const TSQuery,
