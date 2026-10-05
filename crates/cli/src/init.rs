@@ -489,7 +489,7 @@ fn generate_node_bindings(
             |path| {
                 regenerate_if_missing(
                     path,
-                    "Object.defineProperty",
+                    "Bun.isStandaloneExecutable",
                     INDEX_JS_TEMPLATE,
                     ctx.language_name,
                     opts,
