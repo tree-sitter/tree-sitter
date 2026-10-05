@@ -28,7 +28,10 @@ fn main() {
     let src_path = manifest_path.join("src");
     let wasm_path = src_path.join("wasm");
 
-    if target.starts_with("wasm32-unknown") {
+    // wasm32-unknown-unknown has no libc, so compile in the subset from src/wasm-stdlib, with
+    // allocation coming from wasm_allocator.rs. wasm32-unknown-emscripten brings its own libc,
+    // so avoid colliding with its symbols.
+    if target == "wasm32-unknown-unknown" {
         configure_wasm_build(&mut config);
     }
 
