@@ -344,7 +344,7 @@ struct TSQueryCursor {
   uint32_t next_finished_state_id;
   const TSQueryCursorOptions *query_options;
   TSQueryCursorState query_state;
-  unsigned operation_count;
+  unsigned work_count;
   bool on_visible_node;
   bool ascending;
   bool halted;
@@ -356,7 +356,10 @@ static const uint16_t PATTERN_DONE_MARKER = UINT16_MAX;
 static const uint16_t NONE = UINT16_MAX;
 static const uint32_t CAPTURE_LIST_NONE = UINT32_MAX;
 static const TSSymbol WILDCARD_SYMBOL = 0;
-static const unsigned OP_COUNT_PER_QUERY_CALLBACK_CHECK = 100;
+// The cursor calls the progress callback once it has done this much work.
+// Entering or leaving a node costs one, plus one for each in-progress state,
+// because every step visits all of them.
+static const unsigned WORK_PER_QUERY_CALLBACK_CHECK = 1000;
 
 /**********
  * Stream
@@ -3442,7 +3445,7 @@ TSQueryCursor *ts_query_cursor_new(void) {
       .end_byte = UINT32_MAX,
     },
     .max_start_depth = UINT32_MAX,
-    .operation_count = 0,
+    .work_count = 0,
   };
   array_reserve(&self->states, 8);
   array_reserve(&self->finished_states, 8);
@@ -3519,7 +3522,7 @@ void ts_query_cursor_exec(
   self->halted = false;
   self->query = query;
   self->did_exceed_match_limit = false;
-  self->operation_count = 0;
+  self->work_count = 0;
   self->query_options = NULL;
   self->query_state = (TSQueryCursorState) {0};
 }
@@ -4045,10 +4048,11 @@ static inline bool ts_query_cursor__advance(
 
     if (did_match || self->halted) return did_match;
 
-    // Consult the progress callback every `OP_COUNT_PER_QUERY_CALLBACK_CHECK` operations.
-    // Only iterations that do work are counted.
-    if (++self->operation_count == OP_COUNT_PER_QUERY_CALLBACK_CHECK) {
-      self->operation_count = 0;
+    // Consult the progress callback after a bounded amount of work.
+    // Only iterations that do work are charged.
+    self->work_count += 1 + self->states.size;
+    if (self->work_count >= WORK_PER_QUERY_CALLBACK_CHECK) {
+      self->work_count = 0;
       if (self->query_options && self->query_options->progress_callback) {
         self->query_state.current_byte_offset = ts_node_start_byte(ts_tree_cursor_current_node(&self->cursor));
         if (self->query_options->progress_callback(&self->query_state)) {
