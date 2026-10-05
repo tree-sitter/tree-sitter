@@ -9,7 +9,8 @@ const binding = typeof process.versions.bun === "string"
   : (await import("node-gyp-build")).default(root);
 
 try {
-  const nodeTypes = await import(`${root}/src/node-types.json`, { with: { type: "json" } });
+  // `import()` rejects absolute Windows paths like `root`.
+  const nodeTypes = await import("../../src/node-types.json", { with: { type: "json" } });
   binding.nodeTypeInfo = nodeTypes.default;
 } catch { }
 
