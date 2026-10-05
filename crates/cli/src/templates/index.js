@@ -3,13 +3,14 @@ import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("../..", import.meta.url));
 
-const binding = typeof process.versions.bun === "string"
-  // Support `bun build --compile` by being statically analyzable enough to find the .node file at build-time
-  ? await import(`${root}/prebuilds/${process.platform}-${process.arch}/tree-sitter-KEBAB_PARSER_NAME.node`)
+// A `bun build --compile` executable has no package directory for node-gyp-build to search, so
+// require the prebuild directly. Its path has to stay static for Bun to embed the addon.
+const binding = typeof process.versions.bun === "string" && Bun.isStandaloneExecutable
+  ? require(`../../prebuilds/${process.platform}-${process.arch}/tree-sitter-KEBAB_PARSER_NAME.node`)
   : (await import("node-gyp-build")).default(root);
 
 try {
-  // `import()` rejects absolute Windows paths like `root`.
+  // Bun only embeds static paths, and `import()` rejects absolute Windows paths like `root`.
   const nodeTypes = await import("../../src/node-types.json", { with: { type: "json" } });
   binding.nodeTypeInfo = nodeTypes.default;
 } catch { }
