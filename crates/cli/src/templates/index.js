@@ -15,25 +15,42 @@ try {
   binding.nodeTypeInfo = nodeTypes.default;
 } catch { }
 
-const queries = [
-  ["HIGHLIGHTS_QUERY", `${root}/HIGHLIGHTS_QUERY_PATH`],
-  ["INJECTIONS_QUERY", `${root}/INJECTIONS_QUERY_PATH`],
-  ["LOCALS_QUERY", `${root}/LOCALS_QUERY_PATH`],
-  ["TAGS_QUERY", `${root}/TAGS_QUERY_PATH`],
-];
+if (typeof process.versions.bun === "string" && Bun.isStandaloneExecutable) {
+  // Static paths so Bun embeds the queries. Grammars often lack some of them, and inside a `try` a
+  // missing file is skipped instead of failing the build.
+  try {
+    binding.HIGHLIGHTS_QUERY = (await import("../../HIGHLIGHTS_QUERY_PATH", { with: { type: "text" } })).default;
+  } catch { }
+  try {
+    binding.INJECTIONS_QUERY = (await import("../../INJECTIONS_QUERY_PATH", { with: { type: "text" } })).default;
+  } catch { }
+  try {
+    binding.LOCALS_QUERY = (await import("../../LOCALS_QUERY_PATH", { with: { type: "text" } })).default;
+  } catch { }
+  try {
+    binding.TAGS_QUERY = (await import("../../TAGS_QUERY_PATH", { with: { type: "text" } })).default;
+  } catch { }
+} else {
+  const queries = [
+    ["HIGHLIGHTS_QUERY", `${root}/HIGHLIGHTS_QUERY_PATH`],
+    ["INJECTIONS_QUERY", `${root}/INJECTIONS_QUERY_PATH`],
+    ["LOCALS_QUERY", `${root}/LOCALS_QUERY_PATH`],
+    ["TAGS_QUERY", `${root}/TAGS_QUERY_PATH`],
+  ];
 
-for (const [prop, path] of queries) {
-  Object.defineProperty(binding, prop, {
-    configurable: true,
-    enumerable: true,
-    get() {
-      delete binding[prop];
-      try {
-        binding[prop] = readFileSync(path, "utf8");
-      } catch { }
-      return binding[prop];
-    }
-  });
+  for (const [prop, path] of queries) {
+    Object.defineProperty(binding, prop, {
+      configurable: true,
+      enumerable: true,
+      get() {
+        delete binding[prop];
+        try {
+          binding[prop] = readFileSync(path, "utf8");
+        } catch { }
+        return binding[prop];
+      }
+    });
+  }
 }
 
 export default binding;
