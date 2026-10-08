@@ -37,11 +37,12 @@ pub use parse_grammar::ParseGrammarError;
 use parse_grammar::parse_grammar;
 use prepare_grammar::prepare_grammar;
 pub use prepare_grammar::{
-    ConflictingPrecedenceOrderingError, ExpandRegexError, ExpandRepeatsError, ExpandRuleError,
-    ExpandTokensError, ExpandTokensProcessingError, ExtractTokensError, FlattenGrammarError,
-    IndirectRecursionError, InternSymbolsError, NonAsciiByteClassError, NonTerminalWordTokenError,
-    PatternSpan, PrepareGrammarError, ProcessInlinesError, RegexError, RegexErrorKind,
-    UndeclaredPrecedenceError, ValidatePrecedenceError,
+    ConflictingPrecedenceOrderingError, EmptyStringExtraError, ExpandRegexError,
+    ExpandRepeatsError, ExpandRuleError, ExpandTokensError, ExpandTokensProcessingError,
+    ExtractTokensError, FlattenGrammarError, IndirectRecursionError, InternSymbolsError,
+    NonAsciiByteClassError, NonTerminalWordTokenError, PatternSpan, PrepareGrammarError,
+    ProcessInlinesError, RegexError, RegexErrorKind, UndeclaredPrecedenceError,
+    ValidatePrecedenceError,
 };
 use render::render_c_code;
 pub use render::{ABI_VERSION_MAX, ABI_VERSION_MIN, RenderError};
@@ -275,7 +276,6 @@ pub enum Diagnostic {
     UnnecessaryConflicts(Box<[Box<[Box<str>]>]>),
     UnaryChoice { name: Option<Box<str>> },
     UnarySeq { name: Option<Box<str>> },
-    EmptyStringMatch(Box<str>),
     UnsupportedRegexFlag { flag: char, pattern: Box<str> },
     SupertypeInlined { name: Box<str> },
 }
@@ -310,13 +310,6 @@ impl std::fmt::Display for Diagnostic {
                     f,
                     "rule {} contains a `seq` rule with a single element. this is unnecessary.",
                     name.as_deref().unwrap_or("<ANONYMOUS>")
-                )?;
-            }
-            Self::EmptyStringMatch(rule) => {
-                write!(
-                    f,
-                    "named extra rule `{rule}` matches the empty string. \
-                     inline this to avoid infinite loops while parsing.",
                 )?;
             }
             Self::UnsupportedRegexFlag { flag, pattern } => {
