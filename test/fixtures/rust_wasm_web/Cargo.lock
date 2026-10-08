@@ -184,7 +184,7 @@ dependencies = [
 
 [[package]]
 name = "tree-sitter"
-version = "0.27.0"
+version = "0.27.1"
 dependencies = [
  "cc",
  "regex",
@@ -203,7 +203,7 @@ dependencies = [
 
 [[package]]
 name = "tree-sitter-language"
-version = "0.1.8"
+version = "0.1.9"
 
 [[package]]
 name = "unicode-ident"
