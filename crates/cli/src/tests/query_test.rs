@@ -417,6 +417,16 @@ fn test_query_errors_on_invalid_symbols() {
             }
         );
         assert_eq!(
+            Query::new(&language, "(ERR)").unwrap_err(),
+            QueryError {
+                row: 0,
+                offset: 1,
+                column: 1,
+                kind: QueryErrorKind::NodeType,
+                message: "\"ERR\"".to_string(),
+            }
+        );
+        assert_eq!(
             Query::new(&language, "(MISS)").unwrap_err(),
             QueryError {
                 row: 0,
