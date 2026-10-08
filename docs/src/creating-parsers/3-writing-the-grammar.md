@@ -418,6 +418,10 @@ module.exports = grammar({
 });
 ```
 
+Named extras must consume input, otherwise the parser may loop. Grammar generation ensures that internals fulfill this requirement.
+_Externals_ referenced within nonterminal extras must also consume input. Grammar generation can't check these, so it's
+up to you to make sure they do.
+
 > [!WARNING]
 > When adding more complicated tokens to `extras`, it's preferable to associate the pattern
 > with a rule. This way, you avoid the lexer inlining this pattern in a bunch of spots,

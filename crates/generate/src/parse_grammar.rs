@@ -1,6 +1,5 @@
 use rustc_hash::{FxHashMap, FxHashSet};
 
-use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use thiserror::Error;
@@ -143,7 +142,7 @@ impl InputGrammar {
     /// A variable is "used" if it is the start rule, the word token, named in
     /// `extras`/`externals`, or transitively reachable via rule references from
     /// any of the above.
-    fn normalize(mut self, diagnostics: &mut Vec<Diagnostic>) -> Self {
+    fn normalize(mut self) -> Self {
         // Compute the used set via forward DFS from the implicit roots
         // (start rule, word_token, refs in extras and externals).
         //
@@ -182,35 +181,6 @@ impl InputGrammar {
             }
             visited
         };
-
-        for v in &self.variables {
-            if !used.contains(&v.name) {
-                continue;
-            }
-            if !self
-                .extra_roots
-                .iter()
-                .any(|&r| self.pool.rule_is_referenced(r, v.name, false))
-            {
-                continue;
-            }
-            let inner_root = match self.pool.node(v.root) {
-                Rule::Metadata { rule, .. } => rule,
-                _ => v.root,
-            };
-            let matches_empty = match self.pool.node(inner_root) {
-                Rule::String(s) => self.pool.resolve(s).is_empty(),
-                Rule::Pattern(value, _) => {
-                    Regex::new(self.pool.resolve(value)).is_ok_and(|reg| reg.is_match(""))
-                }
-                _ => false,
-            };
-            if matches_empty {
-                diagnostics.push(Diagnostic::EmptyStringMatch(
-                    self.pool.resolve(v.name).to_string().into(),
-                ));
-            }
-        }
 
         // Drop unused variables and clean up references to them in the config
         let dropped: Vec<StrId> = self
@@ -343,7 +313,7 @@ pub(crate) fn parse_grammar(
         word_name,
         precedence_orderings,
     }
-    .normalize(diagnostics);
+    .normalize();
     Ok(grammar)
 }
 
