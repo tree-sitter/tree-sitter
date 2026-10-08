@@ -95,6 +95,15 @@ fn test_lookahead_iterator_exhaustion() {
 }
 
 #[test]
+fn test_id_for_node_kind_only_matches_the_whole_error_name() {
+    let language = get_language("javascript");
+    assert_eq!(language.id_for_node_kind("ERROR", true), u16::MAX);
+    for name in ["", "E", "ER", "ERR", "ERRO"] {
+        assert_eq!(language.id_for_node_kind(name, true), 0, "{name:?}");
+    }
+}
+
+#[test]
 fn test_symbol_metadata_checks() {
     let language = get_language("rust");
     for i in 0..language.node_kind_count() {
