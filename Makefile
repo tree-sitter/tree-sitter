@@ -81,7 +81,7 @@ shared: libtree-sitter.$(SOEXT)
 static: libtree-sitter.a
 
 clean:
-	$(RM) $(OBJ) tree-sitter.pc libtree-sitter.a libtree-sitter.$(SOEXT) libtree-stitter.dll.a
+	$(RM) $(OBJ) tree-sitter.pc libtree-sitter.a libtree-sitter.$(SOEXT) libtree-sitter.dll.a
 
 install: all
 	install -d '$(DESTDIR)$(INCLUDEDIR)'/tree_sitter '$(DESTDIR)$(PCLIBDIR)' '$(DESTDIR)$(LIBDIR)'
