@@ -22,6 +22,7 @@ pub fn build(b: *std.Build) !void {
         .name = "tree-sitter",
         .linkage = if (shared) .dynamic else .static,
         .root_module = tree_sitter,
+        .win32_module_definition = b.path(if (wasm) "lib/src/tree_sitter_wasm.def" else "lib/src/tree_sitter.def"),
     });
 
     if (amalgamated) {

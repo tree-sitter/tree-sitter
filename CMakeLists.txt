@@ -84,6 +84,14 @@ set_target_properties(tree-sitter
 
 target_compile_definitions(tree-sitter PRIVATE _POSIX_C_SOURCE=200112L _DEFAULT_SOURCE _BSD_SOURCE _DARWIN_C_SOURCE)
 
+if(WIN32 AND BUILD_SHARED_LIBS)
+  if(TREE_SITTER_FEATURE_WASM)
+    target_sources(tree-sitter PRIVATE "${PROJECT_SOURCE_DIR}/lib/src/tree_sitter_wasm.def")
+  else()
+    target_sources(tree-sitter PRIVATE "${PROJECT_SOURCE_DIR}/lib/src/tree_sitter.def")
+  endif()
+endif()
+
 include(GNUInstallDirs)
 
 configure_file(lib/tree-sitter.pc.in "${CMAKE_CURRENT_BINARY_DIR}/tree-sitter.pc" @ONLY)
