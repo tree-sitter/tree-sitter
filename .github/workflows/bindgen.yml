@@ -5,11 +5,15 @@ on:
     paths:
       - lib/include/tree_sitter/api.h
       - lib/binding_rust/bindings.rs
+      - lib/src/*.def
+      - crates/xtask/src/generate.rs
   push:
     branches: [master]
     paths:
       - lib/include/tree_sitter/api.h
       - lib/binding_rust/bindings.rs
+      - lib/src/*.def
+      - crates/xtask/src/generate.rs
 
 jobs:
   check-bindgen:
@@ -26,5 +30,5 @@ jobs:
       - name: Generate bindings
         run: cargo xtask generate-bindings
 
-      - name: Check if the bindgen output changed
-        run: git diff --exit-code lib/binding_rust/bindings.rs
+      - name: Check if the generated files changed
+        run: git diff --exit-code lib/binding_rust/bindings.rs lib/src/tree_sitter.def lib/src/tree_sitter_wasm.def
