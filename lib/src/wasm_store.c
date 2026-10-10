@@ -1540,26 +1540,36 @@ const TSLanguage *ts_wasm_store_load_language(
     );
     if (!valid_wasm_memory) goto invalid_language_memory;
 
-    // Determine the number of supertype map slices by finding the greatest
-    // supertype ID.
-    int largest_supertype = 0;
-    for (unsigned i = 0; i < language->supertype_count; i++) {
+    // Slices are indexed by symbol ID, so their count is the greatest supertype
+    // ID plus one, rather than the number of supertypes.
+    uint32_t supertype_map_slice_count = 0;
+    for (uint32_t i = 0; i < language->supertype_count; i++) {
       TSSymbol supertype = language->supertype_symbols[i];
-      if (supertype > largest_supertype) {
-        largest_supertype = supertype;
+      uint32_t slice_count = supertype + 1;
+      if (slice_count > supertype_map_slice_count) {
+        supertype_map_slice_count = slice_count;
       }
     }
 
     language->supertype_map_slices = copy(
       &wasm_memory,
       wasm_language.supertype_map_slices,
-      (largest_supertype + 1) * sizeof(TSMapSlice),
+      supertype_map_slice_count * sizeof(TSMapSlice),
       &valid_wasm_memory
     );
     if (!valid_wasm_memory) goto invalid_language_memory;
 
-    TSMapSlice last_slice = language->supertype_map_slices[largest_supertype];
-    uint32_t supertype_map_entry_count = last_slice.index + last_slice.length;
+    // Entries are indexed by slice offsets, so their count is the greatest
+    // slice end. The greatest supertype ID need not have the greatest slice end.
+    uint32_t supertype_map_entry_count = 0;
+    for (uint32_t i = 0; i < language->supertype_count; i++) {
+      TSSymbol supertype = language->supertype_symbols[i];
+      TSMapSlice slice = language->supertype_map_slices[supertype];
+      uint32_t slice_end = slice.index + slice.length;
+      if (slice_end > supertype_map_entry_count) {
+        supertype_map_entry_count = slice_end;
+      }
+    }
 
     language->supertype_map_entries = copy(
       &wasm_memory,

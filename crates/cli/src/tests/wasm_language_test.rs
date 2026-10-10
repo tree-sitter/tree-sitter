@@ -1,12 +1,84 @@
 use std::fs;
 
 use streaming_iterator::StreamingIterator;
-use tree_sitter::{Parser, Query, QueryCursor, WasmError, WasmErrorKind, WasmStore};
+use tree_sitter::{Language, Parser, Query, QueryCursor, WasmError, WasmErrorKind, WasmStore};
 
 use crate::tests::helpers::{
     allocations,
-    fixtures::{ENGINE, WASM_DIR, get_test_fixture_language_wasm},
+    fixtures::{ENGINE, WASM_DIR, get_language, get_test_fixture_language_wasm},
 };
+
+fn assert_language_eq(wasm: &Language, native: &Language) {
+    assert_eq!(wasm.abi_version(), native.abi_version(), "ABI version");
+    assert_eq!(wasm.name(), native.name(), "language name");
+    let metadata = |language: &Language| {
+        language
+            .metadata()
+            .map(|m| (m.major_version, m.minor_version, m.patch_version))
+    };
+    assert_eq!(metadata(wasm), metadata(native), "language metadata");
+    assert_eq!(
+        wasm.node_kind_count(),
+        native.node_kind_count(),
+        "node kind count"
+    );
+    assert_eq!(
+        wasm.parse_state_count(),
+        native.parse_state_count(),
+        "parse state count"
+    );
+    assert_eq!(wasm.field_count(), native.field_count(), "field count");
+
+    for symbol in 0..native.node_kind_count() {
+        let symbol = symbol as u16;
+        assert_eq!(
+            (
+                wasm.node_kind_for_id(symbol),
+                wasm.node_kind_is_named(symbol),
+                wasm.node_kind_is_visible(symbol),
+                wasm.node_kind_is_supertype(symbol),
+            ),
+            (
+                native.node_kind_for_id(symbol),
+                native.node_kind_is_named(symbol),
+                native.node_kind_is_visible(symbol),
+                native.node_kind_is_supertype(symbol),
+            ),
+            "node kind {symbol}",
+        );
+        let name = native.node_kind_for_id(symbol).unwrap();
+        for named in [false, true] {
+            assert_eq!(
+                wasm.id_for_node_kind(name, named),
+                native.id_for_node_kind(name, named),
+                "symbol lookup for {name:?}, named={named}",
+            );
+        }
+    }
+
+    for field in 0..=native.field_count() {
+        let field = field as u16;
+        let name = native.field_name_for_id(field);
+        assert_eq!(wasm.field_name_for_id(field), name, "field {field}");
+        if let Some(name) = name {
+            assert_eq!(
+                wasm.field_id_for_name(name),
+                native.field_id_for_name(name),
+                "field lookup for {name:?}"
+            );
+        }
+    }
+
+    assert_eq!(wasm.supertypes(), native.supertypes(), "supertypes");
+    for &supertype in native.supertypes() {
+        assert_eq!(
+            wasm.subtypes_for_supertype(supertype),
+            native.subtypes_for_supertype(supertype),
+            "subtypes for {:?}",
+            native.node_kind_for_id(supertype),
+        );
+    }
+}
 
 #[test]
 fn test_wasm_stdlib_symbols() {
@@ -33,9 +105,11 @@ fn test_load_wasm_ruby_language() {
         let mut store = WasmStore::new(&ENGINE).unwrap();
         let mut parser = Parser::new();
         let wasm = fs::read(WASM_DIR.join("tree-sitter-ruby.wasm")).unwrap();
-        let language = store.load_language("ruby", &wasm).unwrap();
+        let wasm_language = store.load_language("ruby", &wasm).unwrap();
+        let native_language = get_language("ruby");
+        assert_language_eq(&wasm_language, &native_language);
         parser.set_wasm_store(store).unwrap();
-        parser.set_language(&language).unwrap();
+        parser.set_language(&wasm_language).unwrap();
         let tree = parser.parse("class A; end", None).unwrap();
         assert_eq!(
             tree.root_node().to_sexp(),
@@ -50,9 +124,11 @@ fn test_load_wasm_html_language() {
         let mut store = WasmStore::new(&ENGINE).unwrap();
         let mut parser = Parser::new();
         let wasm = fs::read(WASM_DIR.join("tree-sitter-html.wasm")).unwrap();
-        let language = store.load_language("html", &wasm).unwrap();
+        let wasm_language = store.load_language("html", &wasm).unwrap();
+        let native_language = get_language("html");
+        assert_language_eq(&wasm_language, &native_language);
         parser.set_wasm_store(store).unwrap();
-        parser.set_language(&language).unwrap();
+        parser.set_language(&wasm_language).unwrap();
         let tree = parser
             .parse("<div><span></span><p></p></div>", None)
             .unwrap();
@@ -69,9 +145,11 @@ fn test_load_wasm_rust_language() {
         let mut store = WasmStore::new(&ENGINE).unwrap();
         let mut parser = Parser::new();
         let wasm = fs::read(WASM_DIR.join("tree-sitter-rust.wasm")).unwrap();
-        let language = store.load_language("rust", &wasm).unwrap();
+        let wasm_language = store.load_language("rust", &wasm).unwrap();
+        let native_language = get_language("rust");
+        assert_language_eq(&wasm_language, &native_language);
         parser.set_wasm_store(store).unwrap();
-        parser.set_language(&language).unwrap();
+        parser.set_language(&wasm_language).unwrap();
         let tree = parser.parse("fn main() {}", None).unwrap();
         assert_eq!(
             tree.root_node().to_sexp(),
@@ -86,9 +164,11 @@ fn test_load_wasm_javascript_language() {
         let mut store = WasmStore::new(&ENGINE).unwrap();
         let mut parser = Parser::new();
         let wasm = fs::read(WASM_DIR.join("tree-sitter-javascript.wasm")).unwrap();
-        let language = store.load_language("javascript", &wasm).unwrap();
+        let wasm_language = store.load_language("javascript", &wasm).unwrap();
+        let native_language = get_language("javascript");
+        assert_language_eq(&wasm_language, &native_language);
         parser.set_wasm_store(store).unwrap();
-        parser.set_language(&language).unwrap();
+        parser.set_language(&wasm_language).unwrap();
         let tree = parser.parse("const a = b\nconst c = d", None).unwrap();
         assert_eq!(
             tree.root_node().to_sexp(),
@@ -103,9 +183,11 @@ fn test_load_wasm_python_language() {
         let mut store = WasmStore::new(&ENGINE).unwrap();
         let mut parser = Parser::new();
         let wasm = fs::read(WASM_DIR.join("tree-sitter-python.wasm")).unwrap();
-        let language = store.load_language("python", &wasm).unwrap();
+        let wasm_language = store.load_language("python", &wasm).unwrap();
+        let native_language = get_language("python");
+        assert_language_eq(&wasm_language, &native_language);
         parser.set_wasm_store(store).unwrap();
-        parser.set_language(&language).unwrap();
+        parser.set_language(&wasm_language).unwrap();
         let tree = parser.parse("a = b\nc = d", None).unwrap();
         assert_eq!(
             tree.root_node().to_sexp(),
