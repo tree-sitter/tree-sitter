@@ -40,6 +40,7 @@ workspace = true
 default = [ "std" ]
 std = [ "regex/std", "regex/perf" ]
 wasm = [ "std", "wasmtime-c-api" ]
+js-loader = [ "std", "dep:js-sys", "dep:wasm-bindgen", "dep:wasm-bindgen-futures", "dep:wasmparser" ]
 
 [dependencies]
 regex = { default-features = false, features = [ "unicode" ], version = "1.12.3" }
@@ -53,10 +54,22 @@ optional = true
 package = "wasmtime-c-api-impl"
 version = "48.0.6"
 
+[target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
+js-sys = { version = "0.3", optional = true }
+wasm-bindgen = { version = "0.2", optional = true }
+wasm-bindgen-futures = { version = "0.4", optional = true }
+wasmparser = { version = "0.244.0", default-features = false, features = ["std"], optional = true }
+
 [build-dependencies]
 bindgen = { optional = true, version = "0.72.1" }
 cc.workspace = true
 serde_json.workspace = true
+
+[dev-dependencies]
+wasmparser = { version = "0.244.0", default-features = false, features = ["std", "validate", "features"] }
+
+[target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dev-dependencies]
+wasm-bindgen-test = "0.3"
 
 [lib]
 path = "binding_rust/lib.rs"

@@ -141,6 +141,24 @@ assert_eq!(
 );
 ```
 
+## Loading Grammar Files in a Rust Wasm Application
+
+Enable `tree-sitter`'s **js-loader** feature when targeting
+`wasm32-unknown-unknown`. This is distinct from the native **wasm** feature
+above and from the separate `web-tree-sitter` JavaScript package.
+
+The final Rust Wasm application must be processed with **wasm-bindgen** and
+initialized using its generated JavaScript glue. Enabling the Cargo feature
+alone is not enough: a raw `WebAssembly.instantiate` call supplying only
+`env.memory` will not provide the `js-sys` and loader imports.
+
+`js_loader::load_language` compiles a grammar asynchronously for a browser
+main thread; `js_loader::load_language_sync` is for a worker that cannot
+await compilation. Both require the current Rust Wasm instance's own memory
+and function table, and both are unsafe because the grammar runs inside that
+memory without isolation. A loaded language can parse only in the instance
+that linked it, so each worker must load its own instance.
+
 [tree-sitter]: https://github.com/tree-sitter/tree-sitter
 
 ## Features
@@ -150,3 +168,4 @@ assert_eq!(
   - `regex` performance optimizations are enabled.
   - The DOT graph methods are enabled.
 - **wasm** - This feature allows `tree-sitter` to be built for Wasm targets using the `wasmtime-c-api` crate.
+- **js-loader** - On `wasm32-unknown-unknown`, enables `js_loader` for apps initialized with wasm-bindgen's generated JavaScript glue.
