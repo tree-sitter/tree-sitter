@@ -502,7 +502,9 @@ TSNode ts_tree_cursor_current_node(const TSTreeCursor *_self) {
 }
 
 // Private - Get various facts about the current node that are needed
-// when executing tree queries.
+// when executing tree queries. `can_have_later_siblings_with_this_field`
+// is never false when a later sibling has the current node's field, but
+// can be true when none does.
 void ts_tree_cursor_current_status(
   const TSTreeCursor *_self,
   TSFieldId *field_id,
@@ -519,6 +521,8 @@ void ts_tree_cursor_current_status(
   *has_later_siblings = false;
   *has_later_named_siblings = false;
   *can_have_later_siblings_with_this_field = false;
+  // A later sibling with no field of its own may inherit one further up.
+  bool later_sibling_without_field = false;
 
   // Walk up the tree, visiting the current node and its invisible ancestors,
   // because fields can refer to nodes through invisible *wrapper* nodes,
@@ -557,54 +561,37 @@ void ts_tree_cursor_current_status(
       (*supertype_count)++;
     }
 
-    // Determine if the current node has later siblings. A later *anonymous*
-    // sibling settles `has_later_siblings` but says nothing about later *named*
-    // siblings.
-    if (!*has_later_named_siblings) {
-      unsigned sibling_count = parent_entry->subtree->ptr->child_count;
-      unsigned structural_child_index = entry->structural_child_index;
-      if (!ts_subtree_extra(*entry->subtree)) structural_child_index++;
-      for (unsigned j = entry->child_index + 1; j < sibling_count; j++) {
-        Subtree sibling = ts_subtree_children(*parent_entry->subtree)[j];
-        TSSymbolMetadata sibling_metadata = ts_language_symbol_metadata(
-          self->tree->language,
-          subtree_symbol(sibling, structural_child_index)
-        );
-        if (sibling_metadata.visible) {
-          *has_later_siblings = true;
-          if (sibling_metadata.named) {
-            *has_later_named_siblings = true;
-            break;
-          }
-        } else if (ts_subtree_visible_child_count(sibling) > 0) {
-          *has_later_siblings = true;
-          if (sibling.ptr->named_child_count > 0) {
-            *has_later_named_siblings = true;
-            break;
-          }
-        }
-        if (!ts_subtree_extra(sibling)) structural_child_index++;
-      }
-    }
+    const TSFieldMapEntry *field_map, *field_map_end;
+    ts_language_field_map(
+      self->tree->language,
+      parent_entry->subtree->ptr->production_id,
+      &field_map, &field_map_end
+    );
 
-    #undef subtree_symbol
-
+    bool find_later_sibling_without_field = false;
     if (!ts_subtree_extra(*entry->subtree)) {
-      const TSFieldMapEntry *field_map, *field_map_end;
-      ts_language_field_map(
-        self->tree->language,
-        parent_entry->subtree->ptr->production_id,
-        &field_map, &field_map_end
-      );
-
-      // Look for a field name associated with the current node.
-      if (!*field_id) {
-        for (const TSFieldMapEntry *map = field_map; map < field_map_end; map++) {
-          if (!map->inherited && map->child_index == entry->structural_child_index) {
-            *field_id = map->field_id;
-            break;
-          }
+      // Look for a field name associated with this entry.
+      TSFieldId entry_field_id = 0;
+      for (const TSFieldMapEntry *map = field_map; map < field_map_end; map++) {
+        if (!map->inherited && map->child_index == entry->structural_child_index) {
+          entry_field_id = map->field_id;
+          break;
         }
+      }
+
+      if (entry_field_id) {
+        if (!*field_id) {
+          *field_id = entry_field_id;
+          // A field found on this entry may also belong to any later sibling
+          // found below. Those were scanned before the field was known, so assume
+          // they do.
+          if (*has_later_siblings) {
+            *can_have_later_siblings_with_this_field = true;
+          }
+        } else if (later_sibling_without_field && entry_field_id == *field_id) {
+          *can_have_later_siblings_with_this_field = true;
+        }
+        later_sibling_without_field = false;
       }
 
       // Determine if the current node can have later siblings with the same field name.
@@ -619,7 +606,58 @@ void ts_tree_cursor_current_status(
           }
         }
       }
+      // A fieldless later sibling may inherit a field from its hidden parent.
+      find_later_sibling_without_field =
+        *field_id &&
+        !*can_have_later_siblings_with_this_field &&
+        !later_sibling_without_field &&
+        !ts_tree_cursor_is_entry_visible(self, i - 1);
     }
+
+    // Determine if the current node has later siblings. A later *anonymous*
+    // sibling settles `has_later_siblings` but says nothing about later *named*
+    // siblings. When needed, also look for one with no field of its own.
+    if (!*has_later_named_siblings || find_later_sibling_without_field) {
+      unsigned sibling_count = parent_entry->subtree->ptr->child_count;
+      unsigned structural_child_index = entry->structural_child_index;
+      if (!ts_subtree_extra(*entry->subtree)) structural_child_index++;
+      for (unsigned j = entry->child_index + 1; j < sibling_count; j++) {
+        Subtree sibling = ts_subtree_children(*parent_entry->subtree)[j];
+        TSSymbolMetadata sibling_metadata = ts_language_symbol_metadata(
+          self->tree->language,
+          subtree_symbol(sibling, structural_child_index)
+        );
+        bool is_visible = sibling_metadata.visible;
+        bool is_named = sibling_metadata.named;
+        if (!is_visible && ts_subtree_visible_child_count(sibling) > 0) {
+          is_visible = true;
+          is_named = sibling.ptr->named_child_count > 0;
+        }
+        if (is_visible) {
+          *has_later_siblings = true;
+          if (is_named) *has_later_named_siblings = true;
+          if (find_later_sibling_without_field) {
+            bool has_field = false;
+            if (!ts_subtree_extra(sibling)) {
+              for (const TSFieldMapEntry *map = field_map; map < field_map_end; map++) {
+                if (!map->inherited && map->child_index == structural_child_index) {
+                  has_field = true;
+                  break;
+                }
+              }
+            }
+            if (!has_field) {
+              later_sibling_without_field = true;
+              find_later_sibling_without_field = false;
+            }
+          }
+        }
+        if (*has_later_named_siblings && !find_later_sibling_without_field) break;
+        if (!ts_subtree_extra(sibling)) structural_child_index++;
+      }
+    }
+
+    #undef subtree_symbol
   }
 }
 
