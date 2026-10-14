@@ -846,6 +846,25 @@ fn test_node_is_error() {
 }
 
 #[test]
+fn test_node_has_error() {
+    let mut parser = Parser::new();
+    parser.set_language(&get_language("json")).unwrap();
+    let tree = parser.parse("!", None).unwrap();
+
+    let root = tree.root_node();
+    assert!(root.has_error());
+
+    let error = root.child(0).unwrap();
+    assert!(error.is_error());
+    assert!(error.has_error());
+
+    let terminal_error = error.child(0).unwrap();
+    assert!(terminal_error.is_error());
+    assert_eq!(terminal_error.child_count(), 0);
+    assert!(terminal_error.has_error());
+}
+
+#[test]
 fn test_edit_point() {
     let edit = InputEdit {
         start_byte: 5,
