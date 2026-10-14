@@ -1,0 +1,26 @@
+=============================================
+Field on a hidden rule with a field inside it
+=============================================
+
+let a = b;
+
+---
+
+(source_file
+  (binding
+    inner: (name)
+    outer: (name)))
+
+================================
+Field on a recursive hidden rule
+================================
+
+sum a + b + c;
+
+---
+
+(source_file
+  (sum
+    left: (name)
+    left: (name)
+    (name)))

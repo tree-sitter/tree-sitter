@@ -519,6 +519,8 @@ void ts_tree_cursor_current_status(
   *has_later_siblings = false;
   *has_later_named_siblings = false;
   *can_have_later_siblings_with_this_field = false;
+  // A later sibling with no field of its own may inherit one further up.
+  bool later_sibling_without_field = false;
 
   // Walk up the tree, visiting the current node and its invisible ancestors,
   // because fields can refer to nodes through invisible *wrapper* nodes,
@@ -550,6 +552,9 @@ void ts_tree_cursor_current_status(
       entry_symbol
     );
     if (i != self->stack.size - 1 && entry_metadata.visible) break;
+
+    // Remember later siblings found below this ancestor.
+    const bool has_later_siblings_below = *has_later_siblings;
 
     // Record any supertypes
     if (entry_metadata.supertype && *supertype_count < max_supertypes) {
@@ -597,14 +602,25 @@ void ts_tree_cursor_current_status(
         &field_map, &field_map_end
       );
 
-      // Look for a field name associated with the current node.
-      if (!*field_id) {
-        for (const TSFieldMapEntry *map = field_map; map < field_map_end; map++) {
-          if (!map->inherited && map->child_index == entry->structural_child_index) {
-            *field_id = map->field_id;
-            break;
-          }
+      // Look for a field name associated with this entry.
+      TSFieldId entry_field_id = 0;
+      for (const TSFieldMapEntry *map = field_map; map < field_map_end; map++) {
+        if (!map->inherited && map->child_index == entry->structural_child_index) {
+          entry_field_id = map->field_id;
+          break;
         }
+      }
+
+      if (entry_field_id) {
+        if (!*field_id) {
+          *field_id = entry_field_id;
+          if (has_later_siblings_below) {
+            *can_have_later_siblings_with_this_field = true;
+          }
+        } else if (later_sibling_without_field && entry_field_id == *field_id) {
+          *can_have_later_siblings_with_this_field = true;
+        }
+        later_sibling_without_field = false;
       }
 
       // Determine if the current node can have later siblings with the same field name.
@@ -615,6 +631,41 @@ void ts_tree_cursor_current_status(
             map->child_index > entry->structural_child_index
           ) {
             *can_have_later_siblings_with_this_field = true;
+            break;
+          }
+        }
+      }
+      // A fieldless later sibling may inherit a field from its hidden parent.
+      if (
+        *field_id &&
+        !*can_have_later_siblings_with_this_field &&
+        !later_sibling_without_field &&
+        !ts_tree_cursor_is_entry_visible(self, i - 1)
+      ) {
+        unsigned sibling_count = parent_entry->subtree->ptr->child_count;
+        unsigned structural_child_index = entry->structural_child_index + 1;
+        for (unsigned j = entry->child_index + 1; j < sibling_count; j++) {
+          Subtree sibling = ts_subtree_children(*parent_entry->subtree)[j];
+          TSSymbol sibling_symbol = ts_subtree_symbol(sibling);
+          bool has_field = false;
+          if (!ts_subtree_extra(sibling)) {
+            if (alias_sequence && alias_sequence[structural_child_index]) {
+              sibling_symbol = alias_sequence[structural_child_index];
+            }
+            for (const TSFieldMapEntry *map = field_map; map < field_map_end; map++) {
+              if (!map->inherited && map->child_index == structural_child_index) {
+                has_field = true;
+                break;
+              }
+            }
+            structural_child_index++;
+          }
+          if (has_field) continue;
+          if (
+            ts_language_symbol_metadata(self->tree->language, sibling_symbol).visible ||
+            ts_subtree_visible_child_count(sibling) > 0
+          ) {
+            later_sibling_without_field = true;
             break;
           }
         }
