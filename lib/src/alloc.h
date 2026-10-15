@@ -9,10 +9,10 @@ extern "C" {
 #include <stdio.h>
 #include <stdlib.h>
 
-#if defined(TREE_SITTER_HIDE_SYMBOLS) || defined(_WIN32)
-#define TS_PUBLIC
-#else
+#if !defined(TREE_SITTER_HIDE_SYMBOLS) && (defined(__GNUC__) || defined(__clang__))
 #define TS_PUBLIC __attribute__((visibility("default")))
+#else
+#define TS_PUBLIC
 #endif
 
 TS_PUBLIC extern void *(*ts_current_malloc)(size_t size);
