@@ -361,6 +361,22 @@ describe('Tree', () => {
       expect(cursor.gotoParent()).toBe(true);
       expect(cursor.gotoParent()).toBe(false);
     });
+
+    it('returns a cursor that can be copied after using another cursor', () => {
+      tree = parser.parse('a * b + c / d')!;
+      cursor = tree.walk();
+      cursor.gotoFirstChild();
+      cursor.gotoFirstChild();
+
+      const other = tree.walk();
+      expect(other.nodeType).toBe('program');
+
+      const copy = cursor.copy();
+      expect(copy.nodeType).toBe('binary_expression');
+      expect(copy.currentDepth).toBe(2);
+      copy.delete();
+      other.delete();
+    });
   });
 
   describe('.copy', () => {
