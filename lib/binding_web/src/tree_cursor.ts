@@ -41,6 +41,7 @@ export class TreeCursor {
   /** Creates a deep copy of the tree cursor. This allocates new memory. */
   copy(): TreeCursor {
     const copy = new TreeCursor(INTERNAL, this.tree);
+    marshalTreeCursor(this);
     C._ts_tree_cursor_copy_wasm(this.tree[0]);
     unmarshalTreeCursor(copy);
     return copy;
