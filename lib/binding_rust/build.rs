@@ -29,7 +29,7 @@ fn main() {
     let wasm_path = src_path.join("wasm");
 
     // wasm32-unknown-unknown has no libc, so compile in the subset from src/wasm-stdlib, with
-    // allocation coming from wasm_allocator.rs. wasm32-unknown-emscripten brings its own libc,
+    // allocation coming from wasm_stdlib.rs. wasm32-unknown-emscripten brings its own libc,
     // so avoid colliding with its symbols.
     if target == "wasm32-unknown-unknown" {
         configure_wasm_build(&mut config);

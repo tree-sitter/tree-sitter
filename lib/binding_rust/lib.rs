@@ -39,8 +39,14 @@ mod wasm_language;
 #[cfg_attr(docsrs, doc(cfg(feature = "wasm")))]
 pub use wasm_language::*;
 
+#[cfg(all(feature = "js-loader", target_arch = "wasm32", target_os = "unknown"))]
+#[cfg_attr(docsrs, doc(cfg(feature = "js-loader")))]
+pub mod js_loader;
+#[cfg(all(test, feature = "js-loader", not(target_arch = "wasm32")))]
+#[path = "wasm_stdlib/memory_import.rs"]
+mod memory_import_tests_native;
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
-mod wasm_allocator;
+mod wasm_stdlib;
 
 /// The latest ABI version that is supported by the current version of the
 /// library.

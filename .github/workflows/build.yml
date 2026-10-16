@@ -299,6 +299,11 @@ jobs:
       if: inputs.run-test && !matrix.no-run && contains(matrix.features, 'wasm') && matrix.run-wasm-test
       run: cargo run -p xtask --target='${{ matrix.target }}' -- test-wasm
 
+    # The runner's schema version must match wasm-bindgen in Cargo.lock.
+    - name: Install wasm-bindgen test runner
+      if: inputs.run-test && !matrix.no-run && contains(matrix.features, 'wasm') && matrix.run-wasm-test
+      run: cargo install --locked --version 0.2.129 wasm-bindgen-cli
+
     - name: Run Rust Wasm web test
       if: inputs.run-test && !matrix.no-run && contains(matrix.features, 'wasm') && matrix.run-wasm-test
       run: cargo run -p xtask --target='${{ matrix.target }}' -- test-rust-wasm-web
