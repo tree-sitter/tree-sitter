@@ -116,7 +116,7 @@ jobs:
 
     - name: Set up Node.js
       if: contains(matrix.features, 'wasm') && (matrix.run-wasm-test || !inputs.run-test)
-      uses: actions/setup-node@v7.0.0
+      uses: actions/setup-node@v7.1.0
       with:
         node-version: 24
         cache: npm
