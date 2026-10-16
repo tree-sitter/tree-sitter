@@ -2191,7 +2191,6 @@ dependencies = [
  "cc",
  "js-sys",
  "regex",
- "serde_json",
  "streaming-iterator",
  "tree-sitter-language",
  "wasm-bindgen",

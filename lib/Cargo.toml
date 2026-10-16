@@ -71,7 +71,6 @@ wasmparser = { default-features = false, features = [
 [build-dependencies]
 bindgen = { optional = true, version = "0.72.1" }
 cc.workspace = true
-serde_json.workspace = true
 
 [dev-dependencies]
 wasmparser = { default-features = false, features = [
