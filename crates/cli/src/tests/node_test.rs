@@ -465,6 +465,43 @@ fn test_node_child_by_field_name_with_extra_hidden_children() {
 }
 
 #[test]
+fn test_node_child_by_field_name_through_hidden_nodes() {
+    let mut parser = Parser::new();
+    let language = get_test_fixture_language("field_lookup_through_hidden_nodes");
+    parser.set_language(&language).unwrap();
+
+    // The first child that the tree cursor gives each field, if any.
+    for (source, field_name, expected) in [
+        ("[a]", "spread", None),
+        ("[a, ...b]", "spread", Some("...b")),
+        ("let a = b;", "outer", Some("=")),
+        ("let a // c\n= b;", "outer", Some("=")),
+        ("let a @x = b;", "outer", Some("x")),
+        ("shadow a;", "outer", None),
+        ("alias ...a;", "spread", None),
+        ("pair ...a, b;", "spread", None),
+        ("pair ...a, ...b;", "spread", Some("...b")),
+        ("multi a a = b;", "outer", Some("=")),
+        ("restore a;", "outer", Some("a")),
+        ("back a b;", "outer", Some("b")),
+        ("maybe none end;", "outer", None),
+        ("maybe a end;", "outer", Some("a")),
+        ("order a b c;", "outer", Some("c")),
+        ("skip a b c;", "outer", Some("c")),
+        ("sum a + b + c;", "left", Some("a")),
+    ] {
+        let tree = parser.parse(source, None).unwrap();
+        let node = tree.root_node().named_child(0).unwrap();
+        assert_eq!(
+            node.child_by_field_name(field_name)
+                .map(|child| &source[child.byte_range()]),
+            expected,
+            "`{field_name}` of `{source}`",
+        );
+    }
+}
+
+#[test]
 fn test_node_named_child() {
     let tree = parse_json_example();
     let array_node = tree.root_node().child(0).unwrap();

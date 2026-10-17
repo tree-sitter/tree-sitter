@@ -762,8 +762,76 @@ TSNode ts_node_named_child(TSNode self, uint32_t child_index) {
   return ts_node__child(self, child_index, false);
 }
 
+// Follow a hidden node's first matching child without saving a traversal stack.
+// A different field blocks this field unless the child can contain it explicitly.
+// Return false if resolving that case, a hidden extra, or backtracking needs a cursor.
+static bool ts_node__first_child_with_inherited_field(
+  TSNode self,
+  TSFieldId field_id,
+  TSNode *result
+) {
+  bool needs_backtracking = false;
+  for (;;) {
+    TSNode child;
+    NodeChildIterator iterator = ts_node_iterate_children(&self);
+    const TSFieldMapEntry *field_map, *field_map_end;
+    ts_language_field_map(
+      self.tree->language,
+      ts_node__subtree(self).ptr->production_id,
+      &field_map,
+      &field_map_end
+    );
+    bool did_descend = false;
+    while (ts_node_child_iterator_next(&iterator, &child)) {
+      bool visible = ts_node__is_relevant(child, true);
+      if (!visible && ts_node_child_count(child) == 0) continue;
+      // An extra has no field of its own, but a hidden one can hold fields.
+      if (ts_subtree_extra(ts_node__subtree(child))) {
+        if (visible) continue;
+        return false;
+      }
+
+      TSFieldId own_field_id = 0;
+      for (const TSFieldMapEntry *map = field_map; map < field_map_end; map++) {
+        if (!map->inherited && map->child_index == iterator.structural_child_index - 1) {
+          own_field_id = map->field_id;
+          break;
+        }
+      }
+
+      if (own_field_id && own_field_id != field_id) {
+        if (visible) continue;
+        const TSFieldMapEntry *child_field_map, *child_field_map_end;
+        ts_language_field_map(
+          self.tree->language,
+          ts_node__subtree(child).ptr->production_id,
+          &child_field_map,
+          &child_field_map_end
+        );
+        for (; child_field_map < child_field_map_end; child_field_map++) {
+          if (child_field_map->field_id == field_id) return false;
+        }
+        continue;
+      }
+      if (visible) {
+        *result = child;
+        return true;
+      }
+      needs_backtracking |= !ts_node_child_iterator_done(&iterator);
+      self = child;
+      did_descend = true;
+      break;
+    }
+    if (!did_descend) {
+      *result = ts_node__null();
+      return !needs_backtracking;
+    }
+  }
+}
+
 TSNode ts_node_child_by_field_id(TSNode self, TSFieldId field_id) {
   typedef struct {
+    TSNode node;
     NodeChildIterator iterator;
     const TSFieldMapEntry *field_map;
     const TSFieldMapEntry *field_map_end;
@@ -809,6 +877,12 @@ scan:
 
       // Hidden nodes' fields are "inherited" by their visible parent.
       if (field_map->inherited) {
+        // An alias can make this child visible, keeping its fields inside it.
+        if (ts_node__is_relevant(child, true)) {
+          field_map++;
+          if (field_map == field_map_end) goto not_found;
+          continue;
+        }
 
         // If this is the *last* possible child node for this field,
         // then perform a tail call to avoid recursion.
@@ -821,6 +895,7 @@ scan:
         // the field, continue searching subsequent children.
         else {
           array_push(&stack, ((FieldSearchFrame) {
+            .node = self,
             .iterator = iterator,
             .field_map = field_map,
             .field_map_end = field_map_end,
@@ -835,12 +910,37 @@ scan:
         return child;
       }
 
-      // If the field refers to a hidden node with visible children,
-      // return the first visible child.
+      // A field on a hidden child can be overridden by fields inside it.
+      // Use the cursor's field resolution to find the first matching child.
       else if (ts_node_child_count(child) > 0 ) {
-        TSNode result = ts_node_child(child, 0);
-        array_delete(&stack);
-        return result;
+        TSNode first;
+        if (ts_node__first_child_with_inherited_field(child, field_id, &first)) {
+          if (first.id) {
+            array_delete(&stack);
+            return first;
+          }
+          do {
+            field_map++;
+          } while (field_map < field_map_end && field_map->child_index == index);
+          if (field_map == field_map_end) goto not_found;
+          continue;
+        }
+        TSTreeCursor cursor = ts_tree_cursor_new(self);
+        TSNode result = ts_node__null();
+        if (ts_tree_cursor_goto_first_child(&cursor)) {
+          do {
+            if (ts_tree_cursor_current_field_id(&cursor) == field_id) {
+              result = ts_tree_cursor_current_node(&cursor);
+              break;
+            }
+          } while (ts_tree_cursor_goto_next_sibling(&cursor));
+        }
+        ts_tree_cursor_delete(&cursor);
+        if (result.id) {
+          array_delete(&stack);
+          return result;
+        }
+        goto not_found;
       }
 
       // Otherwise, continue searching subsequent children.
@@ -854,6 +954,7 @@ scan:
 not_found:
   if (stack.size) {
     FieldSearchFrame frame = array_pop(&stack);
+    self = frame.node;
     iterator = frame.iterator;
     field_map = frame.field_map + 1;
     field_map_end = frame.field_map_end;
