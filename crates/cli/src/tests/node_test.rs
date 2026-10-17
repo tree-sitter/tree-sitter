@@ -946,6 +946,11 @@ fn test_node_sexp() {
     assert_eq!(paren_node.to_sexp(), "(\"(\")");
     assert_eq!(identifier_node.kind(), "identifier");
     assert_eq!(identifier_node.to_sexp(), "(identifier)");
+    assert_eq!(
+        identifier_node.to_sexp_with_ranges(),
+        "(identifier [0, 4] - [0, 5])"
+    );
+    assert_eq!(if_node.to_sexp_with_ranges(), "(\"if\" [0, 0] - [0, 2])");
 }
 
 #[test]

@@ -14,8 +14,8 @@ use log::info;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use tree_sitter::{
-    InputEdit, Language, LogType, ParseOptions, ParseState, Parser, Point, Range, Tree, TreeCursor,
-    ffi,
+    InputEdit, Language, LogType, Node, ParseOptions, ParseState, Parser, Point, Range, Tree,
+    TreeCursor, ffi, format_sexp,
 };
 
 use crate::{fuzz::edits::Edit, paint::paint, util};
@@ -278,6 +278,35 @@ pub struct ParseResult {
     pub duration: Option<Duration>,
 }
 
+#[must_use]
+pub fn first_error_or_container(root: Node<'_>) -> Option<Node<'_>> {
+    if !root.has_error() {
+        return None;
+    }
+
+    let mut cursor = root.walk();
+    'descend: loop {
+        let node = cursor.node();
+        if node.is_error() || node.is_missing() {
+            return Some(node);
+        }
+
+        if cursor.goto_first_child() {
+            loop {
+                if cursor.node().has_error() {
+                    continue 'descend;
+                }
+                if !cursor.goto_next_sibling() {
+                    cursor.goto_parent();
+                    break;
+                }
+            }
+        }
+
+        return Some(node);
+    }
+}
+
 pub fn parse_file_at_path(
     parser: &mut Parser,
     language: &Language,
@@ -457,58 +486,13 @@ pub fn parse_file_at_path(
         let mut cursor = tree.walk();
 
         if opts.output == ParseOutput::Normal {
-            let mut needs_newline = false;
-            let mut indent_level = 0;
-            let mut did_visit_children = false;
-            loop {
-                let node = cursor.node();
-                let is_named = node.is_named();
-                if did_visit_children {
-                    if is_named {
-                        stdout.write_all(b")")?;
-                        needs_newline = true;
-                    }
-                    if cursor.goto_next_sibling() {
-                        did_visit_children = false;
-                    } else if cursor.goto_parent() {
-                        did_visit_children = true;
-                        indent_level -= 1;
-                    } else {
-                        break;
-                    }
-                } else {
-                    if is_named {
-                        if needs_newline {
-                            stdout.write_all(b"\n")?;
-                        }
-                        for _ in 0..indent_level {
-                            stdout.write_all(b"  ")?;
-                        }
-                        let start = node.start_position();
-                        let end = node.end_position();
-                        if let Some(field_name) = cursor.field_name() {
-                            write!(&mut stdout, "{field_name}: ")?;
-                        }
-                        write!(&mut stdout, "({}", node.kind())?;
-                        if !opts.no_ranges {
-                            write!(
-                                &mut stdout,
-                                " [{}, {}] - [{}, {}]",
-                                start.row, start.column, end.row, end.column
-                            )?;
-                        }
-                        needs_newline = true;
-                    }
-                    if cursor.goto_first_child() {
-                        did_visit_children = false;
-                        indent_level += 1;
-                    } else {
-                        did_visit_children = true;
-                    }
-                }
-            }
-            cursor.reset(tree.root_node());
-            writeln!(&mut stdout)?;
+            let root = tree.root_node();
+            let sexp = if opts.no_ranges {
+                root.to_sexp()
+            } else {
+                root.to_sexp_with_ranges()
+            };
+            writeln!(stdout, "{}", format_sexp(&sexp, 0))?;
         }
 
         if opts.output == ParseOutput::Cst {
@@ -621,47 +605,7 @@ pub fn parse_file_at_path(
             util::print_tree_graph(&tree, "log.html", opts.open_log).unwrap();
         }
 
-        let mut first_error = None;
-        let mut earliest_node_with_error = None;
-        'outer: loop {
-            let node = cursor.node();
-            if node.has_error() {
-                if earliest_node_with_error.is_none() {
-                    earliest_node_with_error = Some(node);
-                }
-                if node.is_error() || node.is_missing() {
-                    first_error = Some(node);
-                    break;
-                }
-
-                // If there's no more children, even though some outer node has an error,
-                // then that means that the first error is hidden, but the later error could be
-                // visible. So, we walk back up to the child of the first node with an error,
-                // and then check its siblings for errors.
-                if !cursor.goto_first_child() {
-                    let earliest = earliest_node_with_error.unwrap();
-                    while cursor.goto_parent() {
-                        if cursor.node().parent().is_some_and(|p| p == earliest) {
-                            while cursor.goto_next_sibling() {
-                                let sibling = cursor.node();
-                                if sibling.is_error() || sibling.is_missing() {
-                                    first_error = Some(sibling);
-                                    break 'outer;
-                                }
-                                if sibling.has_error() && cursor.goto_first_child() {
-                                    continue 'outer;
-                                }
-                            }
-                            break;
-                        }
-                    }
-                    break;
-                }
-            } else if !cursor.goto_next_sibling() {
-                break;
-            }
-        }
-
+        let first_error = first_error_or_container(tree.root_node());
         if first_error.is_some() || opts.print_time {
             let path = path.to_string_lossy();
             write!(
@@ -672,33 +616,7 @@ pub fn parse_file_at_path(
                 width = max_path_length
             )?;
             if let Some(node) = first_error {
-                let node_kind = node.kind();
-                let mut node_text = String::with_capacity(node_kind.len());
-                for c in node_kind.chars() {
-                    if let Some(escaped) = escape_invisible(c) {
-                        node_text += escaped;
-                    } else {
-                        node_text.push(c);
-                    }
-                }
-                write!(&mut stdout, "\t(")?;
-                if node.is_missing() {
-                    if node.is_named() {
-                        write!(&mut stdout, "MISSING {node_text}")?;
-                    } else {
-                        write!(&mut stdout, "MISSING \"{node_text}\"")?;
-                    }
-                } else {
-                    write!(&mut stdout, "{node_text}")?;
-                }
-
-                let start = node.start_position();
-                let end = node.end_position();
-                write!(
-                    &mut stdout,
-                    " [{}, {}] - [{}, {}])",
-                    start.row, start.column, end.row, end.column
-                )?;
+                write!(stdout, "\t{}", node.to_sexp_with_ranges())?;
             }
             if !opts.edits.is_empty() {
                 write!(
