@@ -1,0 +1,177 @@
+===============================================
+Field inside a supertype, below a hidden rule
+===============================================
+
+[a, ...b]
+
+---
+
+(source_file
+  (list
+    (name)
+    spread: (spread
+      (name))))
+
+=============================================
+Field on a hidden rule with a field inside it
+=============================================
+
+let a = b;
+
+---
+
+(source_file
+  (binding
+    inner: (name)
+    outer: (name)))
+
+==================================================
+Field on a hidden rule whose only node has a field
+==================================================
+
+shadow a;
+
+---
+
+(source_file
+  (shadow
+    inner: (name)))
+
+================================
+A visible alias keeps its fields
+================================
+
+pair ...a, ...b;
+
+---
+
+(source_file
+  (alias_pair
+    (wrapped
+      spread: (spread (name)))
+    spread: (spread (name))))
+
+===========================================
+A comment inside a hidden rule with a field
+===========================================
+
+let a // c
+= b;
+
+---
+
+(source_file
+  (binding
+    inner: (name)
+    (comment)
+    outer: (name)))
+
+==================================
+The same field on two hidden rules
+==================================
+
+multi a a = b;
+
+---
+
+(source_file
+  (multi
+    inner: (name)
+    inner: (name)
+    outer: (name)))
+
+============================================
+A field inside a field inside the same field
+============================================
+
+restore a;
+
+---
+
+(source_file
+  (restored
+    outer: (name)))
+
+==================================================
+A field that reaches past a hidden rule without it
+==================================================
+
+back a b;
+
+---
+
+(source_file
+  (back
+    inner: (name)
+    outer: (name)))
+
+==================================================
+A hidden rule that can hold the field, but doesn't
+==================================================
+
+maybe none end;
+maybe a end;
+
+---
+
+(source_file
+  (maybe)
+  (maybe
+    outer: (name)))
+
+================================
+Field on a recursive hidden rule
+================================
+
+sum a + b + c;
+
+---
+
+(source_file
+  (sum
+    left: (name)
+    left: (name)
+    (name)))
+
+=====================================
+A hidden extra with a field inside it
+=====================================
+
+let a @x = b;
+
+---
+
+(source_file
+  (binding
+    inner: (name)
+    outer: (name)
+    outer: (name)))
+
+=====================================================
+Fields out of alphabetical order inside a hidden rule
+=====================================================
+
+order a b c;
+
+---
+
+(source_file
+  (order
+    zeta: (name)
+    alpha: (name)
+    outer: (name)))
+
+============================================
+A field past a hidden child in another field
+============================================
+
+skip a b c;
+
+---
+
+(source_file
+  (skip
+    inner: (name)
+    other: (name)
+    outer: (name)))
+

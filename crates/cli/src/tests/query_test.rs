@@ -6714,6 +6714,61 @@ export default grammar({
 }
 
 #[test]
+fn test_query_negated_field_through_hidden_nodes() {
+    let language = get_test_fixture_language("field_lookup_through_hidden_nodes");
+
+    // `spread` is a field of the second list, through the supertype `item`, no
+    // node of the `shadow` is `outer`, since its only name is `inner`, and of the
+    // `maybe`s only the one with a name has an `outer`.
+    let source = indoc! {"
+        [a]
+        [a, ...b]
+        let a = b;
+        shadow a;
+        alias ...a;
+        pair ...a, b;
+        pair ...a, ...b;
+        let a // c
+        = b;
+        multi a a = b;
+        restore a;
+        back a b;
+        maybe none end;
+        maybe a end;
+        sum a + b + c;
+    "};
+    let query = Query::new(
+        &language,
+        r"
+        (list !spread) @list
+        (binding !outer) @binding
+        (shadow !outer) @shadow
+        (aliased !spread) @aliased
+        (alias_pair !spread) @pair
+        (multi !outer) @multi
+        (restored !outer) @restored
+        (back !outer) @back
+        (maybe !outer) @maybe
+        (sum !left) @sum
+        ",
+    )
+    .unwrap();
+
+    assert_query_matches(
+        &language,
+        &query,
+        source,
+        &[
+            (0, vec![("list", "[a]")]),
+            (2, vec![("shadow", "shadow a;")]),
+            (3, vec![("aliased", "alias ...a;")]),
+            (4, vec![("pair", "pair ...a, b;")]),
+            (8, vec![("maybe", "maybe none end;")]),
+        ],
+    );
+}
+
+#[test]
 fn test_last_child_anchor_looks_past_hidden_repeat() {
     let language = get_test_fixture_language("last_child_anchor_past_hidden_repeat");
 
