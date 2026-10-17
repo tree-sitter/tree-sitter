@@ -1248,3 +1248,116 @@ fn parse_json_example() -> Tree {
     parser.set_language(&get_language("json")).unwrap();
     parser.parse(JSON_EXAMPLE, None).unwrap()
 }
+
+fn parse_deeply_nested_tree(depth: usize) -> Tree {
+    let (parser_name, parser_code) = generate_parser(
+        r#"{
+            "name": "deeply_nested",
+            "rules": {
+                "document": {"type": "SYMBOL", "name": "expression"},
+                "expression": {
+                    "type": "CHOICE",
+                    "members": [
+                        {"type": "STRING", "value": "x"},
+                        {
+                            "type": "SEQ",
+                            "members": [
+                                {"type": "STRING", "value": "("},
+                                {"type": "SYMBOL", "name": "expression"},
+                                {"type": "STRING", "value": ")"}
+                            ]
+                        }
+                    ]
+                }
+            }
+        }"#,
+    )
+    .unwrap();
+    let language = get_test_language(&parser_name, &parser_code, None);
+    let source = "(".repeat(depth) + "x" + &")".repeat(depth);
+    let mut parser = Parser::new();
+    parser.set_language(&language).unwrap();
+    parser.parse(source, None).unwrap()
+}
+
+fn collapse_deeply_nested_tree(tree: &mut Tree, depth: usize) {
+    let old_end_byte = depth * 2 + 1;
+    tree.edit(&InputEdit {
+        start_byte: 0,
+        old_end_byte,
+        new_end_byte: 0,
+        start_position: Point::new(0, 0),
+        old_end_position: Point::new(0, old_end_byte),
+        new_end_position: Point::new(0, 0),
+    });
+}
+
+#[test]
+fn test_deeply_nested_dot_graph_does_not_overflow_stack() {
+    let tree = parse_deeply_nested_tree(100_000);
+    let file = tempfile::tempfile().unwrap();
+    tree.print_dot_graph(&file);
+}
+
+#[test]
+fn test_deeply_nested_node_searches_do_not_overflow_stack() {
+    let depth = 100_000;
+    let mut tree = parse_deeply_nested_tree(depth);
+    collapse_deeply_nested_tree(&mut tree, depth);
+    let root = tree.root_node();
+    let expression = root.named_child(0).unwrap();
+    let mut descendant = expression;
+    while let Some(child) = descendant.named_child(0) {
+        descendant = child;
+    }
+    let closing_parenthesis = expression.child(expression.child_count() - 1).unwrap();
+
+    assert_eq!(root.child_with_descendant(descendant), Some(expression));
+    assert_eq!(closing_parenthesis.kind(), ")");
+    assert!(closing_parenthesis.prev_sibling().is_some());
+}
+
+#[test]
+fn test_deeply_nested_field_search_does_not_overflow_stack() {
+    let (parser_name, parser_code) = generate_parser(
+        r#"{
+            "name": "deeply_nested_fields",
+            "rules": {
+                "document": {"type": "SYMBOL", "name": "_nested"},
+                "_nested": {
+                    "type": "CHOICE",
+                    "members": [
+                        {
+                            "type": "FIELD",
+                            "name": "target",
+                            "content": {"type": "STRING", "value": "x"}
+                        },
+                        {
+                            "type": "SEQ",
+                            "members": [
+                                {"type": "STRING", "value": "("},
+                                {"type": "SYMBOL", "name": "_nested"},
+                                {"type": "STRING", "value": ")"},
+                                {
+                                    "type": "FIELD",
+                                    "name": "target",
+                                    "content": {"type": "STRING", "value": "z"}
+                                }
+                            ]
+                        }
+                    ]
+                }
+            }
+        }"#,
+    )
+    .unwrap();
+    let language = get_test_language(&parser_name, &parser_code, None);
+    let depth = 100_000;
+    let source = "(".repeat(depth) + "x" + &")z".repeat(depth);
+    let mut parser = Parser::new();
+    parser.set_language(&language).unwrap();
+    let tree = parser.parse(source.as_bytes(), None).unwrap();
+    let target = tree.root_node().child_by_field_name("target").unwrap();
+
+    assert_eq!(&source[target.byte_range()], "x");
+}
