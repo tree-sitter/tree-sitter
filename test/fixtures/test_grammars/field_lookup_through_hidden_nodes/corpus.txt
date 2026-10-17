@@ -1,0 +1,53 @@
+===============================================
+Field inside a supertype, below a hidden rule
+===============================================
+
+[a, ...b]
+
+---
+
+(source_file
+  (list
+    (name)
+    spread: (spread
+      (name))))
+
+=============================================
+Field on a hidden rule with a field inside it
+=============================================
+
+let a = b;
+
+---
+
+(source_file
+  (binding
+    inner: (name)
+    outer: (name)))
+
+==================================================
+Field on a hidden rule whose only node has a field
+==================================================
+
+shadow a;
+
+---
+
+(source_file
+  (shadow
+    inner: (name)))
+
+================================
+A visible alias keeps its fields
+================================
+
+pair ...a, ...b;
+
+---
+
+(source_file
+  (alias_pair
+    (wrapped
+      spread: (spread (name)))
+    spread: (spread (name))))
+

@@ -6704,6 +6704,39 @@ export default grammar({
 }
 
 #[test]
+fn test_query_negated_field_through_hidden_nodes() {
+    let language = get_test_fixture_language("field_lookup_through_hidden_nodes");
+
+    // `spread` is a field of the second list, through the supertype `item`, and
+    // no node of the `shadow` is `outer`, since its only name is `inner`.
+    let source =
+        "[a]\n[a, ...b]\nlet a = b;\nshadow a;\nalias ...a;\npair ...a, b;\npair ...a, ...b;\n";
+    let query = Query::new(
+        &language,
+        r"
+        (list !spread) @list
+        (binding !outer) @binding
+        (shadow !outer) @shadow
+        (aliased !spread) @aliased
+        (alias_pair !spread) @pair
+        ",
+    )
+    .unwrap();
+
+    assert_query_matches(
+        &language,
+        &query,
+        source,
+        &[
+            (0, vec![("list", "[a]")]),
+            (2, vec![("shadow", "shadow a;")]),
+            (3, vec![("aliased", "alias ...a;")]),
+            (4, vec![("pair", "pair ...a, b;")]),
+        ],
+    );
+}
+
+#[test]
 fn test_last_child_anchor_looks_past_hidden_repeat() {
     let language = get_test_fixture_language("last_child_anchor_past_hidden_repeat");
 
