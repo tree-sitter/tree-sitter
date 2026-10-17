@@ -347,6 +347,19 @@ fn compute_variable_info_fixed_point(
                             &mut production_children_without_fields_quantity,
                         );
                     }
+                    // An unaliased supertype remains an abstract child type,
+                    // but its fields belong to the parent.
+                    else if matches!(child_type, ChildType::Normal(_))
+                        && syntax_grammar.supertype_symbols.contains(&child_symbol)
+                        && let SymbolView::NonTerminal(index) = child_symbol.view()
+                    {
+                        did_change |= inherit_hidden_child_fields(
+                            &result[usize::from(index)],
+                            step.field(),
+                            &mut variable_info,
+                            &mut production_field_quantities,
+                        );
+                    }
 
                     // Note whether or not this production contains children whose summaries
                     // have not yet been computed.
@@ -414,18 +427,12 @@ fn inherit_hidden_child_info(
         variable_info.has_multi_step_production = true;
     }
 
-    // If a hidden child has fields, then the parent node can appear to have
-    // those same fields.
-    for (&field_name, child_field_info) in &child_variable_info.fields {
-        production_field_quantities
-            .entry(field_name)
-            .or_insert_with(ChildQuantity::zero)
-            .append(child_field_info.quantity);
-        did_change |= extend_sorted(
-            &mut variable_info.fields.entry(field_name).or_default().types,
-            &child_field_info.types,
-        );
-    }
+    did_change |= inherit_hidden_child_fields(
+        child_variable_info,
+        None,
+        variable_info,
+        production_field_quantities,
+    );
 
     // If a hidden child has children, then the parent node can appear to have
     // those same children.
@@ -447,6 +454,33 @@ fn inherit_hidden_child_info(
                 &child_variable_info.children_without_fields.types,
             );
         }
+    }
+
+    did_change
+}
+
+fn inherit_hidden_child_fields(
+    child_variable_info: &VariableInfo,
+    skipped_field: Option<StrId>,
+    variable_info: &mut VariableInfo,
+    production_field_quantities: &mut FxHashMap<StrId, ChildQuantity>,
+) -> bool {
+    let mut did_change = false;
+
+    // If a hidden child has fields, then the parent node can appear to have
+    // those same fields.
+    for (&field_name, child_field_info) in &child_variable_info.fields {
+        if Some(field_name) == skipped_field {
+            continue;
+        }
+        production_field_quantities
+            .entry(field_name)
+            .or_insert_with(ChildQuantity::zero)
+            .append(child_field_info.quantity);
+        did_change |= extend_sorted(
+            &mut variable_info.fields.entry(field_name).or_default().types,
+            &child_field_info.types,
+        );
     }
 
     did_change
@@ -3110,6 +3144,90 @@ mod tests {
             .into_iter()
             .collect()
         );
+    }
+
+    #[test]
+    fn test_get_variable_info_with_fields_inside_supertypes() {
+        let mut interner = StrPool::default();
+        let field = interner.intern("value");
+        let lexical_grammar = build_lexical_grammar(&mut interner);
+        for parent_field in [None, Some(field)] {
+            let grammar = build_syntax_grammar(
+                &mut interner,
+                vec![
+                    (
+                        "parent",
+                        VariableType::Named,
+                        vec![vec![step(Symbol::non_terminal(1), None)]],
+                    ),
+                    (
+                        "_hidden",
+                        VariableType::Hidden,
+                        vec![vec![step(Symbol::non_terminal(2), parent_field)]],
+                    ),
+                    (
+                        "_supertype",
+                        VariableType::Hidden,
+                        vec![vec![step(Symbol::terminal(0), Some(field))]],
+                    ),
+                ],
+                vec![Symbol::non_terminal(2)],
+            );
+            let info =
+                get_variable_info(&grammar, &lexical_grammar, &AliasMap::new(), &interner).unwrap();
+            // Fields cross the supertype and hidden rule, while the supertype
+            // remains an abstract child type. Assigning the same field on the
+            // supertype step must not count the child twice.
+            assert_eq!(info[0].fields[&field].quantity, ChildQuantity::one());
+            assert_eq!(
+                info[0].fields[&field].types,
+                vec![ChildType::Normal(if parent_field.is_some() {
+                    Symbol::non_terminal(2)
+                } else {
+                    Symbol::terminal(0)
+                })]
+            );
+            assert!(
+                info[0]
+                    .children
+                    .types
+                    .contains(&ChildType::Normal(Symbol::non_terminal(2)))
+            );
+            assert!(
+                !info[0]
+                    .children
+                    .types
+                    .contains(&ChildType::Normal(Symbol::terminal(0)))
+            );
+        }
+    }
+
+    #[test]
+    fn test_get_variable_info_with_aliased_supertype_fields() {
+        let mut interner = StrPool::default();
+        let field = interner.intern("inner");
+        let lexical_grammar = build_lexical_grammar(&mut interner);
+        let mut child = step(Symbol::non_terminal(1), None);
+        child.set_alias(Some(Alias {
+            value: interner.intern("wrapper"),
+            is_named: true,
+        }));
+        let grammar = build_syntax_grammar(
+            &mut interner,
+            vec![
+                ("parent", VariableType::Named, vec![vec![child]]),
+                (
+                    "_supertype",
+                    VariableType::Hidden,
+                    vec![vec![step(Symbol::terminal(0), Some(field))]],
+                ),
+            ],
+            vec![Symbol::non_terminal(1)],
+        );
+        let info =
+            get_variable_info(&grammar, &lexical_grammar, &AliasMap::new(), &interner).unwrap();
+        assert!(info[1].fields.contains_key(&field));
+        assert!(info[0].fields.is_empty());
     }
 
     #[test]
