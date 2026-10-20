@@ -9,7 +9,7 @@ use serde::ser::{SerializeMap, SerializeSeq, SerializeStruct};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::strpool::StrPool;
+use crate::{grammars::InlinedProductionMap, strpool::StrPool};
 
 use super::{
     grammars::{LexicalGrammar, SyntaxGrammar, VariableType},
@@ -200,16 +200,22 @@ pub fn get_variable_info(
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
     default_aliases: &AliasMap,
+    inlines: &InlinedProductionMap,
     str_pool: &StrPool,
 ) -> VariableInfoResult<Vec<VariableInfo>> {
-    validate_supertype_aliases(syntax_grammar, default_aliases, str_pool)?;
-    let mut result =
-        compute_variable_info_fixed_point(syntax_grammar, lexical_grammar, default_aliases);
+    validate_supertype_aliases(syntax_grammar, default_aliases, inlines, str_pool)?;
+    let mut result = compute_variable_info_fixed_point(
+        syntax_grammar,
+        lexical_grammar,
+        default_aliases,
+        inlines,
+    );
     validate_supertype_structure(
         &result,
         syntax_grammar,
         lexical_grammar,
         default_aliases,
+        inlines,
         str_pool,
     )?;
     strip_hidden_child_types(&mut result, syntax_grammar, lexical_grammar);
@@ -222,9 +228,10 @@ pub fn get_variable_info(
 fn validate_supertype_aliases(
     syntax_grammar: &SyntaxGrammar,
     default_aliases: &AliasMap,
+    inlines: &InlinedProductionMap,
     str_pool: &StrPool,
 ) -> VariableInfoResult<()> {
-    let aliases_by_symbol = get_aliases_by_symbol(syntax_grammar, default_aliases);
+    let aliases_by_symbol = get_aliases_by_symbol(syntax_grammar, default_aliases, inlines);
     for supertype_symbol in &syntax_grammar.supertype_symbols {
         let SymbolView::NonTerminal(index) = supertype_symbol.view() else {
             unreachable!();
@@ -255,6 +262,7 @@ fn compute_variable_info_fixed_point(
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
     default_aliases: &AliasMap,
+    inlines: &InlinedProductionMap,
 ) -> Vec<VariableInfo> {
     let child_type_is_visible = |t: &ChildType| {
         variable_type_for_child_type(t, syntax_grammar, lexical_grammar) >= VariableType::Anonymous
@@ -271,117 +279,134 @@ fn compute_variable_info_fixed_point(
         did_change = false;
 
         for i in 0..syntax_grammar.variables.len() {
+            if syntax_grammar
+                .variables_to_inline
+                .contains(&Symbol::non_terminal(i))
+            {
+                continue;
+            }
             let mut variable_info = result[i].clone();
 
             // Examine each of the variable's productions. The variable's child types can be
             // immediately combined across all productions, but the child quantities must be
             // recorded separately for each production.
-            for prod_id in syntax_grammar.variable_prod_ids(i) {
-                let production = syntax_grammar.production(prod_id);
-                let mut production_field_quantities = FxHashMap::default();
-                let mut production_children_quantity = ChildQuantity::zero();
-                let mut production_children_without_fields_quantity = ChildQuantity::zero();
-                let mut production_has_uninitialized_invisible_children = false;
+            let mut production_field_quantities = FxHashMap::default();
+            for original_prod_id in syntax_grammar.variable_prod_ids(i) {
+                #[expect(clippy::or_fun_call, reason = "`from_ref` is just a cast")]
+                let production_ids = inlines
+                    .fully_inlined_prod_ids(original_prod_id)
+                    .unwrap_or(std::slice::from_ref(&original_prod_id));
+                for &prod_id in production_ids {
+                    production_field_quantities.clear();
+                    let production = syntax_grammar.production(prod_id);
+                    let mut production_children_quantity = ChildQuantity::zero();
+                    let mut production_children_without_fields_quantity = ChildQuantity::zero();
+                    let mut production_has_uninitialized_invisible_children = false;
 
-                if production.steps.len() > 1 {
-                    variable_info.has_multi_step_production = true;
-                }
-
-                for step in production.steps {
-                    let child_symbol = step.symbol();
-                    let child_type = step.child_type(default_aliases);
-
-                    let child_is_hidden = !child_type_is_visible(&child_type)
-                        && !syntax_grammar.supertype_symbols.contains(&child_symbol);
-
-                    // Maintain the set of all child types for this variable, and the quantity of
-                    // visible children in this production.
-                    did_change |=
-                        extend_sorted(&mut variable_info.children.types, Some(&child_type));
-                    if !child_is_hidden {
-                        production_children_quantity.append(ChildQuantity::one());
+                    if production.steps.len() > 1 {
+                        variable_info.has_multi_step_production = true;
                     }
 
-                    // Maintain the set of child types associated with each field, and the quantity
-                    // of children associated with each field in this production.
-                    if let Some(field_name) = step.field() {
-                        let field_info = variable_info.fields.entry(field_name).or_default();
-                        did_change |= extend_sorted(&mut field_info.types, Some(&child_type));
+                    for step in production.steps {
+                        let child_symbol = step.symbol();
+                        let child_type = step.child_type(default_aliases);
 
-                        let production_field_quantity = production_field_quantities
-                            .entry(field_name)
-                            .or_insert_with(ChildQuantity::zero);
+                        let child_is_hidden = !child_type_is_visible(&child_type)
+                            && !syntax_grammar.supertype_symbols.contains(&child_symbol);
 
-                        // Inherit the types and quantities of hidden children associated with
-                        // fields.
+                        // Maintain the set of all child types for this variable, and the quantity of
+                        // visible children in this production.
+                        did_change |=
+                            extend_sorted(&mut variable_info.children.types, Some(&child_type));
+                        if !child_is_hidden {
+                            production_children_quantity.append(ChildQuantity::one());
+                        }
+
+                        // Maintain the set of child types associated with each field, and the quantity
+                        // of children associated with each field in this production.
+                        if let Some(field_name) = step.field() {
+                            let field_info = variable_info.fields.entry(field_name).or_default();
+                            did_change |= extend_sorted(&mut field_info.types, Some(&child_type));
+
+                            let production_field_quantity = production_field_quantities
+                                .entry(field_name)
+                                .or_insert_with(ChildQuantity::zero);
+
+                            // Inherit the types and quantities of hidden children associated with
+                            // fields.
+                            if child_is_hidden
+                                && let SymbolView::NonTerminal(index) = child_symbol.view()
+                            {
+                                let child_variable_info = &result[usize::from(index)];
+                                did_change |= extend_sorted(
+                                    &mut field_info.types,
+                                    &child_variable_info.children.types,
+                                );
+                                production_field_quantity
+                                    .append(child_variable_info.children.quantity);
+                            } else {
+                                production_field_quantity.append(ChildQuantity::one());
+                            }
+                        }
+                        // Maintain the set of named children without fields within this variable.
+                        else if child_type_is_named(&child_type) {
+                            production_children_without_fields_quantity
+                                .append(ChildQuantity::one());
+                            did_change |= extend_sorted(
+                                &mut variable_info.children_without_fields.types,
+                                Some(&child_type),
+                            );
+                        }
+
+                        // Inherit all child information from hidden children.
                         if child_is_hidden
                             && let SymbolView::NonTerminal(index) = child_symbol.view()
                         {
-                            let child_variable_info = &result[usize::from(index)];
-                            did_change |= extend_sorted(
-                                &mut field_info.types,
-                                &child_variable_info.children.types,
+                            did_change |= inherit_hidden_child_info(
+                                &result[usize::from(index)],
+                                step.field().is_none(),
+                                &mut variable_info,
+                                &mut production_field_quantities,
+                                &mut production_children_quantity,
+                                &mut production_children_without_fields_quantity,
                             );
-                            production_field_quantity.append(child_variable_info.children.quantity);
-                        } else {
-                            production_field_quantity.append(ChildQuantity::one());
+                        }
+
+                        // Note whether or not this production contains children whose summaries
+                        // have not yet been computed.
+                        let child_index = match child_symbol.view() {
+                            SymbolView::External(index) => u32::from(index),
+                            SymbolView::Terminal(index) => u32::from(index),
+                            SymbolView::NonTerminal(index) => u32::from(index),
+                            SymbolView::End | SymbolView::EndOfNonTerminalExtra => unreachable!(),
+                        };
+                        if child_index as usize >= i && !all_initialized {
+                            production_has_uninitialized_invisible_children = true;
                         }
                     }
-                    // Maintain the set of named children without fields within this variable.
-                    else if child_type_is_named(&child_type) {
-                        production_children_without_fields_quantity.append(ChildQuantity::one());
-                        did_change |= extend_sorted(
-                            &mut variable_info.children_without_fields.types,
-                            Some(&child_type),
-                        );
-                    }
 
-                    // Inherit all child information from hidden children.
-                    if child_is_hidden && let SymbolView::NonTerminal(index) = child_symbol.view() {
-                        did_change |= inherit_hidden_child_info(
-                            &result[usize::from(index)],
-                            step.field().is_none(),
-                            &mut variable_info,
-                            &mut production_field_quantities,
-                            &mut production_children_quantity,
-                            &mut production_children_without_fields_quantity,
-                        );
-                    }
+                    // If this production's children all have had their summaries initialized,
+                    // then expand the quantity information with all of the possibilities introduced
+                    // by this production.
+                    if !production_has_uninitialized_invisible_children {
+                        did_change |= variable_info
+                            .children
+                            .quantity
+                            .union(production_children_quantity);
 
-                    // Note whether or not this production contains children whose summaries
-                    // have not yet been computed.
-                    let child_index = match child_symbol.view() {
-                        SymbolView::External(index) => u32::from(index),
-                        SymbolView::Terminal(index) => u32::from(index),
-                        SymbolView::NonTerminal(index) => u32::from(index),
-                        SymbolView::End | SymbolView::EndOfNonTerminalExtra => unreachable!(),
-                    };
-                    if child_index as usize >= i && !all_initialized {
-                        production_has_uninitialized_invisible_children = true;
-                    }
-                }
+                        did_change |= variable_info
+                            .children_without_fields
+                            .quantity
+                            .union(production_children_without_fields_quantity);
 
-                // If this production's children all have had their summaries initialized,
-                // then expand the quantity information with all of the possibilities introduced
-                // by this production.
-                if !production_has_uninitialized_invisible_children {
-                    did_change |= variable_info
-                        .children
-                        .quantity
-                        .union(production_children_quantity);
-
-                    did_change |= variable_info
-                        .children_without_fields
-                        .quantity
-                        .union(production_children_without_fields_quantity);
-
-                    for (field_name, info) in &mut variable_info.fields {
-                        did_change |= info.quantity.union(
-                            production_field_quantities
-                                .get(field_name)
-                                .copied()
-                                .unwrap_or_else(ChildQuantity::zero),
-                        );
+                        for (field_name, info) in &mut variable_info.fields {
+                            did_change |= info.quantity.union(
+                                production_field_quantities
+                                    .get(field_name)
+                                    .copied()
+                                    .unwrap_or_else(ChildQuantity::zero),
+                            );
+                        }
                     }
                 }
             }
@@ -459,6 +484,7 @@ fn validate_supertype_structure(
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
     default_aliases: &AliasMap,
+    inlines: &InlinedProductionMap,
     str_pool: &StrPool,
 ) -> VariableInfoResult<()> {
     let child_type_is_visible = |t: &ChildType| {
@@ -472,13 +498,20 @@ fn validate_supertype_structure(
         let supertype_index = usize::from(supertype_index);
         if result[supertype_index].has_multi_step_production {
             let variable = &syntax_grammar.variables[supertype_index];
-            // A symbol can have a multi-step production either directly or via an inlined
-            // anonymous child. In the latter case, we can report a more specific error.
+            // A production can expand to multiple nodes directly or through a hidden child.
+            // In the latter case, include that child's name in the diagnostic.
 
-            let hidden_child_name = syntax_grammar
-                .variable_prod_ids(supertype_index)
-                .filter(|&prod_id| syntax_grammar.production(prod_id).steps.len() == 1)
-                .find_map(|prod_id| {
+            let mut hidden_child_name = None;
+            'productions: for original_prod_id in syntax_grammar.variable_prod_ids(supertype_index)
+            {
+                #[expect(clippy::or_fun_call, reason = "`from_ref` is just a cast")]
+                let production_ids = inlines
+                    .fully_inlined_prod_ids(original_prod_id)
+                    .unwrap_or(std::slice::from_ref(&original_prod_id));
+                for &prod_id in production_ids {
+                    if syntax_grammar.production(prod_id).steps.len() != 1 {
+                        continue;
+                    }
                     let step = syntax_grammar.production(prod_id).steps[0];
                     let child_symbol = step.symbol();
                     let child_type = step.child_type(default_aliases);
@@ -490,14 +523,18 @@ fn validate_supertype_structure(
                         }
                         _ => None,
                     };
-                    hidden_child_index
+                    hidden_child_name = hidden_child_index
                         .filter(|&index| result[index].has_multi_step_production)
                         .map(|index| {
                             str_pool
                                 .resolve(syntax_grammar.variables[index].name)
                                 .into()
-                        })
-                });
+                        });
+                    if hidden_child_name.is_some() {
+                        break 'productions;
+                    }
+                }
+            }
 
             Err(VariableInfoError::InvalidSupertype(InvalidSupertypeError {
                 supertype: str_pool.resolve(variable.name).to_string().into(),
@@ -543,6 +580,7 @@ fn strip_hidden_child_types(
 fn get_aliases_by_symbol(
     syntax_grammar: &SyntaxGrammar,
     default_aliases: &AliasMap,
+    inlines: &InlinedProductionMap,
 ) -> FxHashMap<Symbol, BTreeSet<Option<Alias>>> {
     let mut aliases_by_symbol = FxHashMap::default();
     for (symbol, &alias) in default_aliases {
@@ -561,17 +599,29 @@ fn get_aliases_by_symbol(
         }
     }
     for i in 0..syntax_grammar.variables.len() {
-        for prod_id in syntax_grammar.variable_prod_ids(i) {
-            for step in syntax_grammar.production(prod_id).steps {
-                aliases_by_symbol
-                    .entry(step.symbol())
-                    .or_insert_with(BTreeSet::new)
-                    .insert(
-                        step.alias()
-                            .as_ref()
-                            .or_else(|| default_aliases.get(&step.symbol()))
-                            .copied(),
-                    );
+        if syntax_grammar
+            .variables_to_inline
+            .contains(&Symbol::non_terminal(i))
+        {
+            continue;
+        }
+        for original_prod_id in syntax_grammar.variable_prod_ids(i) {
+            #[expect(clippy::or_fun_call, reason = "`from_ref` is just a cast")]
+            let production_ids = inlines
+                .fully_inlined_prod_ids(original_prod_id)
+                .unwrap_or(std::slice::from_ref(&original_prod_id));
+            for &prod_id in production_ids {
+                for step in syntax_grammar.production(prod_id).steps {
+                    aliases_by_symbol
+                        .entry(step.symbol())
+                        .or_insert_with(BTreeSet::new)
+                        .insert(
+                            step.alias()
+                                .as_ref()
+                                .or_else(|| default_aliases.get(&step.symbol()))
+                                .copied(),
+                        );
+                }
             }
         }
     }
@@ -586,8 +636,9 @@ pub fn get_supertype_symbol_map(
     syntax_grammar: &SyntaxGrammar,
     default_aliases: &AliasMap,
     variable_info: &[VariableInfo],
+    inlines: &InlinedProductionMap,
 ) -> BTreeMap<Symbol, Vec<ChildType>> {
-    let aliases_by_symbol = get_aliases_by_symbol(syntax_grammar, default_aliases);
+    let aliases_by_symbol = get_aliases_by_symbol(syntax_grammar, default_aliases, inlines);
     let mut supertype_symbol_map = BTreeMap::new();
 
     let mut symbols_by_alias = FxHashMap::default();
@@ -638,6 +689,7 @@ pub fn generate_node_types_json(
     lexical_grammar: &LexicalGrammar,
     default_aliases: &AliasMap,
     variable_info: &[VariableInfo],
+    inlines: &InlinedProductionMap,
     str_pool: &StrPool,
 ) -> SuperTypeCycleResult<String> {
     let nodes = generate_node_types(
@@ -645,6 +697,7 @@ pub fn generate_node_types_json(
         lexical_grammar,
         default_aliases,
         variable_info,
+        inlines,
         str_pool,
     )?;
 
@@ -661,9 +714,10 @@ fn generate_node_types(
     lexical_grammar: &LexicalGrammar,
     default_aliases: &AliasMap,
     variable_info: &[VariableInfo],
+    inlines: &InlinedProductionMap,
     str_pool: &StrPool,
 ) -> SuperTypeCycleResult<Vec<NodeInfoJSON>> {
-    let aliases_by_symbol = get_aliases_by_symbol(syntax_grammar, default_aliases);
+    let aliases_by_symbol = get_aliases_by_symbol(syntax_grammar, default_aliases, inlines);
     let extra_node_types =
         collect_extra_node_types(syntax_grammar, lexical_grammar, &aliases_by_symbol);
 
@@ -2159,14 +2213,15 @@ mod tests {
         let PreparedGrammar {
             syntax_grammar,
             lexical_grammar,
+            inlines,
             default_aliases,
             str_pool,
-            ..
         } = prepare_grammar(grammar, &mut Vec::new()).unwrap();
         let error = get_variable_info(
             &syntax_grammar,
             &lexical_grammar,
             &default_aliases,
+            &inlines,
             &str_pool,
         )
         .unwrap_err();
@@ -2403,6 +2458,245 @@ mod tests {
                 fields: Some(NodeFields::default()),
             }
         );
+    }
+
+    #[test]
+    fn test_node_types_aliased_inline_unit_shape() {
+        let mut pool = RulePool::default();
+        let source_file_name = pool.intern("source_file");
+        let inlined_name = pool.intern("inlined");
+        let wrapper_name = pool.intern("_wrapper");
+        let value_name = pool.intern("_value");
+        let name_name = pool.intern("name");
+        let number_name = pool.intern("number");
+        let thing_name = pool.intern("thing");
+        let inlined_symbol = named(&mut pool, "inlined");
+        let source_file = pool.repeat(inlined_symbol);
+        let inlined_token = string(&mut pool, "inlined");
+        let wrapper_symbol = named(&mut pool, "_wrapper");
+        let aliased_wrapper = alias(&mut pool, wrapper_symbol, "thing", true);
+        let inlined = pool.seq(&[inlined_token, aliased_wrapper]);
+        let wrapper = named(&mut pool, "_value");
+        let value_name_symbol = named(&mut pool, "name");
+        let number_name_symbol = named(&mut pool, "number");
+        let value = pool.choice(&[value_name_symbol, number_name_symbol]);
+        let nodes = get_node_types(InputGrammar {
+            inline_names: vec![wrapper_name],
+            variables: vec![
+                Variable {
+                    name: source_file_name,
+                    root: source_file,
+                },
+                Variable {
+                    name: inlined_name,
+                    root: inlined,
+                },
+                Variable {
+                    name: wrapper_name,
+                    root: wrapper,
+                },
+                Variable {
+                    name: value_name,
+                    root: value,
+                },
+                Variable {
+                    name: name_name,
+                    root: pattern(&mut pool, "[a-z]+"),
+                },
+                Variable {
+                    name: number_name,
+                    root: pattern(&mut pool, "[0-9]+"),
+                },
+            ],
+            pool,
+            ..Default::default()
+        })
+        .unwrap();
+
+        assert_eq!(
+            nodes.iter().find(|node| node.kind == thing_name),
+            Some(&NodeInfoJSON {
+                kind: thing_name,
+                named: true,
+                root: false,
+                extra: false,
+                fields: Some(NodeFields::default()),
+                children: Some(FieldInfoJSON {
+                    multiple: false,
+                    required: true,
+                    types: vec![
+                        NodeTypeRef {
+                            kind: name_name,
+                            named: true
+                        },
+                        NodeTypeRef {
+                            kind: number_name,
+                            named: true
+                        },
+                    ],
+                }),
+                subtypes: None,
+            })
+        );
+    }
+
+    #[test]
+    fn test_node_types_inlined_field_overrides_inner_field() {
+        let mut pool = RulePool::default();
+        let source_file_name = pool.intern("source_file");
+        let pair_name = pool.intern("_pair");
+        let name_name = pool.intern("name");
+        let outer_name = pool.intern("outer");
+        let name = named(&mut pool, "name");
+        let head = field(&mut pool, "inner", name);
+        let pair = pool.seq(&[head, name]);
+        let pair_symbol = named(&mut pool, "_pair");
+        let source_file = field(&mut pool, "outer", pair_symbol);
+        let nodes = get_node_types(InputGrammar {
+            inline_names: vec![pair_name],
+            variables: vec![
+                Variable {
+                    name: source_file_name,
+                    root: source_file,
+                },
+                Variable {
+                    name: pair_name,
+                    root: pair,
+                },
+                Variable {
+                    name: name_name,
+                    root: pattern(&mut pool, "[a-z]+"),
+                },
+            ],
+            pool,
+            ..Default::default()
+        })
+        .unwrap();
+
+        assert_eq!(
+            nodes.iter().find(|node| node.kind == source_file_name),
+            Some(&NodeInfoJSON {
+                kind: source_file_name,
+                named: true,
+                root: true,
+                extra: false,
+                fields: Some(NodeFields::from([(
+                    outer_name,
+                    FieldInfoJSON {
+                        multiple: true,
+                        required: true,
+                        types: vec![NodeTypeRef {
+                            kind: name_name,
+                            named: true,
+                        }],
+                    },
+                )])),
+                children: None,
+                subtypes: None,
+            })
+        );
+    }
+
+    #[test]
+    fn test_node_types_aliased_inline_repetition() {
+        for with_head_field in [false, true] {
+            let mut pool = RulePool::default();
+            let source_file_name = pool.intern("source_file");
+            let inline_name = pool.intern("_path");
+            let path_name = pool.intern("path");
+            let name_name = pool.intern("name");
+            let head_name = pool.intern("head");
+            let name = named(&mut pool, "name");
+            let dot = string(&mut pool, ".");
+            let tail = pool.seq(&[dot, name]);
+            let tail = pool.repeat(tail);
+            let blank = pool.blank();
+            let tail = pool.choice(&[tail, blank]);
+            let head = named(&mut pool, "name");
+            let head = if with_head_field {
+                field(&mut pool, "head", head)
+            } else {
+                head
+            };
+            let path = pool.seq(&[head, tail]);
+            let path_symbol = named(&mut pool, "_path");
+            let source_file = alias(&mut pool, path_symbol, "path", true);
+            let nodes = get_node_types(InputGrammar {
+                inline_names: vec![inline_name],
+                variables: vec![
+                    Variable {
+                        name: source_file_name,
+                        root: source_file,
+                    },
+                    Variable {
+                        name: inline_name,
+                        root: path,
+                    },
+                    Variable {
+                        name: name_name,
+                        root: pattern(&mut pool, "[a-z]+"),
+                    },
+                ],
+                pool,
+                ..Default::default()
+            })
+            .unwrap();
+
+            assert_eq!(
+                nodes.iter().find(|node| node.kind == source_file_name),
+                Some(&NodeInfoJSON {
+                    kind: source_file_name,
+                    named: true,
+                    root: true,
+                    extra: false,
+                    fields: Some(if with_head_field {
+                        NodeFields::from([(
+                            head_name,
+                            FieldInfoJSON {
+                                multiple: false,
+                                required: true,
+                                types: vec![NodeTypeRef {
+                                    kind: path_name,
+                                    named: true,
+                                }],
+                            },
+                        )])
+                    } else {
+                        NodeFields::default()
+                    }),
+                    children: Some(FieldInfoJSON {
+                        multiple: !with_head_field,
+                        required: !with_head_field,
+                        types: vec![NodeTypeRef {
+                            kind: path_name,
+                            named: true,
+                        }],
+                    }),
+                    subtypes: None,
+                }),
+                "with_head_field={with_head_field}",
+            );
+            assert_eq!(
+                nodes.iter().find(|node| node.kind == path_name),
+                Some(&NodeInfoJSON {
+                    kind: path_name,
+                    named: true,
+                    root: false,
+                    extra: false,
+                    fields: Some(NodeFields::default()),
+                    children: Some(FieldInfoJSON {
+                        multiple: true,
+                        required: false,
+                        types: vec![NodeTypeRef {
+                            kind: name_name,
+                            named: true,
+                        }],
+                    }),
+                    subtypes: None,
+                }),
+                "with_head_field={with_head_field}",
+            );
+        }
     }
 
     #[test]
@@ -2895,8 +3189,14 @@ mod tests {
             ],
             vec![],
         );
-        let variable_info =
-            get_variable_info(&grammar, &lexical_grammar, &AliasMap::new(), &interner).unwrap();
+        let variable_info = get_variable_info(
+            &grammar,
+            &lexical_grammar,
+            &AliasMap::new(),
+            &InlinedProductionMap::default(),
+            &interner,
+        )
+        .unwrap();
 
         assert_eq!(
             variable_info[0].fields,
@@ -2963,8 +3263,14 @@ mod tests {
             ],
             vec![],
         );
-        let variable_info =
-            get_variable_info(&grammar, &lexical_grammar, &AliasMap::new(), &interner).unwrap();
+        let variable_info = get_variable_info(
+            &grammar,
+            &lexical_grammar,
+            &AliasMap::new(),
+            &InlinedProductionMap::default(),
+            &interner,
+        )
+        .unwrap();
 
         assert_eq!(
             variable_info[0].fields,
@@ -3027,8 +3333,14 @@ mod tests {
             ],
             vec![],
         );
-        let variable_info =
-            get_variable_info(&grammar, &lexical_grammar, &AliasMap::new(), &interner).unwrap();
+        let variable_info = get_variable_info(
+            &grammar,
+            &lexical_grammar,
+            &AliasMap::new(),
+            &InlinedProductionMap::default(),
+            &interner,
+        )
+        .unwrap();
 
         assert_eq!(
             variable_info[0].fields,
@@ -3091,8 +3403,14 @@ mod tests {
             // _rule1 is a supertype
             vec![Symbol::non_terminal(1)],
         );
-        let variable_info =
-            get_variable_info(&grammar, &lexical_grammar, &AliasMap::new(), &interner).unwrap();
+        let variable_info = get_variable_info(
+            &grammar,
+            &lexical_grammar,
+            &AliasMap::new(),
+            &InlinedProductionMap::default(),
+            &interner,
+        )
+        .unwrap();
 
         assert_eq!(
             variable_info[0].fields,
@@ -3186,14 +3504,15 @@ mod tests {
         let PreparedGrammar {
             syntax_grammar,
             lexical_grammar,
+            inlines,
             default_aliases,
             str_pool,
-            ..
         } = prepare_grammar(grammar, &mut Vec::new()).unwrap();
         let variable_info = get_variable_info(
             &syntax_grammar,
             &lexical_grammar,
             &default_aliases,
+            &inlines,
             &str_pool,
         )
         .unwrap();
@@ -3202,6 +3521,7 @@ mod tests {
             &lexical_grammar,
             &default_aliases,
             &variable_info,
+            &inlines,
             &str_pool,
         )
     }

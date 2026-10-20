@@ -469,6 +469,7 @@ fn generate_node_types_from_grammar(
         &syntax_grammar,
         &lexical_grammar,
         &default_aliases,
+        &inlines,
         &str_pool,
     )?;
 
@@ -478,6 +479,7 @@ fn generate_node_types_from_grammar(
         &lexical_grammar,
         &default_aliases,
         &variable_info,
+        &inlines,
         &str_pool,
     )?;
     Ok(JSONOutput {
@@ -504,15 +506,20 @@ fn generate_parser_for_grammar_with_opts(
     let JSONOutput {
         syntax_grammar,
         lexical_grammar,
-        inlines,
+        mut inlines,
         simple_aliases,
         variable_info,
         #[cfg(feature = "load")]
         node_types_json,
         str_pool,
     } = generate_node_types_from_grammar(input_grammar, diagnostics)?;
-    let supertype_symbol_map =
-        node_types::get_supertype_symbol_map(&syntax_grammar, &simple_aliases, &variable_info);
+    let supertype_symbol_map = node_types::get_supertype_symbol_map(
+        &syntax_grammar,
+        &simple_aliases,
+        &variable_info,
+        &inlines,
+    );
+    inlines.discard_fully_inlined();
     let tables = build_tables(
         &syntax_grammar,
         &lexical_grammar,
