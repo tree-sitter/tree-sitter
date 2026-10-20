@@ -507,6 +507,16 @@ function parsePattern(
   }
 }
 
+/**
+ * Converts a UTF-8 byte offset into a query's source, which is what the C API
+ * reports, into an index into the source string.
+ */
+function indexForByteOffset(source: string, byteOffset: number): number {
+  // encodeInto stops before the first character that doesn't fit, so `read` is
+  // the number of UTF-16 code units in the first `byteOffset` bytes.
+  return new TextEncoder().encodeInto(source, new Uint8Array(byteOffset)).read;
+}
+
 const finalizer = newFinalizer((address: number) => {
   C._ts_query_delete(address);
 });
@@ -520,6 +530,9 @@ export class Query {
 
   /** @internal */
   private textPredicates: TextPredicate[][];
+
+  /** @internal */
+  private readonly source: string;
 
   /** The names of the captures used in the query. */
   readonly captureNames: string[];
@@ -687,6 +700,7 @@ export class Query {
     this.captureNames = captureNames;
     this.captureQuantifiers = captureQuantifiers;
     this.textPredicates = textPredicates;
+    this.source = source;
     this.predicates = predicates;
     this.setProperties = setProperties;
     this.assertedProperties = assertedProperties;
@@ -977,24 +991,26 @@ export class Query {
     return this.exceededMatchLimit;
   }
 
-  /** Get the byte offset where the given pattern starts in the query's source. */
+  /** Get the index where the given pattern starts in the query's source. */
   startIndexForPattern(patternIndex: number): number {
     if (patternIndex >= this.predicates.length) {
       throw new Error(
         `Pattern index is ${patternIndex} but the pattern count is ${this.predicates.length}`
       );
     }
-    return C._ts_query_start_byte_for_pattern(this[0], patternIndex);
+    const byteOffset = C._ts_query_start_byte_for_pattern(this[0], patternIndex);
+    return indexForByteOffset(this.source, byteOffset);
   }
 
-  /** Get the byte offset where the given pattern ends in the query's source. */
+  /** Get the index where the given pattern ends in the query's source. */
   endIndexForPattern(patternIndex: number): number {
     if (patternIndex >= this.predicates.length) {
       throw new Error(
         `Pattern index is ${patternIndex} but the pattern count is ${this.predicates.length}`
       );
     }
-    return C._ts_query_end_byte_for_pattern(this[0], patternIndex);
+    const byteOffset = C._ts_query_end_byte_for_pattern(this[0], patternIndex);
+    return indexForByteOffset(this.source, byteOffset);
   }
 
   /** Get the number of patterns in the query. */
@@ -1018,12 +1034,13 @@ export class Query {
   }
 
   /**
-   * Check if a given step in a query is 'definite'.
+   * Check if the step at the given index in the query's source is 'definite'.
    *
    * A query step is 'definite' if its parent pattern will be guaranteed to
    * match successfully once it reaches the step.
    */
-  isPatternGuaranteedAtStep(byteIndex: number): boolean {
-    return C._ts_query_is_pattern_guaranteed_at_step(this[0], byteIndex) === 1;
+  isPatternGuaranteedAtStep(index: number): boolean {
+    const byteOffset = C.lengthBytesUTF8(this.source.slice(0, index));
+    return C._ts_query_is_pattern_guaranteed_at_step(this[0], byteOffset) === 1;
   }
 }
