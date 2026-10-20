@@ -91,6 +91,23 @@ describe('Tree', () => {
         '(program (expression_statement (binary_expression left: (binary_expression left: (identifier) right: (identifier)) right: (identifier))))'
       );
     });
+
+    it('updates the positions of nodes that are edited directly', () => {
+      input = 'abc + cde\nfgh';
+      tree = parser.parse(input)!;
+      const sameRowNode = tree.rootNode.descendantForIndex(input.indexOf('cde'))!;
+      const laterRowNode = tree.rootNode.descendantForIndex(input.indexOf('fgh'))!;
+
+      [input, edit] = spliceInput(input, 0, 0, 'x\ny\nz');
+      expect(input).toBe('x\ny\nzabc + cde\nfgh');
+      sameRowNode.edit(edit);
+      laterRowNode.edit(edit);
+
+      expect(sameRowNode.startIndex).toBe(input.indexOf('cde'));
+      expect(sameRowNode.startPosition).toEqual({ row: 2, column: 7 });
+      expect(laterRowNode.startIndex).toBe(input.indexOf('fgh'));
+      expect(laterRowNode.startPosition).toEqual({ row: 3, column: 0 });
+    });
   });
 
   describe('.getChangedRanges(previous)', () => {
