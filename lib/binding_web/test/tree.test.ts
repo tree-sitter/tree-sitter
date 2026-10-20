@@ -377,6 +377,42 @@ describe('Tree', () => {
       copy.delete();
       other.delete();
     });
+
+    it('returns a cursor that can move to the first child for an index', () => {
+      tree = parser.parse('a * b + c / d')!;
+      cursor = tree.walk();
+      cursor.gotoFirstChild();
+      cursor.gotoFirstChild();
+
+      expect(cursor.gotoFirstChildForIndex(8)).toBe(true);
+      expect(cursor.nodeText).toBe('c / d');
+
+      cursor.gotoParent();
+      expect(cursor.gotoFirstChildForIndex(0)).toBe(true);
+      expect(cursor.nodeText).toBe('a * b');
+
+      cursor.gotoParent();
+      expect(cursor.gotoFirstChildForIndex(13)).toBe(false);
+      expect(cursor.nodeText).toBe('a * b + c / d');
+    });
+
+    it('returns a cursor that can move to the first child for a position', () => {
+      tree = parser.parse('a * b + c / d')!;
+      cursor = tree.walk();
+      cursor.gotoFirstChild();
+      cursor.gotoFirstChild();
+
+      expect(cursor.gotoFirstChildForPosition({ row: 0, column: 8 })).toBe(true);
+      expect(cursor.nodeText).toBe('c / d');
+
+      cursor.gotoParent();
+      expect(cursor.gotoFirstChildForPosition({ row: 0, column: 0 })).toBe(true);
+      expect(cursor.nodeText).toBe('a * b');
+
+      cursor.gotoParent();
+      expect(cursor.gotoFirstChildForPosition({ row: 1, column: 0 })).toBe(false);
+      expect(cursor.nodeText).toBe('a * b + c / d');
+    });
   });
 
   describe('.copy', () => {
