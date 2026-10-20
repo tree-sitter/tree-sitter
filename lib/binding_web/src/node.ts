@@ -418,15 +418,15 @@ export class Node {
     // Convert the type strings to numeric type symbols
     const symbols: number[] = [];
     const typesBySymbol = this.tree.language.types;
-    for (const node_type of types) {
-      if (node_type == "ERROR") {
-        symbols.push(65535); // Internally, ts_builtin_sym_error is -1, which is UINT_16MAX
-      }
-    }
     for (let i = 0, n = typesBySymbol.length; i < n; i++) {
       if (types.includes(typesBySymbol[i])) {
         symbols.push(i);
       }
+    }
+    // `symbols_contain` in tree-sitter.c expects ascending symbols, and
+    // ts_builtin_sym_error is -1, which is UINT16_MAX, so it goes last.
+    if (types.includes('ERROR')) {
+      symbols.push(65535); // Internally, ts_builtin_sym_error is -1, which is UINT_16MAX
     }
 
     // Copy the array of symbols to the Wasm heap
