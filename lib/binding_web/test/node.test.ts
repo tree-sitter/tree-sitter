@@ -480,6 +480,17 @@ describe('Node', () => {
         [4]
       );
     });
+
+    it('finds ERROR nodes along with other types', () => {
+      tree = parser.parse(
+        `if ({a: 'b'} {c: 'd'}) {
+          // ^ ERROR
+          x = function(a) { b; } function(c) { d; }
+        }`
+      )!;
+      const descendants = tree.rootNode.descendantsOfType(['ERROR', 'comment']);
+      expect(descendants.map((node) => node.type)).toEqual(['ERROR', 'comment']);
+    });
   });
 
   describe('.descendantsOfType', () => {
@@ -492,8 +503,6 @@ describe('Node', () => {
       expect(descendants.map(node => node.endPosition)).toEqual([{ row: 0, column: 5 }, { row: 0, column: 13 }]);
     });
   });
-
-
 
   describe('.firstChildForIndex(index)', () => {
     it('returns the first child that contains or starts after the given index', () => {
