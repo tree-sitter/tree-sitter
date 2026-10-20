@@ -362,6 +362,24 @@ describe('Tree', () => {
       expect(cursor.gotoParent()).toBe(false);
     });
 
+    it('returns a cursor that can be reset into another tree', () => {
+      tree = parser.parse('a * b + c / d')!;
+      const otherTree = parser.parse('xyz')!;
+      cursor = tree.walk();
+
+      cursor.reset(otherTree.rootNode.firstChild!);
+      expect(cursor.nodeText).toBe('xyz');
+      expect(cursor.currentNode.tree).toBe(otherTree);
+
+      const original = tree.walk();
+      cursor.resetTo(original);
+      expect(cursor.nodeText).toBe('a * b + c / d');
+      expect(cursor.currentNode.tree).toBe(tree);
+
+      original.delete();
+      otherTree.delete();
+    });
+
     it('returns a cursor that can be copied after using another cursor', () => {
       tree = parser.parse('a * b + c / d')!;
       cursor = tree.walk();
