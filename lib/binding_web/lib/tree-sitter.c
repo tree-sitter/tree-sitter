@@ -371,18 +371,18 @@ bool ts_tree_cursor_goto_last_child_wasm(const TSTree *tree) {
 
 bool ts_tree_cursor_goto_first_child_for_index_wasm(const TSTree *tree) {
   TSTreeCursor cursor = unmarshal_cursor(TRANSFER_BUFFER, tree);
-  const void **address = TRANSFER_BUFFER + 3;
+  const void **address = TRANSFER_BUFFER + SIZE_OF_CURSOR;
   uint32_t index = code_unit_to_byte((uint32_t)address[0]);
-  bool result = ts_tree_cursor_goto_first_child_for_byte(&cursor, index);
+  bool result = ts_tree_cursor_goto_first_child_for_byte(&cursor, index) >= 0;
   marshal_cursor(&cursor);
   return result;
 }
 
 bool ts_tree_cursor_goto_first_child_for_position_wasm(const TSTree *tree) {
   TSTreeCursor cursor = unmarshal_cursor(TRANSFER_BUFFER, tree);
-  const void **address = TRANSFER_BUFFER + 3;
+  const void **address = TRANSFER_BUFFER + SIZE_OF_CURSOR;
   TSPoint point = unmarshal_point(address);
-  bool result = ts_tree_cursor_goto_first_child_for_point(&cursor, point);
+  bool result = ts_tree_cursor_goto_first_child_for_point(&cursor, point) >= 0;
   marshal_cursor(&cursor);
   return result;
 }
