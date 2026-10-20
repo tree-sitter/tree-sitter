@@ -307,8 +307,9 @@ export class TreeCursor {
   reset(node: Node): void {
     marshalNode(node);
     marshalTreeCursor(this, TRANSFER_BUFFER + SIZE_OF_NODE);
-    C._ts_tree_cursor_reset_wasm(this.tree[0]);
+    C._ts_tree_cursor_reset_wasm(node.tree[0]);
     unmarshalTreeCursor(this);
+    this.tree = node.tree;
   }
 
   /**
@@ -322,5 +323,6 @@ export class TreeCursor {
     marshalTreeCursor(cursor, TRANSFER_BUFFER + SIZE_OF_CURSOR);
     C._ts_tree_cursor_reset_to_wasm(this.tree[0], cursor.tree[0]);
     unmarshalTreeCursor(this);
+    this.tree = cursor.tree;
   }
 }
