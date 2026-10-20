@@ -587,6 +587,26 @@ describe('Query', () => {
         '((identifier) @b (#match? @b i))\n'.length
       );
     });
+
+    it('Returns string indices for sources with non-ASCII characters', () => {
+      const source = '; héllö wörld\n(identifier) @a\n(object "{" "}")';
+      const query = new Query(JavaScript, source);
+
+      expect(query.startIndexForPattern(0)).toBe(source.indexOf('(identifier)'));
+      expect(query.endIndexForPattern(0)).toBe(source.indexOf('(object'));
+      expect(query.startIndexForPattern(1)).toBe(source.indexOf('(object'));
+      expect(query.endIndexForPattern(1)).toBe(source.length);
+    });
+  });
+
+  describe('.isPatternGuaranteedAtStep', () => {
+    it('takes string indices into the source', () => {
+      const source = '; héllö wörld\n(object "{" "}")';
+      const query = new Query(JavaScript, source);
+
+      expect(query.isPatternGuaranteedAtStep(source.indexOf('object'))).toBe(false);
+      expect(query.isPatternGuaranteedAtStep(source.indexOf('{'))).toBe(true);
+    });
   });
 
   describe('Disable pattern', () => {
