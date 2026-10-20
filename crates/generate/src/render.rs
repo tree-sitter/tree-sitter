@@ -627,22 +627,20 @@ impl Generator {
 
     fn add_non_terminal_alias_map(&mut self) {
         let mut alias_ids_by_symbol = FxHashMap::default();
-        for i in 0..self.syntax_grammar.variables.len() {
-            for prod_id in self.syntax_grammar.variable_prod_ids(i) {
-                for step in self.syntax_grammar.production(prod_id).steps {
-                    if let Some(alias) = step.alias()
-                        && matches!(step.symbol().view(), SymbolView::NonTerminal(_))
-                        && Some(alias) != self.default_aliases.get(&step.symbol()).copied()
-                        && self.symbol_ids.contains_key(&step.symbol())
-                        && let Some(alias_id) = self.alias_ids.get(&alias)
-                    {
-                        let alias_ids = alias_ids_by_symbol
-                            .entry(step.symbol())
-                            .or_insert(Vec::new());
-                        if let Err(i) = alias_ids.binary_search(&alias_id) {
-                            alias_ids.insert(i, alias_id);
-                        }
-                    }
+        // Include appended productions, where inlining can copy an alias onto
+        // the symbols that replace the inlined step.
+        for step in &self.syntax_grammar.steps {
+            if let Some(alias) = step.alias()
+                && matches!(step.symbol().view(), SymbolView::NonTerminal(_))
+                && Some(alias) != self.default_aliases.get(&step.symbol()).copied()
+                && self.symbol_ids.contains_key(&step.symbol())
+                && let Some(alias_id) = self.alias_ids.get(&alias)
+            {
+                let alias_ids = alias_ids_by_symbol
+                    .entry(step.symbol())
+                    .or_insert(Vec::new());
+                if let Err(i) = alias_ids.binary_search(&alias_id) {
+                    alias_ids.insert(i, alias_id);
                 }
             }
         }
