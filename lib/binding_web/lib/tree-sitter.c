@@ -898,7 +898,11 @@ void ts_query_matches_wasm(
   TSPoint start_containing_point = {start_containing_row, code_unit_to_byte(start_containing_column)};
   TSPoint end_containing_point = {end_containing_row, code_unit_to_byte(end_containing_column)};
   ts_query_cursor_set_point_range(scratch_query_cursor, start_point, end_point);
-  ts_query_cursor_set_byte_range(scratch_query_cursor, start_index, end_index);
+  ts_query_cursor_set_byte_range(
+    scratch_query_cursor,
+    code_unit_to_byte(start_index),
+    code_unit_to_byte(end_index)
+  );
   ts_query_cursor_set_containing_point_range(
     scratch_query_cursor,
     start_containing_point,
@@ -906,8 +910,8 @@ void ts_query_matches_wasm(
   );
   ts_query_cursor_set_containing_byte_range(
     scratch_query_cursor,
-    start_containing_index,
-    end_containing_index
+    code_unit_to_byte(start_containing_index),
+    code_unit_to_byte(end_containing_index)
   );
   ts_query_cursor_set_match_limit(scratch_query_cursor, match_limit);
   ts_query_cursor_set_max_start_depth(scratch_query_cursor, max_start_depth);
@@ -971,7 +975,11 @@ void ts_query_captures_wasm(
   TSPoint start_containing_point = {start_containing_row, code_unit_to_byte(start_containing_column)};
   TSPoint end_containing_point = {end_containing_row, code_unit_to_byte(end_containing_column)};
   ts_query_cursor_set_point_range(scratch_query_cursor, start_point, end_point);
-  ts_query_cursor_set_byte_range(scratch_query_cursor, start_index, end_index);
+  ts_query_cursor_set_byte_range(
+    scratch_query_cursor,
+    code_unit_to_byte(start_index),
+    code_unit_to_byte(end_index)
+  );
   ts_query_cursor_set_containing_point_range(
     scratch_query_cursor,
     start_containing_point,
@@ -979,8 +987,8 @@ void ts_query_captures_wasm(
   );
   ts_query_cursor_set_containing_byte_range(
     scratch_query_cursor,
-    start_containing_index,
-    end_containing_index
+    code_unit_to_byte(start_containing_index),
+    code_unit_to_byte(end_containing_index)
   );
   ts_query_cursor_set_match_limit(scratch_query_cursor, match_limit);
   ts_query_cursor_set_max_start_depth(scratch_query_cursor, max_start_depth);
