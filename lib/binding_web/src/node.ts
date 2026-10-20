@@ -607,33 +607,9 @@ export class Node {
    * you want to keep and continue to use after an edit.
    */
   edit(edit: Edit) {
-    if (this.startIndex >= edit.oldEndIndex) {
-      this.startIndex = edit.newEndIndex + (this.startIndex - edit.oldEndIndex);
-      let subbedPointRow;
-      let subbedPointColumn;
-      if (this.startPosition.row > edit.oldEndPosition.row) {
-        subbedPointRow = this.startPosition.row - edit.oldEndPosition.row;
-        subbedPointColumn = this.startPosition.column;
-      } else {
-        subbedPointRow = 0;
-        subbedPointColumn = this.startPosition.column;
-        if (this.startPosition.column >= edit.oldEndPosition.column) {
-          subbedPointColumn =
-            this.startPosition.column - edit.oldEndPosition.column;
-        }
-      }
-
-      if (subbedPointRow > 0) {
-        this.startPosition.row += subbedPointRow;
-        this.startPosition.column = subbedPointColumn;
-      } else {
-        this.startPosition.column += subbedPointColumn;
-      }
-    } else if (this.startIndex > edit.startIndex) {
-      this.startIndex = edit.newEndIndex;
-      this.startPosition.row = edit.newEndPosition.row;
-      this.startPosition.column = edit.newEndPosition.column;
-    }
+    const { point, index } = edit.editPoint(this.startPosition, this.startIndex);
+    this.startPosition = point;
+    this.startIndex = index;
   }
 
   /** Get the S-expression representation of this node. */
