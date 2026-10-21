@@ -3,11 +3,10 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::{Context, Result, anyhow};
+use anyhow::{Context, Result, anyhow, bail};
 use tree_sitter::wasm_stdlib_symbols;
 use tree_sitter_generate::{load_grammar_file, parse_grammar::GrammarJSON};
 use tree_sitter_loader::Loader;
-use wasmparser::Parser;
 
 pub fn load_language_wasm_file(language_dir: &Path) -> Result<(String, Vec<u8>)> {
     let grammar_name = get_grammar_name(language_dir)
@@ -79,25 +78,16 @@ pub fn compile_language_to_wasm(
         "proc_exit",
     ];
 
-    let mut missing_symbols = Vec::new();
     let wasm_bytes = fs::read(&output_filename)?;
-    let parser = Parser::new(0);
-    for payload in parser.parse_all(&wasm_bytes) {
-        if let wasmparser::Payload::ImportSection(reader) = payload? {
-            for imports in reader {
-                for import in imports? {
-                    let (_, import) = import?;
-                    let name = import.name;
-                    if !builtin_symbols.contains(&name)
-                        && !stdlib_symbols.contains(&name)
-                        && !dylink_symbols.contains(&name)
-                    {
-                        missing_symbols.push(name);
-                    }
-                }
-            }
-        }
-    }
+    let missing_symbols = wasm_import_names(&wasm_bytes)
+        .with_context(|| format!("Failed to read imports of {}", output_filename.display()))?
+        .into_iter()
+        .filter(|name| {
+            !builtin_symbols.contains(name)
+                && !stdlib_symbols.contains(name)
+                && !dylink_symbols.contains(name)
+        })
+        .collect::<Vec<_>>();
 
     if !missing_symbols.is_empty() {
         Err(anyhow!(
@@ -116,4 +106,83 @@ pub fn compile_language_to_wasm(
     }
 
     Ok(())
+}
+
+fn wasm_import_names(mut bytes: &[u8]) -> Result<Vec<&str>> {
+    const IMPORT_SECTION_ID: u8 = 2;
+
+    fn take<'wasm>(bytes: &mut &'wasm [u8], len: usize) -> Result<&'wasm [u8]> {
+        let Some((head, tail)) = bytes.split_at_checked(len) else {
+            bail!("unexpected end of Wasm module");
+        };
+        *bytes = tail;
+        Ok(head)
+    }
+
+    fn leb128(bytes: &mut &[u8]) -> Result<u64> {
+        let mut value = 0;
+        for shift in (0..64).step_by(7) {
+            let byte = take(bytes, 1)?[0];
+            value |= u64::from(byte & 0x7f) << shift;
+            if byte & 0x80 == 0 {
+                return Ok(value);
+            }
+        }
+        bail!("malformed LEB128 integer in Wasm module")
+    }
+
+    fn skip_limits(bytes: &mut &[u8]) -> Result<()> {
+        let flags = take(bytes, 1)?[0];
+        leb128(bytes)?;
+        if flags & 0x01 != 0 {
+            leb128(bytes)?;
+        }
+        if flags & 0x08 != 0 {
+            leb128(bytes)?;
+        }
+        Ok(())
+    }
+
+    if take(&mut bytes, 8)? != b"\0asm\x01\0\0\0" {
+        bail!("not a Wasm module");
+    }
+
+    while !bytes.is_empty() {
+        let section_id = take(&mut bytes, 1)?[0];
+        let section_len = leb128(&mut bytes)? as usize;
+        let mut section = take(&mut bytes, section_len)?;
+        if section_id != IMPORT_SECTION_ID {
+            continue;
+        }
+
+        let mut names = Vec::new();
+        for _ in 0..leb128(&mut section)? {
+            let module_len = leb128(&mut section)? as usize;
+            take(&mut section, module_len)?;
+            let name_len = leb128(&mut section)? as usize;
+            names.push(str::from_utf8(take(&mut section, name_len)?)?);
+
+            match take(&mut section, 1)?[0] {
+                0x00 => {
+                    leb128(&mut section)?;
+                }
+                0x01 => {
+                    take(&mut section, 1)?;
+                    skip_limits(&mut section)?;
+                }
+                0x02 => skip_limits(&mut section)?,
+                0x03 => {
+                    take(&mut section, 2)?;
+                }
+                0x04 => {
+                    take(&mut section, 1)?;
+                    leb128(&mut section)?;
+                }
+                kind => bail!("unsupported Wasm import kind {kind:#04x}"),
+            }
+        }
+        return Ok(names);
+    }
+
+    Ok(Vec::new())
 }
