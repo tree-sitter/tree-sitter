@@ -10,7 +10,7 @@ use anyhow::{Context, Result, anyhow};
 use log::{error, info};
 use tiny_http::{Header, Response, Server};
 
-use super::wasm;
+use super::{util, wasm};
 
 macro_rules! optional_resource {
     ($name:tt, $path:tt) => {
@@ -118,8 +118,8 @@ pub fn serve(grammar_path: &Path, open_in_browser: bool) -> Result<()> {
     let (grammar_name, language_wasm) = wasm::load_language_wasm_file(grammar_path)?;
     let url = format!("http://{}", server.server_addr());
     info!("Started playground on: {url}");
-    if open_in_browser && webbrowser::open(&url).is_err() {
-        error!("Failed to open '{url}' in a web browser");
+    if open_in_browser && let Err(error) = util::open_in_browser(&url) {
+        error!("Failed to open '{url}' in a web browser: {error}");
     }
 
     let tree_sitter_dir = env::var("TREE_SITTER_BASE_DIR").map(PathBuf::from).ok();
