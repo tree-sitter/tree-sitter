@@ -8,7 +8,6 @@ use std::{
     time::Instant,
 };
 
-use ansi_colours::{ansi256_from_rgb, rgb_from_ansi256};
 use anstyle::{Ansi256Color, AnsiColor, Color, Effects, RgbColor};
 use anyhow::Result;
 use clap::ValueEnum;
@@ -303,6 +302,69 @@ fn write_color(buffer: &mut String, color: Color) {
     }
 }
 
+const ANSI256_CUBE_LEVELS: [u8; 6] = [0, 95, 135, 175, 215, 255];
+
+const fn rgb_from_ansi256(index: u8) -> (u8, u8, u8) {
+    const XTERM_BASE_COLORS: [(u8, u8, u8); 16] = [
+        (0, 0, 0),
+        (205, 0, 0),
+        (0, 205, 0),
+        (205, 205, 0),
+        (0, 0, 238),
+        (205, 0, 205),
+        (0, 205, 205),
+        (229, 229, 229),
+        (127, 127, 127),
+        (255, 0, 0),
+        (0, 255, 0),
+        (255, 255, 0),
+        (92, 92, 255),
+        (255, 0, 255),
+        (0, 255, 255),
+        (255, 255, 255),
+    ];
+
+    match index {
+        0..16 => XTERM_BASE_COLORS[index as usize],
+        16..232 => {
+            let cube = index - 16;
+            (
+                ANSI256_CUBE_LEVELS[(cube / 36) as usize],
+                ANSI256_CUBE_LEVELS[(cube / 6 % 6) as usize],
+                ANSI256_CUBE_LEVELS[(cube % 6) as usize],
+            )
+        }
+        232.. => {
+            let gray = 8 + 10 * (index - 232);
+            (gray, gray, gray)
+        }
+    }
+}
+
+fn ansi256_from_rgb((red, green, blue): (u8, u8, u8)) -> u8 {
+    let distance = |index: u8| {
+        let (r, g, b) = rgb_from_ansi256(index);
+        [(red, r), (green, g), (blue, b)]
+            .into_iter()
+            .map(|(want, have)| u32::from(want.abs_diff(have)).pow(2))
+            .sum::<u32>()
+    };
+    let cube_level = |channel: u8| {
+        (0..6u8)
+            .min_by_key(|&level| channel.abs_diff(ANSI256_CUBE_LEVELS[level as usize]))
+            .unwrap()
+    };
+
+    let cube = 16 + 36 * cube_level(red) + 6 * cube_level(green) + cube_level(blue);
+    let average = (u16::from(red) + u16::from(green) + u16::from(blue)) / 3;
+    let gray = 232 + (average.saturating_sub(3) / 10).min(23) as u8;
+    if distance(gray) < distance(cube) {
+        gray
+    } else {
+        cube
+    }
+}
+
 fn terminal_supports_truecolor() -> bool {
     std::env::var("COLORTERM")
         .is_ok_and(|truecolor| truecolor == "truecolor" || truecolor == "24bit")
@@ -554,12 +616,12 @@ mod tests {
         );
         assert_eq!(style.css, Some("color: #26a69a".to_string()));
 
-        // junglegreen gets approximated as cadetblue when the terminal does not support it
+        // junglegreen gets approximated as darkcyan when the terminal does not support it
         unsafe { env::set_var("COLORTERM", "") };
         parse_style(&mut style, Value::String(JUNGLE_GREEN.to_string()));
         assert_eq!(
             style.ansi.get_fg_color(),
-            Some(Color::Ansi256(Ansi256Color(72)))
+            Some(Color::Ansi256(Ansi256Color(36)))
         );
         assert_eq!(style.css, Some("color: #26a69a".to_string()));
 

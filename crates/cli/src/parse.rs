@@ -603,7 +603,16 @@ pub fn parse_file_at_path(
                                 stdout.write_all(b"  ")?;
                             }
                         }
-                        write!(&mut stdout, "{}", html_escape::encode_text(value))?;
+                        for chunk in value.split_inclusive(['&', '<', '>']) {
+                            let (text, escaped) = match chunk.as_bytes().last() {
+                                Some(b'&') => (&chunk[..chunk.len() - 1], "&amp;"),
+                                Some(b'<') => (&chunk[..chunk.len() - 1], "&lt;"),
+                                Some(b'>') => (&chunk[..chunk.len() - 1], "&gt;"),
+                                _ => (chunk, ""),
+                            };
+                            stdout.write_all(text.as_bytes())?;
+                            stdout.write_all(escaped.as_bytes())?;
+                        }
                     }
                 }
             }

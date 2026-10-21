@@ -5,7 +5,6 @@ use std::{
 };
 
 use anyhow::{Context, Result, anyhow};
-use crc32fast::hash as crc32;
 use heck::{ToKebabCase, ToShoutySnakeCase, ToSnakeCase, ToUpperCamelCase};
 use indoc::{formatdoc, indoc};
 use log::info;
@@ -1564,7 +1563,13 @@ fn generate_file(
 
     if filename == "build.zig.zon" {
         let id = rand::rng().random_range(1u32..0xFFFF_FFFFu32);
-        let checksum = crc32(format!("tree_sitter_{language_name}").as_bytes());
+        let package_name = format!("tree_sitter_{language_name}");
+        // CRC-32/ISO-HDLC, see https://reveng.sourceforge.io/crc-catalogue/all.htm#crc.cat.crc-32-iso-hdlc
+        let checksum = !package_name.bytes().fold(u32::MAX, |checksum, byte| {
+            (0..8).fold(checksum ^ u32::from(byte), |remainder, _| {
+                (remainder >> 1) ^ (0xEDB8_8320 & (remainder & 1).wrapping_neg())
+            })
+        });
         replacement = replacement.replace(
             PARSER_FINGERPRINT_PLACEHOLDER,
             #[cfg(target_endian = "little")]

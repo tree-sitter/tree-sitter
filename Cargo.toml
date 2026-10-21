@@ -79,7 +79,6 @@ lto = false
 overflow-checks = true
 
 [workspace.dependencies]
-ansi_colours = "1.2.3"
 anstyle = "1.0.14"
 anyhow = "1.0.102"
 bstr = "1.12.1"
@@ -94,7 +93,6 @@ clap = { features = [
 ], version = "4.5.58" }
 clap_complete = "4.6.3"
 clap_complete_nushell = "4.5.10"
-crc32fast = "1.5.0"
 ctor = "0.6.3"
 ctrlc = { features = [ "termination" ], version = "3.5.2" }
 dialoguer = { features = [ "fuzzy-select" ], version = "0.12.0" }
@@ -103,7 +101,6 @@ etcetera = "0.11.0"
 glob = "0.3.3"
 hashbrown = { default-features = false, version = "0.17.1" }
 heck = "0.5.0"
-html-escape = "0.2.13"
 indexmap = "2.13.0"
 indoc = "2.0.7"
 libloading = "0.9.0"
@@ -125,7 +122,6 @@ tempfile = "3.25.0"
 thiserror = "2.0.18"
 tiny_http = "0.12.0"
 topological-sort = "0.2.2"
-unindent = "0.2.4"
 walkdir = "2.5.0"
 wasmparser = "0.244.0"
 webbrowser = "1.2.1"
