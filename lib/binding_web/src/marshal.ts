@@ -82,11 +82,11 @@ export function unmarshalNode(tree: Tree, address = TRANSFER_BUFFER): Node | nul
  *
  * Marshals a {@link TreeCursor} to the transfer buffer.
  */
-export function marshalTreeCursor(cursor: TreeCursor, address = TRANSFER_BUFFER) {
-  C.setValue(address + 0 * SIZE_OF_INT, cursor[0], 'i32');
-  C.setValue(address + 1 * SIZE_OF_INT, cursor[1], 'i32');
-  C.setValue(address + 2 * SIZE_OF_INT, cursor[2], 'i32');
-  C.setValue(address + 3 * SIZE_OF_INT, cursor[3], 'i32');
+export function marshalTreeCursor({ handles }: Pick<TreeCursor, 'handles'>, address = TRANSFER_BUFFER) {
+  C.setValue(address + 0 * SIZE_OF_INT, handles[0], 'i32');
+  C.setValue(address + 1 * SIZE_OF_INT, handles[1], 'i32');
+  C.setValue(address + 2 * SIZE_OF_INT, handles[2], 'i32');
+  C.setValue(address + 3 * SIZE_OF_INT, handles[3], 'i32');
 }
 
 /**
@@ -94,11 +94,11 @@ export function marshalTreeCursor(cursor: TreeCursor, address = TRANSFER_BUFFER)
  *
  * Unmarshals a {@link TreeCursor} from the transfer buffer.
  */
-export function unmarshalTreeCursor(cursor: TreeCursor) {
-  cursor[0] = C.getValue(TRANSFER_BUFFER + 0 * SIZE_OF_INT, 'i32');
-  cursor[1] = C.getValue(TRANSFER_BUFFER + 1 * SIZE_OF_INT, 'i32');
-  cursor[2] = C.getValue(TRANSFER_BUFFER + 2 * SIZE_OF_INT, 'i32');
-  cursor[3] = C.getValue(TRANSFER_BUFFER + 3 * SIZE_OF_INT, 'i32');
+export function unmarshalTreeCursor({ handles }: TreeCursor) {
+  handles[0] = C.getValue(TRANSFER_BUFFER + 0 * SIZE_OF_INT, 'i32');
+  handles[1] = C.getValue(TRANSFER_BUFFER + 1 * SIZE_OF_INT, 'i32');
+  handles[2] = C.getValue(TRANSFER_BUFFER + 2 * SIZE_OF_INT, 'i32');
+  handles[3] = C.getValue(TRANSFER_BUFFER + 3 * SIZE_OF_INT, 'i32');
 }
 
 /**
