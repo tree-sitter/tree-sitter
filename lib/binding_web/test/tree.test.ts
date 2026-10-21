@@ -413,6 +413,20 @@ describe('Tree', () => {
       other.delete();
     });
 
+    it('returns a copy that moves independently of the original', () => {
+      tree = parser.parse('a * b + c / d')!;
+      cursor = tree.walk();
+      cursor.gotoFirstChild();
+      cursor.gotoFirstChild();
+
+      const copy = cursor.copy();
+      copy.gotoFirstChild();
+      cursor.gotoLastChild();
+      expect(copy.nodeText).toBe('a * b');
+      expect(cursor.nodeText).toBe('c / d');
+      copy.delete();
+    });
+
     it('returns a cursor that can move to the first child for an index', () => {
       tree = parser.parse('a * b + c / d')!;
       cursor = tree.walk();
