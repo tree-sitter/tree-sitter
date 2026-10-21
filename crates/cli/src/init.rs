@@ -1,5 +1,6 @@
 use std::{
     fs,
+    hash::{BuildHasher, RandomState},
     path::{Path, PathBuf},
     str::FromStr as _,
 };
@@ -8,7 +9,6 @@ use anyhow::{Context, Result, anyhow};
 use heck::{ToKebabCase, ToShoutySnakeCase, ToSnakeCase, ToUpperCamelCase};
 use indoc::{formatdoc, indoc};
 use log::info;
-use rand::RngExt;
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
@@ -1562,7 +1562,7 @@ fn generate_file(
     }
 
     if filename == "build.zig.zon" {
-        let id = rand::rng().random_range(1u32..0xFFFF_FFFFu32);
+        let id = RandomState::new().hash_one(()) as u32 % 0xFFFF_FFFE + 1;
         let package_name = format!("tree_sitter_{language_name}");
         // CRC-32/ISO-HDLC, see https://reveng.sourceforge.io/crc-catalogue/all.htm#crc.cat.crc-32-iso-hdlc
         let checksum = !package_name.bytes().fold(u32::MAX, |checksum, byte| {

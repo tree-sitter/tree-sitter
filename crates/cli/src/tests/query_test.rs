@@ -1,7 +1,6 @@
 use std::{cell::Cell, env, fmt::Write, ops::ControlFlow, sync::LazyLock};
 
 use indoc::indoc;
-use rand::{SeedableRng, prelude::StdRng};
 use streaming_iterator::StreamingIterator;
 use tree_sitter::{
     CaptureQuantifier, InputEdit, Language, Node, Parser, Point, Query, QueryCursor,
@@ -15,11 +14,14 @@ use super::helpers::{
     fixtures::{get_language, get_test_language},
     query_helpers::{Match, Pattern, assert_query_matches},
 };
-use crate::tests::{
-    ITERATION_COUNT, generate_parser,
-    helpers::{
-        fixtures::get_test_fixture_language,
-        query_helpers::{collect_captures, collect_matches},
+use crate::{
+    fuzz::random::Rand,
+    tests::{
+        ITERATION_COUNT, generate_parser,
+        helpers::{
+            fixtures::get_test_fixture_language,
+            query_helpers::{collect_captures, collect_matches},
+        },
     },
 };
 
@@ -4815,8 +4817,7 @@ fn test_query_random() {
         let end_seed = start_seed + *ITERATION_COUNT;
 
         for seed in start_seed..(start_seed + end_seed) {
-            let seed = seed as u64;
-            let mut rand = StdRng::seed_from_u64(seed);
+            let mut rand = Rand::new(seed);
             let (pattern_ast, _) = Pattern::random_pattern_in_tree(&pattern_tree, &mut rand);
             let pattern = pattern_ast.to_string();
             let expected_matches = pattern_ast.matches_in_tree(&test_tree);
