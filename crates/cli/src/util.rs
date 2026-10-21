@@ -1,12 +1,15 @@
 #[cfg(unix)]
 use std::ffi::c_int;
 use std::{
+    ffi::OsStr,
+    io,
     path::{Path, PathBuf},
     process::{Child, ChildStdin, Command, Stdio},
     sync::{
         Arc, LazyLock, Once,
         atomic::{AtomicUsize, Ordering},
     },
+    thread,
 };
 
 use anyhow::{Context, Result, anyhow};
@@ -107,6 +110,28 @@ fn install_signal_handlers() {
     assert_ne!(installed, 0, "Error setting Ctrl-C handler");
 }
 
+pub fn open_in_browser(target: impl AsRef<OsStr>) -> io::Result<()> {
+    #[cfg(target_os = "macos")]
+    let mut command = Command::new("open");
+    #[cfg(windows)]
+    let mut command = {
+        let mut command = Command::new("rundll32");
+        command.arg("url.dll,FileProtocolHandler");
+        command
+    };
+    #[cfg(not(any(target_os = "macos", windows)))]
+    let mut command = Command::new("xdg-open");
+
+    let mut child = command
+        .arg(target)
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()?;
+    thread::spawn(move || child.wait());
+
+    Ok(())
+}
+
 pub struct LogSession {
     path: PathBuf,
     dot_process: Option<Child>,
@@ -160,8 +185,14 @@ impl Drop for LogSession {
         drop(self.dot_process_stdin.take().unwrap());
         let output = self.dot_process.take().unwrap().wait_with_output().unwrap();
         if output.status.success() {
-            if self.open_log && fs::metadata(&self.path).unwrap().len() > HTML_HEADER.len() as u64 {
-                webbrowser::open(&self.path.to_string_lossy()).unwrap();
+            if self.open_log
+                && fs::metadata(&self.path).unwrap().len() > HTML_HEADER.len() as u64
+                && let Err(error) = open_in_browser(&self.path)
+            {
+                error!(
+                    "Failed to open {} in a web browser: {error}",
+                    self.path.display()
+                );
             }
         } else {
             error!(
