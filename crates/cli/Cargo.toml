@@ -49,7 +49,6 @@ heck.workspace = true
 indoc.workspace = true
 log.workspace = true
 memchr.workspace = true
-rand.workspace = true
 regex.workspace = true
 schemars.workspace = true
 semver.workspace = true

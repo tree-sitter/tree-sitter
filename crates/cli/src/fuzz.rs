@@ -1,12 +1,12 @@
 use std::{
     collections::HashMap,
     env, fs,
+    hash::{BuildHasher, RandomState},
     path::{Path, PathBuf},
     sync::LazyLock,
 };
 
 use log::{error, info};
-use rand::RngExt;
 use regex::Regex;
 use tree_sitter::{Language, Parser};
 
@@ -63,8 +63,7 @@ fn regex_env_var(name: &'static str) -> Option<Regex> {
 #[must_use]
 pub fn new_seed() -> usize {
     int_env_var("TREE_SITTER_SEED").unwrap_or_else(|| {
-        let mut rng = rand::rng();
-        let seed = rng.random_range(0..=usize::MAX);
+        let seed = RandomState::new().hash_one(()) as usize;
         eprintln!("fuzz seed: {seed}");
         seed
     })
