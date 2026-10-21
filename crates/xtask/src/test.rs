@@ -164,6 +164,10 @@ pub fn run_rust_wasm_web() -> Result<()> {
     let target_dir = Path::new("target/rust-wasm-web-test");
     let target = "wasm32-unknown-unknown";
     std::fs::create_dir_all(target_dir)?;
+    anyhow::ensure!(
+        Path::new("target/release/tree-sitter-ruby.wasm").is_file(),
+        "Missing target/release/tree-sitter-ruby.wasm; run `cargo xtask generate-fixtures --wasm` first"
+    );
 
     let mut language_paths = Vec::new();
     for language_name in ["python", "ruby"] {
@@ -230,7 +234,7 @@ pub fn run_rust_wasm_web() -> Result<()> {
             "--target-dir",
             target_dir.to_str().unwrap(),
         ])
-        .env("CC_wasm32_unknown_unknown", clang)
+        .env("CC_wasm32_unknown_unknown", &clang)
         .env(
             "CFLAGS_wasm32_unknown_unknown",
             format!(
@@ -256,6 +260,53 @@ pub fn run_rust_wasm_web() -> Result<()> {
         .args(language_paths);
     if !command.status()?.success() {
         return Err(anyhow!("Failed to run the Rust Wasm web test"));
+    }
+
+    for (host, rustflags, cflags) in [
+        (
+            "shared",
+            "-D warnings -A unstable-features -C target-feature=+atomics,+bulk-memory,+mutable-globals -C link-arg=--import-memory -C link-arg=--shared-memory -C link-arg=--max-memory=268435456 -C link-arg=--growable-table -C link-arg=--export=__wasm_init_tls -C link-arg=--export=__tls_size -C link-arg=--export=__tls_align -C link-arg=--export=__tls_base -C link-arg=--export=__heap_base",
+            "-matomics -mbulk-memory",
+        ),
+        (
+            "unshared",
+            "-D warnings -C link-arg=--import-memory -C link-arg=--growable-table",
+            "",
+        ),
+    ] {
+        let mut js_loader_tests = Command::new("cargo");
+        js_loader_tests
+            .args([
+                &format!("+{nightly_toolchain}"),
+                "test",
+                "-Z",
+                "build-std=std,panic_abort,test",
+                "--locked",
+                "-p",
+                "tree-sitter",
+                "--target",
+                target,
+                "--features",
+                "js-loader",
+                "--lib",
+            ])
+            .env("CC_wasm32_unknown_unknown", &clang)
+            .env(
+                "AR_wasm32_unknown_unknown",
+                clang.parent().unwrap().join("llvm-ar"),
+            )
+            .env("CFLAGS_wasm32_unknown_unknown", cflags)
+            .env("TREE_SITTER_JS_LOADER_TEST_HOST", host)
+            .env(
+                "CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUNNER",
+                env::var_os("TREE_SITTER_JS_LOADER_TEST_RUNNER")
+                    .unwrap_or_else(|| "wasm-bindgen-test-runner".into()),
+            )
+            .env("RUSTFLAGS", rustflags);
+        anyhow::ensure!(
+            js_loader_tests.status()?.success(),
+            "Failed to run Tree-sitter's {host} browser grammar loader tests"
+        );
     }
     println!("Rust Wasm web test passed");
     Ok(())
