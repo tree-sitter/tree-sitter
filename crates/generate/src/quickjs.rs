@@ -1,5 +1,6 @@
 use std::{
-    path::{Path, PathBuf},
+    iter,
+    path::{Component, Path, PathBuf},
     sync::{LazyLock, Mutex},
 };
 
@@ -305,9 +306,23 @@ pub fn execute_native_runtime(grammar_path: &Path) -> JSResult<String> {
     runtime.set_loader(resolver, loader);
 
     let cwd = std::env::current_dir().map_err(|e| JSError::IO(IoError::new(e, None)))?;
-    let relative_path = pathdiff::diff_paths(grammar_path, &cwd)
-        .map(|p| p.to_string_lossy().to_string())
-        .ok_or(JSError::RelativePath)?;
+    let grammar_components = grammar_path.components().collect::<Vec<_>>();
+    let cwd_components = cwd.components().collect::<Vec<_>>();
+    let common_len = grammar_components
+        .iter()
+        .zip(&cwd_components)
+        .take_while(|(grammar, cwd)| grammar == cwd)
+        .count();
+
+    if common_len == 0 {
+        return Err(JSError::RelativePath);
+    }
+
+    let relative_path = iter::repeat_n(Component::ParentDir, cwd_components.len() - common_len)
+        .chain(grammar_components[common_len..].iter().copied())
+        .collect::<PathBuf>()
+        .to_string_lossy()
+        .to_string();
 
     context.with(|ctx| -> JSResult<String> {
         let globals = ctx.globals();
