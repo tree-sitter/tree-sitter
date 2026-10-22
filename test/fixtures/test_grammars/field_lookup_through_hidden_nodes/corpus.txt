@@ -147,6 +147,20 @@ let a @x = b;
     outer: (name)
     outer: (name)))
 
+========================================
+A hidden extra without a field inside it
+========================================
+
+let a #y = b;
+
+---
+
+(source_file
+  (binding
+    inner: (name)
+    (name)
+    outer: (name)))
+
 =====================================================
 Fields out of alphabetical order inside a hidden rule
 =====================================================
