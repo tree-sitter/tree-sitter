@@ -258,7 +258,8 @@ impl BitVec {
             // Need a larger arena region.
             let new_data = arena_alloc(other_words);
             if self_words > 0 {
-                // SAFETY: new_data points to other_words valid zeroed words; self_words <= capacity.
+                // SAFETY: new_data points to other_words valid zeroed words; self_words <=
+                // capacity.
                 let dst = unsafe { std::slice::from_raw_parts_mut(new_data, self_words) };
                 dst.copy_from_slice(self.as_slice());
             }

@@ -514,7 +514,8 @@ impl Bindings {
         ]
     }
 
-    /// construct Bindings from a language list. If a language isn't supported, its name will be put on the error part.
+    /// construct Bindings from a language list. If a language isn't supported, its name will be put
+    /// on the error part.
     pub fn with_enabled_languages<'a, I>(languages: I) -> Result<Self, &'a str>
     where
         I: Iterator<Item = &'a str>,
@@ -1549,7 +1550,8 @@ impl Loader {
     /// This ensures that wasi-sdk is available, downloading and extracting it if necessary,
     /// and returns the path to the `clang` executable.
     ///
-    /// If `TREE_SITTER_WASI_SDK_PATH` is set, it will use that path to look for the clang executable.
+    /// If `TREE_SITTER_WASI_SDK_PATH` is set, it will use that path to look for the clang
+    /// executable.
     fn ensure_wasi_sdk_exists() -> LoaderResult<PathBuf> {
         let possible_executables = if cfg!(windows) {
             vec![
@@ -1592,7 +1594,8 @@ impl Loader {
     /// This ensures that binaryen is available, downloading and extracting it if necessary,
     /// and returns the path to the `wasm-opt` executable.
     ///
-    /// If `TREE_SITTER_BINARYEN_PATH` is set, it will use that path to look for the wasm-opt executable.
+    /// If `TREE_SITTER_BINARYEN_PATH` is set, it will use that path to look for the wasm-opt
+    /// executable.
     fn ensure_binaryen_exists() -> LoaderResult<PathBuf> {
         let possible_executables = if cfg!(windows) {
             vec![

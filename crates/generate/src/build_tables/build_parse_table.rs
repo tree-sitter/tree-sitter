@@ -344,7 +344,8 @@ struct ParseTableBuilder<'a> {
     terminal_entries: IndexMap<Symbol, ParseTableEntry, BuildHasherDefault<FxHasher>>,
     /// Scratch for `add_actions`: The successor item sets of the state currently being built.
     successor_sets: SuccessorSets<'a>,
-    /// Scratch for `add_actions`: The reductions on each lookahead of the state currently being built.
+    /// Scratch for `add_actions`: The reductions on each lookahead of the state currently being
+    /// built.
     reduction_infos: ReductionInfos,
 }
 

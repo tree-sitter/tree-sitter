@@ -2,7 +2,6 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use serde_json::to_writer_pretty;
-
 use tree_sitter_cli::test::TestSummary;
 
 pub fn run_test_schema() -> Result<()> {

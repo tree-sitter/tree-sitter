@@ -4,9 +4,8 @@ use std::{
     mem,
 };
 
-use rustc_hash::{FxHashMap, FxHashSet, FxHasher};
-
 use log::debug;
+use rustc_hash::{FxHashMap, FxHashSet, FxHasher};
 
 use super::{SymbolIndexer, token_conflicts::TokenConflictMap};
 use crate::{

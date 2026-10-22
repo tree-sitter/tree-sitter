@@ -1,5 +1,9 @@
 use rustc_hash::FxHashMap;
 
+use super::{
+    nfa::Nfa,
+    rules::{Symbol, TokenSet},
+};
 use crate::{
     node_types::ChildType,
     rules::{
@@ -7,11 +11,6 @@ use crate::{
         RulePool, SymbolType, SymbolView, TerminalIndex,
     },
     strpool::StrId,
-};
-
-use super::{
-    nfa::Nfa,
-    rules::{Symbol, TokenSet},
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]

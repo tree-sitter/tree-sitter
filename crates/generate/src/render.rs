@@ -6,11 +6,8 @@ use std::{
 };
 
 use rustc_hash::{FxHashMap, FxHashSet};
-
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-
-use crate::tables::{ActionListId, ActionListPool};
 
 use super::{
     LANGUAGE_VERSION,
@@ -18,13 +15,13 @@ use super::{
     grammars::{LexicalGrammar, SyntaxGrammar, VariableType},
     nfa::CharacterSet,
     node_types::ChildType,
-    rules::Alias,
-    rules::{AliasMap, Symbol, SymbolType, SymbolView, TokenSet},
+    rules::{Alias, AliasMap, Symbol, SymbolType, SymbolView, TokenSet},
     strpool::{StrId, StrPool},
     tables::{
         AdvanceAction, FieldLocation, GotoAction, LexState, LexTable, ParseAction, ParseTable,
     },
 };
+use crate::tables::{ActionListId, ActionListPool};
 
 const SMALL_STATE_THRESHOLD: usize = 64;
 pub const ABI_VERSION_MIN: usize = 14;

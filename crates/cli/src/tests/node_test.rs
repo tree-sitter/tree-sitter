@@ -1040,13 +1040,10 @@ fn test_node_sexp() {
 
 #[test]
 fn test_node_field_names() {
-    // - "x":
-    //      This isn't used in the test, but prevents `_hidden_rule1` from being eliminated as a
-    //      unit reduction.
-    // - "_hidden_rule1":
-    //      Fields pointing to hidden nodes with a single child resolve to the child.
-    // - "_hidden_rule2":
-    //      Fields within hidden nodes can be referenced through the parent node.
+    // - "x": This isn't used in the test, but prevents `_hidden_rule1` from being eliminated as a
+    //   unit reduction.
+    // - "_hidden_rule1": Fields pointing to hidden nodes with a single child resolve to the child.
+    // - "_hidden_rule2": Fields within hidden nodes can be referenced through the parent node.
     let (parser_name, parser_code) = generate_parser(
         r#"
         {

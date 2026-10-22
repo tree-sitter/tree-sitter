@@ -29,9 +29,6 @@
 //! nothing and it compiles exactly what is would have with our fold in place of
 //! its own.
 
-use serde::{Deserialize, Serialize};
-use thiserror::Error;
-
 use regex_syntax::{
     ast::{
         self, Ast, ClassBracketed, ClassSet, ClassSetItem, ClassSetRange, ClassSetUnion, Flag,
@@ -42,6 +39,8 @@ use regex_syntax::{
         translate::{Translator, TranslatorBuilder},
     },
 };
+use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 /// The flags that decide whether we fold a scope's leaves.
 #[derive(Clone, Copy)]

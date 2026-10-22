@@ -1178,8 +1178,9 @@ pub fn position_for_offset(input: &[u8], offset: usize) -> Result<Point> {
 
 #[cfg(test)]
 mod tests {
-    use super::{offset_for_position, parse_edit_flag};
     use tree_sitter::Point;
+
+    use super::{offset_for_position, parse_edit_flag};
 
     #[test]
     fn offset_for_position_uses_zero_based_line_and_column_coordinates() {

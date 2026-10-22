@@ -473,12 +473,12 @@ struct Query {
     /// The range of rows in which the query will be executed
     #[arg(long)]
     pub row_range: Option<String>,
-    /// The range of byte offsets in which the query will be executed. Only the matches that are fully contained within the provided
-    /// byte range will be returned.
+    /// The range of byte offsets in which the query will be executed. Only the matches that are
+    /// fully contained within the provided byte range will be returned.
     #[arg(long)]
     pub containing_byte_range: Option<String>,
-    /// The range of rows in which the query will be executed. Only the matches that are fully contained within the provided row range
-    /// will be returned.
+    /// The range of rows in which the query will be executed. Only the matches that are fully
+    /// contained within the provided row range will be returned.
     #[arg(long)]
     pub containing_row_range: Option<String>,
     /// Select a language by the scope instead of a file extension

@@ -1,10 +1,9 @@
-use std::{fs, path::PathBuf, process::Command};
+use std::{cmp::Ordering, fs, path::PathBuf, process::Command};
 
 use clap::ValueEnum;
 use log::{info, warn};
 use regex::Regex;
 use semver::Version as SemverVersion;
-use std::cmp::Ordering;
 use tree_sitter_loader::TreeSitterJSON;
 
 #[derive(Clone, Copy, Default, ValueEnum)]

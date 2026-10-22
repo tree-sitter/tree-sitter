@@ -260,8 +260,8 @@ impl ZeroWidth {
                     // Each of these wraps a single child whose width is both already on the
                     // stack and exactly this (the wrapper) node's width:
                     //
-                    // - `Repeat` is one or more, so it matches zero width exactly when its
-                    //   content does. Zero or more comes in  as `Choice(Repeat, Blank)` from
+                    // - `Repeat` is one or more, so it matches zero width exactly when its content
+                    //   does. Zero or more comes in  as `Choice(Repeat, Blank)` from
                     //   `parse_grammar`, so that blank gives the nullable case instead of here.
                     // - `Metadata` carries wrapping data that doesn't change how much input is
                     //   matched. Its `token` forms are already replaced by terminals in

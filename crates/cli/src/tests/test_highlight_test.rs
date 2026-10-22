@@ -215,8 +215,10 @@ fn test_multiple_highlights_at_same_position() {
     ];
     let assertions = vec![Assertion::new(0, 5, 1, false, String::from("variable"))];
     let highlights = vec![
-        (Utf8Point::new(0, 0), Utf8Point::new(0, 10), Highlight(0)), // "keyword" spans entire range
-        (Utf8Point::new(0, 5), Utf8Point::new(0, 8), Highlight(1)), // "variable" at assertion position
+        (Utf8Point::new(0, 0), Utf8Point::new(0, 10), Highlight(0)), /* "keyword" spans entire
+                                                                      * range */
+        (Utf8Point::new(0, 5), Utf8Point::new(0, 8), Highlight(1)), /* "variable" at assertion
+                                                                     * position */
         (Utf8Point::new(0, 7), Utf8Point::new(0, 12), Highlight(2)), // "function" overlaps
     ];
     let result = iterate_assertions(&assertions, &highlights, &highlight_names);

@@ -17,6 +17,7 @@ mod tree_test;
 #[cfg(feature = "wasm")]
 mod wasm_language_test;
 
+pub use helpers::fixtures::get_language;
 use tree_sitter_generate::{GenerateResult, OptLevel};
 
 pub use crate::fuzz::{
@@ -24,8 +25,6 @@ pub use crate::fuzz::{
     edits::{get_random_edit, invert_edit},
     random::Rand,
 };
-
-pub use helpers::fixtures::get_language;
 
 /// This is a simple wrapper around [`tree_sitter_generate::generate_parser_for_grammar`], because
 /// our tests do not need to pass in a version number, only the grammar JSON.

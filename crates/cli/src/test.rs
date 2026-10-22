@@ -1674,9 +1674,8 @@ fn build_test_entry(
 mod tests {
     use serde_json::json;
 
-    use crate::tests::get_language;
-
     use super::*;
+    use crate::tests::get_language;
 
     #[test]
     fn test_parse_test_content_simple() {
