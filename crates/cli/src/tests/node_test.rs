@@ -502,6 +502,40 @@ fn test_node_child_by_field_name_through_hidden_nodes() {
 }
 
 #[test]
+fn test_node_field_name_for_child_through_hidden_extras() {
+    let mut parser = Parser::new();
+    let language = get_test_fixture_language("field_lookup_through_hidden_nodes");
+    parser.set_language(&language).unwrap();
+
+    // The tree cursor gives the nodes inside a hidden extra only the fields set
+    // inside it, not the field of the child before it or of a rule around it.
+    // An empty string stands for no field.
+    for (source, fields, named_fields) in [
+        (
+            "let a @x = b;",
+            ["", "inner", "", "outer", "outer", "outer", ""],
+            ["inner", "outer", "outer"],
+        ),
+        (
+            "let a #y = b;",
+            ["", "inner", "", "", "outer", "outer", ""],
+            ["inner", "", "outer"],
+        ),
+    ] {
+        let tree = parser.parse(source, None).unwrap();
+        let binding = tree.root_node().named_child(0).unwrap();
+        let actual = (0..binding.child_count())
+            .map(|i| binding.field_name_for_child(i).unwrap_or(""))
+            .collect::<Vec<_>>();
+        assert_eq!(actual, fields, "`{source}`");
+        let actual = (0..binding.named_child_count() as u32)
+            .map(|i| binding.field_name_for_named_child(i).unwrap_or(""))
+            .collect::<Vec<_>>();
+        assert_eq!(actual, named_fields, "named children of `{source}`");
+    }
+}
+
+#[test]
 fn test_node_named_child() {
     let tree = parse_json_example();
     let array_node = tree.root_node().child(0).unwrap();

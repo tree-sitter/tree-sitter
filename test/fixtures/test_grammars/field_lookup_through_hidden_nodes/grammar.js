@@ -7,7 +7,7 @@ export default grammar({
 
   supertypes: $ => [$.item],
 
-  extras: $ => [/\s/, $.comment, $._note],
+  extras: $ => [/\s/, $.comment, $._note, $._tag],
 
   rules: {
     source_file: $ => repeat(choice(
@@ -81,5 +81,10 @@ export default grammar({
     // A hidden extra that sets a field inside itself: in `let a @x = b;` the
     // name after `@` is `outer`, and comes before the `=`.
     _note: $ => seq('@', field('outer', $.name)),
+
+    // A hidden extra without a field inside it: in `let a #y = b;` the name
+    // after `#` has no field, neither the `inner` of the name before it nor the
+    // `outer` of the `_binding` around it.
+    _tag: $ => seq('#', $.name),
   },
 });

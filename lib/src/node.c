@@ -1008,8 +1008,14 @@ const char *ts_node_field_name_for_child(TSNode self, uint32_t child_index) {
         uint32_t grandchild_index = child_index - index;
         uint32_t grandchild_count = ts_node__relevant_child_count(child, true);
         if (grandchild_index < grandchild_count) {
-          const char *field_name = ts_node__field_name_from_language(result, iterator.structural_child_index - 1);
-          if (field_name) inherited_field_name = field_name;
+          // An extra takes no structural index, and the cursor gives the nodes
+          // inside one no field from outside it.
+          if (ts_node_is_extra(child)) {
+            inherited_field_name = NULL;
+          } else {
+            const char *field_name = ts_node__field_name_from_language(result, iterator.structural_child_index - 1);
+            if (field_name) inherited_field_name = field_name;
+          }
 
           did_descend = true;
           result = child;
@@ -1050,8 +1056,14 @@ const char *ts_node_field_name_for_named_child(TSNode self, uint32_t named_child
         uint32_t named_grandchild_index = named_child_index - index;
         uint32_t grandchild_count = ts_node__relevant_child_count(child, false);
         if (named_grandchild_index < grandchild_count) {
-          const char *field_name = ts_node__field_name_from_language(result, iterator.structural_child_index - 1);
-          if (field_name) inherited_field_name = field_name;
+          // An extra takes no structural index, and the cursor gives the nodes
+          // inside one no field from outside it.
+          if (ts_node_is_extra(child)) {
+            inherited_field_name = NULL;
+          } else {
+            const char *field_name = ts_node__field_name_from_language(result, iterator.structural_child_index - 1);
+            if (field_name) inherited_field_name = field_name;
+          }
 
           did_descend = true;
           result = child;
