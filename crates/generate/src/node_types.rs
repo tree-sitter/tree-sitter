@@ -3,19 +3,17 @@ use std::collections::{BTreeMap, BTreeSet};
 use rustc_hash::FxHashMap;
 #[cfg(feature = "load")]
 use rustc_hash::FxHashSet;
-
 #[cfg(feature = "load")]
 use serde::ser::{SerializeMap, SerializeSeq, SerializeStruct};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-
-use crate::{grammars::InlinedProductionMap, strpool::StrPool};
 
 use super::{
     grammars::{LexicalGrammar, SyntaxGrammar, VariableType},
     rules::{Alias, AliasMap, Symbol, SymbolView},
     strpool::StrId,
 };
+use crate::{grammars::InlinedProductionMap, strpool::StrPool};
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum ChildType {
@@ -314,16 +312,17 @@ fn compute_variable_info_fixed_point(
                         let child_is_hidden = !child_type_is_visible(&child_type)
                             && !syntax_grammar.supertype_symbols.contains(&child_symbol);
 
-                        // Maintain the set of all child types for this variable, and the quantity of
-                        // visible children in this production.
+                        // Maintain the set of all child types for this variable, and the quantity
+                        // of visible children in this production.
                         did_change |=
                             extend_sorted(&mut variable_info.children.types, Some(&child_type));
                         if !child_is_hidden {
                             production_children_quantity.append(ChildQuantity::one());
                         }
 
-                        // Maintain the set of child types associated with each field, and the quantity
-                        // of children associated with each field in this production.
+                        // Maintain the set of child types associated with each field, and the
+                        // quantity of children associated with each field
+                        // in this production.
                         if let Some(field_name) = step.field() {
                             let field_info = variable_info.fields.entry(field_name).or_default();
                             did_change |= extend_sorted(&mut field_info.types, Some(&child_type));

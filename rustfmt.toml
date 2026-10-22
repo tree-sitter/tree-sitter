@@ -1,0 +1,6 @@
+comment_width = 100
+format_code_in_doc_comments = true
+format_macro_matchers = true
+group_imports = "StdExternalCrate"
+imports_granularity = "Crate"
+wrap_comments = true

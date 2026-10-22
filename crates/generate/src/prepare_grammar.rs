@@ -30,14 +30,6 @@ use rustc_hash::{FxHashMap, FxHashSet};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::{
-    bitvec::BitVec,
-    grammars::{InputGrammar, PrecedenceEntry, ProductionStore, VariableType},
-    nfa::NfaState,
-    rules::{Symbol, SymbolView},
-    strpool::StrPool,
-};
-
 use self::{
     expand_repeats::expand_repeats, extract_default_aliases::extract_default_aliases,
     extract_tokens::extract_tokens, flatten_grammar::flatten_grammar,
@@ -49,6 +41,13 @@ use super::{
     prepare_grammar::flatten_grammar::{FlattenState, assemble_syntax_grammar},
     rules::{AliasMap, Precedence, Rule, RuleId},
     strpool::StrId,
+};
+use crate::{
+    bitvec::BitVec,
+    grammars::{InputGrammar, PrecedenceEntry, ProductionStore, VariableType},
+    nfa::NfaState,
+    rules::{Symbol, SymbolView},
+    strpool::StrPool,
 };
 
 pub type PrepareGrammarResult<T> = Result<T, PrepareGrammarError>;

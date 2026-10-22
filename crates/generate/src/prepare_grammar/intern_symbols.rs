@@ -199,7 +199,8 @@ fn intern_root(
             Rule::Seq(range) | Rule::Choice(range) => {
                 let children = pool.child_slice(range);
                 // In the case of a seq or choice rule of 1 element in a hidden rule, weird
-                // inconsistent behavior with queries can occur. So we should warn the user about it.
+                // inconsistent behavior with queries can occur. So we should warn the user about
+                // it.
                 if children.len() == 1
                     && matches!(pool.node(children[0]), Rule::String(_) | Rule::Pattern(..))
                 {
@@ -234,9 +235,8 @@ fn variable_type_for_name(name: &str) -> VariableType {
 
 #[cfg(test)]
 mod tests {
-    use crate::grammars::Variable;
-
     use super::*;
+    use crate::grammars::Variable;
 
     #[test]
     fn test_basic_interning() {

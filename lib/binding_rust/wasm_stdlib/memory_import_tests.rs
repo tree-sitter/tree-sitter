@@ -1,5 +1,6 @@
-use super::*;
 use wasmparser::{Validator, WasmFeatures};
+
+use super::*;
 
 const HEADER: &[u8] = b"\0asm\x01\0\0\0";
 

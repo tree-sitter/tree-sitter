@@ -1,5 +1,6 @@
-use super::*;
 use wasm_bindgen_test::wasm_bindgen_test;
+
+use super::*;
 
 const RUBY_GRAMMAR: &[u8] = include_bytes!(concat!(
     env!("CARGO_MANIFEST_DIR"),

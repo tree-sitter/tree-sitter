@@ -1,8 +1,7 @@
 use std::cmp::Ordering;
 
-use rustc_hash::FxHashSet;
-
 use bitflags::bitflags;
+use rustc_hash::FxHashSet;
 
 use crate::{
     build_tables::item::TokenSetDisplay,
@@ -36,9 +35,11 @@ pub struct TokenConflictMap {
     following_chars_by_index: Vec<CharacterSet>,
     /// Per-row bitsets for fast batch conflict checks.
     /// Row `i` spans `[i * row_words .. (i+1) * row_words]`.
-    /// Bit `j` is set iff [`does_conflict(i, j)`](Self::does_conflict) || [`does_match_prefix(i, j)`](Self::does_match_prefix).
+    /// Bit `j` is set iff [`does_conflict(i, j)`](Self::does_conflict) || [`does_match_prefix(i,
+    /// j)`](Self::does_match_prefix).
     pub(crate) conflict_or_prefix_bits: Vec<u64>,
-    /// Bit `j` is set iff [`does_overlap(i, j)`](Self::does_overlap) || [`does_overlap(j, i)`](Self::does_overlap).
+    /// Bit `j` is set iff [`does_overlap(i, j)`](Self::does_overlap) || [`does_overlap(j,
+    /// i)`](Self::does_overlap).
     pub(crate) overlap_either_bits: Vec<u64>,
     pub(crate) row_words: usize,
 }

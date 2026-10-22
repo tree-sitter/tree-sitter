@@ -1,5 +1,4 @@
 use rustc_hash::FxHashMap;
-
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -137,8 +136,8 @@ impl TokenExtractor {
     /// Token extraction over one root. Records each terminal rewrite so that all
     /// roots are inspected before any shared pool node is mutated.
     ///  - `String`/`Pattern`: always extracted
-    ///  - `token(...)`: metadata extracts the inner child when no other metadata
-    ///    params are set, otherwise the whole metadata node
+    ///  - `token(...)`: metadata extracts the inner child when no other metadata params are set,
+    ///    otherwise the whole metadata node
     fn extract_in_root(
         &mut self,
         pool: &mut RulePool,
@@ -588,12 +587,11 @@ fn renumber_root(
 
 #[cfg(test)]
 mod test {
+    use super::*;
     use crate::{
         grammars::Variable,
         prepare_grammar::{extract_tokens, intern_symbols},
     };
-
-    use super::*;
 
     #[test]
     fn test_extraction() {
@@ -667,7 +665,8 @@ mod test {
         assert_eq!(names, ["rule_0", "rule_2", "rule_3"]);
         assert_eq!(ext.kinds, [VariableType::Named; 3]);
 
-        // rule_0: repeat(seq(terminal(0), terminal(1), choice(terminal(3), non_terminal(2), terminal(2))))
+        // rule_0: repeat(seq(terminal(0), terminal(1), choice(terminal(3), non_terminal(2),
+        // terminal(2))))
         //  - Its leaves became terminals: "a"->t0, "b"->t1, token(...)->t2.
         //  - Its symbol refs changed: rule_1 was absorbed into the lexer (now t3),
         //  rule_2's index dropped to 1 because rule_1 was removed.

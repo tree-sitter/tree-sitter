@@ -443,7 +443,8 @@ pub fn ensure_wasi_sdk_exists() -> Result<PathBuf> {
 /// This ensures that binaryen is available, downloading and extracting it if necessary,
 /// and returns the path to the `wasm-opt` executable.
 ///
-/// If `TREE_SITTER_BINARYEN_PATH` is set, it will use that path to look for the wasm-opt executable.
+/// If `TREE_SITTER_BINARYEN_PATH` is set, it will use that path to look for the wasm-opt
+/// executable.
 ///
 /// Note that this is just a minimally modified version of
 /// `tree_sitter_loader::ensure_binaryen_exists`. In the loader, this functionality is implemented

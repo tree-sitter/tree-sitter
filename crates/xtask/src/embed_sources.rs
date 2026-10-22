@@ -1,6 +1,6 @@
+use std::{fs, path::Path};
+
 use anyhow::Result;
-use std::fs;
-use std::path::Path;
 
 /// Restores sourcesContent if it was stripped by Binaryen.
 ///
@@ -8,8 +8,8 @@ use std::path::Path;
 /// optimization levels strip the `sourcesContent` field from source maps,
 /// even when the source map was generated with `--sources` flag.
 ///
-/// This is fixed upstream in Binaryen as of Apr 9, 2025, but there hasn't been a release with the fix yet.
-/// See: <https://github.com/WebAssembly/binaryen/issues/6805>
+/// This is fixed upstream in Binaryen as of Apr 9, 2025, but there hasn't been a release with the
+/// fix yet. See: <https://github.com/WebAssembly/binaryen/issues/6805>
 ///
 /// This reads the original source files and embeds them in the
 /// source map's `sourcesContent` field, making debugging possible even

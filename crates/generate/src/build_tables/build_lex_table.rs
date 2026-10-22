@@ -3,9 +3,8 @@ use std::{
     mem,
 };
 
-use rustc_hash::FxHashMap;
-
 use log::debug;
+use rustc_hash::FxHashMap;
 
 use super::{coincident_tokens::CoincidentTokenIndex, token_conflicts::TokenConflictMap};
 use crate::{

@@ -1,6 +1,8 @@
-use crate::{EMSCRIPTEN_VERSION, bail_on_err, root_dir};
-use anyhow::Result;
 use std::{fs, path::Path, process::Command};
+
+use anyhow::Result;
+
+use crate::{EMSCRIPTEN_VERSION, bail_on_err, root_dir};
 
 enum FixtureRef<'a> {
     Tag(&'a str),

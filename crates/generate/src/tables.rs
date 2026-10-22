@@ -2,8 +2,7 @@ use std::collections::BTreeMap;
 
 use super::{
     nfa::CharacterSet,
-    rules::Alias,
-    rules::{Symbol, TokenSet},
+    rules::{Alias, Symbol, TokenSet},
     strpool::StrId,
 };
 
