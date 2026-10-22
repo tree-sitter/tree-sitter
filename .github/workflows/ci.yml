@@ -27,8 +27,17 @@ jobs:
           toolchain: stable
           components: clippy, rustfmt
 
+      - name: Set up pinned nightly Rust toolchain
+        run: rustup toolchain install nightly-2026-09-03 --profile minimal --component rustfmt,clippy
+
       - name: Lint Rust files
         run: make lint
+
+      - name: Check formatting with nightly rustfmt
+        run: cargo +nightly-2026-09-03 fmt --all --check
+
+      - name: Lint Rust files with nightly clippy
+        run: cargo +nightly-2026-09-03 clippy --workspace --all-targets -- -D warnings
 
       - name: Install Taplo
         uses: taiki-e/install-action@v2
