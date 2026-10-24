@@ -287,7 +287,7 @@ TSSymbol ts_language_symbol_for_name(
     TSSymbolMetadata metadata = ts_language_symbol_metadata(self, i);
     if ((!metadata.visible && !metadata.supertype) || metadata.named != is_named) continue;
     const char *symbol_name = self->symbol_names[i];
-    if (!strncmp(symbol_name, string, length) && !symbol_name[length]) {
+    if (!strncmp(symbol_name, string, length) && strlen(symbol_name) == length) {
       return self->public_symbol_map[i];
     }
   }
