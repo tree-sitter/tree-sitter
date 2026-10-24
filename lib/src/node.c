@@ -329,7 +329,7 @@ static inline TSNode ts_node__first_child_for_byte(
         if (ts_node__is_relevant(child, include_anonymous)) {
           return child;
         } else if (ts_node_child_count(child) > 0) {
-          if (iterator.child_index < ts_subtree_child_count(ts_node__subtree(child))) {
+          if (!ts_node_child_iterator_done(&iterator)) {
             last_iterator = iterator;
             has_last_iterator = true;
           }
