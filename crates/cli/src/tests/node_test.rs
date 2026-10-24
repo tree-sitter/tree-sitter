@@ -371,6 +371,20 @@ fn test_first_named_child_for_offset() {
 }
 
 #[test]
+fn test_first_named_child_for_offset_after_anonymous_children() {
+    let mut parser = Parser::new();
+    parser.set_language(&get_language("c")).unwrap();
+    let tree = parser.parse("for (;;);", None).unwrap();
+    assert!(!tree.root_node().has_error());
+
+    let for_node = tree.root_node().named_child(0).unwrap();
+    assert_eq!(for_node.kind(), "for_statement");
+    let body_node = for_node.child_by_field_name("body").unwrap();
+    assert_eq!(body_node.kind(), "expression_statement");
+    assert_eq!(for_node.first_named_child_for_byte(0), Some(body_node));
+}
+
+#[test]
 fn test_node_field_name_for_child() {
     let mut parser = Parser::new();
     parser.set_language(&get_language("c")).unwrap();
