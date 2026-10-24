@@ -475,6 +475,26 @@ fn test_tree_cursor_previous_sibling_with_many_comments() {
 }
 
 #[test]
+fn test_tree_cursor_previous_sibling_descendant_index() {
+    let mut parser = Parser::new();
+    parser.set_language(&get_language("json")).unwrap();
+    let tree = parser.parse("[1,2]", None).unwrap();
+
+    let mut cursor = tree.walk();
+    assert!(cursor.goto_first_child());
+    assert_eq!(cursor.node().kind(), "array");
+
+    assert!(cursor.goto_last_child());
+    assert_eq!(cursor.node().kind(), "]");
+    for expected in [5, 4, 3, 2] {
+        assert!(cursor.goto_previous_sibling());
+        assert_eq!(cursor.descendant_index(), expected);
+    }
+    assert!(!cursor.goto_previous_sibling());
+    assert_eq!(cursor.node().kind(), "[");
+}
+
+#[test]
 fn test_tree_cursor_fields() {
     let mut parser = Parser::new();
     parser.set_language(&get_language("javascript")).unwrap();
