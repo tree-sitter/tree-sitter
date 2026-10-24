@@ -722,9 +722,77 @@ static TSNode ts_node_child_with_empty_descendant_bounded(
   return self;
 }
 
+static TSNode ts_node_child_with_same_range_descendant(
+  TSNode self,
+  TSNode descendant
+) {
+  typedef struct {
+    TSNode child;
+    NodeChildIterator iterator;
+  } DescendantSearchFrame;
+
+  Array(DescendantSearchFrame) stack = array_new();
+  NodeChildIterator iterator = ts_node_iterate_children(&self);
+  TSNode result = ts_node__null();
+
+  for (;;) {
+    TSNode child;
+
+    if (!ts_node_child_iterator_next(&iterator, &child)) {
+      if (!stack.size) break;
+
+      DescendantSearchFrame frame = array_pop(&stack);
+      iterator = frame.iterator;
+      continue;
+    }
+
+    if (ts_node_eq(child, descendant)) {
+      result = child;
+
+      // Return the outermost visible node on the path. Hidden wrappers
+      // should not become the result when a visible descendant exists.
+      while (stack.size) {
+        DescendantSearchFrame frame = array_pop(&stack);
+        if (ts_node__is_relevant(frame.child, true)) {
+          result = frame.child;
+        }
+      }
+      break;
+    }
+
+    // A node containing a same-range descendant must itself have the same
+    // range. Descend only through those nodes.
+    if (
+      ts_node_start_byte(child) == ts_node_start_byte(self) &&
+      ts_node_end_byte(child) == ts_node_end_byte(self) &&
+      ts_node_child_count(child) > 0
+    ) {
+      array_push(&stack, ((DescendantSearchFrame) {
+        .child = child,
+        .iterator = iterator,
+      }));
+      iterator = ts_node_iterate_children(&child);
+    }
+  }
+
+  array_delete(&stack);
+  return result;
+}
+
 TSNode ts_node_child_with_descendant(TSNode self, TSNode descendant) {
+  if (ts_node_eq(self, descendant)) {
+    return ts_node__null();
+  }
   uint32_t start_byte = ts_node_start_byte(descendant);
   uint32_t end_byte = ts_node_end_byte(descendant);
+
+  if (
+    start_byte == ts_node_start_byte(self) &&
+    end_byte == ts_node_end_byte(self)
+  ) {
+    return ts_node_child_with_same_range_descendant(self, descendant);
+  }
+
   if (start_byte == end_byte) {
     bool too_deep = false;
     TSNode child = ts_node_child_with_empty_descendant_bounded(

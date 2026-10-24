@@ -222,6 +222,35 @@ fn test_node_children() {
 }
 
 #[test]
+fn test_node_child_with_descendant_same_range() {
+    let mut parser = Parser::new();
+    parser.set_language(&get_language("javascript")).unwrap();
+
+    let tree = parser.parse("(a)", None).unwrap();
+    let root = tree.root_node();
+    let statement = root.child(0).unwrap();
+    let parenthesized = statement.child(0).unwrap();
+
+    assert_eq!(root.kind(), "program");
+    assert_eq!(statement.kind(), "expression_statement");
+    assert_eq!(parenthesized.kind(), "parenthesized_expression");
+    assert_eq!(root.byte_range(), statement.byte_range());
+    assert_eq!(statement.byte_range(), parenthesized.byte_range());
+
+    assert_eq!(root.child_with_descendant(root), None);
+    assert_eq!(statement.child_with_descendant(statement), None);
+
+    assert_eq!(root.child_with_descendant(statement), Some(statement));
+    assert_eq!(root.child_with_descendant(parenthesized), Some(statement));
+    assert_eq!(
+        statement.child_with_descendant(parenthesized),
+        Some(parenthesized)
+    );
+
+    assert_eq!(statement.child_with_descendant(root), None);
+}
+
+#[test]
 fn test_node_children_by_field_name() {
     let mut parser = Parser::new();
     parser.set_language(&get_language("python")).unwrap();
