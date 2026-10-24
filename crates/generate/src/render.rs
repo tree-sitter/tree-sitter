@@ -24,6 +24,8 @@ use super::{
 use crate::tables::{ActionListId, ActionListPool};
 
 const SMALL_STATE_THRESHOLD: usize = 64;
+/// The two highest symbol IDs are reserved for `ERROR` and `_ERROR`.
+const MAX_SYMBOL_COUNT: usize = u16::MAX as usize - 1;
 pub const ABI_VERSION_MIN: usize = 14;
 pub const ABI_VERSION_MAX: usize = LANGUAGE_VERSION;
 const ABI_VERSION_WITH_RESERVED_WORDS: usize = 15;
@@ -34,6 +36,8 @@ pub type RenderResult<T> = Result<T, RenderError>;
 pub enum RenderError {
     #[error("Parse table action count {0} exceeds maximum value of {max}", max=u16::MAX)]
     ParseTable(usize),
+    #[error("Symbol count {0} exceeds maximum value of {MAX_SYMBOL_COUNT}")]
+    SymbolCount(usize),
     #[error(
         "This version of Tree-sitter can only generate parsers with ABI version {ABI_VERSION_MIN} - {ABI_VERSION_MAX}, not {0}"
     )]
@@ -120,7 +124,7 @@ struct Metadata {
 
 impl Generator {
     fn generate(mut self) -> RenderResult<String> {
-        self.init();
+        self.init()?;
         self.add_header();
         self.add_includes();
         self.add_pragmas();
@@ -189,7 +193,7 @@ impl Generator {
         Ok(self.buffer)
     }
 
-    fn init(&mut self) {
+    fn init(&mut self) -> RenderResult<()> {
         let mut symbol_identifiers = FxHashSet::default();
         for i in 0..self.parse_table.symbols.len() {
             self.assign_symbol_id(self.parse_table.symbols[i], &mut symbol_identifiers);
@@ -287,6 +291,11 @@ impl Generator {
             }
         }
 
+        let symbol_count = self.parse_table.symbols.len() + self.unique_aliases.len();
+        if symbol_count > MAX_SYMBOL_COUNT {
+            Err(RenderError::SymbolCount(symbol_count))?;
+        }
+
         for (ix, (symbol, _)) in self.large_character_sets.iter().enumerate() {
             let count = self.large_character_sets[0..ix]
                 .iter()
@@ -344,6 +353,8 @@ impl Generator {
                 *i <= 1 || s.terminal_entries.len() + s.nonterminal_entries.len() > threshold
             })
             .count();
+
+        Ok(())
     }
 
     fn add_header(&mut self) {
