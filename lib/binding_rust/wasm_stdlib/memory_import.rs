@@ -4,7 +4,7 @@ use wasmparser::{BinaryReader, Imports, Parser, Payload, TypeRef};
 
 /// Why an imported memory cannot be used with the loader's shared host memory.
 #[derive(Debug)]
-pub(crate) enum MemoryImportError {
+pub enum MemoryImportError {
     InvalidWasm(wasmparser::BinaryReaderError),
     MissingMemory,
     DuplicateMemory,
@@ -44,7 +44,7 @@ impl From<wasmparser::BinaryReaderError> for MemoryImportError {
 /// Other sections, including custom sections, retain their exact original bytes.
 /// `host_max_pages` is `None` only for an unshared host without a declared
 /// maximum. The caller must also supply memory with a sufficient minimum.
-pub(crate) fn with_compatible_memory_import(
+pub fn with_compatible_memory_import(
     bytes: &[u8],
     host_max_pages: Option<u32>,
     host_shared: bool,
@@ -117,7 +117,7 @@ pub(crate) fn with_compatible_memory_import(
     }
     let flags_offset = reader.original_position();
     let flags = reader.read_u8()?;
-    if flags != if memory_type.maximum.is_some() { 1 } else { 0 } {
+    if flags != u8::from(memory_type.maximum.is_some()) {
         return Err(MemoryImportError::UnsupportedMemory);
     }
     reader.read_var_u32()?;
@@ -167,10 +167,9 @@ fn section_header_start(
         if let Ok(size) = reader.read_var_u32()
             && reader.original_position() == content.start
             && usize::try_from(size).ok() == Some(content.len())
+            && found.replace(header_start).is_some()
         {
-            if found.replace(header_start).is_some() {
-                return Err(MemoryImportError::UnsupportedMemory);
-            }
+            return Err(MemoryImportError::UnsupportedMemory);
         }
     }
     found.ok_or(MemoryImportError::UnsupportedMemory)
