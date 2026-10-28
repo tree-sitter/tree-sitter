@@ -112,6 +112,8 @@ uninstall:
 
 ##### Dev targets #####
 
+RUSTFMT_TOOLCHAIN ?= nightly
+
 test:
 	cargo xtask fetch-fixtures
 	cargo xtask generate-fixtures
@@ -123,7 +125,7 @@ test-wasm:
 
 lint:
 	cargo update --workspace --locked --quiet
-	cargo fmt --all --check
+	cargo +$(RUSTFMT_TOOLCHAIN) fmt --all --check
 	cargo clippy --workspace --all-targets -- -D warnings
 
 lint-web:
@@ -135,7 +137,7 @@ lint-toml:
 	taplo format --check --diff
 
 format:
-	cargo fmt --all
+	cargo +$(RUSTFMT_TOOLCHAIN) fmt --all
 	taplo format
 
 changelog:

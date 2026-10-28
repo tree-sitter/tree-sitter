@@ -31,7 +31,7 @@ jobs:
         run: rustup toolchain install nightly-2026-09-03 --profile minimal --component rustfmt,clippy
 
       - name: Lint Rust files
-        run: make lint
+        run: make lint RUSTFMT_TOOLCHAIN=nightly-2026-09-03
 
       - name: Check formatting with nightly rustfmt
         run: cargo +nightly-2026-09-03 fmt --all --check
