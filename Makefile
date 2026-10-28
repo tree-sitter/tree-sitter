@@ -126,7 +126,7 @@ test-wasm:
 lint:
 	cargo update --workspace --locked --quiet
 	cargo +$(RUSTFMT_TOOLCHAIN) fmt --all --check
-	cargo clippy --workspace --all-targets -- -D warnings
+	cargo clippy --workspace --all-targets --all-features -- -D warnings
 
 lint-web:
 	npm --prefix lib/binding_web ci
