@@ -58,7 +58,7 @@ default-features = false
 features = [ "cranelift", "gc", "gc-null" ]
 optional = true
 package = "wasmtime-c-api-impl"
-version = "48.0.7"
+version = "48.0.8"
 
 [target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
 js-sys = { optional = true, version = "0.3" }
