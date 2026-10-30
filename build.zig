@@ -131,7 +131,7 @@ pub fn wasmtimeDep(target: std.Target) []const u8 {
 fn findSourceFiles(b: *std.Build, io: std.Io) ![]const []const u8 {
     var sources: std.ArrayListUnmanaged([]const u8) = .empty;
 
-    var dir = try b.build_root.handle.openDir(io, "lib/src", .{ .iterate = true });
+    var dir = try b.root.openDir(io, "lib/src", .{ .iterate = true });
     var iter = dir.iterate();
     defer dir.close(io);
 
