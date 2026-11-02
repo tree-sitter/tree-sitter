@@ -1,8 +1,7 @@
 use std::{
     future::Future,
-    pin::Pin,
-    ptr,
-    task::{Context, Poll, RawWaker, RawWakerVTable, Waker},
+    pin::{Pin, pin},
+    task::{Context, Poll, Waker},
 };
 
 use tree_sitter::Parser;
@@ -99,10 +98,9 @@ fn simple_async_executor<F>(future: F) -> (F::Output, u32)
 where
     F: Future,
 {
-    let waker = noop_waker();
-    let mut cx = Context::from_waker(&waker);
+    let mut cx = Context::from_waker(Waker::noop());
     let mut yields = 0;
-    let mut future = Box::pin(future);
+    let mut future = pin!(future);
 
     loop {
         match future.as_mut().poll(&mut cx) {
@@ -132,19 +130,4 @@ async fn yield_once() {
     }
 
     YieldOnce { yielded: false }.await;
-}
-
-const fn noop_waker() -> Waker {
-    const VTABLE: RawWakerVTable = RawWakerVTable::new(
-        // Cloning just returns a new no-op raw waker
-        |_| RAW,
-        // `wake` does nothing
-        |_| {},
-        // `wake_by_ref` does nothing
-        |_| {},
-        // Dropping does nothing as we don't allocate anything
-        |_| {},
-    );
-    const RAW: RawWaker = RawWaker::new(ptr::null(), &VTABLE);
-    unsafe { Waker::from_raw(RAW) }
 }
