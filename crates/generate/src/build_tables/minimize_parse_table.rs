@@ -94,6 +94,10 @@ pub fn minimize_parse_table(
         lexical_grammar,
         token_conflict_map,
         keywords,
+        has_reserved_words: syntax_grammar
+            .reserved_word_sets
+            .iter()
+            .any(|set| !set.is_empty()),
         simple_aliases,
         str_pool,
     };
@@ -140,6 +144,7 @@ struct Minimizer<'a> {
     lexical_grammar: &'a LexicalGrammar,
     token_conflict_map: &'a TokenConflictMap,
     keywords: &'a TokenSet,
+    has_reserved_words: bool,
     simple_aliases: &'a AliasMap,
     str_pool: &'a StrPool,
 }
@@ -461,6 +466,36 @@ impl Minimizer<'_> {
             .remap_terminal_references(|state_id| group_ids_by_state_id[state_id as usize]);
     }
 
+    /// Whether merging would newly reserve a word that one state accepts as an identifier.
+    fn reserved_words_conflict(&self, state1: &ParseState, state2: &ParseState) -> bool {
+        let Some(word_token) = self.syntax_grammar.word_token else {
+            return false;
+        };
+        if state1.reserved_words == state2.reserved_words {
+            return false;
+        }
+
+        let introduces_reserved_word = |state: &ParseState, other: &ParseState| {
+            for token in other.reserved_words.iter() {
+                if !state.reserved_words.contains(token)
+                    && !state.terminal_entries.contains_key(&token)
+                    && !other.terminal_entries.contains_key(&token)
+                {
+                    return true;
+                }
+            }
+            false
+        };
+
+        let accepts_word1 = state1.terminal_entries.contains_key(&word_token);
+        if accepts_word1 && introduces_reserved_word(state1, state2) {
+            return true;
+        }
+
+        let accepts_word2 = state2.terminal_entries.contains_key(&word_token);
+        accepts_word2 && introduces_reserved_word(state2, state1)
+    }
+
     fn states_conflict(
         &self,
         state1: &ParseState,
@@ -469,6 +504,14 @@ impl Minimizer<'_> {
         entry_maps: &[Vec<(SymbolKey, ActionListId)>],
         bits: &ConflictBits,
     ) -> bool {
+        if self.has_reserved_words && self.reserved_words_conflict(state1, state2) {
+            debug!(
+                "split states {} {} - incompatible reserved words",
+                state1.id, state2.id,
+            );
+            return true;
+        }
+
         let entries1 = &entry_maps[state1.id as usize];
         let entries2 = &entry_maps[state2.id as usize];
         let len1 = entries1.len();
