@@ -112,6 +112,10 @@ pub fn minimize_parse_table(
         indexer: SymbolIndexer::new(syntax_grammar, lexical_grammar),
         token_conflict_map,
         keywords,
+        has_reserved_words: syntax_grammar
+            .reserved_word_sets
+            .iter()
+            .any(|set| !set.is_empty()),
         simple_aliases,
         str_pool,
     };
@@ -544,6 +548,16 @@ impl SplitCriterion<ParseState> for ConflictPass<'_, '_> {
         kept: &[u32],
         group_ids_by_state_id: &[ParseStateId],
     ) -> bool {
+        if self.minimizer.has_reserved_words
+            && self.minimizer.syntax_grammar.word_token.is_some()
+            && kept.iter().any(|&id| {
+                self.minimizer
+                    .reserved_words_conflict(state, &self.minimizer.parse_table.states[id as usize])
+            })
+        {
+            return false;
+        }
+
         self.kept
             .merge(kept, &self.minimizer.parse_table.states, &self.entry_maps);
         // The check reads the rest of `self` while it updates the scratch.
@@ -694,6 +708,7 @@ struct Minimizer<'a> {
     indexer: SymbolIndexer,
     token_conflict_map: &'a TokenConflictMap,
     keywords: &'a TokenSet,
+    has_reserved_words: bool,
     simple_aliases: &'a AliasMap,
     str_pool: &'a StrPool,
 }
@@ -945,6 +960,36 @@ impl Minimizer<'_> {
             .remap_terminal_references(|state_id| group_ids_by_state_id[state_id as usize]);
     }
 
+    /// Whether merging would newly reserve a word that one state accepts as an identifier.
+    fn reserved_words_conflict(&self, state1: &ParseState, state2: &ParseState) -> bool {
+        let Some(word_token) = self.syntax_grammar.word_token else {
+            return false;
+        };
+        if state1.reserved_words == state2.reserved_words {
+            return false;
+        }
+
+        let introduces_reserved_word = |state: &ParseState, other: &ParseState| {
+            for token in other.reserved_words.iter() {
+                if !state.reserved_words.contains(token)
+                    && !state.terminal_entries.contains_key(token)
+                    && !other.terminal_entries.contains_key(token)
+                {
+                    return true;
+                }
+            }
+            false
+        };
+
+        let accepts_word1 = state1.terminal_entries.contains_key(word_token);
+        if accepts_word1 && introduces_reserved_word(state1, state2) {
+            return true;
+        }
+
+        let accepts_word2 = state2.terminal_entries.contains_key(word_token);
+        accepts_word2 && introduces_reserved_word(state2, state1)
+    }
+
     fn states_conflict(
         &self,
         state1: &ParseState,
@@ -953,6 +998,14 @@ impl Minimizer<'_> {
         entry_maps: &StateLists<(SymbolKey, ActionListId)>,
         bits: &ConflictBits,
     ) -> bool {
+        if self.has_reserved_words && self.reserved_words_conflict(state1, state2) {
+            debug!(
+                "split states {} {} - incompatible reserved words",
+                state1.id, state2.id,
+            );
+            return true;
+        }
+
         let entries1 = entry_maps.get(state1);
         let entries2 = entry_maps.get(state2);
         let len1 = entries1.len();

@@ -1,0 +1,11 @@
+==========================
+valid identifier
+==========================
+
+a () if
+
+---
+
+(source (a
+  (value)
+  (label (identifier))))
