@@ -44,64 +44,43 @@ fn update_cargo(version: &Version) -> Result<()> {
     Ok(())
 }
 
-fn zig_fetch(lines: &mut Vec<String>, version: &Version, url_suffix: &str) -> Result<()> {
-    let url = &format!("{WASMTIME_RELEASE_URL}/v{version}/wasmtime-v{version}-{url_suffix}");
-    println!("  Fetching {url}");
-    lines.push(format!("            .url = \"{url}\","));
-
-    let output = Command::new("zig")
-        .arg("fetch")
-        .arg(url)
-        .output()
-        .with_context(|| format!("Failed to execute zig fetch {url}"))?;
-    bail_on_err(&output, &format!("`zig fetch {url}` failed"))?;
-
-    let hash = std::str::from_utf8(&output.stdout)
-        .with_context(|| format!("`zig fetch {url}` produced non-UTF-8 output"))?
-        .trim_end();
-    if hash.is_empty() {
-        anyhow::bail!("`zig fetch {url}` produced an empty hash");
-    }
-    lines.push(format!("            .hash = \"{hash}\","));
-
-    Ok(())
-}
+const WASMTIME_PLATFORMS: &[(&str, &[&str])] = &[
+    ("android", &["aarch64", "x86_64"]),
+    (
+        "linux",
+        &["aarch64", "armv7", "i686", "riscv64gc", "s390x", "x86_64"],
+    ),
+    ("macos", &["aarch64", "x86_64"]),
+    ("mingw", &["x86_64"]),
+    ("musl", &["aarch64", "x86_64"]),
+    ("windows", &["aarch64", "i686", "x86_64"]),
+];
 
 fn update_zig(version: &Version) -> Result<()> {
-    let file = std::fs::read_to_string("build.zig.zon")?;
-    let mut old_lines = file.lines();
-    let new_lines = &mut Vec::with_capacity(old_lines.size_hint().0);
-
-    macro_rules! match_wasmtime_zig_dep {
-        ($line:ident, {$($platform:literal => [$($arch:literal),*]),*,}) => {
-            match $line {
-                $($(concat!("        .wasmtime_c_api_", $arch, "_", $platform, " = .{") => {
-                    let (_, _) = (old_lines.next(), old_lines.next());
-                    let suffix = if $platform == "windows" || $platform == "mingw" {
-                        concat!($arch, "-", $platform, "-c-api.zip")
-                    } else {
-                        concat!($arch, "-", $platform, "-c-api.tar.xz")
-                    };
-                    zig_fetch(new_lines, version, suffix)?;
-                })*)*
-                _ => {}
-            }
+    for (platform, arches) in WASMTIME_PLATFORMS {
+        let ext = if matches!(*platform, "windows" | "mingw") {
+            "zip"
+        } else {
+            "tar.xz"
         };
-    }
+        for arch in *arches {
+            let name = format!("wasmtime_c_api_{arch}_{platform}");
+            let url = format!(
+                "{WASMTIME_RELEASE_URL}/v{version}/wasmtime-v{version}-{arch}-{platform}-c-api.{ext}"
+            );
+            println!("  Fetching {url}");
 
-    while let Some(line) = old_lines.next() {
-        new_lines.push(line.to_string());
-        match_wasmtime_zig_dep!(line, {
-            "android" => ["aarch64", "x86_64"],
-            "linux"   => ["aarch64", "armv7", "i686", "riscv64gc", "s390x", "x86_64"],
-            "macos"   => ["aarch64", "x86_64"],
-            "mingw"   => ["x86_64"],
-            "musl"    => ["aarch64", "x86_64"],
-            "windows" => ["aarch64", "i686", "x86_64"],
-        });
+            // `--save` makes zig fetch into the project-local package directory and update
+            // `.url` and `.hash` in place (keeping `.lazy`).
+            let output = Command::new("zig")
+                .arg("fetch")
+                .arg(format!("--save-exact={name}"))
+                .arg(&url)
+                .output()
+                .with_context(|| format!("Failed to execute zig fetch {url}"))?;
+            bail_on_err(&output, &format!("`zig fetch {url}` failed"))?;
+        }
     }
-
-    std::fs::write("build.zig.zon", new_lines.join("\n") + "\n")?;
 
     Ok(())
 }
