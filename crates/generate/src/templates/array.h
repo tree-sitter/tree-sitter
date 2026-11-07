@@ -321,7 +321,7 @@ static inline void *_array__splice(void *self_contents, uint32_t *size, uint32_t
 
 /// Helper macro for the `_sorted_by` routines below. This takes the left (existing)
 /// parameter by reference in order to work with the generic sorting function above.
-#define _compare_int(a, b) ((int)*(a) - (int)(b))
+#define _compare_int(a, b) (((int64_t)*(a) > (int64_t)(b)) - ((int64_t)*(a) < (int64_t)(b)))
 
 #ifdef _MSC_VER
 #pragma warning(pop)
