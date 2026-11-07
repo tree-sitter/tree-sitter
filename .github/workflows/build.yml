@@ -302,7 +302,7 @@ jobs:
     # The runner's schema version must match wasm-bindgen in Cargo.lock.
     - name: Install wasm-bindgen test runner
       if: inputs.run-test && !matrix.no-run && contains(matrix.features, 'wasm') && matrix.run-wasm-test
-      run: cargo install --locked --version 0.2.129 wasm-bindgen-cli
+      run: cargo install --locked --version 0.2.130 wasm-bindgen-cli
 
     - name: Run Rust Wasm web test
       if: inputs.run-test && !matrix.no-run && contains(matrix.features, 'wasm') && matrix.run-wasm-test
