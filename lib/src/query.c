@@ -344,7 +344,7 @@ struct TSQueryCursor {
   uint32_t next_finished_state_id;
   const TSQueryCursorOptions *query_options;
   TSQueryCursorState query_state;
-  unsigned work_count;
+  uint32_t work_count;
   bool on_visible_node;
   bool ascending;
   bool halted;
@@ -359,8 +359,8 @@ static const TSSymbol WILDCARD_SYMBOL = 0;
 // The cursor calls the progress callback once it has done this much work.
 // Entering or leaving a node costs one, plus one for each in-progress state,
 // because every step visits all of them.
-static const unsigned WORK_PER_QUERY_CALLBACK_CHECK = 1000;
-static const unsigned MAX_QUERY_PATTERN_DEPTH = 100;
+static const uint32_t WORK_PER_QUERY_CALLBACK_CHECK = 1000;
+static const uint32_t MAX_QUERY_PATTERN_DEPTH = 100;
 
 /**********
  * Stream
@@ -921,12 +921,12 @@ static void symbol_table_delete(SymbolTable *self) {
   array_delete(&self->slices);
 }
 
-static int symbol_table_id_for_name(
+static int32_t symbol_table_id_for_name(
   const SymbolTable *self,
   const char *name,
   uint32_t length
 ) {
-  for (unsigned i = 0; i < self->slices.size; i++) {
+  for (uint32_t i = 0; i < self->slices.size; i++) {
     Slice slice = *array_get(&self->slices, i);
     if (
       slice.length == length &&
@@ -951,7 +951,7 @@ static uint16_t symbol_table_insert_name(
   const char *name,
   uint32_t length
 ) {
-  int id = symbol_table_id_for_name(self, name, length);
+  int32_t id = symbol_table_id_for_name(self, name, length);
   if (id >= 0) return (uint16_t)id;
   Slice slice = {
     .offset = self->characters.size,
@@ -979,14 +979,14 @@ static QueryStep query_step__new(
     .alternative_index = NONE,
     .is_immediate = is_immediate,
   };
-  for (unsigned i = 0; i < MAX_STEP_CAPTURE_COUNT; i++) {
+  for (uint32_t i = 0; i < MAX_STEP_CAPTURE_COUNT; i++) {
     step.capture_ids[i] = NONE;
   }
   return step;
 }
 
 static void query_step__add_capture(QueryStep *self, uint16_t capture_id) {
-  for (unsigned i = 0; i < MAX_STEP_CAPTURE_COUNT; i++) {
+  for (uint32_t i = 0; i < MAX_STEP_CAPTURE_COUNT; i++) {
     if (self->capture_ids[i] == NONE) {
       self->capture_ids[i] = capture_id;
       break;
@@ -995,7 +995,7 @@ static void query_step__add_capture(QueryStep *self, uint16_t capture_id) {
 }
 
 static void query_step__remove_capture(QueryStep *self, uint16_t capture_id) {
-  for (unsigned i = 0; i < MAX_STEP_CAPTURE_COUNT; i++) {
+  for (uint32_t i = 0; i < MAX_STEP_CAPTURE_COUNT; i++) {
     if (self->capture_ids[i] == capture_id) {
       self->capture_ids[i] = NONE;
       while (i + 1 < MAX_STEP_CAPTURE_COUNT) {
@@ -1047,7 +1047,7 @@ static inline void state_predecessor_map_add(
 static inline const TSStateId *state_predecessor_map_get(
   const StatePredecessorMap *self,
   TSStateId state,
-  unsigned *count
+  uint32_t *count
 ) {
   size_t index = (size_t)state * (MAX_STATE_PREDECESSOR_COUNT + 1);
   *count = self->contents[index];
@@ -1058,11 +1058,11 @@ static inline const TSStateId *state_predecessor_map_get(
  * AnalysisState
  ****************/
 
-static unsigned analysis_state__recursion_depth(const AnalysisState *self) {
-  unsigned result = 0;
-  for (unsigned i = 0; i < self->depth; i++) {
+static uint32_t analysis_state__recursion_depth(const AnalysisState *self) {
+  uint32_t result = 0;
+  for (uint32_t i = 0; i < self->depth; i++) {
     TSSymbol symbol = self->stack[i].parent_symbol;
-    for (unsigned j = 0; j < i; j++) {
+    for (uint32_t j = 0; j < i; j++) {
       if (self->stack[j].parent_symbol == symbol) {
         result++;
         break;
@@ -1072,12 +1072,12 @@ static unsigned analysis_state__recursion_depth(const AnalysisState *self) {
   return result;
 }
 
-static inline int analysis_state__compare(
+static inline int32_t analysis_state__compare(
   AnalysisState *const *self,
   AnalysisState *const *other
 ) {
   if ((*self)->depth < (*other)->depth) return 1;
-  for (unsigned i = 0; i < (*self)->depth; i++) {
+  for (uint32_t i = 0; i < (*self)->depth; i++) {
     if (i >= (*other)->depth) return -1;
     AnalysisStateEntry s1 = (*self)->stack[i];
     AnalysisStateEntry s2 = (*other)->stack[i];
@@ -1103,7 +1103,7 @@ static inline AnalysisStateEntry *analysis_state__top(AnalysisState *self) {
 }
 
 static inline bool analysis_state__has_supertype(AnalysisState *self, TSSymbol symbol) {
-  for (unsigned i = 0; i < self->depth; i++) {
+  for (uint32_t i = 0; i < self->depth; i++) {
     if (self->stack[i].parent_symbol == symbol) return true;
   }
   return false;
@@ -1140,7 +1140,7 @@ static inline void analysis_state_set__insert_sorted(
   AnalysisStateSet *pool,
   AnalysisState *borrowed_item
 ) {
-  unsigned index, exists;
+  uint32_t index, exists;
   array_search_sorted_with(self, analysis_state__compare, &borrowed_item, &index, &exists);
   if (!exists) {
     AnalysisState *new_item = analysis_state_pool__clone_or_reuse(pool, borrowed_item);
@@ -1174,7 +1174,7 @@ static inline void analysis_state_set__clear(AnalysisStateSet *self, AnalysisSta
 // Releases all memory that is managed with this state set, including any items currently present.
 // After calling this function, the set is no longer suitable for use.
 static inline void analysis_state_set__delete(AnalysisStateSet *self) {
-  for (unsigned i = 0; i < self->size; i++) {
+  for (uint32_t i = 0; i < self->size; i++) {
     ts_free(self->contents[i]);
   }
   array_delete(self);
@@ -1209,7 +1209,7 @@ static inline void query_analysis__delete(QueryAnalysis *self) {
  * AnalysisSubgraphNode
  ***********************/
 
-static inline int analysis_subgraph_node__compare(const AnalysisSubgraphNode *self, const AnalysisSubgraphNode *other) {
+static inline int32_t analysis_subgraph_node__compare(const AnalysisSubgraphNode *self, const AnalysisSubgraphNode *other) {
   if (self->state < other->state) return -1;
   if (self->state > other->state) return 1;
   if (self->child_index < other->child_index) return -1;
@@ -1313,12 +1313,12 @@ static void ts_query__perform_analysis(
   const AnalysisSubgraphArray *subgraphs,
   QueryAnalysis *analysis
 ) {
-  unsigned recursion_depth_limit = 0;
-  unsigned prev_final_step_count = 0;
+  uint32_t recursion_depth_limit = 0;
+  uint32_t prev_final_step_count = 0;
   array_clear(&analysis->final_step_indices);
   array_clear(&analysis->finished_parent_symbols);
 
-  for (unsigned iteration = 0;; iteration++) {
+  for (uint32_t iteration = 0;; iteration++) {
     if (iteration == MAX_ANALYSIS_ITERATION_COUNT) {
       analysis->did_abort = true;
       break;
@@ -1326,14 +1326,14 @@ static void ts_query__perform_analysis(
 
     #ifdef DEBUG_ANALYZE_QUERY
       printf("Iteration: %u. Final step indices:", iteration);
-      for (unsigned j = 0; j < analysis->final_step_indices.size; j++) {
+      for (uint32_t j = 0; j < analysis->final_step_indices.size; j++) {
         printf(" %4u", *array_get(&analysis->final_step_indices, j));
       }
       printf("\n");
-      for (unsigned j = 0; j < analysis->states.size; j++) {
+      for (uint32_t j = 0; j < analysis->states.size; j++) {
         AnalysisState *state = *array_get(&analysis->states, j);
         printf("  %3u: step: %u, stack: [", j, state->step_index);
-        for (unsigned k = 0; k < state->depth; k++) {
+        for (uint32_t k = 0; k < state->depth; k++) {
           printf(
             " {%s, child: %u, state: %4u",
             self->language->symbol_names[state->stack[k].parent_symbol],
@@ -1373,7 +1373,7 @@ static void ts_query__perform_analysis(
     }
 
     analysis_state_set__clear(&analysis->next_states, &analysis->state_pool);
-    for (unsigned j = 0; j < analysis->states.size; j++) {
+    for (uint32_t j = 0; j < analysis->states.size; j++) {
       AnalysisState * const state = *array_get(&analysis->states, j);
 
       // For efficiency, it's important to avoid processing the same analysis state more
@@ -1382,7 +1382,7 @@ static void ts_query__perform_analysis(
       // the states that have made the least progress. Avoid advancing states that have already
       // made more progress.
       if (analysis->next_states.size > 0) {
-        int comparison = analysis_state__compare(
+        int32_t comparison = analysis_state__compare(
           &state,
           array_back(&analysis->next_states)
         );
@@ -1408,10 +1408,10 @@ static void ts_query__perform_analysis(
       const TSStateId parse_state = analysis_state__top(state)->parse_state;
       const TSSymbol parent_symbol = analysis_state__top(state)->parent_symbol;
       const TSFieldId parent_field_id = analysis_state__top(state)->field_id;
-      const unsigned child_index = analysis_state__top(state)->child_index;
+      const uint32_t child_index = analysis_state__top(state)->child_index;
       const QueryStep * const step = array_get(&self->steps, state->step_index);
 
-      unsigned subgraph_index, exists;
+      uint32_t subgraph_index, exists;
       array_search_sorted_by(subgraphs, .symbol, parent_symbol, &subgraph_index, &exists);
       if (!exists) continue;
       const AnalysisSubgraph *subgraph = array_get(subgraphs, subgraph_index);
@@ -1443,7 +1443,7 @@ static void ts_query__perform_analysis(
           continue;
         }
 
-        unsigned node_index;
+        uint32_t node_index;
         array_search_sorted_with(
           &subgraph->nodes,
           analysis_subgraph_node__compare, &successor,
@@ -1619,7 +1619,7 @@ static void ts_query__perform_analysis(
 #ifdef DEBUG_DUMP_STEPS
 static void ts_query__dump_steps(const TSQuery *self, const char *label) {
   printf("=== STEPS (%s) ===\n", label);
-  for (unsigned i = 0; i < self->steps.size; i++) {
+  for (uint32_t i = 0; i < self->steps.size; i++) {
     const QueryStep *s = array_get(&self->steps, i);
     if (s->depth == PATTERN_DONE_MARKER) {
       printf("%3u: DONE\n", i);
@@ -1644,7 +1644,7 @@ static void ts_query__dump_steps(const TSQuery *self, const char *label) {
     if (s->contains_captures) printf(" HASCAP");
     if (s->parent_pattern_guaranteed) printf(" PPG");
     if (s->root_pattern_guaranteed) printf(" RPG");
-    for (unsigned c = 0; c < MAX_STEP_CAPTURE_COUNT && s->capture_ids[c] != NONE; c++) {
+    for (uint32_t c = 0; c < MAX_STEP_CAPTURE_COUNT && s->capture_ids[c] != NONE; c++) {
       uint32_t cap_len;
       const char *cap_name = symbol_table_name_for_id(&self->captures, s->capture_ids[c], &cap_len);
       printf(" @%.*s", (int)cap_len, cap_name);
@@ -1654,9 +1654,9 @@ static void ts_query__dump_steps(const TSQuery *self, const char *label) {
 }
 #endif
 
-static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
+static bool ts_query__analyze_patterns(TSQuery *self, uint32_t *error_offset) {
   Array(uint16_t) non_rooted_pattern_start_steps = array_new();
-  for (unsigned i = 0; i < self->pattern_map.size; i++) {
+  for (uint32_t i = 0; i < self->pattern_map.size; i++) {
     PatternEntry *pattern = array_get(&self->pattern_map, i);
     if (!pattern->is_rooted) {
       QueryStep *step = array_get(&self->steps, pattern->step_index);
@@ -1671,7 +1671,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
   // captures, and record the indices of all of the steps that have child steps.
   Array(uint32_t) parent_step_indices = array_new();
   bool all_patterns_are_valid = true;
-  for (unsigned i = 0; i < self->steps.size; i++) {
+  for (uint32_t i = 0; i < self->steps.size; i++) {
     QueryStep *step = array_get(&self->steps, i);
     if (step->depth == PATTERN_DONE_MARKER) {
       step->parent_pattern_guaranteed = true;
@@ -1682,7 +1682,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
     bool has_children = false;
     bool is_wildcard = step->symbol == WILDCARD_SYMBOL;
     step->contains_captures = step->capture_ids[0] != NONE;
-    for (unsigned j = i + 1; j < self->steps.size; j++) {
+    for (uint32_t j = i + 1; j < self->steps.size; j++) {
       QueryStep *next_step = array_get(&self->steps, j);
       if (
         next_step->depth == PATTERN_DONE_MARKER ||
@@ -1710,7 +1710,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
           &subtype_length
         );
 
-        for (unsigned j = i + 1; j < self->steps.size; j++) {
+        for (uint32_t j = i + 1; j < self->steps.size; j++) {
           QueryStep *child_step = array_get(&self->steps, j);
           if (child_step->depth == PATTERN_DONE_MARKER || child_step->depth <= step->depth) {
             break;
@@ -1725,7 +1725,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
             }
 
             if (!is_valid_subtype) {
-              for (unsigned offset_idx = 0; offset_idx < self->step_offsets.size; offset_idx++) {
+              for (uint32_t offset_idx = 0; offset_idx < self->step_offsets.size; offset_idx++) {
                 StepOffset *step_offset = array_get(&self->step_offsets, offset_idx);
                 if (step_offset->step_index >= j) {
                   *error_offset = step_offset->byte_offset;
@@ -1749,7 +1749,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
   // one of the parent nodes, such that their children appear to belong to the
   // parent.
   AnalysisSubgraphArray subgraphs = array_new();
-  for (unsigned i = 0; i < parent_step_indices.size; i++) {
+  for (uint32_t i = 0; i < parent_step_indices.size; i++) {
     uint32_t parent_step_index = *array_get(&parent_step_indices, i);
     TSSymbol parent_symbol = array_get(&self->steps, parent_step_index)->symbol;
     AnalysisSubgraph subgraph = { .symbol = parent_symbol };
@@ -1770,11 +1770,11 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
   //   3) A list of predecessor states for each state.
   StatePredecessorMap predecessor_map = state_predecessor_map_new(self->language);
   for (TSStateId state = 1; state < (uint16_t)self->language->state_count; state++) {
-    unsigned subgraph_index, exists;
+    uint32_t subgraph_index, exists;
     LookaheadIterator lookahead_iterator = ts_language_lookaheads(self->language, state);
     while (ts_lookahead_iterator__next(&lookahead_iterator)) {
       if (lookahead_iterator.action_count) {
-        for (unsigned i = 0; i < lookahead_iterator.action_count; i++) {
+        for (uint32_t i = 0; i < lookahead_iterator.action_count; i++) {
           const TSParseAction *action = &lookahead_iterator.actions[i];
           if (action->type == TSParseActionTypeReduce) {
             const TSSymbol *aliases, *aliases_end;
@@ -1846,7 +1846,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
   // For each subgraph, compute the preceding states by walking backward
   // from the end states using the predecessor map.
   Array(AnalysisSubgraphNode) next_nodes = array_new();
-  for (unsigned i = 0; i < subgraphs.size; i++) {
+  for (uint32_t i = 0; i < subgraphs.size; i++) {
     AnalysisSubgraph *subgraph = array_get(&subgraphs, i);
     if (subgraph->nodes.size == 0) {
       array_delete(&subgraph->start_states);
@@ -1858,20 +1858,20 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
     while (next_nodes.size > 0) {
       AnalysisSubgraphNode node = array_pop(&next_nodes);
       if (node.child_index > 1) {
-        unsigned predecessor_count;
+        uint32_t predecessor_count;
         const TSStateId *predecessors = state_predecessor_map_get(
           &predecessor_map,
           node.state,
           &predecessor_count
         );
-        for (unsigned j = 0; j < predecessor_count; j++) {
+        for (uint32_t j = 0; j < predecessor_count; j++) {
           AnalysisSubgraphNode predecessor_node = {
             .state = predecessors[j],
             .child_index = node.child_index - 1,
             .production_id = node.production_id,
             .done = false,
           };
-          unsigned index, exists;
+          uint32_t index, exists;
           array_search_sorted_with(
             &subgraph->nodes, analysis_subgraph_node__compare, &predecessor_node,
             &index, &exists
@@ -1887,16 +1887,16 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
 
   #ifdef DEBUG_ANALYZE_QUERY
     printf("\nSubgraphs:\n");
-    for (unsigned i = 0; i < subgraphs.size; i++) {
+    for (uint32_t i = 0; i < subgraphs.size; i++) {
       AnalysisSubgraph *subgraph = array_get(&subgraphs, i);
       printf("  %u, %s:\n", subgraph->symbol, ts_language_symbol_name(self->language, subgraph->symbol));
-      for (unsigned j = 0; j < subgraph->start_states.size; j++) {
+      for (uint32_t j = 0; j < subgraph->start_states.size; j++) {
         printf(
           "    {state: %u}\n",
           *array_get(&subgraph->start_states, j)
         );
       }
-      for (unsigned j = 0; j < subgraph->nodes.size; j++) {
+      for (uint32_t j = 0; j < subgraph->nodes.size; j++) {
         AnalysisSubgraphNode *node = array_get(&subgraph->nodes, j);
         printf(
           "    {state: %u, child_index: %u, production_id: %u, done: %d}\n",
@@ -1910,7 +1910,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
   // For each non-terminal pattern, determine if the pattern can successfully match,
   // and identify all of the possible children within the pattern where matching could fail.
   QueryAnalysis analysis = query_analysis__new();
-  for (unsigned i = 0; i < parent_step_indices.size; i++) {
+  for (uint32_t i = 0; i < parent_step_indices.size; i++) {
     uint16_t parent_step_index = *array_get(&parent_step_indices, i);
     uint16_t parent_depth = array_get(&self->steps, parent_step_index)->depth;
     TSSymbol parent_symbol = array_get(&self->steps, parent_step_index)->symbol;
@@ -1918,10 +1918,10 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
 
     // Find the subgraph that corresponds to this pattern's root symbol. If the pattern's
     // root symbol is a terminal, then return an error.
-    unsigned subgraph_index, exists;
+    uint32_t subgraph_index, exists;
     array_search_sorted_by(&subgraphs, .symbol, parent_symbol, &subgraph_index, &exists);
     if (!exists) {
-      unsigned first_child_step_index = parent_step_index + 1;
+      uint32_t first_child_step_index = parent_step_index + 1;
       uint32_t j, child_exists;
       array_search_sorted_by(&self->step_offsets, .step_index, first_child_step_index, &j, &child_exists);
       ts_assert(child_exists);
@@ -1935,7 +1935,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
     AnalysisSubgraph *subgraph = array_get(&subgraphs, subgraph_index);
     analysis_state_set__clear(&analysis.states, &analysis.state_pool);
     analysis_state_set__clear(&analysis.deeper_states, &analysis.state_pool);
-    for (unsigned j = 0; j < subgraph->start_states.size; j++) {
+    for (uint32_t j = 0; j < subgraph->start_states.size; j++) {
       TSStateId parse_state = *array_get(&subgraph->start_states, j);
       analysis_state_set__push(&analysis.states, &analysis.state_pool, &((AnalysisState) {
         .step_index = parent_step_index + 1,
@@ -1966,7 +1966,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
     // If this pattern could not be fully analyzed, then every step should
     // be considered fallible.
     if (analysis.did_abort) {
-      for (unsigned j = parent_step_index + 1; j < self->steps.size; j++) {
+      for (uint32_t j = parent_step_index + 1; j < self->steps.size; j++) {
         QueryStep *step = array_get(&self->steps, j);
         if (
           step->depth <= parent_depth ||
@@ -2000,7 +2000,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
 
     // Mark as fallible any step where a match terminated.
     // Later, this property will be propagated to all of the step's predecessors.
-    for (unsigned j = 0; j < analysis.final_step_indices.size; j++) {
+    for (uint32_t j = 0; j < analysis.final_step_indices.size; j++) {
       uint32_t final_step_index = *array_get(&analysis.final_step_indices, j);
       QueryStep *step = array_get(&self->steps, final_step_index);
       if (
@@ -2016,13 +2016,13 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
 
   // Mark as indefinite any step with captures that are used in predicates.
   Array(uint16_t) predicate_capture_ids = array_new();
-  for (unsigned i = 0; i < self->patterns.size; i++) {
+  for (uint32_t i = 0; i < self->patterns.size; i++) {
     QueryPattern *pattern = array_get(&self->patterns, i);
 
     // Gather all of the captures that are used in predicates for this pattern.
     array_clear(&predicate_capture_ids);
     for (
-      unsigned start = pattern->predicate_steps.offset,
+      uint32_t start = pattern->predicate_steps.offset,
       end = start + pattern->predicate_steps.length,
       j = start; j < end; j++
     ) {
@@ -2035,15 +2035,15 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
 
     // Find all of the steps that have these captures.
     for (
-      unsigned start = pattern->steps.offset,
+      uint32_t start = pattern->steps.offset,
       end = start + pattern->steps.length,
       j = start; j < end; j++
     ) {
       QueryStep *step = array_get(&self->steps, j);
-      for (unsigned k = 0; k < MAX_STEP_CAPTURE_COUNT; k++) {
+      for (uint32_t k = 0; k < MAX_STEP_CAPTURE_COUNT; k++) {
         uint16_t capture_id = step->capture_ids[k];
         if (capture_id == NONE) break;
-        unsigned index, exists;
+        uint32_t index, exists;
         array_search_sorted_by(&predicate_capture_ids, , capture_id, &index, &exists);
         if (exists) {
           step->root_pattern_guaranteed = false;
@@ -2058,7 +2058,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
   bool done = self->steps.size == 0;
   while (!done) {
     done = true;
-    for (unsigned i = self->steps.size - 1; i > 0; i--) {
+    for (uint32_t i = self->steps.size - 1; i > 0; i--) {
       QueryStep *step = array_get(&self->steps, i);
       if (step->depth == PATTERN_DONE_MARKER) continue;
 
@@ -2104,7 +2104,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
 
     analysis_state_set__clear(&analysis.states, &analysis.state_pool);
     analysis_state_set__clear(&analysis.deeper_states, &analysis.state_pool);
-    for (unsigned j = 0; j < subgraphs.size; j++) {
+    for (uint32_t j = 0; j < subgraphs.size; j++) {
       AnalysisSubgraph *subgraph = array_get(&subgraphs, j);
       TSSymbolMetadata metadata = ts_language_symbol_metadata(self->language, subgraph->symbol);
       if (metadata.visible || metadata.named) continue;
@@ -2142,7 +2142,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
       array_get(&self->patterns, pattern_entry->pattern_index)->is_non_local = true;
     }
 
-    for (unsigned k = 0; k < analysis.finished_parent_symbols.size; k++) {
+    for (uint32_t k = 0; k < analysis.finished_parent_symbols.size; k++) {
       TSSymbol symbol = *array_get(&analysis.finished_parent_symbols, k);
       array_insert_sorted_by(&self->repeat_symbols_with_rootless_patterns, , symbol);
     }
@@ -2152,7 +2152,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
     if (self->repeat_symbols_with_rootless_patterns.size > 0) {
       printf("\nRepetition symbols with rootless patterns:\n");
       printf("aborted analysis: %d\n", analysis.did_abort);
-      for (unsigned i = 0; i < self->repeat_symbols_with_rootless_patterns.size; i++) {
+      for (uint32_t i = 0; i < self->repeat_symbols_with_rootless_patterns.size; i++) {
         TSSymbol symbol = *array_get(&self->repeat_symbols_with_rootless_patterns, i);
         printf("  %u, %s\n", symbol, ts_language_symbol_name(self->language, symbol));
       }
@@ -2161,7 +2161,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
   #endif
 
   // Cleanup
-  for (unsigned i = 0; i < subgraphs.size; i++) {
+  for (uint32_t i = 0; i < subgraphs.size; i++) {
     array_delete(&array_get(&subgraphs, i)->start_states);
     array_delete(&array_get(&subgraphs, i)->nodes);
   }
@@ -2189,9 +2189,9 @@ static void ts_query__add_negated_fields(
   // The negated field array stores a list of field lists, separated by zeros.
   // Try to find the start index of an existing list that matches this new list.
   bool failed_match = false;
-  unsigned match_count = 0;
-  unsigned start_i = 0;
-  for (unsigned i = 0; i < self->negated_fields.size; i++) {
+  uint32_t match_count = 0;
+  uint32_t start_i = 0;
+  for (uint32_t i = 0; i < self->negated_fields.size; i++) {
     TSFieldId existing_field_id = *array_get(&self->negated_fields, i);
 
     // At each zero value, terminate the match attempt. If we've exactly
@@ -2334,7 +2334,7 @@ static TSQueryError ts_query__parse_predicate(
       uint32_t capture_length = (uint32_t)(stream->input - capture_name);
 
       // Add the capture id to the first step of the pattern
-      int capture_id = symbol_table_id_for_name(
+      int32_t capture_id = symbol_table_id_for_name(
         &self->captures,
         capture_name,
         capture_length
@@ -2470,7 +2470,7 @@ static TSQueryError ts_query__parse_pattern(
 
     // For all of the branches except for the last one, add the subsequent branch as an
     // alternative, and link the end of the branch to the current end of the steps.
-    for (unsigned i = 0; i < branch_step_indices.size - 1; i++) {
+    for (uint32_t i = 0; i < branch_step_indices.size - 1; i++) {
       uint32_t step_index = *array_get(&branch_step_indices, i);
       uint32_t next_step_index = *array_get(&branch_step_indices, i + 1);
       QueryStep *start_step = array_get(&self->steps, step_index);
@@ -3338,7 +3338,7 @@ bool ts_query_is_pattern_rooted(
   const TSQuery *self,
   uint32_t pattern_index
 ) {
-  for (unsigned i = 0; i < self->pattern_map.size; i++) {
+  for (uint32_t i = 0; i < self->pattern_map.size; i++) {
     PatternEntry *entry = array_get(&self->pattern_map, i);
     if (entry->pattern_index == pattern_index) {
       if (!entry->is_rooted) return false;
@@ -3363,7 +3363,7 @@ bool ts_query_is_pattern_guaranteed_at_step(
   uint32_t byte_offset
 ) {
   uint32_t step_index = UINT32_MAX;
-  for (unsigned i = 0; i < self->step_offsets.size; i++) {
+  for (uint32_t i = 0; i < self->step_offsets.size; i++) {
     StepOffset *step_offset = array_get(&self->step_offsets, i);
     if (step_offset->byte_offset > byte_offset) break;
     step_index = step_offset->step_index;
@@ -3379,7 +3379,7 @@ bool ts_query__step_is_fallible(
   const TSQuery *self,
   uint16_t step_index
 ) {
-  unsigned i = 1;
+  uint32_t i = 1;
   QueryStep *step = array_get(&self->steps, step_index);
   QueryStep *next_step;
   do {
@@ -3402,9 +3402,9 @@ void ts_query_disable_capture(
 ) {
   // Remove capture information for any pattern step that previously
   // captured with the given name.
-  int id = symbol_table_id_for_name(&self->captures, name, length);
+  int32_t id = symbol_table_id_for_name(&self->captures, name, length);
   if (id != -1) {
-    for (unsigned i = 0; i < self->steps.size; i++) {
+    for (uint32_t i = 0; i < self->steps.size; i++) {
       QueryStep *step = array_get(&self->steps, i);
       query_step__remove_capture(step, id);
     }
@@ -3417,7 +3417,7 @@ void ts_query_disable_pattern(
 ) {
   // Remove the given pattern from the pattern map. Its steps will still
   // be in the `steps` array, but they will never be read.
-  for (unsigned i = 0; i < self->pattern_map.size; i++) {
+  for (uint32_t i = 0; i < self->pattern_map.size; i++) {
     PatternEntry *pattern = array_get(&self->pattern_map, i);
     if (pattern->pattern_index == pattern_index) {
       array_erase(&self->pattern_map, i);
@@ -3492,7 +3492,7 @@ void ts_query_cursor_exec(
 ) {
   if (query) {
     LOG("query steps:\n");
-    for (unsigned i = 0; i < query->steps.size; i++) {
+    for (uint32_t i = 0; i < query->steps.size; i++) {
       QueryStep *step = array_get(&query->steps, i);
       LOG("  %u: {", i);
       if (step->depth == PATTERN_DONE_MARKER) {
@@ -3626,7 +3626,7 @@ static bool ts_query_cursor__first_in_progress_capture(
   *state_index = UINT32_MAX;
   *byte_offset = UINT32_MAX;
   *pattern_index = UINT32_MAX;
-  for (unsigned i = 0; i < self->states.size; i++) {
+  for (uint32_t i = 0; i < self->states.size; i++) {
     QueryState *state = array_get(&self->states, i);
     if (state->dead) continue;
 
@@ -3674,7 +3674,7 @@ static bool ts_query_cursor__first_in_progress_capture(
 }
 
 // Determine which node is first in a depth-first traversal
-int ts_query_cursor__compare_nodes(TSNode left, TSNode right) {
+int32_t ts_query_cursor__compare_nodes(TSNode left, TSNode right) {
   if (left.id != right.id) {
     uint32_t left_start = ts_node_start_byte(left);
     uint32_t right_start = ts_node_start_byte(right);
@@ -3706,7 +3706,7 @@ void ts_query_cursor__compare_captures(
   );
   *left_contains_right = true;
   *right_contains_left = true;
-  unsigned i = 0, j = 0;
+  uint32_t i = 0, j = 0;
   for (;;) {
     if (i < left_captures->size) {
       if (j < right_captures->size) {
@@ -3855,7 +3855,7 @@ static void ts_query_cursor__add_state(
 static CaptureList *ts_query_cursor__prepare_to_capture(
   TSQueryCursor *self,
   QueryState *state,
-  unsigned state_index_to_preserve
+  uint32_t state_index_to_preserve
 ) {
   if (state->capture_list_id == CAPTURE_LIST_NONE) {
     state->capture_list_id = capture_list_pool_acquire(&self->capture_list_pool);
@@ -3912,7 +3912,7 @@ static void ts_query_cursor__capture(
     return;
   }
 
-  for (unsigned j = 0; j < MAX_STEP_CAPTURE_COUNT; j++) {
+  for (uint32_t j = 0; j < MAX_STEP_CAPTURE_COUNT; j++) {
     uint16_t capture_id = step->capture_ids[j];
     if (step->capture_ids[j] == NONE) break;
     array_push(capture_list, ((TSQueryCapture) { node, capture_id }));
@@ -3965,7 +3965,7 @@ static inline bool ts_query_cursor__should_descend(
 
   // If there are in-progress matches whose remaining steps occur
   // deeper in the tree, then descend.
-  for (unsigned i = 0; i < self->states.size; i++) {
+  for (uint32_t i = 0; i < self->states.size; i++) {
     QueryState *state = array_get(&self->states, i);
     QueryStep *next_step = array_get(&self->query->steps, state->step_index);
     if (
@@ -4082,7 +4082,7 @@ static inline bool ts_query_cursor__advance(
 
         // After leaving a node, remove any states that cannot make further progress.
         uint32_t deleted_count = 0;
-        for (unsigned i = 0, n = self->states.size; i < n; i++) {
+        for (uint32_t i = 0, n = self->states.size; i < n; i++) {
           QueryState *state = array_get(&self->states, i);
           QueryStep *step = array_get(&self->query->steps, state->step_index);
 
@@ -4184,7 +4184,7 @@ static inline bool ts_query_cursor__advance(
         bool can_have_later_siblings_with_this_field;
         TSFieldId field_id = 0;
         TSSymbol supertypes[8] = {0};
-        unsigned supertype_count = 8;
+        uint32_t supertype_count = 8;
         ts_tree_cursor_current_status(
           &self->cursor,
           &field_id,
@@ -4211,7 +4211,7 @@ static inline bool ts_query_cursor__advance(
 
         // Add new states for any patterns whose root node is a wildcard.
         if (!node_is_error) {
-          for (unsigned i = 0; i < self->query->wildcard_root_pattern_count; i++) {
+          for (uint32_t i = 0; i < self->query->wildcard_root_pattern_count; i++) {
             PatternEntry *pattern = array_get(&self->query->pattern_map, i);
 
             // If this node matches the first step of the pattern, then add a new
@@ -4232,7 +4232,7 @@ static inline bool ts_query_cursor__advance(
         }
 
         // Add new states for any patterns whose root node matches this node.
-        unsigned i;
+        uint32_t i;
         if (ts_query__pattern_map_search(self->query, symbol, &i)) {
           PatternEntry *pattern = array_get(&self->query->pattern_map, i);
 
@@ -4260,7 +4260,7 @@ static inline bool ts_query_cursor__advance(
         }
 
         // Update all of the in-progress states with current node.
-        for (unsigned j = 0, copy_count = 0; j < self->states.size; j += 1 + copy_count) {
+        for (uint32_t j = 0, copy_count = 0; j < self->states.size; j += 1 + copy_count) {
           QueryState *state = array_get(&self->states, j);
           QueryStep *step = array_get(&self->query->steps, state->step_index);
           state->has_in_progress_alternatives = false;
@@ -4292,7 +4292,7 @@ static inline bool ts_query_cursor__advance(
           }
           if (step->supertype_symbol) {
             bool has_supertype = false;
-            for (unsigned k = 0; k < supertype_count; k++) {
+            for (uint32_t k = 0; k < supertype_count; k++) {
               if (supertypes[k] == step->supertype_symbol) {
                 has_supertype = true;
                 break;
@@ -4436,8 +4436,8 @@ static inline bool ts_query_cursor__advance(
           // If this state's next step has an alternative step, then copy the state in order
           // to pursue both alternatives. The alternative step itself may have an alternative,
           // so this is an interactive process.
-          unsigned end_index = j + 1;
-          for (unsigned k = j; k < end_index; k++) {
+          uint32_t end_index = j + 1;
+          for (uint32_t k = j; k < end_index; k++) {
             QueryState *child_state = array_get(&self->states, k);
             QueryStep *child_step = array_get(&self->query->steps, child_state->step_index);
             if (child_step->alternative_index != NONE) {
@@ -4520,7 +4520,7 @@ static inline bool ts_query_cursor__advance(
         // group once the remaining states are disjoint from the current one.
         ts_query_cursor__sort_states_by_capture(self);
 
-        for (unsigned j = 0; j < self->states.size; j++) {
+        for (uint32_t j = 0; j < self->states.size; j++) {
           QueryState *state = array_get(&self->states, j);
           if (state->dead) {
             array_erase(&self->states, j);
@@ -4532,7 +4532,7 @@ static inline bool ts_query_cursor__advance(
           // repeated nodes, this is necessary to avoid multiple redundant states, where
           // one state has a strict subset of another state's captures.
           bool did_remove = false;
-          for (unsigned k = j + 1; k < self->states.size; k++) {
+          for (uint32_t k = j + 1; k < self->states.size; k++) {
             QueryState *other_state = array_get(&self->states, k);
 
             // Query states are kept in ascending order of start_depth and pattern_index, and
@@ -4708,7 +4708,7 @@ void ts_query_cursor_remove_match(
     ts_query_cursor__heapify_finished_states(self);
   }
 
-  for (unsigned i = 0; i < self->finished_states.size; i++) {
+  for (uint32_t i = 0; i < self->finished_states.size; i++) {
     const QueryState *state = array_get(&self->finished_states, i);
     if (state->id == match_id) {
       capture_list_pool_release(
@@ -4727,7 +4727,7 @@ void ts_query_cursor_remove_match(
 
   // Remove unfinished query states as well to prevent future
   // captures for a match being removed.
-  for (unsigned i = 0; i < self->states.size; i++) {
+  for (uint32_t i = 0; i < self->states.size; i++) {
     const QueryState *state = array_get(&self->states, i);
     if (state->id == match_id) {
       capture_list_pool_release(

@@ -13,7 +13,7 @@ typedef struct {
   const TSSymbol *alias_sequence;
 } NodeChildIterator;
 
-static const unsigned TS_NODE_MAX_RECURSIVE_SEARCH_DEPTH = 64;
+static const uint32_t TS_NODE_MAX_RECURSIVE_SEARCH_DEPTH = 64;
 
 static inline bool ts_node__is_relevant(TSNode self, bool include_anonymous);
 
@@ -183,7 +183,7 @@ static bool ts_subtree_has_trailing_empty_descendant_iterative(
   Subtree subtree = self;
 
   while (true) {
-    for (unsigned i = ts_subtree_child_count(subtree); i > 0; i--) {
+    for (uint32_t i = ts_subtree_child_count(subtree); i > 0; i--) {
       const Subtree *child = &ts_subtree_children(subtree)[i - 1];
       if (ts_subtree_total_bytes(*child) > 0) break;
       // Distinct inline leaves can have identical contents; compare their slots.
@@ -205,10 +205,10 @@ static bool ts_subtree_has_trailing_empty_descendant_iterative(
 static bool ts_subtree_has_trailing_empty_descendant_bounded(
   Subtree self,
   const Subtree *other,
-  unsigned depth,
+  uint32_t depth,
   bool *too_deep
 ) {
-  for (unsigned i = ts_subtree_child_count(self); i > 0; i--) {
+  for (uint32_t i = ts_subtree_child_count(self); i > 0; i--) {
     const Subtree *child = &ts_subtree_children(self)[i - 1];
     if (ts_subtree_total_bytes(*child) > 0) break;
     if (child == other) return true;
@@ -683,7 +683,7 @@ done:
 static TSNode ts_node_child_with_empty_descendant_bounded(
   TSNode self,
   TSNode descendant,
-  unsigned depth,
+  uint32_t depth,
   bool *too_deep
 ) {
   uint32_t target_byte = ts_node_start_byte(descendant);
