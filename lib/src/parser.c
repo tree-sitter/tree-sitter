@@ -1937,20 +1937,16 @@ static bool ts_parser__balance_subtree(TSParser *self) {
     if (tree.ptr->repeat_depth > 0) {
       Subtree child1 = ts_subtree_children(tree)[0];
       Subtree child2 = ts_subtree_children(tree)[tree.ptr->child_count - 1];
-      int32_t repeat_delta =
-        (int32_t)ts_subtree_repeat_depth(child1) -
-        (int32_t)ts_subtree_repeat_depth(child2);
-      if (repeat_delta > 0) {
-        uint32_t n = (uint32_t)repeat_delta;
-
-        for (uint32_t i = n / 2; i > 0; i /= 2) {
+      uint32_t depth1 = ts_subtree_repeat_depth(child1);
+      uint32_t depth2 = ts_subtree_repeat_depth(child2);
+      if (depth1 > depth2) {
+        for (uint32_t i = (depth1 - depth2) / 2; i > 0; i /= 2) {
           ts_subtree_compress(tree, i, self->language, &self->tree_pool.tree_stack);
-          n -= i;
 
           // We scale the operation count increment in `ts_parser__check_progress` proportionately to the compression
           // size since larger values of i take longer to process. Shifting by 4 empirically provides good check
           // intervals (e.g. 193 operations when i=3100) to prevent blocking during large compressions.
-          uint8_t operations = i >> 4 > 0 ? i >> 4 : 1;
+          uint32_t operations = i >> 4 > 0 ? i >> 4 : 1;
           if (!ts_parser__check_progress(self, NULL, NULL, operations)) {
             return false;
           }
