@@ -202,9 +202,9 @@ bool ts_language_is_reserved_word(
 ) {
   TSLexerMode lex_mode = ts_language_lex_mode_for_state(self, state);
   if (lex_mode.reserved_word_set_id > 0) {
-    unsigned start = lex_mode.reserved_word_set_id * self->max_reserved_word_set_size;
-    unsigned end = start + self->max_reserved_word_set_size;
-    for (unsigned i = start; i < end; i++) {
+    uint32_t start = (uint32_t)lex_mode.reserved_word_set_id * self->max_reserved_word_set_size;
+    uint32_t end = start + self->max_reserved_word_set_size;
+    for (uint32_t i = start; i < end; i++) {
       if (self->reserved_words[i] == symbol) return true;
       if (self->reserved_words[i] == 0) break;
     }

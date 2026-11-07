@@ -31,7 +31,7 @@ void ts_tree_cursor_current_status(
   bool *has_later_named_siblings,
   bool *can_have_later_siblings_with_this_field,
   TSSymbol *supertypes,
-  unsigned *supertype_count
+  uint32_t *supertype_count
 );
 
 TreeCursorStep ts_tree_cursor_goto_first_child_internal(TSTreeCursor *_self);

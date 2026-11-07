@@ -19,7 +19,7 @@ uint32_t ts_wasm_store_call_scanner_create(TSWasmStore *self);
 void ts_wasm_store_call_scanner_destroy(TSWasmStore *self, uint32_t scanner_address);
 bool ts_wasm_store_call_scanner_scan(TSWasmStore *self, uint32_t scanner_address, uint32_t valid_tokens_ix);
 uint32_t ts_wasm_store_call_scanner_serialize(TSWasmStore *self, uint32_t scanner_address, char *buffer);
-void ts_wasm_store_call_scanner_deserialize(TSWasmStore *self, uint32_t scanner, const char *buffer, unsigned length);
+void ts_wasm_store_call_scanner_deserialize(TSWasmStore *self, uint32_t scanner, const char *buffer, uint32_t length);
 
 void ts_wasm_language_retain(const TSLanguage *self);
 void ts_wasm_language_release(const TSLanguage *self);

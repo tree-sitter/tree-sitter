@@ -11,8 +11,8 @@ extern "C" {
 typedef struct {
   uint32_t count;
   TSSymbol symbol;
-  int dynamic_precedence;
-  unsigned short production_id;
+  int32_t dynamic_precedence;
+  uint16_t production_id;
 } ReduceAction;
 
 typedef Array(ReduceAction) ReduceActionSet;

@@ -6,7 +6,7 @@
 #define POINT_ZERO ((TSPoint) {0, 0})
 #define POINT_MAX ((TSPoint) {UINT32_MAX, UINT32_MAX})
 
-static inline TSPoint point__new(unsigned row, unsigned column) {
+static inline TSPoint point__new(uint32_t row, uint32_t column) {
   TSPoint result = {row, column};
   return result;
 }

@@ -24,7 +24,7 @@ typedef struct {
 
 // ExternalScannerState
 
-void ts_external_scanner_state_init(ExternalScannerState *self, const char *data, unsigned length) {
+void ts_external_scanner_state_init(ExternalScannerState *self, const char *data, uint32_t length) {
   self->length = length;
   if (length > sizeof(self->short_data)) {
     self->long_data = ts_malloc(length);
@@ -57,7 +57,7 @@ const char *ts_external_scanner_state_data(const ExternalScannerState *self) {
   }
 }
 
-bool ts_external_scanner_state_eq(const ExternalScannerState *self, const char *buffer, unsigned length) {
+bool ts_external_scanner_state_eq(const ExternalScannerState *self, const char *buffer, uint32_t length) {
   return
     self->length == length &&
     memcmp(ts_external_scanner_state_data(self), buffer, length) == 0;
@@ -109,7 +109,7 @@ void ts_subtree_array_remove_trailing_extras(
 
 void ts_subtree_array_reverse(SubtreeArray *self) {
   for (uint32_t i = 0, limit = self->size / 2; i < limit; i++) {
-    size_t reverse_index = self->size - 1 - i;
+    uint32_t reverse_index = self->size - 1 - i;
     Subtree swap = *array_get(self, i);
     *array_get(self, i) = *array_get(self, reverse_index);
     *array_get(self, reverse_index) = swap;
@@ -126,7 +126,7 @@ SubtreePool ts_subtree_pool_new(uint32_t capacity) {
 
 void ts_subtree_pool_delete(SubtreePool *self) {
   if (self->free_trees.contents) {
-    for (unsigned i = 0; i < self->free_trees.size; i++) {
+    for (uint32_t i = 0; i < self->free_trees.size; i++) {
       ts_free(array_get(&self->free_trees, i)->ptr);
     }
     array_delete(&self->free_trees);
@@ -292,15 +292,15 @@ MutableSubtree ts_subtree_make_mut(SubtreePool *pool, Subtree self) {
 
 void ts_subtree_compress(
   MutableSubtree self,
-  unsigned count,
+  uint32_t count,
   const TSLanguage *language,
   MutableSubtreeArray *stack
 ) {
-  unsigned initial_stack_size = stack->size;
+  uint32_t initial_stack_size = stack->size;
 
   MutableSubtree tree = self;
   TSSymbol symbol = tree.ptr->symbol;
-  for (unsigned i = 0; i < count; i++) {
+  for (uint32_t i = 0; i < count; i++) {
     if (tree.ptr->ref_count > 1 || tree.ptr->child_count < 2) break;
 
     MutableSubtree child = ts_subtree_to_mut_unsafe(ts_subtree_children(tree)[0]);
@@ -492,7 +492,7 @@ void ts_subtree_summarize_children(
 MutableSubtree ts_subtree_new_node(
   TSSymbol symbol,
   SubtreeArray *children,
-  unsigned production_id,
+  uint16_t production_id,
   const TSLanguage *language
 ) {
   TSSymbolMetadata metadata = ts_language_symbol_metadata(language, symbol);
@@ -606,7 +606,7 @@ void ts_subtree_release(SubtreePool *pool, Subtree self) {
   }
 }
 
-int ts_subtree_compare(Subtree left, Subtree right, SubtreePool *pool) {
+int32_t ts_subtree_compare(Subtree left, Subtree right, SubtreePool *pool) {
   array_push(&pool->tree_stack, ts_subtree_to_mut_unsafe(left));
   array_push(&pool->tree_stack, ts_subtree_to_mut_unsafe(right));
 
@@ -614,7 +614,7 @@ int ts_subtree_compare(Subtree left, Subtree right, SubtreePool *pool) {
     right = ts_subtree_from_mut(array_pop(&pool->tree_stack));
     left = ts_subtree_from_mut(array_pop(&pool->tree_stack));
 
-    int result = 0;
+    int32_t result = 0;
     if (ts_subtree_symbol(left) < ts_subtree_symbol(right)) result = -1;
     else if (ts_subtree_symbol(right) < ts_subtree_symbol(left)) result = 1;
     else if (ts_subtree_child_count(left) < ts_subtree_child_count(right)) result = -1;
@@ -801,7 +801,7 @@ Subtree ts_subtree_edit(Subtree self, const TSInputEdit *input_edit, SubtreePool
 Subtree ts_subtree_last_external_token(Subtree tree) {
   if (!ts_subtree_has_external_tokens(tree)) return NULL_SUBTREE;
   while (tree.ptr->child_count > 0) {
-    for (uint32_t i = tree.ptr->child_count - 1; i + 1 > 0; i--) {
+    for (int64_t i = (int64_t)tree.ptr->child_count - 1; i >= 0; i--) {
       Subtree child = ts_subtree_children(tree)[i];
       if (ts_subtree_has_external_tokens(child)) {
         tree = child;
