@@ -24,10 +24,10 @@ struct TSTree {
   const TSLanguage *volatile unparseable_language;
 #endif
   TSRange *included_ranges;
-  unsigned included_range_count;
+  uint32_t included_range_count;
 };
 
-TSTree *ts_tree_new(Subtree root, const TSLanguage *language, const TSRange *included_ranges, unsigned included_range_count);
+TSTree *ts_tree_new(Subtree root, const TSLanguage *language, const TSRange *included_ranges, uint32_t included_range_count);
 TSNode ts_node_new(const TSTree *tree, const Subtree *subtree, Length position, TSSymbol alias);
 
 #ifdef __cplusplus

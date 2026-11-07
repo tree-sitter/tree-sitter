@@ -177,7 +177,7 @@ static bool ts_subtree_has_trailing_empty_descendant(
   Subtree self,
   Subtree other
 ) {
-  for (unsigned i = ts_subtree_child_count(self) - 1; i + 1 > 0; i--) {
+  for (uint32_t i = ts_subtree_child_count(self) - 1; i + 1 > 0; i--) {
     Subtree child = ts_subtree_children(self)[i];
     if (ts_subtree_total_bytes(child) > 0) break;
     if (child.ptr == other.ptr || ts_subtree_has_trailing_empty_descendant(child, other)) {
