@@ -136,7 +136,7 @@ typedef struct {
       uint32_t named_child_count;
       uint32_t visible_descendant_count;
       int32_t dynamic_precedence;
-      uint16_t repeat_depth;
+      uint32_t repeat_depth;
       uint16_t production_id;
       struct {
         TSSymbol symbol;
