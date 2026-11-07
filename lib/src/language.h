@@ -88,10 +88,10 @@ static inline uint16_t ts_language_lookup(
     uint32_t index = self->small_parse_table_map[state - self->large_state_count];
     const uint16_t *data = &self->small_parse_table[index];
     uint16_t group_count = *(data++);
-    for (unsigned i = 0; i < group_count; i++) {
+    for (uint32_t i = 0; i < group_count; i++) {
       uint16_t section_value = *(data++);
       uint16_t symbol_count = *(data++);
-      for (unsigned j = 0; j < symbol_count; j++) {
+      for (uint32_t j = 0; j < symbol_count; j++) {
         if (*(data++) == symbol) return section_value;
       }
     }
@@ -158,7 +158,7 @@ static inline bool ts_lookahead_iterator__next(LookaheadIterator *self) {
       }
       self->group_count--;
       self->table_value = *(self->data++);
-      unsigned symbol_count = *(self->data++);
+      uint32_t symbol_count = *(self->data++);
       self->group_end = self->data + symbol_count;
       self->symbol = *self->data;
     } else {
@@ -212,7 +212,7 @@ static inline bool ts_language_state_is_primary(
 
 static inline const bool *ts_language_enabled_external_tokens(
   const TSLanguage *self,
-  unsigned external_scanner_state
+  uint32_t external_scanner_state
 ) {
   if (external_scanner_state == 0) {
     return NULL;
@@ -266,7 +266,7 @@ static inline void ts_language_aliases_for_symbol(
   *start = &self->public_symbol_map[original_symbol];
   *end = *start + 1;
 
-  unsigned idx = 0;
+  uint32_t idx = 0;
   for (;;) {
     TSSymbol symbol = self->alias_map[idx++];
     if (symbol == 0 || symbol > original_symbol) break;

@@ -151,7 +151,7 @@ static void ts_lexer_goto(Lexer *self, Length position) {
 
   // Move to the first valid position at or after the given position.
   bool found_included_range = false;
-  for (unsigned i = 0; i < self->included_range_count; i++) {
+  for (uint32_t i = 0; i < self->included_range_count; i++) {
     TSRange *included_range = &self->included_ranges[i];
     if (
       included_range->end_byte > self->current_position.bytes &&
@@ -485,7 +485,7 @@ bool ts_lexer_set_included_ranges(
     count = 1;
   } else {
     uint32_t previous_byte = 0;
-    for (unsigned i = 0; i < count; i++) {
+    for (uint32_t i = 0; i < count; i++) {
       const TSRange *range = &ranges[i];
       if (
         range->start_byte < previous_byte ||

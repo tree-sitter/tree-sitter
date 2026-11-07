@@ -202,7 +202,7 @@ static bool wasm_reader__read_u8(WasmReader *reader, uint8_t *result) {
 
 static bool wasm_reader__read_uleb128(WasmReader *reader, uint32_t *result) {
   uint32_t value = 0;
-  for (unsigned shift = 0; shift < 32; shift += 7) {
+  for (uint32_t shift = 0; shift < 32; shift += 7) {
     uint8_t byte;
     if (!wasm_reader__read_u8(reader, &byte)) return false;
     if (shift == 28 && (byte & 0xf0) != 0) return false;
@@ -456,7 +456,7 @@ static void *copy_unsized_static_array(
   }
 
   int32_t end_address = 0;
-  for (unsigned i = 0; i < address_count; i++) {
+  for (size_t i = 0; i < address_count; i++) {
     if (all_addresses[i] > start_address) {
       if (!end_address || all_addresses[i] < end_address) {
         end_address = all_addresses[i];
@@ -494,7 +494,7 @@ static void *copy_strings(
   }
 
   const char **result = ts_malloc(count * sizeof(char *));
-  for (unsigned i = 0; i < count; i++) {
+  for (size_t i = 0; i < count; i++) {
     int32_t address;
     memcpy(&address, &memory->data[array_address + i * sizeof(address)], sizeof(address));
     if (address == 0) {
@@ -510,7 +510,7 @@ static void *copy_strings(
       array_extend(string_data, len + 1, &memory->data[address]);
     }
   }
-  for (unsigned i = 0; i < count; i++) {
+  for (size_t i = 0; i < count; i++) {
     if (result[i] == (const char *)-1) {
       result[i] = NULL;
     } else {
@@ -790,16 +790,16 @@ TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine, TSWasmError *wasm_error) {
   };
 
   // Create all of the Wasm functions.
-  unsigned builtin_definitions_len = array_len(builtin_definitions);
-  unsigned lexer_definitions_len = array_len(lexer_definitions);
+  uint32_t builtin_definitions_len = array_len(builtin_definitions);
+  uint32_t lexer_definitions_len = array_len(lexer_definitions);
   lexer_funcs = ts_calloc(lexer_definitions_len, sizeof(wasmtime_func_t));
-  for (unsigned i = 0; i < builtin_definitions_len; i++) {
+  for (uint32_t i = 0; i < builtin_definitions_len; i++) {
     FunctionDefinition *definition = &builtin_definitions[i];
     wasmtime_func_t *func = (wasmtime_func_t *)definition->storage_location;
     wasmtime_func_new_unchecked(context, definition->type, definition->callback, self, NULL, func);
     wasm_functype_delete(definition->type);
   }
-  for (unsigned i = 0; i < lexer_definitions_len; i++) {
+  for (uint32_t i = 0; i < lexer_definitions_len; i++) {
     FunctionDefinition *definition = &lexer_definitions[i];
     wasmtime_func_new_unchecked(context, definition->type, definition->callback, self, NULL, &lexer_funcs[i]);
     wasm_functype_delete(definition->type);
@@ -823,7 +823,7 @@ TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine, TSWasmError *wasm_error) {
 
   // Find the initial number of memory pages needed by the stdlib.
   const wasm_memorytype_t *stdlib_memory_type = NULL;
-  for (unsigned i = 0; i < import_types.size; i++) {
+  for (size_t i = 0; i < import_types.size; i++) {
     wasm_importtype_t *import_type = import_types.data[i];
     const wasm_name_t *import_name = wasm_importtype_name(import_type);
     if (name_eq(import_name, "memory")) {
@@ -878,7 +878,7 @@ TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine, TSWasmError *wasm_error) {
   wasm_tabletype_delete(table_type);
   table_type = NULL;
 
-  unsigned stdlib_symbols_len = array_len(STDLIB_SYMBOLS);
+  uint32_t stdlib_symbols_len = array_len(STDLIB_SYMBOLS);
 
   // Define globals for the stack and heap start addresses.
   wasm_globaltype_t *const_i32_type = wasm_globaltype_new(wasm_valtype_new_i32(), WASM_CONST);
@@ -906,7 +906,7 @@ TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine, TSWasmError *wasm_error) {
 
   // Set up the imports for the stdlib module.
   imports = ts_calloc(import_types.size, sizeof(wasmtime_extern_t));
-  for (unsigned i = 0; i < import_types.size; i++) {
+  for (size_t i = 0; i < import_types.size; i++) {
     wasm_importtype_t *type = import_types.data[i];
     const wasm_name_t *import_name = wasm_importtype_name(type);
     if (!ts_wasm_store__provide_builtin_import(self, import_name, &imports[i])) {
@@ -948,11 +948,11 @@ TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine, TSWasmError *wasm_error) {
   wasm_importtype_vec_delete(&import_types);
 
   // Process the stdlib module's exports.
-  for (unsigned i = 0; i < stdlib_symbols_len; i++) {
+  for (uint32_t i = 0; i < stdlib_symbols_len; i++) {
     self->stdlib_fn_indices[i] = (wasmtime_func_t){.store_id = 0};
   }
   wasmtime_module_exports(stdlib_module, &export_types);
-  for (unsigned i = 0; i < export_types.size; i++) {
+  for (size_t i = 0; i < export_types.size; i++) {
     wasm_exporttype_t *export_type = export_types.data[i];
     const wasm_name_t *name = wasm_exporttype_name(export_type);
 
@@ -988,7 +988,7 @@ TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine, TSWasmError *wasm_error) {
         continue;
       }
 
-      for (unsigned j = 0; j < stdlib_symbols_len; j++) {
+      for (uint32_t j = 0; j < stdlib_symbols_len; j++) {
         if (name_eq(name, STDLIB_SYMBOLS[j])) {
           self->stdlib_fn_indices[j] = export.of.func;
           break;
@@ -1006,7 +1006,7 @@ TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine, TSWasmError *wasm_error) {
     goto error;
   }
 
-  for (unsigned i = 0; i < stdlib_symbols_len; i++) {
+  for (uint32_t i = 0; i < stdlib_symbols_len; i++) {
     if (self->stdlib_fn_indices[i].store_id == 0) {
       wasm_error->kind = TSWasmErrorKindInstantiate;
       format(
@@ -1035,7 +1035,7 @@ TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine, TSWasmError *wasm_error) {
     );
     goto error;
   }
-  for (unsigned i = 0; i < lexer_definitions_len; i++) {
+  for (uint32_t i = 0; i < lexer_definitions_len; i++) {
     FunctionDefinition *definition = &lexer_definitions[i];
     wasmtime_val_t func_val = {.kind = WASMTIME_FUNCREF, .of.funcref = lexer_funcs[i]};
     error = wasmtime_table_set(context, &function_table, table_index, &func_val);
@@ -1080,7 +1080,7 @@ void ts_wasm_store_delete(TSWasmStore *self) {
   wasm_globaltype_delete(self->const_i32_type);
   wasmtime_store_delete(self->store);
   wasm_engine_delete(self->engine);
-  for (unsigned i = 0; i < self->language_instances.size; i++) {
+  for (uint32_t i = 0; i < self->language_instances.size; i++) {
     LanguageWasmInstance *instance = array_get(&self->language_instances, i);
     language_id_delete(instance->language_id);
   }
@@ -1090,7 +1090,7 @@ void ts_wasm_store_delete(TSWasmStore *self) {
 
 size_t ts_wasm_store_language_count(const TSWasmStore *self) {
   size_t result = 0;
-  for (unsigned i = 0; i < self->language_instances.size; i++) {
+  for (uint32_t i = 0; i < self->language_instances.size; i++) {
     const WasmLanguageId *id = array_get(&self->language_instances, i)->language_id;
     if (!id->is_language_deleted) {
       result++;
@@ -1169,7 +1169,7 @@ static bool ts_wasm_store__instantiate(
   wasmtime_module_imports(module, &import_types);
   imports = ts_calloc(import_types.size, sizeof(wasmtime_extern_t));
 
-  for (unsigned i = 0; i < import_types.size; i++) {
+  for (size_t i = 0; i < import_types.size; i++) {
     const wasm_importtype_t *import_type = import_types.data[i];
     const wasm_name_t *import_name = wasm_importtype_name(import_type);
     if (import_name->size == 0) {
@@ -1182,7 +1182,7 @@ static bool ts_wasm_store__instantiate(
     }
 
     bool defined_in_stdlib = false;
-    for (unsigned j = 0; j < array_len(STDLIB_SYMBOLS); j++) {
+    for (uint32_t j = 0; j < array_len(STDLIB_SYMBOLS); j++) {
       if (name_eq(import_name, STDLIB_SYMBOLS[j])) {
         imports[i] = (wasmtime_extern_t) {.kind = WASMTIME_EXTERN_FUNC, .of.func = self->stdlib_fn_indices[j]};
         defined_in_stdlib = true;
@@ -1232,7 +1232,7 @@ static bool ts_wasm_store__instantiate(
   wasmtime_extern_t language_extern;
   wasm_exporttype_vec_t export_types = WASM_EMPTY_VEC;
   wasmtime_module_exports(module, &export_types);
-  for (unsigned i = 0; i < export_types.size; i++) {
+  for (size_t i = 0; i < export_types.size; i++) {
     wasm_exporttype_t *export_type = export_types.data[i];
     const wasm_name_t *name = wasm_exporttype_name(export_type);
 
@@ -1334,7 +1334,7 @@ const TSLanguage *ts_wasm_store_load_language(
   uint32_t initial_function_table_offset = self->current_function_table_offset;
   wasm_error->kind = TSWasmErrorKindNone;
 
-  if (!wasm_dylink_info__parse((const unsigned char *)wasm, wasm_len, &dylink_info)) {
+  if (!wasm_dylink_info__parse((const uint8_t *)wasm, wasm_len, &dylink_info)) {
     wasm_error->kind = TSWasmErrorKindParse;
     format(&wasm_error->message, "failed to parse dylink section of Wasm module");
     goto error;
@@ -1677,7 +1677,7 @@ const TSLanguage *ts_wasm_store_load_language(
     language->external_scanner.states = (void *)(uintptr_t)wasm_language.external_scanner.states;
   }
 
-  unsigned name_len = strlen(language_name);
+  size_t name_len = strlen(language_name);
   char *name = ts_malloc(name_len + 1);
   memcpy(name, language_name, name_len);
   name[name_len] = '\0';
@@ -1696,7 +1696,7 @@ const TSLanguage *ts_wasm_store_load_language(
   language->keyword_lex_fn = NULL;
 
   // Clear out any instances of languages that have been deleted.
-  for (unsigned i = 0; i < self->language_instances.size; i++) {
+  for (uint32_t i = 0; i < self->language_instances.size; i++) {
     WasmLanguageId *id = array_get(&self->language_instances, i)->language_id;
     if (id->is_language_deleted) {
       language_id_delete(id);
@@ -1745,7 +1745,7 @@ bool ts_wasm_store_add_language(
   // Search for this store's instance of the language module. Also clear out any
   // instances of languages that have been deleted.
   bool exists = false;
-  for (unsigned i = 0; i < self->language_instances.size; i++) {
+  for (uint32_t i = 0; i < self->language_instances.size; i++) {
     WasmLanguageId *id = array_get(&self->language_instances, i)->language_id;
     if (id->is_language_deleted) {
       language_id_delete(id);
@@ -2002,7 +2002,7 @@ void ts_wasm_store_call_scanner_deserialize(
   TSWasmStore *self,
   uint32_t scanner_address,
   const char *buffer,
-  unsigned length
+  uint32_t length
 ) {
   wasmtime_context_t *context = wasmtime_store_context(self->store);
   uint8_t *memory_data = wasmtime_memory_data(context, &self->memory);
@@ -2157,7 +2157,7 @@ void ts_wasm_store_call_scanner_deserialize(
   TSWasmStore *self,
   uint32_t scanner_address,
   const char *buffer,
-  unsigned length
+  uint32_t length
 ) {
   (void)self;
   (void)scanner_address;
