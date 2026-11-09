@@ -811,6 +811,11 @@ static Subtree ts_parser__reuse_node(
         reusable_node_advance(&self->reusable_node);
         ts_parser__breakdown_top_of_stack(self, version);
         *state = ts_stack_state(self->stack, version);
+      } else if (ts_subtree_extra(result)) {
+        // Inside a non-terminal extra, a breakdown can't reach a reused node before the extra, so
+        // break that node down now: where it ends depended on the token after the extra.
+        ts_parser__breakdown_top_of_stack(self, version);
+        *state = ts_stack_state(self->stack, version);
       }
       continue;
     }
@@ -823,6 +828,13 @@ static Subtree ts_parser__reuse_node(
         TREE_NAME(result),
         SYM_NAME(leaf_symbol)
       );
+      if (ts_subtree_extra(result) && ts_subtree_child_count(result) > 0) {
+        // This non-terminal extra will be parsed again, and inside it, a breakdown can't reach a
+        // reused node before the extra, so break that node down now: where it ends depended on the
+        // token after the extra.
+        ts_parser__breakdown_top_of_stack(self, version);
+        *state = ts_stack_state(self->stack, version);
+      }
       reusable_node_advance_past_leaf(&self->reusable_node);
       break;
     }
