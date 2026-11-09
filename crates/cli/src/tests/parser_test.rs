@@ -722,6 +722,56 @@ fn test_parsing_after_failed_external_scan_that_depends_on_column() {
 }
 
 #[test]
+fn test_parsing_after_editing_text_after_a_non_terminal_extra() {
+    let mut parser = Parser::new();
+    parser
+        .set_language(&get_test_fixture_language(
+            "reuse_before_extra_non_terminal",
+        ))
+        .unwrap();
+
+    // Applies the edits one at a time, reparsing after each. Every sequence below ends with a
+    // newline after the comment, which belongs to `statements`.
+    let mut assert_reparse = |code: &str, edits: &[(usize, usize, &str)]| {
+        let mut code = code.as_bytes().to_vec();
+        let mut tree = parser.parse(&code, None).unwrap();
+        for &(position, deleted_length, inserted_text) in edits {
+            perform_edit(
+                &mut tree,
+                &mut code,
+                &Edit {
+                    position,
+                    deleted_length,
+                    inserted_text: inserted_text.as_bytes().to_vec(),
+                },
+            )
+            .unwrap();
+            tree = parser.parse(&code, Some(&tree)).unwrap();
+        }
+
+        let fresh = parser.parse(&code, None).unwrap();
+        assert_eq!(
+            fresh.root_node().to_sexp(),
+            "(program (list (block (statements (statement) (comment) (newline)))))"
+        );
+        assert_eq!(
+            tree.root_node().to_sexp(),
+            fresh.root_node().to_sexp(),
+            "{:?}",
+            String::from_utf8_lossy(&code)
+        );
+    };
+
+    // Inside the block, `statements` is reduced on `)`, which turns out to be an error, and
+    // recovery inserts a `}`. Undoing the edit must not keep that `statements`.
+    assert_reparse("( { a /*c*/\n} )", &[(11, 4, " )"), (11, 2, "\n} )")]);
+    // The comment has changes.
+    assert_reparse("( { a /*c*/ } )", &[(11, 0, "\n")]);
+    // The comment is unchanged, but can't be reused after `statements`.
+    assert_reparse("( { a /*c*/  } )", &[(12, 0, "\n")]);
+}
+
+#[test]
 fn test_parsing_after_detecting_error_in_the_middle_of_a_string_token() {
     let mut parser = Parser::new();
     parser.set_language(&get_language("python")).unwrap();
