@@ -7,7 +7,6 @@ use std::{
 
 use anyhow::{Context, Result, anyhow};
 use heck::{ToKebabCase, ToShoutySnakeCase, ToSnakeCase, ToUpperCamelCase};
-use indoc::{formatdoc, indoc};
 use log::info;
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -381,45 +380,31 @@ pub fn generate_grammar_files(
 
 fn generate_common_files(ctx: &InitContext, opts: &GenerateOpts) -> Result<()> {
     // Create package.json
-    missing_path_else(
-        ctx.repo_path.join("package.json"),
-        ctx.allow_update,
-        |path| {
-            generate_file(
-                path,
-                PACKAGE_JSON_TEMPLATE,
-                ctx.dashed_language_name.as_str(),
-                opts,
-            )
-        },
-        update_package_json,
-    )?;
+    missing_path(ctx.repo_path.join("package.json"), |path| {
+        generate_file(
+            path,
+            PACKAGE_JSON_TEMPLATE,
+            ctx.dashed_language_name.as_str(),
+            opts,
+        )
+    })?;
 
     // Do not create a grammar.js file in a repo with multiple language configs
     if !ctx.has_multiple_language_configs {
-        missing_path_else(
-            ctx.repo_path.join("grammar.js"),
-            ctx.allow_update,
-            |path| generate_file(path, GRAMMAR_JS_TEMPLATE, ctx.language_name, opts),
-            update_grammar_js,
-        )?;
+        missing_path(ctx.repo_path.join("grammar.js"), |path| {
+            generate_file(path, GRAMMAR_JS_TEMPLATE, ctx.language_name, opts)
+        })?;
     }
 
     // Write .gitignore file
-    missing_path_else(
-        ctx.repo_path.join(".gitignore"),
-        ctx.allow_update,
-        |path| generate_file(path, GITIGNORE_TEMPLATE, ctx.language_name, opts),
-        update_gitignore,
-    )?;
+    missing_path(ctx.repo_path.join(".gitignore"), |path| {
+        generate_file(path, GITIGNORE_TEMPLATE, ctx.language_name, opts)
+    })?;
 
     // Write .gitattributes file
-    missing_path_else(
-        ctx.repo_path.join(".gitattributes"),
-        ctx.allow_update,
-        |path| generate_file(path, GITATTRIBUTES_TEMPLATE, ctx.language_name, opts),
-        update_gitattributes,
-    )?;
+    missing_path(ctx.repo_path.join(".gitattributes"), |path| {
+        generate_file(path, GITATTRIBUTES_TEMPLATE, ctx.language_name, opts)
+    })?;
 
     // Write .editorconfig file
     missing_path(ctx.repo_path.join(".editorconfig"), |path| {
@@ -439,36 +424,24 @@ fn generate_rust_bindings(
             path.join("lib.rs"),
             ctx.allow_update,
             |path| generate_file(path, LIB_RS_TEMPLATE, ctx.language_name, opts),
-            |path| update_rust_lib_rs(path, opts),
+            update_rust_lib_rs,
         )?;
 
         missing_path_else(
             path.join("build.rs"),
             ctx.allow_update,
             |path| generate_file(path, BUILD_RS_TEMPLATE, ctx.language_name, opts),
-            |path| update_rust_build_rs(path, ctx.language_name, opts),
+            update_rust_build_rs,
         )?;
 
-        missing_path_else(
-            ctx.repo_path.join("Cargo.toml"),
-            ctx.allow_update,
-            |path| {
-                generate_file(
-                    path,
-                    CARGO_TOML_TEMPLATE,
-                    ctx.dashed_language_name.as_str(),
-                    opts,
-                )
-            },
-            |path| {
-                let contents = fs::read_to_string(path)?;
-                if contents.contains("\"LICENSE\"") {
-                    info!("Adding LICENSE entry to bindings/rust/Cargo.toml");
-                    write_file(path, contents.replace("\"LICENSE\"", "\"/LICENSE\""))?;
-                }
-                Ok(())
-            },
-        )?;
+        missing_path(ctx.repo_path.join("Cargo.toml"), |path| {
+            generate_file(
+                path,
+                CARGO_TOML_TEMPLATE,
+                ctx.dashed_language_name.as_str(),
+                opts,
+            )
+        })?;
 
         Ok(())
     })?;
@@ -500,49 +473,23 @@ fn generate_node_bindings(
             path.join("index.d.ts"),
             ctx.allow_update,
             |path| generate_file(path, INDEX_D_TS_TEMPLATE, ctx.language_name, opts),
-            |path| {
-                regenerate_if_missing(
-                    path,
-                    "export default binding",
-                    INDEX_D_TS_TEMPLATE,
-                    ctx.language_name,
-                    opts,
-                )
-            },
+            update_node_index_d_ts,
         )?;
 
         missing_path_else(
             path.join("binding_test.js"),
             ctx.allow_update,
             |path| generate_file(path, BINDING_TEST_JS_TEMPLATE, ctx.language_name, opts),
-            |path| {
-                regenerate_if_missing(
-                    path,
-                    "await assert.doesNotReject",
-                    BINDING_TEST_JS_TEMPLATE,
-                    ctx.language_name,
-                    opts,
-                )
-            },
+            update_node_binding_test_js,
         )?;
 
         missing_path(path.join("binding.cc"), |path| {
             generate_file(path, JS_BINDING_CC_TEMPLATE, ctx.language_name, opts)
         })?;
 
-        missing_path_else(
-            ctx.repo_path.join("binding.gyp"),
-            ctx.allow_update,
-            |path| generate_file(path, BINDING_GYP_TEMPLATE, ctx.language_name, opts),
-            |path| {
-                let contents = fs::read_to_string(path)?;
-                if contents.contains("fs.exists(") {
-                    info!("Replacing `fs.exists` calls in binding.gyp");
-                    write_file(path, contents.replace("fs.exists(", "fs.existsSync("))?;
-                }
-                Ok(())
-            },
-        )?;
+        missing_path(ctx.repo_path.join("binding.gyp"), |path| {
+            generate_file(path, BINDING_GYP_TEMPLATE, ctx.language_name, opts)
+        })?;
 
         Ok(())
     })?;
@@ -574,14 +521,14 @@ fn generate_c_bindings(ctx: &InitContext, opts: &GenerateOpts, bindings_dir: &Pa
             ctx.repo_path.join("Makefile"),
             ctx.allow_update,
             |path| generate_file(path, MAKEFILE_TEMPLATE, ctx.language_name, opts),
-            |path| update_c_makefile(path, ctx.language_name, opts),
+            update_c_makefile,
         )?;
 
         missing_path_else(
             ctx.repo_path.join("CMakeLists.txt"),
             ctx.allow_update,
             |path| generate_file(path, CMAKELISTS_TXT_TEMPLATE, ctx.language_name, opts),
-            |path| update_c_cmakelists(path, ctx.language_name),
+            update_c_cmakelists,
         )?;
 
         Ok(())
@@ -618,45 +565,26 @@ fn generate_python_bindings(
         let lang_path = path.join(&snake_case_grammar_name);
         missing_path(&lang_path, create_dir)?;
 
-        missing_path_else(
-            lang_path.join("binding.c"),
-            ctx.allow_update,
-            |path| generate_file(path, PY_BINDING_C_TEMPLATE, ctx.language_name, opts),
-            |path| update_python_binding_c(path, &snake_case_grammar_name),
-        )?;
+        missing_path(lang_path.join("binding.c"), |path| {
+            generate_file(path, PY_BINDING_C_TEMPLATE, ctx.language_name, opts)
+        })?;
 
-        missing_path_else(
-            lang_path.join("__init__.py"),
-            ctx.allow_update,
-            |path| generate_file(path, INIT_PY_TEMPLATE, ctx.language_name, opts),
-            |path| {
-                let contents = fs::read_to_string(path)?;
-                if contents.contains("uncomment these to include any queries") {
-                    info!("Replacing __init__.py");
-                    generate_file(path, INIT_PY_TEMPLATE, ctx.language_name, opts)?;
-                }
-                Ok(())
-            },
-        )?;
+        missing_path(lang_path.join("__init__.py"), |path| {
+            generate_file(path, INIT_PY_TEMPLATE, ctx.language_name, opts)
+        })?;
 
-        missing_path_else(
-            lang_path.join("__init__.pyi"),
-            ctx.allow_update,
-            |path| generate_file(path, INIT_PYI_TEMPLATE, ctx.language_name, opts),
-            |path| update_python_init_pyi(path, ctx.language_name, opts),
-        )?;
+        missing_path(lang_path.join("__init__.pyi"), |path| {
+            generate_file(path, INIT_PYI_TEMPLATE, ctx.language_name, opts)
+        })?;
 
         missing_path(lang_path.join("py.typed"), |path| {
             generate_file(path, "", ctx.language_name, opts) // py.typed is empty
         })?;
 
         missing_path(path.join("tests"), create_dir)?.apply(|path| {
-            missing_path_else(
-                path.join("test_binding.py"),
-                ctx.allow_update,
-                |path| generate_file(path, TEST_BINDING_PY_TEMPLATE, ctx.language_name, opts),
-                update_python_test_binding,
-            )?;
+            missing_path(path.join("test_binding.py"), |path| {
+                generate_file(path, TEST_BINDING_PY_TEMPLATE, ctx.language_name, opts)
+            })?;
             Ok(())
         })?;
 
@@ -725,7 +653,7 @@ fn generate_swift_bindings(
             ctx.repo_path.join("Package.swift"),
             ctx.allow_update,
             |path| generate_file(path, PACKAGE_SWIFT_TEMPLATE, ctx.language_name, opts),
-            update_swift_package,
+            update_swift_package_swift,
         )?;
 
         Ok(())
@@ -745,7 +673,7 @@ fn generate_zig_bindings(
         |path| {
             regenerate_if_missing(
                 path,
-                "b.pkg_hash.len",
+                "b.root.access",
                 BUILD_ZIG_TEMPLATE,
                 ctx.language_name,
                 opts,
@@ -757,31 +685,13 @@ fn generate_zig_bindings(
         ctx.repo_path.join("build.zig.zon"),
         ctx.allow_update,
         |path| generate_file(path, BUILD_ZIG_ZON_TEMPLATE, ctx.language_name, opts),
-        |path| {
-            regenerate_if_missing(
-                path,
-                ".name = .tree_sitter_",
-                BUILD_ZIG_ZON_TEMPLATE,
-                ctx.language_name,
-                opts,
-            )
-        },
+        update_zig_build_zig_zon,
     )?;
 
     missing_path(bindings_dir.join("zig"), create_dir)?.apply(|path| {
-        missing_path_else(
-            path.join("root.zig"),
-            ctx.allow_update,
-            |path| generate_file(path, ROOT_ZIG_TEMPLATE, ctx.language_name, opts),
-            |path| {
-                let contents = fs::read_to_string(path)?;
-                if contents.contains("ts.Language") {
-                    info!("Replacing root.zig");
-                    generate_file(path, ROOT_ZIG_TEMPLATE, ctx.language_name, opts)?;
-                }
-                Ok(())
-            },
-        )?;
+        missing_path(path.join("root.zig"), |path| {
+            generate_file(path, ROOT_ZIG_TEMPLATE, ctx.language_name, opts)
+        })?;
 
         missing_path(path.join("test.zig"), |path| {
             generate_file(path, TEST_ZIG_TEMPLATE, ctx.language_name, opts)
@@ -835,365 +745,80 @@ fn generate_java_bindings(
     Ok(())
 }
 
-// TODO: remove old migrations
+fn update_rust_lib_rs(path: &Path) -> Result<()> {
+    let mut contents = fs::read_to_string(path)?;
+    if !contents.contains("unsafe extern") {
+        info!("Updating C import in lib.rs");
+        contents = contents.replace("extern", "unsafe extern");
+        write_file(path, contents)?;
+    }
+    Ok(())
+}
 
-fn update_package_json(path: &Path) -> Result<()> {
-    let mut contents = fs::read_to_string(path)?
-        .replace(
-            r#""node-addon-api": "^8.3.1""#,
-            r#""node-addon-api": "^8.5.0""#,
-        )
-        .replace(
-            indoc! {r#"
-            "prebuildify": "^6.0.1",
-            "tree-sitter-cli":"#},
-            indoc! {r#"
-            "prebuildify": "^6.0.1",
-            "tree-sitter": "^0.25.0",
-            "tree-sitter-cli":"#},
-        );
-    if !contents.contains("module") {
-        info!("Migrating package.json to ESM");
+fn update_rust_build_rs(path: &Path) -> Result<()> {
+    let mut contents = fs::read_to_string(path)?;
+    if contents.contains("DEP_TREE_SITTER_LANGUAGE_WASM_SRC") {
+        info!("Updating Wasm sources in build.rs");
         contents = contents.replace(
-            r#""repository":"#,
-            indoc! {r#"
-            "type": "module",
-              "repository":"#},
-        );
-    }
-    write_file(path, contents)?;
-    Ok(())
-}
+r#"
+        let Ok(wasm_src) =
+            std::env::var("DEP_TREE_SITTER_LANGUAGE_WASM_SRC").map(std::path::PathBuf::from)
+        else {
+            panic!("Environment variable DEP_TREE_SITTER_LANGUAGE_WASM_SRC must be set by the language crate");
+        };
 
-fn update_grammar_js(path: &Path) -> Result<()> {
-    let mut contents = fs::read_to_string(path)?;
-    if contents.contains("module.exports") {
-        info!("Migrating grammar.js to ESM");
-        contents = contents.replace("module.exports =", "export default");
+        c_config.include(&wasm_headers);
+        c_config.files([
+            wasm_src.join("stdio.c"),
+            wasm_src.join("stdlib.c"),
+            wasm_src.join("string.c"),
+        ]);"#, "\n        c_config.include(&wasm_headers);"
+        );
         write_file(path, contents)?;
     }
     Ok(())
 }
 
-fn update_gitignore(path: &Path) -> Result<()> {
-    // NOTE: this modifies `contents` but never calls `write_file` (pre-existing bug)
+fn update_node_index_d_ts(path: &Path) -> Result<()> {
     let mut contents = fs::read_to_string(path)?;
-    if !contents.contains("Zig artifacts") {
-        info!("Adding zig entries to .gitignore");
-        contents.push('\n');
-        contents.push_str(indoc! {"
-        # Zig artifacts
-        .zig-cache/
-        zig-cache/
-        zig-out/
-        "});
+    if contents.contains("Parser.Language.html") {
+        info!("Updating API link in index.d.ts");
+        contents = contents.replace("Parser.Language.html", "Language.html");
+        write_file(path, contents)?;
     }
     Ok(())
 }
 
-fn update_gitattributes(path: &Path) -> Result<()> {
+fn update_node_binding_test_js(path: &Path) -> Result<()> {
     let mut contents = fs::read_to_string(path)?;
-    let c_bindings_entry = "bindings/c/* ";
-    if contents.contains(c_bindings_entry) {
-        info!("Updating c bindings entry in .gitattributes");
-        contents = contents.replace(c_bindings_entry, "bindings/c/** ");
+    if !contents.contains("await assert") {
+        info!("Fixing async code in binding_test.js");
+        contents = contents
+            .replace(", () =>", ", async () =>")
+            .replace("  assert", "  await assert");
+        write_file(path, contents)?;
     }
-    if !contents.contains("Zig bindings") {
-        info!("Adding zig entries to .gitattributes");
-        contents.push('\n');
-        contents.push_str(indoc! {"
-        # Zig bindings
-        build.zig linguist-generated
-        build.zig.zon linguist-generated
-        "});
-    }
-    write_file(path, contents)?;
     Ok(())
 }
 
-fn update_rust_lib_rs(path: &Path, opts: &GenerateOpts) -> Result<()> {
+fn update_c_makefile(path: &Path) -> Result<()> {
     let mut contents = fs::read_to_string(path)?;
-    if !contents.contains("#[cfg(with_highlights_query)]") {
-        info!("Updating query constants in bindings/rust/lib.rs");
-        let replacement = indoc! {r#"
-            #[cfg(with_highlights_query)]
-            /// The syntax highlighting query for this grammar.
-            pub const HIGHLIGHTS_QUERY: &str = include_str!("../../HIGHLIGHTS_QUERY_PATH");
-
-            #[cfg(with_injections_query)]
-            /// The language injection query for this grammar.
-            pub const INJECTIONS_QUERY: &str = include_str!("../../INJECTIONS_QUERY_PATH");
-
-            #[cfg(with_locals_query)]
-            /// The local variable query for this grammar.
-            pub const LOCALS_QUERY: &str = include_str!("../../LOCALS_QUERY_PATH");
-
-            #[cfg(with_tags_query)]
-            /// The symbol tagging query for this grammar.
-            pub const TAGS_QUERY: &str = include_str!("../../TAGS_QUERY_PATH");
-            "#}
-        .replace(
-            HIGHLIGHTS_QUERY_PATH_PLACEHOLDER,
-            &opts.highlights_query_path.replace('\\', "/"),
-        )
-        .replace(
-            INJECTIONS_QUERY_PATH_PLACEHOLDER,
-            &opts.injections_query_path.replace('\\', "/"),
-        )
-        .replace(
-            LOCALS_QUERY_PATH_PLACEHOLDER,
-            &opts.locals_query_path.replace('\\', "/"),
-        )
-        .replace(
-            TAGS_QUERY_PATH_PLACEHOLDER,
-            &opts.tags_query_path.replace('\\', "/"),
-        );
+    if !contents.contains("\nDESCRIPTION :=") {
+        info!("Adding parser description to Makefile");
         contents = contents.replace(
-            indoc! {r#"
-                // NOTE: uncomment these to include any queries that this grammar contains:
-
-                // pub const HIGHLIGHTS_QUERY: &str = include_str!("../../queries/highlights.scm");
-                // pub const INJECTIONS_QUERY: &str = include_str!("../../queries/injections.scm");
-                // pub const LOCALS_QUERY: &str = include_str!("../../queries/locals.scm");
-                // pub const TAGS_QUERY: &str = include_str!("../../queries/tags.scm");
-                "#},
-            &replacement,
+            "\n\n# repository",
+            "\nDESCRIPTION := PARSER_DESCRIPTION\n\n# repository",
         );
-    }
-    write_file(path, contents)?;
-    Ok(())
-}
-
-fn update_rust_build_rs(path: &Path, language_name: &str, opts: &GenerateOpts) -> Result<()> {
-    let mut contents = fs::read_to_string(path)?;
-    if !contents.contains("wasm32-unknown-unknown") {
-        info!("Adding wasm32-unknown-unknown target to bindings/rust/build.rs");
-        let replacement = indoc!{r#"
-            c_config.flag("-utf-8");
-
-            if std::env::var("TARGET").unwrap() == "wasm32-unknown-unknown" {
-                let Ok(wasm_headers) = std::env::var("DEP_TREE_SITTER_LANGUAGE_WASM_HEADERS") else {
-                    panic!("Environment variable DEP_TREE_SITTER_LANGUAGE_WASM_HEADERS must be set by the language crate");
-                };
-
-                c_config.include(&wasm_headers);
-            }
-        "#}
-            .lines()
-            .map(|line| if line.is_empty() { line.to_string() } else { format!("    {line}") })
-            .collect::<Vec<_>>()
-            .join("\n");
-
-        contents = contents.replace(r#"    c_config.flag("-utf-8");"#, &replacement);
-    }
-
-    // Introduce configuration variables for dynamic query inclusion
-    if !contents.contains("with_highlights_query") {
-        info!("Adding support for dynamic query inclusion to bindings/rust/build.rs");
-        let replaced = indoc! {r#"
-                c_config.compile("tree-sitter-KEBAB_PARSER_NAME");
-            }"#}
-        .replace("KEBAB_PARSER_NAME", &language_name.to_kebab_case());
-
-        let replacement = indoc! {r#"
-                c_config.compile("tree-sitter-KEBAB_PARSER_NAME");
-
-                println!("cargo:rustc-check-cfg=cfg(with_highlights_query)");
-                if !"HIGHLIGHTS_QUERY_PATH".is_empty() && std::path::Path::new("HIGHLIGHTS_QUERY_PATH").exists() {
-                    println!("cargo:rustc-cfg=with_highlights_query");
-                }
-                println!("cargo:rustc-check-cfg=cfg(with_injections_query)");
-                if !"INJECTIONS_QUERY_PATH".is_empty() && std::path::Path::new("INJECTIONS_QUERY_PATH").exists() {
-                    println!("cargo:rustc-cfg=with_injections_query");
-                }
-                println!("cargo:rustc-check-cfg=cfg(with_locals_query)");
-                if !"LOCALS_QUERY_PATH".is_empty() && std::path::Path::new("LOCALS_QUERY_PATH").exists() {
-                    println!("cargo:rustc-cfg=with_locals_query");
-                }
-                println!("cargo:rustc-check-cfg=cfg(with_tags_query)");
-                if !"TAGS_QUERY_PATH".is_empty() && std::path::Path::new("TAGS_QUERY_PATH").exists() {
-                    println!("cargo:rustc-cfg=with_tags_query");
-                }
-            }"#}
-            .replace("KEBAB_PARSER_NAME", &language_name.to_kebab_case())
-            .replace(HIGHLIGHTS_QUERY_PATH_PLACEHOLDER, &opts.highlights_query_path.replace('\\', "/"))
-            .replace(INJECTIONS_QUERY_PATH_PLACEHOLDER, &opts.injections_query_path.replace('\\', "/"))
-            .replace(LOCALS_QUERY_PATH_PLACEHOLDER, &opts.locals_query_path.replace('\\', "/"))
-            .replace(TAGS_QUERY_PATH_PLACEHOLDER, &opts.tags_query_path.replace('\\', "/"));
-
-        contents = contents.replace(&replaced, &replacement);
-    }
-
-    write_file(path, contents)?;
-    Ok(())
-}
-
-fn update_c_makefile(path: &Path, language_name: &str, opts: &GenerateOpts) -> Result<()> {
-    let mut contents = fs::read_to_string(path)?;
-    if !contents.contains("cd '$(DESTDIR)$(LIBDIR)' && ln -sf") {
-        info!("Replacing Makefile");
-        generate_file(path, MAKEFILE_TEMPLATE, language_name, opts)?;
-    } else {
-        let replaced = indoc! {r"
-            $(PARSER): $(SRC_DIR)/grammar.json
-                    $(TS) generate $^
-            "};
-        if contents.contains(replaced) {
-            info!("Adding --no-parser target to Makefile");
-            contents = contents.replace(
-                replaced,
-                indoc! {r"
-                    $(SRC_DIR)/grammar.json: grammar.js
-                            $(TS) generate --no-parser $^
-
-                    $(PARSER): $(SRC_DIR)/grammar.json
-                            $(TS) generate $^
-                    "},
-            );
-        }
-        if !contents.contains("\nDESCRIPTION :=")
-            && let Some(version_line) = contents.lines().find(|l| l.starts_with("VERSION := "))
-        {
-            info!("Adding DESCRIPTION to Makefile");
-            let description = opts.description.map_or_else(
-                || format!("{} grammar for tree-sitter", opts.camel_parser_name),
-                str::to_string,
-            );
-            contents = contents.replace(
-                version_line,
-                &format!("{version_line}\nDESCRIPTION := {description}"),
-            );
-        }
         write_file(path, contents)?;
     }
     Ok(())
 }
 
-fn update_c_cmakelists(path: &Path, language_name: &str) -> Result<()> {
-    let contents = fs::read_to_string(path)?;
-    let replaced_contents = contents
-        .replace("add_custom_target(test", "add_custom_target(ts-test")
-        .replace(
-            "find_program(TREE_SITTER_CLI tree-sitter DOC \"Tree-sitter CLI\")",
-            "find_program(TREE_SITTER_CLI tree-sitter DOC \"Tree-sitter CLI\" REQUIRED)",
-        )
-        .replace(
-            &formatdoc! {r#"
-            install(FILES bindings/c/tree-sitter-{language_name}.h
-                    DESTINATION "${{CMAKE_INSTALL_INCLUDEDIR}}/tree_sitter")
-            "#},
-            indoc! {r#"
-            install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/bindings/c/tree_sitter"
-                    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
-                    FILES_MATCHING PATTERN "*.h")
-            "#}
-        ).replace(
-            &format!("target_include_directories(tree-sitter-{language_name} PRIVATE src)"),
-            &formatdoc! {"
-            target_include_directories(tree-sitter-{language_name}
-                                       PRIVATE src
-                                       INTERFACE $<BUILD_INTERFACE:${{CMAKE_CURRENT_SOURCE_DIR}}/bindings/c>
-                                                 $<INSTALL_INTERFACE:${{CMAKE_INSTALL_INCLUDEDIR}}>)
-            "}
-        ).replace(
-            indoc! {r#"
-            add_custom_command(OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/src/parser.c"
-                               DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/grammar.json"
-                               COMMAND "${TREE_SITTER_CLI}" generate src/grammar.json
-                                        --abi=${TREE_SITTER_ABI_VERSION}
-                               WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-                               COMMENT "Generating parser.c")
-            "#},
-            indoc! {r#"
-            add_custom_command(OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/src/grammar.json"
-                                      "${CMAKE_CURRENT_SOURCE_DIR}/src/node-types.json"
-                               DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/grammar.js"
-                               COMMAND "${TREE_SITTER_CLI}" generate grammar.js --no-parser
-                               WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-                               COMMENT "Generating grammar.json")
-
-            add_custom_command(OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/src/parser.c"
-                               BYPRODUCTS "${CMAKE_CURRENT_SOURCE_DIR}/src/tree_sitter/parser.h"
-                                          "${CMAKE_CURRENT_SOURCE_DIR}/src/tree_sitter/alloc.h"
-                                          "${CMAKE_CURRENT_SOURCE_DIR}/src/tree_sitter/array.h"
-                               DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/grammar.json"
-                               COMMAND "${TREE_SITTER_CLI}" generate src/grammar.json
-                                        --abi=${TREE_SITTER_ABI_VERSION}
-                               WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-                               COMMENT "Generating parser.c")
-            "#}
-        );
-    if !replaced_contents.eq(&contents) {
-        info!("Updating CMakeLists.txt");
-        write_file(path, replaced_contents)?;
-    }
-    Ok(())
-}
-
-fn update_python_binding_c(path: &Path, snake_case_grammar_name: &str) -> Result<()> {
+fn update_c_cmakelists(path: &Path) -> Result<()> {
     let mut contents = fs::read_to_string(path)?;
-    if !contents.contains("PyModuleDef_Init") {
-        info!("Updating bindings/python/{snake_case_grammar_name}/binding.c");
-        contents = contents
-            .replace("PyModule_Create", "PyModuleDef_Init")
-            .replace(
-                "static PyMethodDef methods[] = {\n",
-                indoc! {"
-                static struct PyModuleDef_Slot slots[] = {
-                #ifdef Py_GIL_DISABLED
-                    {Py_mod_gil, Py_MOD_GIL_NOT_USED},
-                #endif
-                    {0, NULL}
-                };
-
-                static PyMethodDef methods[] = {
-                "},
-            )
-            .replace(
-                indoc! {"
-                .m_size = -1,
-                    .m_methods = methods
-                "},
-                indoc! {"
-                .m_size = 0,
-                    .m_methods = methods,
-                    .m_slots = slots,
-                "},
-            );
-        write_file(path, contents)?;
-    }
-    Ok(())
-}
-
-fn update_python_init_pyi(path: &Path, language_name: &str, opts: &GenerateOpts) -> Result<()> {
-    let mut contents = fs::read_to_string(path)?;
-    if contents.contains("uncomment these to include any queries") {
-        info!("Replacing __init__.pyi");
-        generate_file(path, INIT_PYI_TEMPLATE, language_name, opts)?;
-    } else if !contents.contains("CapsuleType") {
-        info!("Updating __init__.pyi");
-        contents = contents
-            .replace(
-                "from typing import Final",
-                "from typing import Final\nfrom typing_extensions import CapsuleType",
-            )
-            .replace("-> object:", "-> CapsuleType:");
-        write_file(path, contents)?;
-    }
-    Ok(())
-}
-
-fn update_python_test_binding(path: &Path) -> Result<()> {
-    let mut contents = fs::read_to_string(path)?;
-    if !contents.contains("Parser(Language(") {
-        info!("Updating Language function in bindings/python/tests/test_binding.py");
-        contents = contents
-            .replace("tree_sitter.Language(", "Parser(Language(")
-            .replace(".language())\n", ".language()))\n")
-            .replace(
-                "import tree_sitter\n",
-                "from tree_sitter import Language, Parser\n",
-            );
+    if !contents.contains(r#" "Tree-sitter CLI" REQUIRED"#) {
+        info!("Updating requirements in CMakeLists.txt");
+        contents = contents.replace(r#" "Tree-sitter CLI")"#, r#" "Tree-sitter CLI" REQUIRED)"#);
         write_file(path, contents)?;
     }
     Ok(())
@@ -1225,32 +850,41 @@ fn update_python_setup_py(path: &Path, language_name: &str, opts: &GenerateOpts)
     Ok(())
 }
 
-fn update_swift_package(path: &Path) -> Result<()> {
-    let contents = fs::read_to_string(path)?;
-    let replaced_contents = contents
-        .replace(
-            "https://github.com/ChimeHQ/SwiftTreeSitter",
-            "https://github.com/tree-sitter/swift-tree-sitter",
-        )
-        .replace("// swift-tools-version:5.3", "// swift-tools-version:5.6")
-        .replace(
-            "\nvar sources =",
-            "\nlet dir = Context.packageDirectory\nvar sources =",
-        )
-        .replace(
-            "atPath: \"src/scanner.c\"",
-            "atPath: \"\\(dir)/src/scanner.c\"",
-        )
-        .replace("version: \"0.8.0\")", "version: \"0.10.0\")")
-        .replace("version: \"0.9.0\")", "version: \"0.10.0\")")
-        .replace("(name: \"SwiftTreeSitter\", url:", "(url:")
-        .replace(
-            "    \"SwiftTreeSitter\"",
-            "    .product(name: \"SwiftTreeSitter\", package: \"swift-tree-sitter\")",
-        );
-    if !replaced_contents.eq(&contents) {
-        info!("Updating Package.swift");
-        write_file(path, replaced_contents)?;
+fn update_swift_package_swift(path: &Path) -> Result<()> {
+    let mut contents = fs::read_to_string(path)?;
+    if !contents.contains("swift-tree-sitter") {
+        info!("Updating dependency in Package.swift");
+        contents = contents
+            .replace("version: \"0.9.0\")", "version: \"0.10.0\")")
+            .replace("(name: \"SwiftTreeSitter\", url:", "(url:")
+            .replace(
+                "    \"SwiftTreeSitter\"",
+                "    .product(name: \"SwiftTreeSitter\", package: \"swift-tree-sitter\")",
+            );
+        write_file(path, contents)?;
+    }
+    Ok(())
+}
+
+fn update_zig_build_zig_zon(path: &Path) -> Result<()> {
+    let mut contents = fs::read_to_string(path)?;
+    if !contents.contains("0.17.0") {
+        info!("Updating versions in build.zig.zon");
+        if !contents.contains("minimum_zig_version") {
+            contents =
+                contents.replace(".version", ".minimum_zig_version = \"0.17.0\",\n  .version");
+        }
+        contents = contents
+            .replace("0.16.0", "0.17.0")
+            .replace(
+                "b4b72c903e69998fc88e27e154a5e3cc9166551b",
+                "0cf58172e61f6fdd16f681cde42b4acb531a23db",
+            )
+            .replace(
+                "0.25.0-8heIf51vAQConvVIgvm-9mVIbqh7yabZYqPXfOpS3YoG",
+                "0.26.0-8heIf3CaAQDeVTQc0DMSBhbQAEx5aF-dTen4_LPxMgrv",
+            );
+        write_file(path, contents)?;
     }
     Ok(())
 }
@@ -1572,10 +1206,11 @@ fn generate_file(
         });
         replacement = replacement.replace(
             PARSER_FINGERPRINT_PLACEHOLDER,
-            #[cfg(target_endian = "little")]
-            &format!("0x{checksum:x}{id:x}"),
-            #[cfg(target_endian = "big")]
-            &format!("0x{id:x}{checksum:x}"),
+            &(if cfg!(target_endian = "little") {
+                format!("0x{checksum:x}{id:x}")
+            } else {
+                format!("0x{id:x}{checksum:x}")
+            }),
         );
     }
 
