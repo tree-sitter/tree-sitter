@@ -1,0 +1,50 @@
+=========================================
+newline after a comment in statements
+=========================================
+( { a /*c*/
+} )
+---
+(program
+  (list
+    (block
+      (statements
+        (statement) (comment) (newline)
+      )
+    )
+  )
+)
+
+=========================================
+comment after statements
+=========================================
+( { a /*c*/ } )
+---
+(program
+  (list
+    (block
+      (statements
+        (statement)
+      )
+      (comment)
+    )
+  )
+)
+
+=========================================
+bang after statements
+=========================================
+( a ! { b } )
+---
+(program
+  (list
+    (statements
+      (statement)
+    )
+    (bang)
+    (block
+      (statements
+        (statement)
+      )
+    )
+  )
+)
