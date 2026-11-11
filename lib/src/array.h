@@ -229,7 +229,9 @@ static inline void *_array__assign(void* self_contents, uint32_t *self_size, uin
                                  const void *other_contents, uint32_t other_size, size_t element_size) {
   void *new_contents = _array__reserve(self_contents, self_capacity, element_size, other_size);
   *self_size = other_size;
-  memcpy(new_contents, other_contents, *self_size * element_size);
+  if (other_size > 0) {
+    memcpy(new_contents, other_contents, other_size * element_size);
+  }
   return new_contents;
 }
 
