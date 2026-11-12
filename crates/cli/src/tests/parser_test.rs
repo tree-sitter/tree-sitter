@@ -772,6 +772,53 @@ fn test_parsing_after_editing_text_after_a_non_terminal_extra() {
 }
 
 #[test]
+fn test_parsing_after_editing_text_before_a_missing_token() {
+    let mut parser = Parser::new();
+    parser
+        .set_language(&get_test_fixture_language("reuse_missing_first_leaf"))
+        .unwrap();
+
+    let mut code = b"! < b >".to_vec();
+    let mut tree = parser.parse(&code, None).unwrap();
+
+    // Recovery inserts a missing identifier after `;`, at the start of a `call`.
+    perform_edit(
+        &mut tree,
+        &mut code,
+        &Edit {
+            position: 0,
+            deleted_length: 1,
+            inserted_text: b";".to_vec(),
+        },
+    )
+    .unwrap();
+    tree = parser.parse(&code, Some(&tree)).unwrap();
+    assert_eq!(
+        tree.root_node().to_sexp(),
+        "(source_file (stop) (call (MISSING identifier) (identifier)))"
+    );
+
+    // Restoring `!` must not reuse that `call` and shift its missing identifier as a real token.
+    perform_edit(
+        &mut tree,
+        &mut code,
+        &Edit {
+            position: 0,
+            deleted_length: 1,
+            inserted_text: b"!".to_vec(),
+        },
+    )
+    .unwrap();
+    tree = parser.parse(&code, Some(&tree)).unwrap();
+    let fresh = parser.parse(&code, None).unwrap();
+    assert_eq!(
+        fresh.root_node().to_sexp(),
+        "(source_file (tagged (identifier)))"
+    );
+    assert_eq!(tree.root_node().to_sexp(), fresh.root_node().to_sexp());
+}
+
+#[test]
 fn test_parsing_after_detecting_error_in_the_middle_of_a_string_token() {
     let mut parser = Parser::new();
     parser.set_language(&get_language("python")).unwrap();
