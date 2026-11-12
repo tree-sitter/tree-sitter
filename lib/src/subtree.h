@@ -190,7 +190,7 @@ Subtree ts_subtree_new_leaf(
   SubtreePool *pool, TSSymbol symbol, Length padding, Length size,
   uint32_t lookahead_bytes, TSStateId parse_state,
   bool has_external_tokens, bool depends_on_column,
-  bool is_keyword, const TSLanguage *language
+  bool is_keyword, bool is_missing, const TSLanguage *language
 );
 Subtree ts_subtree_new_error(
   SubtreePool *pool, int32_t lookahead_char, Length padding, Length size,

@@ -1,0 +1,19 @@
+=========================================
+tagged without a call
+=========================================
+! < b >
+---
+(source_file
+  (tagged
+    (identifier)))
+
+=========================================
+missing identifier after a stop
+=========================================
+; < b >
+---
+(source_file
+  (stop)
+  (call
+    (MISSING identifier)
+    (identifier)))

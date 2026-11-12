@@ -679,6 +679,7 @@ static Subtree ts_parser__lex(
       found_external_token,
       called_get_column,
       is_keyword,
+      false,
       self->language
     );
 
