@@ -1,4 +1,4 @@
-use std::{env, path::Path, process::Command, time::SystemTime};
+use std::{env, path::Path, process::Command};
 
 fn main() {
     println!("cargo:rerun-if-changed=.");
@@ -16,12 +16,6 @@ fn main() {
     if web_playground_files_present() {
         println!("cargo:rustc-cfg=TREE_SITTER_EMBED_WASM_BINDING");
     }
-
-    let build_time = SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .unwrap()
-        .as_secs_f64();
-    println!("cargo:rustc-env=BUILD_TIME={build_time}");
 
     #[cfg(any(
         target_os = "linux",
