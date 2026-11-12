@@ -1,14 +1,14 @@
-use std::{
-    env,
-    path::{Path, PathBuf},
-    process::Command,
-    time::SystemTime,
-};
+use std::{env, path::Path, process::Command, time::SystemTime};
 
 fn main() {
-    if let Some(git_sha) = read_git_sha() {
-        println!("cargo:rustc-env=BUILD_SHA={git_sha}");
-    }
+    println!("cargo:rerun-if-changed=.");
+
+    let package = env::var("CARGO_PKG_VERSION").expect("Cargo sets CARGO_PKG_VERSION");
+    let version = match read_git_sha() {
+        Some(sha) => format!("{package} ({sha})"),
+        None => package,
+    };
+    println!("cargo:rustc-env=TREE_SITTER_VERSION={version}");
 
     println!("cargo:rustc-check-cfg=cfg(sanitizing)");
     println!("cargo:rustc-check-cfg=cfg(TREE_SITTER_EMBED_WASM_BINDING)");
@@ -32,7 +32,8 @@ fn main() {
         target_os = "dragonfly",
     ))]
     {
-        let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap()).join("dynamic-symbols.txt");
+        let out_dir =
+            std::path::PathBuf::from(env::var("OUT_DIR").unwrap()).join("dynamic-symbols.txt");
         std::fs::write(
             &out_dir,
             "{
@@ -61,20 +62,26 @@ fn web_playground_files_present() -> bool {
 }
 
 fn read_git_sha() -> Option<String> {
-    let crate_path = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
+    let sha = git(&["rev-parse", "HEAD"])?;
 
-    if !crate_path.parent().is_some_and(|p| p.join(".git").exists()) {
-        return None;
+    // Resolve paths through Git so this also works in linked worktrees.
+    for name in ["HEAD", "refs/heads", "packed-refs", "reftable/tables.list"] {
+        let Some(path) = git(&["rev-parse", "--git-path", name]) else {
+            continue;
+        };
+        if Path::new(&path).exists() {
+            println!("cargo:rerun-if-changed={path}");
+        }
     }
 
-    Command::new("git")
-        .args(["rev-parse", "HEAD"])
-        .current_dir(crate_path)
-        .output()
-        .map_or(None, |output| {
-            if !output.status.success() {
-                return None;
-            }
-            Some(String::from_utf8_lossy(&output.stdout).to_string())
-        })
+    Some(sha)
+}
+
+fn git(args: &[&str]) -> Option<String> {
+    let output = Command::new("git").args(args).output().ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let text = String::from_utf8(output.stdout).ok()?.trim().to_string();
+    (!text.is_empty()).then_some(text)
 }
