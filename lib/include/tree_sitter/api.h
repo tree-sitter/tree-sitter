@@ -292,7 +292,7 @@ const TSRange *ts_parser_included_ranges(
  * way that exactly matches the source code changes.
  *
  * The [`TSInput`] parameter lets you specify how to read the text. It has the
- * following three fields:
+ * following four fields:
  * 1. [`read`]: A function to retrieve a chunk of text at a given byte offset
  *    and (row, column) position. The function should return a pointer to the
  *    text and write its length to the [`bytes_read`] pointer. The parser does
