@@ -38,8 +38,6 @@ use tree_sitter_highlight::Highlighter;
 use tree_sitter_loader::{self as loader, Bindings, TreeSitterJSON};
 use tree_sitter_tags::TagsContext;
 
-const BUILD_VERSION: &str = env!("CARGO_PKG_VERSION");
-const BUILD_SHA: Option<&'static str> = option_env!("BUILD_SHA");
 const DEFAULT_GENERATE_ABI_VERSION: usize = 15;
 
 #[derive(Subcommand)]
@@ -2064,11 +2062,6 @@ fn main() {
 fn run() -> Result<()> {
     logger::init();
 
-    let version = BUILD_SHA.map_or_else(
-        || BUILD_VERSION.to_string(),
-        |build_sha| format!("{BUILD_VERSION} ({build_sha})"),
-    );
-
     let cli = Command::new("tree-sitter")
         .help_template(concat!(
             "\n",
@@ -2079,7 +2072,7 @@ fn run() -> Result<()> {
             "{all-args}{after-help}\n",
             "\n"
         ))
-        .version(version)
+        .version(env!("TREE_SITTER_VERSION"))
         .subcommand_required(true)
         .arg_required_else_help(true)
         .disable_help_subcommand(true)
