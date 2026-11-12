@@ -178,8 +178,6 @@ struct UpgradeWasmtime {
     version: Version,
 }
 
-const BUILD_VERSION: &str = env!("CARGO_PKG_VERSION");
-const BUILD_SHA: Option<&str> = option_env!("BUILD_SHA");
 const EMSCRIPTEN_VERSION: &str = include_str!("../../loader/emscripten-version").trim_ascii();
 const EMSCRIPTEN_TAG: &str = concat!(
     "docker.io/emscripten/emsdk:",
@@ -204,12 +202,6 @@ fn main() {
 }
 
 fn run() -> Result<()> {
-    let version = BUILD_SHA.map_or_else(
-        || BUILD_VERSION.to_string(),
-        |build_sha| format!("{BUILD_VERSION} ({build_sha})"),
-    );
-    let version: &'static str = Box::leak(version.into_boxed_str());
-
     let cli = clap::Command::new("xtask")
         .help_template(
             "\
@@ -220,7 +212,7 @@ fn run() -> Result<()> {
 {all-args}{after-help}
 ",
         )
-        .version(version)
+        .version(env!("CARGO_PKG_VERSION"))
         .subcommand_required(true)
         .arg_required_else_help(true)
         .disable_help_subcommand(true)
