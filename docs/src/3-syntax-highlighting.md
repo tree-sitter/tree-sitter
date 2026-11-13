@@ -77,8 +77,8 @@ Tree-sitter's syntax highlighting system is based on *tree queries*, which are a
 Tree-sitter's syntax trees. See [this section][pattern matching] of the documentation for more information about tree queries.
 
 Syntax highlighting is controlled by *three* different types of query files that are usually included in the `queries` folder.
-The default names for the query files use the `.scm` file. We chose this extension because it is commonly used for files written
-in [Scheme][scheme], a popular dialect of Lisp, and these query files use a Lisp-like syntax.
+The default names for the query files use the `.scm` extension. We chose this extension because it is commonly used for
+files written in [Scheme][scheme], a popular dialect of Lisp, and these query files use a Lisp-like syntax.
 
 ### Highlights
 
@@ -123,7 +123,7 @@ Suppose we wanted to render this code with the following colors:
 - keywords `func` and `return` in purple
 - function `increment` in blue
 - type `int` in green
-- number `5` in brown
+- number `1` in brown
 
 We can assign each of these categories a *highlight name* using a query like this:
 
@@ -319,7 +319,7 @@ Some source files contain code written in multiple different languages. Examples
 
 - HTML files, which can contain JavaScript inside `<script>` tags and CSS inside `<style>` tags
 - [ERB][erb] files, which contain Ruby inside `<% %>` tags, and HTML outside those tags
-- PHP files, which can contain HTML between the `<php` tags
+- PHP files, which can contain HTML outside `<?php ?>` blocks
 - JavaScript files, which contain regular expression syntax within regex literals
 - Ruby, which can contain snippets of code inside heredoc literals, where the heredoc delimiter often indicates the language
 
