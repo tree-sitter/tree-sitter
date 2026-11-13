@@ -21,7 +21,7 @@ homepage = "https://tree-sitter.github.io/tree-sitter"
 keywords = [ "incremental", "parsing" ]
 license = "MIT"
 repository = "https://github.com/tree-sitter/tree-sitter"
-rust-version = "1.90"
+rust-version = "1.92"
 version = "0.28.0"
 
 [workspace.lints.clippy]
