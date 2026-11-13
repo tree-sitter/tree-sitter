@@ -123,6 +123,21 @@ fn test_id_for_node_kind_rejects_embedded_nul_suffixes() {
 }
 
 #[test]
+fn test_field_id_for_name_rejects_embedded_nul_suffixes() {
+    let language = get_language("javascript");
+
+    for id in 1..=language.field_count() as u16 {
+        let name = language.field_name_for_id(id).unwrap();
+        let name_with_suffix = format!("{name}\0suffix");
+        assert_eq!(
+            language.field_id_for_name(&name_with_suffix),
+            None,
+            "{name_with_suffix:?}"
+        );
+    }
+}
+
+#[test]
 fn test_symbol_metadata_checks() {
     let language = get_language("rust");
     for i in 0..language.node_kind_count() {
