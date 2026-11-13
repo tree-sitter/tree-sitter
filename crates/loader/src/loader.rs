@@ -2236,8 +2236,8 @@ impl LanguageConfiguration<'_> {
             {
                 warn!(
                     concat!(
-                        "You should add a `{}` entry pointing to the {} path in the `tree-sitter` ",
-                        "object in the grammar's tree-sitter.json file. See more here: ",
+                        "You should add a `{}` entry pointing to the {} path in the appropriate ",
+                        "object in the `grammars` array in the grammar's tree-sitter.json file. See more here: ",
                         "https://tree-sitter.github.io/tree-sitter/3-syntax-highlighting#query-paths"
                     ),
                     default_path.replace(".scm", ""),
