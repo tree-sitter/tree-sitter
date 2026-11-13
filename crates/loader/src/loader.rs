@@ -96,6 +96,8 @@ pub enum LoaderError {
     FileNameLoad(String, Box<Self>),
     #[error("Failed to parse the language name from grammar.json at {0}")]
     GrammarJSON(String),
+    #[error("Invalid language name {0:?}, expected only ASCII letters, digits, `_`, or `-`")]
+    LanguageName(String),
     #[error(transparent)]
     HomeDir(#[from] etcetera::HomeDirError),
     #[error(transparent)]
@@ -1041,6 +1043,7 @@ impl Loader {
         &self,
         mut config: CompileConfig,
     ) -> LoaderResult<Language> {
+        validate_language_name(&config.name)?;
         let mut lib_name = config.name.clone();
         let language_fn_name = format!("tree_sitter_{}", config.name.replace('-', "_"));
         if self.debug_build {
@@ -1391,6 +1394,7 @@ impl Loader {
         scanner_filename: Option<&Path>,
         output_path: &Path,
     ) -> LoaderResult<()> {
+        validate_language_name(language_name)?;
         let tool_lock = WASM_TOOL_LOCK.lock().expect("Wasm tool mutex poisoned");
         let clang_exe = Self::ensure_wasi_sdk_exists()?;
         let wasm_opt_exe = Self::ensure_binaryen_exists()?;
@@ -2255,6 +2259,20 @@ impl LanguageConfiguration<'_> {
 
         Ok((query, path_ranges))
     }
+}
+
+/// The name ends up in library paths, lock paths, and `-Wl,` linker flags, which clang splits on
+/// commas.
+fn validate_language_name(name: &str) -> LoaderResult<()> {
+    let valid = !name.is_empty()
+        && name
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_' || byte == b'-');
+    if !valid {
+        return Err(LoaderError::LanguageName(name.to_string()));
+    }
+
+    Ok(())
 }
 
 fn needs_recompile(lib_path: &Path, paths_to_check: &[PathBuf]) -> LoaderResult<bool> {
