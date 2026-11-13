@@ -98,7 +98,7 @@ This field is an array of objects, though you typically only need one object in 
 multiple grammars (for example, `Typescript` and `TSX`), e.g.,
 ```json
 {
-  "tree-sitter": [
+  "grammars": [
     {
       "scope": "source.ruby",
       "file-types": [
