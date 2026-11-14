@@ -926,6 +926,10 @@ impl Generator {
             }
         }
 
+        // A null character in the map also matches the end of input, which grammars that use `'\0'`
+        // for it rely on (see `Diagnostic::NullCharacter`).
+        // TODO: During the 0.29 release cycle, keep it out of the map, so it goes through an `!eof`
+        // check like everywhere else.
         if leading_simple_transition_range_count >= 8 {
             add_line!(self, "ADVANCE_MAP(");
             indent!(self);
@@ -1055,11 +1059,26 @@ impl Generator {
                 // corresponds to a negated character class in a regex, so it will be more
                 // concise and readable to express it in terms of negated ranges.
                 let is_included = !asserted_chars.contains(char::MAX);
-                if !is_included {
-                    asserted_chars = asserted_chars.negate().add_char('\0');
+                if is_included {
+                    self.add_character_range_conditions(&asserted_chars, true, &line_break);
+                } else {
+                    // A null character in the set matches a null byte, but not the end of input,
+                    // where the lookahead is also 0. Without one, the negation excludes both.
+                    let check_eof = asserted_chars.contains('\0');
+                    let excluded = asserted_chars.negate();
+                    if excluded.is_empty() {
+                        // Every character, so only the end of input is ruled out.
+                        add!(self, "!eof");
+                    } else {
+                        if check_eof {
+                            add!(self, "(!eof && ");
+                        }
+                        self.add_character_range_conditions(&excluded, false, &line_break);
+                        if check_eof {
+                            add!(self, ")");
+                        }
+                    }
                 }
-
-                self.add_character_range_conditions(&asserted_chars, is_included, &line_break);
             }
 
             if has_negative_condition {

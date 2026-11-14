@@ -39,10 +39,9 @@ use prepare_grammar::prepare_grammar;
 pub use prepare_grammar::{
     ConflictingPrecedenceOrderingError, EmptyStringExtraError, ExpandRegexError,
     ExpandRepeatsError, ExpandRuleError, ExpandTokensError, ExpandTokensProcessingError,
-    ExtractTokensError, FlattenGrammarError, IndirectRecursionError, InternSymbolsError,
-    NonAsciiByteClassError, NonTerminalWordTokenError, PatternSpan, PrepareGrammarError,
-    ProcessInlinesError, RegexError, RegexErrorKind, UndeclaredPrecedenceError,
-    ValidatePrecedenceError,
+    ExtractTokensError, FlattenGrammarError, InternSymbolsError, NonAsciiByteClassError,
+    NonTerminalWordTokenError, PatternSpan, PrepareGrammarError, ProcessInlinesError, RegexError,
+    RegexErrorKind, SingleSymbolCycleError, UndeclaredPrecedenceError, ValidatePrecedenceError,
 };
 use render::render_c_code;
 pub use render::{ABI_VERSION_MAX, ABI_VERSION_MIN, RenderError};
@@ -278,6 +277,24 @@ pub enum Diagnostic {
     UnarySeq { name: Option<Box<str>> },
     UnsupportedRegexFlag { flag: char, pattern: Box<str> },
     SupertypeInlined { name: Box<str> },
+    // TODO: Remove during the 0.29 release cycle, when the null character stops matching the end
+    // of input.
+    NullCharacter(NullCharacterSource, Option<NullCharacterLocation>),
+}
+
+/// The string or pattern in a [`Diagnostic::NullCharacter`], as written in the grammar.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum NullCharacterSource {
+    String(Box<str>),
+    Pattern(Box<str>),
+}
+
+/// Where the string or pattern in a [`Diagnostic::NullCharacter`] is, if it isn't a token on its
+/// own.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum NullCharacterLocation {
+    Rule(Box<str>),
+    Extras,
 }
 
 impl std::fmt::Display for Diagnostic {
@@ -319,6 +336,29 @@ impl std::fmt::Display for Diagnostic {
                 write!(
                     f,
                     "rule `{name}` is both a supertype and inlined. the supertype is ignored."
+                )?;
+            }
+            Self::NullCharacter(source, location) => {
+                let verb = match source {
+                    NullCharacterSource::String(string) => {
+                        write!(f, "the string `'{string}'`")?;
+                        "contains"
+                    }
+                    NullCharacterSource::Pattern(pattern) => {
+                        write!(f, "the pattern `/{pattern}/`")?;
+                        "matches"
+                    }
+                };
+                match location {
+                    Some(NullCharacterLocation::Rule(name)) => write!(f, " in rule `{name}`")?,
+                    Some(NullCharacterLocation::Extras) => write!(f, " in `extras`")?,
+                    None => {}
+                }
+                write!(
+                    f,
+                    " {verb} the null character `\\0`, which can also match the end of input. In a \
+                     future version it will only match a null byte.\n\
+                     To match end of input, use the `eof()` builtin."
                 )?;
             }
         }
