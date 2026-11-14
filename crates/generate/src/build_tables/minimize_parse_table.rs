@@ -148,21 +148,19 @@ impl TokenSets {
 ///   token](SyntaxGrammar::word_token), nor the word token with a keyword. [`Symbol::End`] is
 ///   checked with the conflicts of terminal 0.
 ///
-/// None of these apply to a token the state already has, and only the first applies to a token
+/// None of these apply to a token the state already has, and the last doesn't apply to a token
 /// the state [reserves](ParseState::reserved_words).
 ///
 /// [internal-external]: crate::grammars::ExternalToken::corresponding_internal_token
 struct TakeableTokens {
     /// How many `u64`s each set has.
     words: u32,
-    /// The tokens blocked in every state, whatever its terminals: [`Self::never`], and
-    /// the tokens that are both internal and external.
+    /// The tokens blocked in every state, whatever its terminals, even where it reserves them: the
+    /// external tokens, [`Symbol::EndOfNonTerminalExtra`], and the tokens that are both internal
+    /// and external.
     unconditional: Vec<u64>,
     /// By terminal index: the tokens that can't be added to a state with that terminal.
     blocked_by_terminal: Vec<u64>,
-    /// The tokens that reserving can't make addable: the external tokens and
-    /// [`Symbol::EndOfNonTerminalExtra`].
-    never: Vec<u64>,
 }
 
 impl TakeableTokens {
@@ -205,13 +203,15 @@ impl TakeableTokens {
         // the low `external_count` bits.
         let external_count = minimizer.syntax_grammar.external_tokens.len();
         debug_assert_eq!(indexer.index(Symbol::End), external_count);
-        let mut never = vec![0; words];
-        never[..external_count / 64].fill(u64::MAX);
+        let mut unconditional = vec![0; words];
+        unconditional[..external_count / 64].fill(u64::MAX);
         if !external_count.is_multiple_of(64) {
-            never[external_count / 64] |= (1 << (external_count % 64)) - 1;
+            unconditional[external_count / 64] |= (1 << (external_count % 64)) - 1;
         }
-        TokenSets::set_bit(&mut never, indexer.index(Symbol::EndOfNonTerminalExtra));
-        let mut unconditional = never.clone();
+        TokenSets::set_bit(
+            &mut unconditional,
+            indexer.index(Symbol::EndOfNonTerminalExtra),
+        );
         for external in &minimizer.syntax_grammar.external_tokens {
             if let Some(internal) = external
                 .corresponding_internal_token
@@ -225,7 +225,6 @@ impl TakeableTokens {
             words: words as u32,
             unconditional,
             blocked_by_terminal,
-            never,
         }
     }
 
@@ -248,7 +247,7 @@ impl TakeableTokens {
         }
         for symbol in state.reserved_words.iter() {
             let position = indexer.index(symbol);
-            if !TokenSets::has_bit(&self.never, position) {
+            if !TokenSets::has_bit(&self.unconditional, position) {
                 set[position / 64] &= !(1 << (position % 64));
             }
         }
