@@ -15,7 +15,7 @@ keywords = [ "incremental", "parsing", "tree-sitter", "PARSER_NAME" ]
 license.text = "PARSER_LICENSE"
 name = "tree-sitter-PARSER_NAME"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 version = "PARSER_VERSION"
 
 [project.urls]
@@ -23,8 +23,8 @@ Funding = "FUNDING_URL"
 Homepage = "PARSER_URL"
 
 [project.optional-dependencies]
-core = [ "tree-sitter~=0.24" ]
+core = [ "tree-sitter~=0.25" ]
 
 [tool.cibuildwheel]
-build = "cp310-*"
+build = "cp3*-abi3*"
 build-frontend = "build"
