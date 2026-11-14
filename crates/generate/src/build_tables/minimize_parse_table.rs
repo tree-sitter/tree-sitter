@@ -193,6 +193,9 @@ impl TakeableTokens {
                     TokenSets::set_bit(row, indexer.index(Symbol::terminal(new)));
                 }
             }
+            // TODO: During the 0.29 release cycle, once no token can match the end of input (see
+            // `ADVANCE_MAP` in `render.rs`), `End` conflicts with nothing: remove this check and
+            // its mention in `TakeableTokens`'s doc comment.
             if minimizer.token_conflict_map.does_conflict(0, existing) {
                 TokenSets::set_bit(row, indexer.index(Symbol::End));
             }
