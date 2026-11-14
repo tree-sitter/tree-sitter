@@ -342,6 +342,68 @@ impl<V> ParseStateEntries<V> {
     pub fn shrink_to_fit(&mut self) {
         self.0.shrink_to_fit();
     }
+
+    #[must_use]
+    pub fn as_slice(&self) -> &[(Symbol, V)] {
+        &self.0
+    }
+
+    /// Sorts entries by symbol.
+    pub fn sort_by_symbol(&mut self) {
+        self.0.sort_unstable_by_key(|&(symbol, _)| symbol);
+    }
+
+    /// Merges `other` into these entries, both sorted by symbol, keeping this one's entry for a
+    /// symbol both have. `new_entries` is a buffer for `other`'s entries that this one lacks.
+    pub fn merge_sorted(&mut self, other: &[(Symbol, V)], new_entries: &mut Vec<(Symbol, V)>)
+    where
+        V: Copy,
+    {
+        // Most merges are between lists with the same symbols.
+        if self.0.len() == other.len()
+            && self
+                .0
+                .iter()
+                .zip(other)
+                .all(|((symbol1, _), (symbol2, _))| symbol1 == symbol2)
+        {
+            return;
+        }
+
+        // The rest rarely add more than a few entries, so find those first.
+        new_entries.clear();
+        let mut i = 0;
+        for &entry in other {
+            while self.0.get(i).is_some_and(|&(symbol, _)| symbol < entry.0) {
+                i += 1;
+            }
+            if self.0.get(i).is_none_or(|&(symbol, _)| symbol != entry.0) {
+                new_entries.push(entry);
+            }
+        }
+        self.insert_sorted(new_entries);
+    }
+
+    /// Inserts `new_entries`, sorted by symbol, into `self`, also sorted by symbol, which
+    /// have none of their symbols.
+    pub fn insert_sorted(&mut self, new_entries: &[(Symbol, V)])
+    where
+        V: Copy,
+    {
+        let Some(&filler) = new_entries.first() else {
+            return;
+        };
+        // Insert them from the back, moving the entries between them a block at a time.
+        let mut end = self.0.len();
+        self.0.reserve_exact(new_entries.len());
+        self.0.resize(end + new_entries.len(), filler);
+        for (j, &entry) in new_entries.iter().enumerate().rev() {
+            let at = self.0[..end].partition_point(|&(symbol, _)| symbol < entry.0);
+            self.0.copy_within(at..end, at + j + 1);
+            self.0[at + j] = entry;
+            end = at;
+        }
+    }
 }
 
 impl<V> IntoIterator for ParseStateEntries<V> {
