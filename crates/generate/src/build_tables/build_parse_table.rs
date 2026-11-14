@@ -798,10 +798,10 @@ impl<'a> ParseTableBuilder<'a> {
             // If the item is finished, then add a Reduce action to this state based
             // on this item.
             else {
-                let symbol = Symbol::non_terminal(item.variable_index as usize);
-                let action = if item.is_augmented() {
-                    ParseAction::Accept
-                } else {
+                // The augmented start item has no symbol of its own, it only accepts
+                let symbol = (!item.is_augmented())
+                    .then(|| Symbol::non_terminal(item.variable_index as usize));
+                let action = if let Some(symbol) = symbol {
                     // These values are narrowed to u16 to reduce the size of
                     // ParseAction. No real-world grammar approaches these limits.
                     debug_assert!(
@@ -819,6 +819,8 @@ impl<'a> ParseTableBuilder<'a> {
                         dynamic_precedence: item.production(self.syntax_grammar).dynamic_precedence,
                         production_id: production_id as u16,
                     }
+                } else {
+                    ParseAction::Accept
                 };
 
                 let precedence = item.precedence(self.syntax_grammar);
@@ -850,7 +852,7 @@ impl<'a> ParseTableBuilder<'a> {
                         match Self::compare_precedence(
                             self.syntax_grammar,
                             precedence,
-                            &[symbol],
+                            symbol,
                             reduction_info.precedence,
                             &reduction_info.symbols,
                         ) {
@@ -875,7 +877,9 @@ impl<'a> ParseTableBuilder<'a> {
                     }
 
                     reduction_info.precedence = precedence;
-                    if let Err(i) = reduction_info.symbols.binary_search(&symbol) {
+                    if let Some(symbol) = symbol
+                        && let Err(i) = reduction_info.symbols.binary_search(&symbol)
+                    {
                         reduction_info.symbols.insert(i, symbol);
                     }
                     match associativity {
@@ -1156,7 +1160,7 @@ impl<'a> ParseTableBuilder<'a> {
                 match Self::compare_precedence(
                     self.syntax_grammar,
                     p.0,
-                    &[p.1],
+                    Some(p.1),
                     reduction_info.precedence,
                     &reduction_info.symbols,
                 ) {
@@ -1383,7 +1387,7 @@ impl<'a> ParseTableBuilder<'a> {
     fn compare_precedence(
         grammar: &SyntaxGrammar,
         left: Precedence,
-        left_symbols: &[Symbol],
+        left_symbol: Option<Symbol>,
         right: Precedence,
         right_symbols: &[Symbol],
     ) -> Ordering {
@@ -1421,7 +1425,8 @@ impl<'a> ParseTableBuilder<'a> {
                     let mut saw_left = false;
                     let mut saw_right = false;
                     for entry in list {
-                        let matches_left = precedence_entry_matches(entry, left, left_symbols);
+                        let matches_left =
+                            precedence_entry_matches(entry, left, left_symbol.as_slice());
                         let matches_right = precedence_entry_matches(entry, right, right_symbols);
                         if matches_left {
                             saw_left = true;
