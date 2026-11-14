@@ -161,6 +161,7 @@ impl CharacterSet {
         self
     }
 
+    #[cfg(test)]
     #[must_use]
     pub fn add_char(mut self, c: char) -> Self {
         self.add_int_range(0, c as u32, c as u32 + 1);
