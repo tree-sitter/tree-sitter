@@ -3,6 +3,8 @@
 //! Nodes live in one append-only arena and reference children by index, so passes
 //! are iterative pool walks with in-place rewrites.
 
+use std::num::NonZeroU32;
+
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -86,7 +88,7 @@ macro_rules! symbol_index {
             /// An index knows which table it belongs to, so it can name its own symbol
             impl From<$name> for Symbol {
                 fn from(value: $name) -> Self {
-                    Self { kind: SymbolType::$kind, index: value.0 }
+                    Self::new(SymbolType::$kind, value.0)
                 }
             }
 
@@ -95,7 +97,7 @@ macro_rules! symbol_index {
                 pub(crate) const fn new(value: u32) -> Self { Self(value) }
 
                 pub(crate) const fn symbol(self) -> Symbol {
-                    Symbol { kind: SymbolType::$kind, index: self.0 }
+                    Symbol::new(SymbolType::$kind, self.0)
                 }
             }
         )+
@@ -113,10 +115,57 @@ symbol_index!(
 /// An index is only reachable by destructuring [`Symbol::view`], and the
 /// `End`/`EndOfNonTerminalExtra` arms there carry no payload, so an end marker
 /// cannot hand out an index to be used against `variables` or `external_tokens`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct Symbol {
+///
+/// The kind (plus one, so no symbol is 0) is packed into the top bits of a `u32`,
+/// and the index into the rest. This allows symbols to be ordered by kind then
+/// index.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct Symbol(NonZeroU32);
+
+/// How far [`Symbol`]'s kind is shifted up.
+const SYMBOL_KIND_SHIFT: u32 = 29;
+
+/// The bits of [`Symbol`] that hold the index.
+const SYMBOL_INDEX_MASK: u32 = (1 << SYMBOL_KIND_SHIFT) - 1;
+
+/// [`Symbol`]'s serialized form.
+#[derive(Serialize, Deserialize)]
+#[serde(rename = "Symbol")]
+struct SymbolFields {
     kind: SymbolType,
     index: u32,
+}
+
+impl Serialize for Symbol {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        SymbolFields {
+            kind: self.kind(),
+            index: self.raw_index(),
+        }
+        .serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for Symbol {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let SymbolFields { kind, index } = SymbolFields::deserialize(deserializer)?;
+        Ok(Self::new(kind, index))
+    }
+}
+
+impl std::fmt::Debug for Symbol {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Symbol")
+            .field("kind", &self.kind())
+            .field("index", &self.raw_index())
+            .finish()
+    }
 }
 
 /// The destructured form of a [`Symbol`], produced by [`Symbol::view`].
@@ -131,64 +180,71 @@ pub enum SymbolView {
 
 impl Symbol {
     #[allow(non_upper_case_globals)]
-    pub const End: Self = Self {
-        kind: SymbolType::End,
-        index: 0,
-    };
+    pub const End: Self = Self::new(SymbolType::End, 0);
 
     #[allow(non_upper_case_globals)]
-    pub const EndOfNonTerminalExtra: Self = Self {
-        kind: SymbolType::EndOfNonTerminalExtra,
-        index: 0,
-    };
+    pub const EndOfNonTerminalExtra: Self = Self::new(SymbolType::EndOfNonTerminalExtra, 0);
+
+    const fn new(kind: SymbolType, index: u32) -> Self {
+        // The augmented start item uses `u32::MAX` as its variable index; it saturates to the
+        // largest index, which no real symbol reaches and which still sorts last.
+        let index = if index > SYMBOL_INDEX_MASK {
+            SYMBOL_INDEX_MASK
+        } else {
+            index
+        };
+        // SAFETY: The kind plus one is in the top bits, so this is never zero.
+        Self(unsafe { NonZeroU32::new_unchecked(((kind as u32 + 1) << SYMBOL_KIND_SHIFT) | index) })
+    }
+
+    const fn raw_index(self) -> u32 {
+        self.0.get() & SYMBOL_INDEX_MASK
+    }
 
     #[must_use]
     pub const fn non_terminal(index: usize) -> Self {
-        Self {
-            kind: SymbolType::NonTerminal,
-            index: index as u32,
-        }
+        Self::new(SymbolType::NonTerminal, index as u32)
     }
 
     #[must_use]
     pub const fn terminal(index: usize) -> Self {
-        Self {
-            kind: SymbolType::Terminal,
-            index: index as u32,
-        }
+        Self::new(SymbolType::Terminal, index as u32)
     }
 
     #[must_use]
     pub const fn external(index: usize) -> Self {
-        Self {
-            kind: SymbolType::External,
-            index: index as u32,
-        }
+        Self::new(SymbolType::External, index as u32)
     }
 
     #[inline]
     #[must_use]
     pub const fn kind(self) -> SymbolType {
-        self.kind
+        match self.0.get() >> SYMBOL_KIND_SHIFT {
+            1 => SymbolType::External,
+            2 => SymbolType::End,
+            3 => SymbolType::EndOfNonTerminalExtra,
+            4 => SymbolType::Terminal,
+            _ => SymbolType::NonTerminal,
+        }
     }
 
     #[inline]
     #[must_use]
     pub const fn view(self) -> SymbolView {
-        match self.kind {
-            SymbolType::External => SymbolView::External(ExternalTokenIndex(self.index)),
+        match self.kind() {
+            SymbolType::External => SymbolView::External(ExternalTokenIndex(self.raw_index())),
             SymbolType::End => SymbolView::End,
             SymbolType::EndOfNonTerminalExtra => SymbolView::EndOfNonTerminalExtra,
-            SymbolType::Terminal => SymbolView::Terminal(TerminalIndex(self.index)),
-            SymbolType::NonTerminal => SymbolView::NonTerminal(NonTerminalIndex(self.index)),
+            SymbolType::Terminal => SymbolView::Terminal(TerminalIndex(self.raw_index())),
+            SymbolType::NonTerminal => SymbolView::NonTerminal(NonTerminalIndex(self.raw_index())),
         }
     }
 
     #[inline]
     #[must_use]
     pub const fn external_index(self) -> Option<ExternalTokenIndex> {
-        if matches!(self.kind, SymbolType::External) {
-            Some(ExternalTokenIndex(self.index))
+        if matches!(self.kind(), SymbolType::External) {
+            Some(ExternalTokenIndex(self.raw_index()))
         } else {
             None
         }
@@ -197,8 +253,8 @@ impl Symbol {
     #[inline]
     #[must_use]
     pub const fn terminal_index(self) -> Option<TerminalIndex> {
-        if matches!(self.kind, SymbolType::Terminal) {
-            Some(TerminalIndex(self.index))
+        if matches!(self.kind(), SymbolType::Terminal) {
+            Some(TerminalIndex(self.raw_index()))
         } else {
             None
         }
@@ -207,16 +263,16 @@ impl Symbol {
     #[inline]
     #[must_use]
     pub const fn non_terminal_index(self) -> Option<NonTerminalIndex> {
-        if matches!(self.kind, SymbolType::NonTerminal) {
-            Some(NonTerminalIndex(self.index))
+        if matches!(self.kind(), SymbolType::NonTerminal) {
+            Some(NonTerminalIndex(self.raw_index()))
         } else {
             None
         }
     }
 }
 
-const _: () = assert!(std::mem::size_of::<Symbol>() == 8);
-const _: () = assert!(std::mem::size_of::<Option<Symbol>>() == 8);
+const _: () = assert!(std::mem::size_of::<Symbol>() == 4);
+const _: () = assert!(std::mem::size_of::<Option<Symbol>>() == 4);
 
 /// A pooled rule node.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
