@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::{
+    Diagnostic,
     grammars::{ExternalToken, InputGrammar, LexicalGrammar, VariableType},
     prepare_grammar::{
         LexicalToken,
@@ -272,6 +273,7 @@ impl PendingTokenExtraction<'_> {
     /// renumber the remaining syntax symbols.
     pub(super) fn expand_and_commit(
         self,
+        diagnostics: &mut Vec<Diagnostic>,
     ) -> ExpandTokensResult<(ExtractedGrammarMeta, LexicalGrammar)> {
         let Self {
             grammar,
@@ -284,8 +286,12 @@ impl PendingTokenExtraction<'_> {
             mut stack,
         } = self;
 
-        let lexical_grammar =
-            expand_tokens(&mut grammar.pool, &lexical_variables, &separator_roots)?;
+        let lexical_grammar = expand_tokens(
+            &mut grammar.pool,
+            &lexical_variables,
+            &separator_roots,
+            diagnostics,
+        )?;
 
         for (id, token_index) in rewrites {
             grammar
@@ -654,7 +660,7 @@ mod test {
             assert!(pool.subtree_eq(roots[3], e3));
         }
 
-        let (ext, lexical_grammar) = pending.expand_and_commit().unwrap();
+        let (ext, lexical_grammar) = pending.expand_and_commit(&mut Vec::new()).unwrap();
 
         // rule_1 was absorbed into the lexical grammar, rule_0, rule_2, and rule_3 remain
         let names = grammar
@@ -742,7 +748,7 @@ mod test {
         let expected = str(&mut pending.grammar.pool, "hello");
         assert!(pending.grammar.pool.subtree_eq(root, expected));
 
-        let (_, lexical_grammar) = pending.expand_and_commit().unwrap();
+        let (_, lexical_grammar) = pending.expand_and_commit(&mut Vec::new()).unwrap();
 
         let names = grammar
             .variables
@@ -795,7 +801,7 @@ mod test {
         let expected = str(&mut pending.grammar.pool, " ");
         assert!(pending.grammar.pool.subtree_eq(separator_root, expected));
 
-        let (ext, _) = pending.expand_and_commit().unwrap();
+        let (ext, _) = pending.expand_and_commit(&mut Vec::new()).unwrap();
         assert_eq!(ext.extra_symbols, [Symbol::terminal(1)]);
     }
 
@@ -924,7 +930,7 @@ mod test {
         let expected = str(&mut pending.grammar.pool, "a");
         assert!(pending.grammar.pool.subtree_eq(root, expected));
 
-        let (ext, lexical_grammar) = pending.expand_and_commit().unwrap();
+        let (ext, lexical_grammar) = pending.expand_and_commit(&mut Vec::new()).unwrap();
 
         let names = grammar
             .variables
@@ -1007,6 +1013,6 @@ mod test {
         g: &mut InputGrammar,
     ) -> ExtractTokensResult<(ExtractedGrammarMeta, LexicalGrammar)> {
         let pending = extract_pending(g)?;
-        Ok(pending.expand_and_commit().unwrap())
+        Ok(pending.expand_and_commit(&mut Vec::new()).unwrap())
     }
 }
