@@ -531,7 +531,7 @@ mod tests {
                 root: t1,
             },
         ];
-        let grammar = expand_tokens(&mut pool, &vars, &[]).unwrap();
+        let grammar = expand_tokens(&mut pool, &vars, &[], &mut Vec::new()).unwrap();
 
         let token_map = TokenConflictMap::new(&grammar, Vec::new());
 
@@ -578,7 +578,7 @@ mod tests {
                 root: instanceof,
             },
         ];
-        let grammar = expand_tokens(&mut pool, &vars, &[]).unwrap();
+        let grammar = expand_tokens(&mut pool, &vars, &[], &mut Vec::new()).unwrap();
 
         let var = |name| index_of_var(&pool, &grammar, name);
 
@@ -639,7 +639,7 @@ mod tests {
                 root: newline,
             },
         ];
-        let grammar = expand_tokens(&mut pool, &vars, &[sep]).unwrap();
+        let grammar = expand_tokens(&mut pool, &vars, &[sep], &mut Vec::new()).unwrap();
 
         let var = |name| index_of_var(&pool, &grammar, name);
 
@@ -678,7 +678,7 @@ mod tests {
                 root: anything,
             },
         ];
-        let grammar = expand_tokens(&mut pool, &vars, &[sep]).unwrap();
+        let grammar = expand_tokens(&mut pool, &vars, &[sep], &mut Vec::new()).unwrap();
 
         let var = |name| index_of_var(&pool, &grammar, name);
 

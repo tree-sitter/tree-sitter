@@ -926,6 +926,10 @@ impl Generator {
             }
         }
 
+        // A null character in the map also matches the end of input, which grammars that use `'\0'`
+        // for it rely on (see `Diagnostic::NullCharacter`).
+        // TODO: During the 0.29 release cycle, keep it out of the map, so it goes through an `!eof`
+        // check like everywhere else.
         if leading_simple_transition_range_count >= 8 {
             add_line!(self, "ADVANCE_MAP(");
             indent!(self);

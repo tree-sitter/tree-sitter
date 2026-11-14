@@ -146,7 +146,7 @@ pub fn prepare_grammar(
 
     let interned_meta = intern_symbols(&mut g, diagnostics)?;
     let pending_tokens = extract_tokens(&mut g, &interned_meta)?;
-    let (mut ext_meta, lexical_grammar) = pending_tokens.expand_and_commit()?;
+    let (mut ext_meta, lexical_grammar) = pending_tokens.expand_and_commit(diagnostics)?;
     expand_repeats(&mut g, &mut ext_meta)?;
 
     let mut state = FlattenState::default();
