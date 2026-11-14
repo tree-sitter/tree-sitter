@@ -1112,9 +1112,7 @@ impl<'a> ParseTableBuilder<'a> {
                         .first_set(step.symbol())
                         .contains(conflicting_lookahead)
                 {
-                    if item.variable_index != u32::MAX {
-                        conflicting_items.insert(item);
-                    }
+                    conflicting_items.insert(item);
 
                     let p = (
                         item.precedence(self.syntax_grammar),
@@ -1129,7 +1127,6 @@ impl<'a> ParseTableBuilder<'a> {
                 .lookaheads
                 .get(*lookaheads)
                 .contains(conflicting_lookahead)
-                && item.variable_index != u32::MAX
             {
                 conflicting_items.insert(item);
             }

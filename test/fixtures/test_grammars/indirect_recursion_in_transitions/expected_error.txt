@@ -1,1 +1,1 @@
-Grammar contains an indirectly recursive rule: type_expression -> _expression -> type_expression
+Grammar contains a cycle of single-symbol alternatives: type_expression -> _expression -> type_expression

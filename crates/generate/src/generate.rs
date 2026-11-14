@@ -39,10 +39,9 @@ use prepare_grammar::prepare_grammar;
 pub use prepare_grammar::{
     ConflictingPrecedenceOrderingError, EmptyStringExtraError, ExpandRegexError,
     ExpandRepeatsError, ExpandRuleError, ExpandTokensError, ExpandTokensProcessingError,
-    ExtractTokensError, FlattenGrammarError, IndirectRecursionError, InternSymbolsError,
-    NonAsciiByteClassError, NonTerminalWordTokenError, PatternSpan, PrepareGrammarError,
-    ProcessInlinesError, RegexError, RegexErrorKind, UndeclaredPrecedenceError,
-    ValidatePrecedenceError,
+    ExtractTokensError, FlattenGrammarError, InternSymbolsError, NonAsciiByteClassError,
+    NonTerminalWordTokenError, PatternSpan, PrepareGrammarError, ProcessInlinesError, RegexError,
+    RegexErrorKind, SingleSymbolCycleError, UndeclaredPrecedenceError, ValidatePrecedenceError,
 };
 use render::render_c_code;
 pub use render::{ABI_VERSION_MAX, ABI_VERSION_MIN, RenderError};
