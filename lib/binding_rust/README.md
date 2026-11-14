@@ -93,7 +93,7 @@ let tree = parser.parse_with(&mut |_byte: usize, position: Point| -> &[u8] {
 }, None).unwrap();
 
 assert_eq!(
-  tree.root_node().to_sexp(),
+  tree.root_node().to_sexp(false),
   "(source_file (function_item (visibility_modifier) (identifier) (parameters) (block (number_literal))))"
 );
 ```
@@ -136,7 +136,7 @@ let source_code = "let x = 1;";
 let tree = parser.parse(source_code, None).unwrap();
 
 assert_eq!(
-    tree.root_node().to_sexp(),
+    tree.root_node().to_sexp(false),
     "(program (lexical_declaration (variable_declarator name: (identifier) value: (number))))"
 );
 ```

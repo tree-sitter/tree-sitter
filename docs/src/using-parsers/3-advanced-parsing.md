@@ -131,9 +131,9 @@ int main(int argc, const char **argv) {
   TSNode ruby_root_node = ts_tree_root_node(ruby_tree);
 
   // Print all three trees.
-  char *erb_sexp = ts_node_string(erb_root_node);
-  char *html_sexp = ts_node_string(html_root_node);
-  char *ruby_sexp = ts_node_string(ruby_root_node);
+  char *erb_sexp = ts_node_string(erb_root_node, false);
+  char *html_sexp = ts_node_string(html_root_node, false);
+  char *ruby_sexp = ts_node_string(ruby_root_node, false);
   printf("ERB: %s\n", erb_sexp);
   printf("HTML: %s\n", html_sexp);
   printf("Ruby: %s\n", ruby_sexp);

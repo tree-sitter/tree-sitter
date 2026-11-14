@@ -679,7 +679,7 @@ uint32_t ts_node_end_index_wasm(const TSTree *tree) {
 
 char *ts_node_to_string_wasm(const TSTree *tree) {
   TSNode node = unmarshal_node(tree);
-  return ts_node_string(node);
+  return ts_node_string(node, false);
 }
 
 void ts_node_children_wasm(const TSTree *tree) {

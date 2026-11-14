@@ -14,7 +14,7 @@ fn test_tree_edit() {
     let tree = parser.parse("  abc  !==  def", None).unwrap();
 
     assert_eq!(
-        tree.root_node().to_sexp(),
+        tree.root_node().to_sexp(false),
         "(program (expression_statement (binary_expression left: (identifier) right: (identifier))))"
     );
 
@@ -660,7 +660,7 @@ fn test_get_changed_ranges() {
     let tree = parser.parse(&source_code, None).unwrap();
 
     assert_eq!(
-        tree.root_node().to_sexp(),
+        tree.root_node().to_sexp(false),
         "(program (expression_statement (object (pair key: (property_identifier) value: (null)))))"
     );
 
@@ -778,7 +778,10 @@ fn test_consistency_with_mid_codepoint_edit() {
     perform_edit(&mut tree2, &mut source_code, &inverted).unwrap();
     let tree3 = parser.parse(&source_code, Some(&tree2)).unwrap();
 
-    assert_eq!(tree3.root_node().to_sexp(), tree.root_node().to_sexp());
+    assert_eq!(
+        tree3.root_node().to_sexp(false),
+        tree.root_node().to_sexp(false)
+    );
 }
 
 #[test]
@@ -860,7 +863,10 @@ fn test_reuse_invalidates_scanner_token_when_included_range_expands() {
         }])
         .unwrap();
     let tree1 = parser.parse(source, None).unwrap();
-    assert_eq!(tree1.root_node().to_sexp(), "(document (unclosed_delim))");
+    assert_eq!(
+        tree1.root_node().to_sexp(false),
+        "(document (unclosed_delim))"
+    );
 
     parser
         .set_included_ranges(&[Range {
@@ -872,7 +878,7 @@ fn test_reuse_invalidates_scanner_token_when_included_range_expands() {
         .unwrap();
     let tree2 = parser.parse(source, Some(&tree1)).unwrap();
     assert_eq!(
-        tree2.root_node().to_sexp(),
+        tree2.root_node().to_sexp(false),
         "(document (span (open_delim) (close_delim)))"
     );
 }

@@ -533,14 +533,16 @@ const char *ts_node_grammar_type(TSNode self) {
   return ts_language_symbol_name(self.tree->language, symbol);
 }
 
-char *ts_node_string(TSNode self) {
+char *ts_node_string(TSNode self, bool include_ranges) {
   TSSymbol alias_symbol = ts_node__alias(&self);
   return ts_subtree_string(
     ts_node__subtree(self),
     alias_symbol,
     ts_language_symbol_metadata(self.tree->language, alias_symbol).visible,
     self.tree->language,
-    false
+    false,
+    include_ranges,
+    (Length) {ts_node_start_byte(self), ts_node_start_point(self)}
   );
 }
 
