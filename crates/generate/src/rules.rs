@@ -88,7 +88,7 @@ macro_rules! symbol_index {
             /// An index knows which table it belongs to, so it can name its own symbol
             impl From<$name> for Symbol {
                 fn from(value: $name) -> Self {
-                    Self::new(SymbolType::$kind, value.0)
+                    Self::new(SymbolType::$kind, value.0 as usize)
                 }
             }
 
@@ -97,7 +97,7 @@ macro_rules! symbol_index {
                 pub(crate) const fn new(value: u32) -> Self { Self(value) }
 
                 pub(crate) const fn symbol(self) -> Symbol {
-                    Symbol::new(SymbolType::$kind, self.0)
+                    Symbol::new(SymbolType::$kind, self.0 as usize)
                 }
             }
         )+
@@ -155,7 +155,13 @@ impl<'de> Deserialize<'de> for Symbol {
         D: serde::Deserializer<'de>,
     {
         let SymbolFields { kind, index } = SymbolFields::deserialize(deserializer)?;
-        Ok(Self::new(kind, index))
+        if index > SYMBOL_INDEX_MASK {
+            return Err(serde::de::Error::invalid_value(
+                serde::de::Unexpected::Unsigned(index.into()),
+                &format!("a symbol index of at most {SYMBOL_INDEX_MASK}").as_str(),
+            ));
+        }
+        Ok(Self::new(kind, index as usize))
     }
 }
 
@@ -185,16 +191,12 @@ impl Symbol {
     #[allow(non_upper_case_globals)]
     pub const EndOfNonTerminalExtra: Self = Self::new(SymbolType::EndOfNonTerminalExtra, 0);
 
-    const fn new(kind: SymbolType, index: u32) -> Self {
-        // The augmented start item uses `u32::MAX` as its variable index; it saturates to the
-        // largest index, which no real symbol reaches and which still sorts last.
-        let index = if index > SYMBOL_INDEX_MASK {
-            SYMBOL_INDEX_MASK
-        } else {
-            index
-        };
+    const fn new(kind: SymbolType, index: usize) -> Self {
+        assert!(index <= SYMBOL_INDEX_MASK as usize);
         // SAFETY: The kind plus one is in the top bits, so this is never zero.
-        Self(unsafe { NonZeroU32::new_unchecked(((kind as u32 + 1) << SYMBOL_KIND_SHIFT) | index) })
+        Self(unsafe {
+            NonZeroU32::new_unchecked(((kind as u32 + 1) << SYMBOL_KIND_SHIFT) | index as u32)
+        })
     }
 
     const fn raw_index(self) -> u32 {
@@ -203,17 +205,17 @@ impl Symbol {
 
     #[must_use]
     pub const fn non_terminal(index: usize) -> Self {
-        Self::new(SymbolType::NonTerminal, index as u32)
+        Self::new(SymbolType::NonTerminal, index)
     }
 
     #[must_use]
     pub const fn terminal(index: usize) -> Self {
-        Self::new(SymbolType::Terminal, index as u32)
+        Self::new(SymbolType::Terminal, index)
     }
 
     #[must_use]
     pub const fn external(index: usize) -> Self {
-        Self::new(SymbolType::External, index as u32)
+        Self::new(SymbolType::External, index)
     }
 
     #[inline]
