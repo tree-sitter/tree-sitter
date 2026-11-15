@@ -819,6 +819,63 @@ fn test_parsing_after_editing_text_before_a_missing_token() {
 }
 
 #[test]
+fn test_parsing_after_editing_text_after_a_zero_width_token() {
+    let mut parser = Parser::new();
+    parser
+        .set_language(&get_test_fixture_language("reuse_zero_width_last_leaf"))
+        .unwrap();
+
+    // The zero-width token after `j` is an automatic semicolon from the scanner in the first text,
+    // and an empty `_semicolon` from the lexer in the second. In the third, the tab makes the
+    // scanner add a second zero-width token, which the `declaration` ends with.
+    for text in [
+        "for (let j\n    of k)",
+        "for (let j    of k)",
+        "for (let j\n\tof k)",
+    ] {
+        let mut code = text.as_bytes().to_vec();
+        let mut tree = parser.parse(&code, None).unwrap();
+        let position = text.find("of").unwrap();
+
+        // Without `of`, the split after `j` settles on a `for_declaration`.
+        perform_edit(
+            &mut tree,
+            &mut code,
+            &Edit {
+                position,
+                deleted_length: 3,
+                inserted_text: Vec::new(),
+            },
+        )
+        .unwrap();
+        tree = parser.parse(&code, Some(&tree)).unwrap();
+        assert_eq!(
+            tree.root_node().to_sexp(),
+            "(source_file (for_declaration (declaration (declarator (identifier))) (identifier)))"
+        );
+
+        // Putting `of` back must not reuse that `declaration`.
+        perform_edit(
+            &mut tree,
+            &mut code,
+            &Edit {
+                position,
+                deleted_length: 0,
+                inserted_text: b"of ".to_vec(),
+            },
+        )
+        .unwrap();
+        tree = parser.parse(&code, Some(&tree)).unwrap();
+        let fresh = parser.parse(&code, None).unwrap();
+        assert_eq!(
+            fresh.root_node().to_sexp(),
+            "(source_file (for_of (identifier) (identifier)))"
+        );
+        assert_eq!(tree.root_node().to_sexp(), fresh.root_node().to_sexp());
+    }
+}
+
+#[test]
 fn test_parsing_after_detecting_error_in_the_middle_of_a_string_token() {
     let mut parser = Parser::new();
     parser.set_language(&get_language("python")).unwrap();

@@ -2201,6 +2201,7 @@ TSTree *ts_parser_parse(
           ts_stack_position(self->stack, version).extent.column
         );
 
+        uint32_t position_before_advance = ts_stack_position(self->stack, version).bytes;
         if (!ts_parser__advance(self, version, allow_node_reuse)) {
           if (self->has_scanner_error) goto exit;
           return NULL;
@@ -2208,8 +2209,16 @@ TSTree *ts_parser_parse(
 
         LOG_STACK();
 
+        // Stop processing this version once it's past `last_position`, the furthest position any
+        // version has reached, or, for versions after the first, once this advance moved it to
+        // `last_position`. Shifting a zero-width token there doesn't move it, so it keeps going to
+        // the next token, as the first version does. Otherwise the stack could be condensed first,
+        // and the nodes this version then reduces on that token wouldn't be marked fragile.
         position = ts_stack_position(self->stack, version).bytes;
-        if (position > last_position || (version > 0 && position == last_position)) {
+        if (
+          position > last_position ||
+          (version > 0 && position == last_position && position > position_before_advance)
+        ) {
           last_position = position;
           break;
         }
