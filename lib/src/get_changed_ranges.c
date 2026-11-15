@@ -60,18 +60,18 @@ void ts_range_array_get_changed_ranges(
 
     Length next_old_position;
     if (in_old_range) {
-      next_old_position = (Length) {old_range->end_byte, old_range->end_point};
+      next_old_position = (Length) {.extent = old_range->end_point, .bytes = old_range->end_byte};
     } else if (old_index < old_range_count) {
-      next_old_position = (Length) {old_range->start_byte, old_range->start_point};
+      next_old_position = (Length) {.extent = old_range->start_point, .bytes = old_range->start_byte};
     } else {
       next_old_position = LENGTH_MAX;
     }
 
     Length next_new_position;
     if (in_new_range) {
-      next_new_position = (Length) {new_range->end_byte, new_range->end_point};
+      next_new_position = (Length) {.extent = new_range->end_point, .bytes = new_range->end_byte};
     } else if (new_index < new_range_count) {
-      next_new_position = (Length) {new_range->start_byte, new_range->start_point};
+      next_new_position = (Length) {.extent = new_range->start_point, .bytes = new_range->start_byte};
     } else {
       next_new_position = LENGTH_MAX;
     }

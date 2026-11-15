@@ -68,7 +68,7 @@ static inline NodeChildIterator ts_node_iterate_children(const TSNode *node) {
   return (NodeChildIterator) {
     .tree = node->tree,
     .parent = subtree,
-    .position = {ts_node_start_byte(*node), ts_node_start_point(*node)},
+    .position = {.extent = ts_node_start_point(*node), .bytes = ts_node_start_byte(*node)},
     .child_index = 0,
     .structural_child_index = 0,
     .alias_sequence = alias_sequence,

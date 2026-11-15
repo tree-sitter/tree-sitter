@@ -185,8 +185,8 @@ void ts_tree_cursor_init(TreeCursor *self, TSNode node) {
   array_push(&self->stack, ((TreeCursorEntry) {
     .subtree = (const Subtree *)node.id,
     .position = {
-      ts_node_start_byte(node),
-      ts_node_start_point(node)
+      .extent = ts_node_start_point(node),
+      .bytes = ts_node_start_byte(node),
     },
     .child_index = 0,
     .structural_child_index = 0,

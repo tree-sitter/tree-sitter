@@ -61,7 +61,7 @@ TSNode ts_tree_root_node_with_offset(
   uint32_t offset_bytes,
   TSPoint offset_extent
 ) {
-  Length offset = {offset_bytes, offset_extent};
+  Length offset = {.extent = offset_extent, .bytes = offset_bytes};
   return ts_node_new(self, &self->root, length_add(offset, ts_subtree_padding(self->root)), 0);
 }
 

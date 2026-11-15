@@ -649,9 +649,9 @@ Subtree ts_subtree_edit(Subtree self, const TSInputEdit *input_edit, SubtreePool
   array_push(&stack, ((EditEntry) {
     .tree = &self,
     .edit = (Edit) {
-      .start = {input_edit->start_byte, input_edit->start_point},
-      .old_end = {input_edit->old_end_byte, input_edit->old_end_point},
-      .new_end = {input_edit->new_end_byte, input_edit->new_end_point},
+      .start = {.extent = input_edit->start_point, .bytes = input_edit->start_byte},
+      .old_end = {.extent = input_edit->old_end_point, .bytes = input_edit->old_end_byte},
+      .new_end = {.extent = input_edit->new_end_point, .bytes = input_edit->new_end_byte},
     },
   }));
 

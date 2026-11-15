@@ -7,12 +7,12 @@
 #include "tree_sitter/api.h"
 
 typedef struct {
-  uint32_t bytes;
   TSPoint extent;
+  uint32_t bytes;
 } Length;
 
-static const Length LENGTH_UNDEFINED = {0, {0, 1}};
-static const Length LENGTH_MAX = {UINT32_MAX, {UINT32_MAX, UINT32_MAX}};
+static const Length LENGTH_UNDEFINED = {.extent = {0, 1}, .bytes = 0};
+static const Length LENGTH_MAX = {.extent = {UINT32_MAX, UINT32_MAX}, .bytes = UINT32_MAX};
 
 static inline bool length_is_undefined(Length length) {
   return length.bytes == 0 && length.extent.column != 0;
@@ -37,7 +37,7 @@ static inline Length length_sub(Length len1, Length len2) {
 }
 
 static inline Length length_zero(void) {
-  Length result = {0, {0, 0}};
+  Length result = {.extent = {0, 0}, .bytes = 0};
   return result;
 }
 

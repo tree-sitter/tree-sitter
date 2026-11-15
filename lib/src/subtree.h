@@ -276,7 +276,7 @@ static inline TSStateId ts_subtree_leaf_parse_state(Subtree self) {
 
 static inline Length ts_subtree_padding(Subtree self) {
   if (self.data.is_inline) {
-    Length result = {self.data.padding_bytes, {self.data.padding_rows, self.data.padding_columns}};
+    Length result = {.extent = {self.data.padding_rows, self.data.padding_columns}, .bytes = self.data.padding_bytes};
     return result;
   } else {
     return self.ptr->padding;
@@ -285,7 +285,7 @@ static inline Length ts_subtree_padding(Subtree self) {
 
 static inline Length ts_subtree_size(Subtree self) {
   if (self.data.is_inline) {
-    Length result = {self.data.size_bytes, {0, self.data.size_bytes}};
+    Length result = {.extent = {0, self.data.size_bytes}, .bytes = self.data.size_bytes};
     return result;
   } else {
     return self.ptr->size;
