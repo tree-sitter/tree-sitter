@@ -910,6 +910,44 @@ fn test_parsing_after_editing_text_before_a_reserved_word() {
 }
 
 #[test]
+fn test_parsing_after_editing_text_before_a_node_starting_with_a_keyword() {
+    let mut parser = Parser::new();
+    parser
+        .set_language(&get_test_fixture_language(
+            "reuse_node_starting_with_keyword",
+        ))
+        .unwrap();
+
+    // After `param x`, `_` is the `wildcard` keyword.
+    let mut code = b"param x _ ;".to_vec();
+    let mut tree = parser.parse(&code, None).unwrap();
+    assert_eq!(
+        tree.root_node().to_sexp(),
+        "(source_file (param (type (identifier)) (wildcard)))"
+    );
+
+    // After `component x`, `_` is an identifier, so the node that the `wildcard` starts can't be
+    // reused as it is.
+    perform_edit(
+        &mut tree,
+        &mut code,
+        &Edit {
+            position: 0,
+            deleted_length: 5,
+            inserted_text: b"component".to_vec(),
+        },
+    )
+    .unwrap();
+    tree = parser.parse(&code, Some(&tree)).unwrap();
+    let fresh = parser.parse(&code, None).unwrap();
+    assert_eq!(
+        fresh.root_node().to_sexp(),
+        "(source_file (component (type (identifier)) (identifier)))"
+    );
+    assert_eq!(tree.root_node().to_sexp(), fresh.root_node().to_sexp());
+}
+
+#[test]
 fn test_parsing_after_detecting_error_in_the_middle_of_a_string_token() {
     let mut parser = Parser::new();
     parser.set_language(&get_language("python")).unwrap();
