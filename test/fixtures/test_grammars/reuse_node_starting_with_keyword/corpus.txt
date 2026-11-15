@@ -1,0 +1,41 @@
+==============================================
+wildcard as a param name
+==============================================
+
+param x _ ;
+
+---
+
+(source_file
+  (param
+    (type
+      (identifier))
+    (wildcard)))
+
+==============================================
+identifier with brackets as a param name
+==============================================
+
+param x y [] ;
+
+---
+
+(source_file
+  (param
+    (type
+      (identifier))
+    (identifier)))
+
+==============================================
+underscore as a component name
+==============================================
+
+component x _ ;
+
+---
+
+(source_file
+  (component
+    (type
+      (identifier))
+    (identifier)))
