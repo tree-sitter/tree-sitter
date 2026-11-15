@@ -189,6 +189,13 @@ static Length iterator_end_position(Iterator *self) {
   }
 }
 
+static uint32_t iterator_end_byte(const Iterator *self) {
+  const TreeCursorEntry *entry = array_back(&self->cursor.stack);
+  uint32_t result = entry->position.bytes + ts_subtree_padding(*entry->subtree).bytes;
+  if (!self->in_padding) result += ts_subtree_size(*entry->subtree).bytes;
+  return result;
+}
+
 static bool iterator_tree_is_visible(const Iterator *self) {
   TreeCursorEntry entry = *array_back(&self->cursor.stack);
   if (ts_subtree_visible(*entry.subtree)) return true;
@@ -450,7 +457,7 @@ uint32_t ts_subtree_get_changed_ranges(
       included_range_differences,
       included_range_difference_index,
       position.bytes,
-      iterator_end_position(&old_iter).bytes
+      iterator_end_byte(&old_iter)
     )) {
       comparison = IteratorMayDiffer;
     }
@@ -496,11 +503,11 @@ uint32_t ts_subtree_get_changed_ranges(
     // Ensure that both iterators are caught up to the current position.
     while (
       !iterator_done(&old_iter) &&
-      iterator_end_position(&old_iter).bytes <= next_position.bytes
+      iterator_end_byte(&old_iter) <= next_position.bytes
     ) iterator_advance(&old_iter);
     while (
       !iterator_done(&new_iter) &&
-      iterator_end_position(&new_iter).bytes <= next_position.bytes
+      iterator_end_byte(&new_iter) <= next_position.bytes
     ) iterator_advance(&new_iter);
 
     // Ensure that both iterators are at the same depth in the tree.
