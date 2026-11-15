@@ -500,8 +500,15 @@ static bool ts_parser__can_reuse_first_leaf(
   if (ts_subtree_size(tree).bytes == 0 && leaf_symbol != ts_builtin_sym_end) return false;
 
   // If the current state allows external tokens or other tokens that conflict with this
-  // token, this token is not reusable.
-  return current_lex_mode.external_lex_state == 0 && table_entry->is_reusable;
+  // token, this token is not reusable. Neither is the word token if it was lexed under a
+  // different reserved word set.
+  return
+    current_lex_mode.external_lex_state == 0 &&
+    table_entry->is_reusable &&
+    (
+      leaf_symbol != self->language->keyword_capture_token ||
+      leaf_lex_mode.reserved_word_set_id == current_lex_mode.reserved_word_set_id
+    );
 }
 
 static Subtree ts_parser__lex(
