@@ -1,0 +1,87 @@
+==============================================
+for-of over an automatic semicolon
+==============================================
+
+for (let j
+    of k)
+
+---
+
+(source_file
+  (for_of
+    (identifier)
+    (identifier)))
+
+==============================================
+for-of on one line
+==============================================
+
+for (let j    of k)
+
+---
+
+(source_file
+  (for_of
+    (identifier)
+    (identifier)))
+
+==============================================
+declaration ended by an automatic semicolon
+==============================================
+
+for (let j
+    k)
+
+---
+
+(source_file
+  (for_declaration
+    (declaration
+      (declarator
+        (identifier)))
+    (identifier)))
+
+==============================================
+declaration ended by an empty semicolon
+==============================================
+
+for (let j    k)
+
+---
+
+(source_file
+  (for_declaration
+    (declaration
+      (declarator
+        (identifier)))
+    (identifier)))
+
+==============================================
+for-of over an automatic semicolon before a tab
+==============================================
+
+for (let j
+	of k)
+
+---
+
+(source_file
+  (for_of
+    (identifier)
+    (identifier)))
+
+==============================================
+declaration ended by two zero-width tokens
+==============================================
+
+for (let j
+	k)
+
+---
+
+(source_file
+  (for_declaration
+    (declaration
+      (declarator
+        (identifier)))
+    (identifier)))
