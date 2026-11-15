@@ -159,8 +159,8 @@ static void ts_lexer_goto(Lexer *self, Length position) {
     ) {
       if (included_range->start_byte >= self->current_position.bytes) {
         self->current_position = (Length) {
-          .bytes = included_range->start_byte,
           .extent = included_range->start_point,
+          .bytes = included_range->start_byte,
         };
       }
 
@@ -190,8 +190,8 @@ static void ts_lexer_goto(Lexer *self, Length position) {
     self->current_included_range_index = self->included_range_count;
     TSRange *last_included_range = &self->included_ranges[self->included_range_count - 1];
     self->current_position = (Length) {
-      .bytes = last_included_range->end_byte,
       .extent = last_included_range->end_point,
+      .bytes = last_included_range->end_byte,
     };
     ts_lexer__clear_chunk(self);
     self->lookahead_size = 1;
@@ -230,8 +230,8 @@ static void ts_lexer__do_advance(Lexer *self, bool skip) {
     if (self->current_included_range_index < self->included_range_count) {
       current_range++;
       self->current_position = (Length) {
-        current_range->start_byte,
-        current_range->start_point,
+        .extent = current_range->start_point,
+        .bytes = current_range->start_byte,
       };
     } else {
       current_range = NULL;
@@ -309,8 +309,8 @@ static void ts_lexer__mark_end(TSLexer *_self) {
     ) {
       TSRange *previous_included_range = current_included_range - 1;
       self->token_end_position = (Length) {
-        previous_included_range->end_byte,
-        previous_included_range->end_point,
+        .extent = previous_included_range->end_point,
+        .bytes = previous_included_range->end_byte,
       };
       return;
     }
@@ -329,8 +329,8 @@ static uint32_t ts_lexer__get_column(TSLexer *_self) {
 
     // Back up to the beginning of the line
     Length start_of_col = {
-      self->current_position.bytes - self->current_position.extent.column,
-      {self->current_position.extent.row, 0},
+      .extent = {self->current_position.extent.row, 0},
+      .bytes = self->current_position.bytes - self->current_position.extent.column,
     };
     ts_lexer_goto(self, start_of_col);
     ts_lexer__set_column_data(self, 0);
@@ -392,7 +392,7 @@ void ts_lexer_init(Lexer *self) {
     .chunk = NULL,
     .chunk_size = 0,
     .chunk_start = 0,
-    .current_position = {0, {0, 0}},
+    .current_position = {.extent = {0, 0}, .bytes = 0},
     .logger = {
       .payload = NULL,
       .log = NULL
