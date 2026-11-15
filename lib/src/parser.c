@@ -487,7 +487,9 @@ static bool ts_parser__can_reuse_first_leaf(
   // If the token was created in a state with the same set of lookaheads, it is reusable.
   if (
     table_entry->action_count > 0 &&
-    memcmp(&leaf_lex_mode, &current_lex_mode, sizeof(TSLexerMode)) == 0 &&
+    leaf_lex_mode.lex_state == current_lex_mode.lex_state &&
+    leaf_lex_mode.external_lex_state == current_lex_mode.external_lex_state &&
+    leaf_lex_mode.reserved_word_set_id == current_lex_mode.reserved_word_set_id &&
     (
       leaf_symbol != self->language->keyword_capture_token ||
       (!ts_subtree_is_keyword(tree) && ts_subtree_parse_state(tree) == state)
