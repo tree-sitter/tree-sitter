@@ -1778,11 +1778,16 @@ static bool ts_parser__advance(
 
     // If the current lookahead token is a keyword that is not valid, but the
     // default word token *is* valid, then treat the lookahead token as the word
-    // token instead.
+    // token instead. If the lookahead is a node reused from the old tree whose
+    // first leaf is such a keyword, break the node down to that leaf first.
+    Subtree first_leaf = lookahead;
+    while (ts_subtree_child_count(first_leaf) > 0) {
+      first_leaf = ts_subtree_children(first_leaf)[0];
+    }
     if (
-      ts_subtree_is_keyword(lookahead) &&
-      ts_subtree_symbol(lookahead) != self->language->keyword_capture_token &&
-      !ts_language_is_reserved_word(self->language, state, ts_subtree_symbol(lookahead))
+      ts_subtree_is_keyword(first_leaf) &&
+      ts_subtree_symbol(first_leaf) != self->language->keyword_capture_token &&
+      !ts_language_is_reserved_word(self->language, state, ts_subtree_symbol(first_leaf))
     ) {
       ts_language_table_entry(
         self->language,
@@ -1791,6 +1796,12 @@ static bool ts_parser__advance(
         &table_entry
       );
       if (table_entry.action_count > 0) {
+        if (ts_subtree_child_count(lookahead) > 0) {
+          // Every node above the keyword has the parse state the keyword was shifted from, which
+          // has an action for it, so it isn't `state`, and the breakdown reaches the keyword.
+          ts_parser__breakdown_lookahead(self, &lookahead, state, &self->reusable_node);
+          ts_assert(ts_subtree_child_count(lookahead) == 0);
+        }
         LOG(
           "switch from_keyword:%s, to_word_token:%s",
           TREE_NAME(lookahead),
