@@ -455,6 +455,18 @@ uint32_t ts_subtree_get_changed_ranges(
       comparison = IteratorMayDiffer;
     }
 
+    // A match only shows that a whole subtree is unchanged. Partway through one, after ascending
+    // past a change inside it, its remaining children can still differ.
+    if (
+      comparison == IteratorMatches &&
+      (
+        (!old_iter.in_padding && iterator_start_position(&old_iter).bytes < position.bytes) ||
+        (!new_iter.in_padding && iterator_start_position(&new_iter).bytes < position.bytes)
+      )
+    ) {
+      comparison = IteratorMayDiffer;
+    }
+
     bool is_changed = false;
     switch (comparison) {
       // If the subtrees are definitely identical, move to the end

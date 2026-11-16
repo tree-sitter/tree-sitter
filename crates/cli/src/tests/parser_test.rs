@@ -1881,6 +1881,35 @@ fn test_parsing_with_a_newly_included_range() {
 }
 
 #[test]
+fn test_changed_ranges_when_a_newly_included_range_nests_later_code() {
+    // Including `} else if (c) {` nests the final `else` one level deeper, while the outer
+    // `if_statement` around it keeps its extent.
+    let source_code =
+        "void f() { if (a) { x(); } else if (b) { y(); } else if (c) { z(); } else { w(); } }";
+    let excluded = "} else if (c) {";
+    let excluded_start = source_code.find(excluded).unwrap();
+    let excluded_end = excluded_start + excluded.len();
+    let final_else_end = source_code.find("else { w(); }").unwrap() + "else { w(); }".len();
+
+    let mut parser = Parser::new();
+    parser.set_language(&get_language("c")).unwrap();
+    parser
+        .set_included_ranges(&[
+            simple_range(0, excluded_start),
+            simple_range(excluded_end, source_code.len()),
+        ])
+        .unwrap();
+    let tree = parser.parse(source_code, None).unwrap();
+
+    parser.set_included_ranges(&[]).unwrap();
+    let tree2 = parser.parse(source_code, Some(&tree)).unwrap();
+    assert_eq!(
+        tree.changed_ranges(&tree2).collect::<Vec<_>>(),
+        &[simple_range(excluded_start, final_else_end)]
+    );
+}
+
+#[test]
 fn test_parsing_with_included_ranges_and_missing_tokens() {
     let (parser_name, parser_code) = generate_parser(
         r#"{
