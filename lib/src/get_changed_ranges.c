@@ -189,6 +189,13 @@ static Length iterator_end_position(Iterator *self) {
   }
 }
 
+static uint32_t iterator_start_byte(const Iterator *self) {
+  const TreeCursorEntry *entry = array_back(&self->cursor.stack);
+  uint32_t result = entry->position.bytes;
+  if (!self->in_padding) result += ts_subtree_padding(*entry->subtree).bytes;
+  return result;
+}
+
 static uint32_t iterator_end_byte(const Iterator *self) {
   const TreeCursorEntry *entry = array_back(&self->cursor.stack);
   uint32_t result = entry->position.bytes + ts_subtree_padding(*entry->subtree).bytes;
@@ -459,6 +466,18 @@ uint32_t ts_subtree_get_changed_ranges(
       position.bytes,
       iterator_end_byte(&old_iter)
     )) {
+      comparison = IteratorMayDiffer;
+    }
+
+    // A match only shows that a whole subtree is unchanged. Partway through one, after ascending
+    // past a change inside it, its remaining children can still differ.
+    if (
+      comparison == IteratorMatches &&
+      (
+        (!old_iter.in_padding && iterator_start_byte(&old_iter) < position.bytes) ||
+        (!new_iter.in_padding && iterator_start_byte(&new_iter) < position.bytes)
+      )
+    ) {
       comparison = IteratorMayDiffer;
     }
 
