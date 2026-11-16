@@ -143,6 +143,7 @@ struct LexTableBuilder<'a> {
     table: LexTable,
     state_queue: VecDeque<QueueEntry>,
     state_ids_by_nfa_state_set: FxHashMap<(Vec<u32>, bool), LexStateId>,
+    eof_state_id: Option<LexStateId>,
 }
 
 impl<'a> LexTableBuilder<'a> {
@@ -153,6 +154,7 @@ impl<'a> LexTableBuilder<'a> {
             table: LexTable::default(),
             state_queue: VecDeque::new(),
             state_ids_by_nfa_state_set: FxHashMap::default(),
+            eof_state_id: None,
         }
     }
 
@@ -160,6 +162,7 @@ impl<'a> LexTableBuilder<'a> {
         self.table = LexTable::default();
         self.state_queue.clear();
         self.state_ids_by_nfa_state_set.clear();
+        self.eof_state_id = None;
     }
 
     fn add_state_for_tokens(&mut self, tokens: &TokenSet, str_pool: &StrPool) -> LexStateId {
@@ -235,7 +238,6 @@ impl<'a> LexTableBuilder<'a> {
     fn populate_state(&mut self, state_id: LexStateId, nfa_states: Vec<u32>, eof_valid: bool) {
         self.cursor.force_reset(nfa_states);
 
-        // The EOF state is represented as an empty list of NFA states.
         let mut completion = None;
         for (id, prec) in self.cursor.completions() {
             if let Some((prev_id, prev_precedence)) = completion
@@ -252,12 +254,19 @@ impl<'a> LexTableBuilder<'a> {
 
         let (transitions, has_sep) = self.cursor.transitions_and_any_sep();
 
-        // If EOF is a valid lookahead token, add a transition predicated on the null
-        // character that leads to the empty set of NFA states.
+        // If EOF is a valid lookahead token, add a transition to the EOF state, taken when `eof`
+        // is true.
         if eof_valid {
-            let (next_state_id, _) = self.add_state(Vec::new(), false);
+            let eof_state_id = *self.eof_state_id.get_or_insert_with(|| {
+                let eof_state_id = self.table.states.len() as LexStateId;
+                self.table.states.push(LexState {
+                    accept_action: Some(Symbol::End),
+                    ..LexState::default()
+                });
+                eof_state_id
+            });
             self.table.states[state_id as usize].eof_action = Some(AdvanceAction {
-                state: next_state_id,
+                state: eof_state_id,
                 in_main_token: true,
             });
         }
@@ -289,8 +298,6 @@ impl<'a> LexTableBuilder<'a> {
         if let Some((complete_id, _)) = completion {
             self.table.states[state_id as usize].accept_action =
                 Some(Symbol::terminal(complete_id));
-        } else if self.cursor.state_ids.is_empty() {
-            self.table.states[state_id as usize].accept_action = Some(Symbol::End);
         }
     }
 }

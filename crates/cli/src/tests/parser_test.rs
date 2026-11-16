@@ -722,6 +722,27 @@ fn test_parsing_after_failed_external_scan_that_depends_on_column() {
 }
 
 #[test]
+fn test_parsing_after_failed_external_scan_without_internal_tokens() {
+    let mut parser = Parser::new();
+    parser
+        .set_language(&get_test_fixture_language("no_internal_tokens"))
+        .unwrap();
+
+    // The grammar has no internal tokens, so the internal lexer only runs where the external
+    // scanner finds nothing.
+    let tree = parser.parse("ab", None).unwrap();
+    assert_eq!(tree.root_node().to_sexp(), "(source_file (a) (b))");
+
+    let code = "axb";
+    let tree = parser.parse(code, None).unwrap();
+    assert_eq!(
+        tree.root_node().to_sexp(),
+        "(source_file (a) (ERROR (UNEXPECTED 'x')) (b))"
+    );
+    assert_eq!(tree.root_node().end_byte(), code.len());
+}
+
+#[test]
 fn test_parsing_after_editing_text_after_a_non_terminal_extra() {
     let mut parser = Parser::new();
     parser
