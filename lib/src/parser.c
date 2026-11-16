@@ -838,10 +838,10 @@ static Subtree ts_parser__reuse_node(
         TREE_NAME(result),
         SYM_NAME(leaf_symbol)
       );
-      if (ts_subtree_extra(result) && ts_subtree_child_count(result) > 0) {
-        // This non-terminal extra will be parsed again, and inside it, a breakdown can't reach a
-        // reused node before the extra, so break that node down now: where it ends depended on the
-        // token after the extra.
+      if (ts_subtree_extra(result)) {
+        // A fresh parse lexes this extra before reducing a reused node before it, and lexing it in
+        // this later state can give a different token. Inside a non-terminal extra, a breakdown
+        // couldn't reach that node either. So break it down now.
         ts_parser__breakdown_top_of_stack(self, version);
         *state = ts_stack_state(self->stack, version);
       }
