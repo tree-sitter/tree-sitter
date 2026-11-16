@@ -1706,7 +1706,10 @@ static bool ts_parser__advance(
         }
 
         case TSParseActionTypeReduce: {
-          bool is_fragile = table_entry.action_count > 1;
+          const TSParseAction *last_action = &table_entry.actions[table_entry.action_count - 1];
+          uint32_t action_count = table_entry.action_count;
+          if (last_action->type == TSParseActionTypeShift && last_action->shift.repetition) action_count--;
+          bool is_fragile = action_count > 1;
           bool end_of_non_terminal_extra = lookahead.ptr == NULL;
           LOG("reduce sym:%s, child_count:%u", SYM_NAME(action.reduce.symbol), action.reduce.child_count);
           StackVersion reduction_version = ts_parser__reduce(
