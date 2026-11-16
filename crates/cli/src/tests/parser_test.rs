@@ -948,6 +948,40 @@ fn test_parsing_after_editing_text_before_a_node_starting_with_a_keyword() {
 }
 
 #[test]
+fn test_parsing_after_editing_text_before_a_trailing_comment() {
+    let mut parser = Parser::new();
+    parser.set_language(&get_language("javascript")).unwrap();
+
+    // `b` could still continue with `||` when the comment is lexed, so the automatic semicolon
+    // comes after the comment.
+    let mut code = b"var a = b // c\nd".to_vec();
+    let mut tree = parser.parse(&code, None).unwrap();
+    let expected = concat!(
+        "(program ",
+        "(variable_declaration (variable_declarator name: (identifier) value: (identifier)) (comment)) ",
+        "(expression_statement (identifier)))",
+    );
+    assert_eq!(tree.root_node().to_sexp(), expected);
+
+    // The initializer `= b` is reused, and it can't be followed by `||`, so lexing the comment
+    // again after it would put the automatic semicolon first.
+    perform_edit(
+        &mut tree,
+        &mut code,
+        &Edit {
+            position: 4,
+            deleted_length: 1,
+            inserted_text: b"aa".to_vec(),
+        },
+    )
+    .unwrap();
+    tree = parser.parse(&code, Some(&tree)).unwrap();
+    let fresh = parser.parse(&code, None).unwrap();
+    assert_eq!(fresh.root_node().to_sexp(), expected);
+    assert_eq!(tree.root_node().to_sexp(), expected);
+}
+
+#[test]
 fn test_parsing_after_detecting_error_in_the_middle_of_a_string_token() {
     let mut parser = Parser::new();
     parser.set_language(&get_language("python")).unwrap();
