@@ -157,6 +157,18 @@ pub fn expand_tokens(
         });
     }
 
+    // The end of input gets its own start state too, so that the lexer can always skip
+    // separators before it.
+    builder.nfa.states.push(NfaState::EndOfInput);
+    let end_of_input = builder.nfa.last_state_id();
+    builder.is_sep = true;
+    builder
+        .expand_rule(pool, separator_root, end_of_input)
+        .map_err(ExpandTokensError::ExpandRule)?;
+    let null_rule = builder.null_rule.take();
+    separators_null_rule = separators_null_rule.or(null_rule);
+    let eof_start_state = builder.nfa.last_state_id();
+
     // TODO: Remove during the 0.29 release cycle, when the null character stops matching the end
     // of input.
     if let Some(rule) = separators_null_rule {
@@ -170,6 +182,7 @@ pub fn expand_tokens(
     Ok(LexicalGrammar {
         nfa: builder.nfa,
         variables,
+        eof_start_state,
     })
 }
 

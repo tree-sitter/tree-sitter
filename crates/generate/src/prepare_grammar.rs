@@ -333,7 +333,7 @@ impl<'a> EmptyMatches<'a> {
                         }
                     }
                 }
-                NfaState::Advance { .. } => {}
+                NfaState::Advance { .. } | NfaState::EndOfInput => {}
             }
             i += 1;
         }

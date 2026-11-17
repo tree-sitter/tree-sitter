@@ -69,6 +69,7 @@ pub struct LexicalVariable {
 pub struct LexicalGrammar {
     pub nfa: Nfa,
     pub variables: Vec<LexicalVariable>,
+    pub eof_start_state: u32,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
@@ -395,6 +396,14 @@ impl LexicalGrammar {
         // for it. These values are monotonically increasing, so we can binary
         // search for the first variable whose start_state >= state_id.
         self.variables.partition_point(|v| v.start_state < state_id)
+    }
+
+    /// Whether an NFA state belongs to the end of input rather than a token. The end of input's
+    /// NFA states come after every token's, up to its start state.
+    #[must_use]
+    pub fn is_eof_nfa_state(&self, state_id: u32) -> bool {
+        let first_eof_state = self.variables.last().map_or(0, |v| v.start_state + 1);
+        (first_eof_state..=self.eof_start_state).contains(&state_id)
     }
 }
 
