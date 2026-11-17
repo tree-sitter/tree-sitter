@@ -5,7 +5,7 @@ use thiserror::Error;
 use crate::{
     Diagnostic, NullCharacterLocation, NullCharacterSource,
     grammars::{LexicalGrammar, LexicalVariable, VariableType},
-    nfa::{CharacterSet, Nfa, NfaState},
+    nfa::{CharacterSet, Nfa, NfaState, NfaStateId},
     prepare_grammar::{
         LexicalToken,
         pattern::{self, RegexError},
@@ -283,7 +283,7 @@ impl NfaBuilder {
         &mut self,
         pool: &RulePool,
         id: RuleId,
-        mut next_state_id: u32,
+        mut next_state_id: NfaStateId,
     ) -> ExpandRuleResult<bool> {
         match pool.node(id) {
             Rule::Pattern(s, f) => {
@@ -363,7 +363,7 @@ impl NfaBuilder {
                 }); // Placeholder for split
                 let split_state_id = self.nfa.last_state_id();
                 if self.expand_rule(pool, rule, split_state_id)? {
-                    self.nfa.states[split_state_id as usize] =
+                    self.nfa.states[split_state_id.index()] =
                         NfaState::Split(self.nfa.last_state_id(), next_state_id);
                     Ok(true)
                 } else {
@@ -396,7 +396,11 @@ impl NfaBuilder {
         }
     }
 
-    fn expand_regex(&mut self, hir: &Hir, mut next_state_id: u32) -> ExpandRegexResult<bool> {
+    fn expand_regex(
+        &mut self,
+        hir: &Hir,
+        mut next_state_id: NfaStateId,
+    ) -> ExpandRegexResult<bool> {
         match hir.kind() {
             HirKind::Empty => Ok(false),
             HirKind::Literal(literal) => {
@@ -505,14 +509,18 @@ impl NfaBuilder {
         }
     }
 
-    fn expand_one_or_more(&mut self, hir: &Hir, next_state_id: u32) -> ExpandRegexResult<bool> {
+    fn expand_one_or_more(
+        &mut self,
+        hir: &Hir,
+        next_state_id: NfaStateId,
+    ) -> ExpandRegexResult<bool> {
         self.nfa.states.push(NfaState::Accept {
             variable_index: 0,
             precedence: 0,
         }); // Placeholder for split
         let split_state_id = self.nfa.last_state_id();
         if self.expand_regex(hir, split_state_id)? {
-            self.nfa.states[split_state_id as usize] =
+            self.nfa.states[split_state_id.index()] =
                 NfaState::Split(self.nfa.last_state_id(), next_state_id);
             Ok(true)
         } else {
@@ -521,7 +529,11 @@ impl NfaBuilder {
         }
     }
 
-    fn expand_zero_or_one(&mut self, hir: &Hir, next_state_id: u32) -> ExpandRegexResult<bool> {
+    fn expand_zero_or_one(
+        &mut self,
+        hir: &Hir,
+        next_state_id: NfaStateId,
+    ) -> ExpandRegexResult<bool> {
         if self.expand_regex(hir, next_state_id)? {
             self.push_split(next_state_id);
             Ok(true)
@@ -530,7 +542,11 @@ impl NfaBuilder {
         }
     }
 
-    fn expand_zero_or_more(&mut self, hir: &Hir, next_state_id: u32) -> ExpandRegexResult<bool> {
+    fn expand_zero_or_more(
+        &mut self,
+        hir: &Hir,
+        next_state_id: NfaStateId,
+    ) -> ExpandRegexResult<bool> {
         if self.expand_one_or_more(hir, next_state_id)? {
             self.push_split(next_state_id);
             Ok(true)
@@ -543,7 +559,7 @@ impl NfaBuilder {
         &mut self,
         hir: &Hir,
         count: u32,
-        mut next_state_id: u32,
+        mut next_state_id: NfaStateId,
     ) -> ExpandRegexResult<bool> {
         let mut result = false;
         for _ in 0..count {
@@ -562,7 +578,7 @@ impl NfaBuilder {
         }
     }
 
-    fn push_advance(&mut self, chars: CharacterSet, state_id: u32) {
+    fn push_advance(&mut self, chars: CharacterSet, state_id: NfaStateId) {
         let precedence = *self.precedence_stack.last().unwrap();
         self.nfa.states.push(NfaState::Advance {
             chars,
@@ -572,7 +588,7 @@ impl NfaBuilder {
         });
     }
 
-    fn push_split(&mut self, state_id: u32) {
+    fn push_split(&mut self, state_id: NfaStateId) {
         let last_state_id = self.nfa.last_state_id();
         self.nfa
             .states

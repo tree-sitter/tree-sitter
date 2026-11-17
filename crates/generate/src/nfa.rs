@@ -1,6 +1,7 @@
 use std::{
     cmp::{Ordering, max},
     fmt,
+    hash::{Hash, Hasher},
     iter::ExactSizeIterator,
     ops::{Range, RangeInclusive},
 };
@@ -11,16 +12,50 @@ pub struct CharacterSet {
     ranges: Vec<Range<u32>>,
 }
 
+/// The id of a state in an [`Nfa`], its index in [`Nfa::states`].
+#[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Debug)]
+#[repr(transparent)]
+pub struct NfaStateId(u32);
+
+impl NfaStateId {
+    #[must_use]
+    pub const fn index(self) -> usize {
+        self.0 as usize
+    }
+
+    /// Whether two slices of ids are equal, compared in bulk.
+    #[must_use]
+    pub fn slices_eq(a: &[Self], b: &[Self]) -> bool {
+        Self::as_u32s(a) == Self::as_u32s(b)
+    }
+
+    const fn as_u32s(ids: &[Self]) -> &[u32] {
+        // SAFETY: `NfaStateId` is a transparent `u32`.
+        unsafe { &*(std::ptr::from_ref(ids) as *const [u32]) }
+    }
+}
+
+impl Hash for NfaStateId {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.hash(state);
+    }
+
+    // Hash a slice of ids in one block, like `[u32]` does, instead of id by id.
+    fn hash_slice<H: Hasher>(data: &[Self], state: &mut H) {
+        u32::hash_slice(Self::as_u32s(data), state);
+    }
+}
+
 /// A state in an NFA representing a regular grammar.
 #[derive(Debug, PartialEq, Eq)]
 pub enum NfaState {
     Advance {
         chars: CharacterSet,
-        state_id: u32,
+        state_id: NfaStateId,
         is_sep: bool,
         precedence: i32,
     },
-    Split(u32, u32),
+    Split(NfaStateId, NfaStateId),
     Accept {
         variable_index: usize,
         precedence: i32,
@@ -36,10 +71,10 @@ pub struct Nfa {
 
 #[derive(Debug)]
 pub struct NfaCursor<'a> {
-    pub(crate) state_ids: Vec<u32>,
+    pub(crate) state_ids: Vec<NfaStateId>,
     nfa: &'a Nfa,
     /// The states `reset` has reached, including splits, in the order it reached them.
-    reached: Vec<u32>,
+    reached: Vec<NfaStateId>,
     /// Whether each NFA state is in `reached`.
     is_reached: Vec<bool>,
 }
@@ -49,7 +84,7 @@ pub struct NfaTransition {
     pub characters: CharacterSet,
     pub is_separator: bool,
     pub precedence: i32,
-    pub states: Vec<u32>,
+    pub states: Vec<NfaStateId>,
 }
 
 const END: u32 = char::MAX as u32 + 1;
@@ -486,9 +521,14 @@ impl Nfa {
     }
 
     #[must_use]
-    pub fn last_state_id(&self) -> u32 {
+    pub fn last_state_id(&self) -> NfaStateId {
         assert_ne!(self.states, [] as [NfaState; 0]);
-        self.states.len() as u32 - 1
+        NfaStateId(self.states.len() as u32 - 1)
+    }
+
+    /// The id of every state, in order.
+    pub fn state_ids(&self) -> impl Iterator<Item = NfaStateId> {
+        (0..self.states.len() as u32).map(NfaStateId)
     }
 }
 
@@ -505,7 +545,7 @@ impl fmt::Debug for Nfa {
 
 impl<'a> NfaCursor<'a> {
     #[must_use]
-    pub fn new(nfa: &'a Nfa, states: Vec<u32>) -> Self {
+    pub fn new(nfa: &'a Nfa, states: Vec<NfaStateId>) -> Self {
         let mut result = Self {
             nfa,
             state_ids: Vec::new(),
@@ -517,11 +557,11 @@ impl<'a> NfaCursor<'a> {
     }
 
     /// Sets the cursor to the given states and every state their splits lead to.
-    pub fn reset(&mut self, mut states: Vec<u32>) {
+    pub fn reset(&mut self, mut states: Vec<NfaStateId>) {
         // Without a split, the states are their own closure.
         if !states
             .iter()
-            .any(|&id| matches!(self.nfa.states[id as usize], NfaState::Split(..)))
+            .any(|&id| matches!(self.nfa.states[id.index()], NfaState::Split(..)))
         {
             states.sort_unstable();
             states.dedup();
@@ -537,7 +577,7 @@ impl<'a> NfaCursor<'a> {
             let Some(&state_id) = self.reached.get(i) else {
                 break;
             };
-            if let NfaState::Split(left, right) = self.nfa.states[state_id as usize] {
+            if let NfaState::Split(left, right) = self.nfa.states[state_id.index()] {
                 self.reach(left);
                 self.reach(right);
             } else {
@@ -545,18 +585,18 @@ impl<'a> NfaCursor<'a> {
             }
         }
         for &state_id in &self.reached {
-            self.is_reached[state_id as usize] = false;
+            self.is_reached[state_id.index()] = false;
         }
         self.state_ids.sort_unstable();
     }
 
-    fn reach(&mut self, state_id: u32) {
-        if !std::mem::replace(&mut self.is_reached[state_id as usize], true) {
+    fn reach(&mut self, state_id: NfaStateId) {
+        if !std::mem::replace(&mut self.is_reached[state_id.index()], true) {
             self.reached.push(state_id);
         }
     }
 
-    pub fn force_reset(&mut self, states: Vec<u32>) {
+    pub fn force_reset(&mut self, states: Vec<NfaStateId>) {
         self.state_ids = states;
     }
 
@@ -583,14 +623,14 @@ impl<'a> NfaCursor<'a> {
         (result, any_sep)
     }
 
-    fn raw_transitions(&self) -> impl Iterator<Item = (&CharacterSet, bool, i32, u32)> {
+    fn raw_transitions(&self) -> impl Iterator<Item = (&CharacterSet, bool, i32, NfaStateId)> {
         self.state_ids.iter().filter_map(move |id| {
             if let NfaState::Advance {
                 chars,
                 state_id,
                 precedence,
                 is_sep,
-            } = &self.nfa.states[*id as usize]
+            } = &self.nfa.states[id.index()]
             {
                 Some((chars, *is_sep, *precedence, *state_id))
             } else {
@@ -600,7 +640,7 @@ impl<'a> NfaCursor<'a> {
     }
 
     fn group_transitions<'b>(
-        iter: impl Iterator<Item = (&'b CharacterSet, bool, i32, u32)>,
+        iter: impl Iterator<Item = (&'b CharacterSet, bool, i32, NfaStateId)>,
     ) -> Vec<NfaTransition> {
         let mut result = Vec::<NfaTransition>::new();
         // Reuse a single CharacterSet buffer across iterations to avoid one
@@ -655,7 +695,7 @@ impl<'a> NfaCursor<'a> {
         let mut i = 0;
         while i < result.len() {
             for j in 0..i {
-                if result[j].states == result[i].states
+                if NfaStateId::slices_eq(&result[j].states, &result[i].states)
                     && result[j].is_separator == result[i].is_separator
                     && result[j].precedence == result[i].precedence
                 {
@@ -678,7 +718,7 @@ impl<'a> NfaCursor<'a> {
             if let NfaState::Accept {
                 variable_index,
                 precedence,
-            } = self.nfa.states[*state_id as usize]
+            } = self.nfa.states[state_id.index()]
             {
                 Some((variable_index, precedence))
             } else {
@@ -784,19 +824,19 @@ mod tests {
                         characters: CharacterSet::empty().add_range('a', 'c'),
                         is_separator: false,
                         precedence: 0,
-                        states: vec![1],
+                        states: vec![NfaStateId(1)],
                     },
                     NfaTransition {
                         characters: CharacterSet::empty().add_range('d', 'f'),
                         is_separator: false,
                         precedence: 1,
-                        states: vec![1, 2],
+                        states: vec![NfaStateId(1), NfaStateId(2)],
                     },
                     NfaTransition {
                         characters: CharacterSet::empty().add_range('g', 'i'),
                         is_separator: false,
                         precedence: 1,
-                        states: vec![2],
+                        states: vec![NfaStateId(2)],
                     },
                 ],
             ),
@@ -813,19 +853,19 @@ mod tests {
                         characters: CharacterSet::empty().add_char('d'),
                         is_separator: false,
                         precedence: 0,
-                        states: vec![1, 2],
+                        states: vec![NfaStateId(1), NfaStateId(2)],
                     },
                     NfaTransition {
                         characters: CharacterSet::empty().add_char('f'),
                         is_separator: false,
                         precedence: 0,
-                        states: vec![1, 4],
+                        states: vec![NfaStateId(1), NfaStateId(4)],
                     },
                     NfaTransition {
                         characters: CharacterSet::empty().add_char('i'),
                         is_separator: false,
                         precedence: 0,
-                        states: vec![1, 3],
+                        states: vec![NfaStateId(1), NfaStateId(3)],
                     },
                     NfaTransition {
                         characters: CharacterSet::empty()
@@ -835,7 +875,7 @@ mod tests {
                             .add_range('j', 'z'),
                         is_separator: false,
                         precedence: 0,
-                        states: vec![1],
+                        states: vec![NfaStateId(1)],
                     },
                 ],
             ),
@@ -856,19 +896,19 @@ mod tests {
                     NfaTransition {
                         characters: CharacterSet::empty().add_char('0'),
                         precedence: 0,
-                        states: vec![1, 3],
+                        states: vec![NfaStateId(1), NfaStateId(3)],
                         is_separator: false,
                     },
                     NfaTransition {
                         characters: CharacterSet::empty().add_char('b'),
                         precedence: 0,
-                        states: vec![2],
+                        states: vec![NfaStateId(2)],
                         is_separator: false,
                     },
                     NfaTransition {
                         characters: CharacterSet::empty().add_char('c'),
                         precedence: 0,
-                        states: vec![4],
+                        states: vec![NfaStateId(4)],
                         is_separator: false,
                     },
                     NfaTransition {
@@ -877,7 +917,7 @@ mod tests {
                             .add_char('0')
                             .negate(),
                         precedence: 0,
-                        states: vec![3],
+                        states: vec![NfaStateId(3)],
                         is_separator: false,
                     },
                 ],
@@ -896,37 +936,37 @@ mod tests {
                     NfaTransition {
                         characters: CharacterSet::from_char('a'),
                         precedence: 0,
-                        states: vec![1, 3, 4],
+                        states: vec![NfaStateId(1), NfaStateId(3), NfaStateId(4)],
                         is_separator: false,
                     },
                     NfaTransition {
                         characters: CharacterSet::from_char('g'),
                         precedence: 0,
-                        states: vec![2, 3, 5, 6],
+                        states: vec![NfaStateId(2), NfaStateId(3), NfaStateId(5), NfaStateId(6)],
                         is_separator: false,
                     },
                     NfaTransition {
                         characters: CharacterSet::from_range('b', 'c'),
                         precedence: 0,
-                        states: vec![3, 4],
+                        states: vec![NfaStateId(3), NfaStateId(4)],
                         is_separator: false,
                     },
                     NfaTransition {
                         characters: CharacterSet::from_range('h', 'i'),
                         precedence: 0,
-                        states: vec![2, 3],
+                        states: vec![NfaStateId(2), NfaStateId(3)],
                         is_separator: false,
                     },
                     NfaTransition {
                         characters: CharacterSet::from_range('d', 'f'),
                         precedence: 0,
-                        states: vec![2, 4],
+                        states: vec![NfaStateId(2), NfaStateId(4)],
                         is_separator: false,
                     },
                     NfaTransition {
                         characters: CharacterSet::from_range('a', 'i').negate(),
                         precedence: 0,
-                        states: vec![2, 3, 4],
+                        states: vec![NfaStateId(2), NfaStateId(3), NfaStateId(4)],
                         is_separator: false,
                     },
                 ],
@@ -944,13 +984,13 @@ mod tests {
                     NfaTransition {
                         characters: CharacterSet::empty().add_char('b').add_char('e'),
                         precedence: 0,
-                        states: vec![2],
+                        states: vec![NfaStateId(2)],
                         is_separator: false,
                     },
                     NfaTransition {
                         characters: CharacterSet::empty().add_char('a').add_range('c', 'd'),
                         precedence: 0,
-                        states: vec![1],
+                        states: vec![NfaStateId(1)],
                         is_separator: false,
                     },
                 ],
@@ -959,11 +999,12 @@ mod tests {
 
         for (i, row) in table.iter().enumerate() {
             assert_eq!(
-                NfaCursor::group_transitions(
-                    row.0
-                        .iter()
-                        .map(|(chars, is_sep, prec, state)| (chars, *is_sep, *prec, *state))
-                ),
+                NfaCursor::group_transitions(row.0.iter().map(|(chars, is_sep, prec, id)| (
+                    chars,
+                    *is_sep,
+                    *prec,
+                    NfaStateId(*id)
+                ))),
                 row.1,
                 "row {i}",
             );

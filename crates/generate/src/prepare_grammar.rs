@@ -45,7 +45,7 @@ use super::{
 use crate::{
     bitvec::BitVec,
     grammars::{InputGrammar, PrecedenceEntry, ProductionStore, VariableType},
-    nfa::NfaState,
+    nfa::{NfaState, NfaStateId},
     rules::{Symbol, SymbolView},
     strpool::StrPool,
 };
@@ -280,7 +280,7 @@ struct EmptyMatches<'a> {
     lexical_grammar: &'a LexicalGrammar,
     productions: &'a ProductionStore,
     /// The NFA states reached so far while checking a token
-    reached: Vec<u32>,
+    reached: Vec<NfaStateId>,
     /// Rules that have been checked, or are being checked
     checked_rules: BitVec,
     /// The checked rules that can match the empty string
@@ -324,7 +324,7 @@ impl<'a> EmptyMatches<'a> {
             .push(self.lexical_grammar.variables[index].start_state);
         let mut i = 0;
         while let Some(&id) = self.reached.get(i) {
-            match &self.lexical_grammar.nfa.states[id as usize] {
+            match &self.lexical_grammar.nfa.states[id.index()] {
                 NfaState::Accept { .. } => return true,
                 NfaState::Split(left, right) => {
                     for next in [left, right] {
@@ -908,7 +908,7 @@ mod tests {
                     prepared.str_pool.resolve(variable.name),
                     variable.kind,
                     variable.implicit_precedence,
-                    variable.start_state,
+                    variable.start_state.index(),
                 )
             })
             .collect::<Vec<_>>();
@@ -973,7 +973,7 @@ mod tests {
                     prepared.str_pool.resolve(variable.name),
                     variable.kind,
                     variable.implicit_precedence,
-                    variable.start_state,
+                    variable.start_state.index(),
                 )
             })
             .collect::<Vec<_>>();
@@ -1024,7 +1024,7 @@ mod tests {
                     prepared.str_pool.resolve(variable.name),
                     variable.kind,
                     variable.implicit_precedence,
-                    variable.start_state,
+                    variable.start_state.index(),
                 )
             })
             .collect::<Vec<_>>();
@@ -1111,7 +1111,7 @@ mod tests {
                     prepared.str_pool.resolve(variable.name),
                     variable.kind,
                     variable.implicit_precedence,
-                    variable.start_state,
+                    variable.start_state.index(),
                 )
             })
             .collect::<Vec<_>>();
