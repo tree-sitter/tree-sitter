@@ -38,6 +38,10 @@ pub struct Nfa {
 pub struct NfaCursor<'a> {
     pub(crate) state_ids: Vec<u32>,
     nfa: &'a Nfa,
+    /// The states `reset` has reached, including splits, in the order it reached them.
+    reached: Vec<u32>,
+    /// Whether each NFA state is in `reached`.
+    is_reached: Vec<bool>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -501,18 +505,55 @@ impl fmt::Debug for Nfa {
 
 impl<'a> NfaCursor<'a> {
     #[must_use]
-    pub fn new(nfa: &'a Nfa, mut states: Vec<u32>) -> Self {
+    pub fn new(nfa: &'a Nfa, states: Vec<u32>) -> Self {
         let mut result = Self {
             nfa,
             state_ids: Vec::new(),
+            reached: Vec::new(),
+            is_reached: vec![false; nfa.states.len()],
         };
-        result.add_states(&mut states);
+        result.reset(states);
         result
     }
 
+    /// Sets the cursor to the given states and every state their splits lead to.
     pub fn reset(&mut self, mut states: Vec<u32>) {
+        // Without a split, the states are their own closure.
+        if !states
+            .iter()
+            .any(|&id| matches!(self.nfa.states[id as usize], NfaState::Split(..)))
+        {
+            states.sort_unstable();
+            states.dedup();
+            self.state_ids = states;
+            return;
+        }
         self.state_ids.clear();
-        self.add_states(&mut states);
+        self.reached.clear();
+        for state_id in states {
+            self.reach(state_id);
+        }
+        for i in 0.. {
+            let Some(&state_id) = self.reached.get(i) else {
+                break;
+            };
+            if let NfaState::Split(left, right) = self.nfa.states[state_id as usize] {
+                self.reach(left);
+                self.reach(right);
+            } else {
+                self.state_ids.push(state_id);
+            }
+        }
+        for &state_id in &self.reached {
+            self.is_reached[state_id as usize] = false;
+        }
+        self.state_ids.sort_unstable();
+    }
+
+    fn reach(&mut self, state_id: u32) {
+        if !std::mem::replace(&mut self.is_reached[state_id as usize], true) {
+            self.reached.push(state_id);
+        }
     }
 
     pub fn force_reset(&mut self, states: Vec<u32>) {
@@ -644,35 +685,6 @@ impl<'a> NfaCursor<'a> {
                 None
             }
         })
-    }
-
-    pub fn add_states(&mut self, new_state_ids: &mut Vec<u32>) {
-        let mut i = 0;
-        while i < new_state_ids.len() {
-            let state_id = new_state_ids[i];
-            let state = &self.nfa.states[state_id as usize];
-            if let NfaState::Split(left, right) = state {
-                let mut has_left = false;
-                let mut has_right = false;
-                for new_state_id in new_state_ids.iter() {
-                    if *new_state_id == *left {
-                        has_left = true;
-                    }
-                    if *new_state_id == *right {
-                        has_right = true;
-                    }
-                }
-                if !has_left {
-                    new_state_ids.push(*left);
-                }
-                if !has_right {
-                    new_state_ids.push(*right);
-                }
-            } else if let Err(i) = self.state_ids.binary_search(&state_id) {
-                self.state_ids.insert(i, state_id);
-            }
-            i += 1;
-        }
     }
 }
 
