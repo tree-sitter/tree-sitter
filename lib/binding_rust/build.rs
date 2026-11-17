@@ -19,6 +19,8 @@ fn main() {
     if env::var("CARGO_FEATURE_WASM").is_ok() {
         config
             .define("TREE_SITTER_FEATURE_WASM", "")
+            // Wasmtime is linked statically; avoid DLL imports in its C headers on MSVC.
+            .define("LIBWASM_STATIC", None)
             .define("static_assert(...)", "")
             .include(env::var("DEP_WASMTIME_C_API_INCLUDE").unwrap());
     }
