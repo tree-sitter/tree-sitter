@@ -743,6 +743,36 @@ fn test_parsing_after_failed_external_scan_without_internal_tokens() {
 }
 
 #[test]
+fn test_parsing_extras_before_eof_without_internal_tokens() {
+    let mut parser = Parser::new();
+    parser
+        .set_language(&get_test_fixture_language("no_internal_tokens_with_extras"))
+        .unwrap();
+
+    // The scanner skips the trailing newline, finds nothing after it, and returns false, so the
+    // internal lexer has to skip the newline itself before the end of input.
+    let code = "a b\n";
+    let tree = parser.parse(code, None).unwrap();
+    assert_eq!(tree.root_node().to_sexp(), "(source_file (a) (b))");
+    assert_eq!(tree.root_node().end_byte(), code.len());
+}
+
+#[test]
+fn test_parsing_extras_before_eof_with_only_immediate_tokens() {
+    let mut parser = Parser::new();
+    parser
+        .set_language(&get_test_fixture_language("immediate_tokens_only"))
+        .unwrap();
+
+    // Extras can't precede an immediate token, so the end of input is the only thing that
+    // brings them into the lexer.
+    let code = "xx\n";
+    let tree = parser.parse(code, None).unwrap();
+    assert_eq!(tree.root_node().to_sexp(), "(source_file (x) (x))");
+    assert_eq!(tree.root_node().end_byte(), code.len());
+}
+
+#[test]
 fn test_parsing_after_editing_text_after_a_non_terminal_extra() {
     let mut parser = Parser::new();
     parser

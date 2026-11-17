@@ -134,7 +134,6 @@ pub fn build_lex_table(
 struct QueueEntry {
     state_id: LexStateId,
     nfa_states: Vec<u32>,
-    eof_valid: bool,
 }
 
 struct LexTableBuilder<'a> {
@@ -142,7 +141,7 @@ struct LexTableBuilder<'a> {
     cursor: NfaCursor<'a>,
     table: LexTable,
     state_queue: VecDeque<QueueEntry>,
-    state_ids_by_nfa_state_set: FxHashMap<(Vec<u32>, bool), LexStateId>,
+    state_ids_by_nfa_state_set: FxHashMap<Vec<u32>, LexStateId>,
     eof_state_id: Option<LexStateId>,
 }
 
@@ -166,17 +165,13 @@ impl<'a> LexTableBuilder<'a> {
     }
 
     fn add_state_for_tokens(&mut self, tokens: &TokenSet, str_pool: &StrPool) -> LexStateId {
-        let mut eof_valid = false;
         let nfa_states = tokens
             .iter()
             .filter_map(|token| match token.view() {
                 SymbolView::Terminal(index) => {
                     Some(self.lexical_grammar.variables[usize::from(index)].start_state)
                 }
-                SymbolView::End => {
-                    eof_valid = true;
-                    None
-                }
+                SymbolView::End => Some(self.lexical_grammar.eof_start_state),
                 SymbolView::External(_)
                 | SymbolView::EndOfNonTerminalExtra
                 | SymbolView::NonTerminal(_) => {
@@ -184,7 +179,7 @@ impl<'a> LexTableBuilder<'a> {
                 }
             })
             .collect();
-        let (state_id, is_new) = self.add_state(nfa_states, eof_valid);
+        let (state_id, is_new) = self.add_state(nfa_states);
 
         if is_new {
             debug!(
@@ -206,19 +201,18 @@ impl<'a> LexTableBuilder<'a> {
         while let Some(QueueEntry {
             state_id,
             nfa_states,
-            eof_valid,
         }) = self.state_queue.pop_front()
         {
-            self.populate_state(state_id, nfa_states, eof_valid);
+            self.populate_state(state_id, nfa_states);
         }
         state_id
     }
 
-    fn add_state(&mut self, nfa_states: Vec<u32>, eof_valid: bool) -> (LexStateId, bool) {
+    fn add_state(&mut self, nfa_states: Vec<u32>) -> (LexStateId, bool) {
         self.cursor.reset(nfa_states);
         match self
             .state_ids_by_nfa_state_set
-            .entry((self.cursor.state_ids.clone(), eof_valid))
+            .entry(self.cursor.state_ids.clone())
         {
             Entry::Occupied(o) => (*o.get(), false),
             Entry::Vacant(v) => {
@@ -226,8 +220,7 @@ impl<'a> LexTableBuilder<'a> {
                 self.table.states.push(LexState::default());
                 self.state_queue.push_back(QueueEntry {
                     state_id,
-                    nfa_states: v.key().0.clone(),
-                    eof_valid,
+                    nfa_states: v.key().clone(),
                 });
                 v.insert(state_id);
                 (state_id, true)
@@ -235,8 +228,13 @@ impl<'a> LexTableBuilder<'a> {
         }
     }
 
-    fn populate_state(&mut self, state_id: LexStateId, nfa_states: Vec<u32>, eof_valid: bool) {
+    fn populate_state(&mut self, state_id: LexStateId, nfa_states: Vec<u32>) {
         self.cursor.force_reset(nfa_states);
+        let eof_valid = self
+            .cursor
+            .state_ids
+            .iter()
+            .any(|&id| self.lexical_grammar.is_eof_nfa_state(id));
 
         let mut completion = None;
         for (id, prec) in self.cursor.completions() {
@@ -284,8 +282,13 @@ impl<'a> LexTableBuilder<'a> {
                 continue;
             }
 
-            let (next_state_id, _) =
-                self.add_state(transition.states, eof_valid && transition.is_separator);
+            // The end of input has no characters, so a character that isn't a separator rules it
+            // out.
+            let mut next_nfa_states = transition.states;
+            if !transition.is_separator {
+                next_nfa_states.retain(|&id| !self.lexical_grammar.is_eof_nfa_state(id));
+            }
+            let (next_state_id, _) = self.add_state(next_nfa_states);
             self.table.states[state_id as usize].advance_actions.push((
                 transition.characters,
                 AdvanceAction {

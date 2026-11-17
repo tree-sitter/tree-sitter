@@ -25,6 +25,8 @@ pub enum NfaState {
         variable_index: usize,
         precedence: i32,
     },
+    /// The end of input. It has no transitions, as the lexer checks for eof separately.
+    EndOfInput,
 }
 
 #[derive(PartialEq, Eq, Default)]
