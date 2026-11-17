@@ -265,6 +265,7 @@ mod tests {
     use super::*;
     use crate::{
         grammars::VariableType,
+        nfa::NfaStateId,
         rules::{Alias, Associativity, RulePool, Symbol},
     };
 
@@ -565,7 +566,7 @@ mod tests {
             name,
             kind: VariableType::Named,
             implicit_precedence: 0,
-            start_state: 0,
+            start_state: NfaStateId::default(),
         }];
         let mut out = ProductionStore::default();
 
@@ -587,7 +588,7 @@ mod tests {
                 name: pool.intern(&format!("t{i}")),
                 kind: VariableType::Anonymous,
                 implicit_precedence: 0,
-                start_state: 0,
+                start_state: NfaStateId::default(),
             })
             .collect()
     }
