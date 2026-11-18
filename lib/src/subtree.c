@@ -422,7 +422,7 @@ void ts_subtree_summarize_children(
         self.ptr->symbol == ts_builtin_sym_error ||
         self.ptr->symbol == ts_builtin_sym_error_repeat
       ) {
-        if (!ts_subtree_extra(child) && !(ts_subtree_is_error(child) && grandchild_count == 0)) {
+        if (!ts_subtree_extra(child)) {
           if (ts_subtree_visible(child)) {
             self.ptr->error_cost += ERROR_COST_PER_SKIPPED_TREE;
           } else if (grandchild_count > 0) {
