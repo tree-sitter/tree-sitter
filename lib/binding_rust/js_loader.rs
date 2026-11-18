@@ -42,7 +42,8 @@ unsafe extern "C" {
     ) -> Result<JsValue, JsValue>;
 }
 
-/// Loads one grammar into the current Wasm instance without blocking compilation.
+/// Loads one grammar into the current Wasm instance without blocking compilation
+/// or instantiation.
 ///
 /// Call this on a browser main thread. `memory_maximum_pages` must be the
 /// maximum declared by `memory`, or `None` for unshared memory without one.

@@ -152,9 +152,9 @@ initialized using its generated JavaScript glue. Enabling the Cargo feature
 alone is not enough: a raw `WebAssembly.instantiate` call supplying only
 `env.memory` will not provide the `js-sys` and loader imports.
 
-`js_loader::load_language` compiles a grammar asynchronously for a browser
-main thread; `js_loader::load_language_sync` is for a worker that cannot
-await compilation. Both require the current Rust Wasm instance's own memory
+`js_loader::load_language` compiles and instantiates a grammar asynchronously
+for a browser main thread; `js_loader::load_language_sync` is for a worker
+that cannot await. Both require the current Rust Wasm instance's own memory
 and function table, and both are unsafe because the grammar runs inside that
 memory without isolation. A loaded language can parse only in the instance
 that linked it, so each worker must load its own instance.
