@@ -664,7 +664,15 @@ fn generate_python_bindings(
             ctx.repo_path.join("setup.py"),
             ctx.allow_update,
             |path| generate_file(path, SETUP_PY_TEMPLATE, ctx.language_name, opts),
-            |path| update_python_setup_py(path, ctx.language_name, opts),
+            |path| {
+                regenerate_if_missing(
+                    path,
+                    "abi3.abi3t",
+                    SETUP_PY_TEMPLATE,
+                    ctx.language_name,
+                    opts,
+                )
+            },
         )?;
 
         missing_path_else(
@@ -678,18 +686,7 @@ fn generate_python_bindings(
                     opts,
                 )
             },
-            |path| {
-                let mut contents = fs::read_to_string(path)?;
-                if !contents.contains("cp310-*") {
-                    info!("Updating dependencies in pyproject.toml");
-                    contents = contents
-                        .replace(r#"build = "cp39-*""#, r#"build = "cp310-*""#)
-                        .replace(r#"python = ">=3.9""#, r#"python = ">=3.10""#)
-                        .replace("tree-sitter~=0.22", "tree-sitter~=0.24");
-                    write_file(path, contents)?;
-                }
-                Ok(())
-            },
+            update_python_pyproject_toml,
         )?;
 
         Ok(())
@@ -1199,28 +1196,15 @@ fn update_python_test_binding(path: &Path) -> Result<()> {
     Ok(())
 }
 
-fn update_python_setup_py(path: &Path, language_name: &str, opts: &GenerateOpts) -> Result<()> {
+fn update_python_pyproject_toml(path: &Path) -> Result<()> {
     let mut contents = fs::read_to_string(path)?;
-    if !contents.contains("build_ext") {
-        info!("Replacing setup.py");
-        generate_file(path, SETUP_PY_TEMPLATE, language_name, opts)?;
-    } else {
-        if !contents.contains(" and not get_config_var") {
-            info!("Updating Python free-threading support in setup.py");
-            contents = contents.replace(
-                r#"startswith("cp"):"#,
-                r#"startswith("cp") and not get_config_var("Py_GIL_DISABLED"):"#,
-            );
-            write_file(path, &contents)?;
-        }
-        if !contents.contains("include(\"src/*.c\")") {
-            info!("Updating sdist file list in setup.py");
-            let contents = contents.replace(
-                "include(\"src/tree_sitter/*.h\")",
-                "include(\"src/tree_sitter/*.h\")\n        self.filelist.include(\"src/*.c\")",
-            );
-            write_file(path, &contents)?;
-        }
+    if !contents.contains("cp3*-abi3*") {
+        info!("Updating versions in pyproject.toml");
+        contents = contents
+            .replace(r#"= "cp310-*""#, r#"= "cp3*-abi3*""#)
+            .replace(r#"= ">=3.10""#, r#"= ">=3.11""#)
+            .replace("tree-sitter~=0.24", "tree-sitter~=0.25");
+        write_file(path, contents)?;
     }
     Ok(())
 }
