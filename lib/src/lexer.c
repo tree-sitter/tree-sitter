@@ -282,10 +282,12 @@ static void ts_lexer__advance(TSLexer *_self, bool skip) {
   Lexer *self = (Lexer *)_self;
   if (!self->chunk) return;
 
-  if (skip) {
-    LOG("skip", self->data.lookahead)
-  } else {
-    LOG("consume", self->data.lookahead)
+  if (self->logger.log) {
+    if (skip) {
+      LOG("skip", self->data.lookahead)
+    } else {
+      LOG("consume", self->data.lookahead)
+    }
   }
 
   const uint32_t next_position = self->current_position.bytes + 1;
