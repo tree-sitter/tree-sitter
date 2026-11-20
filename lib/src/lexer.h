@@ -30,6 +30,7 @@ typedef struct {
   uint32_t current_included_range_index;
   uint32_t chunk_start;
   uint32_t chunk_size;
+  uint32_t fast_advance_limit;
   uint32_t lookahead_size;
   bool did_get_column;
   ColumnData column_data;
