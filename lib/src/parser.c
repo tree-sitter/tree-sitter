@@ -86,6 +86,13 @@ typedef struct {
   uint32_t byte_index;
 } TokenCache;
 
+typedef struct {
+  TSSymbol symbol;
+  TSStateId state;
+} MissingTokenCandidate;
+
+typedef Array(MissingTokenCandidate) MissingTokenCandidateArray;
+
 struct TSParser {
   Lexer lexer;
   Stack *stack;
@@ -97,6 +104,7 @@ struct TSParser {
   SubtreeArray trailing_extras;
   SubtreeArray trailing_extras2;
   SubtreeArray scratch_trees;
+  MissingTokenCandidateArray missing_token_candidates;
   TokenCache token_cache;
   ReusableNode reusable_node;
   void *external_scanner_payload;
@@ -1523,17 +1531,35 @@ static void ts_parser__handle_error(
   for (StackVersion v = version; v < version_count;) {
     if (!did_insert_missing_token) {
       TSStateId state = ts_stack_state(self->stack, v);
-      for (
-        TSSymbol missing_symbol = 1;
-        missing_symbol < (uint16_t)self->language->token_count;
-        missing_symbol++
-      ) {
-        TSStateId state_after_missing_symbol = ts_language_next_state(
-          self->language, state, missing_symbol
-        );
-        if (state_after_missing_symbol == 0 || state_after_missing_symbol == state) {
-          continue;
+      // Try the tokens that shift to another state, in symbol order. A small state lists them
+      // grouped by action, so insert each one in order.
+      MissingTokenCandidateArray *candidates = &self->missing_token_candidates;
+      array_clear(candidates);
+      LookaheadIterator iterator = ts_language_lookaheads(self->language, state);
+      while (ts_lookahead_iterator__next(&iterator)) {
+        if (
+          iterator.symbol == 0 || iterator.symbol >= self->language->token_count ||
+          iterator.action_count == 0
+        ) continue;
+        TSParseAction action = iterator.actions[iterator.action_count - 1];
+        if (
+          action.type != TSParseActionTypeShift || action.shift.extra ||
+          action.shift.state == 0 || action.shift.state == state
+        ) continue;
+        MissingTokenCandidate candidate = {iterator.symbol, action.shift.state};
+        uint32_t j = candidates->size;
+        array_push(candidates, candidate);
+        while (j > 0 && array_get(candidates, j - 1)->symbol > candidate.symbol) {
+          *array_get(candidates, j) = *array_get(candidates, j - 1);
+          j--;
         }
+        *array_get(candidates, j) = candidate;
+      }
+
+      for (uint32_t i = 0; i < candidates->size; i++) {
+        MissingTokenCandidate candidate = *array_get(candidates, i);
+        TSSymbol missing_symbol = candidate.symbol;
+        TSStateId state_after_missing_symbol = candidate.state;
 
         if (ts_language_has_reduce_action(
           self->language,
@@ -2064,6 +2090,7 @@ void ts_parser_delete(TSParser *self) {
   array_delete(&self->trailing_extras);
   array_delete(&self->trailing_extras2);
   array_delete(&self->scratch_trees);
+  array_delete(&self->missing_token_candidates);
   ts_free(self);
 }
 
