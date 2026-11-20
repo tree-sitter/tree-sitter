@@ -149,11 +149,8 @@ static StackNode *stack_node_new(
   StackNode *node = pool->size > 0
     ? array_pop(pool)
     : ts_malloc(sizeof(StackNode));
-  *node = (StackNode) {
-    .ref_count = 1,
-    .link_count = 0,
-    .state = state
-  };
+  node->state = state;
+  node->ref_count = 1;
 
   if (previous_node) {
     node->link_count = 1;
@@ -175,8 +172,11 @@ static StackNode *stack_node_new(
       node->dynamic_precedence += ts_subtree_dynamic_precedence(subtree);
     }
   } else {
+    node->link_count = 0;
     node->position = length_zero();
     node->error_cost = 0;
+    node->node_count = 0;
+    node->dynamic_precedence = 0;
   }
 
   return node;
