@@ -87,6 +87,14 @@ static void stack_node_retain(StackNode *self) {
   ts_assert(self->ref_count != 0);
 }
 
+static inline void stack_node_recycle(StackNode *node, StackNodeArray *pool) {
+  if (pool->size < MAX_NODE_POOL_SIZE) {
+    array_push(pool, node);
+  } else {
+    ts_free(node);
+  }
+}
+
 static void stack_node_release(
   StackNode *self,
   StackNodeArray *pool,
@@ -109,11 +117,7 @@ recur:
     first_predecessor = self->links[0].node;
   }
 
-  if (pool->size < MAX_NODE_POOL_SIZE) {
-    array_push(pool, self);
-  } else {
-    ts_free(self);
-  }
+  stack_node_recycle(self, pool);
 
   if (first_predecessor) {
     self = first_predecessor;
@@ -531,7 +535,49 @@ forceinline StackAction pop_count_callback(void *payload, const StackIterator *i
   }
 }
 
-StackSliceArray ts_stack_pop_count(Stack *self, StackVersion version, uint32_t count) {
+// Pop by moving subtrees out of an unshared, unforked path. Returns whether the pop occurred.
+static bool stack__pop_in_place(Stack *self, StackVersion version, uint32_t count) {
+  StackHead *head = array_get(&self->heads, version);
+
+  // A node with more links would fork the pop, and one with more references is shared
+  // with another version.
+  StackNode *below = head->node;
+  uint32_t child_count = 0;
+  while (count > 0) {
+    if (below->link_count != 1 || below->ref_count != 1) return false;
+    const StackLink *link = &below->links[0];
+    // Count links the same as `stack__iter`: every one but an extra.
+    count -= !link->subtree.ptr || !ts_subtree_extra(link->subtree);
+    if (link->subtree.ptr) child_count++;
+    below = link->node;
+  }
+
+  SubtreeArray children = array_new();
+  array_reserve(&children, ts_subtree_alloc_size(child_count) / sizeof(Subtree));
+  children.size = child_count;
+  while (head->node != below) {
+    StackNode *node = head->node;
+    const StackLink *link = &node->links[0];
+    if (link->subtree.ptr) {
+      child_count--;
+      children.contents[child_count] = link->subtree;
+    }
+    head->node = link->node;
+    stack_node_recycle(node, &self->node_pool);
+  }
+
+  array_clear(&self->slices);
+  array_push(&self->slices, ((StackSlice) {children, version}));
+  return true;
+}
+
+StackSliceArray ts_stack_pop_count(
+  Stack *self,
+  StackVersion version,
+  uint32_t count,
+  bool can_replace_version
+) {
+  if (can_replace_version && stack__pop_in_place(self, version, count)) return self->slices;
   return stack__iter(self, version, pop_count_callback, &count, (int32_t)count);
 }
 

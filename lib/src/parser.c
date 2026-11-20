@@ -972,8 +972,12 @@ static StackVersion ts_parser__reduce(
   // If stack versions have previously merged, then there may be more than one
   // path back through the stack. For each path, create a new parent node to
   // contain the popped children, and push it onto the stack in place of the
-  // children.
-  StackSliceArray pop = ts_stack_pop_count(self->stack, version, count);
+  // children. When this is the only action on the only version, the result
+  // replaces that version, so it can be popped in place.
+  const bool can_replace_version = !is_fragile && initial_version_count == 1;
+  StackSliceArray pop = ts_stack_pop_count(self->stack, version, count, can_replace_version);
+  if (pop.size == 0) return STACK_VERSION_NONE;
+  StackVersion first_reduction_version = array_front(&pop)->version;
   uint32_t removed_version_count = 0;
   uint32_t halted_version_count = ts_stack_halted_version_count(self->stack);
   for (uint32_t i = 0; i < pop.size; i++) {
@@ -1067,9 +1071,9 @@ static StackVersion ts_parser__reduce(
     }
   }
 
-  // Return the first new stack version that was created.
-  return ts_stack_version_count(self->stack) > initial_version_count
-    ? initial_version_count
+  // Return the first new stack version, or the original one if it was popped in place.
+  return ts_stack_version_count(self->stack) > first_reduction_version
+    ? first_reduction_version
     : STACK_VERSION_NONE;
 }
 
@@ -1250,7 +1254,7 @@ static bool ts_parser__recover_to_state(
   uint32_t depth,
   TSStateId goal_state
 ) {
-  StackSliceArray pop = ts_stack_pop_count(self->stack, version, depth);
+  StackSliceArray pop = ts_stack_pop_count(self->stack, version, depth, false);
   StackVersion previous_version = STACK_VERSION_NONE;
 
   for (uint32_t i = 0; i < pop.size; i++) {
@@ -1455,7 +1459,7 @@ static void ts_parser__recover(
   // stack, then pop that ERROR off the stack and wrap the two ERRORs together into one larger
   // ERROR.
   if (node_count_since_error > 0) {
-    StackSliceArray pop = ts_stack_pop_count(self->stack, version, 1);
+    StackSliceArray pop = ts_stack_pop_count(self->stack, version, 1, false);
 
     // TODO: Figure out how to make this condition occur.
     // See https://github.com/atom/atom/issues/18450#issuecomment-439579778

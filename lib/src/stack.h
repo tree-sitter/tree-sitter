@@ -63,8 +63,14 @@ void ts_stack_push(Stack *self, StackVersion version, Subtree subtree, bool pend
 // operation can increase the number of stack versions by revealing multiple
 // versions which had previously been merged. It returns an array that
 // specifies the index of each revealed version and the trees that were
-// removed from that version.
-StackSliceArray ts_stack_pop_count(Stack *self, StackVersion version, uint32_t count);
+// removed from that version. With `can_replace_version`, an unshared path is
+// popped in place, and its slice keeps the given version.
+StackSliceArray ts_stack_pop_count(
+  Stack *self,
+  StackVersion version,
+  uint32_t count,
+  bool can_replace_version
+);
 
 // Remove an error at the top of the given version of the stack.
 SubtreeArray ts_stack_pop_error(Stack *self, StackVersion version);
