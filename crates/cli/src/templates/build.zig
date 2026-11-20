@@ -86,7 +86,6 @@ pub fn build(b: *std.Build) !void {
 }
 
 inline fn fileExists(b: *std.Build, io: std.Io, filename: []const u8) bool {
-    const dir = b.root;
-    dir.access(io, filename, .{}) catch return false;
+    b.root.access(io, filename, .{}) catch return false;
     return true;
 }
