@@ -6,7 +6,7 @@ use rustc_hash::FxHashSet;
 use crate::{
     build_tables::item::TokenSetDisplay,
     grammars::{LexicalGrammar, SyntaxGrammar},
-    nfa::{CharacterSet, NfaCursor, NfaTransition},
+    nfa::{CharacterSet, NfaCursor, NfaStateId, NfaTransition},
     rules::{SymbolView, TokenSet},
     strpool::StrPool,
 };
@@ -59,8 +59,10 @@ impl TokenConflictMap {
 
         // Pre-compute O(1) lookup: NFA state ID->owning variable index.
         // Replaces repeated O(log n) binary searches in compute_conflict_status.
-        let nfa_state_to_var = (0..grammar.nfa.states.len())
-            .map(|id| grammar.variable_index_for_nfa_state(id as u32))
+        let nfa_state_to_var = grammar
+            .nfa
+            .state_ids()
+            .map(|id| grammar.variable_index_for_nfa_state(id))
             .collect::<Vec<usize>>();
 
         let n = grammar.variables.len();
@@ -338,7 +340,7 @@ fn get_following_chars(
 /// is negligible (1 in 2^64 per comparison), but this is technically a
 /// probabilistic optimization rather than an exact one.
 #[inline]
-fn hash_state_set(states: &[u32]) -> u64 {
+fn hash_state_set(states: &[NfaStateId]) -> u64 {
     use std::hash::{Hash, Hasher};
     let mut h = rustc_hash::FxHasher::default();
     states.hash(&mut h);
@@ -365,10 +367,10 @@ fn compute_conflict_status(
         // If only one of the two tokens could possibly match from this state, then
         // there is no reason to analyze any of its successors. Just record the fact
         // that the token matches a string that the other token does not match.
-        let first_live_variable_index = nfa_state_to_var[state_set[0] as usize];
+        let first_live_variable_index = nfa_state_to_var[state_set[0].index()];
         if state_set
             .iter()
-            .all(|&s| nfa_state_to_var[s as usize] == first_live_variable_index)
+            .all(|&s| nfa_state_to_var[s.index()] == first_live_variable_index)
         {
             if first_live_variable_index == i {
                 result
@@ -444,7 +446,7 @@ fn compute_conflict_status(
                 let mut successor_contains_completed_id = false;
                 let mut prev_var = None;
                 for &state_id in &transition.states {
-                    let var_id = nfa_state_to_var[state_id as usize];
+                    let var_id = nfa_state_to_var[state_id.index()];
                     if prev_var == Some(var_id) {
                         continue;
                     }
@@ -531,7 +533,7 @@ mod tests {
                 root: t1,
             },
         ];
-        let grammar = expand_tokens(&mut pool, &vars, &[]).unwrap();
+        let grammar = expand_tokens(&mut pool, &vars, &[], &mut Vec::new()).unwrap();
 
         let token_map = TokenConflictMap::new(&grammar, Vec::new());
 
@@ -578,7 +580,7 @@ mod tests {
                 root: instanceof,
             },
         ];
-        let grammar = expand_tokens(&mut pool, &vars, &[]).unwrap();
+        let grammar = expand_tokens(&mut pool, &vars, &[], &mut Vec::new()).unwrap();
 
         let var = |name| index_of_var(&pool, &grammar, name);
 
@@ -639,7 +641,7 @@ mod tests {
                 root: newline,
             },
         ];
-        let grammar = expand_tokens(&mut pool, &vars, &[sep]).unwrap();
+        let grammar = expand_tokens(&mut pool, &vars, &[sep], &mut Vec::new()).unwrap();
 
         let var = |name| index_of_var(&pool, &grammar, name);
 
@@ -678,7 +680,7 @@ mod tests {
                 root: anything,
             },
         ];
-        let grammar = expand_tokens(&mut pool, &vars, &[sep]).unwrap();
+        let grammar = expand_tokens(&mut pool, &vars, &[sep], &mut Vec::new()).unwrap();
 
         let var = |name| index_of_var(&pool, &grammar, name);
 

@@ -45,7 +45,7 @@ use super::{
 use crate::{
     bitvec::BitVec,
     grammars::{InputGrammar, PrecedenceEntry, ProductionStore, VariableType},
-    nfa::NfaState,
+    nfa::{NfaState, NfaStateId},
     rules::{Symbol, SymbolView},
     strpool::StrPool,
 };
@@ -56,7 +56,7 @@ pub type PrepareGrammarResult<T> = Result<T, PrepareGrammarError>;
 #[error(transparent)]
 pub enum PrepareGrammarError {
     ValidatePrecedences(#[from] ValidatePrecedenceError),
-    ValidateIndirectRecursion(#[from] IndirectRecursionError),
+    ValidateSingleSymbolCycles(#[from] SingleSymbolCycleError),
     ExpandRepeats(#[from] ExpandRepeatsError),
     InternSymbols(#[from] InternSymbolsError),
     ExtractTokens(#[from] ExtractTokensError),
@@ -76,11 +76,14 @@ pub enum ValidatePrecedenceError {
 }
 
 #[derive(Debug, Error, Serialize, Deserialize, PartialEq, Eq)]
-pub struct IndirectRecursionError(pub Box<[Box<str>]>);
+pub struct SingleSymbolCycleError(pub Box<[Box<str>]>);
 
-impl std::fmt::Display for IndirectRecursionError {
+impl std::fmt::Display for SingleSymbolCycleError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Grammar contains an indirectly recursive rule: ")?;
+        write!(
+            f,
+            "Grammar contains a cycle of single-symbol alternatives: "
+        )?;
         for (i, symbol) in self.0.iter().enumerate() {
             if i > 0 {
                 write!(f, " -> ")?;
@@ -146,13 +149,13 @@ pub fn prepare_grammar(
 
     let interned_meta = intern_symbols(&mut g, diagnostics)?;
     let pending_tokens = extract_tokens(&mut g, &interned_meta)?;
-    let (mut ext_meta, lexical_grammar) = pending_tokens.expand_and_commit()?;
+    let (mut ext_meta, lexical_grammar) = pending_tokens.expand_and_commit(diagnostics)?;
     expand_repeats(&mut g, &mut ext_meta)?;
 
     let mut state = FlattenState::default();
     let mut out = ProductionStore::default();
     flatten_grammar(&g, &ext_meta, &mut state, &mut out)?;
-    validate_indirect_recursion(&g, &out)?;
+    validate_single_symbol_cycles(&g, &out)?;
     validate_extras(&g, &ext_meta.extra_symbols, &lexical_grammar, &out)?;
 
     let default_aliases =
@@ -169,13 +172,13 @@ pub fn prepare_grammar(
     })
 }
 
-/// Check for indirect recursion cycles in the grammar that can cause infinite loops while
-/// parsing. An indirect recursion cycle occurs when a non-terminal can derive itself through
-/// a chain of single-symbol productions (e.g., A -> B, B -> A).
-fn validate_indirect_recursion(
+/// Check for recursion cycles in the grammar that can cause infinite loops while parsing. A
+/// cycle occurs when a non-terminal can derive itself through a chain of one or more
+/// single-symbol productions (e.g., A -> A, or A -> B, B -> A).
+fn validate_single_symbol_cycles(
     grammar: &InputGrammar,
     productions: &ProductionStore,
-) -> Result<(), IndirectRecursionError> {
+) -> Result<(), SingleSymbolCycleError> {
     let mut epsilon_transitions = IndexMap::new();
     for (variable, &(start, end)) in grammar.variables.iter().zip(&productions.var_prods) {
         let symbols = productions.productions[start as usize..end as usize]
@@ -186,8 +189,6 @@ fn validate_indirect_recursion(
                 _ => None,
             })
             .map(|index| grammar.variables[usize::from(index)].name)
-            // Rules that *directly* reference themselves don't cause a parsing loop.
-            .filter(|&name| name != variable.name)
             .collect::<BTreeSet<_>>();
         epsilon_transitions.insert(variable.name, symbols);
     }
@@ -202,7 +203,7 @@ fn validate_indirect_recursion(
                 .iter()
                 .map(|&s| grammar.pool.resolve(s).to_string().into())
                 .collect();
-            return Err(IndirectRecursionError(cycle_symbols));
+            return Err(SingleSymbolCycleError(cycle_symbols));
         }
     }
 
@@ -279,7 +280,7 @@ struct EmptyMatches<'a> {
     lexical_grammar: &'a LexicalGrammar,
     productions: &'a ProductionStore,
     /// The NFA states reached so far while checking a token
-    reached: Vec<u32>,
+    reached: Vec<NfaStateId>,
     /// Rules that have been checked, or are being checked
     checked_rules: BitVec,
     /// The checked rules that can match the empty string
@@ -323,7 +324,7 @@ impl<'a> EmptyMatches<'a> {
             .push(self.lexical_grammar.variables[index].start_state);
         let mut i = 0;
         while let Some(&id) = self.reached.get(i) {
-            match &self.lexical_grammar.nfa.states[id as usize] {
+            match &self.lexical_grammar.nfa.states[id.index()] {
                 NfaState::Accept { .. } => return true,
                 NfaState::Split(left, right) => {
                     for next in [left, right] {
@@ -332,7 +333,7 @@ impl<'a> EmptyMatches<'a> {
                         }
                     }
                 }
-                NfaState::Advance { .. } => {}
+                NfaState::Advance { .. } | NfaState::EndOfInput => {}
             }
             i += 1;
         }
@@ -555,7 +556,7 @@ mod tests {
     }
 
     #[test]
-    fn test_validate_indirect_recursion() {
+    fn test_validate_single_symbol_cycles() {
         // a -> b -> a
         let case1 = build_grammar(|p| {
             let b_ref = named(p, "b");
@@ -574,7 +575,7 @@ mod tests {
                 },
             ]
         });
-        // A direct self-reference is allowed.
+        // ia -> a
         let case2 = build_grammar(|p| {
             let a = named(p, "a");
             vec![Variable {
@@ -650,19 +651,15 @@ mod tests {
             ]
         });
 
-        let err1 = IndirectRecursionError(["a".into(), "b".into(), "a".into()].into());
-        let err3 = IndirectRecursionError(["b".into(), "c".into(), "d".into(), "b".into()].into());
-        let err4 = IndirectRecursionError(["b".into(), "c".into(), "b".into()].into());
+        let err1 = SingleSymbolCycleError(["a".into(), "b".into(), "a".into()].into());
+        let err2 = SingleSymbolCycleError(["a".into(), "a".into()].into());
+        let err3 = SingleSymbolCycleError(["b".into(), "c".into(), "d".into(), "b".into()].into());
+        let err4 = SingleSymbolCycleError(["b".into(), "c".into(), "b".into()].into());
 
-        for (g, expected) in [
-            (case1, Some(err1)),
-            (case2, None),
-            (case3, Some(err3)),
-            (case4, Some(err4)),
-        ] {
+        for (g, expected) in [(case1, err1), (case2, err2), (case3, err3), (case4, err4)] {
             assert_eq!(
-                prepare_grammar(g, &mut Vec::new()).err(),
-                expected.map(PrepareGrammarError::from)
+                prepare_grammar(g, &mut Vec::new()).err().unwrap(),
+                PrepareGrammarError::from(expected)
             );
         }
     }
@@ -911,7 +908,7 @@ mod tests {
                     prepared.str_pool.resolve(variable.name),
                     variable.kind,
                     variable.implicit_precedence,
-                    variable.start_state,
+                    variable.start_state.index(),
                 )
             })
             .collect::<Vec<_>>();
@@ -976,7 +973,7 @@ mod tests {
                     prepared.str_pool.resolve(variable.name),
                     variable.kind,
                     variable.implicit_precedence,
-                    variable.start_state,
+                    variable.start_state.index(),
                 )
             })
             .collect::<Vec<_>>();
@@ -1027,7 +1024,7 @@ mod tests {
                     prepared.str_pool.resolve(variable.name),
                     variable.kind,
                     variable.implicit_precedence,
-                    variable.start_state,
+                    variable.start_state.index(),
                 )
             })
             .collect::<Vec<_>>();
@@ -1114,7 +1111,7 @@ mod tests {
                     prepared.str_pool.resolve(variable.name),
                     variable.kind,
                     variable.implicit_precedence,
-                    variable.start_state,
+                    variable.start_state.index(),
                 )
             })
             .collect::<Vec<_>>();

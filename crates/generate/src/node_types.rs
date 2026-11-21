@@ -1459,6 +1459,7 @@ mod tests {
         grammars::{
             InputGrammar, LexicalVariable, Production, ProductionStep, SyntaxVariable, Variable,
         },
+        nfa::NfaStateId,
         prepare_grammar::{PreparedGrammar, prepare_grammar},
         rules::{Alias, Precedence, Rule, RuleId, RulePool},
         strpool::StrPool,
@@ -3720,7 +3721,7 @@ mod tests {
                 name: interner.intern(&format!("token_{i}")),
                 kind: VariableType::Named,
                 implicit_precedence: 0,
-                start_state: 0,
+                start_state: NfaStateId::default(),
             });
         }
         lexical_grammar

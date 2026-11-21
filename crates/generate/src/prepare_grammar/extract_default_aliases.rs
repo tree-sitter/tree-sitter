@@ -167,6 +167,7 @@ mod tests {
     use super::*;
     use crate::{
         grammars::{Production, ProductionStep, Variable, VariableType},
+        nfa::NfaStateId,
         rules::{Precedence, RulePool},
     };
 
@@ -260,7 +261,7 @@ mod tests {
             name: pool.intern(name),
             kind: VariableType::Anonymous,
             implicit_precedence: 0,
-            start_state: 0,
+            start_state: NfaStateId::default(),
         });
         symbol
     }

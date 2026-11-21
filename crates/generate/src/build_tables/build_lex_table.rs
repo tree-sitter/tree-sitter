@@ -1,16 +1,14 @@
-use std::{
-    collections::{VecDeque, hash_map::Entry},
-    mem,
-};
+use std::{collections::VecDeque, hash::BuildHasher as _};
 
+use hashbrown::{HashTable, hash_table};
 use log::debug;
-use rustc_hash::FxHashMap;
+use rustc_hash::{FxBuildHasher, FxHashMap};
 
 use super::{coincident_tokens::CoincidentTokenIndex, token_conflicts::TokenConflictMap};
 use crate::{
     dedup::{SplitCriterion, split_state_id_groups},
     grammars::{LexicalGrammar, SyntaxGrammar},
-    nfa::{CharacterSet, NfaCursor},
+    nfa::{CharacterSet, NfaCursor, NfaStateId},
     rules::{Symbol, SymbolView, TokenSet},
     strpool::StrPool,
     tables::{AdvanceAction, LexState, LexStateId, LexTable, ParseStateId, ParseTable},
@@ -90,7 +88,7 @@ pub fn build_lex_table(
         }
     }
 
-    let mut main_lex_table = mem::take(&mut builder.table);
+    let mut main_lex_table = std::mem::take(&mut builder.table);
     minimize_lex_table(&mut main_lex_table, parse_table);
     sort_states(&mut main_lex_table, parse_table);
 
@@ -133,8 +131,7 @@ pub fn build_lex_table(
 
 struct QueueEntry {
     state_id: LexStateId,
-    nfa_states: Vec<u32>,
-    eof_valid: bool,
+    nfa_states: Vec<NfaStateId>,
 }
 
 struct LexTableBuilder<'a> {
@@ -142,7 +139,8 @@ struct LexTableBuilder<'a> {
     cursor: NfaCursor<'a>,
     table: LexTable,
     state_queue: VecDeque<QueueEntry>,
-    state_ids_by_nfa_state_set: FxHashMap<(Vec<u32>, bool), LexStateId>,
+    state_ids_by_nfa_state_set: HashTable<(Vec<NfaStateId>, LexStateId)>,
+    eof_state_id: Option<LexStateId>,
 }
 
 impl<'a> LexTableBuilder<'a> {
@@ -152,7 +150,8 @@ impl<'a> LexTableBuilder<'a> {
             cursor: NfaCursor::new(&lexical_grammar.nfa, vec![]),
             table: LexTable::default(),
             state_queue: VecDeque::new(),
-            state_ids_by_nfa_state_set: FxHashMap::default(),
+            state_ids_by_nfa_state_set: HashTable::new(),
+            eof_state_id: None,
         }
     }
 
@@ -160,20 +159,17 @@ impl<'a> LexTableBuilder<'a> {
         self.table = LexTable::default();
         self.state_queue.clear();
         self.state_ids_by_nfa_state_set.clear();
+        self.eof_state_id = None;
     }
 
     fn add_state_for_tokens(&mut self, tokens: &TokenSet, str_pool: &StrPool) -> LexStateId {
-        let mut eof_valid = false;
         let nfa_states = tokens
             .iter()
             .filter_map(|token| match token.view() {
                 SymbolView::Terminal(index) => {
                     Some(self.lexical_grammar.variables[usize::from(index)].start_state)
                 }
-                SymbolView::End => {
-                    eof_valid = true;
-                    None
-                }
+                SymbolView::End => Some(self.lexical_grammar.eof_start_state),
                 SymbolView::External(_)
                 | SymbolView::EndOfNonTerminalExtra
                 | SymbolView::NonTerminal(_) => {
@@ -181,7 +177,7 @@ impl<'a> LexTableBuilder<'a> {
                 }
             })
             .collect();
-        let (state_id, is_new) = self.add_state(nfa_states, eof_valid);
+        let (state_id, is_new) = self.add_state(nfa_states);
 
         if is_new {
             debug!(
@@ -203,39 +199,43 @@ impl<'a> LexTableBuilder<'a> {
         while let Some(QueueEntry {
             state_id,
             nfa_states,
-            eof_valid,
         }) = self.state_queue.pop_front()
         {
-            self.populate_state(state_id, nfa_states, eof_valid);
+            self.populate_state(state_id, nfa_states);
         }
         state_id
     }
 
-    fn add_state(&mut self, nfa_states: Vec<u32>, eof_valid: bool) -> (LexStateId, bool) {
+    fn add_state(&mut self, nfa_states: Vec<NfaStateId>) -> (LexStateId, bool) {
         self.cursor.reset(nfa_states);
-        match self
-            .state_ids_by_nfa_state_set
-            .entry((self.cursor.state_ids.clone(), eof_valid))
-        {
-            Entry::Occupied(o) => (*o.get(), false),
-            Entry::Vacant(v) => {
+        let nfa_states = &self.cursor.state_ids;
+        match self.state_ids_by_nfa_state_set.entry(
+            FxBuildHasher.hash_one(nfa_states),
+            |(set, _)| NfaStateId::slices_eq(set, nfa_states),
+            |(set, _)| FxBuildHasher.hash_one(set),
+        ) {
+            hash_table::Entry::Occupied(entry) => (entry.get().1, false),
+            hash_table::Entry::Vacant(entry) => {
                 let state_id = self.table.states.len() as u32;
                 self.table.states.push(LexState::default());
+                entry.insert((nfa_states.clone(), state_id));
                 self.state_queue.push_back(QueueEntry {
                     state_id,
-                    nfa_states: v.key().0.clone(),
-                    eof_valid,
+                    nfa_states: nfa_states.clone(),
                 });
-                v.insert(state_id);
                 (state_id, true)
             }
         }
     }
 
-    fn populate_state(&mut self, state_id: LexStateId, nfa_states: Vec<u32>, eof_valid: bool) {
+    fn populate_state(&mut self, state_id: LexStateId, nfa_states: Vec<NfaStateId>) {
         self.cursor.force_reset(nfa_states);
+        let eof_valid = self
+            .cursor
+            .state_ids
+            .iter()
+            .any(|&id| self.lexical_grammar.is_eof_nfa_state(id));
 
-        // The EOF state is represented as an empty list of NFA states.
         let mut completion = None;
         for (id, prec) in self.cursor.completions() {
             if let Some((prev_id, prev_precedence)) = completion
@@ -252,12 +252,19 @@ impl<'a> LexTableBuilder<'a> {
 
         let (transitions, has_sep) = self.cursor.transitions_and_any_sep();
 
-        // If EOF is a valid lookahead token, add a transition predicated on the null
-        // character that leads to the empty set of NFA states.
+        // If EOF is a valid lookahead token, add a transition to the EOF state, taken when `eof`
+        // is true.
         if eof_valid {
-            let (next_state_id, _) = self.add_state(Vec::new(), false);
+            let eof_state_id = *self.eof_state_id.get_or_insert_with(|| {
+                let eof_state_id = self.table.states.len() as LexStateId;
+                self.table.states.push(LexState {
+                    accept_action: Some(Symbol::End),
+                    ..LexState::default()
+                });
+                eof_state_id
+            });
             self.table.states[state_id as usize].eof_action = Some(AdvanceAction {
-                state: next_state_id,
+                state: eof_state_id,
                 in_main_token: true,
             });
         }
@@ -275,8 +282,13 @@ impl<'a> LexTableBuilder<'a> {
                 continue;
             }
 
-            let (next_state_id, _) =
-                self.add_state(transition.states, eof_valid && transition.is_separator);
+            // The end of input has no characters, so a character that isn't a separator rules it
+            // out.
+            let mut next_nfa_states = transition.states;
+            if !transition.is_separator {
+                next_nfa_states.retain(|&id| !self.lexical_grammar.is_eof_nfa_state(id));
+            }
+            let (next_state_id, _) = self.add_state(next_nfa_states);
             self.table.states[state_id as usize].advance_actions.push((
                 transition.characters,
                 AdvanceAction {
@@ -289,8 +301,6 @@ impl<'a> LexTableBuilder<'a> {
         if let Some((complete_id, _)) = completion {
             self.table.states[state_id as usize].accept_action =
                 Some(Symbol::terminal(complete_id));
-        } else if self.cursor.state_ids.is_empty() {
-            self.table.states[state_id as usize].accept_action = Some(Symbol::End);
         }
     }
 }
@@ -406,7 +416,7 @@ fn minimize_lex_table(table: &mut LexTable, parse_table: &mut ParseTable) {
     let mut new_states = Vec::with_capacity(state_ids_by_group_id.len());
     for state_ids in &state_ids_by_group_id {
         let mut new_state = LexState::default();
-        mem::swap(&mut new_state, &mut table.states[state_ids[0] as usize]);
+        std::mem::swap(&mut new_state, &mut table.states[state_ids[0] as usize]);
 
         for (_, advance_action) in &mut new_state.advance_actions {
             advance_action.state = group_ids_by_state_id[advance_action.state as usize];
@@ -481,7 +491,7 @@ fn sort_states(table: &mut LexTable, parse_table: &mut ParseTable) {
         .iter()
         .map(|old_id| {
             let mut state = LexState::default();
-            mem::swap(&mut state, &mut table.states[*old_id]);
+            std::mem::swap(&mut state, &mut table.states[*old_id]);
             for (_, advance_action) in &mut state.advance_actions {
                 advance_action.state = new_ids_by_old_id[advance_action.state as usize];
             }
