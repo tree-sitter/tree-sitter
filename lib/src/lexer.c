@@ -82,6 +82,23 @@ static void ts_lexer__clear_chunk(Lexer *self) {
   self->chunk = NULL;
   self->chunk_size = 0;
   self->chunk_start = 0;
+  self->fast_advance_limit = 0;
+}
+
+// The end of the bytes `ts_lexer__advance` can read straight from the chunk: the end of the chunk
+// or of the current included range, whichever comes first.
+static void ts_lexer__update_fast_advance_limit(Lexer *self) {
+  if (
+    self->chunk &&
+    self->input.encoding == TSInputEncodingUTF8 &&
+    self->current_included_range_index < self->included_range_count
+  ) {
+    uint32_t range_end = self->included_ranges[self->current_included_range_index].end_byte;
+    uint32_t chunk_end = self->chunk_start + self->chunk_size;
+    self->fast_advance_limit = range_end < chunk_end ? range_end : chunk_end;
+  } else {
+    self->fast_advance_limit = 0;
+  }
 }
 
 // Call the lexer's input callback to obtain a new chunk of source code
@@ -98,6 +115,7 @@ static void ts_lexer__get_chunk(Lexer *self) {
     self->current_included_range_index = self->included_range_count;
     self->chunk = NULL;
   }
+  ts_lexer__update_fast_advance_limit(self);
 }
 
 // Decode the next unicode character in the current chunk of source code.
@@ -197,6 +215,7 @@ static void ts_lexer_goto(Lexer *self, Length position) {
     self->lookahead_size = 1;
     self->data.lookahead = '\0';
   }
+  ts_lexer__update_fast_advance_limit(self);
 }
 
 /**
@@ -254,6 +273,7 @@ static void ts_lexer__do_advance(Lexer *self, bool skip) {
     self->data.lookahead = '\0';
     self->lookahead_size = 1;
   }
+  ts_lexer__update_fast_advance_limit(self);
 }
 
 // Advance to the next character in the source code, retrieving a new
@@ -262,21 +282,19 @@ static void ts_lexer__advance(TSLexer *_self, bool skip) {
   Lexer *self = (Lexer *)_self;
   if (!self->chunk) return;
 
-  if (skip) {
-    LOG("skip", self->data.lookahead)
-  } else {
-    LOG("consume", self->data.lookahead)
+  if (self->logger.log) {
+    if (skip) {
+      LOG("skip", self->data.lookahead)
+    } else {
+      LOG("consume", self->data.lookahead)
+    }
   }
 
   const uint32_t next_position = self->current_position.bytes + 1;
-  const uint32_t current_range_end =
-    self->included_ranges[self->current_included_range_index].end_byte;
   if (
-    self->input.encoding == TSInputEncodingUTF8 &&
     self->lookahead_size == 1 &&
     self->data.lookahead != '\n' &&
-    next_position < current_range_end &&
-    next_position < self->chunk_start + self->chunk_size
+    next_position < self->fast_advance_limit
   ) {
     uint8_t next_byte = (uint8_t)self->chunk[next_position - self->chunk_start];
     if (next_byte < 0x80) {
