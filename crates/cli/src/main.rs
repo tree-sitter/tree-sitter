@@ -127,19 +127,8 @@ struct Generate {
     /// Produce a report of the states for the given rule, use `-` to report every rule
     #[arg(long, conflicts_with = "json", conflicts_with = "json_summary")]
     pub report_states_for_rule: Option<String>,
-    /// Deprecated: use --json-summary
-    #[arg(
-        long,
-        conflicts_with = "json_summary",
-        conflicts_with = "report_states_for_rule"
-    )]
-    pub json: bool,
     /// Report conflicts in a JSON format
-    #[arg(
-        long,
-        conflicts_with = "json",
-        conflicts_with = "report_states_for_rule"
-    )]
+    #[arg(long, conflicts_with = "report_states_for_rule")]
     pub json_summary: bool,
     /// The name or path of the JavaScript runtime to use for generating parsers
     #[cfg(not(feature = "qjs-rt"))]
@@ -268,11 +257,8 @@ struct Parse {
     /// Open `log.html` in the default browser, if `--debug-graph` or `--dot` is supplied
     #[arg(long, requires = "graph_output")]
     pub open_log: bool,
-    /// Deprecated: use --json-summary
-    #[arg(long, conflicts_with = "json_summary", conflicts_with = "stat")]
-    pub json: bool,
     /// Output parsing results in a JSON format
-    #[arg(long, short = 'j', conflicts_with = "json", conflicts_with = "stat")]
+    #[arg(long, short = 'j', conflicts_with = "stat")]
     pub json_summary: bool,
     /// The path to an alternative config.json file
     #[arg(long)]
@@ -949,13 +935,6 @@ impl Generate {
                     }
                 });
 
-        let json_summary = if self.json {
-            warn!("--json is deprecated, use --json-summary instead");
-            true
-        } else {
-            self.json_summary
-        };
-
         let mut diagnostics = Vec::new();
         let result = tree_sitter_generate::generate_parser_in_directory(
             current_dir,
@@ -972,7 +951,7 @@ impl Generate {
             },
             &mut diagnostics,
         );
-        if json_summary {
+        if self.json_summary {
             #[derive(serde::Serialize)]
             struct Envelope<'a> {
                 diagnostics: &'a [Diagnostic],
@@ -1071,19 +1050,13 @@ impl Build {
 impl Parse {
     fn run(self, mut loader: loader::Loader, current_dir: &Path) -> Result<()> {
         let config = Config::load(self.config_path)?;
-        let json_summary = if self.json {
-            warn!("--json is deprecated, use --json-summary instead");
-            true
-        } else {
-            self.json_summary
-        };
         let output = if self.output_dot {
             ParseOutput::Dot
         } else if self.output_xml {
             ParseOutput::Xml
         } else if self.output_cst {
             ParseOutput::Cst
-        } else if self.quiet || json_summary {
+        } else if self.quiet || self.json_summary {
             ParseOutput::Quiet
         } else {
             ParseOutput::Normal
@@ -1155,7 +1128,7 @@ impl Parse {
 
         let mut update_stats = |stats: &mut parse::ParseStats| {
             let parse_result = stats.parse_summaries.last().unwrap();
-            if should_track_stats || json_summary {
+            if should_track_stats || self.json_summary {
                 stats.cumulative_stats.total_parses += 1;
                 if parse_result.successful {
                     stats.cumulative_stats.successful_parses += 1;
@@ -1285,7 +1258,7 @@ impl Parse {
         if should_track_stats {
             println!("\n{}", stats.cumulative_stats);
         }
-        if json_summary {
+        if self.json_summary {
             println!("{}", serde_json::to_string_pretty(&stats)?);
         }
 
