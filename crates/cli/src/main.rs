@@ -1062,7 +1062,7 @@ impl Build {
 
             loader
                 .compile_parser_at_path(&grammar_path, output_path, flags)
-                .context("Failed to compile parser")?;
+                .context("Failed to build parser")?;
         }
         Ok(())
     }
