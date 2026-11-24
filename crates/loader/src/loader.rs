@@ -7,7 +7,9 @@ use std::fmt::Write as _;
 use std::ops::Range;
 use std::{
     collections::HashMap,
-    env, fs,
+    env,
+    error::Error as _,
+    fs,
     hash::{Hash as _, Hasher as _},
     io::{BufRead, BufReader},
     marker::PhantomData,
@@ -198,6 +200,9 @@ impl std::fmt::Display for LibraryError {
             "Error opening dynamic library {} -- {}",
             self.path, self.error
         )?;
+        if let Some(source) = self.error.source() {
+            write!(f, ": {source}")?;
+        }
         Ok(())
     }
 }
@@ -232,6 +237,9 @@ impl std::fmt::Display for SymbolError {
             "Failed to load symbol {} from {} -- {}",
             self.symbol_name, self.path, self.error
         )?;
+        if let Some(source) = self.error.source() {
+            write!(f, ": {source}")?;
+        }
         Ok(())
     }
 }
