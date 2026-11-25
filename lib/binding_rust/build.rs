@@ -43,6 +43,10 @@ fn main() {
         println!("cargo:rerun-if-changed={}", path.to_str().unwrap());
     }
 
+    if !(target.contains("apple") || target.contains("windows") || target.starts_with("wasm")) {
+        config.flag_if_supported("-fno-semantic-interposition");
+    }
+
     config
         .std("c11")
         .flag_if_supported("-fvisibility=hidden")
