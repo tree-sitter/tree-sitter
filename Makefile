@@ -48,6 +48,7 @@ else
 	SOEXTVER_MAJOR = $(SOEXT).$(SONAME_MAJOR)
 	SOEXTVER = $(SOEXT).$(SONAME_MAJOR).$(SONAME_MINOR)
 	LINKSHARED += -shared -Wl,-soname,libtree-sitter.$(SOEXTVER)
+	override CFLAGS += -fno-semantic-interposition
 ifneq ($(filter $(shell uname),FreeBSD NetBSD DragonFly),)
 	PCLIBDIR := $(PREFIX)/libdata/pkgconfig
 endif

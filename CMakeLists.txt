@@ -35,6 +35,9 @@ else()
                          -Wall -Wextra -Wshadow -Wpedantic
                          -Werror=incompatible-pointer-types
                          -Werror=strict-aliasing -Wstrict-aliasing=2)
+  if(NOT APPLE AND NOT WIN32)
+    target_compile_options(tree-sitter PRIVATE -fno-semantic-interposition)
+  endif()
 endif()
 
 if(TREE_SITTER_FEATURE_WASM)

@@ -25,10 +25,15 @@ pub fn build(b: *std.Build) !void {
         .win32_module_definition = b.path(if (wasm) "lib/src/tree_sitter_wasm.def" else "lib/src/tree_sitter.def"),
     });
 
+    const flags: []const []const u8 = if (target.result.ofmt == .elf)
+        &.{ "-std=c11", "-fvisibility=hidden", "-fno-semantic-interposition" }
+    else
+        &.{ "-std=c11", "-fvisibility=hidden" };
+
     if (amalgamated) {
         tree_sitter.addCSourceFile(.{
             .file = b.path("lib/src/lib.c"),
-            .flags = &.{ "-std=c11", "-fvisibility=hidden" },
+            .flags = flags,
         });
     } else {
         const files = try findSourceFiles(b, io);
@@ -36,7 +41,7 @@ pub fn build(b: *std.Build) !void {
         tree_sitter.addCSourceFiles(.{
             .root = b.path("lib/src"),
             .files = files,
-            .flags = &.{ "-std=c11", "-fvisibility=hidden" },
+            .flags = flags,
         });
     }
 
