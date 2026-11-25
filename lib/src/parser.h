@@ -53,7 +53,11 @@ struct TSLexer {
   uint32_t (*get_column)(TSLexer *);
   bool (*is_at_included_range_start)(const TSLexer *);
   bool (*eof)(const TSLexer *);
-  void (*log)(const TSLexer *, const char *, ...);
+  void (*log)(const TSLexer *, const char *, ...)
+#if defined(__GNUC__) || defined(__clang__)
+    __attribute__((format(printf, 2, 3)))
+#endif
+    ;
 };
 
 typedef enum {
