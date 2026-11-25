@@ -167,15 +167,24 @@ static TS_COLD TS_PRINTF(2, 3) void ts_parser__log_format(
 static TS_COLD void ts_parser__log_lookahead(TSParser *self, const char *symbol, uint32_t size) {
   char *buf = self->lexer.debug_buffer;
   int off = snprintf(buf, TREE_SITTER_SERIALIZATION_BUFFER_SIZE, "lexed_lookahead sym:");
-  for (uint32_t i = 0; symbol[i] != '\0' && off < TREE_SITTER_SERIALIZATION_BUFFER_SIZE; i++) {
+  for (uint32_t i = 0; symbol[i] != '\0'; i++) {
+    char escape;
     switch (symbol[i]) {
-    case '\t': buf[off++] = '\\'; buf[off++] = 't'; break;
-    case '\n': buf[off++] = '\\'; buf[off++] = 'n'; break;
-    case '\v': buf[off++] = '\\'; buf[off++] = 'v'; break;
-    case '\f': buf[off++] = '\\'; buf[off++] = 'f'; break;
-    case '\r': buf[off++] = '\\'; buf[off++] = 'r'; break;
-    case '\\': buf[off++] = '\\'; buf[off++] = '\\'; break;
-    default:   buf[off++] = symbol[i]; break;
+    case '\t': escape = 't'; break;
+    case '\n': escape = 'n'; break;
+    case '\v': escape = 'v'; break;
+    case '\f': escape = 'f'; break;
+    case '\r': escape = 'r'; break;
+    case '\\': escape = '\\'; break;
+    default:   escape = 0; break;
+    }
+    int length = escape ? 2 : 1;
+    if (off + length >= TREE_SITTER_SERIALIZATION_BUFFER_SIZE) break;
+    if (escape) {
+      buf[off++] = '\\';
+      buf[off++] = escape;
+    } else {
+      buf[off++] = symbol[i];
     }
   }
   snprintf(buf + off, TREE_SITTER_SERIALIZATION_BUFFER_SIZE - off, ", size:%u", size);
