@@ -1,3 +1,4 @@
+#include "./attributes.h"
 #include "./length.h"
 #include "./lexer.h"
 #include "./unicode.h"
@@ -7,22 +8,17 @@
 #include <stdarg.h>
 #include <stdio.h>
 
-#define LOG(message, character)              \
-  if (self->logger.log) {                    \
-    snprintf(                                \
-      self->debug_buffer,                    \
-      TREE_SITTER_SERIALIZATION_BUFFER_SIZE, \
-      32 <= character && character < 127 ?   \
-        message " character:'%c'" :          \
-        message " character:%d",             \
-      character                              \
-    );                                       \
-    self->logger.log(                        \
-      self->logger.payload,                  \
-      TSLogTypeLex,                          \
-      self->debug_buffer                     \
-    );                                       \
-  }
+static TS_COLD void ts_lexer__log_advance(Lexer *self, bool skip) {
+  int32_t character = self->data.lookahead;
+  snprintf(
+    self->debug_buffer,
+    TREE_SITTER_SERIALIZATION_BUFFER_SIZE,
+    32 <= character && character < 127 ? "%s character:'%c'" : "%s character:%d",
+    skip ? "skip" : "consume",
+    character
+  );
+  self->logger.log(self->logger.payload, TSLogTypeLex, self->debug_buffer);
+}
 
 static const int32_t BYTE_ORDER_MARK = 0xFEFF;
 
@@ -282,14 +278,6 @@ static void ts_lexer__advance(TSLexer *_self, bool skip) {
   Lexer *self = (Lexer *)_self;
   if (!self->chunk) return;
 
-  if (self->logger.log) {
-    if (skip) {
-      LOG("skip", self->data.lookahead)
-    } else {
-      LOG("consume", self->data.lookahead)
-    }
-  }
-
   const uint32_t next_position = self->current_position.bytes + 1;
   if (
     self->lookahead_size == 1 &&
@@ -308,6 +296,13 @@ static void ts_lexer__advance(TSLexer *_self, bool skip) {
   }
 
   ts_lexer__do_advance(self, skip);
+}
+
+/// `ts_lexer__advance`, logging each character first.
+static void ts_lexer__advance_logged(TSLexer *_self, bool skip) {
+  Lexer *self = (Lexer *)_self;
+  if (self->chunk) ts_lexer__log_advance(self, skip);
+  ts_lexer__advance(_self, skip);
 }
 
 // Mark that a token match has completed. This can be called multiple
@@ -431,6 +426,11 @@ void ts_lexer_delete(Lexer *self) {
   ts_free(self->included_ranges);
 }
 
+void ts_lexer_set_logger(Lexer *self, TSLogger logger) {
+  self->logger = logger;
+  self->data.advance = logger.log ? ts_lexer__advance_logged : ts_lexer__advance;
+}
+
 void ts_lexer_set_input(Lexer *self, TSInput input) {
   self->input = input;
   ts_lexer__clear_chunk(self);
@@ -455,7 +455,7 @@ void ts_lexer_start(Lexer *self) {
     if (!self->lookahead_size) ts_lexer__get_lookahead(self);
     if (self->current_position.bytes == 0) {
       if (self->data.lookahead == BYTE_ORDER_MARK) {
-        ts_lexer__advance(&self->data, true);
+        self->data.advance(&self->data, true);
       }
       ts_lexer__set_column_data(self, 0);
     }
