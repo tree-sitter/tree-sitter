@@ -1,5 +1,3 @@
-use std::ops::Range;
-
 #[derive(Debug)]
 pub struct ReadRecorder<'a> {
     content: &'a [u8],
@@ -27,23 +25,20 @@ impl<'a> ReadRecorder<'a> {
     }
 
     pub fn strings_read(&self) -> Vec<&'a str> {
+        let Some((&first, rest)) = self.indices_read.split_first() else {
+            return Vec::new();
+        };
         let mut result = Vec::new();
-        let mut last_range = Option::<Range<usize>>::None;
-        for index in &self.indices_read {
-            if let Some(range) = &mut last_range {
-                if range.end == *index {
-                    range.end += 1;
-                } else {
-                    result.push(str::from_utf8(&self.content[range.clone()]).unwrap());
-                    last_range = None;
-                }
+        let mut range = first..first + 1;
+        for &index in rest {
+            if index == range.end {
+                range.end += 1;
             } else {
-                last_range = Some(*index..(*index + 1));
+                result.push(str::from_utf8(&self.content[range]).unwrap());
+                range = index..index + 1;
             }
         }
-        if let Some(range) = last_range {
-            result.push(str::from_utf8(&self.content[range]).unwrap());
-        }
+        result.push(str::from_utf8(&self.content[range]).unwrap());
         result
     }
 }

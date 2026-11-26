@@ -502,7 +502,7 @@ fn test_parsing_after_editing_beginning_of_code() {
         )
     );
 
-    assert_eq!(recorder.strings_read(), vec!["123 || 5 "]);
+    assert_eq!(recorder.strings_read(), vec!["123 || 5 ", ";"]);
 }
 
 #[test]
@@ -550,7 +550,7 @@ fn test_parsing_after_editing_end_of_code() {
         )
     );
 
-    assert_eq!(recorder.strings_read(), vec![" * ", "abc.d)",]);
+    assert_eq!(recorder.strings_read(), vec![" * ", " abc.d)",]);
 }
 
 #[test]
