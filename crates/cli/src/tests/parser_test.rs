@@ -554,6 +554,44 @@ fn test_parsing_after_editing_end_of_code() {
 }
 
 #[test]
+fn test_parsing_after_editing_text_after_a_multibyte_character() {
+    let mut parser = Parser::new();
+    parser.set_language(&get_language("javascript")).unwrap();
+
+    let mut code = "x * (100 + é);".as_bytes().to_vec();
+    let mut tree = parser.parse(&code, None).unwrap();
+    let position = code.len() - 2;
+    perform_edit(
+        &mut tree,
+        &mut code,
+        &Edit {
+            position,
+            deleted_length: 0,
+            inserted_text: b".d".to_vec(),
+        },
+    )
+    .unwrap();
+
+    let mut recorder = ReadRecorder::new(&code);
+    let tree = parser
+        .parse_with_options(&mut |i, _| recorder.read(i), Some(&tree), None)
+        .unwrap();
+    assert_eq!(
+        tree.root_node().to_sexp(),
+        concat!(
+            "(program (expression_statement (binary_expression ",
+            "left: (identifier) ",
+            "right: (parenthesized_expression (binary_expression ",
+            "left: (number) ",
+            "right: (member_expression ",
+            "object: (identifier) ",
+            "property: (property_identifier)))))))"
+        )
+    );
+    assert_eq!(recorder.strings_read(), vec![" * ", " é.d)"]);
+}
+
+#[test]
 fn test_parsing_empty_file_with_reused_tree() {
     let mut parser = Parser::new();
     parser.set_language(&get_language("rust")).unwrap();
