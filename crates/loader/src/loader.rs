@@ -215,6 +215,21 @@ impl std::fmt::Display for LibraryError {
         if let Some(source) = self.error.source() {
             write!(f, ": {source}")?;
         }
+        if cfg!(all(target_env = "musl", target_feature = "crt-static")) {
+            let program = env::current_exe()
+                .ok()
+                .and_then(|path| {
+                    path.file_name()
+                        .map(|name| format!("`{}`", name.to_string_lossy()))
+                })
+                .unwrap_or_else(|| "This program".to_string());
+            write!(
+                f,
+                "\n{program} is statically linked against musl, so it can't load parsers or \
+                 other dynamic libraries. Rebuild it with RUSTFLAGS=\"-C target-feature=-crt-static\" \
+                 to link it dynamically."
+            )?;
+        }
         Ok(())
     }
 }
