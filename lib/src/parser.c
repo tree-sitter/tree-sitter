@@ -514,13 +514,22 @@ static bool ts_parser__can_reuse_first_leaf(
 
   // If the token was created in a state with the same set of lookaheads, it is reusable.
   if (
+    // If the token is a keyword, an action for it means that lexing it in this state
+    // keeps it as a keyword.
     table_entry->action_count > 0 &&
     leaf_lex_mode.lex_state == current_lex_mode.lex_state &&
     leaf_lex_mode.external_lex_state == current_lex_mode.external_lex_state &&
-    leaf_lex_mode.reserved_word_set_id == current_lex_mode.reserved_word_set_id &&
     (
       leaf_symbol != self->language->keyword_capture_token ||
-      (!ts_subtree_is_keyword(tree) && ts_subtree_parse_state(tree) == state)
+      (
+        // Only the word token is lexed differently under other reserved words: its text becomes a
+        // keyword in states that have an action for that keyword or reserve it.
+        !ts_subtree_is_keyword(tree) &&
+        ts_subtree_parse_state(tree) == state &&
+        // A reused node is never marked as a keyword, and its first leaf may have been lexed in a
+        // state other than the node's, so compare the reserved words that leaf was lexed with.
+        leaf_lex_mode.reserved_word_set_id == current_lex_mode.reserved_word_set_id
+      )
     )
   ) return true;
 
