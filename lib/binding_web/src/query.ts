@@ -392,7 +392,7 @@ function parseAnyOfPredicate(
       if (c.name === captureName) nodes.push(c.node.text);
     }
     if (nodes.length === 0) return !isPositive;
-    return nodes.every((text) => values.includes(text)) === isPositive;
+    return nodes.every((text) => values.includes(text) === isPositive);
   });
 }
 

@@ -198,6 +198,20 @@ describe('Query', () => {
       ]);
     });
 
+    it('requires every captured node to satisfy #not-any-of?', () => {
+      tree = parser.parse('x + y; y + z;')!;
+      query = new Query(JavaScript, `
+        ((binary_expression
+          left: (identifier) @item
+          right: (identifier) @item)
+          (#not-any-of? @item "x"))
+      `);
+
+      const matches = query.matches(tree.rootNode);
+      expect(matches.map((match) => match.captures.map((capture) => capture.node.text)))
+        .toEqual([['y', 'z']]);
+    });
+
     it('handles multiple matches where the first one is filtered', () => {
       tree = parser.parse(`
         const a = window.b;
