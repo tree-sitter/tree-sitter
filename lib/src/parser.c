@@ -1492,30 +1492,14 @@ static void ts_parser__recover(
     self->language
   );
 
-  // If other tokens have already been skipped, so there is already an ERROR at the top of the
-  // stack, then pop that ERROR off the stack and wrap the two ERRORs together into one larger
-  // ERROR.
-  if (node_count_since_error > 0) {
-    StackSliceArray pop = ts_stack_pop_count(self->stack, version, 1, false);
-
-    // TODO: Figure out how to make this condition occur.
-    // See https://github.com/atom/atom/issues/18450#issuecomment-439579778
-    // If multiple stack versions have merged at this point, just pick one of the errors
-    // arbitrarily and discard the rest.
-    if (pop.size > 1) {
-      for (uint32_t i = 1; i < pop.size; i++) {
-        ts_subtree_array_delete(&self->tree_pool, &array_get(&pop, i)->subtrees);
-      }
-      while (ts_stack_version_count(self->stack) > array_get(&pop, 0)->version + 1) {
-        ts_stack_remove_version(self->stack, array_get(&pop, 0)->version + 1);
-      }
-    }
-
-    ts_stack_renumber_version(self->stack, array_get(&pop, 0)->version, version);
-    array_push(&array_get(&pop, 0)->subtrees, ts_subtree_from_mut(error_repeat));
+  // Extend the skipped region. An extra shifted in the error state can sit above
+  // merged recovery paths. Keep the first path when extending the error.
+  SubtreeArray skipped;
+  if (node_count_since_error > 0 && ts_stack_pop_one(self->stack, version, &skipped)) {
+    array_push(&skipped, ts_subtree_from_mut(error_repeat));
     error_repeat = ts_subtree_new_node(
       ts_builtin_sym_error_repeat,
-      &array_get(&pop, 0)->subtrees,
+      &skipped,
       0,
       self->language
     );
