@@ -910,6 +910,41 @@ fn test_parsing_after_editing_text_before_a_reserved_word() {
 }
 
 #[test]
+fn test_parsing_after_editing_text_before_tokens_under_other_reserved_words() {
+    let mut parser = Parser::new();
+    parser
+        .set_language(&get_test_fixture_language(
+            "reuse_token_under_other_reserved_words",
+        ))
+        .unwrap();
+
+    let mut code = b"if do; do; do;".to_vec();
+    let mut tree = parser.parse(&code, None).unwrap();
+
+    // After `#`, the keywords are under the `none` reserved words instead of the global ones, which
+    // doesn't change how they lex, so none of them is read again.
+    perform_edit(
+        &mut tree,
+        &mut code,
+        &Edit {
+            position: 0,
+            deleted_length: 2,
+            inserted_text: b"#".to_vec(),
+        },
+    )
+    .unwrap();
+    let mut recorder = ReadRecorder::new(&code);
+    let tree = parser
+        .parse_with_options(&mut |i, _| recorder.read(i), Some(&tree), None)
+        .unwrap();
+    assert_eq!(
+        tree.root_node().to_sexp(),
+        "(source_file (item) (item) (item))"
+    );
+    assert_eq!(recorder.strings_read(), vec!["# "]);
+}
+
+#[test]
 fn test_parsing_after_editing_text_before_a_node_starting_with_a_keyword() {
     let mut parser = Parser::new();
     parser
