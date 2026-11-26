@@ -72,6 +72,11 @@ StackSliceArray ts_stack_pop_count(
   bool can_replace_version
 );
 
+// Replace the version with the first path that pops one entry, including any
+// extras above it. Return false if no path can be popped. On success, the caller
+// owns the popped subtrees.
+bool ts_stack_pop_one(Stack *self, StackVersion version, SubtreeArray *subtrees);
+
 // Remove an error at the top of the given version of the stack.
 SubtreeArray ts_stack_pop_error(Stack *self, StackVersion version);
 

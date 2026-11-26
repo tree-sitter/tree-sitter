@@ -581,6 +581,24 @@ StackSliceArray ts_stack_pop_count(
   return stack__iter(self, version, pop_count_callback, &count, (int32_t)count);
 }
 
+forceinline StackAction pop_one_callback(void *payload, const StackIterator *iterator) {
+  bool *found = payload;
+  if (*found) return StackActionStop;
+  if (iterator->subtree_count == 0) return StackActionNone;
+  *found = true;
+  return StackActionPop | StackActionStop;
+}
+
+bool ts_stack_pop_one(Stack *self, StackVersion version, SubtreeArray *subtrees) {
+  if (!stack__pop_in_place(self, version, 1)) {
+    bool found = false;
+    StackSliceArray pop = stack__iter(self, version, pop_one_callback, &found, 1);
+    if (pop.size == 0) return false;
+    ts_stack_renumber_version(self, array_front(&pop)->version, version);
+  }
+  *subtrees = array_front(&self->slices)->subtrees;
+  return true;
+}
 
 forceinline StackAction pop_pending_callback(void *payload, const StackIterator *iterator) {
   (void)payload;

@@ -1,0 +1,31 @@
+============================================
+Skipping a token after merged recovery paths
+============================================
+
+type)name var : 5 /* comment */;
+
+---
+
+(translation_unit
+  (declaration
+    (type_identifier)
+    (ERROR)
+    (identifier)
+    (ERROR (identifier) (number_literal))
+    (comment)))
+
+=============================================================
+Skipping a token with no recovery after merged recovery paths
+=============================================================
+
+type)name var : 5 /* comment */ )
+
+---
+
+(translation_unit
+  (ERROR
+    (type_identifier)
+    (ERROR (identifier))
+    (identifier)
+    (number_literal)
+    (comment)))
