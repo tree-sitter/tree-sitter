@@ -1,4 +1,5 @@
 from os import path
+from sys import version_info
 from sysconfig import get_config_var
 
 from setuptools import Extension, find_packages, setup
@@ -6,6 +7,8 @@ from setuptools.command.build import build
 from setuptools.command.build_ext import build_ext
 from setuptools.command.egg_info import egg_info
 from wheel.bdist_wheel import bdist_wheel
+
+gil_disabled = get_config_var("Py_GIL_DISABLED")
 
 
 class Build(build):
@@ -25,15 +28,23 @@ class BuildExt(build_ext):
         if path.exists("src/scanner.c"):
             ext.sources.append("src/scanner.c")
         if ext.py_limited_api:
-            ext.define_macros.append(("Py_LIMITED_API", "0x030A0000"))
+            if not gil_disabled:
+                ext.define_macros.append(("Py_LIMITED_API", "0x030B0000"))
+            else:
+                ext.define_macros.extend([
+                    ("Py_LIMITED_API", "0x030F0000"),
+                    ("Py_TARGET_ABI3T", "0x030F0000"),
+                ])
         super().build_extension(ext)
 
 
 class BdistWheel(bdist_wheel):
     def get_tag(self):
         python, abi, platform = super().get_tag()
-        if python.startswith("cp") and not get_config_var("Py_GIL_DISABLED"):
-            python, abi = "cp310", "abi3"
+        if not gil_disabled:
+            python, abi = "cp311", "abi3"
+        elif version_info.minor >= 15:
+            python, abi = "cp315", "abi3.abi3t"
         return python, abi, platform
 
 
@@ -65,7 +76,7 @@ setup(
                 ("TREE_SITTER_HIDE_SYMBOLS", None),
             ],
             include_dirs=["src"],
-            py_limited_api=not get_config_var("Py_GIL_DISABLED"),
+            py_limited_api=not gil_disabled or version_info.minor >= 15,
         )
     ],
     cmdclass={
