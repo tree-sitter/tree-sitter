@@ -1,7 +1,7 @@
 use rustc_hash::FxHashMap;
 
 use super::{
-    nfa::Nfa,
+    nfa::{Nfa, NfaStateId},
     rules::{Symbol, TokenSet},
 };
 use crate::{
@@ -62,13 +62,14 @@ pub struct LexicalVariable {
     pub name: StrId,
     pub kind: VariableType,
     pub implicit_precedence: i32,
-    pub start_state: u32,
+    pub start_state: NfaStateId,
 }
 
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct LexicalGrammar {
     pub nfa: Nfa,
     pub variables: Vec<LexicalVariable>,
+    pub eof_start_state: NfaStateId,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
@@ -374,7 +375,7 @@ impl VariableType {
 impl LexicalGrammar {
     pub fn variable_indices_for_nfa_states<'a>(
         &'a self,
-        state_ids: &'a [u32],
+        state_ids: &'a [NfaStateId],
     ) -> impl Iterator<Item = usize> + 'a {
         let mut prev = None;
         state_ids.iter().filter_map(move |state_id| {
@@ -389,12 +390,23 @@ impl LexicalGrammar {
     }
 
     #[must_use]
-    pub fn variable_index_for_nfa_state(&self, state_id: u32) -> usize {
+    pub fn variable_index_for_nfa_state(&self, state_id: NfaStateId) -> usize {
         // The NFA is built in reverse (accept state first, entry state last), so
         // each variable's `start_state` is the last (highest) NFA state allocated
         // for it. These values are monotonically increasing, so we can binary
         // search for the first variable whose start_state >= state_id.
         self.variables.partition_point(|v| v.start_state < state_id)
+    }
+
+    /// Whether an NFA state belongs to the end of input rather than a token. The end of input's
+    /// NFA states come after every token's, up to its start state.
+    #[must_use]
+    pub fn is_eof_nfa_state(&self, state_id: NfaStateId) -> bool {
+        let first_eof_state = self
+            .variables
+            .last()
+            .map_or(0, |v| v.start_state.index() + 1);
+        (first_eof_state..=self.eof_start_state.index()).contains(&state_id.index())
     }
 }
 

@@ -1,0 +1,1 @@
+Grammar contains a cycle of single-symbol alternatives: source_file -> source_file

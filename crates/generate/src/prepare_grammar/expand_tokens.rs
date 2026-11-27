@@ -3,8 +3,9 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::{
-    grammars::{LexicalGrammar, LexicalVariable},
-    nfa::{CharacterSet, Nfa, NfaState},
+    Diagnostic, NullCharacterLocation, NullCharacterSource,
+    grammars::{LexicalGrammar, LexicalVariable, VariableType},
+    nfa::{CharacterSet, Nfa, NfaState, NfaStateId},
     prepare_grammar::{
         LexicalToken,
         pattern::{self, RegexError},
@@ -15,6 +16,14 @@ use crate::{
 struct NfaBuilder {
     nfa: Nfa,
     is_sep: bool,
+    /// Set while expanding a pattern when it has an explicit null character: a literal, or a class
+    /// with nothing else.
+    // TODO: Remove during the 0.29 release cycle, when the null character stops matching the end
+    // of input: remove these, everything that sets them, and the warning in `expand_tokens`.
+    pattern_matches_null: bool,
+    /// The first string or pattern expanded since this was last cleared that has an explicit null
+    /// character.
+    null_rule: Option<RuleId>,
     precedence_stack: Vec<i32>,
 }
 
@@ -77,12 +86,16 @@ pub fn expand_tokens(
     pool: &mut RulePool,
     lexical_variables: &[LexicalToken],
     separator_roots: &[RuleId],
+    diagnostics: &mut Vec<Diagnostic>,
 ) -> ExpandTokensResult<LexicalGrammar> {
     let mut builder = NfaBuilder {
         nfa: Nfa::new(),
         is_sep: true,
+        pattern_matches_null: false,
+        null_rule: None,
         precedence_stack: vec![0],
     };
+    let mut separators_null_rule = None;
     let separator_root = build_separator(pool, separator_roots);
 
     let mut variables = Vec::with_capacity(lexical_variables.len());
@@ -111,6 +124,19 @@ pub fn expand_tokens(
                     error: e,
                 })
             })?;
+        // TODO: Remove during the 0.29 release cycle, when the null character stops matching the
+        // end of input, along with the `diagnostics` parameter.
+        let null_rule = builder.null_rule.take();
+        if let Some(rule) = null_rule {
+            let location = if variable.kind == VariableType::Anonymous {
+                None
+            } else {
+                Some(NullCharacterLocation::Rule(
+                    pool.resolve(variable.name).into(),
+                ))
+            };
+            diagnostics.push(null_character(pool, rule, location));
+        }
 
         if !is_immediate_token {
             builder.is_sep = true;
@@ -118,6 +144,9 @@ pub fn expand_tokens(
             builder
                 .expand_rule(pool, separator_root, last_state_id)
                 .map_err(ExpandTokensError::ExpandRule)?;
+            // The separators are expanded again for every token, so this keeps the first.
+            let null_rule = builder.null_rule.take();
+            separators_null_rule = separators_null_rule.or(null_rule);
         }
 
         variables.push(LexicalVariable {
@@ -128,10 +157,51 @@ pub fn expand_tokens(
         });
     }
 
+    // The end of input gets its own start state too, so that the lexer can always skip
+    // separators before it.
+    builder.nfa.states.push(NfaState::EndOfInput);
+    let end_of_input = builder.nfa.last_state_id();
+    builder.is_sep = true;
+    builder
+        .expand_rule(pool, separator_root, end_of_input)
+        .map_err(ExpandTokensError::ExpandRule)?;
+    let null_rule = builder.null_rule.take();
+    separators_null_rule = separators_null_rule.or(null_rule);
+    let eof_start_state = builder.nfa.last_state_id();
+
+    // TODO: Remove during the 0.29 release cycle, when the null character stops matching the end
+    // of input.
+    if let Some(rule) = separators_null_rule {
+        diagnostics.push(null_character(
+            pool,
+            rule,
+            Some(NullCharacterLocation::Extras),
+        ));
+    }
+
     Ok(LexicalGrammar {
         nfa: builder.nfa,
         variables,
+        eof_start_state,
     })
+}
+
+/// Names a string or pattern with an explicit null character, as written in the grammar.
+fn null_character(
+    pool: &RulePool,
+    rule: RuleId,
+    location: Option<NullCharacterLocation>,
+) -> Diagnostic {
+    let source = match pool.node(rule) {
+        Rule::String(s) => {
+            NullCharacterSource::String(pool.resolve(s).escape_debug().to_string().into())
+        }
+        Rule::Pattern(source, _) => {
+            NullCharacterSource::Pattern(pool.resolve(source).replace('\0', "\\0").into())
+        }
+        _ => unreachable!(),
+    };
+    Diagnostic::NullCharacter(source, location)
 }
 
 fn build_separator(pool: &mut RulePool, separator_roots: &[RuleId]) -> RuleId {
@@ -213,7 +283,7 @@ impl NfaBuilder {
         &mut self,
         pool: &RulePool,
         id: RuleId,
-        mut next_state_id: u32,
+        mut next_state_id: NfaStateId,
     ) -> ExpandRuleResult<bool> {
         match pool.node(id) {
             Rule::Pattern(s, f) => {
@@ -234,11 +304,22 @@ impl NfaBuilder {
                 // `case_fold_ascii_safe`). Letting `regex_syntax` fold would pull the
                 // long s `ſ` and Kelvin sign `K` into ASCII `s`/`k`.
                 let hir = pattern::parse(&s, pool.resolve(f).contains('i'))?;
-                self.expand_regex(&hir, next_state_id)
-                    .map_err(ExpandRuleError::ExpandRegex)
+                let result = self
+                    .expand_regex(&hir, next_state_id)
+                    .map_err(ExpandRuleError::ExpandRegex);
+                if self.pattern_matches_null {
+                    self.pattern_matches_null = false;
+                    if self.null_rule.is_none() {
+                        self.null_rule = Some(id);
+                    }
+                }
+                result
             }
             Rule::String(s) => {
                 let s = pool.resolve(s);
+                if s.contains('\0') && self.null_rule.is_none() {
+                    self.null_rule = Some(id);
+                }
                 for c in s.chars().rev() {
                     self.push_advance(CharacterSet::from_char(c), next_state_id);
                     next_state_id = self.nfa.last_state_id();
@@ -282,7 +363,7 @@ impl NfaBuilder {
                 }); // Placeholder for split
                 let split_state_id = self.nfa.last_state_id();
                 if self.expand_rule(pool, rule, split_state_id)? {
-                    self.nfa.states[split_state_id as usize] =
+                    self.nfa.states[split_state_id.index()] =
                         NfaState::Split(self.nfa.last_state_id(), next_state_id);
                     Ok(true)
                 } else {
@@ -315,7 +396,11 @@ impl NfaBuilder {
         }
     }
 
-    fn expand_regex(&mut self, hir: &Hir, mut next_state_id: u32) -> ExpandRegexResult<bool> {
+    fn expand_regex(
+        &mut self,
+        hir: &Hir,
+        mut next_state_id: NfaStateId,
+    ) -> ExpandRegexResult<bool> {
         match hir.kind() {
             HirKind::Empty => Ok(false),
             HirKind::Literal(literal) => {
@@ -324,6 +409,9 @@ impl NfaBuilder {
                     .chars()
                     .rev()
                 {
+                    if character == '\0' {
+                        self.pattern_matches_null = true;
+                    }
                     self.push_advance(CharacterSet::from_char(character), next_state_id);
                     next_state_id = self.nfa.last_state_id();
                 }
@@ -336,6 +424,7 @@ impl NfaBuilder {
                     for c in class.ranges() {
                         chars = chars.add_range(c.start(), c.end());
                     }
+                    self.note_null_only_class(&chars);
                     self.push_advance(chars, next_state_id);
                     Ok(true)
                 }
@@ -356,6 +445,7 @@ impl NfaBuilder {
                         }
                         chars = chars.add_range(c.start().into(), c.end().into());
                     }
+                    self.note_null_only_class(&chars);
                     self.push_advance(chars, next_state_id);
                     Ok(true)
                 }
@@ -419,14 +509,18 @@ impl NfaBuilder {
         }
     }
 
-    fn expand_one_or_more(&mut self, hir: &Hir, next_state_id: u32) -> ExpandRegexResult<bool> {
+    fn expand_one_or_more(
+        &mut self,
+        hir: &Hir,
+        next_state_id: NfaStateId,
+    ) -> ExpandRegexResult<bool> {
         self.nfa.states.push(NfaState::Accept {
             variable_index: 0,
             precedence: 0,
         }); // Placeholder for split
         let split_state_id = self.nfa.last_state_id();
         if self.expand_regex(hir, split_state_id)? {
-            self.nfa.states[split_state_id as usize] =
+            self.nfa.states[split_state_id.index()] =
                 NfaState::Split(self.nfa.last_state_id(), next_state_id);
             Ok(true)
         } else {
@@ -435,7 +529,11 @@ impl NfaBuilder {
         }
     }
 
-    fn expand_zero_or_one(&mut self, hir: &Hir, next_state_id: u32) -> ExpandRegexResult<bool> {
+    fn expand_zero_or_one(
+        &mut self,
+        hir: &Hir,
+        next_state_id: NfaStateId,
+    ) -> ExpandRegexResult<bool> {
         if self.expand_regex(hir, next_state_id)? {
             self.push_split(next_state_id);
             Ok(true)
@@ -444,7 +542,11 @@ impl NfaBuilder {
         }
     }
 
-    fn expand_zero_or_more(&mut self, hir: &Hir, next_state_id: u32) -> ExpandRegexResult<bool> {
+    fn expand_zero_or_more(
+        &mut self,
+        hir: &Hir,
+        next_state_id: NfaStateId,
+    ) -> ExpandRegexResult<bool> {
         if self.expand_one_or_more(hir, next_state_id)? {
             self.push_split(next_state_id);
             Ok(true)
@@ -457,7 +559,7 @@ impl NfaBuilder {
         &mut self,
         hir: &Hir,
         count: u32,
-        mut next_state_id: u32,
+        mut next_state_id: NfaStateId,
     ) -> ExpandRegexResult<bool> {
         let mut result = false;
         for _ in 0..count {
@@ -469,7 +571,14 @@ impl NfaBuilder {
         Ok(result)
     }
 
-    fn push_advance(&mut self, chars: CharacterSet, state_id: u32) {
+    /// A class with nothing but the null character is an explicit null character, like a literal.
+    fn note_null_only_class(&mut self, chars: &CharacterSet) {
+        if chars.range_count() == 1 && chars.ranges().next() == Some('\0'..='\0') {
+            self.pattern_matches_null = true;
+        }
+    }
+
+    fn push_advance(&mut self, chars: CharacterSet, state_id: NfaStateId) {
         let precedence = *self.precedence_stack.last().unwrap();
         self.nfa.states.push(NfaState::Advance {
             chars,
@@ -479,7 +588,7 @@ impl NfaBuilder {
         });
     }
 
-    fn push_split(&mut self, state_id: u32) {
+    fn push_split(&mut self, state_id: NfaStateId) {
         let last_state_id = self.nfa.last_state_id();
         self.nfa
             .states
@@ -555,7 +664,7 @@ mod tests {
                 root,
             })
             .collect::<Vec<_>>();
-        let grammar = expand_tokens(&mut pool, &vars, &separators).unwrap();
+        let grammar = expand_tokens(&mut pool, &vars, &separators, &mut Vec::new()).unwrap();
         for &(input, expected) in examples {
             assert_eq!(simulate_nfa(&grammar, input), expected, "input {input}");
         }
@@ -1181,7 +1290,7 @@ mod tests {
             root,
         }];
         assert_eq!(
-            expand_tokens(&mut pool, &vars, &[]).unwrap_err(),
+            expand_tokens(&mut pool, &vars, &[], &mut Vec::new()).unwrap_err(),
             ExpandTokensError::Processing(ExpandTokensProcessingError {
                 rule: "tok".into(),
                 error: ExpandRuleError::ExpandRegex(ExpandRegexError::NonAsciiByteClass(

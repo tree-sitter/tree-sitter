@@ -758,43 +758,49 @@ fn test_get_changed_ranges() {
     }
 }
 
+// NOTE: Because it involves error recovery, this test is sensitive to parse table layout and error
+// recovery mechanics. Debug carefully.
 #[test]
 fn test_get_changed_ranges_inside_rebuilt_subtree_with_error() {
-    // Inserting `if g` at the start changes how error recovery reaches the `for` on the last line:
-    // it's lexed as the keyword in the old tree and falls back to an identifier in the new one,
-    // inside a rebuilt `binary_expression` whose summary matches.
-    let mut source_code =
-        b"=p+h(g{h(m{h(\"srp\"k && !mpty(_p_) {\n\tlock(&slock)\n\tvar m j\nfor;m&&f.".to_vec();
+    // Inserting `r h` before the function changes how error recovery resolves its body: `if` is
+    // skipped as an identifier in the old tree and ends up as the keyword in the new one, inside a
+    // rebuilt `function_declaration` whose summary matches.
+    let mut source_code = b"\nfunc n(){a.r if\n}".to_vec();
 
     let mut parser = Parser::new();
     parser.set_language(&get_language("go")).unwrap();
     let mut tree = parser.parse(&source_code, None).unwrap();
-    let for_start = index_of(&source_code, "for");
-    let for_node = tree
+    let if_start = index_of(&source_code, "if");
+    let if_node = tree
         .root_node()
-        .descendant_for_byte_range(for_start, for_start + 3);
-    assert_eq!(for_node.unwrap().kind(), "for");
+        .descendant_for_byte_range(if_start, if_start + 2);
+    assert_eq!(if_node.unwrap().kind(), "identifier");
 
     let edit = Edit {
         position: 0,
         deleted_length: 0,
-        inserted_text: b"if g".to_vec(),
+        inserted_text: b"r h".to_vec(),
     };
     let ranges = get_changed_ranges(&mut parser, &mut tree, &mut source_code, &edit);
-    let for_start = index_of(&source_code, "for");
-    let for_node = tree
+    let if_start = index_of(&source_code, "if");
+    let if_node = tree
         .root_node()
-        .descendant_for_byte_range(for_start, for_start + 3);
-    assert_eq!(for_node.unwrap().kind(), "identifier");
+        .descendant_for_byte_range(if_start, if_start + 2);
+    assert_eq!(if_node.unwrap().kind(), "if");
     assert_eq!(
         ranges,
         vec![
-            range_of(&source_code, "if g="),
             Range {
-                start_byte: for_start,
-                end_byte: for_start + 3,
-                start_point: Point::new(3, 0),
-                end_point: Point::new(3, 3),
+                start_byte: 0,
+                end_byte: 4,
+                start_point: Point::new(0, 0),
+                end_point: Point::new(1, 0),
+            },
+            Range {
+                start_byte: if_start,
+                end_byte: if_start + 2,
+                start_point: Point::new(1, 13),
+                end_point: Point::new(1, 15),
             },
         ]
     );
