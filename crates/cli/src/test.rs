@@ -1194,7 +1194,7 @@ pub(crate) fn render_test_output(
     if cst {
         render_test_cst(input, tree)
     } else {
-        let out = tree.root_node().to_sexp();
+        let out = tree.root_node().to_sexp(false);
         Ok(if include_fields {
             out
         } else {
@@ -1292,7 +1292,7 @@ pub fn parse_tests(path: &Path) -> io::Result<TestEntry> {
 }
 
 /// Replace ` word: (` with ` (` throughout the string.
-/// Intended to operate on `to_sexp()` output where elements are separated by single spaces.
+/// Intended to operate on `to_sexp(false)` output where elements are separated by single spaces.
 #[must_use]
 pub fn strip_sexp_fields(sexp: &str) -> String {
     let mut result = String::with_capacity(sexp.len());
@@ -1913,6 +1913,17 @@ b
     (g
       (h
         (MISSING i)))))
+"
+            .trim()
+        );
+        assert_eq!(
+            format_sexp(
+                "(source_file [0, 0] - [1, 0] (MISSING _hidden [0, 1] - [0, 1]))",
+                0,
+            ),
+            r"
+(source_file [0, 0] - [1, 0]
+  (MISSING _hidden [0, 1] - [0, 1]))
 "
             .trim()
         );

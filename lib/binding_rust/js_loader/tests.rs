@@ -19,7 +19,7 @@ async fn loads_unshared_grammar_with_real_scanner_functions() {
     parser.set_language(&language).expect("set Ruby grammar");
     let tree = parser.parse("class A; end", None).expect("parse Ruby");
     assert_eq!(
-        tree.root_node().to_sexp(),
+        tree.root_node().to_sexp(false),
         "(program (class name: (constant)))"
     );
 }
